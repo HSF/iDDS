@@ -151,7 +151,7 @@ def update_transform(transform_id, parameters, session=None):
         update = update[:-1]
         update += " where transform_id=:transform_id"
 
-        if parameters['status'] in [TransformStatus.Finished, TransformStatus.Failed]:
+        if 'status' in parameters and parameters['status'] in [TransformStatus.Finished, TransformStatus.Failed]:
             parameters['finished_at'] = datetime.datetime.utcnow()
         stmt = text(update)
         parameters['transform_id'] = transform_id

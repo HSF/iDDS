@@ -147,17 +147,12 @@ def get_collection(coll_id=None, transform_id=None, relation_type=None, session=
 
     try:
         if coll_id:
-            coll_select = """select coll_id, scope, name, coll_type, request_id, transform_id, in_out_type,
-                             coll_size, coll_status, total_files, storage_id, processed_files, processing_files,
-                             processing_id, retries, created_at, updated_at, expired_at,coll_metadata"
-                             where coll_id=:coll_id
+            coll_select = """select * from atlas_idds.collections where coll_id=:coll_id
                           """
             stmt = text(coll_select)
             result = session.execute(stmt, {'coll_id': coll_id})
         else:
-            coll_select = """select coll_id, scope, name, coll_type, request_id, transform_id, in_out_type,
-                             coll_size, coll_status, total_files, storage_id, processed_files, processing_files,
-                             processing_id, retries, created_at, updated_at, expired_at,coll_metadata"
+            coll_select = """select * from atlas_idds.collections
                              where transform_id=:transform_id and in_out_type=:in_out_type
                           """
             stmt = text(coll_select)
@@ -212,7 +207,7 @@ def update_collection(coll_id, parameters, session=None):
 
         parameters['updated_at'] = datetime.datetime.utcnow()
 
-        coll_update = "update atlas_idds.collection set "
+        coll_update = "update atlas_idds.collections set "
         for key in parameters.keys():
             coll_update += key + "=:" + key + ","
         coll_update = coll_update[:-1]
