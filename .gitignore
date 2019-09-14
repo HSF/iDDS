@@ -16,6 +16,7 @@
 *~
 .venv
 .tox
+.conda
 
 # git token
 .githubtoken
