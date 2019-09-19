@@ -1,0 +1,33 @@
+language:
+  - python
+python:
+  - 3.6
+install:
+  - pip install 'requests'
+  - pip install 'SQLAlchemy'
+  - pip install 'urllib3'
+  - pip install 'retrying'
+  - pip install 'mysqlclient'
+  - pip install 'futures'
+  - pip install 'stomp.py'
+  - pip install 'cx-Oracle'
+  - pip install 'unittest2'
+  - pip install 'pep8'
+  - pip install 'flake8'
+  - pip install 'pytest'
+  - pip install 'nose'
+before_script:
+  - pwd
+  - ls -lah
+  - pip freeze
+  - flake8 --help
+  - if [[ $FLAKE8_CONFIG != ".flake8" ]]; then rm .flake8; fi
+  - flake8 --config $FLAKE8_CONFIG lib/idds/
+script:
+  - bash tools/test/test_travis.sh
+matrix:
+  include:
+  - python: 3.6
+    env: FLAKE8_CONFIG=.flake8
+  exclude:
+  - python: 3.6
