@@ -13,7 +13,8 @@ CurrentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 RootDir="$( dirname "$CurrentDir" )"
 CondaDir=${RootDir}/.conda/iDDS
 
-export IDDS_HOME=$ROOTDir
+echo 'Root dir: ' $RootDir
+export IDDS_HOME=$RootDir
 
 conda activate $CondaDir
 export PYTHONPATH=${IDDS_HOME}/lib:$PYTHONPATH
