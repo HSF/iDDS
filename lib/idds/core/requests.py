@@ -18,8 +18,9 @@ import json
 
 import sqlalchemy
 import sqlalchemy.orm
+from sqlalchemy import BigInteger, Integer
 from sqlalchemy.exc import DatabaseError, IntegrityError
-from sqlalchemy.sql import text
+from sqlalchemy.sql import text, outparam
 
 from idds.common import exceptions
 from idds.common.constants import RequestType, RequestStatus
@@ -57,24 +58,24 @@ def add_request(scope, name, requester=None, request_type=None, transform_tag=No
     insert_request_sql = """insert into atlas_idds.requests(scope, name, requester, request_type, transform_tag, priority,
                                                  status, created_at, updated_at, expired_at, request_metadata)
                              values(:scope, :name, :requester, :request_type, :transform_tag, :priority, :status,
-                             :created_at, :updated_at, :expired_at, :request_metadata)
+                             :created_at, :updated_at, :expired_at, :request_metadata) RETURNING request_id into :request_id
                          """
 
-    get_request_id = """select max(request_id) from atlas_idds.requests"""
     insert_req2worload_sql = """insert into atlas_idds.req2workload(request_id, workload_id)values(:request_id, :workload_id)"""
 
     stmt = text(insert_request_sql)
-    request_id_stmt = text(get_request_id)
+    stmt = stmt.bindparams(outparam("request_id", type_=BigInteger().with_variant(Integer, "sqlite")))
     req2workload_stmt = text(insert_req2worload_sql)
 
     try:
-        session.execute(stmt, {"scope": scope, "name": name, "requester": requester, "request_type": request_type,
-                               "transform_tag": transform_tag, "priority": priority, 'status': status,
-                               'created_at': datetime.datetime.utcnow(), 'updated_at': datetime.datetime.utcnow(),
-                               'expired_at': datetime.datetime.utcnow() + datetime.timedelta(days=lifetime),
-                               'request_metadata': json.dumps(request_metadata) if request_metadata else request_metadata})
-        result = session.execute(request_id_stmt)
-        request_id = result.fetchone()[0]
+        request_id = None
+        ret = session.execute(stmt, {"scope": scope, "name": name, "requester": requester, "request_type": request_type,
+                                     "transform_tag": transform_tag, "priority": priority, 'status': status,
+                                     'created_at': datetime.datetime.utcnow(), 'updated_at': datetime.datetime.utcnow(),
+                                     'expired_at': datetime.datetime.utcnow() + datetime.timedelta(days=lifetime),
+                                     'request_metadata': json.dumps(request_metadata) if request_metadata else request_metadata,
+                                     'request_id': request_id})
+        request_id = ret.out_parameters['request_id'][0]
 
         if request_metadata and 'workload_id' in request_metadata:
             session.execute(req2workload_stmt, {'request_id': request_id, 'workload_id': request_metadata['workload_id']})

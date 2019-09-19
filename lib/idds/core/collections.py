@@ -17,9 +17,9 @@ import datetime
 import json
 
 import sqlalchemy
-import sqlalchemy.orm
+from sqlalchemy import BigInteger, Integer
 from sqlalchemy.exc import DatabaseError, IntegrityError
-from sqlalchemy.sql import text
+from sqlalchemy.sql import text, outparam
 
 from idds.common import exceptions
 from idds.common.constants import CollectionType, CollectionStatus, CollectionRelationType
@@ -59,31 +59,27 @@ def add_collection(scope, name, coll_type=CollectionType.Dataset, request_id=Non
         coll_status = coll_status.value
     if isinstance(relation_type, CollectionRelationType):
         relation_type = relation_type.value
+    if coll_metadata:
+        coll_metadata = json.dumps(coll_metadata)
 
     insert_coll_sql = """insert into atlas_idds.collections(scope, name, coll_type, request_id, transform_id,
                                                             in_out_type, coll_size, coll_status, total_files,
                                                             retries, created_at, updated_at, expired_at,
                                                             coll_metadata)
-
                          values(:scope, :name, :coll_type, :request_id, :transform_id, :in_out_type, :coll_size,
                                 :coll_status, :total_files, :retries, :created_at, :updated_at, :expired_at,
-                                :coll_metadata)
+                                :coll_metadata) returning coll_id into :coll_id
                       """
-    get_coll_id = """select max(coll_id) from atlas_idds.collections"""
-
     stmt = text(insert_coll_sql)
-    coll_id_stmt = text(get_coll_id)
-
+    stmt = stmt.bindparams(outparam("coll_id", type_=BigInteger().with_variant(Integer, "sqlite")))
     try:
-        session.execute(stmt, {'scope': scope, 'name': name, 'coll_type': coll_type, 'request_id': request_id,
-                               'transform_id': transform_id, 'in_out_type': relation_type, 'coll_size': coll_size,
-                               'coll_status': coll_status, 'total_files': total_files, 'retries': retries,
-                               'created_at': datetime.datetime.utcnow(), 'updated_at': datetime.datetime.utcnow(),
-                               'expired_at': expired_at,
-                               'coll_metadata': json.dumps(coll_metadata) if coll_metadata else coll_metadata})
-
-        result = session.execute(coll_id_stmt)
-        coll_id = result.fetchone()[0]
+        coll_id = None
+        ret = session.execute(stmt, {'scope': scope, 'name': name, 'coll_type': coll_type, 'request_id': request_id,
+                                     'transform_id': transform_id, 'in_out_type': relation_type, 'coll_size': coll_size,
+                                     'coll_status': coll_status, 'total_files': total_files, 'retries': retries,
+                                     'created_at': datetime.datetime.utcnow(), 'updated_at': datetime.datetime.utcnow(),
+                                     'expired_at': expired_at, 'coll_metadata': coll_metadata, 'coll_id': coll_id})
+        coll_id = ret.out_parameters['coll_id'][0]
 
         return coll_id
     except IntegrityError as error:

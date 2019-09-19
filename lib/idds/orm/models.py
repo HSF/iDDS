@@ -15,7 +15,7 @@ SQLAlchemy models for idds relational data
 
 import datetime
 
-from sqlalchemy import BigInteger, Boolean, Column, DateTime, Integer, String as _String, UniqueConstraint, event, DDL
+from sqlalchemy import BigInteger, Boolean, Column, DateTime, Integer, String, UniqueConstraint, event, DDL
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.orm import backref, object_mapper, relationship
@@ -26,13 +26,6 @@ from idds.orm.enum import EnumSymbol
 from idds.orm.types import JSON
 from idds.orm.session import BASE, DEFAULT_SCHEMA_NAME
 from idds.common.constants import (SCOPE_LENGTH, NAME_LENGTH)
-
-
-# Recipe to for str instead if unicode
-# https://groups.google.com/forum/#!msg/sqlalchemy/8Xn31vBfGKU/bAGLNKapvSMJ
-def String(*arg, **kw):
-    kw['convert_unicode'] = 'force'
-    return _String(*arg, **kw)
 
 
 @compiles(Boolean, "oracle")
@@ -129,7 +122,8 @@ class Request(BASE, ModelBase):
     accessed_at = Column("accessed_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     expired_at = Column("expired_at", DateTime)
     errors = Column(JSON())
-    request_meta = Column(JSON())
+    request_metadata = Column(JSON())
+    priority1 = Column(Integer())
 
     _table_args = (PrimaryKeyConstraint('request_id', name='_REQUESTS_PK'),
                    CheckConstraint('status IS NOT NULL', name='REQ_STATUS_ID_NN'),
