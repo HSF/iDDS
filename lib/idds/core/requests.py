@@ -17,7 +17,6 @@ import datetime
 import json
 
 import sqlalchemy
-import sqlalchemy.orm
 from sqlalchemy import BigInteger, Integer
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.sql import text, outparam
