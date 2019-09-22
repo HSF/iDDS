@@ -15,11 +15,10 @@ SQLAlchemy models for idds relational data
 
 import datetime
 
-from sqlalchemy import BigInteger, Boolean, Column, DateTime, Integer, String, UniqueConstraint, event, DDL
+from sqlalchemy import BigInteger, Boolean, Column, DateTime, Integer, String, event, DDL
 from sqlalchemy.ext.compiler import compiles
-from sqlalchemy.ext.declarative import declared_attr
-from sqlalchemy.orm import backref, object_mapper, relationship
-from sqlalchemy.schema import CheckConstraint, ForeignKeyConstraint, Index, PrimaryKeyConstraint, Sequence, Table
+from sqlalchemy.orm import object_mapper
+from sqlalchemy.schema import CheckConstraint, Index, PrimaryKeyConstraint, Sequence, Table
 
 from idds.common.utils import date_to_str
 from idds.orm.enum import EnumSymbol
