@@ -17,9 +17,9 @@ import datetime
 import json
 
 import sqlalchemy
-import sqlalchemy.orm
+from sqlalchemy import BigInteger, Integer
 from sqlalchemy.exc import DatabaseError, IntegrityError
-from sqlalchemy.sql import text
+from sqlalchemy.sql import text, outparam
 
 from idds.common import exceptions
 from idds.common.constants import GranularityType, ProcessingStatus
@@ -56,23 +56,20 @@ def add_processing(transform_id, status, submitter=None, granularity=None, granu
     insert = """insert into atlas_idds.processings(transform_id, status, submitter, granularity_type,
                                                    granularity, created_at, expired_at, processing_metadata)
                 values(:transform_id, :status, :submitter, :granularity_type, :granularity, :created_at,
-                       :expired_at, :processing_metadata)
+                       :expired_at, :processing_metadata) returning processing_id into :processing_id
              """
-    get_id = """select max(processing_id) from atlas_idds.processings"""
-
     stmt = text(insert)
-    id_stmt = text(get_id)
+    stmt = stmt.bindparams(outparam("processing_id", type_=BigInteger().with_variant(Integer, "sqlite")))
 
     try:
-        session.execute(stmt, {'transform_id': transform_id, 'status': status, 'submitter': submitter,
-                               'granularity_type': granularity_type, 'granularity': granularity,
-                               'created_at': datetime.datetime.utcnow(), 'expired_at': expired_at,
-                               'processing_metadata': processing_metadata})
+        processing_id = None
+        ret = session.execute(stmt, {'transform_id': transform_id, 'status': status, 'submitter': submitter,
+                                     'granularity_type': granularity_type, 'granularity': granularity,
+                                     'created_at': datetime.datetime.utcnow(), 'expired_at': expired_at,
+                                     'processing_metadata': processing_metadata, 'processing_id': processing_id})
+        processing_id = ret.out_parameters['processing_id'][0]
 
-        result = session.execute(id_stmt)
-        id = result.fetchone()[0]
-
-        return id
+        return processing_id
     except IntegrityError as error:
         raise exceptions.DuplicatedObject('Processing already exists!: %s' % (error))
     except DatabaseError as error:

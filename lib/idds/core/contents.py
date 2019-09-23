@@ -17,9 +17,9 @@ import datetime
 import json
 
 import sqlalchemy
-import sqlalchemy.orm
+from sqlalchemy import BigInteger, Integer
 from sqlalchemy.exc import DatabaseError, IntegrityError
-from sqlalchemy.sql import text
+from sqlalchemy.sql import text, outparam
 
 from idds.common import exceptions
 from idds.common.constants import ContentType, ContentStatus
@@ -60,6 +60,8 @@ def add_content(coll_id, scope, name, min_id, max_id, content_type=ContentType.F
         content_type = content_type.value
     if isinstance(status, ContentStatus):
         status = status.value
+    if collcontent_metadata:
+        collcontent_metadata = json.dumps(collcontent_metadata)
 
     insert_coll_sql = """insert into atlas_idds.collections_content(coll_id, scope, name, min_id, max_id, content_type,
                                                                    status, content_size, md5, adler32, processing_id,
@@ -67,23 +69,20 @@ def add_content(coll_id, scope, name, min_id, max_id, content_type=ContentType.F
                                                                    collcontent_metadata)
                          values(:coll_id, :scope, :name, :min_id, :max_id, :content_type, :status, :content_size,
                                 :md5, :adler32, :processing_id, :storage_id, :retries, :path, :expired_at,
-                                :collcontent_metadata)
+                                :collcontent_metadata) RETURNING content_id into :content_id
                       """
-    get_content_id = """select max(content_id) from atlas_idds.collections_content"""
-
     stmt = text(insert_coll_sql)
-    content_id_stmt = text(get_content_id)
+    stmt = stmt.bindparams(outparam("content_id", type_=BigInteger().with_variant(Integer, "sqlite")))
 
     try:
-        session.execute(stmt, {'coll_id': coll_id, 'scope': scope, 'name': name, 'min_id': min_id, 'max_id': max_id,
-                               'content_type': content_type, 'status': status, 'content_size': content_size, 'md5': md5,
-                               'adler32': adler32, 'processing_id': processing_id, 'storage_id': storage_id,
-                               'retries': retries, 'path': path, 'created_at': datetime.datetime.utcnow(),
-                               'updated_at': datetime.datetime.utcnow(), 'expired_at': expired_at,
-                               'collcontent_metadata': json.dumps(collcontent_metadata) if collcontent_metadata else collcontent_metadata})
-
-        result = session.execute(content_id_stmt)
-        content_id = result.fetchone()[0]
+        content_id = None
+        ret = session.execute(stmt, {'coll_id': coll_id, 'scope': scope, 'name': name, 'min_id': min_id, 'max_id': max_id,
+                                     'content_type': content_type, 'status': status, 'content_size': content_size, 'md5': md5,
+                                     'adler32': adler32, 'processing_id': processing_id, 'storage_id': storage_id,
+                                     'retries': retries, 'path': path, 'created_at': datetime.datetime.utcnow(),
+                                     'updated_at': datetime.datetime.utcnow(), 'expired_at': expired_at,
+                                     'collcontent_metadata': collcontent_metadata, 'content_id': content_id})
+        content_id = ret.out_parameters['content_id'][0]
 
         return content_id
     except IntegrityError as error:

@@ -17,9 +17,9 @@ import datetime
 import json
 
 import sqlalchemy
-import sqlalchemy.orm
+from sqlalchemy import BigInteger, Integer
 from sqlalchemy.exc import DatabaseError, IntegrityError
-from sqlalchemy.sql import text
+from sqlalchemy.sql import text, outparam
 
 from idds.common import exceptions
 from idds.common.constants import TransformType, TransformStatus
@@ -56,29 +56,27 @@ def add_transform(transform_type, transform_tag=None, priority=0, status=Transfo
     insert = """insert into atlas_idds.transforms(transform_type, transform_tag, priority, status, retries,
                                                   created_at, expired_at, transform_metadata)
                 values(:transform_type, :transform_tag, :priority, :status, :retries, :created_at,
-                       :expired_at, :transform_metadata)
+                       :expired_at, :transform_metadata) returning transform_id into :transform_id
              """
-    get_id = """select max(transform_id) from atlas_idds.transforms"""
-
     stmt = text(insert)
-    id_stmt = text(get_id)
+    stmt = stmt.bindparams(outparam("transform_id", type_=BigInteger().with_variant(Integer, "sqlite")))
 
     try:
-        session.execute(stmt, {'transform_type': transform_type, 'transform_tag': transform_tag,
-                               'priority': priority, 'status': status, 'retries': retries,
-                               'created_at': datetime.datetime.utcnow(), 'expired_at': expired_at,
-                               'transform_metadata': transform_metadata})
+        transform_id = None
+        ret = session.execute(stmt, {'transform_type': transform_type, 'transform_tag': transform_tag,
+                                     'priority': priority, 'status': status, 'retries': retries,
+                                     'created_at': datetime.datetime.utcnow(), 'expired_at': expired_at,
+                                     'transform_metadata': transform_metadata, 'transform_id': transform_id})
 
-        result = session.execute(id_stmt)
-        id = result.fetchone()[0]
+        transform_id = ret.out_parameters['transform_id'][0]
 
         if request_id:
             insert_req2transforms = """insert into atlas_idds.req2transforms(request_id, transform_id)
                                        values(:request_id, :transform_id)
                                     """
             stmt = text(insert_req2transforms)
-            session.execute(stmt, {'request_id': request_id, 'transform_id': id})
-        return id
+            session.execute(stmt, {'request_id': request_id, 'transform_id': transform_id})
+        return transform_id
     except IntegrityError as error:
         raise exceptions.DuplicatedObject('Transform already exists!: %s' % (error))
     except DatabaseError as error:
