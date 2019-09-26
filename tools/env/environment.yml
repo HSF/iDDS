@@ -7,7 +7,8 @@ dependencies:
   - SQLAlchemy                       # db orm
   - urllib3                          # url connections
   - retrying                         # retrying behavior
-  - mysqlclient                      # mysql python client
+  # - mysqlclient                      # mysql python client
+  # - mod_wsgi
   - flask                            # web service
   - futures                          # multiple process/threads
   - stomp.py                         # Messaging broker client

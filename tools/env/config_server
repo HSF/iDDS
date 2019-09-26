@@ -1,0 +1,12 @@
+#!/bin/bash
+
+yum install -y httpd.x86_64 mod_wsgi conda gridsite mod_ssl.x86_64
+mkdir /opt/idds
+mkdir /opt/idds_source
+# git clone @github_idds@ /opt/idds_source
+
+conda env create --prefix=/opt/idds -f idds_source/tools/environment.yml
+conda activate /opt/idds
+pip install mod_wsgi
+#conda deactivate
+

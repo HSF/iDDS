@@ -10,7 +10,8 @@
 
 
 CurrentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-RootDir="$( dirname "$CurrentDir" )"
+ToolsDir="$( dirname "$CurrentDir" )"
+RootDir="$( dirname "$ToolsDir" )"
 CondaDir=${RootDir}/.conda/iDDS
 mkdir -p $CondaDir
 
