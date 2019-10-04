@@ -24,4 +24,6 @@ echo=0
 pool_reset_on_return=rollback
 
 [rest]
-host = https://aipanda182.cern.ch:8443
+host = https://aipanda182.cern.ch:8443/idds
+#url_prefix = 
+debug = False

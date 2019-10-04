@@ -17,16 +17,7 @@ LoadModule wsgi_module {python_site_packages_path}/mod_wsgi/server/mod_wsgi-py36
 
 WSGIPythonHome {python_site_home_path}
 WSGIPythonPath {python_site_packages_path}
-
-<IfModule mod_wsgi.c>
-    WSGIDaemonProcess idds_daemon processes=25 threads=2 python-home={python_site_home_path} python-path={python_site_packages_path}
-    WSGIProcessGroup idds_daemon
-    WSGIApplicationGroup %{GLOBAL}
-    WSGIScriptAlias /idds {python_site_bin_path}/idds.wsgi
-    # WSGIScriptAliasMatch ^/idds/(.+)$ /opt/idds/etc/idds/rest/test.wsgi
-    WSGISocketPrefix /var/log/idds/wsgisocks/wsgi
-    WSGIPassAuthorization On
-</IfModule>
+WSGIScriptAlias /idds  {python_site_bin_path}/idds.wsgi
 
 Listen 443
 
