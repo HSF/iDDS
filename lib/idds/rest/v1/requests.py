@@ -9,22 +9,18 @@
 # - Wen Guan, <wen.guan@cern.ch>, 2019
 
 
+import datetime
 import json
 from traceback import format_exc
 
-from flask import Flask, Blueprint
+from flask import Blueprint
 
 from idds.common import exceptions
 from idds.common.constants import HTTP_STATUS_CODE
 from idds.common.constants import RequestStatus
+from idds.common.utils import date_to_str
 from idds.api.requests import add_request, get_request, update_request
 from idds.rest.v1.controller import IDDSController
-
-
-URLS = (
-    '/(.+)', 'Request',
-    '/', 'Requests',
-)
 
 
 class Requests(IDDSController):
@@ -51,13 +47,13 @@ class Requests(IDDSController):
                                             exc_msg="request_id and workload_id are both None. One should not be None")
             reqs = get_request(request_id=request_id, workload_id=workload_id)
         except exceptions.NoObject as error:
-            raise self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
+            return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
         except exceptions.IDDSException as error:
-            raise self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=error.__class__.__name__, exc_msg=error)
+            return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=error.__class__.__name__, exc_msg=error)
         except Exception as error:
-            raise self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
+            return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
 
-        raise self.generate_http_response(HTTP_STATUS_CODE.OK, data=reqs)
+        return self.generate_http_response(HTTP_STATUS_CODE.OK, data=reqs)
 
 
 class Request(IDDSController):
@@ -80,20 +76,20 @@ class Request(IDDSController):
                     if key in parameters:
                         kwargs[key] = parameters[key]
         except ValueError:
-            raise self.generate_http_response(HTTP_STATUS_CODE.BadRequest, exc_cls=exceptions.BadRequest.__name__, exc_msg='Cannot decode json parameter dictionary')
+            return self.generate_http_response(HTTP_STATUS_CODE.BadRequest, exc_cls=exceptions.BadRequest.__name__, exc_msg='Cannot decode json parameter dictionary')
 
         try:
             request_id = add_request(**parameters)
         except exceptions.DuplicatedObject as error:
-            raise self.generate_http_response(HTTP_STATUS_CODE.Conflict, exc_cls=error.__class__.__name__, exc_msg=error)
+            return self.generate_http_response(HTTP_STATUS_CODE.Conflict, exc_cls=error.__class__.__name__, exc_msg=error)
         except exceptions.IDDSException as error:
-            raise self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=error.__class__.__name__, exc_msg=error)
+            return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=error.__class__.__name__, exc_msg=error)
         except Exception as error:
             print(error)
             print(format_exc())
-            raise self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
+            return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
 
-        raise self.generate_http_response(HTTP_STATUS_CODE.OK, data={'request_id': request_id})
+        return self.generate_http_response(HTTP_STATUS_CODE.OK, data={'request_id': request_id})
 
     def put(self, request_id):
         """ Update Request properties with a given id.
@@ -105,29 +101,29 @@ class Request(IDDSController):
             500 Internal Error
         """
         kwargs = {'request_type': None, 'transform_tag': None, 'status': RequestStatus.New, 'priority': 0, 'lifetime': 30, 'request_metadata': None}
-
+        data = {}
         try:
             request = self.get_request()
             parameters = request.data and json.loads(request.data)
             if parameters:
                 for key in kwargs:
                     if key in parameters:
-                        kwargs[key] = parameters[key]
+                        data[key] = parameters[key]
         except ValueError:
-            raise self.generate_http_response(HTTP_STATUS_CODE.BadRequest, exc_cls=exceptions.BadRequest.__name__, exc_msg='Cannot decode json parameter dictionary')
+            return self.generate_http_response(HTTP_STATUS_CODE.BadRequest, exc_cls=exceptions.BadRequest.__name__, exc_msg='Cannot decode json parameter dictionary')
 
         try:
-            update_request(request_id, parameters)
+            update_request(request_id, data)
         except exceptions.NoObject as error:
-            raise self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
+            return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
         except exceptions.IDDSException as error:
-            raise self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=error.__class__.__name__, exc_msg=error)
+            return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=error.__class__.__name__, exc_msg=error)
         except Exception as error:
             print(error)
             print(format_exc())
-            raise self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
+            return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
 
-        raise self.generate_http_response(HTTP_STATUS_CODE.OK, data={'status': 0, 'message': 'update successfully'})
+        return self.generate_http_response(HTTP_STATUS_CODE.OK, data={'status': 0, 'message': 'update successfully'})
 
     def get(self, request_id, workload_id):
         """ Get details about a specific Request with given id.
@@ -140,35 +136,47 @@ class Request(IDDSController):
         """
 
         try:
+            if request_id == 'null':
+                request_id = None
+            if workload_id == 'null':
+                workload_id = None
+
             req = get_request(request_id=request_id, workload_id=workload_id)
+            if req['request_type'] is not None:
+                req['request_type'] = req['request_type'].value
+            if req['status'] is not None:
+                req['status'] = req['status'].value
+            for key in req:
+                if req[key] and isinstance(req[key], datetime.datetime):
+                    req[key] = date_to_str(req[key])
         except exceptions.NoObject as error:
-            raise self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
+            return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
         except exceptions.IDDSException as error:
-            raise self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=error.__class__.__name__, exc_msg=error)
+            return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=error.__class__.__name__, exc_msg=error)
         except Exception as error:
             print(error)
             print(format_exc())
-            raise self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
+            return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
 
-        raise self.generate_http_response(HTTP_STATUS_CODE.OK, data=req.to_dict())
+        return self.generate_http_response(HTTP_STATUS_CODE.OK, data=req)
+
+    def post_test(self):
+        import pprint
+        pprint.pprint(self.get_request())
+        pprint.pprint(self.get_request().endpoint)
+        pprint.pprint(self.get_request().url_rule)
 
 
 """----------------------
-   Web service startup
+   Web service url maps
 ----------------------"""
 
-bp = Blueprint('request', __name__)
 
-request_view = Request.as_view('request')
-bp.add_url_rule('/', view_func=request_view, methods=['post', ])
-bp.add_url_rule('/<request_id>', view_func=request_view, methods=['put', ])
-bp.add_url_rule('/<request_id>/workload_id', view_func=request_view, methods=['get', ])
+def get_blueprint():
+    bp = Blueprint('request', __name__)
 
-application = Flask(__name__)
-application.register_blueprint(bp)
-# application.before_request(before_request)
-# application.after_request(after_request)
-
-
-if __name__ == "__main__":
-    application.run()
+    request_view = Request.as_view('request')
+    bp.add_url_rule('/request', view_func=request_view, methods=['post', ])
+    bp.add_url_rule('/request/<request_id>', view_func=request_view, methods=['put', ])
+    bp.add_url_rule('/request/<request_id>/<workload_id>', view_func=request_view, methods=['get', ])
+    return bp

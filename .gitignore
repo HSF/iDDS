@@ -30,6 +30,7 @@ etc/idds/*.conf.temp
 etc/idds/rest/*.cfg
 etc/idds/rest/*.conf
 etc/idds/rest/*.conf.temp
+etc/idds/rest/*.conf.install_template
 etc/idds/rest/gacl
 
 # compile files
