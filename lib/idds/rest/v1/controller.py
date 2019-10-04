@@ -21,19 +21,19 @@ class IDDSController(MethodView):
 
     def post(self):
         """ Not supported. """
-        raise Response(status=HTTP_STATUS_CODE.BadRequest, content_type='application/json')()
+        return Response(status=HTTP_STATUS_CODE.BadRequest, content_type='application/json')()
 
     def get(self):
         """ Not supported. """
-        raise Response(status=HTTP_STATUS_CODE.BadRequest, content_type='application/json')()
+        return Response(status=HTTP_STATUS_CODE.BadRequest, content_type='application/json')()
 
     def put(self):
         """ Not supported. """
-        raise Response(status=HTTP_STATUS_CODE.BadRequest, content_type='application/json')()
+        return Response(status=HTTP_STATUS_CODE.BadRequest, content_type='application/json')()
 
     def delete(self):
         """ Not supported. """
-        raise Response(status=HTTP_STATUS_CODE.BadRequest, content_type='application/json')()
+        return Response(status=HTTP_STATUS_CODE.BadRequest, content_type='application/json')()
 
     def get_request(sel):
         return request
@@ -43,10 +43,10 @@ class IDDSController(MethodView):
             return None
         else:
             message = {}
-            if exc_cls is not None:
-                message['ExceptionClass'] = exc_cls
+            # if exc_cls is not None:
+            #     message['ExceptionClass'] = exc_cls
             if exc_msg is not None:
-                message['ExceptionMessage'] = str(exc_msg)
+                message['msg'] = str(exc_msg)
             return json.dumps(message)
 
     def generate_http_response(self, status_code, data=None, exc_cls=None, exc_msg=None):
@@ -54,4 +54,4 @@ class IDDSController(MethodView):
         if exc_cls:
             resp.headers['ExceptionClass'] = exc_cls
             resp.headers['ExceptionMessage'] = self.generate_message(exc_cls, exc_msg)
-        return
+        return resp
