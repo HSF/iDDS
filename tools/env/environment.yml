@@ -8,7 +8,7 @@ dependencies:
   - urllib3                          # url connections
   - retrying                         # retrying behavior
   # - mysqlclient                      # mysql python client
-  # - mod_wsgi
+  - mod_wsgi                         # apache wsgi module
   - flask                            # web service
   - futures                          # multiple process/threads
   - stomp.py                         # Messaging broker client

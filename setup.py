@@ -14,9 +14,9 @@ import os
 import re
 import sys
 from distutils.sysconfig import get_python_lib
-from setuptools import setup, find_packages
+from setuptools import setup, find_packages, Distribution
+from setuptools.command.install import install
 
-sys.path.insert(0, os.path.abspath('lib/'))
 
 with open('lib/idds/version.py', "rt", encoding="utf8") as f:
     version = re.search(r'release_version = "(.*?)"', f.read()).group(1)
@@ -24,6 +24,30 @@ with open('lib/idds/version.py', "rt", encoding="utf8") as f:
 
 with open('README.md', "rt", encoding="utf8") as f:
     readme = f.read()
+
+
+class OnlyGetScriptPath(install):
+    def run(self):
+        self.distribution.install_scripts = self.install_scripts
+
+
+def get_python_bin_path():
+    " Get the directory setuptools installs scripts to for current python "
+    dist = Distribution({'cmdclass': {'install': OnlyGetScriptPath}})
+    dist.dry_run = True  # not sure if necessary
+    dist.parse_config_files()
+    command = dist.get_command_obj('install')
+    command.ensure_finalized()
+    command.run()
+    return dist.install_scripts
+
+
+def get_python_home():
+    return sys.exec_prefix
+
+
+def get_data_path():
+    return sys.prefix
 
 
 def get_reqs_from_file(requirements_file):
@@ -45,19 +69,36 @@ def parse_requirements(requirements_files):
     return requirements
 
 
-def replace_python_lib_path(conf_files, python_lib_path):
+def replace_python_path(conf_files, python_lib_path, install_bin_path, install_home_path):
     for conf_file in conf_files:
         new_file = conf_file.replace('.template', '.install_template')
         with open(conf_file, 'r') as f:
             template = f.read()
-        template = template.format(python_site_packages_path=python_lib_path, GLOBAL='GLOBAL')
+        template = template.format(python_site_packages_path=python_lib_path, GLOBAL='GLOBAL',
+                                   python_site_home_path=install_home_path,
+                                   python_site_bin_path=install_bin_path)
         with open(new_file, 'w') as f:
             f.write(template)
 
 
+def replace_data_path(wsgi_file, install_data_path):
+    new_file = wsgi_file.replace('.template', '')
+    with open(wsgi_file, 'r') as f:
+        template = f.read()
+    template = template.format(idds_config_path=os.path.join(install_data_path, 'etc/idds/idds.cfg'))
+    with open(new_file, 'w') as f:
+        f.write(template)
+
+
 install_lib_path = get_python_lib()
+install_bin_path = get_python_bin_path()
+install_home_path = get_python_home()
+install_data_path = get_data_path()
+
 rest_conf_files = ['etc/idds/rest/httpd-idds-443-py36-cc7.conf.template']
-replace_python_lib_path(rest_conf_files, install_lib_path)
+replace_python_path(rest_conf_files, install_lib_path, install_bin_path, install_home_path)
+wsgi_file = 'bin/idds.wsgi.template'
+replace_data_path(wsgi_file, install_data_path)
 
 requirements_files = ['tools/env/environment.yml']
 install_requires = parse_requirements(requirements_files=requirements_files)
