@@ -34,11 +34,11 @@ def add_content(coll_id, scope, name, min_id, max_id, content_type=ContentType.F
                 path=None, expired_at=None, collcontent_metadata=None, connection=None):
     insert_coll_sql = """insert into atlas_idds.collections_content(coll_id, scope, name, min_id, max_id, content_type,
                                                                    status, content_size, md5, adler32, processing_id,
-                                                                   storage_id, retries, path, expired_at,
-                                                                   collcontent_metadata)
+                                                                   storage_id, retries, path, created_at, updated_at,
+                                                                   expired_at, collcontent_metadata)
                          values(:coll_id, :scope, :name, :min_id, :max_id, :content_type, :status, :content_size,
-                                :md5, :adler32, :processing_id, :storage_id, :retries, :path, :expired_at,
-                                :collcontent_metadata) RETURNING content_id into :content_id
+                                :md5, :adler32, :processing_id, :storage_id, :retries, :path, :created_at, :updated_at,
+                                :expired_at, :collcontent_metadata)
                       """
     if isinstance(content_type, ContentType):
         content_type = content_type.value
@@ -47,16 +47,15 @@ def add_content(coll_id, scope, name, min_id, max_id, content_type=ContentType.F
     if collcontent_metadata:
         collcontent_metadata = json.dumps(collcontent_metadata)
 
-    content_id = None
     cursor = connection.cursor()
     cursor.execute(insert_coll_sql, {'coll_id': coll_id, 'scope': scope, 'name': name, 'min_id': min_id, 'max_id': max_id,
                                      'content_type': content_type, 'status': status, 'content_size': content_size, 'md5': md5,
                                      'adler32': adler32, 'processing_id': processing_id, 'storage_id': storage_id,
                                      'retries': retries, 'path': path, 'created_at': datetime.datetime.utcnow(),
                                      'updated_at': datetime.datetime.utcnow(), 'expired_at': expired_at,
-                                     'collcontent_metadata': collcontent_metadata, 'content_id': content_id})
+                                     'collcontent_metadata': collcontent_metadata})
     cursor.close()
-
+    
 
 def get_transform_prop():
     trans_properties = {
@@ -119,6 +118,7 @@ def test_insert_contents(coll_id, num_contents=1, db_pool=None):
         content_properties = get_content_prop()
         content_properties['coll_id'] = coll_id
         add_content(**content_properties, connection=connection)
+    connection.commit()
     db_pool.release(connection)
 
 
@@ -132,7 +132,7 @@ def get_session_pool():
     sql_connection = sql_connection.replace("oracle://", "")
     user_pass, tns = sql_connection.split('@')
     user, passwd = user_pass.split(':')
-    db_pool = cx_Oracle.SessionPool(user, passwd, tns, min=6, max=20, increment=1)
+    db_pool = cx_Oracle.SessionPool(user, passwd, tns, min=12, max=20, increment=1)
     return db_pool
 
 
@@ -161,9 +161,9 @@ def test(num_threads=1, total_contents=1, num_colls_per_session=1):
 
 if __name__ == '__main__':
     test(num_threads=1, total_contents=1, num_colls_per_session=1)
+    test(num_threads=1, total_contents=10000, num_colls_per_session=100)
+    test(num_threads=1, total_contents=100000, num_colls_per_session=100)
+    test(num_threads=1, total_contents=1000000, num_colls_per_session=100)
     test(num_threads=10, total_contents=10000, num_colls_per_session=100)
     test(num_threads=10, total_contents=100000, num_colls_per_session=100)
     test(num_threads=10, total_contents=1000000, num_colls_per_session=100)
-    test(num_threads=20, total_contents=10000, num_colls_per_session=500)
-    test(num_threads=20, total_contents=100000, num_colls_per_session=500)
-    test(num_threads=20, total_contents=1000000, num_colls_per_session=500)

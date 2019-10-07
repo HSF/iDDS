@@ -10,9 +10,12 @@
 
 
 CurrentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-RootDir="$( dirname "$CurrentDir" )"
+ToolsDir="$( dirname "$CurrentDir" )"
+RootDir="$( dirname "$ToolsDir" )"
 CondaDir=${RootDir}/.conda/iDDS
-mkdir -p $CondaDir
 
-echo conda env create --prefix=$CondaDir  -f=environment.yml
-conda env create --prefix=$CondaDir  -f=environment.yml
+echo 'Root dir: ' $RootDir
+export IDDS_HOME=$RootDir
+
+conda activate $CondaDir
+export PYTHONPATH=${IDDS_HOME}/lib:$PYTHONPATH

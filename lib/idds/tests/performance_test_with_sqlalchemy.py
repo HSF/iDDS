@@ -118,6 +118,9 @@ def test(num_threads=1, total_contents=1, num_colls_per_session=1):
 
 if __name__ == '__main__':
     test(num_threads=1, total_contents=1, num_colls_per_session=1)
+    test(num_threads=1, total_contents=10000, num_colls_per_session=100)
+    test(num_threads=1, total_contents=100000, num_colls_per_session=100)
+    test(num_threads=1, total_contents=1000000, num_colls_per_session=100)
     test(num_threads=10, total_contents=10000, num_colls_per_session=100)
     test(num_threads=10, total_contents=100000, num_colls_per_session=100)
     test(num_threads=10, total_contents=1000000, num_colls_per_session=100)

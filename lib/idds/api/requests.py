@@ -50,7 +50,7 @@ def get_request(request_id=None, workload_id=None):
 
     :returns: Request.
     """
-    return requests.get_request(request_id=request_id, worload_id=workload_id)
+    return requests.get_request(request_id=request_id, workload_id=workload_id)
 
 
 def extend_request(request_id=None, workload_id=None, lifetime=30):

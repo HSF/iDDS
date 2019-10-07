@@ -1,0 +1,63 @@
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Wen Guan, <wen.guan@cern.ch>, 2019
+
+
+# Built-in modules
+LoadModule ssl_module /usr/lib64/httpd/modules/mod_ssl.so
+
+# External modules
+LoadModule gridsite_module /usr/lib64/httpd/modules/mod_gridsite.so
+#LoadModule wsgi_module /usr/lib64/httpd/modules/mod_wsgi.so
+LoadModule wsgi_module {python_site_packages_path}/mod_wsgi/server/mod_wsgi-py36.cpython-36m-x86_64-linux-gnu.so
+
+WSGIPythonHome {python_site_home_path}
+WSGIPythonPath {python_site_packages_path}
+WSGIScriptAlias /idds  {python_site_bin_path}/idds.wsgi
+
+Listen 443
+
+<VirtualHost *:443>
+    # ServerName aipanda182.cern.ch:443
+    ServerAdmin wguan@cern.ch
+
+    SSLEngine on
+    SSLCertificateFile /etc/grid-security/hostcert.pem
+    SSLCertificateKeyFile /etc/grid-security/hostkey.pem
+    SSLCACertificatePath /etc/grid-security/certificates
+    SSLCARevocationPath /etc/grid-security/certificates
+    SSLVerifyClient optional
+    SSLVerifyDepth 10
+    SSLOptions +StdEnvVars +ExportCertData
+
+    LogLevel debug
+    ErrorLog /var/log/idds/httpd_error_log
+    TransferLog /var/log/idds/httpd_access_log
+
+    # Proxy authentication via mod_gridsite
+    <LocationMatch /auth/x509_proxy>
+        GridSiteIndexes on
+        GridSiteAuth on
+        GridSiteDNlists /etc/grid-security/dn-lists/
+        GridSiteGSIProxyLimit 16
+        GridSiteEnvs on
+        GridSiteACLPath /etc/idds/rest/gacl
+    </LocationMatch>
+
+    <Directory {python_site_packages_path}>
+        Order deny,allow
+        Allow from all
+        Require all granted
+    </Directory>
+
+    <Directory {python_site_bin_path}>
+        Order deny,allow
+        Allow from all
+        Require all granted
+    </Directory>
+
+</VirtualHost>

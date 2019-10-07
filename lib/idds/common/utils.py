@@ -16,7 +16,8 @@ import requests
 import subprocess
 import sys
 
-from idds.common.config import config_has_section, config_has_option, config_get
+from idds.common.config import (config_has_section, config_has_option,
+                                config_get, config_get_bool)
 
 
 # RFC 1123
@@ -35,10 +36,30 @@ def setup_logging(name):
     if config_has_section('common') and config_has_option('common', 'logdir'):
         logging.basicConfig(filename=os.path.join(config_get('common', 'logdir'), name),
                             level=loglevel,
-                            format='%(asctime)s\t%(threadName)s\t%(levelname)s\t%(middsage)s')
+                            format='%(asctime)s\t%(threadName)s\t%(levelname)s\t%(message)s')
     else:
         logging.basicConfig(stream=sys.stdout, level=loglevel,
-                            format='%(asctime)s\t%(threadName)s\t%(levelname)s\t%(middsage)s')
+                            format='%(asctime)s\t%(threadName)s\t%(levelname)s\t%(message)s')
+
+
+def get_rest_url_prefix():
+    if config_has_section('rest') and config_has_option('rest', 'url_prefix'):
+        url_prefix = config_get('rest', 'url_prefix')
+    else:
+        url_prefix = None
+    if url_prefix:
+        while url_prefix.startswith('/'):
+            url_prefix = url_prefix[1:]
+        while url_prefix.endswith('/'):
+            url_prefix = url_prefix[:-1]
+        url_prefix = '/' + url_prefix
+    return url_prefix
+
+
+def get_rest_debug():
+    if config_has_section('rest') and config_has_option('rest', 'debug'):
+        url_prefix = config_get_bool('rest', 'debug')
+    return False
 
 
 def str_to_date(string):
@@ -96,7 +117,13 @@ def get_rest_host():
     """
     Function to get rest host
     """
-    return config_get('rest', 'host')
+    host =  config_get('rest', 'host')
+    url_prefix = get_rest_url_prefix()
+    while host.endswith("/"):
+        host = host[:-1]
+    if url_prefix:
+        host = ''.join([host, url_prefix])
+    return host
 
 
 def check_user_proxy():
@@ -133,10 +160,10 @@ def run_process(cmd, stdout=None, stderr=None):
     Runs a command in an out-of-procees shell.
     """
     if stdout and stderr:
-        procidds = subprocess.Popen(cmd, shell=True, stdout=stdout, stderr=stderr, preexec_fn=os.setsid)
+        process = subprocess.Popen(cmd, shell=True, stdout=stdout, stderr=stderr, preexec_fn=os.setsid)
     else:
-        procidds = subprocess.Popen(cmd, shell=True)
-    return procidds
+        process = subprocess.Popen(cmd, shell=True)
+    return process
 
 
 def get_space_from_string(space_str):
