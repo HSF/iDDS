@@ -18,7 +18,7 @@ import traceback
 from sqlalchemy.engine import reflection
 from sqlalchemy.schema import DropTable, DropConstraint, ForeignKeyConstraint, MetaData, Table
 
-from idds.orm import session, models
+from idds.orm.base import session, models
 
 
 def build_database(echo=True, tests=False):
