@@ -124,6 +124,16 @@ class CoreException(IDDSException):
         self.error_code = 300
 
 
+class ConflictRequestException(CoreException):
+    """
+    ConflictRequestException
+    """
+    def __init__(self, *args, **kwargs):
+        super(ConflictRequestException, self).__init__(*args, **kwargs)
+        self._message = "Conflict Reqeust exception."
+        self.error_code = 301
+
+
 class RestException(IDDSException):
     """
     RestException
