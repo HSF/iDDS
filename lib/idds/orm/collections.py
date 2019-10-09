@@ -23,8 +23,8 @@ from sqlalchemy.sql import text, outparam
 
 from idds.common import exceptions
 from idds.common.constants import CollectionType, CollectionStatus, CollectionRelationType
-from idds.orm.session import read_session, transactional_session
-from idds.orm.utils import row2dict
+from idds.orm.base.session import read_session, transactional_session
+from idds.orm.base.utils import row2dict
 
 
 @transactional_session
