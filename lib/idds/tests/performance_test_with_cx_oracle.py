@@ -24,8 +24,8 @@ from idds.common.config import config_get
 from idds.common.constants import (TransformType, TransformStatus, CollectionType,
                                    CollectionRelationType, CollectionStatus,
                                    ContentType, ContentStatus)
-from idds.core.transforms import add_transform
-from idds.core.collections import add_collection
+from idds.orm.transforms import add_transform
+from idds.orm.collections import add_collection
 # from idds.core.contents import add_content
 
 
@@ -55,7 +55,7 @@ def add_content(coll_id, scope, name, min_id, max_id, content_type=ContentType.F
                                      'updated_at': datetime.datetime.utcnow(), 'expired_at': expired_at,
                                      'collcontent_metadata': collcontent_metadata})
     cursor.close()
-    
+
 
 def get_transform_prop():
     trans_properties = {

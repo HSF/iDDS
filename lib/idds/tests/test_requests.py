@@ -17,11 +17,13 @@ import unittest2 as unittest
 from uuid import uuid4 as uuid
 from nose.tools import assert_equal, assert_raises
 
+from idds.client.client import Client
 from idds.common import exceptions
 from idds.common.constants import RequestType, RequestStatus
-from idds.common.utils import check_database, has_config, setup_logging
-from idds.core.requests import (add_request, get_request, update_request,
-                                delete_request)
+from idds.common.utils import (check_database, has_config, setup_logging,
+                               check_rest_host, get_rest_host, check_user_proxy)
+from idds.orm.requests import (add_request, get_request, update_request,
+                               delete_request)
 
 setup_logging(__name__)
 
@@ -44,8 +46,6 @@ class TestRequest(unittest.TestCase):
             'request_metadata': {'workload_id': 2019}
         }
         request_id = add_request(**properties)
-        # request = get_request(properties['scope'], properties['name'], requester=properties['requester'])
-        # assert_equal(request_id, request.request_id)
 
         request = get_request(request_id=request_id)
         assert_equal(request_id, request['request_id'])
@@ -69,3 +69,41 @@ class TestRequest(unittest.TestCase):
 
         with assert_raises(exceptions.NoObject):
             get_request(request_id=request_id)
+
+    @unittest.skipIf(not has_config(), "No config file")
+    @unittest.skipIf(not check_user_proxy(), "No user proxy to access REST")
+    @unittest.skipIf(not check_rest_host(), "REST host is not defined")
+    def test_create_and_check_for_request_rest(self):
+        """ Request (REST): Test the creation, query, and deletion of a Request """
+        host = get_rest_host()
+
+        properties = {
+            'scope': 'test_scope',
+            'name': 'test_name_%s' % str(uuid()),
+            'requester': 'panda',
+            'request_type': RequestType.EventStreaming,
+            'transform_tag': 's3218',
+            'status': RequestStatus.New,
+            'priority': 0,
+            'lifetime': 30,
+            'request_metadata': {'workload_id': 2019}
+        }
+
+        client = Client(host=host)
+
+        request_id = client.add_request(**properties)
+
+        request = client.get_request(request_id=request_id)
+        assert_equal(request_id, request['request_id'])
+
+        for key in properties:
+            if key in ['lifetime']:
+                continue
+            assert_equal(request[key], properties[key])
+
+        client.update_request(request_id, parameters={'status': RequestStatus.Failed})
+        request = client.get_request(request_id=request_id)
+        assert_equal(request['status'], RequestStatus.Failed)
+
+        with assert_raises(exceptions.NoObject):
+            client.get_request(request_id=999999)

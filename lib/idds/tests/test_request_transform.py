@@ -21,8 +21,8 @@ from nose.tools import assert_equal, assert_raises
 from idds.common import exceptions
 from idds.common.constants import RequestType, RequestStatus, TransformType, TransformStatus
 from idds.common.utils import check_database, has_config, setup_logging
-from idds.core.requests import (add_request, get_request, delete_request)
-from idds.core.transforms import (add_transform, get_transform, delete_transform)
+from idds.orm.requests import (add_request, get_request, delete_request)
+from idds.orm.transforms import (add_transform, get_transform, delete_transform)
 
 setup_logging(__name__)
 

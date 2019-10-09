@@ -22,9 +22,9 @@ from idds.orm.session import transactional_session
 from idds.common.constants import (TransformType, TransformStatus, CollectionType,
                                    CollectionRelationType, CollectionStatus,
                                    ContentType, ContentStatus)
-from idds.core.transforms import add_transform
-from idds.core.collections import add_collection
-from idds.core.contents import add_content
+from idds.orm.transforms import add_transform
+from idds.orm.collections import add_collection
+from idds.orm.contents import add_content
 
 
 def get_transform_prop():
