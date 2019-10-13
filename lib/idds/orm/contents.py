@@ -30,7 +30,7 @@ from idds.orm.base.utils import row2dict
 @transactional_session
 def add_content(coll_id, scope, name, min_id, max_id, content_type=ContentType.File, status=ContentStatus.New,
                 content_size=0, md5=None, adler32=None, processing_id=None, storage_id=None, retries=0,
-                path=None, expired_at=None, collcontent_metadata=None, session=None):
+                path=None, expired_at=None, collcontent_metadata=None, returning_id=False, session=None):
     """
     Add a content.
 
@@ -63,26 +63,45 @@ def add_content(coll_id, scope, name, min_id, max_id, content_type=ContentType.F
     if collcontent_metadata:
         collcontent_metadata = json.dumps(collcontent_metadata)
 
-    insert_coll_sql = """insert into atlas_idds.collections_content(coll_id, scope, name, min_id, max_id, content_type,
-                                                                   status, content_size, md5, adler32, processing_id,
-                                                                   storage_id, retries, path, expired_at,
-                                                                   collcontent_metadata)
-                         values(:coll_id, :scope, :name, :min_id, :max_id, :content_type, :status, :content_size,
-                                :md5, :adler32, :processing_id, :storage_id, :retries, :path, :expired_at,
-                                :collcontent_metadata) RETURNING content_id into :content_id
-                      """
-    stmt = text(insert_coll_sql)
-    stmt = stmt.bindparams(outparam("content_id", type_=BigInteger().with_variant(Integer, "sqlite")))
+    if returning_id:
+        insert_coll_sql = """insert into atlas_idds.collections_content(coll_id, scope, name, min_id, max_id, content_type,
+                                                                       status, content_size, md5, adler32, processing_id,
+                                                                       storage_id, retries, path, expired_at,
+                                                                       collcontent_metadata)
+                             values(:coll_id, :scope, :name, :min_id, :max_id, :content_type, :status, :content_size,
+                                    :md5, :adler32, :processing_id, :storage_id, :retries, :path, :expired_at,
+                                    :collcontent_metadata) RETURNING content_id into :content_id
+                          """
+        stmt = text(insert_coll_sql)
+        stmt = stmt.bindparams(outparam("content_id", type_=BigInteger().with_variant(Integer, "sqlite")))
+    else:
+        insert_coll_sql = """insert into atlas_idds.collections_content(coll_id, scope, name, min_id, max_id, content_type,
+                                                                       status, content_size, md5, adler32, processing_id,
+                                                                       storage_id, retries, path, expired_at,
+                                                                       collcontent_metadata)
+                             values(:coll_id, :scope, :name, :min_id, :max_id, :content_type, :status, :content_size,
+                                    :md5, :adler32, :processing_id, :storage_id, :retries, :path, :expired_at,
+                                    :collcontent_metadata)
+                          """
+        stmt = text(insert_coll_sql)
 
     try:
         content_id = None
-        ret = session.execute(stmt, {'coll_id': coll_id, 'scope': scope, 'name': name, 'min_id': min_id, 'max_id': max_id,
-                                     'content_type': content_type, 'status': status, 'content_size': content_size, 'md5': md5,
-                                     'adler32': adler32, 'processing_id': processing_id, 'storage_id': storage_id,
-                                     'retries': retries, 'path': path, 'created_at': datetime.datetime.utcnow(),
-                                     'updated_at': datetime.datetime.utcnow(), 'expired_at': expired_at,
-                                     'collcontent_metadata': collcontent_metadata, 'content_id': content_id})
-        content_id = ret.out_parameters['content_id'][0]
+        if returning_id:
+            ret = session.execute(stmt, {'coll_id': coll_id, 'scope': scope, 'name': name, 'min_id': min_id, 'max_id': max_id,
+                                         'content_type': content_type, 'status': status, 'content_size': content_size, 'md5': md5,
+                                         'adler32': adler32, 'processing_id': processing_id, 'storage_id': storage_id,
+                                         'retries': retries, 'path': path, 'created_at': datetime.datetime.utcnow(),
+                                         'updated_at': datetime.datetime.utcnow(), 'expired_at': expired_at,
+                                         'collcontent_metadata': collcontent_metadata, 'content_id': content_id})
+            content_id = ret.out_parameters['content_id'][0]
+        else:
+            ret = session.execute(stmt, {'coll_id': coll_id, 'scope': scope, 'name': name, 'min_id': min_id, 'max_id': max_id,
+                                         'content_type': content_type, 'status': status, 'content_size': content_size, 'md5': md5,
+                                         'adler32': adler32, 'processing_id': processing_id, 'storage_id': storage_id,
+                                         'retries': retries, 'path': path, 'created_at': datetime.datetime.utcnow(),
+                                         'updated_at': datetime.datetime.utcnow(), 'expired_at': expired_at,
+                                         'collcontent_metadata': collcontent_metadata})
 
         return content_id
     except IntegrityError as error:

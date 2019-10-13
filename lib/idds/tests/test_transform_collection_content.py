@@ -131,7 +131,7 @@ class TestTransformCollectionContent(unittest.TestCase):
         assert_equal(coll['coll_status'], CollectionStatus.Closed)
 
         content_properties['coll_id'] = coll_id
-        content_id = add_content(**content_properties)
+        content_id = add_content(returning_id=True, **content_properties)
         content_id_1 = get_content_id(coll_id=coll_id, scope=content_properties['scope'],
                                       name=content_properties['name'])
         assert_equal(content_id, content_id_1)
