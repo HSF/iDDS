@@ -58,6 +58,7 @@ class RequestStatus(Enum):
     Finished = 4
     Failed = 5
     Cancel = 6
+    ReQueue = 7
 
 
 class RequestType(Enum):

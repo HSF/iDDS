@@ -23,13 +23,13 @@ from idds.common.constants import (TransformType, TransformStatus, CollectionTyp
                                    CollectionRelationType, CollectionStatus,
                                    ContentType, ContentStatus)
 from idds.common.utils import check_database, has_config, setup_logging
-from idds.core.transforms import (add_transform, delete_transform,
-                                  update_transform, get_transform)
-from idds.core.collections import (add_collection, get_collection_id,
-                                   get_collection, update_collection,
-                                   delete_collection)
-from idds.core.contents import (add_content, get_content, update_content,
-                                get_content_id, delete_content)
+from idds.orm.transforms import (add_transform, delete_transform,
+                                 update_transform, get_transform)
+from idds.orm.collections import (add_collection, get_collection_id,
+                                  get_collection, update_collection,
+                                  delete_collection)
+from idds.orm.contents import (add_content, get_content, update_content,
+                               get_content_id, delete_content)
 
 
 setup_logging(__name__)
@@ -131,7 +131,7 @@ class TestTransformCollectionContent(unittest.TestCase):
         assert_equal(coll['coll_status'], CollectionStatus.Closed)
 
         content_properties['coll_id'] = coll_id
-        content_id = add_content(**content_properties)
+        content_id = add_content(returning_id=True, **content_properties)
         content_id_1 = get_content_id(coll_id=coll_id, scope=content_properties['scope'],
                                       name=content_properties['name'])
         assert_equal(content_id, content_id_1)

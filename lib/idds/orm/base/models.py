@@ -21,9 +21,9 @@ from sqlalchemy.orm import object_mapper
 from sqlalchemy.schema import CheckConstraint, Index, PrimaryKeyConstraint, Sequence, Table
 
 from idds.common.utils import date_to_str
-from idds.orm.enum import EnumSymbol
-from idds.orm.types import JSON
-from idds.orm.session import BASE, DEFAULT_SCHEMA_NAME
+from idds.orm.base.enum import EnumSymbol
+from idds.orm.base.types import JSON
+from idds.orm.base.session import BASE, DEFAULT_SCHEMA_NAME
 from idds.common.constants import (SCOPE_LENGTH, NAME_LENGTH)
 
 

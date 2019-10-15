@@ -7,15 +7,3 @@
 #
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2019
-
-"""----------------------
-   Web service startup
-----------------------"""
-
-import os
-os.environ['IDDS_CONFIG'] = '{idds_config_path}'
-
-from idds.rest.v1.app import create_app  # noqa: E402
-
-
-application = create_app()

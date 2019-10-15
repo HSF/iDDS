@@ -18,13 +18,13 @@ import threading
 
 from uuid import uuid4 as uuid
 
-from idds.orm.session import transactional_session
+from idds.orm.base.session import transactional_session
 from idds.common.constants import (TransformType, TransformStatus, CollectionType,
                                    CollectionRelationType, CollectionStatus,
                                    ContentType, ContentStatus)
-from idds.core.transforms import add_transform
-from idds.core.collections import add_collection
-from idds.core.contents import add_content
+from idds.orm.transforms import add_transform
+from idds.orm.collections import add_collection
+from idds.orm.contents import add_content
 
 
 def get_transform_prop():
@@ -84,6 +84,7 @@ def get_content_prop():
 
 @transactional_session
 def test_insert_contents(coll_id, num_contents=1, session=None):
+    # print("test_insert_contents, num_contents: %s" % num_contents)
     for i in range(num_contents):
         content_properties = get_content_prop()
         content_properties['coll_id'] = coll_id

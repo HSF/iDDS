@@ -20,9 +20,9 @@ from nose.tools import assert_equal, assert_raises
 from idds.common import exceptions
 from idds.common.constants import GranularityType, ProcessingStatus, TransformType, TransformStatus
 from idds.common.utils import check_database, has_config, setup_logging
-from idds.core.transforms import add_transform, delete_transform
-from idds.core.processings import (add_processing, update_processing,
-                                   get_processing, delete_processing)
+from idds.orm.transforms import add_transform, delete_transform
+from idds.orm.processings import (add_processing, update_processing,
+                                  get_processing, delete_processing)
 setup_logging(__name__)
 
 
