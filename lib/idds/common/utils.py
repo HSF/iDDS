@@ -58,7 +58,7 @@ def get_rest_url_prefix():
 
 def get_rest_debug():
     if config_has_section('rest') and config_has_option('rest', 'debug'):
-        url_prefix = config_get_bool('rest', 'debug')
+        return config_get_bool('rest', 'debug')
     return False
 
 
@@ -117,7 +117,7 @@ def get_rest_host():
     """
     Function to get rest host
     """
-    host =  config_get('rest', 'host')
+    host = config_get('rest', 'host')
     url_prefix = get_rest_url_prefix()
     while host.endswith("/"):
         host = host[:-1]
