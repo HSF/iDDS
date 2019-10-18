@@ -111,6 +111,88 @@ def add_content(coll_id, scope, name, min_id, max_id, content_type=ContentType.F
         raise exceptions.DatabaseException(error)
 
 
+@transactional_session
+def add_contents(contents, returning_id=False, bulk_size=100, session=None):
+    """
+    Add contents.
+
+    :param contents: dict of contents.
+    :param returning_id: whether to return id.
+    :param session: session.
+
+    :raises DuplicatedObject: If a collection with the same name exists.
+    :raises DatabaseException: If there is a database error.
+
+    :returns: content id.
+    """
+    default_params = {'coll_id': None, 'scope': None, 'name': None, 'min_id': None, 'max_id': None,
+                      'content_type': ContentType.File, 'status': ContentStatus.New,
+                      'content_size': 0, 'md5': None, 'adler32': None, 'processing_id': None,
+                      'storage_id': None, 'retries': 0, 'path': None,
+                      'expired_at': datetime.datetime.utcnow() + datetime.timedelta(days=30),
+                      'collcontent_metadata': None}
+
+    if returning_id:
+        insert_coll_sql = """insert into atlas_idds.collections_content(coll_id, scope, name, min_id, max_id, content_type,
+                                                                       status, content_size, md5, adler32, processing_id,
+                                                                       storage_id, retries, path, expired_at,
+                                                                       collcontent_metadata)
+                             values(:coll_id, :scope, :name, :min_id, :max_id, :content_type, :status, :content_size,
+                                    :md5, :adler32, :processing_id, :storage_id, :retries, :path, :expired_at,
+                                    :collcontent_metadata) RETURNING content_id into :content_id
+                          """
+        stmt = text(insert_coll_sql)
+        stmt = stmt.bindparams(outparam("content_id", type_=BigInteger().with_variant(Integer, "sqlite")))
+    else:
+        insert_coll_sql = """insert into atlas_idds.collections_content(coll_id, scope, name, min_id, max_id, content_type,
+                                                                       status, content_size, md5, adler32, processing_id,
+                                                                       storage_id, retries, path, expired_at,
+                                                                       collcontent_metadata)
+                             values(:coll_id, :scope, :name, :min_id, :max_id, :content_type, :status, :content_size,
+                                    :md5, :adler32, :processing_id, :storage_id, :retries, :path, :expired_at,
+                                    :collcontent_metadata)
+                          """
+        stmt = text(insert_coll_sql)
+
+    params = []
+    for content in contents:
+        param = {}
+        for key in default_params:
+            if key in content:
+                param[key] = content[key]
+            else:
+                param[key] = default_params[key]
+
+        if isinstance(param['content_type'], ContentType):
+            param['content_type'] = param['content_type'].value
+        if isinstance(param['status'], ContentStatus):
+            param['status'] = param['status'].value
+        if param['collcontent_metadata']:
+            param['collcontent_metadata'] = json.dumps(param['collcontent_metadata'])
+        params.append(param)
+
+    sub_params = [params[i:i + bulk_size] for i in range(0, len(params), bulk_size)]
+
+    try:
+        content_ids = None
+        if returning_id:
+            content_ids = []
+            for sub_param in sub_params:
+                content_id = None
+                sub_param['content_id'] = content_id
+                ret = session.execute(stmt, sub_param)
+                content_ids.extend(ret.out_parameters['content_id'])
+        else:
+            for sub_param in sub_params:
+                ret = session.execute(stmt, sub_param)
+            content_ids = [None for _ in range(len(params))]
+        return content_ids
+    except IntegrityError as error:
+        raise exceptions.DuplicatedObject('Duplicated objects: %s' % (error))
+    except DatabaseError as error:
+        raise exceptions.DatabaseException(error)
+
+
 @read_session
 def get_content_id(coll_id, scope, name, content_type=ContentType.File, min_id=None, max_id=None, session=None):
     """
