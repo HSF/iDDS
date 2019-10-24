@@ -79,7 +79,7 @@ class Request(IDDSController):
             return self.generate_http_response(HTTP_STATUS_CODE.BadRequest, exc_cls=exceptions.BadRequest.__name__, exc_msg='Cannot decode json parameter dictionary')
 
         try:
-            request_id = add_request(**parameters)
+            request_id = add_request(**kwargs)
         except exceptions.DuplicatedObject as error:
             return self.generate_http_response(HTTP_STATUS_CODE.Conflict, exc_cls=error.__class__.__name__, exc_msg=error)
         except exceptions.IDDSException as error:
