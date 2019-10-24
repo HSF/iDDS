@@ -24,7 +24,7 @@ from idds.common.constants import (TransformType, TransformStatus, CollectionTyp
                                    ContentType, ContentStatus)
 from idds.orm.transforms import add_transform
 from idds.orm.collections import add_collection
-from idds.orm.contents import add_content
+from idds.orm.contents import add_contents
 
 
 def get_transform_prop():
@@ -85,10 +85,12 @@ def get_content_prop():
 @transactional_session
 def test_insert_contents(coll_id, num_contents=1, session=None):
     # print("test_insert_contents, num_contents: %s" % num_contents)
+    list_contents = []
     for i in range(num_contents):
         content_properties = get_content_prop()
         content_properties['coll_id'] = coll_id
-        add_content(**content_properties, session=session)
+        list_contents.append(content_properties)
+    add_contents(list_contents, bulk_size=num_contents, session=session)
 
 
 def test_thread(num_contents_per_thread, num_contents_per_session, coll_id):
@@ -118,13 +120,14 @@ def test(num_threads=1, total_contents=1, num_colls_per_session=1):
 
 
 if __name__ == '__main__':
+    test(num_threads=1, total_contents=10, num_colls_per_session=5)
     test(num_threads=1, total_contents=1, num_colls_per_session=1)
-    test(num_threads=1, total_contents=10000, num_colls_per_session=100)
-    test(num_threads=1, total_contents=100000, num_colls_per_session=100)
-    test(num_threads=1, total_contents=1000000, num_colls_per_session=100)
-    test(num_threads=10, total_contents=10000, num_colls_per_session=100)
-    test(num_threads=10, total_contents=100000, num_colls_per_session=100)
-    test(num_threads=10, total_contents=1000000, num_colls_per_session=100)
+    test(num_threads=1, total_contents=10000, num_colls_per_session=1000)
+    test(num_threads=1, total_contents=100000, num_colls_per_session=1000)
+    test(num_threads=1, total_contents=1000000, num_colls_per_session=1000)
+    test(num_threads=10, total_contents=10000, num_colls_per_session=1000)
+    test(num_threads=10, total_contents=100000, num_colls_per_session=1000)
+    test(num_threads=10, total_contents=1000000, num_colls_per_session=1000)
     test(num_threads=20, total_contents=10000, num_colls_per_session=500)
     test(num_threads=20, total_contents=100000, num_colls_per_session=500)
     test(num_threads=20, total_contents=1000000, num_colls_per_session=500)

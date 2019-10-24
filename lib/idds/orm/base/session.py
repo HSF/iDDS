@@ -191,7 +191,7 @@ def get_maker():
     global _MAKER, _ENGINE
     assert _ENGINE
     if not _MAKER:
-        _MAKER = sessionmaker(bind=_ENGINE, autocommit=False, autoflush=True, expire_on_commit=True)
+        _MAKER = sessionmaker(bind=_ENGINE, autocommit=False, autoflush=False, expire_on_commit=True)
     return _MAKER
 
 
