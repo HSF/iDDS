@@ -223,18 +223,18 @@ def get_content_id(coll_id, scope, name, content_type=ContentType.File, min_id=N
                                             'content_type': content_type})
         else:
             select = """select content_id from atlas_idds.collections_content where coll_id=:coll_id and
-                        scope=:scope and name=:name and content_type=:content_type and min_id=:min_id,
+                        scope=:scope and name=:name and content_type=:content_type and min_id=:min_id and
                         max_id=:max_id"""
             stmt = text(select)
             result = session.execute(stmt, {'coll_id': coll_id, 'scope': scope, 'name': name,
                                             'content_type': content_type, 'min_id': min_id, 'max_id': max_id})
+
         content_id = result.fetchone()
 
         if content_id is None:
             raise exceptions.NoObject('content(coll_id: %s, scope: %s, name: %s, content_type: %s, min_id: %s, max_id: %s) cannot be found' %
                                       (coll_id, scope, name, content_type, min_id, max_id))
         content_id = content_id[0]
-
         return content_id
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('content(coll_id: %s, scope: %s, name: %s, content_type: %s, min_id: %s, max_id: %s) cannot be found: %s' %
@@ -291,6 +291,117 @@ def get_content(content_id=None, coll_id=None, scope=None, name=None, content_ty
         raise error
 
 
+@read_session
+def get_match_contents(coll_id, scope, name, content_type=None, min_id=None, max_id=None, session=None):
+    """
+    Get contents which matches the query or raise a NoObject exception.
+
+    :param coll_id: collection id.
+    :param scope: The scope of the request data.
+    :param name: The name of the request data.
+    :param min_id: The minimal id of the content.
+    :param max_id: The maximal id of the content.
+    :param content_type: The type of the content.
+
+    :param session: The database session in use.
+
+    :raises NoObject: If no content is founded.
+
+    :returns: list of Content ids.
+    """
+
+    try:
+        if min_id is None and max_id is None:
+            content_type = ContentType.File.value
+        if content_type is not None and isinstance(content_type, ContentType):
+            content_type = content_type.value
+
+        if content_type is not None and content_type == ContentType.File.value:
+            select = """select * from atlas_idds.collections_content where coll_id=:coll_id and
+                        scope=:scope and name=:name and content_type=:content_type"""
+            stmt = text(select)
+            result = session.execute(stmt, {'coll_id': coll_id, 'scope': scope, 'name': name,
+                                            'content_type': content_type})
+        else:
+            select = """select * from atlas_idds.collections_content where coll_id=:coll_id and
+                        scope=:scope and name=:name and min_id<=:min_id and max_id>=:max_id"""
+            stmt = text(select)
+            result = session.execute(stmt, {'coll_id': coll_id, 'scope': scope, 'name': name,
+                                            'min_id': min_id, 'max_id': max_id})
+
+        contents = result.fetchall()
+        rets = {}
+        for content in contents:
+            content = row2dict(content)
+            if content['content_type'] is not None:
+                content['content_type'] = ContentType(content['content_type'])
+            if content['status'] is not None:
+                content['status'] = ContentStatus(content['status'])
+            if content['collcontent_metadata']:
+                content['collcontent_metadata'] = json.loads(content['collcontent_metadata'])
+            rets.append(content)
+        return rets
+    except sqlalchemy.orm.exc.NoResultFound as error:
+        raise exceptions.NoObject('No match contents for (coll_id: %s, scope: %s, name: %s, content_type: %s, min_id: %s, max_id: %s): %s' %
+                                  (coll_id, scope, name, content_type, min_id, max_id, error))
+    except Exception as error:
+        raise error
+
+
+@read_session
+def get_contents(scope=None, name=None, coll_id=None, session=None):
+    """
+    Get content or raise a NoObject exception.
+
+    :param scope: The scope of the content data.
+    :param name: The name of the content data.
+    :param coll_id: Collection id.
+
+    :param session: The database session in use.
+
+    :raises NoObject: If no content is founded.
+
+    :returns: Content.
+    """
+
+    try:
+        if scope and name:
+            if coll_id:
+                select = """select * from atlas_idds.collections_content where coll_id=:coll_id and
+                            scope=:scope and name like :name"""
+                stmt = text(select)
+                result = session.execute(stmt, {'coll_id': coll_id, 'scope': scope, 'name': '%' + name + '%'})
+            else:
+                select = """select * from atlas_idds.collections_content where scope=:scope and name like :name"""
+                stmt = text(select)
+                result = session.execute(stmt, {'scope': scope, 'name': '%' + name + '%'})
+        else:
+            if coll_id:
+                select = """select * from atlas_idds.collections_content where coll_id=:coll_id"""
+                stmt = text(select)
+                result = session.execute(stmt, {'coll_id': coll_id})
+            else:
+                raise exceptions.WrongParameterException("Both (scope:%s and name:%s) and coll_id:%s are not fully provided")
+
+        contents = result.fetchall()
+        rets = []
+        for content in contents:
+            content = row2dict(content)
+            if content['content_type'] is not None:
+                content['content_type'] = ContentType(content['content_type'])
+            if content['status'] is not None:
+                content['status'] = ContentStatus(content['status'])
+            if content['collcontent_metadata']:
+                content['collcontent_metadata'] = json.loads(content['collcontent_metadata'])
+            rets.append(content)
+        return rets
+    except sqlalchemy.orm.exc.NoResultFound as error:
+        raise exceptions.NoObject('No record can be found with (scope=%s, name=%s, coll_id=%s): %s' %
+                                  (scope, name, coll_id, error))
+    except Exception as error:
+        raise error
+
+
 @transactional_session
 def update_content(content_id, parameters, session=None):
     """
@@ -325,6 +436,42 @@ def update_content(content_id, parameters, session=None):
         session.execute(stmt, parameters)
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('Content %s cannot be found: %s' % (content_id, error))
+
+
+@transactional_session
+def update_contents(parameters, session=None):
+    """
+    updatecontents.
+
+    :param parameters: list of dictionary of parameters.
+    :param session: The database session in use.
+
+    :raises NoObject: If no content is founded.
+    :raises DatabaseException: If there is a database error.
+
+    """
+    try:
+        keys = ['coll_id', 'scope', 'name', 'min_id', 'max_id', 'status', 'path']
+        update = """update atlas_idds.collections_content set path=:path, updated_at=:updated_at, status=:status
+                    where coll_id=:coll_id and scope=:scope and name=:name and min_id=:min_id and max_id=:max_id"""
+
+        contents = []
+        for parameter in parameters:
+            content = {}
+            for key in keys:
+                if key in parameter:
+                    content[key] = parameter[key]
+                else:
+                    content[key] = None
+            if content['status'] is not None and isinstance(content['status'], ContentStatus):
+                content['status'] = content['status'].value
+            content['updated_at'] = datetime.datetime.utcnow()
+            contents.append(content)
+
+        stmt = text(update)
+        session.execute(stmt, contents)
+    except sqlalchemy.orm.exc.NoResultFound as error:
+        raise exceptions.NoObject('Content cannot be found: %s' % (error))
 
 
 @transactional_session
