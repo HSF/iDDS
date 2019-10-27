@@ -178,6 +178,218 @@ def get_collection(coll_id=None, transform_id=None, relation_type=None, session=
         raise error
 
 
+@read_session
+def get_collections_by_request_transform_id(request_id=None, transform_id=None, session=None):
+    """
+    Get collections by request_id and transform id or raise a NoObject exception.
+
+    :param request_id: The request id related to this collection.
+    :param transform_id: The transform id related to this collection.
+    :param session: The database session in use.
+
+    :raises NoObject: If no collections are founded.
+
+    :returns: list of Collections.
+    """
+    try:
+        if request_id:
+            if transform_id:
+                select = """select * from atlas_idds.collections where request_id=:request_id
+                            and transform_id=:transform_id"""
+                stmt = text(select)
+                result = session.execute(stmt, {'request_id': request_id, 'transform_id': transform_id})
+            else:
+                select = """select * from atlas_idds.collections where request_id=:request_id"""
+                stmt = text(select)
+                result = session.execute(stmt, {'request_id': request_id})
+        else:
+            if transform_id:
+                select = """select * from atlas_idds.collections where transform_id=:transform_id"""
+                stmt = text(select)
+                result = session.execute(stmt, {'transform_id': transform_id})
+            else:
+                raise exceptions.WrongParamterException("Both request_id and workload_id are None.")
+
+        collections = result.fetchall()
+        ret = []
+        for collection in collections:
+            collection = row2dict(collection)
+            if collection['coll_type'] is not None:
+                collection['coll_type'] = CollectionType(collection['coll_type'])
+            if collection['in_out_type'] is not None:
+                collection['in_out_type'] = CollectionRelationType(collection['in_out_type'])
+                collection['relation_type'] = collection['in_out_type']
+            if collection['coll_status'] is not None:
+                collection['coll_status'] = CollectionStatus(collection['coll_status'])
+            if collection['coll_metadata']:
+                collection['coll_metadata'] = json.loads(collection['coll_metadata'])
+            ret.append(collection)
+        return ret
+    except sqlalchemy.orm.exc.NoResultFound as error:
+        raise exceptions.NoObject('No collections with  transform_id(%s): %s' %
+                                  (transform_id, error))
+    except Exception as error:
+        raise error
+
+
+@read_session
+def get_collection_ids_by_request_transform_id(request_id=None, transform_id=None, session=None):
+    """
+    Get collection ids by request_id and transform id or raise a NoObject exception.
+
+    :param request_id: The request id related to this collection.
+    :param transform_id: The transform id related to this collection.
+    :param session: The database session in use.
+
+    :raises NoObject: If no collections are founded.
+
+    :returns: list of Collections.
+    """
+    try:
+        if request_id:
+            if transform_id:
+                select = """select coll_id from atlas_idds.collections where request_id=:request_id
+                            and transform_id=:transform_id"""
+                stmt = text(select)
+                result = session.execute(stmt, {'request_id': request_id, 'transform_id': transform_id})
+            else:
+                select = """select coll_id from atlas_idds.collections where request_id=:request_id"""
+                stmt = text(select)
+                result = session.execute(stmt, {'request_id': request_id})
+        else:
+            if transform_id:
+                select = """select coll_id from atlas_idds.collections where transform_id=:transform_id"""
+                stmt = text(select)
+                result = session.execute(stmt, {'transform_id': transform_id})
+            else:
+                raise exceptions.WrongParamterException("Both request_id and workload_id are None.")
+
+        collection_ids = result.fetchall()
+        ret = [row[0] for row in collection_ids]
+        return ret
+    except sqlalchemy.orm.exc.NoResultFound as error:
+        raise exceptions.NoObject('No collections with  transform_id(%s): %s' %
+                                  (transform_id, error))
+    except Exception as error:
+        raise error
+
+
+@read_session
+def get_collections(scope, name, request_id=None, workload_id=None, session=None):
+    """
+    Get collections by request id or raise a NoObject exception.
+
+    :param scope: collection scope.
+    :param name: collection name, can be wildcard.
+    :param request_id: The request id related to this collection.
+    :param session: The database session in use.
+
+    :raises NoObject: If no collections are founded.
+
+    :returns: list of Collections.
+    """
+    try:
+        if request_id is not None:
+            if workload_id is not None:
+                select = """select * from atlas_idds.collections where soope=:scope
+                            and name like :name and request_id=:request_id
+                            and workload_id=:workload_id"""
+                stmt = text(select)
+                result = session.execute(stmt, {'scope': scope, 'name': '%' + name + '%',
+                                                'request_id': request_id,
+                                                'workload_id': workload_id})
+            else:
+                select = """select * from atlas_idds.collections where soope=:scope
+                            and name like :name and request_id=:request_id"""
+                stmt = text(select)
+                result = session.execute(stmt, {'scope': scope, 'name': '%' + name + '%',
+                                                'request_id': request_id})
+        else:
+            if workload_id is not None:
+                select = """select * from atlas_idds.collections where soope=:scope
+                            and name like :name and workload_id=:workload_id"""
+                stmt = text(select)
+                result = session.execute(stmt, {'scope': scope, 'name': '%' + name + '%',
+                                                'workload_id': workload_id})
+            else:
+                select = """select * from atlas_idds.collections where soope=:scope
+                            and name like :name"""
+                stmt = text(select)
+                result = session.execute(stmt, {'scope': scope, 'name': '%' + name + '%'})
+
+        collections = result.fetchall()
+        ret = []
+        for collection in collections:
+            collection = row2dict(collection)
+            if collection['coll_type'] is not None:
+                collection['coll_type'] = CollectionType(collection['coll_type'])
+            if collection['in_out_type'] is not None:
+                collection['in_out_type'] = CollectionRelationType(collection['in_out_type'])
+                collection['relation_type'] = collection['in_out_type']
+            if collection['coll_status'] is not None:
+                collection['coll_status'] = CollectionStatus(collection['coll_status'])
+            if collection['coll_metadata']:
+                collection['coll_metadata'] = json.loads(collection['coll_metadata'])
+            ret.append(collection)
+        return ret
+    except sqlalchemy.orm.exc.NoResultFound as error:
+        raise exceptions.NoObject('No collection with  scope(%s), name(%s), request_id(%s), workload_id(%s): %s' %
+                                  (scope, name, request_id, workload_id, error))
+    except Exception as error:
+        raise error
+
+
+@read_session
+def get_collection_id_by_scope_name(scope, name, request_id=None, workload_id=None, session=None):
+    """
+    Get collection id by scope, name, request id or raise a NoObject exception.
+
+    :param scope: collection scope.
+    :param name: collection name, should not be wildcards.
+    :param request_id: The request id related to this collection.
+    :param session: The database session in use.
+
+    :raises NoObject: If no collections are founded.
+
+    :returns: list of Collections.
+    """
+    try:
+        if request_id is not None:
+            if workload_id is not None:
+                select = """select * from atlas_idds.collections where soope=:scope
+                            and name=:name and request_id=:request_id
+                            and workload_id=:workload_id"""
+                stmt = text(select)
+                result = session.execute(stmt, {'scope': scope, 'name': name,
+                                                'request_id': request_id,
+                                                'workload_id': workload_id})
+            else:
+                select = """select * from atlas_idds.collections where soope=:scope
+                            and name=:name and request_id=:request_id"""
+                stmt = text(select)
+                result = session.execute(stmt, {'scope': scope, 'name': name,
+                                                'request_id': request_id})
+        else:
+            if workload_id is not None:
+                select = """select * from atlas_idds.collections where soope=:scope
+                            and name=:name and workload_id=:workload_id"""
+                stmt = text(select)
+                result = session.execute(stmt, {'scope': scope, 'name': name,
+                                                'workload_id': workload_id})
+            else:
+                raise exceptions.WrongParameterException("Either request_id or workload_id should not be None")
+
+        collection_id = result.fetchone()
+        if collection_id is None:
+            raise sqlalchemy.orm.exc.NoResultFound()
+        return collection_id[0]
+    except sqlalchemy.orm.exc.NoResultFound as error:
+        raise exceptions.NoObject('No collection with  scope(%s), name(%s), request_id(%s), workload_id(%s): %s' %
+                                  (scope, name, request_id, workload_id, error))
+    except Exception as error:
+        raise error
+
+
 @transactional_session
 def update_collection(coll_id, parameters, session=None):
     """
