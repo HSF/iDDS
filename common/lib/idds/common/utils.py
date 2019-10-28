@@ -16,8 +16,15 @@ import requests
 import subprocess
 import sys
 
+from enum import Enum
+
 from idds.common.config import (config_has_section, config_has_option,
                                 config_get, config_get_bool)
+from idds.common.constants import (RequestType, RequestStatus,
+                                   TransformType, TransformStatus,
+                                   CollectionType, CollectionRelationType, CollectionStatus,
+                                   ContentType, ContentStatus,
+                                   GranularityType, ProcessingStatus)
 
 
 # RFC 1123
@@ -201,3 +208,51 @@ def urlretrieve(url, dest, timeout=300):
             return 0
         else:
             return -1
+
+
+def convert_nojsontype_to_value(params):
+    """
+    Convert enum to its value
+
+    :param params: dict of parameters.
+
+    :returns: dict of parameters.
+    """
+    for key in params:
+        if params[key] is not None:
+            if isinstance(params[key], Enum):
+                params[key] = params[key].value
+            if isinstance(params[keu], datetime.datetime):
+                params[key] = date_to_str(params[key])
+    return params
+
+
+def convert_value_to_nojsontype(params):
+    """
+    Convert value to enum
+
+    :param params: dict of parameters.
+
+    :returns: dict of parameters.
+    """
+    req_keys = {'request_type': RequestType, 'status': RequestStatus}
+    transform_keys = {'transform_type': TransformType, 'status': TransformStatus}
+    coll_keys = {'coll_type': CollectionType, 'relation_type': CollectionRelationType, 'coll_status': CollectionStatus}
+    content_keys = {'content_type': ContentType, 'status': ContentStatus}
+    process_keys = {'granularity_type': GranularityType, 'status': ProcessingStatus}
+
+    if 'request_type' in params:
+        keys = req_keys
+    elif 'transform_type' in params:
+        keys = transform_keys
+    elif 'coll_type' in params:
+        keys = coll_keys
+    elif 'content_type' in params:
+        keys = content_keys
+    elif 'granularity_type' in params:
+        keys = process_keys
+
+    for key in keys.keys():
+        if key in params and params[key] is not None and isinstance(params[key], int):
+            params[key] = keys[key](params[key])
+    return params
