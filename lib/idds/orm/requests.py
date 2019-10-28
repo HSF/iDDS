@@ -132,7 +132,7 @@ def add_request_new(scope, name, requester=None, request_type=None, transform_ta
 
 
 @read_session
-def get_request_id_by_workload_id(workload_id=None, session=None):
+def get_request_id_by_workload_id(workload_id, session=None):
     """
     Get request id or raise a NoObject exception.
 
@@ -144,6 +144,9 @@ def get_request_id_by_workload_id(workload_id=None, session=None):
     :returns: Request id.
     """
 
+    if workload_id is None:
+        return exceptions.WrongParameterException("workload_id should not be None")
+
     try:
         req2workload_select = "select request_id from atlas_idds.req2workload where workload_id=:workload_id"
         req2workload_stmt = text(req2workload_select)
@@ -153,6 +156,24 @@ def get_request_id_by_workload_id(workload_id=None, session=None):
         return request_id
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('request with workload_id:%s cannot be found: %s' % (workload_id, error))
+
+
+@read_session
+def get_request_id(request_id=None, workload_id=None, session=None):
+    """
+    Get request id or raise a NoObject exception.
+
+    :param request_id: the request id.
+    :param workload_id: The workload_id of the request.
+    :param session: The database session in use.
+
+    :raises NoObject: If no request is founded.
+
+    :returns: Request id.
+    """
+    if request_id:
+        return request_id
+    return get_request_id_by_workload_id(workload_id)
 
 
 @read_session

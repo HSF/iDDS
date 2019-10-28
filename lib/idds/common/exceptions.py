@@ -74,6 +74,26 @@ class IDDSException(Exception):
         return self._error_string.strip() + "\nStacktrace: %s" % traceback.format_exc()
 
 
+class NotImplementedException(IDDSException):
+    """
+    RucioException
+    """
+    def __init__(self, *args, **kwargs):
+        super(NotImplementedException, self).__init__(*args, **kwargs)
+        self._message = "Not implemented exception."
+        self.error_code = 101
+
+
+class WrongParameterException(IDDSException):
+    """
+    RucioException
+    """
+    def __init__(self, *args, **kwargs):
+        super(WrongParameterException, self).__init__(*args, **kwargs)
+        self._message = "Wrong parameter exception."
+        self.error_code = 102
+
+
 class DatabaseException(IDDSException):
     """
     RucioException

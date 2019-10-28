@@ -27,3 +27,8 @@ pool_reset_on_return=rollback
 host = https://aipanda182.cern.ch:8443/idds
 #url_prefix = 
 debug = False
+
+#[section]
+#plugin.<plugin_name> = <lib.path.name.ClassName>
+#plugin.<plugin_name>.<attr1> = <value1>
+#plugin.<plugin_name>.<attr2> = <value2>

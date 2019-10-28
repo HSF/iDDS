@@ -12,17 +12,18 @@
 """
 Test Request.
 """
-import datetime
 
 import unittest2 as unittest
 from nose.tools import assert_equal, assert_raises
 
 from idds.common import exceptions
-from idds.common.constants import GranularityType, ProcessingStatus, TransformType, TransformStatus
 from idds.common.utils import check_database, has_config, setup_logging
+from idds.common.constants import ProcessingStatus
 from idds.orm.transforms import add_transform, delete_transform
 from idds.orm.processings import (add_processing, update_processing,
                                   get_processing, delete_processing)
+from idds.tests.common import get_transform_properties, get_processing_properties
+
 setup_logging(__name__)
 
 
@@ -30,29 +31,11 @@ class TestTransformProcessing(unittest.TestCase):
 
     @unittest.skipIf(not has_config(), "No config file")
     @unittest.skipIf(not check_database(), "Database is not defined")
-    def test_create_and_check_for_transform_processing_core(self):
-        """ Transform/Processing (CORE): Test the creation, query, and cancel of a Transform/Processing """
-        trans_properties = {
-            'transform_type': TransformType.EventStreaming,
-            'transform_tag': 's3128',
-            'priority': 0,
-            'status': TransformStatus.New,
-            'retries': 0,
-            'expired_at': datetime.datetime.utcnow().replace(microsecond=0),
-            'transform_metadata': {'input': {'coll_id': 123},
-                                   'output': {'coll_id': 456},
-                                   'log': {'coll_id': 789}}
-        }
+    def test_create_and_check_for_transform_processing_orm(self):
+        """ Transform/Processing (ORM): Test the creation, query, and cancel of a Transform/Processing """
+        trans_properties = get_transform_properties()
 
-        proc_properties = {
-            'transform_id': None,
-            'status': ProcessingStatus.New,
-            'submitter': 'panda',
-            'granularity': 10,
-            'granularity_type': GranularityType.File,
-            'expired_at': datetime.datetime.utcnow().replace(microsecond=0),
-            'processing_metadata': {'task_id': 40191323}
-        }
+        proc_properties = get_processing_properties()
 
         trans_id = add_transform(**trans_properties)
 
