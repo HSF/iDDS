@@ -291,7 +291,7 @@ def get_collections(scope, name, request_id=None, workload_id=None, session=None
     try:
         if request_id is not None:
             if workload_id is not None:
-                select = """select * from atlas_idds.collections where soope=:scope
+                select = """select * from atlas_idds.collections where scope=:scope
                             and name like :name and request_id=:request_id
                             and workload_id=:workload_id"""
                 stmt = text(select)
@@ -299,20 +299,20 @@ def get_collections(scope, name, request_id=None, workload_id=None, session=None
                                                 'request_id': request_id,
                                                 'workload_id': workload_id})
             else:
-                select = """select * from atlas_idds.collections where soope=:scope
+                select = """select * from atlas_idds.collections where scope=:scope
                             and name like :name and request_id=:request_id"""
                 stmt = text(select)
                 result = session.execute(stmt, {'scope': scope, 'name': '%' + name + '%',
                                                 'request_id': request_id})
         else:
             if workload_id is not None:
-                select = """select * from atlas_idds.collections where soope=:scope
+                select = """select * from atlas_idds.collections where scope=:scope
                             and name like :name and workload_id=:workload_id"""
                 stmt = text(select)
                 result = session.execute(stmt, {'scope': scope, 'name': '%' + name + '%',
                                                 'workload_id': workload_id})
             else:
-                select = """select * from atlas_idds.collections where soope=:scope
+                select = """select * from atlas_idds.collections where scope=:scope
                             and name like :name"""
                 stmt = text(select)
                 result = session.execute(stmt, {'scope': scope, 'name': '%' + name + '%'})
@@ -356,7 +356,7 @@ def get_collection_id_by_scope_name(scope, name, request_id=None, workload_id=No
     try:
         if request_id is not None:
             if workload_id is not None:
-                select = """select * from atlas_idds.collections where soope=:scope
+                select = """select * from atlas_idds.collections where scope=:scope
                             and name=:name and request_id=:request_id
                             and workload_id=:workload_id"""
                 stmt = text(select)
@@ -364,14 +364,14 @@ def get_collection_id_by_scope_name(scope, name, request_id=None, workload_id=No
                                                 'request_id': request_id,
                                                 'workload_id': workload_id})
             else:
-                select = """select * from atlas_idds.collections where soope=:scope
+                select = """select * from atlas_idds.collections where scope=:scope
                             and name=:name and request_id=:request_id"""
                 stmt = text(select)
                 result = session.execute(stmt, {'scope': scope, 'name': name,
                                                 'request_id': request_id})
         else:
             if workload_id is not None:
-                select = """select * from atlas_idds.collections where soope=:scope
+                select = """select * from atlas_idds.collections where scope=:scope
                             and name=:name and workload_id=:workload_id"""
                 stmt = text(select)
                 result = session.execute(stmt, {'scope': scope, 'name': name,

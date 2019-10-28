@@ -330,7 +330,7 @@ def get_match_contents(coll_id, scope, name, content_type=None, min_id=None, max
                                             'min_id': min_id, 'max_id': max_id})
 
         contents = result.fetchall()
-        rets = {}
+        rets = []
         for content in contents:
             content = row2dict(content)
             if content['content_type'] is not None:

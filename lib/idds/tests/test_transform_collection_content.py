@@ -119,6 +119,7 @@ class TestTransformCollectionContent(unittest.TestCase):
         trans_id = add_transform(**trans_properties)
 
         coll_properties['transform_id'] = trans_id
+        coll_properties['request_id'] = request_id
         origin_coll_id = add_collection(**coll_properties)
         coll_properties1 = copy.deepcopy(coll_properties)
         coll_properties1['name'] = coll_properties['name'] + '_1'
