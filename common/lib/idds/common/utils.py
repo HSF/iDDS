@@ -222,7 +222,7 @@ def convert_nojsontype_to_value(params):
         if params[key] is not None:
             if isinstance(params[key], Enum):
                 params[key] = params[key].value
-            if isinstance(params[keu], datetime.datetime):
+            if isinstance(params[key], datetime.datetime):
                 params[key] = date_to_str(params[key])
     return params
 
