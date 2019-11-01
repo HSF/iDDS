@@ -18,6 +18,11 @@ from setuptools import setup, find_packages, Distribution
 from setuptools.command.install import install
 
 
+current_dir = os.getcwd()
+working_dir = os.path.dirname(os.path.realpath(__file__))
+os.chdir(working_dir)
+
+
 with open('lib/idds/version.py', "rt", encoding="utf8") as f:
     version = re.search(r'release_version = "(.*?)"', f.read()).group(1)
 
@@ -109,3 +114,5 @@ setup(
         'Programming Language :: Python :: 3.6',
     ],
 )
+
+os.chdir(current_dir)

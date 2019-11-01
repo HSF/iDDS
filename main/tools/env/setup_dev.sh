@@ -18,4 +18,4 @@ echo 'Root dir: ' $RootDir
 export IDDS_HOME=$RootDir
 
 conda activate $CondaDir
-export PYTHONPATH=${IDDS_HOME}/lib:$PYTHONPATH
+#export PYTHONPATH=${IDDS_HOME}/lib:$PYTHONPATH
