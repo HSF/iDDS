@@ -152,8 +152,11 @@ def get_request_id_by_workload_id(workload_id, session=None):
         req2workload_stmt = text(req2workload_select)
         result = session.execute(req2workload_stmt, {'workload_id': workload_id})
         row = result.fetchone()
-        request_id = row[0]
-        return request_id
+        if row:
+            request_id = row[0]
+            return request_id
+        else:
+            raise exceptions.NoObject('request with workload_id:%s cannot be found.' % (workload_id))
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('request with workload_id:%s cannot be found: %s' % (workload_id, error))
 

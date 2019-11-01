@@ -59,7 +59,7 @@ def add_request(scope, name, requester=None, request_type=None, transform_tag=No
                 requests.update_request(req['requestid'], update_paramesters, session=session)
                 return req['requestid']
             else:
-                errmsg = "There is already a different request(%s) with the same workload id(%s)" % (req['requestid'],
+                errmsg = "There is already a different request(%s) with the same workload id(%s)" % (req['request_id'],
                                                                                                      request_metadata['workload_id'])
                 raise exceptions.ConflictRequestException(errmsg)
         except exceptions.NoObject:

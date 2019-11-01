@@ -12,6 +12,7 @@
 common funcs for tests
 """
 
+import time
 import datetime
 from uuid import uuid4 as uuid
 
@@ -32,7 +33,7 @@ def get_request_properties():
         'status': RequestStatus.New,
         'priority': 0,
         'lifetime': 30,
-        'request_metadata': {'workload_id': 2019}
+        'request_metadata': {'workload_id': int(time.time())}
     }
     return req_properties
 

@@ -14,6 +14,7 @@ Test client.
 """
 
 
+import time
 from uuid import uuid4 as uuid
 
 from idds.client.client import Client
@@ -31,7 +32,7 @@ def get_req_properties():
         'status': RequestStatus.New,
         'priority': 0,
         'lifetime': 30,
-        'request_metadata': {'workload_id': 2019}
+        'request_metadata': {'workload_id': int(time.time())}
     }
     return properties
 
