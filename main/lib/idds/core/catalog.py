@@ -129,7 +129,8 @@ def register_output_contents(coll_scope, coll_name, contents, request_id=None, w
     :param coll_name: name the the collection.
     :param request_id: the request id.
     :param workload_id: The workload_id of the request.
-    :param contents: list of contents [{'scope': <scope>, 'name': <name>, 'min_id': min_id, 'max_id': max_id, 'path': <path>}].
+    :param contents: list of contents [{'scope': <scope>, 'name': <name>, 'min_id': min_id, 'max_id': max_id,
+                                        'status': <status>, 'path': <path>}].
     :param session: The database session in use.
     """
 
@@ -140,14 +141,16 @@ def register_output_contents(coll_scope, coll_name, contents, request_id=None, w
 
     coll_id = orm_collections.get_collection_id_by_scope_name(coll_scope, coll_name, request_id, workload_id, session=session)
 
-    content_keys = ['scope', 'name', 'min_id', 'max_id', 'path']
+    content_keys = ['scope', 'name', 'min_id', 'max_id', 'status', 'path']
     parameters = []
     for content in contents:
         parameter = {}
         for key in content_keys:
-            if content[key] is None:
+            if key != 'path' and content[key] is None:
                 raise exceptions.WrongParameterException("Content %s should not be None" % key)
             parameter[key] = content[key]
+        if isinstance(parameter['status'], ContentStatus):
+            parameter['status'] = parameter['status'].value
         parameter['coll_id'] = coll_id
         parameters.append(parameter)
     orm_contents.update_contents(parameters, session=session)
