@@ -12,7 +12,7 @@
 CurrentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 ToolsDir="$( dirname "$CurrentDir" )"
 RootDir="$( dirname "$ToolsDir" )"
-CondaDir=${RootDir}/.conda/iDDS
+CondaDir=${RootDir}/../.conda/iDDS
 
 echo 'Root dir: ' $RootDir
 export IDDS_HOME=$RootDir

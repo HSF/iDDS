@@ -15,13 +15,27 @@ plugin utils
 plugin configuration structure:
 
 [section_name]
+plugin_sequence = <plugin_name1>,<plugin_name2>
 plugin.<plugin_name> = <plugin.lib.path.ClassName>
 plugin.<plugin_name>.<attr1> = <value1>
 plugin.<plugin_name>.<attr2> = <value2>
 """
 
 
-from idds.common.config import config_has_section, config_list_options
+from idds.common.config import (config_has_section, config_has_option,
+                                config_list_options, config_get)
+
+
+def load_plugin_sequence(config_section, config_option='plugin_sequence'):
+    """
+    load plugin sequence
+    """
+    plugin_sequence = []
+    if config_has_section(config_section) and config_has_option(config_section, config_option):
+        plugin_sequence = config_get(config_section, config_option)
+        plugin_sequence = plugin_sequence.split(",")
+        plugin_sequence = [plugin.strip() for plugin in plugin_sequence]
+    return plugin_sequence
 
 
 def load_plugin_attributes(config_section, name, plugin):

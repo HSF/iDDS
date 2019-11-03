@@ -29,9 +29,9 @@ Catagories:
  4. Rest related exception
     1. bad request
     2. connection error
- 5. Daemon exception
+ 5. Agent exception
     1. No plugin exception
-    2. Daemon plugin exception
+    2. Agent plugin exception
 """
 
 
@@ -184,17 +184,17 @@ class ConnectionException(RestException):
         self.error_code = 402
 
 
-class DaemonException(IDDSException):
+class AgentException(IDDSException):
     """
     BrokerException
     """
     def __init__(self, *args, **kwargs):
-        super(DaemonException, self).__init__(*args, **kwargs)
-        self._message = "Daemon exception."
+        super(AgentException, self).__init__(*args, **kwargs)
+        self._message = "Agent exception."
         self.error_code = 500
 
 
-class NoPluginException(DaemonException):
+class NoPluginException(AgentException):
     """
     NoPluginException exception
     """
@@ -204,11 +204,11 @@ class NoPluginException(DaemonException):
         self.error_code = 501
 
 
-class DaemonPluginError(DaemonException):
+class AgentPluginError(AgentException):
     """
-    DaemonPluginError exception
+    AgentPluginError exception
     """
     def __init__(self, *args, **kwargs):
-        super(DaemonPluginError, self).__init__(*args, **kwargs)
-        self._message = "Daemon plugin exception."
+        super(AgentPluginError, self).__init__(*args, **kwargs)
+        self._message = "Agent plugin exception."
         self.error_code = 502
