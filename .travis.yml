@@ -23,7 +23,7 @@ before_script:
   - pip freeze
   - flake8 --help
   - if [[ $FLAKE8_CONFIG != ".flake8" ]]; then rm .flake8; fi
-  - flake8 --config $FLAKE8_CONFIG */lib/idds/
+  - flake8 --config $FLAKE8_CONFIG */lib/idds/ */*.py
 script:
   - bash main/tools/test/test_travis.sh
 matrix:
