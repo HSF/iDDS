@@ -15,7 +15,7 @@ operations related to Catalog(Collections and Contents).
 
 
 from idds.common import exceptions
-from idds.common.constants import CollectionRelationType
+from idds.common.constants import CollectionRelationType, ContentStatus
 from idds.orm.base.session import read_session, transactional_session
 from idds.orm import (requests as orm_requests,
                       collections as orm_collections,
