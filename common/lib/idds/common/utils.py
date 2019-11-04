@@ -218,12 +218,27 @@ def convert_nojsontype_to_value(params):
 
     :returns: dict of parameters.
     """
-    for key in params:
-        if params[key] is not None:
-            if isinstance(params[key], Enum):
-                params[key] = params[key].value
-            if isinstance(params[keu], datetime.datetime):
-                params[key] = date_to_str(params[key])
+    if isinstance(params, list):
+        new_params = []
+        for v in params:
+            if v is not None:
+                if isinstance(v, Enum):
+                    v = v.value
+                if isinstance(v, datetime.datetime):
+                    v = date_to_str(v)
+                if isinstance(v, [list, dict]):
+                    v = convert_nojsontype_to_value(v)
+            new_params.append(v)
+        params = new_params
+    elif isinstance(params, dict):
+        for key in params:
+            if params[key] is not None:
+                if isinstance(params[key], Enum):
+                    params[key] = params[key].value
+                if isinstance(params[key], datetime.datetime):
+                    params[key] = date_to_str(params[key])
+                if isinstance(params[key], [list, dict]):
+                    params[key] = convert_nojsontype_to_value(params[key])
     return params
 
 
@@ -252,7 +267,33 @@ def convert_value_to_nojsontype(params):
     elif 'granularity_type' in params:
         keys = process_keys
 
-    for key in keys.keys():
-        if key in params and params[key] is not None and isinstance(params[key], int):
-            params[key] = keys[key](params[key])
+    if isinstance(params, list):
+        new_params = []
+        for v in params:
+            if v is not None and isinstance(v, [list, dict]):
+                v = convert_value_to_nojsontype(v)
+            new_params.append(v)
+        params = new_params
+    elif isinstance(params, dict):
+        keys = []
+        if 'request_type' in params:
+            keys = req_keys
+        elif 'transform_type' in params:
+            keys = transform_keys
+        elif 'coll_type' in params:
+            keys = coll_keys
+        elif 'content_type' in params:
+            keys = content_keys
+        elif 'granularity_type' in params:
+            keys = process_keys
+
+        for key in keys.keys():
+            if key in params and params[key] is not None and isinstance(params[key], int):
+                params[key] = keys[key](params[key])
+
+        for key in params:
+            if params[key] is not None:
+                if isinstance(params[key], [list, dict]):
+                    params[key] = convert_value_to_nojsontype(params[key])
+
     return params

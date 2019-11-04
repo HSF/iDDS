@@ -74,40 +74,13 @@ def parse_requirements(requirements_files):
     return requirements
 
 
-def replace_python_path(conf_files, python_lib_path, install_bin_path, install_home_path):
-    for conf_file in conf_files:
-        new_file = conf_file.replace('.template', '.install_template')
-        with open(conf_file, 'r') as f:
-            template = f.read()
-        template = template.format(python_site_packages_path=python_lib_path, GLOBAL='GLOBAL',
-                                   python_site_home_path=install_home_path,
-                                   python_site_bin_path=install_bin_path)
-        with open(new_file, 'w') as f:
-            f.write(template)
-
-
-def replace_data_path(wsgi_file, install_data_path):
-    new_file = wsgi_file.replace('.template', '')
-    with open(wsgi_file, 'r') as f:
-        template = f.read()
-    template = template.format(idds_config_path=os.path.join(install_data_path, 'etc/idds/idds.cfg'))
-    with open(new_file, 'w') as f:
-        f.write(template)
-
-
 install_lib_path = get_python_lib()
 install_bin_path = get_python_bin_path()
 install_home_path = get_python_home()
 install_data_path = get_data_path()
 
-rest_conf_files = ['etc/idds/rest/httpd-idds-443-py36-cc7.conf.template']
-replace_python_path(rest_conf_files, install_lib_path, install_bin_path, install_home_path)
-wsgi_file = 'bin/idds.wsgi.template'
-replace_data_path(wsgi_file, install_data_path)
-
 requirements_files = ['tools/env/environment.yml']
 install_requires = parse_requirements(requirements_files=requirements_files)
-extras_requires = dict(mysql=['mysqlclient'])
 data_files = [
     # config and cron files
     ('etc/idds/', glob.glob('etc/idds/*.template')),
@@ -116,7 +89,7 @@ data_files = [
 scripts = glob.glob('bin/*')
 
 setup(
-    name="iDDS",
+    name="iDDS-common",
     version=version,
     description='intelligent Data Delivery Service(iDDS) Package',
     long_description=readme,
@@ -127,7 +100,6 @@ setup(
     packages=find_packages('lib/'),
     package_dir={'': 'lib'},
     install_requires=install_requires,
-    extras_require=extras_requires,
     include_package_data=True,
     data_files=data_files,
     scripts=scripts,

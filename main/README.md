@@ -1,6 +1,6 @@
-iDDS
+iDDS-main
 ====
 
-iDDS is an intelligent Data Delivery Service. It's designed to transform and deliver
-data for High Energy Physics workloads.
+iDDS-main provides the main services for iDDS.
+It includes modules such as orm, core, api, rest, daemons and so on.
 
