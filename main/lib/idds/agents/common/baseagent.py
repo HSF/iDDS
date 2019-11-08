@@ -39,7 +39,7 @@ class BaseAgent(Thread, PluginBase):
         self.num_threads = num_threads
         self.graceful_stop = threading.Event()
         self.executors = futures.ThreadPoolExecutor(max_workers=num_threads)
-        self.tasks = Queue.Queue()
+        self.task_queue = Queue.Queue()
         self.finished_tasks = Queue.Queue()
 
         self.config_section = Sections.Common
@@ -73,31 +73,15 @@ class BaseAgent(Thread, PluginBase):
             if plugin_name not in self.plugin_sequence:
                 raise AgentPluginError("Plugin %s is defined but it is not defined in plugin_sequence")
 
-    def get_tasks(self):
-        """
-        Get tasks to process
-        """
-        tasks = []
-        self.logger.info("Main thread get %s tasks" % len(tasks))
-        for task in tasks:
-            self.tasks.put(task)
+    def submit_task(self, task_func, output_queue, task_args=tuple(), task_kwargs={}):
+        task = task_func, output_queue, task_args, task_kwargs
+        self.task_queue.put(task)
 
-    def process_task(self, task):
+    def prepare_finish_tasks(self):
         """
-        Process task
+        Prepare tasks and finished tasks
         """
-        for plugin_name in self.plugin_sequence:
-            plugin = self.plugins[plugin_name]
-            task = plugin(task)
-        return task
-
-    def finish_tasks(self):
-        """
-        Finish processing the finished tasks, for example, update db status.
-        """
-        while not self.finished_tasks.empty():
-            task = self.finished_tasks.get()
-            self.logger.info("Main thread finishing task: %s" % task)
+        pass
 
     def run_tasks(self, thread_id):
         log_prefix = "[Thread %s]: " % thread_id
@@ -105,13 +89,15 @@ class BaseAgent(Thread, PluginBase):
 
         while not self.graceful_stop.is_set():
             try:
-                if not self.tasks.empty():
-                    task = self.tasks.get()
+                if not self.task_queue.empty():
+                    task = self.task_queue.get()
                     self.logger.info(log_prefix + "Got task: %s" % task)
 
                     try:
                         self.logger.info(log_prefix + "Processing task: %s" % task)
-                        task = self.process_task(task)
+                        task_func, task_output_queue, task_args, task_kwargs = task
+                        ret = task_func(*task_args, **task_kwargs)
+                        task_output_queue.put(ret)
                     except IDDSException as error:
                         self.logger.error(log_prefix + "Caught an IDDSException: %s" % str(error))
                     except Exception as error:
@@ -129,7 +115,7 @@ class BaseAgent(Thread, PluginBase):
         """
         Sleep for tasks
         """
-        if self.finished_tasks.empty() and self.tasks.empty():
+        if self.task_queue.empty():
             self.logger.info("Main thread will sleep 4 seconds")
             self.graceful_stop.wait(4)
         else:
@@ -150,8 +136,7 @@ class BaseAgent(Thread, PluginBase):
 
             while not self.graceful_stop.is_set():
                 try:
-                    self.get_tasks()
-                    self.finish_tasks()
+                    self.prepare_finish_tasks()
                     self.sleep_for_tasks()
                 except IDDSException as error:
                     self.logger.error("Main thread IDDSException: %s" % str(error))
