@@ -123,3 +123,16 @@ def update_request(request_id, parameters):
     :param parameters: A dictionary of parameters.
     """
     return requests.update_request(request_id, parameters)
+
+
+def get_requests_by_status_type(status, request_type, time_period=None):
+    """
+    Get requests by status and type
+
+    :param status: list of status of the request data.
+    :param request_type: The type of the request data.
+    :param time_period: Delay of seconds before last update.
+
+    :returns: list of Request.
+    """
+    return requests.get_requests_by_status_type(status, request_type, time_period)
