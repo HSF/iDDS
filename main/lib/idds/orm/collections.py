@@ -208,7 +208,7 @@ def get_collections_by_request_transform_id(request_id=None, transform_id=None, 
                 stmt = text(select)
                 result = session.execute(stmt, {'transform_id': transform_id})
             else:
-                raise exceptions.WrongParamterException("Both request_id and workload_id are None.")
+                raise exceptions.WrongParamterException("Both request_id and transform_id are None.")
 
         collections = result.fetchall()
         ret = []
@@ -262,7 +262,7 @@ def get_collection_ids_by_request_transform_id(request_id=None, transform_id=Non
                 stmt = text(select)
                 result = session.execute(stmt, {'transform_id': transform_id})
             else:
-                raise exceptions.WrongParamterException("Both request_id and workload_id are None.")
+                raise exceptions.WrongParamterException("Both request_id and transform_id are None.")
 
         collection_ids = result.fetchall()
         ret = [row[0] for row in collection_ids]
@@ -275,7 +275,7 @@ def get_collection_ids_by_request_transform_id(request_id=None, transform_id=Non
 
 
 @read_session
-def get_collections(scope, name, request_id=None, workload_id=None, session=None):
+def get_collections(scope, name, request_id=None, session=None):
     """
     Get collections by request id or raise a NoObject exception.
 
@@ -290,32 +290,16 @@ def get_collections(scope, name, request_id=None, workload_id=None, session=None
     """
     try:
         if request_id is not None:
-            if workload_id is not None:
-                select = """select * from atlas_idds.collections where scope=:scope
-                            and name like :name and request_id=:request_id
-                            and workload_id=:workload_id"""
-                stmt = text(select)
-                result = session.execute(stmt, {'scope': scope, 'name': '%' + name + '%',
-                                                'request_id': request_id,
-                                                'workload_id': workload_id})
-            else:
-                select = """select * from atlas_idds.collections where scope=:scope
-                            and name like :name and request_id=:request_id"""
-                stmt = text(select)
-                result = session.execute(stmt, {'scope': scope, 'name': '%' + name + '%',
-                                                'request_id': request_id})
+            select = """select * from atlas_idds.collections where scope=:scope
+                        and name like :name and request_id=:request_id"""
+            stmt = text(select)
+            result = session.execute(stmt, {'scope': scope, 'name': '%' + name + '%',
+                                            'request_id': request_id})
         else:
-            if workload_id is not None:
-                select = """select * from atlas_idds.collections where scope=:scope
-                            and name like :name and workload_id=:workload_id"""
-                stmt = text(select)
-                result = session.execute(stmt, {'scope': scope, 'name': '%' + name + '%',
-                                                'workload_id': workload_id})
-            else:
-                select = """select * from atlas_idds.collections where scope=:scope
-                            and name like :name"""
-                stmt = text(select)
-                result = session.execute(stmt, {'scope': scope, 'name': '%' + name + '%'})
+            select = """select * from atlas_idds.collections where scope=:scope
+                        and name like :name"""
+            stmt = text(select)
+            result = session.execute(stmt, {'scope': scope, 'name': '%' + name + '%'})
 
         collections = result.fetchall()
         ret = []
@@ -333,20 +317,21 @@ def get_collections(scope, name, request_id=None, workload_id=None, session=None
             ret.append(collection)
         return ret
     except sqlalchemy.orm.exc.NoResultFound as error:
-        raise exceptions.NoObject('No collection with  scope(%s), name(%s), request_id(%s), workload_id(%s): %s' %
-                                  (scope, name, request_id, workload_id, error))
+        raise exceptions.NoObject('No collection with  scope(%s), name(%s), request_id(%s): %s' %
+                                  (scope, name, request_id, error))
     except Exception as error:
         raise error
 
 
 @read_session
-def get_collection_id_by_scope_name(scope, name, request_id=None, workload_id=None, session=None):
+def get_collection_id_by_scope_name(scope, name, request_id=None, relation_type=None, session=None):
     """
     Get collection id by scope, name, request id or raise a NoObject exception.
 
     :param scope: collection scope.
     :param name: collection name, should not be wildcards.
     :param request_id: The request id related to this collection.
+    :param relation_type: The relation type between this collection and the transform: Input, Ouput and Log.
     :param session: The database session in use.
 
     :raises NoObject: If no collections are founded.
@@ -355,37 +340,30 @@ def get_collection_id_by_scope_name(scope, name, request_id=None, workload_id=No
     """
     try:
         if request_id is not None:
-            if workload_id is not None:
-                select = """select * from atlas_idds.collections where scope=:scope
-                            and name=:name and request_id=:request_id
-                            and workload_id=:workload_id"""
-                stmt = text(select)
-                result = session.execute(stmt, {'scope': scope, 'name': name,
-                                                'request_id': request_id,
-                                                'workload_id': workload_id})
-            else:
+            if relation_type is None:
                 select = """select * from atlas_idds.collections where scope=:scope
                             and name=:name and request_id=:request_id"""
                 stmt = text(select)
                 result = session.execute(stmt, {'scope': scope, 'name': name,
                                                 'request_id': request_id})
-        else:
-            if workload_id is not None:
+            else:
+                if isinstance(relation_type, CollectionRelationType):
+                    relation_type = relation_type.value
                 select = """select * from atlas_idds.collections where scope=:scope
-                            and name=:name and workload_id=:workload_id"""
+                            and name=:name and request_id=:request_id and in_out_type=:relation_type"""
                 stmt = text(select)
                 result = session.execute(stmt, {'scope': scope, 'name': name,
-                                                'workload_id': workload_id})
-            else:
-                raise exceptions.WrongParameterException("Either request_id or workload_id should not be None")
+                                                'request_id': request_id, 'relation_type': relation_type})
+        else:
+            raise exceptions.WrongParameterException("request_id should not be None")
 
         collection_id = result.fetchone()
         if collection_id is None:
             raise sqlalchemy.orm.exc.NoResultFound()
         return collection_id[0]
     except sqlalchemy.orm.exc.NoResultFound as error:
-        raise exceptions.NoObject('No collection with  scope(%s), name(%s), request_id(%s), workload_id(%s): %s' %
-                                  (scope, name, request_id, workload_id, error))
+        raise exceptions.NoObject('No collection with  scope(%s), name(%s), request_id(%s): %s' %
+                                  (scope, name, request_id, error))
     except Exception as error:
         raise error
 
