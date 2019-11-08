@@ -64,8 +64,9 @@ def get_collections(scope, name, request_id=None, workload_id=None, session=None
     if scope is None and name is None:
         return get_collections_by_request(request_id=request_id, workload_id=workload_id, session=session)
 
-    collections = orm_collections.get_collections(scope=scope, name=name, request_id=request_id,
-                                                  workload_id=workload_id, session=session)
+    if request_id is None and workload_id is not None:
+        request_id = orm_requests.get_request_id(request_id, workload_id, session=session)
+    collections = orm_collections.get_collections(scope=scope, name=name, request_id=request_id, session=session)
     rets = {}
     for collection in collections:
         request_id = collection['request_id']
@@ -111,17 +112,18 @@ def get_contents(coll_scope=None, coll_name=None, request_id=None, workload_id=N
                     scope = collection['scope']
                     name = collection['name']
                     coll_id = collection['coll_id']
-                    relation_type = collection['relation_type']
+                    coll_relation_type = collection['relation_type']
                     scope_name = '%s:%s' % (scope, name)
-                    contents = orm_contents.get_contents(coll_id=coll_id)
+                    contents = orm_contents.get_contents(coll_id=coll_id, session=session)
                     rets[request_id][transform_id][scope_name] = {'collection': collection,
-                                                                  'relation_type': relation_type,
+                                                                  'relation_type': coll_relation_type,
                                                                   'contents': contents}
     return rets
 
 
 @transactional_session
-def register_output_contents(coll_scope, coll_name, contents, request_id=None, workload_id=None, session=None):
+def register_output_contents(coll_scope, coll_name, contents, request_id=None, workload_id=None,
+                             relation_type=CollectionRelationType.Output, session=None):
     """
     register contents with collection scope, collection name, request id, workload id and contents.
 
@@ -138,15 +140,23 @@ def register_output_contents(coll_scope, coll_name, contents, request_id=None, w
         msg = "Only one of (request_id, workload_id) can be None. All other parameters should not be None: "
         msg += "request_id=%s, workload_id=%s, coll_scope=%s, coll_name=%s" % (request_id, workload_id, coll_scope, coll_name)
         raise exceptions.WrongParameterException(msg)
+    if request_id is None and workload_id is not None:
+        request_id = orm_requests.get_request_id(request_id, workload_id, session=session)
 
-    coll_id = orm_collections.get_collection_id_by_scope_name(coll_scope, coll_name, request_id, workload_id, session=session)
+    coll_id = orm_collections.get_collection_id_by_scope_name(coll_scope, coll_name, request_id, relation_type, session=session)
 
-    content_keys = ['scope', 'name', 'min_id', 'max_id', 'status', 'path']
     parameters = []
     for content in contents:
+        if 'status' not in content or content['status'] is None:
+            raise exceptions.WrongParameterException("Content status is required and should not be None: %s" % content)
+        if content['status'] in [ContentStatus.Available, ContentStatus.Available.value]:
+            content_keys = ['scope', 'name', 'min_id', 'max_id', 'status', 'path']
+        else:
+            content_keys = ['scope', 'name', 'min_id', 'max_id', 'status']
+
         parameter = {}
         for key in content_keys:
-            if key != 'path' and content[key] is None:
+            if content[key] is None:
                 raise exceptions.WrongParameterException("Content %s should not be None" % key)
             parameter[key] = content[key]
         if isinstance(parameter['status'], ContentStatus):
@@ -158,7 +168,8 @@ def register_output_contents(coll_scope, coll_name, contents, request_id=None, w
 
 @read_session
 def get_match_contents(coll_scope, coll_name, scope, name, min_id=None, max_id=None,
-                       request_id=None, workload_id=None, only_return_best_match=False, session=None):
+                       request_id=None, workload_id=None, relation_type=None,
+                       only_return_best_match=False, session=None):
     """
     Get matched contents with collection scope, collection name, scope, name, min_id, max_id,
     request id, workload id and only_return_best_match.
@@ -182,8 +193,8 @@ def get_match_contents(coll_scope, coll_name, scope, name, min_id=None, max_id=N
         msg += "request_id=%s, workload_id=%s, coll_scope=%s, coll_name=%s" % (request_id, workload_id, coll_scope, coll_name)
         raise exceptions.WrongParameterException(msg)
 
-    coll_id = orm_collections.get_collection_id_by_scope_name(coll_scope, coll_name, request_id, workload_id)
-    contents = orm_contents.get_match_contents(coll_id=coll_id, scope=scope, name=name, min_id=min_id, max_id=max_id)
+    coll_id = orm_collections.get_collection_id_by_scope_name(coll_scope, coll_name, request_id, relation_type, session=session)
+    contents = orm_contents.get_match_contents(coll_id=coll_id, scope=scope, name=name, min_id=min_id, max_id=max_id, session=session)
 
     if not only_return_best_match:
         return contents
