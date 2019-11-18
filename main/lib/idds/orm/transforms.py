@@ -149,6 +149,41 @@ def get_transform_ids(request_id, session=None):
         raise error
 
 
+@read_session
+def get_transforms(request_id, session=None):
+    """
+    Get transforms or raise a NoObject exception.
+
+    :param request_id: Request id.
+    :param session: The database session in use.
+
+    :raises NoObject: If no transform is founded.
+
+    :returns: list of transform.
+    """
+    try:
+        select = """select * from atlas_idds.transforms as s join atlas_idds.req2transforms as t
+                    on s.transform_id=t.transform_id and t.request_id=:request_id"""
+        stmt = text(select)
+        result = session.execute(stmt, {'request_id': request_id})
+        transforms = result.fetchall()
+        new_transforms = []
+        for transform in transforms:
+            transform = row2dict(transform)
+            if transform['transform_type']:
+                transform['transform_type'] = TransformType(transform['transform_type'])
+            if transform['status'] is not None:
+                transform['status'] = TransformStatus(transform['status'])
+            if transform['transform_metadata']:
+                transform['transform_metadata'] = json.loads(transform['transform_metadata'])
+        new_transforms.append(transform)
+    except sqlalchemy.orm.exc.NoResultFound as error:
+        raise exceptions.NoObject('No transforms attached with request id (%s): %s' %
+                                  (request_id, error))
+    except Exception as error:
+        raise error
+
+
 @transactional_session
 def update_transform(transform_id, parameters, session=None):
     """
