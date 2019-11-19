@@ -194,7 +194,7 @@ def add_contents(contents, returning_id=False, bulk_size=100, session=None):
 
 
 @read_session
-def get_content_id(coll_id, scope, name, content_type=ContentType.File, min_id=None, max_id=None, session=None):
+def get_content_id(coll_id, scope, name, content_type=None, min_id=None, max_id=None, session=None):
     """
     Get content id or raise a NoObject exception.
 
@@ -213,21 +213,28 @@ def get_content_id(coll_id, scope, name, content_type=ContentType.File, min_id=N
     """
 
     try:
-        if isinstance(content_type, ContentType):
+        if content_type is not None and isinstance(content_type, ContentType):
             content_type = content_type.value
-        if content_type == ContentType.File.value:
+        if content_type is None:
             select = """select content_id from atlas_idds.collections_content where coll_id=:coll_id and
-                        scope=:scope and name=:name and content_type=:content_type"""
+                        scope=:scope and name=:name and min_id=:min_id and max_id=:max_id"""
             stmt = text(select)
             result = session.execute(stmt, {'coll_id': coll_id, 'scope': scope, 'name': name,
-                                            'content_type': content_type})
+                                            'min_id': min_id, 'max_id': max_id})
         else:
-            select = """select content_id from atlas_idds.collections_content where coll_id=:coll_id and
-                        scope=:scope and name=:name and content_type=:content_type and min_id=:min_id and
-                        max_id=:max_id"""
-            stmt = text(select)
-            result = session.execute(stmt, {'coll_id': coll_id, 'scope': scope, 'name': name,
-                                            'content_type': content_type, 'min_id': min_id, 'max_id': max_id})
+            if content_type == ContentType.File.value:
+                select = """select content_id from atlas_idds.collections_content where coll_id=:coll_id and
+                            scope=:scope and name=:name and content_type=:content_type"""
+                stmt = text(select)
+                result = session.execute(stmt, {'coll_id': coll_id, 'scope': scope, 'name': name,
+                                                'content_type': content_type})
+            else:
+                select = """select content_id from atlas_idds.collections_content where coll_id=:coll_id and
+                            scope=:scope and name=:name and content_type=:content_type and min_id=:min_id and
+                            max_id=:max_id"""
+                stmt = text(select)
+                result = session.execute(stmt, {'coll_id': coll_id, 'scope': scope, 'name': name,
+                                                'content_type': content_type, 'min_id': min_id, 'max_id': max_id})
 
         content_id = result.fetchone()
 
@@ -244,7 +251,7 @@ def get_content_id(coll_id, scope, name, content_type=ContentType.File, min_id=N
 
 
 @read_session
-def get_content(content_id=None, coll_id=None, scope=None, name=None, content_type=ContentType.File, min_id=None, max_id=None, session=None):
+def get_content(content_id=None, coll_id=None, scope=None, name=None, content_type=None, min_id=None, max_id=None, session=None):
     """
     Get content or raise a NoObject exception.
 
@@ -311,23 +318,36 @@ def get_match_contents(coll_id, scope, name, content_type=None, min_id=None, max
     """
 
     try:
-        if min_id is None and max_id is None:
-            content_type = ContentType.File.value
         if content_type is not None and isinstance(content_type, ContentType):
             content_type = content_type.value
 
-        if content_type is not None and content_type == ContentType.File.value:
-            select = """select * from atlas_idds.collections_content where coll_id=:coll_id and
-                        scope=:scope and name=:name and content_type=:content_type"""
-            stmt = text(select)
-            result = session.execute(stmt, {'coll_id': coll_id, 'scope': scope, 'name': name,
-                                            'content_type': content_type})
+        if content_type is not None:
+            if content_type == ContentType.File.value:
+                select = """select * from atlas_idds.collections_content where coll_id=:coll_id and
+                            scope=:scope and name=:name and content_type=:content_type"""
+                stmt = text(select)
+                result = session.execute(stmt, {'coll_id': coll_id, 'scope': scope, 'name': name,
+                                                'content_type': content_type})
+            else:
+                select = """select * from atlas_idds.collections_content where coll_id=:coll_id and
+                            scope=:scope and name=:name and content_type=:content_type
+                            and min_id<=:min_id and max_id>=:max_id"""
+                stmt = text(select)
+                result = session.execute(stmt, {'coll_id': coll_id, 'scope': scope, 'name': name,
+                                                'content_type': content_type, 'min_id': min_id,
+                                                'max_id': max_id})
         else:
-            select = """select * from atlas_idds.collections_content where coll_id=:coll_id and
-                        scope=:scope and name=:name and min_id<=:min_id and max_id>=:max_id"""
-            stmt = text(select)
-            result = session.execute(stmt, {'coll_id': coll_id, 'scope': scope, 'name': name,
-                                            'min_id': min_id, 'max_id': max_id})
+            if min_id is None or max_id is None:
+                select = """select * from atlas_idds.collections_content where coll_id=:coll_id and
+                            scope=:scope and name=:name"""
+                stmt = text(select)
+                result = session.execute(stmt, {'coll_id': coll_id, 'scope': scope, 'name': name})
+            else:
+                select = """select * from atlas_idds.collections_content where coll_id=:coll_id and
+                            scope=:scope and name=:name and min_id<=:min_id and max_id>=:max_id"""
+                stmt = text(select)
+                result = session.execute(stmt, {'coll_id': coll_id, 'scope': scope, 'name': name,
+                                                'min_id': min_id, 'max_id': max_id})
 
         contents = result.fetchall()
         rets = []
@@ -454,6 +474,7 @@ def update_contents(parameters, session=None):
         keys = ['coll_id', 'scope', 'name', 'min_id', 'max_id', 'status', 'path']
         update = """update atlas_idds.collections_content set path=:path, updated_at=:updated_at, status=:status
                     where coll_id=:coll_id and scope=:scope and name=:name and min_id=:min_id and max_id=:max_id"""
+        stmt = text(update)
 
         contents = []
         for parameter in parameters:
@@ -467,8 +488,6 @@ def update_contents(parameters, session=None):
                 content['status'] = content['status'].value
             content['updated_at'] = datetime.datetime.utcnow()
             contents.append(content)
-
-        stmt = text(update)
         session.execute(stmt, contents)
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('Content cannot be found: %s' % (error))

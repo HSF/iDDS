@@ -49,11 +49,7 @@ def add_request(scope, name, requester=None, request_type=None, transform_tag=No
             req = requests.get_request(workload_id=request_metadata['workload_id'], session=session)
             if is_same_request(kwargs, req):
                 # updateexpired_at time and status
-                if req['status'] in [RequestStatus.New, RequestStatus.Transforming, RequestStatus.Transporting,
-                                     RequestStatus.Processing]:
-                    new_status = req['status']
-                else:
-                    new_status = RequestStatus.ReQueue
+                new_status = RequestStatus.Extend
                 update_paramesters = {'status': new_status, 'priority': priority,
                                       'expired_at': datetime.datetime.utcnow() + datetime.timedelta(days=lifetime)}
                 requests.update_request(req['requestid'], update_paramesters, session=session)
@@ -77,8 +73,9 @@ def is_same_request(new_req, req):
         request_type = request_type.value
 
     if (new_req['scope'] == req['scope'] and new_req['name'] == req['name']
-        and new_req['transform_tag'] == req['transform_tag']   # noqa: W503
-        and new_request_type == request_type):                 # noqa: W503
+        and new_req['transform_tag'] == req['transform_tag']          # noqa: W503
+        and new_request_type == request_type                          # noqa: W503
+        and new_req['request_metadata'] == req['request_metadata']):  # noqa: W503
         return True
     return False
 
@@ -126,3 +123,16 @@ def update_request(request_id, parameters):
     :param parameters: A dictionary of parameters.
     """
     return requests.update_request(request_id, parameters)
+
+
+def get_requests_by_status_type(status, request_type, time_period=None):
+    """
+    Get requests by status and type
+
+    :param status: list of status of the request data.
+    :param request_type: The type of the request data.
+    :param time_period: Delay of seconds before last update.
+
+    :returns: list of Request.
+    """
+    return requests.get_requests_by_status_type(status, request_type, time_period)

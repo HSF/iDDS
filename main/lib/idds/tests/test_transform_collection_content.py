@@ -19,7 +19,7 @@ import unittest2 as unittest
 from nose.tools import assert_equal, assert_raises, assert_in
 
 from idds.common import exceptions
-from idds.common.constants import (TransformStatus, CollectionStatus, ContentStatus)
+from idds.common.constants import (TransformStatus, CollectionStatus, ContentStatus, ContentType)
 from idds.common.utils import check_database, has_config, setup_logging
 from idds.orm.requests import add_request
 from idds.orm.transforms import (add_transform, delete_transform,
@@ -86,7 +86,8 @@ class TestTransformCollectionContent(unittest.TestCase):
         content_properties['coll_id'] = coll_id
         content_id = add_content(returning_id=True, **content_properties)
         content_id_1 = get_content_id(coll_id=coll_id, scope=content_properties['scope'],
-                                      name=content_properties['name'])
+                                      name=content_properties['name'],
+                                      content_type=ContentType.File)
         assert_equal(content_id, content_id_1)
 
         content = get_content(content_id=content_id)

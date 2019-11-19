@@ -59,7 +59,13 @@ class CatalogClient(BaseRestClient):
 
         collections = self.get_request_response(url, type='GET')
 
-        return collections
+        # json dumps will change integer key to string and json.loads will not change it back. fix it.
+        new_collections = {}
+        for coll_id in collections:
+            new_collections[int(coll_id)] = {}
+            for trans_id in collections[coll_id]:
+                new_collections[int(coll_id)][int(trans_id)] = collections[coll_id][trans_id]
+        return new_collections
 
     def get_contents(self, coll_scope=None, coll_name=None, request_id=None, workload_id=None, relation_type=None):
         """
@@ -90,8 +96,13 @@ class CatalogClient(BaseRestClient):
         url = self.build_url(self.host, path=os.path.join(path, coll_scope, coll_name, str(request_id), str(workload_id), str(relation_type)))
 
         contents = self.get_request_response(url, type='GET')
+        new_contents = {}
+        for coll_id in contents:
+            new_contents[int(coll_id)] = {}
+            for trans_id in contents[coll_id]:
+                new_contents[int(coll_id)][int(trans_id)] = contents[coll_id][trans_id]
 
-        return contents
+        return new_contents
 
     def get_match_contents(self, coll_scope=None, coll_name=None, scope=None, name=None, min_id=None, max_id=None, request_id=None, workload_id=None, only_return_best_match=None):
         """

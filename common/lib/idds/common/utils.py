@@ -226,7 +226,7 @@ def convert_nojsontype_to_value(params):
                     v = v.value
                 if isinstance(v, datetime.datetime):
                     v = date_to_str(v)
-                if isinstance(v, [list, dict]):
+                if isinstance(v, (list, dict)):
                     v = convert_nojsontype_to_value(v)
             new_params.append(v)
         params = new_params
@@ -237,7 +237,7 @@ def convert_nojsontype_to_value(params):
                     params[key] = params[key].value
                 if isinstance(params[key], datetime.datetime):
                     params[key] = date_to_str(params[key])
-                if isinstance(params[key], [list, dict]):
+                if isinstance(params[key], (list, dict)):
                     params[key] = convert_nojsontype_to_value(params[key])
     return params
 
@@ -270,7 +270,7 @@ def convert_value_to_nojsontype(params):
     if isinstance(params, list):
         new_params = []
         for v in params:
-            if v is not None and isinstance(v, [list, dict]):
+            if v is not None and isinstance(v, (list, dict)):
                 v = convert_value_to_nojsontype(v)
             new_params.append(v)
         params = new_params
@@ -293,7 +293,7 @@ def convert_value_to_nojsontype(params):
 
         for key in params:
             if params[key] is not None:
-                if isinstance(params[key], [list, dict]):
+                if isinstance(params[key], (list, dict)):
                     params[key] = convert_value_to_nojsontype(params[key])
 
     return params

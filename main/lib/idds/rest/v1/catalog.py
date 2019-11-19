@@ -11,6 +11,7 @@
 
 import copy
 import json
+import traceback
 
 from flask import Blueprint
 
@@ -35,14 +36,18 @@ class Collections(IDDSController):
         """
 
         try:
-            if scope == 'null':
+            if scope in ['null', 'None']:
                 scope = None
-            if name == 'null':
+            if name in ['null', 'None']:
                 name = None
-            if request_id == 'null':
+            if request_id in ['null', 'None']:
                 request_id = None
-            if workload_id == 'null':
+            else:
+                request_id = int(request_id)
+            if workload_id in ['null', 'None']:
                 workload_id = None
+            else:
+                workload_id = int(workload_id)
 
             rets = get_collections(scope=scope, name=name, request_id=request_id, workload_id=workload_id)
             rets = convert_nojsontype_to_value(rets)
@@ -51,6 +56,8 @@ class Collections(IDDSController):
         except exceptions.IDDSException as error:
             return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=error.__class__.__name__, exc_msg=error)
         except Exception as error:
+            print(error)
+            print(traceback.format_exc())
             return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
 
         return self.generate_http_response(HTTP_STATUS_CODE.OK, data=rets)
@@ -70,16 +77,22 @@ class Contents(IDDSController):
         """
 
         try:
-            if coll_scope == 'null':
+            if coll_scope in ['null', 'None']:
                 coll_scope = None
-            if coll_name == 'null':
+            if coll_name in ['null', 'None']:
                 coll_name = None
-            if request_id == 'null':
+            if request_id in ['null', 'None']:
                 request_id = None
-            if workload_id == 'null':
+            else:
+                request_id = int(request_id)
+            if workload_id in ['null', 'None']:
                 workload_id = None
-            if relation_type == 'null':
+            else:
+                workload_id = int(workload_id)
+            if relation_type in ['null', 'None']:
                 relation_type = None
+            else:
+                relation_type = int(relation_type)
 
             rets = get_contents(coll_scope=coll_scope, coll_name=coll_name, request_id=request_id,
                                 workload_id=workload_id, relation_type=relation_type)
@@ -89,6 +102,8 @@ class Contents(IDDSController):
         except exceptions.IDDSException as error:
             return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=error.__class__.__name__, exc_msg=error)
         except Exception as error:
+            print(error)
+            print(traceback.format_exc())
             return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
 
         return self.generate_http_response(HTTP_STATUS_CODE.OK, data=rets)
@@ -108,24 +123,38 @@ class Catalog(IDDSController):
         """
 
         try:
-            if coll_scope == 'null':
+            if coll_scope in ['null', 'None']:
                 coll_scope = None
-            if coll_name == 'null':
+            if coll_name in ['null', 'None']:
                 coll_name = None
-            if scope == 'null':
+            if scope in ['null', 'None']:
                 scope = None
-            if name == 'null':
+            if name in ['null', 'None']:
                 name = None
-            if min_id == 'null':
+            if min_id in ['null', 'None']:
                 min_id = None
-            if max_id == 'null':
+            else:
+                min_id = int(min_id)
+            if max_id in ['null', 'None']:
                 max_id = None
-            if request_id == 'null':
+            else:
+                max_id = int(max_id)
+            if request_id in ['null', 'None']:
                 request_id = None
-            if workload_id == 'null':
+            else:
+                request_id = int(request_id)
+            if workload_id in ['null', 'None']:
                 workload_id = None
-            if only_return_best_match == 'null':
+            else:
+                workload_id = int(workload_id)
+            if only_return_best_match in ['null', 'None']:
                 only_return_best_match = None
+            else:
+                if only_return_best_match.lower() == 'true':
+                    only_return_best_match = True
+                else:
+                    only_return_best_match = False
+
             rets = get_match_contents(coll_scope=coll_scope, coll_name=coll_name, scope=scope, name=name,
                                       min_id=min_id, max_id=max_id, request_id=request_id,
                                       workload_id=workload_id, only_return_best_match=only_return_best_match)
@@ -135,6 +164,8 @@ class Catalog(IDDSController):
         except exceptions.IDDSException as error:
             return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=error.__class__.__name__, exc_msg=error)
         except Exception as error:
+            print(error)
+            print(traceback.format_exc())
             return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
 
         return self.generate_http_response(HTTP_STATUS_CODE.OK, data=rets)
@@ -150,14 +181,18 @@ class Catalog(IDDSController):
         kwargs = {'scope': None, 'name': None, 'min_id': None, 'max_id': None,
                   'path': None, 'status': None}
         try:
-            if coll_scope == 'null':
+            if coll_scope in ['null', 'None']:
                 coll_scope = None
-            if coll_name == 'null':
+            if coll_name in ['null', 'None']:
                 coll_name = None
-            if request_id == 'null':
+            if request_id in ['null', 'None']:
                 request_id = None
-            if workload_id == 'null':
+            else:
+                request_id = int(request_id)
+            if workload_id in ['null', 'None']:
                 workload_id = None
+            else:
+                workload_id = int(workload_id)
 
             contents = []
             parameters = self.get_request().data and json.loads(self.get_request().data)
@@ -177,6 +212,8 @@ class Catalog(IDDSController):
         except exceptions.IDDSException as error:
             return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=error.__class__.__name__, exc_msg=error)
         except Exception as error:
+            print(error)
+            print(traceback.format_exc())
             return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
 
         return self.generate_http_response(HTTP_STATUS_CODE.OK, data=None)

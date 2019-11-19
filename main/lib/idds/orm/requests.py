@@ -179,6 +179,19 @@ def get_request_id(request_id=None, workload_id=None, session=None):
     return get_request_id_by_workload_id(workload_id)
 
 
+def convert_request_to_dict(request):
+    request = row2dict(request)
+    if request['errors']:
+        request['errors'] = json.loads(request['errors'])
+    if request['request_metadata']:
+        request['request_metadata'] = json.loads(request['request_metadata'])
+    if request['request_type'] is not None:
+        request['request_type'] = RequestType(request['request_type'])
+    if request['status'] is not None:
+        request['status'] = RequestStatus(request['status'])
+    return request
+
+
 @read_session
 def get_request(request_id=None, workload_id=None, session=None):
     """
@@ -208,15 +221,7 @@ def get_request(request_id=None, workload_id=None, session=None):
         if request is None:
             raise exceptions.NoObject('request request_id: %s, workload_id: %s cannot be found' % (request_id, workload_id))
 
-        request = row2dict(request)
-        if request['errors']:
-            request['errors'] = json.loads(request['errors'])
-        if request['request_metadata']:
-            request['request_metadata'] = json.loads(request['request_metadata'])
-        if request['request_type'] is not None:
-            request['request_type'] = RequestType(request['request_type'])
-        if request['status'] is not None:
-            request['status'] = RequestStatus(request['status'])
+        request = convert_request_to_dict(request)
 
         return request
     except sqlalchemy.orm.exc.NoResultFound as error:
@@ -272,7 +277,7 @@ def cancel_request(request_id=None, workload_id=None, session=None):
 
 
 @read_session
-def get_requests(scope, name, requester, session=None):
+def get_requests_by_requester(scope, name, requester, session=None):
     """
     Get requests.
 
@@ -288,14 +293,81 @@ def get_requests(scope, name, requester, session=None):
     try:
         req_select = """select request_id, scope, name, requester, request_type, transform_tag, priority,
                         status, created_at, updated_at, accessed_at, expired_at, errors, request_metadata
-                        from atlas_idds.requests where scope=:scope and requester=:requester and name like '%:name%'
+                        from atlas_idds.requests where scope=:scope and requester=:requester and name=:name
                      """
         req_stmt = text(req_select)
-        result = session.execute(req_stmt, {'scope': scope, 'name': name, 'requester': requester})
+        result = session.execute(req_stmt, {'scope': scope, 'name': name.replace('*', '%'), 'requester': requester})
         requests = result.fetchall()
-        return requests
+        return [convert_request_to_dict(req) for req in requests]
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('No requests with scope:name(%s:%s) and requester(%s) %s' % (scope, name, requester, error))
+
+
+@read_session
+def get_requests_by_status_type(status, request_type, time_period=None, session=None):
+    """
+    Get requests.
+
+    :param status: list of status of the request data.
+    :param request_type: The type of the request data.
+
+    :raises NoObject: If no request are founded.
+
+    :returns: list of Request.
+    """
+
+    try:
+        if status is None:
+            raise exceptions.WrongParameterException("status should not be None")
+        if not isinstance(status, (list, tuple)):
+            status = [status]
+        new_status = []
+        for st in status:
+            if isinstance(st, RequestStatus):
+                st = st.value
+            new_status.append(st)
+        status = new_status
+        if request_type is None:
+            if time_period is None:
+                req_select = """select request_id, scope, name, requester, request_type, transform_tag, priority,
+                                status, created_at, updated_at, accessed_at, expired_at, errors, request_metadata
+                                from atlas_idds.requests where status in :status order by priority desc
+                             """
+                req_stmt = text(req_select)
+                result = session.execute(req_stmt, {'status': status})
+            else:
+                req_select = """select request_id, scope, name, requester, request_type, transform_tag, priority,
+                                status, created_at, updated_at, accessed_at, expired_at, errors, request_metadata
+                                from atlas_idds.requests where status in :status and updated_at < :updated_at
+                                order by priority desc
+                             """
+                req_stmt = text(req_select)
+                result = session.execute(req_stmt, {'status': status,
+                                                    'updated_at': datetime.datetime.utcnow() - datetime.timedelta(seconds=time_period)})
+        else:
+            if isinstance(request_type, RequestType):
+                request_type = request_type.value
+            if time_period is None:
+                req_select = """select request_id, scope, name, requester, request_type, transform_tag, priority,
+                                status, created_at, updated_at, accessed_at, expired_at, errors, request_metadata
+                                from atlas_idds.requests where status in :status and request_type=:request_type
+                                order by priority desc
+                             """
+                req_stmt = text(req_select)
+                result = session.execute(req_stmt, {'status': status, 'request_type': request_type})
+            else:
+                req_select = """select request_id, scope, name, requester, request_type, transform_tag, priority,
+                                status, created_at, updated_at, accessed_at, expired_at, errors, request_metadata
+                                from atlas_idds.requests where status in :status and request_type=:request_type
+                                and updated_at < :updated_at order by priority desc
+                             """
+                req_stmt = text(req_select)
+                result = session.execute(req_stmt, {'status': status, 'request_type': request_type,
+                                                    'updated_at': datetime.datetime.utcnow() - datetime.timedelta(seconds=time_period)})
+        requests = result.fetchall()
+        return [convert_request_to_dict(req) for req in requests]
+    except sqlalchemy.orm.exc.NoResultFound as error:
+        raise exceptions.NoObject('No requests with status: %s, request_type: %s, time_period: %s' % (status, request_type, time_period, error))
 
 
 @transactional_session

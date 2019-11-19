@@ -19,12 +19,12 @@ import warnings
 
 from idds.common import exceptions
 from idds.client.requestclient import RequestClient
-
+from idds.client.catalogclient import CatalogClient
 
 warnings.filterwarnings("ignore")
 
 
-class Client(RequestClient):
+class Client(RequestClient, CatalogClient):
 
     """Main client class for IDDS rest callings."""
 
