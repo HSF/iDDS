@@ -11,6 +11,7 @@ install:
   - pip install 'futures'
   - pip install 'stomp.py'
   - pip install 'cx-Oracle'
+  - pip install 'flask'
   - pip install 'unittest2'
   - pip install 'pep8'
   - pip install 'flake8'
@@ -22,9 +23,9 @@ before_script:
   - pip freeze
   - flake8 --help
   - if [[ $FLAKE8_CONFIG != ".flake8" ]]; then rm .flake8; fi
-  - flake8 --config $FLAKE8_CONFIG lib/idds/
+  - flake8 --config $FLAKE8_CONFIG */lib/idds/ */*.py
 script:
-  - bash tools/test/test_travis.sh
+  - bash main/tools/test/test_travis.sh
 matrix:
   include:
   - python: 3.6
