@@ -8,15 +8,14 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2019
 
-import copy
+import traceback
 import Queue
 
 
-from idds.common.constants import (Sections, CollectionRelationType, CollectionStatus,
-                                   ContentType, ContentStatus)
-from idds.common.exceptions import AgentPluginError
+from idds.common.constants import (Sections, ProcessingStatus)
+from idds.common.exceptions import IDDSException
 from idds.common.utils import setup_logging
-from idds.core import collections as core_collections, contents as core_contents
+from idds.core import processings as core_processings
 from idds.agents.common.baseagent import BaseAgent
 
 setup_logging(__name__)
@@ -51,7 +50,7 @@ class Carrier(BaseAgent):
             processing = self.new_output_queue.get()
             self.logger.info("Main thread submitted new processing: %s" % (processing['processing_id']))
             parameters = {'status': processing['status']}
-            core_processing.update_processing(processing['processing_id'], parameters=parameters)
+            core_processings.update_processing(processing['processing_id'], parameters=parameters)
 
     def get_monitor_processing(self):
         """
@@ -72,7 +71,7 @@ class Carrier(BaseAgent):
             processing = self.monitor_output_queue.get()
             self.logger.info("Main thread processing %s status changed to %s" % (processing['processing_id'], processing['status']))
             parameters = {'status': processing['status']}
-            core_processing.update_processing(processing['processing_id'], parameters=parameters)
+            core_processings.update_processing(processing['processing_id'], parameters=parameters)
 
     def prepare_finish_tasks(self):
         """
