@@ -53,8 +53,6 @@ class BaseAgent(Thread, PluginBase):
         self.logger = None
         self.setup_logger()
 
-        self.messaging_queue = Queue.Queue()
-
     def stop(self, signum=None, frame=None):
         """
         Graceful exit.
@@ -97,7 +95,8 @@ class BaseAgent(Thread, PluginBase):
                         self.logger.info(log_prefix + "Processing task: %s" % task)
                         task_func, task_output_queue, task_args, task_kwargs = task
                         ret = task_func(*task_args, **task_kwargs)
-                        task_output_queue.put(ret)
+                        if ret:
+                            task_output_queue.put(ret)
                     except IDDSException as error:
                         self.logger.error(log_prefix + "Caught an IDDSException: %s" % str(error))
                     except Exception as error:
