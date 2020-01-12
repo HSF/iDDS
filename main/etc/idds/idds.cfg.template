@@ -24,11 +24,25 @@ echo=0
 pool_reset_on_return=rollback
 
 [rest]
-host = https://aipanda182.cern.ch:8443/idds
-#url_prefix = 
+host = https://aipanda182.cern.ch:8443
+url_prefix = /idds
 debug = False
 
+[main]
+agents = clerk, transformer, transporter, carrier, conductor
+
+[clerk]
+
+[transformer]
+
+[transporter]
+
+[carrier]
+
+[conductor]
+
 #[section]
+#attr1 = <attr1>
 #plugin.<plugin_name> = <lib.path.name.ClassName>
 #plugin.<plugin_name>.<attr1> = <value1>
 #plugin.<plugin_name>.<attr2> = <value2>
