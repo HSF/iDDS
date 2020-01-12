@@ -10,14 +10,19 @@
 
 import time
 import traceback
-import Queue
+try:
+    # python 3
+    from queue import Queue
+except ImportError:
+    # Python 2
+    from Queue import Queue
 
 from idds.common.constants import Sections
 from idds.common.exceptions import IDDSException
 from idds.common.utils import setup_logging
 from idds.common.config import (config_has_section, config_has_option,
-                                config_get_option)
-from idds.core import messaging as core_messaging
+                                config_get)
+from idds.core import messages as core_messages
 from idds.agents.common.baseagent import BaseAgent
 from idds.agents.conductor.messaging import MessagingSender
 
@@ -33,13 +38,13 @@ class Conductor(BaseAgent):
     def __init__(self, num_threads=1, **kwargs):
         super(Conductor, self).__init__(num_threads=num_threads, **kwargs)
         self.config_section = Sections.Conductor
-        self.message_queue = Queue.Queue()
+        self.message_queue = Queue()
         self.notify_method_config_name = 'notify_method'
         self.notify_method = self.get_notify_method()
 
     def get_notify_method(self):
         if config_has_section(self.config_section) and config_has_option(self.config_section, self.notify_method_config_name):
-            self.notify_method = config_get_option(self.config_section, self.notify_method_config_name)
+            self.notify_method = config_get(self.config_section, self.notify_method_config_name)
         else:
             self.notify_method = 'messaging'
 
@@ -72,13 +77,13 @@ class Conductor(BaseAgent):
         """
         Get messages
         """
-        messages = core_messaging.get_messages()
+        messages = core_messages.retrive_messages()
         self.logger.info("Main thread get %s messages" % len(messages))
 
         return messages
 
-    def clean_messages(self, msg_ids):
-        core_messaging.delete_messages(msg_ids)
+    def clean_messages(self, msgs):
+        core_messages.delete_messages(msgs)
 
     def start_notifier(self):
         if self.notify_method == 'messaging':
@@ -103,8 +108,7 @@ class Conductor(BaseAgent):
                         self.message_queue.append(message)
                     while not self.message_queue.empty():
                         time.sleep(1)
-                    msg_ids = [msg['id'] for msg in messages]
-                    self.clean_messages(msg_ids)
+                    self.clean_messages(messages)
                 except IDDSException as error:
                     self.logger.error("Main thread IDDSException: %s" % str(error))
                 except Exception as error:
