@@ -9,8 +9,12 @@
 # - Wen Guan, <wen.guan@cern.ch>, 2019
 
 import traceback
-import Queue
-
+try:
+    # python 3
+    from queue import Queue
+except ImportError:
+    # Python 2
+    from Queue import Queue
 
 from idds.common.constants import (Sections, RequestStatus, TransformStatus,
                                    CollectionRelationType, CollectionStatus)
@@ -30,8 +34,8 @@ class Clerk(BaseAgent):
     def __init__(self, num_threads=1, **kwargs):
         super(Clerk, self).__init__(num_threads=num_threads, **kwargs)
         self.config_section = Sections.Clerk
-        self.new_output_queue = Queue.Queue()
-        self.monitor_output_queue = Queue.Queue()
+        self.new_output_queue = Queue()
+        self.monitor_output_queue = Queue()
 
     def get_new_requests(self):
         """

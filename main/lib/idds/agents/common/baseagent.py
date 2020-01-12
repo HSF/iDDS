@@ -11,7 +11,12 @@
 
 import threading
 import traceback
-import Queue
+try:
+    # python 3
+    from queue import Queue
+except ImportError:
+    # Python 2
+    from Queue import Queue
 
 from concurrent import futures
 # from multiprocessing import Process
@@ -39,8 +44,8 @@ class BaseAgent(Thread, PluginBase):
         self.num_threads = num_threads
         self.graceful_stop = threading.Event()
         self.executors = futures.ThreadPoolExecutor(max_workers=num_threads)
-        self.task_queue = Queue.Queue()
-        self.finished_tasks = Queue.Queue()
+        self.task_queue = Queue()
+        self.finished_tasks = Queue()
 
         self.config_section = Sections.Common
 
