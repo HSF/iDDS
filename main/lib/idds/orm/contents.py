@@ -422,6 +422,29 @@ def get_contents(scope=None, name=None, coll_id=None, session=None):
         raise error
 
 
+@read_session
+def get_content_status_statistics(coll_id=None, session=None):
+    """
+    Get statistics group by status
+
+    :param coll_id: Collection id.
+    :param session: The database session in use.
+
+    :returns: statistics group by status, as a dict.
+    """
+    try:
+        sql = "select status, count(*) from  atlas_idds.collections_content group by status"
+        stmt = text(sql)
+        session.execute(stmt)
+        result = session.fetchall()
+        rets = {}
+        for status, count in result:
+            rets[status] = count
+        return rets
+    except Exception as error:
+        raise error
+
+
 @transactional_session
 def update_content(content_id, parameters, session=None):
     """

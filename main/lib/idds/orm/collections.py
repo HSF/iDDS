@@ -275,6 +275,80 @@ def get_collection_ids_by_request_transform_id(request_id=None, transform_id=Non
 
 
 @read_session
+def get_collections_by_status(status, relation_type=CollectionRelationType.Input, time_period=None, session=None):
+    """
+    Get collections by status, relation_type and time_period or raise a NoObject exception.
+
+    :param status: The collection status.
+    :param relation_type: The relation_type of the collection to the transform.
+    :param time_period: time period in seconds since last update.
+    :param session: The database session in use.
+
+    :raises NoObject: If no collections are founded.
+
+    :returns: list of Collections.
+    """
+    try:
+        if status is None:
+            raise exceptions.WrongParameterException("status should not be None")
+        if not isinstance(status, (list, tuple)):
+            status = [status]
+        new_status = []
+        for st in status:
+            if isinstance(st, CollectionStatus):
+                st = st.value
+            new_status.append(st)
+        status = new_status
+
+        if relation_type is None:
+            if time_period is None:
+                select = """select * from atlas_idds.collections where status in :status"""
+                stmt = text(select)
+                result = session.execute(stmt, {'status': status})
+            else:
+                select = """select * from atlas_idds.collections where status in :status
+                            and updated_at < :updated_at"""
+                stmt = text(select)
+                result = session.execute(stmt, {'status': status,
+                                                'updated_at': datetime.datetime.utcnow() - datetime.timedelta(seconds=time_period)})
+        else:
+            if isinstance(relation_type, CollectionRelationType):
+                relation_type = relation_type.value
+            if time_period is None:
+                select = """select * from atlas_idds.collections where status in :status and in_out_type=:relation_type"""
+                stmt = text(select)
+                result = session.execute(stmt, {'status': status, 'relation_type': relation_type})
+            else:
+                select = """select * from atlas_idds.collections where status in :status
+                            and in_out_type = :relation_type
+                            and updated_at < :updated_at"""
+                stmt = text(select)
+                result = session.execute(stmt, {'status': status, 'relation_type': relation_type,
+                                                'updated_at': datetime.datetime.utcnow() - datetime.timedelta(seconds=time_period)})
+
+        collections = result.fetchall()
+        ret = []
+        for collection in collections:
+            collection = row2dict(collection)
+            if collection['coll_type'] is not None:
+                collection['coll_type'] = CollectionType(collection['coll_type'])
+            if collection['in_out_type'] is not None:
+                collection['in_out_type'] = CollectionRelationType(collection['in_out_type'])
+                collection['relation_type'] = collection['in_out_type']
+            if collection['coll_status'] is not None:
+                collection['coll_status'] = CollectionStatus(collection['coll_status'])
+            if collection['coll_metadata']:
+                collection['coll_metadata'] = json.loads(collection['coll_metadata'])
+            ret.append(collection)
+        return ret
+    except sqlalchemy.orm.exc.NoResultFound as error:
+        raise exceptions.NoObject('No collections with  status(%s), relation_type(%s), time_period(%s): %s' %
+                                  (status, relation_type, time_period, error))
+    except Exception as error:
+        raise error
+
+
+@read_session
 def get_collections(scope, name, request_id=None, session=None):
     """
     Get collections by request id or raise a NoObject exception.
