@@ -122,12 +122,27 @@ class Request(BASE, ModelBase):
     expired_at = Column("expired_at", DateTime)
     errors = Column(JSON())
     request_metadata = Column(JSON())
-    priority1 = Column(Integer())
 
     _table_args = (PrimaryKeyConstraint('request_id', name='_REQUESTS_PK'),
                    CheckConstraint('status IS NOT NULL', name='REQ_STATUS_ID_NN'),
                    Index('REQUESTS_SCOPE_NAME_IDX', 'scope', 'name', 'request_type', 'request_id'),
                    Index('REQUESTS_STATUS_PRIO_IDX', 'status', 'priority', 'request_id'))
+
+
+class Message(BASE, ModelBase):
+    """Represents the event messages"""
+    __tablename__ = 'messages'
+    msg_id = Column(BigInteger().with_variant(Integer, "sqlite"),
+                    Sequence('MESSAGE_ID_SEQ', schema=DEFAULT_SCHEMA_NAME),
+                    primary_key=True)
+    msg_type = Column(Integer())
+    status = Column(Integer())
+    source = Column(Integer())
+    created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    msg_content = Column(JSON())
+
+    _table_args = (PrimaryKeyConstraint('msg_id', name='MESSAGES_PK'))
 
 
 def register_models(engine):
