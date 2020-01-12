@@ -184,6 +184,57 @@ def get_transforms(request_id, session=None):
         raise error
 
 
+@read_session
+def get_transforms_by_status(status, period=None, session=None):
+    """
+    Get transforms or raise a NoObject exception.
+
+    :param status: Transform status or list of transform status.
+    :param period: Time period in seconds.
+    :param session: The database session in use.
+
+    :raises NoObject: If no transform is founded.
+
+    :returns: list of transform.
+    """
+    try:
+        if not isinstance(status, (list, tuple)):
+            status = [status]
+        new_status = []
+        for st in status:
+            if isinstance(st, TransformStatus):
+                st = st.value
+            new_status.append(st)
+        status = new_status
+
+        if period:
+            select = """select * from atlas_idds.transforms where status in :status and updated_at < :updated_at"""
+            stmt = text(select)
+            result = session.execute(stmt, {'status': status,
+                                            'updated_at': datetime.datetime.utcnow() - datetime.timedelta(seconds=period)})
+        else:
+            select = """select * from atlas_idds.transforms where status in :status"""
+            stmt = text(select)
+            result = session.execute(stmt, {'status': status})
+
+        transforms = result.fetchall()
+        new_transforms = []
+        for transform in transforms:
+            transform = row2dict(transform)
+            if transform['transform_type']:
+                transform['transform_type'] = TransformType(transform['transform_type'])
+            if transform['status'] is not None:
+                transform['status'] = TransformStatus(transform['status'])
+            if transform['transform_metadata']:
+                transform['transform_metadata'] = json.loads(transform['transform_metadata'])
+        new_transforms.append(transform)
+    except sqlalchemy.orm.exc.NoResultFound as error:
+        raise exceptions.NoObject('No transforms attached with status (%s): %s' %
+                                  (status, error))
+    except Exception as error:
+        raise error
+
+
 @transactional_session
 def update_transform(transform_id, parameters, session=None):
     """
@@ -204,6 +255,7 @@ def update_transform(transform_id, parameters, session=None):
             parameters['status'] = parameters['status'].value
         if 'transform_metadata' in parameters:
             parameters['transform_metadata'] = json.dumps(parameters['transform_metadata'])
+        parameters['updated_at'] = datetime.datetime.utcnow()
 
         update = "update atlas_idds.transforms set "
         for key in parameters.keys():
