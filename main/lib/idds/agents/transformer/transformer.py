@@ -10,7 +10,12 @@
 
 import copy
 import traceback
-import Queue
+try:
+    # python 3
+    from queue import Queue
+except ImportError:
+    # Python 2
+    from Queue import Queue
 
 
 from idds.common.constants import (Sections, TransformType, TransformStatus,
@@ -18,8 +23,7 @@ from idds.common.constants import (Sections, TransformType, TransformStatus,
                                    ContentStatus)
 from idds.common.exceptions import AgentPluginError, IDDSException
 from idds.common.utils import setup_logging
-from idds.core import (transforms as core_transforms, collections as core_collections,
-                       contents as core_contents)
+from idds.core import (transforms as core_transforms, catalog as core_catalog)
 from idds.agents.common.baseagent import BaseAgent
 
 setup_logging(__name__)
@@ -33,8 +37,8 @@ class Transformer(BaseAgent):
     def __init__(self, num_threads=1, **kwargs):
         super(Transformer, self).__init__(num_threads=num_threads, **kwargs)
         self.config_section = Sections.Transformer
-        self.new_queue = Queue.Queue()
-        self.monitor_queue = Queue.Queue()
+        self.new_queue = Queue()
+        self.monitor_queue = Queue()
 
     def get_new_transforms(self):
         """
@@ -79,7 +83,7 @@ class Transformer(BaseAgent):
         """
         Process new transform
         """
-        collections = core_collections.get_collections_by_request_transform_id(transform_id=transform['transform_id'])
+        collections = core_catalog.get_collections_by_request_transform_id(transform_id=transform['transform_id'])
         input_collections = []
         for coll in collections:
             if coll['relation_type'] == CollectionRelationType.Input:
@@ -93,8 +97,8 @@ class Transformer(BaseAgent):
         while not self.new_output_queue.empty():
             transform_id, output_collection, log_collection = self.new_output_queue.get()
             self.logger.info("Main thread finishing processing transform: %s" % transform_id)
-            core_collections.add_collection(output_collection)
-            core_collections.add_collection(log_collection)
+            core_catalog.add_collection(output_collection)
+            core_catalog.add_collection(log_collection)
             core_transforms.update_transform(transform_id, {'status': TransformStatus.Transforming})
 
     def get_monitor_transforms(self):
@@ -125,17 +129,17 @@ class Transformer(BaseAgent):
             new_out_contents = self.get_new_output_contents(transform, input_collection, output_collection)
 
             # register output contents
-            core_contents.add_contents(new_out_contents)
+            core_catalog.add_contents(new_out_contents)
 
             # update input collection status
             if input_collection['coll_metadata']['ddm_status'] == 'closed':
                 parameters = {'coll_status': CollectionStatus.Closed}
             else:
                 parameters = {'coll_status': CollectionStatus.Open}
-            core_collections.update_collection(input_collection['coll_id'], parameters)
+            core_catalog.update_collection(input_collection['coll_id'], parameters)
 
             # update output collection status
-            core_collections.update_collection(output_collection['coll_id'], {'coll_status': CollectionStatus.Updated})
+            core_catalog.update_collection(output_collection['coll_id'], {'coll_status': CollectionStatus.Updated})
 
     def generate_processing(self, transform, input_collections, output_collections, log_collections):
         pass
@@ -145,20 +149,20 @@ class Transformer(BaseAgent):
             raise IDDSException("IDDS currently doesn't support transforms with more than one input or output")
         output_collection = output_collections[0]
 
-        contents = core_contents.get_content_status_statistics(coll_id=output_collection['coll_id'])
+        contents = core_catalog.get_content_status_statistics(coll_id=output_collection['coll_id'])
         content_status_keys = list(contents.keys())
         if content_status_keys == [ContentStatus.Available] or content_status_keys == [ContentStatus.Available.value]:
-            core_collections.update_collection(output_collection['coll_id'], {'coll_status': CollectionStatus.Closed})
+            core_catalog.update_collection(output_collection['coll_id'], {'coll_status': CollectionStatus.Closed})
             transform['status'] = TransformStatus.Finished
             transform['transform_metadata']['status_statistics'] = contents
         elif content_status_keys == [ContentStatus.FinalFailed] or content_status_keys == [ContentStatus.FinalFailed.value]:
-            core_collections.update_collection(output_collection['coll_id'], {'coll_status': CollectionStatus.Failed})
+            core_catalog.update_collection(output_collection['coll_id'], {'coll_status': CollectionStatus.Failed})
             transform['status'] = TransformStatus.Failed
             transform['transform_metadata']['status_statistics'] = contents
         elif (len(content_status_keys) == 2                                                                                   # noqa: W503
             and (ContentStatus.FinalFailed in content_status_keys or ContentStatus.FinalFailed.value in content_status_keys)  # noqa: W503
             and (ContentStatus.Available in content_status_keys or ContentStatus.Available.value in content_status_keys)):    # noqa: W503
-            core_collections.update_collection(output_collection['coll_id'], {'coll_status': CollectionStatus.SubClosed})
+            core_catalog.update_collection(output_collection['coll_id'], {'coll_status': CollectionStatus.SubClosed})
             transform['status'] = TransformStatus.SubFinished
             transform['transform_metadata']['status_statistics'] = contents
         elif (ContentStatus.New in content_status_keys or ContentStatus.New.value in content_status_keys            # noqa: W503
@@ -172,7 +176,7 @@ class Transformer(BaseAgent):
         """
         process monitor transforms
         """
-        collections = core_collections.get_collections_by_request_transform_id(transform_id=transform['transform_id'])
+        collections = core_catalog.get_collections_by_request_transform_id(transform_id=transform['transform_id'])
         input_collections, output_collections, log_collections = [], [], []
         for coll in collections:
             if coll['relation_type'] == CollectionRelationType.Input:

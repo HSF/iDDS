@@ -9,8 +9,12 @@
 # - Wen Guan, <wen.guan@cern.ch>, 2019
 
 import traceback
-import Queue
-
+try:
+    # python 3
+    from queue import Queue
+except ImportError:
+    # Python 2
+    from Queue import Queue
 
 from idds.common.constants import (Sections, ProcessingStatus)
 from idds.common.exceptions import IDDSException
@@ -29,7 +33,7 @@ class Carrier(BaseAgent):
     def __init__(self, num_threads=1, **kwargs):
         super(Carrier, self).__init__(num_threads=num_threads, **kwargs)
         self.config_section = Sections.Carrier
-        self.processed_queue = Queue.Queue()
+        self.processed_queue = Queue()
 
     def get_new_processing(self):
         """

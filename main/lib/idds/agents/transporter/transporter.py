@@ -10,13 +10,18 @@
 
 import copy
 import traceback
-import Queue
+try:
+    # python 3
+    from queue import Queue
+except ImportError:
+    # Python 2
+    from Queue import Queue
 
 from idds.common.constants import (Sections, CollectionRelationType, CollectionStatus,
                                    ContentType, ContentStatus)
 from idds.common.exceptions import AgentPluginError, IDDSException
 from idds.common.utils import setup_logging
-from idds.core import collections as core_collections, contents as core_contents
+from idds.core import catalog as core_catalog
 from idds.agents.common.baseagent import BaseAgent
 
 setup_logging(__name__)
@@ -30,22 +35,22 @@ class Transporter(BaseAgent):
     def __init__(self, num_threads=1, **kwargs):
         super(Transporter, self).__init__(num_threads=num_threads, **kwargs)
         self.config_section = Sections.Transporter
-        self.processed_input_queue = Queue.Queue()
-        self.processed_output_queue = Queue.Queue()
+        self.processed_input_queue = Queue()
+        self.processed_output_queue = Queue()
 
     def get_new_input_collections(self):
         """
         Get new input collections
         """
         coll_status = [CollectionStatus.Open]
-        colls_open = core_collections.get_collections_by_status(status=coll_status,
-                                                                relations_type=CollectionRelationType.Input,
-                                                                time_period=3600)
+        colls_open = core_catalog.get_collections_by_status(status=coll_status,
+                                                            relations_type=CollectionRelationType.Input,
+                                                            time_period=3600)
         self.logger.info("Main thread get %s [open] input collections to process" % len(colls_open))
 
         coll_status = [CollectionStatus.New]
-        colls_new = core_collections.get_collections_by_status(status=coll_status,
-                                                               relations_type=CollectionRelationType.Input)
+        colls_new = core_catalog.get_collections_by_status(status=coll_status,
+                                                           relations_type=CollectionRelationType.Input)
         self.logger.info("Main thread get %s [new] input collections to process" % len(colls_new))
 
         colls = colls_open + colls_new
@@ -97,17 +102,17 @@ class Transporter(BaseAgent):
             parameters = copy.deepcopy(coll)
             del parameters['contents']
             del parameters['coll_id']
-            core_collections.update_collection(coll_id=coll['coll_id'], parameters=parameters)
-            core_contents.add_contents(coll['contents'])
+            core_catalog.update_collection(coll_id=coll['coll_id'], parameters=parameters)
+            core_catalog.add_contents(coll['contents'])
 
     def get_new_output_collections(self):
         """
         Get new output collections
         """
         coll_status = [CollectionStatus.Updated]
-        colls = core_collections.get_collections_by_status(status=coll_status,
-                                                           relations_type=CollectionRelationType.Output,
-                                                           time_period=1800)
+        colls = core_catalog.get_collections_by_status(status=coll_status,
+                                                       relations_type=CollectionRelationType.Output,
+                                                       time_period=1800)
         self.logger.info("Main thread get %s [Updated] output collections to process" % len(colls))
         return colls
 
@@ -121,7 +126,7 @@ class Transporter(BaseAgent):
         Process output collection
         """
         if 'to_register' in coll['coll_metadata'] and coll['coll_metadata']['to_register'] is True:
-            contents = core_contents.get_contents(coll_id=coll['coll_id'])
+            contents = core_catalog.get_contents(coll_id=coll['coll_id'])
             registered_contents = self.get_contents(coll['scope'], coll['name'])
             registered_content_names = [con['name'] for con in registered_contents]
             new_contents = []
@@ -139,7 +144,7 @@ class Transporter(BaseAgent):
             coll = self.processed_output_queue.get()
             self.logger.info("Main thread finished processing output collection(%s) with number of contents: %s" % (coll['coll_id']))
             parameters = {'status': coll['coll_status']}
-            core_collections.update_collection(coll_id=coll['coll_id'], parameters=parameters)
+            core_catalog.update_collection(coll_id=coll['coll_id'], parameters=parameters)
 
     def prepare_finish_tasks(self):
         """

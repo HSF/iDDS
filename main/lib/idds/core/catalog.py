@@ -15,7 +15,8 @@ operations related to Catalog(Collections and Contents).
 
 
 from idds.common import exceptions
-from idds.common.constants import CollectionRelationType, ContentStatus
+from idds.common.constants import (CollectionType, CollectionStatus,
+                                   CollectionRelationType, ContentStatus)
 from idds.orm.base.session import read_session, transactional_session
 from idds.orm import (requests as orm_requests,
                       collections as orm_collections,
@@ -49,6 +50,52 @@ def get_collections_by_request(request_id=None, workload_id=None, session=None):
 
 
 @read_session
+def get_collections_by_request_transform_id(request_id=None, transform_id=None, session=None):
+    """
+    Get collections by request_id and transform id or raise a NoObject exception.
+
+    :param request_id: The request id related to this collection.
+    :param transform_id: The transform id related to this collection.
+    :param session: The database session in use.
+    :raises NoObject: If no collections are founded.
+
+    :returns: list of Collections.
+    """
+    request_id = orm_requests.get_request_id(request_id=request_id, session=session)
+    collections = orm_collections.get_collections_by_request_transform_id(request_id=request_id,
+                                                                          transform_id=transform_id,
+                                                                          session=session)
+    rets = {}
+    for collection in collections:
+        request_id = collection['request_id']
+        if request_id not in rets:
+            rets[request_id] = {}
+        transform_id = collection['transform_id']
+        if transform_id not in rets[request_id]:
+            rets[request_id][transform_id] = []
+        rets[request_id][transform_id].append(collection)
+    return rets
+
+
+@read_session
+def get_collections_by_status(status, relation_type=CollectionRelationType.Input, time_period=None, session=None):
+    """
+    Get collections by status, relation_type and time_period or raise a NoObject exception.
+
+    :param status: The collection status.
+    :param relation_type: The relation_type of the collection to the transform.
+    :param time_period: time period in seconds since last update.
+    :param session: The database session in use.
+
+    :raises NoObject: If no collections are founded.
+
+    :returns: list of Collections.
+    """
+    orm_collections.get_collections_by_status(status=status, relation_type=relation_type,
+                                              time_period=time_period, session=session)
+
+
+@read_session
 def get_collections(scope, name, request_id=None, workload_id=None, session=None):
     """
     Get collections by scope, name, request_id and workload id.
@@ -77,6 +124,73 @@ def get_collections(scope, name, request_id=None, workload_id=None, session=None
             rets[request_id][transform_id] = []
         rets[request_id][transform_id].append(collection)
     return rets
+
+
+@transactional_session
+def add_collection(scope, name, coll_type=CollectionType.Dataset, request_id=None, transform_id=None,
+                   relation_type=CollectionRelationType.Input, coll_size=0, coll_status=CollectionStatus.New,
+                   total_files=0, retries=0, expired_at=None, coll_metadata=None, session=None):
+    """
+    Add a collection.
+
+    :param scope: The scope of the request data.
+    :param name: The name of the request data.
+    :param type: The type of dataset as dataset or container.
+    :param request_id: The request id related to this collection.
+    :param transform_id: The transform id related to this collection.
+    :param relation_type: The relation between this collection and its transform,
+                          such as Input, Output, Log and so on.
+    :param size: The size of the collection.
+    :param status: The status.
+    :param total_files: Number of total files.
+    :param retries: Number of retries.
+    :param expired_at: The datetime when it expires.
+    :param coll_metadata: The metadata as json.
+
+    :raises DuplicatedObject: If a collection with the same name exists.
+    :raises DatabaseException: If there is a database error.
+
+    :returns: collection id.
+    """
+    orm_collections.add_collection(scope=scope, name=name, coll_type=coll_type, request_id=request_id,
+                                   transform_id=transform_id, relation_type=relation_type,
+                                   coll_size=coll_size, coll_status=coll_status, total_files=total_files,
+                                   retries=retries, expired_at=expired_at, coll_metadata=coll_metadata,
+                                   session=session)
+
+
+@transactional_session
+def update_collection(coll_id, parameters, session=None):
+    """
+    update a collection.
+
+    :param coll_id: the collection id.
+    :param parameters: A dictionary of parameters.
+    :param session: The database session in use.
+
+    :raises NoObject: If no request is founded.
+    :raises DatabaseException: If there is a database error.
+
+    """
+    orm_collections.update_collection(coll_id=coll_id, parameters=parameters, session=session)
+
+
+@transactional_session
+def add_contents(contents, returning_id=False, bulk_size=100, session=None):
+    """
+    Add contents.
+
+    :param contents: dict of contents.
+    :param returning_id: whether to return id.
+    :param session: session.
+
+    :raises DuplicatedObject: If a collection with the same name exists.
+    :raises DatabaseException: If there is a database error.
+
+    :returns: content id.
+    """
+    orm_contents.add_contents(contents=contents, returning_id=returning_id, bulk_size=bulk_size,
+                              session=session)
 
 
 @read_session
@@ -207,3 +321,16 @@ def get_match_contents(coll_scope, coll_name, scope, name, min_id=None, max_id=N
         if (not content) or (content['max_id'] - content['min_id'] > row['max_id'] - row['min_id']):
             content = row
     return [content]
+
+
+@read_session
+def get_content_status_statistics(coll_id=None, session=None):
+    """
+    Get statistics group by status
+
+    :param coll_id: Collection id.
+    :param session: The database session in use.
+
+    :returns: statistics group by status, as a dict.
+    """
+    return orm_contents.get_content_status_statistics(coll_id=coll_id, session=session)
