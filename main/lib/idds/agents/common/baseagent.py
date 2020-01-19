@@ -41,11 +41,11 @@ class BaseAgent(Thread, PluginBase):
         super(BaseAgent, self).__init__()
 
         self.name = self.__class__.__name__
-        self.num_threads = num_threads
+        self.num_threads = int(num_threads)
         self.graceful_stop = threading.Event()
-        self.executors = futures.ThreadPoolExecutor(max_workers=num_threads)
+        self.executors = futures.ThreadPoolExecutor(max_workers=self.num_threads)
         self.task_queue = Queue()
-        self.finished_tasks = Queue()
+        # self.finished_tasks = Queue()
 
         self.config_section = Sections.Common
 
@@ -69,12 +69,14 @@ class BaseAgent(Thread, PluginBase):
 
     def load_plugins(self):
         self.plugins = load_plugins(self.config_section)
+        """
         for plugin_name in self.plugin_sequence:
             if plugin_name not in self.plugins:
                 raise AgentPluginError("Plugin %s is defined in plugin_sequence but no plugin is defined with this name")
         for plugin_name in self.plugins:
             if plugin_name not in self.plugin_sequence:
-                raise AgentPluginError("Plugin %s is defined but it is not defined in plugin_sequence")
+                raise AgentPluginError("Plugin %s is defined but it is not defined in plugin_sequence" % plugin_name)
+        """
 
     def submit_task(self, task_func, output_queue, task_args=tuple(), task_kwargs={}):
         task = task_func, output_queue, task_args, task_kwargs
@@ -94,10 +96,10 @@ class BaseAgent(Thread, PluginBase):
             try:
                 if not self.task_queue.empty():
                     task = self.task_queue.get()
-                    self.logger.info(log_prefix + "Got task: %s" % task)
+                    self.logger.info(log_prefix + "Got task: %s" % str(task))
 
                     try:
-                        self.logger.info(log_prefix + "Processing task: %s" % task)
+                        self.logger.info(log_prefix + "Processing task: %s" % str(task))
                         task_func, task_output_queue, task_args, task_kwargs = task
                         ret = task_func(*task_args, **task_kwargs)
                         if ret:
@@ -107,9 +109,9 @@ class BaseAgent(Thread, PluginBase):
                     except Exception as error:
                         self.logger.critical(log_prefix + "Caught an exception: %s\n%s" % (str(error), traceback.format_exc()))
 
-                    if task:
-                        self.logger.info(log_prefix + "Put task to finished queue: %s" % task)
-                        self.finished_tasks.put(task)
+                    # if task:
+                    #     self.logger.info(log_prefix + "Put task to finished queue: %s" % str(task))
+                    #     self.finished_tasks.put(task)
                 else:
                     self.graceful_stop.wait(1)
             except Exception as error:
