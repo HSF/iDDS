@@ -1,0 +1,16 @@
+#!/bin/bash
+
+CurrentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+RootDir="$( dirname "$CurrentDir" )"
+
+# application
+SITE_PACKAGES_PATH=`python -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())"`
+echo $SITE_PACKAGES_PATH
+
+[ -z "$IDDS_CONFIG" ] && export IDDS_CONFIG=${RootDir}/etc/idds/idds.cfg
+
+#PROGRAM=${RootDir}/lib/idds/agents/main.py
+PROGRAM=${RootDir}/lib/python3.6/site-packages/idds/agents/main.py
+
+which python
+python $PROGRAM
