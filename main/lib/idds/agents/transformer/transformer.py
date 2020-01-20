@@ -45,61 +45,65 @@ class Transformer(BaseAgent):
         Get new transforms to process
         """
 
-        transform_status = [TransformStatus.New]
+        transform_status = [TransformStatus.Ready]
         transforms_new = core_transforms.get_transforms_by_status(status=transform_status)
         self.logger.info("Main thread get %s New transforms to process" % len(transforms_new))
         return transforms_new
 
-    def get_output_collection(self, input_collections, transform_type, transform_tag):
-        if transform_type in [TransformType.StageIn, TransformType.StageIn.value]:
-            return None
+    def generate_transform_outputs(transform, collections):
+        input_collection = None
+        output_collection = None
+        for request_id in ret_collections:
+            for transform_id in ret_collections:
+                if transform_id == transform['transform_id']:
+                    collections = ret_collections[request_id][transform_id]
+                    for collection in collections:
+                        if collection['relation_type'] == CollectionRelationType.Input:
+                            input_collection = collection
+                        if collection['relation_type'] == CollectionRelationType.Output:
+                            output_collection = collection
 
-        collection = input_collections[0]
-        output_collection = copy.deepcopy(collection)
-        output_collection['name'] = collection['name'] + '_iDDS.%s.%s' % (transform_type.name, transform_tag),
-        output_collection['coll_type'] = CollectionType.Dataset
-        output_collection['relation_type'] = CollectionRelationType.Output
-        output_collection['status'] = CollectionStatus.New
-        return output_collection
-
-    def get_log_collection(self, input_collections, transform_type, transform_tag):
-        if transform_type in [TransformType.StageIn, TransformType.StageIn.value]:
-            return None
-
-        collection = input_collections[0]
-        output_collection = copy.deepcopy(collection)
-        output_collection['name'] = collection['name'] + '_iDDS.%s.%s.log' % (transform_type.name, transform_tag),
-        output_collection['coll_type'] = CollectionType.Dataset
-        output_collection['relation_type'] = CollectionRelationType.Log
-        output_collection['status'] = CollectionStatus.New
-        return output_collection
-
-    def get_collections(self, scope, name):
-        if 'collection_lister' not in self.plugins:
-            raise AgentPluginError('Plugin collection_lister is required')
-        return self.plugins['collection_lister'](scope, name)
+        status = [ContentStatus.New, ContentStatus.Failed]
+        contents = core_catalog.get_contents_by_status(coll_id=input_collection['coll_id'], status)
+        output_contents = self.generate_transform_output_contents(transform,
+                                                                  input_collection,
+                                                                  output_collection,
+                                                                  contents)
+        return {'transform': transform, 'input_collection': input_collection, 'output_collection': output_collection,
+                'input_contents': contents, 'output_contents': output_contents}
 
     def process_new_transform(self, transform):
         """
         Process new transform
         """
-        collections = core_catalog.get_collections_by_request_transform_id(transform_id=transform['transform_id'])
-        input_collections = []
-        for coll in collections:
-            if coll['relation_type'] == CollectionRelationType.Input:
-                input_collections.append(coll)
-        output_collection = self.get_output_collection(input_collections)
-        log_collection = self.get_log_collection(input_collections)
+        ret_collections = core_catalog.get_collections_by_request_transform_id(transform_id=transform['transform_id'])
+        collections = []
+        ret_transform = None
+        for request_id in ret_collections:
+            for transform_id in ret_collections:
+                if transform_id == transform['transform_id']:
+                    collections = ret_collections[request_id][transform_id]
+                    ret_transform = transform
 
-        return [output_collection, log_collection]
+        if ret_transform and ret_transform['transform_metadata']['input_collection_changed']:
+            return self.generate_transform_outputs(transform, collections)
+        else:
+            return {}
 
     def finish_new_transforms(self):
         while not self.new_output_queue.empty():
-            transform_id, output_collection, log_collection = self.new_output_queue.get()
-            self.logger.info("Main thread finishing processing transform: %s" % transform_id)
-            core_catalog.add_collection(output_collection)
-            core_catalog.add_collection(log_collection)
-            core_transforms.update_transform(transform_id, {'status': TransformStatus.Transforming})
+            try:
+                ret = self.new_output_queue.get()
+                self.logger.info("Main thread finishing processing transform: %s" % ret)
+                if ret:
+                    
+
+                core_catalog.add_collection(output_collection)
+                core_catalog.add_collection(log_collection)
+                core_transforms.update_transform(transform_id, {'status': TransformStatus.Transforming})
+            except Exception as ex:
+                self.logger.error(ex)
+                self.logger.error(traceback.format_exc())
 
     def get_monitor_transforms(self):
         """

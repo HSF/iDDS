@@ -1,0 +1,68 @@
+#!/bin/bash
+#
+# Intelligent Data Deliver Service (IDDS)
+# Start/Stop/Status
+#
+
+CurrentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+RootDir="$( dirname "$CurrentDir" )"
+PROGRAM=${CurrentDir}/run-idds
+
+PROGRAM_BASENAME=run-idds
+
+PIDFILE=/tmp/idds.pid
+LOCKFILE=/tmp/idds.lock
+LOGFILE=/tmp/idds.log
+
+# application config
+#export IDDS_CONFIG=/etc/idds/idds.cfg
+export IDDS_CONFIG=${RootDir}/etc/idds/idds.cfg
+
+. /etc/rc.d/init.d/functions
+
+case "$1" in
+  start)
+        echo -n "Starting  $PROGRAM_BASENAME: "
+        #daemon --pidfile=$PIDFILE $PROGRAM >$LOGFILE 2>&1 &
+        nohup $PROGRAM >$LOGFILE 2>&1 &
+        RETVAL=$?
+        if [ $RETVAL -eq 0 ]; then
+            touch $LOCKFILE
+            sleep 10
+            ps aux | grep $PROGRAM_BASENAME | grep -v grep | tr -s " " | cut -d " " -f2 >$PIDFILE
+        fi
+
+        status -p $PIDFILE -l $LOCKFILE $PROGRAM_BASENAME
+        if [ $? -eq 0 ]; then
+            success "Started  $PROGRAM_BASENAME"; echo
+        else
+            failure "Started  $PROGRAM_BASENAME"; echo
+        fi
+        ;;
+  stop)
+        echo -n "Shutting down $PROGRAM_BASENAME: "
+        killproc -p $PIDFILE -l $LOCKFILE $PROGRAM_BASENAME
+        echo
+        rm -f $LOCKFILE
+        rm -f $PIDFILE
+        #success "Shut down $PROGRAM_BASENAME"; echo
+        ;;
+  status)
+        status -p $PIDFILE -l $LOCKFILE $PROGRAM_BASENAME
+        if [ $? -eq 0 ]; then
+            success "Status $PROGRAM_BASENAME"; echo
+        else
+            failure "Status $PROGRAM_BASENAME"; echo
+        fi
+        ;;
+  restart)
+        $0 stop
+        $0 start
+        ;;
+  *)
+        echo "Usage: $0 {start|stop|restart|status}"
+        exit 1
+esac
+
+exit 0
+
