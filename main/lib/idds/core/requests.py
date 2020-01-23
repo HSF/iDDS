@@ -19,7 +19,9 @@ import datetime
 from idds.common import exceptions
 from idds.common.constants import RequestStatus, RequestType
 from idds.orm.base.session import transactional_session
-from idds.orm import requests
+from idds.orm import requests as orm_requests
+from idds.orm import transforms as orm_transforms
+from idds.orm import collections as orm_collections
 
 
 @transactional_session
@@ -46,22 +48,22 @@ def add_request(scope, name, requester=None, request_type=None, transform_tag=No
 
     if request_metadata and 'workload_id' in request_metadata:
         try:
-            req = requests.get_request(workload_id=request_metadata['workload_id'], session=session)
+            req = orm_requests.get_request(workload_id=request_metadata['workload_id'], session=session)
             if is_same_request(kwargs, req):
                 # updateexpired_at time and status
                 new_status = RequestStatus.Extend
                 update_paramesters = {'status': new_status, 'priority': priority,
                                       'expired_at': datetime.datetime.utcnow() + datetime.timedelta(days=lifetime)}
-                requests.update_request(req['requestid'], update_paramesters, session=session)
+                orm_requests.update_request(req['requestid'], update_paramesters, session=session)
                 return req['requestid']
             else:
                 errmsg = "There is already a different request(%s) with the same workload id(%s)" % (req['request_id'],
                                                                                                      request_metadata['workload_id'])
                 raise exceptions.ConflictRequestException(errmsg)
         except exceptions.NoObject:
-            return requests.add_request(**kwargs)
+            return orm_requests.add_request(**kwargs)
     else:
-        return requests.add_request(**kwargs)
+        return orm_requests.add_request(**kwargs)
 
 
 def is_same_request(new_req, req):
@@ -91,7 +93,7 @@ def get_request(request_id=None, workload_id=None):
 
     :returns: Request.
     """
-    return requests.get_request(request_id=request_id, workload_id=workload_id)
+    return orm_requests.get_request(request_id=request_id, workload_id=workload_id)
 
 
 def extend_request(request_id=None, workload_id=None, lifetime=30):
@@ -102,7 +104,7 @@ def extend_request(request_id=None, workload_id=None, lifetime=30):
     :param workload_id: The workload_id of the request.
     :param lifetime: The life time as umber of days.
     """
-    return requests.extend_request(request_id=request_id, workload_id=workload_id, lifetime=lifetime)
+    return orm_requests.extend_request(request_id=request_id, workload_id=workload_id, lifetime=lifetime)
 
 
 def cancel_request(request_id=None, workload_id=None):
@@ -112,7 +114,7 @@ def cancel_request(request_id=None, workload_id=None):
     :param request_id: The id of the request.
     :param workload_id: The workload_id of the request.
     """
-    return requests.cancel_request(request_id=request_id, workload_id=workload_id)
+    return orm_requests.cancel_request(request_id=request_id, workload_id=workload_id)
 
 
 def update_request(request_id, parameters):
@@ -122,10 +124,40 @@ def update_request(request_id, parameters):
     :param request_id: the request id.
     :param parameters: A dictionary of parameters.
     """
-    return requests.update_request(request_id, parameters)
+    return orm_requests.update_request(request_id, parameters)
 
 
-def get_requests_by_status_type(status, request_type, time_period=None):
+@transactional_session
+def update_request_with_transforms(request_id, parameters, transforms_to_add, transforms_to_extend, session=None):
+    """
+    update an request.
+
+    :param request_id: the request id.
+    :param parameters: A dictionary of parameters.
+    :param transforms_to_add: list of transforms
+    :param transforms_to_extend: list of transforms
+    """
+    for transform in transforms_to_add:
+        if 'collections' not in transform or len(transform['collections']) == 0:
+            msg = "Transform must have collections, such as input collection, output collection and log collection"
+            raise exceptions.WrongParameterException(msg)
+
+        collections = transform['collections']
+        del transform['collections']
+        transform_id = orm_transforms.add_transform(**transform, session=session)
+
+        for collection in collections:
+            collection['transform_id'] = transform_id
+            orm_collections.add_collection(**collection, session=session)
+    for transform in transforms_to_extend:
+        transform_id = transform['transform_id']
+        del transform['transform_id']
+        orm_transforms.add_req2transform(request_id, transform_id, session=session)
+        orm_transforms.update_transform(transform_id, parameters=transform, session=session)
+    return orm_requests.update_request(request_id, parameters, session=session)
+
+
+def get_requests_by_status_type(status, request_type=None, time_period=None):
     """
     Get requests by status and type
 
@@ -135,4 +167,4 @@ def get_requests_by_status_type(status, request_type, time_period=None):
 
     :returns: list of Request.
     """
-    return requests.get_requests_by_status_type(status, request_type, time_period)
+    return orm_requests.get_requests_by_status_type(status, request_type, time_period)
