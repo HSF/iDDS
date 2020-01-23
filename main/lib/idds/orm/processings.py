@@ -19,7 +19,7 @@ import json
 import sqlalchemy
 from sqlalchemy import BigInteger, Integer
 from sqlalchemy.exc import DatabaseError, IntegrityError
-from sqlalchemy.sql import text, outparam
+from sqlalchemy.sql import text, bindparam, outparam
 
 from idds.common import exceptions
 from idds.common.constants import GranularityType, ProcessingStatus
@@ -147,14 +147,19 @@ def get_processings_by_status(status, period=None, session=None):
             new_status.append(st)
         status = new_status
 
+        # TODO add updated_at to db
+        period = None
+
         if period:
             select = """select * from atlas_idds.processings where status in :status and updated_at < :updated_at"""
             stmt = text(select)
+            stmt = stmt.bindparams(bindparam('status', expanding=True))
             result = session.execute(stmt, {'status': status,
                                             'updated_at': datetime.datetime.utcnow() - datetime.timedelta(seconds=period)})
         else:
             select = """select * from atlas_idds.processings where status in :status"""
             stmt = text(select)
+            stmt = stmt.bindparams(bindparam('status', expanding=True))
             result = session.execute(stmt, {'status': status})
 
         processings = result.fetchall()

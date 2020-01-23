@@ -79,7 +79,7 @@ def retrieve_messages(bulk=1000, msg_type=None, status=None, source=None, sessio
             query = query.filter_by(source=source)
 
         query = query.order_by(models.Message.created_at).limit(bulk)
-        query = query.with_for_update(nowait=True)
+        # query = query.with_for_update(nowait=True)
 
         tmp = query.all()
         if tmp:
@@ -109,5 +109,19 @@ def delete_messages(messages, session=None):
                 with_hint(models.Message, "index(messages MESSAGES_PK)", 'oracle').\
                 filter(or_(*message_condition)).\
                 delete(synchronize_session=False)
+    except IntegrityError as e:
+        raise exceptions.DatabaseException(e.args)
+
+
+@transactional_session
+def update_messages(messages, session=None):
+    """
+    Update all messages status with the given IDs.
+
+    :param messages: The messages to be updated as a list of dictionaries.
+    """
+    try:
+        for msg in messages:
+            session.query(models.Message).filter_by(msg_id=msg['msg_id']).update({'status': msg['status']}, synchronize_session=False)
     except IntegrityError as e:
         raise exceptions.DatabaseException(e.args)
