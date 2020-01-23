@@ -63,19 +63,19 @@ def get_processing(processing_id=None, transform_id=None, retries=0, session=Non
 
 
 @read_session
-def get_processings_by_status(status, period=None, session=None):
+def get_processings_by_status(status, time_period=None, session=None):
     """
     Get processing or raise a NoObject exception.
 
     :param status: Processing status of list of processing status.
-    :param period: Time period in seconds.
+    :param time_period: Time period in seconds.
     :param session: The database session in use.
 
     :raises NoObject: If no processing is founded.
 
     :returns: Processings.
     """
-    return orm_processings.get_processings_by_status(status=status, period=period, session=session)
+    return orm_processings.get_processings_by_status(status=status, period=time_period, session=session)
 
 
 @transactional_session
