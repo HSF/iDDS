@@ -20,6 +20,7 @@ from uuid import uuid4 as uuid
 from idds.client.client import Client
 from idds.common.constants import RequestType, RequestStatus
 from idds.common.utils import get_rest_host
+from idds.tests.common import get_example_real_tape_stagein_request
 
 
 def get_req_properties():
@@ -39,6 +40,7 @@ def get_req_properties():
 
 host = get_rest_host()
 props = get_req_properties()
+props = get_example_real_tape_stagein_request()
 client = Client(host=host)
 request_id = client.add_request(**props)
 print(request_id)
