@@ -17,14 +17,11 @@ except ImportError:
     # Python 2
     from Queue import Queue
 
-from idds.common.constants import Sections
-from idds.common.exceptions import IDDSException
+from idds.common.constants import (Sections, MessageStatus)
+from idds.common.exceptions import AgentPluginError, IDDSException
 from idds.common.utils import setup_logging
-from idds.common.config import (config_has_section, config_has_option,
-                                config_get)
 from idds.core import messages as core_messages
 from idds.agents.common.baseagent import BaseAgent
-from idds.agents.conductor.messaging import MessagingSender
 
 
 setup_logging(__name__)
@@ -39,59 +36,44 @@ class Conductor(BaseAgent):
         super(Conductor, self).__init__(num_threads=num_threads, **kwargs)
         self.config_section = Sections.Conductor
         self.message_queue = Queue()
-        self.notify_method_config_name = 'notify_method'
-        self.notify_method = self.get_notify_method()
 
-    def get_notify_method(self):
-        if config_has_section(self.config_section) and config_has_option(self.config_section, self.notify_method_config_name):
-            self.notify_method = config_get(self.config_section, self.notify_method_config_name)
-        else:
-            self.notify_method = 'messaging'
-
-        return self.notify_method
-
-    def start_messaging_broker(self):
-        if not self.notify_method == 'messaging':
-            self.logger.warn("The notify method is %s, not messaing, will not start messaging broker" % self.notify_method)
-            return
-
-        try:
-            self.logger.info("Starting messaging broker")
-            self.msg_broker = MessagingSender()
-            self.msg_broker.set_request_queue(self.message_queue)
-            self.msg_broker.start()
-            self.logger.info("Messaging broker started")
-        except Exception as error:
-            self.logger.error("Failed to start messaing broker: %s, %s" % (error, traceback.format_exc()))
-
-    def stop_messaging_broker(self):
-        if hasattr(self, 'msg_broker') and self.msg_broker:
-            try:
-                self.logger.info("Stopping messaging broker")
-                self.msg_broker.stop()
-                self.logger.info("Messaging broker stopped")
-            except Exception as error:
-                self.logger.error("Failed to stop messaing broker: %s, %s" % (error, traceback.format_exc()))
+    def __del__(self):
+        self.stop_notifier()
 
     def get_messages(self):
         """
         Get messages
         """
-        messages = core_messages.retrive_messages()
+        messages = core_messages.retrieve_messages()
         self.logger.info("Main thread get %s messages" % len(messages))
 
-        return messages
+        msg_contents = []
+        for message in messages:
+            msg_contents.append(message['msg_content'])
+
+        return msg_contents
 
     def clean_messages(self, msgs):
-        core_messages.delete_messages(msgs)
+        # core_messages.delete_messages(msgs)
+        to_updates = []
+        for msg in msgs:
+            to_updates.append({'msg_id': msg['msg_id'],
+                               'status': MessageStatus.Delivered})
+        core_messages.update_messages(to_updates)
 
     def start_notifier(self):
-        if self.notify_method == 'messaging':
-            self.start_messaging_broker()
+        if 'notifier' not in self.plugins:
+            raise AgentPluginError('Plugin notifier is required')
+        self.notifier = self.plugins['notifier']
+
+        self.logger.info("Starting notifier: %s" % self.notifier)
+        self.notifier.set_request_queue(self.message_queue)
+        self.notifier.start()
 
     def stop_notifier(self):
-        if self.notify_method == 'messaging':
-            self.stop_messaging_broker()
+        if hasattr(self, 'notifier') and self.notifier:
+            self.logger.info("Stopping notifier: %s" % self.notifier)
+            self.notifier.stop()
 
     def run(self):
         """
@@ -99,6 +81,7 @@ class Conductor(BaseAgent):
         """
         try:
             self.logger.info("Starting main thread")
+            self.load_plugins()
 
             self.start_notifier()
             while not self.graceful_stop.is_set():
@@ -115,8 +98,11 @@ class Conductor(BaseAgent):
                     self.logger.critical("Main thread exception: %s\n%s" % (str(error), traceback.format_exc()))
                 time.sleep(5)
         except KeyboardInterrupt:
-            self.stop_notifier()
             self.stop()
+
+    def stop(self):
+        super(Conductor, self).stop()
+        self.stop_notifier()
 
 
 if __name__ == '__main__':
