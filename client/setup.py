@@ -23,7 +23,7 @@ working_dir = os.path.dirname(os.path.realpath(__file__))
 os.chdir(working_dir)
 
 
-with open('lib/idds/version.py', "rt", encoding="utf8") as f:
+with open('lib/idds/client/version.py', "rt", encoding="utf8") as f:
     version = re.search(r'release_version = "(.*?)"', f.read()).group(1)
 
 
