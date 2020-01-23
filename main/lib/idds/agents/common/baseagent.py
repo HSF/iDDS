@@ -23,7 +23,7 @@ from concurrent import futures
 from threading import Thread
 
 from idds.common.constants import Sections
-from idds.common.exceptions import AgentPluginError, IDDSException
+from idds.common.exceptions import IDDSException
 from idds.common.plugin.plugin_base import PluginBase
 from idds.common.plugin.plugin_utils import load_plugins, load_plugin_sequence
 from idds.common.utils import setup_logging

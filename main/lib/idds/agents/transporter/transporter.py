@@ -146,6 +146,7 @@ class Transporter(BaseAgent):
             if new_contents:
                 self.register_contents(coll['scope'], coll['name'], new_contents)
 
+        """
         contents = core_catalog.get_content_status_statistics(coll_id=coll['coll_id'])
         content_status_keys = list(contents.keys())
         total_files = sum(contents.values())
@@ -188,15 +189,16 @@ class Transporter(BaseAgent):
                         'coll_metadata': {'status_statistics': contents}}
 
         return ret_coll
+        """
 
     def finish_processing_output_collections(self):
         while not self.processed_output_queue.empty():
             coll = self.processed_output_queue.get()
             self.logger.info("Main thread finished processing output collection(%s) with number of contents: %s" % (coll['coll_id']))
-            coll_id = coll['coll_id']
-            parameters = coll
-            del parameters['coll_id']
-            core_catalog.update_collection(coll_id=coll_id, parameters=parameters)
+            # coll_id = coll['coll_id']
+            # parameters = coll
+            # del parameters['coll_id']
+            # core_catalog.update_collection(coll_id=coll_id, parameters=parameters)
 
     def prepare_finish_tasks(self):
         """
