@@ -394,6 +394,7 @@ def get_contents(scope=None, name=None, coll_id=None, status=None, session=None)
                     new_status.append(st.value)
                 else:
                     new_status.append(st)
+            status = new_status
 
         if scope and name:
             if coll_id:

@@ -19,6 +19,7 @@ from idds.common.constants import (CollectionType, CollectionStatus,
                                    CollectionRelationType, ContentStatus)
 from idds.orm.base.session import read_session, transactional_session
 from idds.orm import (requests as orm_requests,
+                      transforms as orm_transforms,
                       collections as orm_collections,
                       contents as orm_contents)
 
@@ -35,11 +36,11 @@ def get_collections_by_request(request_id=None, workload_id=None, session=None):
     :returns: dict of {'transform_id': []}
     """
     request_id = orm_requests.get_request_id(request_id, workload_id, session=session)
-    collections = orm_collections.get_collections_by_request_transform_id(request_id=request_id,
-                                                                          session=session)
+    transform_ids = orm_transforms.get_transform_ids(request_id, session=session)
+    collections = orm_collections.get_collections_by_transform_ids(transform_ids=transform_ids,
+                                                                   session=session)
     rets = {}
     for collection in collections:
-        request_id = collection['request_id']
         if request_id not in rets:
             rets[request_id] = {}
         transform_id = collection['transform_id']
@@ -61,13 +62,23 @@ def get_collections_by_request_transform_id(request_id=None, transform_id=None, 
 
     :returns: list of Collections.
     """
-    request_id = orm_requests.get_request_id(request_id=request_id, session=session)
-    collections = orm_collections.get_collections_by_request_transform_id(request_id=request_id,
-                                                                          transform_id=transform_id,
-                                                                          session=session)
+    if request_id is not None:
+        request_id = orm_requests.get_request_id(request_id=request_id, session=session)
+        transform_ids = orm_transforms.get_transform_ids(request_id, transform_id=transform_id, session=session)
+    else:
+        if transform_id is None:
+            transform_ids = []
+        else:
+            transform_ids = [transform_id]
+
+    if transform_ids:
+        collections = orm_collections.get_collections_by_transform_ids(transform_ids=transform_ids,
+                                                                       session=session)
+    else:
+        collections = []
+
     rets = {}
     for collection in collections:
-        request_id = collection['request_id']
         if request_id not in rets:
             rets[request_id] = {}
         transform_id = collection['transform_id']
@@ -91,8 +102,8 @@ def get_collections_by_status(status, relation_type=CollectionRelationType.Input
 
     :returns: list of Collections.
     """
-    orm_collections.get_collections_by_status(status=status, relation_type=relation_type,
-                                              time_period=time_period, session=session)
+    return orm_collections.get_collections_by_status(status=status, relation_type=relation_type,
+                                                     time_period=time_period, session=session)
 
 
 @read_session
@@ -113,10 +124,15 @@ def get_collections(scope, name, request_id=None, workload_id=None, session=None
 
     if request_id is None and workload_id is not None:
         request_id = orm_requests.get_request_id(request_id, workload_id, session=session)
-    collections = orm_collections.get_collections(scope=scope, name=name, request_id=request_id, session=session)
+
+    transform_ids = None
+    if request_id:
+        transform_ids = orm_transforms.get_transform_ids(request_id, session=session)
+
+    collections = orm_collections.get_collections(scope=scope, name=name, transform_ids=transform_ids,
+                                                  session=session)
     rets = {}
     for collection in collections:
-        request_id = collection['request_id']
         if request_id not in rets:
             rets[request_id] = {}
         transform_id = collection['transform_id']
@@ -127,7 +143,7 @@ def get_collections(scope, name, request_id=None, workload_id=None, session=None
 
 
 @transactional_session
-def add_collection(scope, name, coll_type=CollectionType.Dataset, request_id=None, transform_id=None,
+def add_collection(scope, name, coll_type=CollectionType.Dataset, transform_id=None,
                    relation_type=CollectionRelationType.Input, coll_size=0, coll_status=CollectionStatus.New,
                    total_files=0, retries=0, expired_at=None, coll_metadata=None, session=None):
     """
@@ -136,7 +152,6 @@ def add_collection(scope, name, coll_type=CollectionType.Dataset, request_id=Non
     :param scope: The scope of the request data.
     :param name: The name of the request data.
     :param type: The type of dataset as dataset or container.
-    :param request_id: The request id related to this collection.
     :param transform_id: The transform id related to this collection.
     :param relation_type: The relation between this collection and its transform,
                           such as Input, Output, Log and so on.
@@ -152,7 +167,7 @@ def add_collection(scope, name, coll_type=CollectionType.Dataset, request_id=Non
 
     :returns: collection id.
     """
-    orm_collections.add_collection(scope=scope, name=name, coll_type=coll_type, request_id=request_id,
+    orm_collections.add_collection(scope=scope, name=name, coll_type=coll_type,
                                    transform_id=transform_id, relation_type=relation_type,
                                    coll_size=coll_size, coll_status=coll_status, total_files=total_files,
                                    retries=retries, expired_at=expired_at, coll_metadata=coll_metadata,
@@ -182,6 +197,7 @@ def add_contents(contents, returning_id=False, bulk_size=100, session=None):
 
     :param contents: dict of contents.
     :param returning_id: whether to return id.
+    :param bulk_size: bulk per insert to db.
     :param session: session.
 
     :raises DuplicatedObject: If a collection with the same name exists.
@@ -191,6 +207,59 @@ def add_contents(contents, returning_id=False, bulk_size=100, session=None):
     """
     orm_contents.add_contents(contents=contents, returning_id=returning_id, bulk_size=bulk_size,
                               session=session)
+
+
+@transactional_session
+def update_input_collection_with_contents(coll_id, parameters, contents, returning_id=False, bulk_size=100, session=None):
+    """
+    update a collection.
+
+    :param coll_id: the collection id.
+    :param parameters: A dictionary of parameters.
+    :param contents: dict of contents.
+    :param returning_id: whether to return id.
+    :param bulk_size: bulk per insert to db.
+    :param session: The database session in use.
+
+    :raises NoObject: If no request is founded.
+    :raises DatabaseException: If there is a database error.
+
+    :returns new contents
+    """
+    avail_contents = orm_contents.get_contents(coll_id=coll_id, session=session)
+    avail_contents_dict = {}
+    for content in avail_contents:
+        key = '%s:%s:%s:%s' % (content['scope'], content['name'], content['min_id'], content['max_id'])
+        avail_contents_dict[key] = content
+
+    to_addes = []
+    # to_updates = []
+    for content in contents:
+        key = '%s:%s:%s:%s' % (content['scope'], content['name'], content['min_id'], content['max_id'])
+        if key in avail_contents_dict:
+            """
+            to_update = {'content_id': content['content_id'],
+                         'status': content['status']}
+            if 'content_size' in content:
+                to_update['content_size'] = content['content_size']
+            if 'md5' in content:
+                to_update['md5'] = content['md5']
+            if 'adler32' in content:
+                to_update['adler32'] = content['adler32']
+            if 'expired_at' in content:
+                to_update['expired_at'] = content['expired_at']
+            to_updates.append(to_updated)
+            # not to do anything, no need to update
+            """
+            pass
+        else:
+            to_addes.append(content)
+
+    # there are new files
+    if to_addes:
+        add_contents(to_addes, returning_id=returning_id, bulk_size=bulk_size, session=session)
+    update_collection(coll_id, parameters, session=session)
+    return to_addes
 
 
 @read_session
@@ -233,6 +302,22 @@ def get_contents(coll_scope=None, coll_name=None, request_id=None, workload_id=N
                                                                   'relation_type': coll_relation_type,
                                                                   'contents': contents}
     return rets
+
+
+@read_session
+def get_contents_by_coll_id_status(coll_id, status=None, session=None):
+    """
+    Get contents or raise a NoObject exception.
+
+    :param coll_id: Collection id.
+    :param status: Content status or list of content status.
+    :param session: The database session in use.
+
+    :raises NoObject: If no content is founded.
+
+    :returns: list of contents.
+    """
+    return orm_contents.get_contents(coll_id=coll_id, status=status, session=session)
 
 
 @transactional_session

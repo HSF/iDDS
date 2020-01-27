@@ -19,7 +19,7 @@ import json
 import sqlalchemy
 from sqlalchemy import BigInteger, Integer
 from sqlalchemy.exc import DatabaseError, IntegrityError
-from sqlalchemy.sql import text, outparam
+from sqlalchemy.sql import text, bindparam, outparam
 
 from idds.common import exceptions
 from idds.common.constants import RequestType, RequestStatus
@@ -304,7 +304,7 @@ def get_requests_by_requester(scope, name, requester, session=None):
 
 
 @read_session
-def get_requests_by_status_type(status, request_type, time_period=None, session=None):
+def get_requests_by_status_type(status, request_type=None, time_period=None, session=None):
     """
     Get requests.
 
@@ -334,6 +334,7 @@ def get_requests_by_status_type(status, request_type, time_period=None, session=
                                 from atlas_idds.requests where status in :status order by priority desc
                              """
                 req_stmt = text(req_select)
+                req_stmt = req_stmt.bindparams(bindparam('status', expanding=True))
                 result = session.execute(req_stmt, {'status': status})
             else:
                 req_select = """select request_id, scope, name, requester, request_type, transform_tag, priority,
@@ -342,6 +343,7 @@ def get_requests_by_status_type(status, request_type, time_period=None, session=
                                 order by priority desc
                              """
                 req_stmt = text(req_select)
+                req_stmt = req_stmt.bindparams(bindparam('status', expanding=True))
                 result = session.execute(req_stmt, {'status': status,
                                                     'updated_at': datetime.datetime.utcnow() - datetime.timedelta(seconds=time_period)})
         else:
@@ -354,6 +356,7 @@ def get_requests_by_status_type(status, request_type, time_period=None, session=
                                 order by priority desc
                              """
                 req_stmt = text(req_select)
+                req_stmt = req_stmt.bindparams(bindparam('status', expanding=True))
                 result = session.execute(req_stmt, {'status': status, 'request_type': request_type})
             else:
                 req_select = """select request_id, scope, name, requester, request_type, transform_tag, priority,
@@ -362,6 +365,7 @@ def get_requests_by_status_type(status, request_type, time_period=None, session=
                                 and updated_at < :updated_at order by priority desc
                              """
                 req_stmt = text(req_select)
+                req_stmt = req_stmt.bindparams(bindparam('status', expanding=True))
                 result = session.execute(req_stmt, {'status': status, 'request_type': request_type,
                                                     'updated_at': datetime.datetime.utcnow() - datetime.timedelta(seconds=time_period)})
         requests = result.fetchall()
@@ -388,6 +392,11 @@ def update_request(request_id, parameters, session=None):
             parameters['request_type'] = parameters['request_type'].value
         if 'status' in parameters and isinstance(parameters['status'], RequestStatus):
             parameters['status'] = parameters['status'].value
+        if 'request_metadata' in parameters:
+            parameters['request_metadata'] = json.dumps(parameters['request_metadata'])
+        if 'errors' in parameters:
+            parameters['errors'] = json.dumps(parameters['errors'])
+
         parameters['updated_at'] = datetime.datetime.utcnow()
 
         req_update = "update atlas_idds.requests set "

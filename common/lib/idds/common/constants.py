@@ -48,14 +48,15 @@ class HTTP_STATUS_CODE:
 
 class RequestStatus(Enum):
     New = 0
-    Transforming = 1
-    Finished = 2
-    SubFinished = 3
-    Failed = 4
-    Extend = 5
-    ToCancel = 6
-    Cancelling = 7
-    Cancelled = 8
+    Ready = 1
+    Transforming = 2
+    Finished = 3
+    SubFinished = 4
+    Failed = 5
+    Extend = 6
+    ToCancel = 7
+    Cancelling = 8
+    Cancelled = 9
 
 
 class RequestType(Enum):
@@ -74,14 +75,15 @@ class TransformType(Enum):
 
 class TransformStatus(Enum):
     New = 0
-    Transforming = 1
-    Finished = 2
-    SubFinished = 3
-    Failed = 4
-    Extend = 5
-    ToCancel = 6
-    Cancelling = 7
-    Cancelled = 8
+    Ready = 1
+    Transforming = 2
+    Finished = 3
+    SubFinished = 4
+    Failed = 5
+    Extend = 6
+    ToCancel = 7
+    Cancelling = 8
+    Cancelled = 9
 
 
 class CollectionType(Enum):
@@ -99,7 +101,7 @@ class CollectionRelationType(Enum):
 class CollectionStatus(Enum):
     New = 0
     Updated = 1
-    Updated1 = 2
+    Processing = 2
     Open = 3
     Closed = 4
     SubClosed = 5
@@ -135,3 +137,22 @@ class ProcessingStatus(Enum):
     Finished = 4
     Failed = 5
     Lost = 6
+
+
+class MessageType(Enum):
+    StageInFile = 0
+    StageInCollection = 1
+
+
+class MessageStatus(Enum):
+    New = 0
+    Fetched = 1
+    Delivered = 2
+
+
+class MessageSource(Enum):
+    Clerk = 0
+    Transformer = 1
+    Transporter = 2
+    Carrier = 3
+    Conductor = 4

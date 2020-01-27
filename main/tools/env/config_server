@@ -11,3 +11,10 @@ conda activate /opt/idds
 pip install mod_wsgi
 #conda deactivate
 
+export RUCIO_HOME=/opt/idds/
+export RUCIO_ACCOUNT=wguan
+export X509_USER_PROXY=/tmp/x509up_u23959
+
+# bash /opt/idds/bin/run-idds
+
+

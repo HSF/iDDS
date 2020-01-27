@@ -297,3 +297,9 @@ def convert_value_to_nojsontype(params):
                     params[key] = convert_value_to_nojsontype(params[key])
 
     return params
+
+
+def convert_request_type_to_transform_type(request_type):
+    if isinstance(request_type, RequestType):
+        request_type = request_type.value
+    return TransformType(request_type)

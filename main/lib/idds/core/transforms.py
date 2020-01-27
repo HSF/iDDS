@@ -15,16 +15,19 @@ operations related to Transform.
 
 from idds.common import exceptions
 
-from idds.common.constants import TransformStatus
+from idds.common.constants import (TransformStatus,
+                                   CollectionStatus,
+                                   ContentStatus)
 from idds.orm.base.session import read_session, transactional_session
-from idds.orm import transforms as orm_transforms
-from idds.orm import collections as orm_collections
+from idds.orm import (transforms as orm_transforms,
+                      collections as orm_collections,
+                      contents as orm_contents,
+                      processings as orm_processings)
 
 
 @transactional_session
 def add_transform(transform_type, transform_tag=None, priority=0, status=TransformStatus.New, retries=0,
-                  expired_at=None, transform_metadata=None, request_id=None, collections=None,
-                  output_collection=None, log_collection=None, session=None):
+                  expired_at=None, transform_metadata=None, request_id=None, collections=None, session=None):
     """
     Add a transform.
 
@@ -39,7 +42,7 @@ def add_transform(transform_type, transform_tag=None, priority=0, status=Transfo
     :raises DuplicatedObject: If a transform with the same name exists.
     :raises DatabaseException: If there is a database error.
 
-    :returns: content id.
+    :returns: transform id.
     """
     if collections is None or len(collections) == 0:
         msg = "Transform must have collections, such as input collection, output collection and log collection"
@@ -66,6 +69,25 @@ def get_transform(transform_id, session=None):
     :returns: Transform.
     """
     return orm_transforms.get_transform(transform_id=transform_id, session=session)
+
+
+@read_session
+def get_transform_with_input_collection(transform_type, transform_tag, coll_scope, coll_name, session=None):
+    """
+    Get transform or raise a NoObject exception.
+
+    :param transform_type: Transform type.
+    :param transform_tag: Transform tag.
+    :param coll_scope: The collection scope.
+    :param coll_name: The collection name.
+    :param session: The database session in use.
+
+    :raises NoObject: If no transform is founded.
+
+    :returns: Transform.
+    """
+    return orm_transforms.get_transform_with_input_collection(transform_type, transform_tag, coll_scope,
+                                                              coll_name, session=session)
 
 
 @read_session
@@ -127,6 +149,105 @@ def update_transform(transform_id, parameters, session=None):
 
     """
     orm_transforms.update_transform(transform_id=transform_id, parameters=parameters, session=session)
+
+
+@transactional_session
+def trigger_update_transform_status(transform_id, input_collection_changed=False,
+                                    output_collection_changed=False, session=None):
+    """
+    update transform status based on input/output collection changes.
+
+    :param transform_id: the transform id.
+    :param input_collection_changed: Whether input collection is changed.
+    :param output_collection_changed: Whether output collection is changed.
+    :param session: The database session in use.
+
+    :raises NoObject: If no content is founded.
+    :raises DatabaseException: If there is a database error.
+
+    """
+    if not input_collection_changed and not output_collection_changed:
+        return
+
+    transform = orm_transforms.get_transform(transform_id, session=session)
+    status = transform['status']
+    transform_metadata = transform['transform_metadata']
+
+    if 'input_collection_changed' not in transform_metadata:
+        transform_metadata['input_collection_changed'] = input_collection_changed
+    else:
+        transform_metadata['input_collection_changed'] = transform_metadata['input_collection_changed'] or input_collection_changed
+    if 'output_collection_changed' not in transform_metadata:
+        transform_metadata['output_collection_changed'] = output_collection_changed
+    else:
+        transform_metadata['output_collection_changed'] = transform_metadata['output_collection_changed'] or output_collection_changed
+
+    if isinstance(status, TransformStatus):
+        status = status.value
+
+    new_status = status
+    if input_collection_changed:
+        if status in [TransformStatus.ToCancel.value, TransformStatus.Cancelling.value,
+                      TransformStatus.Failed.value, TransformStatus.Cancelled.value]:
+            new_status = status
+        elif status in [TransformStatus.New.value, TransformStatus.Extend.value]:
+            new_status = TransformStatus.Ready.value
+        elif status in [TransformStatus.Transforming.value]:
+            new_status = TransformStatus.Transforming.value
+        elif status in [TransformStatus.Finished.value, TransformStatus.SubFinished.value]:
+            new_status = TransformStatus.Transforming.value
+
+    elif input_collection_changed or output_collection_changed:
+        if status in [TransformStatus.ToCancel.value, TransformStatus.Cancelling.value,
+                      TransformStatus.Failed.value, TransformStatus.Cancelled.value]:
+            new_status = status
+        else:
+            new_status = TransformStatus.Transforming.value
+
+    parameters = {'status': new_status, 'transform_metadata': transform_metadata}
+    orm_transforms.update_transform(transform_id=transform_id, parameters=parameters, session=session)
+
+
+@transactional_session
+def add_transform_outputs(transform, input_collection, output_collection, input_contents, output_contents,
+                          processing, session=None):
+    """
+    For input contents, add corresponding output contents.
+
+    :param transform: the transform.
+    :param input_collection: The input collection.
+    :param output_collection: The output collection.
+    :param input_contents: The input contents.
+    :param output_contents: The corresponding output contents.
+    :param session: The database session in use.
+
+    :raises DatabaseException: If there is a database error.
+    """
+    orm_contents.add_contents(output_contents, session=session)
+
+    update_input_contents = []
+    for input_content in input_contents:
+        update_input_content = {'content_id': input_content['content_id'],
+                                'status': ContentStatus.Processing,
+                                'path': None}
+        update_input_contents.append(update_input_content)
+    orm_contents.update_contents(update_input_contents, session=session)
+
+    print(type(output_collection['coll_id']))
+    orm_collections.update_collection(output_collection['coll_id'],
+                                      {'coll_status': CollectionStatus.Processing},
+                                      session=session)
+
+    transform_metadata = transform['transform_metadata']
+    transform_metadata['input_collection_changed'] = False
+    parameters = {'status': TransformStatus.Transforming,
+                  'transform_metadata': transform_metadata}
+    orm_transforms.update_transform(transform_id=transform['transform_id'],
+                                    parameters=parameters,
+                                    session=session)
+
+    if processing:
+        orm_processings.add_processing(**processing)
 
 
 @transactional_session

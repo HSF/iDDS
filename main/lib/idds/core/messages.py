@@ -29,8 +29,8 @@ def add_message(msg_type, status, source, msg_content, session=None):
     :param msg_content: The message msg_content as JSON.
     :param session: The database session.
     """
-    orm_messages.add_message(msg_type=msg_type, status=status, source=source,
-                             msg_content=msg_content, session=session)
+    return orm_messages.add_message(msg_type=msg_type, status=status, source=source,
+                                    msg_content=msg_content, session=session)
 
 
 @read_session
@@ -46,8 +46,8 @@ def retrieve_messages(bulk=1000, msg_type=None, status=None, source=None, sessio
 
     :returns messages: List of dictionaries
     """
-    orm_messages.retrieve_messages(bulk=bulk, msg_type=msg_type, status=status, source=source,
-                                   session=session)
+    return orm_messages.retrieve_messages(bulk=bulk, msg_type=msg_type, status=status, source=source,
+                                          session=session)
 
 
 @transactional_session
@@ -57,4 +57,14 @@ def delete_messages(messages, session=None):
 
     :param messages: The messages to delete as a list of dictionaries.
     """
-    orm_messages.delete_messages(messages=messages, session=session)
+    return orm_messages.delete_messages(messages=messages, session=session)
+
+
+@transactional_session
+def update_messages(messages, session=None):
+    """
+    Update all messages status with the given IDs.
+
+    :param messages: The messages to be updated as a list of dictionaries.
+    """
+    return orm_messages.update_messages(messages=messages, session=session)
