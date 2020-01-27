@@ -233,7 +233,6 @@ def add_transform_outputs(transform, input_collection, output_collection, input_
         update_input_contents.append(update_input_content)
     orm_contents.update_contents(update_input_contents, session=session)
 
-    print(type(output_collection['coll_id']))
     orm_collections.update_collection(output_collection['coll_id'],
                                       {'coll_status': CollectionStatus.Processing},
                                       session=session)
