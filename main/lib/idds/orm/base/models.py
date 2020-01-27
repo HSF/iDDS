@@ -15,14 +15,15 @@ SQLAlchemy models for idds relational data
 
 import datetime
 
-from sqlalchemy import BigInteger, Boolean, Column, DateTime, Integer, String, event, DDL
+from sqlalchemy import BigInteger, Boolean, Column, DateTime, Integer, String, event, DDL, Enum
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import object_mapper
 from sqlalchemy.schema import CheckConstraint, Index, PrimaryKeyConstraint, Sequence, Table
 
+from idds.common.constants import (MessageType, MessageStatus, MessageSource)
 from idds.common.utils import date_to_str
 from idds.orm.base.enum import EnumSymbol
-from idds.orm.base.types import JSON
+from idds.orm.base.types import JSON, EnumWithValue
 from idds.orm.base.session import BASE, DEFAULT_SCHEMA_NAME
 from idds.common.constants import (SCOPE_LENGTH, NAME_LENGTH)
 
@@ -135,9 +136,9 @@ class Message(BASE, ModelBase):
     msg_id = Column(BigInteger().with_variant(Integer, "sqlite"),
                     Sequence('MESSAGE_ID_SEQ', schema=DEFAULT_SCHEMA_NAME),
                     primary_key=True)
-    msg_type = Column(Integer())
-    status = Column(Integer())
-    source = Column(Integer())
+    msg_type = Column(EnumWithValue(MessageType))
+    status = Column(EnumWithValue(MessageStatus))
+    source = Column(EnumWithValue(MessageSource))
     created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow)
     updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     msg_content = Column(JSON())
