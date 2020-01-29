@@ -123,5 +123,5 @@ class MessagingSender(PluginBase, threading.Thread):
             except Exception as error:
                 self.logger.error("Messaging sender throws an exception: %s, %s" % (error, traceback.format_exc()))
 
-    def __calll__(self):
+    def __call__(self):
         self.run()

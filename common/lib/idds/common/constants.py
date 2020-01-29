@@ -22,8 +22,10 @@ NAME_LENGTH = 255
 class Sections:
     Main = 'main'
     Common = 'common'
+    Clerk = 'clerk'
     Transformer = 'transformer'
     Transporter = 'transporter'
+    Carrier = 'carrier'
     Conductor = 'conductor'
 
 
@@ -44,43 +46,44 @@ class HTTP_STATUS_CODE:
     InternalError = 500
 
 
-class RequesterType(Enum):
-    Derivation = 0
-    EventStreaming = 1
-    Other = 99
-
-
 class RequestStatus(Enum):
     New = 0
-    Transforming = 1
-    Transporting = 2
-    Processing = 3
-    Finished = 4
+    Ready = 1
+    Transforming = 2
+    Finished = 3
+    SubFinished = 4
     Failed = 5
-    Cancel = 6
-    ReQueue = 7
+    Extend = 6
+    ToCancel = 7
+    Cancelling = 8
+    Cancelled = 9
 
 
 class RequestType(Enum):
     Derivation = 0
     EventStreaming = 1
+    StageIn = 2
     Other = 99
 
 
 class TransformType(Enum):
     Derivation = 0
     EventStreaming = 1
+    StageIn = 2
     Other = 99
 
 
 class TransformStatus(Enum):
     New = 0
-    Transforming = 1
-    Transporting = 2
-    Processing = 3
-    Finished = 4
+    Ready = 1
+    Transforming = 2
+    Finished = 3
+    SubFinished = 4
     Failed = 5
-    Cancel = 6
+    Extend = 6
+    ToCancel = 7
+    Cancelling = 8
+    Cancelled = 9
 
 
 class CollectionType(Enum):
@@ -97,8 +100,13 @@ class CollectionRelationType(Enum):
 
 class CollectionStatus(Enum):
     New = 0
-    Open = 1
-    Closed = 2
+    Updated = 1
+    Processing = 2
+    Open = 3
+    Closed = 4
+    SubClosed = 5
+    Failed = 6
+    Deleted = 7
 
 
 class ContentType(Enum):
@@ -110,9 +118,10 @@ class ContentStatus(Enum):
     New = 0
     Processing = 1
     Available = 2
-    Lost = 3
-    Deleted = 4
-    Failed = 5
+    Failed = 3
+    FinalFailed = 4
+    Lost = 5
+    Deleted = 6
 
 
 class GranularityType(Enum):
@@ -128,3 +137,22 @@ class ProcessingStatus(Enum):
     Finished = 4
     Failed = 5
     Lost = 6
+
+
+class MessageType(Enum):
+    StageInFile = 0
+    StageInCollection = 1
+
+
+class MessageStatus(Enum):
+    New = 0
+    Fetched = 1
+    Delivered = 2
+
+
+class MessageSource(Enum):
+    Clerk = 0
+    Transformer = 1
+    Transporter = 2
+    Carrier = 3
+    Conductor = 4

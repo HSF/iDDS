@@ -19,7 +19,7 @@ import json
 import sqlalchemy
 from sqlalchemy import BigInteger, Integer
 from sqlalchemy.exc import DatabaseError, IntegrityError
-from sqlalchemy.sql import text, outparam
+from sqlalchemy.sql import text, bindparam, outparam
 
 from idds.common import exceptions
 from idds.common.constants import ContentType, ContentStatus
@@ -369,7 +369,7 @@ def get_match_contents(coll_id, scope, name, content_type=None, min_id=None, max
 
 
 @read_session
-def get_contents(scope=None, name=None, coll_id=None, session=None):
+def get_contents(scope=None, name=None, coll_id=None, status=None, session=None):
     """
     Get content or raise a NoObject exception.
 
@@ -381,27 +381,64 @@ def get_contents(scope=None, name=None, coll_id=None, session=None):
 
     :raises NoObject: If no content is founded.
 
-    :returns: Content.
+    :returns: list of contents.
     """
 
     try:
+        if status is not None:
+            if not isinstance(status, (tuple, list)):
+                status = [status]
+            new_status = []
+            for st in status:
+                if isinstance(st, ContentStatus):
+                    new_status.append(st.value)
+                else:
+                    new_status.append(st)
+            status = new_status
+
         if scope and name:
             if coll_id:
-                select = """select * from atlas_idds.collections_content where coll_id=:coll_id and
-                            scope=:scope and name like :name"""
-                stmt = text(select)
-                result = session.execute(stmt, {'coll_id': coll_id, 'scope': scope, 'name': '%' + name + '%'})
+                if status is not None:
+                    select = """select * from atlas_idds.collections_content where coll_id=:coll_id and
+                                scope=:scope and name like :name and status in :status"""
+                    stmt = text(select)
+                    stmt = stmt.bindparams(bindparam('status', expanding=True))
+                    result = session.execute(stmt, {'coll_id': coll_id, 'scope': scope, 'name': '%' + name + '%', 'status': status})
+                else:
+                    select = """select * from atlas_idds.collections_content where coll_id=:coll_id and
+                                scope=:scope and name like :name"""
+                    stmt = text(select)
+                    result = session.execute(stmt, {'coll_id': coll_id, 'scope': scope, 'name': '%' + name + '%'})
             else:
-                select = """select * from atlas_idds.collections_content where scope=:scope and name like :name"""
-                stmt = text(select)
-                result = session.execute(stmt, {'scope': scope, 'name': '%' + name + '%'})
+                if status is not None:
+                    select = """select * from atlas_idds.collections_content where scope=:scope and name like :name and status in :status"""
+                    stmt = text(select)
+                    stmt = stmt.bindparams(bindparam('status', expanding=True))
+                    result = session.execute(stmt, {'scope': scope, 'name': '%' + name + '%', 'status': status})
+                else:
+                    select = """select * from atlas_idds.collections_content where scope=:scope and name like :name"""
+                    stmt = text(select)
+                    result = session.execute(stmt, {'scope': scope, 'name': '%' + name + '%'})
         else:
             if coll_id:
-                select = """select * from atlas_idds.collections_content where coll_id=:coll_id"""
-                stmt = text(select)
-                result = session.execute(stmt, {'coll_id': coll_id})
+                if status is not None:
+                    select = """select * from atlas_idds.collections_content where coll_id=:coll_id and status in :status"""
+                    stmt = text(select)
+                    stmt = stmt.bindparams(bindparam('status', expanding=True))
+                    result = session.execute(stmt, {'coll_id': coll_id, 'status': status})
+                else:
+                    select = """select * from atlas_idds.collections_content where coll_id=:coll_id"""
+                    stmt = text(select)
+                    result = session.execute(stmt, {'coll_id': coll_id})
             else:
-                raise exceptions.WrongParameterException("Both (scope:%s and name:%s) and coll_id:%s are not fully provided")
+                if status is not None:
+                    select = """select * from atlas_idds.collections_content where status in :status"""
+                    stmt = text(select)
+                    stmt = stmt.bindparams(bindparam('status', expanding=True))
+                    result = session.execute(stmt, {'status': status})
+                else:
+                    raise exceptions.WrongParameterException("Both (scope:%s and name:%s) and coll_id:%s status:%s are not fully provided" %
+                                                             (scope, name, coll_id, status))
 
         contents = result.fetchall()
         rets = []
@@ -418,6 +455,29 @@ def get_contents(scope=None, name=None, coll_id=None, session=None):
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('No record can be found with (scope=%s, name=%s, coll_id=%s): %s' %
                                   (scope, name, coll_id, error))
+    except Exception as error:
+        raise error
+
+
+@read_session
+def get_content_status_statistics(coll_id=None, session=None):
+    """
+    Get statistics group by status
+
+    :param coll_id: Collection id.
+    :param session: The database session in use.
+
+    :returns: statistics group by status, as a dict.
+    """
+    try:
+        sql = "select status, count(*) from  atlas_idds.collections_content group by status"
+        stmt = text(sql)
+        session.execute(stmt)
+        result = session.fetchall()
+        rets = {}
+        for status, count in result:
+            rets[status] = count
+        return rets
     except Exception as error:
         raise error
 
@@ -459,11 +519,12 @@ def update_content(content_id, parameters, session=None):
 
 
 @transactional_session
-def update_contents(parameters, session=None):
+def update_contents(parameters, with_content_id=False, session=None):
     """
     updatecontents.
 
     :param parameters: list of dictionary of parameters.
+    :param with_content_id: whether content_id is included.
     :param session: The database session in use.
 
     :raises NoObject: If no content is founded.
@@ -471,9 +532,14 @@ def update_contents(parameters, session=None):
 
     """
     try:
-        keys = ['coll_id', 'scope', 'name', 'min_id', 'max_id', 'status', 'path']
-        update = """update atlas_idds.collections_content set path=:path, updated_at=:updated_at, status=:status
-                    where coll_id=:coll_id and scope=:scope and name=:name and min_id=:min_id and max_id=:max_id"""
+        if with_content_id:
+            keys = ['content_id', 'status', 'path']
+            update = """update atlas_idds.collections_content set path=:path, updated_at=:updated_at, status=:status
+                        where content_id=:content_id"""
+        else:
+            keys = ['coll_id', 'scope', 'name', 'min_id', 'max_id', 'status', 'path']
+            update = """update atlas_idds.collections_content set path=:path, updated_at=:updated_at, status=:status
+                        where coll_id=:coll_id and scope=:scope and name=:name and min_id=:min_id and max_id=:max_id"""
         stmt = text(update)
 
         contents = []

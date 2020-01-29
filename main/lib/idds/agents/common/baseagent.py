@@ -11,14 +11,19 @@
 
 import threading
 import traceback
-import Queue
+try:
+    # python 3
+    from queue import Queue
+except ImportError:
+    # Python 2
+    from Queue import Queue
 
 from concurrent import futures
 # from multiprocessing import Process
 from threading import Thread
 
 from idds.common.constants import Sections
-from idds.common.exceptions import AgentPluginError, IDDSException
+from idds.common.exceptions import IDDSException
 from idds.common.plugin.plugin_base import PluginBase
 from idds.common.plugin.plugin_utils import load_plugins, load_plugin_sequence
 from idds.common.utils import setup_logging
@@ -36,11 +41,11 @@ class BaseAgent(Thread, PluginBase):
         super(BaseAgent, self).__init__()
 
         self.name = self.__class__.__name__
-        self.num_threads = num_threads
+        self.num_threads = int(num_threads)
         self.graceful_stop = threading.Event()
-        self.executors = futures.ThreadPoolExecutor(max_workers=num_threads)
-        self.task_queue = Queue.Queue()
-        self.finished_tasks = Queue.Queue()
+        self.executors = futures.ThreadPoolExecutor(max_workers=self.num_threads)
+        self.task_queue = Queue()
+        # self.finished_tasks = Queue()
 
         self.config_section = Sections.Common
 
@@ -53,8 +58,6 @@ class BaseAgent(Thread, PluginBase):
         self.logger = None
         self.setup_logger()
 
-        self.messaging_queue = Queue.Queue()
-
     def stop(self, signum=None, frame=None):
         """
         Graceful exit.
@@ -66,12 +69,14 @@ class BaseAgent(Thread, PluginBase):
 
     def load_plugins(self):
         self.plugins = load_plugins(self.config_section)
+        """
         for plugin_name in self.plugin_sequence:
             if plugin_name not in self.plugins:
                 raise AgentPluginError("Plugin %s is defined in plugin_sequence but no plugin is defined with this name")
         for plugin_name in self.plugins:
             if plugin_name not in self.plugin_sequence:
-                raise AgentPluginError("Plugin %s is defined but it is not defined in plugin_sequence")
+                raise AgentPluginError("Plugin %s is defined but it is not defined in plugin_sequence" % plugin_name)
+        """
 
     def submit_task(self, task_func, output_queue, task_args=tuple(), task_kwargs={}):
         task = task_func, output_queue, task_args, task_kwargs
@@ -91,21 +96,22 @@ class BaseAgent(Thread, PluginBase):
             try:
                 if not self.task_queue.empty():
                     task = self.task_queue.get()
-                    self.logger.info(log_prefix + "Got task: %s" % task)
+                    self.logger.info(log_prefix + "Got task: %s" % str(task))
 
                     try:
-                        self.logger.info(log_prefix + "Processing task: %s" % task)
+                        self.logger.info(log_prefix + "Processing task: %s" % str(task))
                         task_func, task_output_queue, task_args, task_kwargs = task
                         ret = task_func(*task_args, **task_kwargs)
-                        task_output_queue.put(ret)
+                        if ret:
+                            task_output_queue.put(ret)
                     except IDDSException as error:
                         self.logger.error(log_prefix + "Caught an IDDSException: %s" % str(error))
                     except Exception as error:
                         self.logger.critical(log_prefix + "Caught an exception: %s\n%s" % (str(error), traceback.format_exc()))
 
-                    if task:
-                        self.logger.info(log_prefix + "Put task to finished queue: %s" % task)
-                        self.finished_tasks.put(task)
+                    # if task:
+                    #     self.logger.info(log_prefix + "Put task to finished queue: %s" % str(task))
+                    #     self.finished_tasks.put(task)
                 else:
                     self.graceful_stop.wait(1)
             except Exception as error:

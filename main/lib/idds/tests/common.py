@@ -104,3 +104,136 @@ def get_processing_properties():
         'processing_metadata': {'task_id': 40191323}
     }
     return proc_properties
+
+
+def get_example_tape_stagein_request():
+    req_properties = {
+        'scope': 'test_scope',
+        'name': 'test_name_%s' % str(uuid()),
+        'requester': 'panda',
+        'request_type': RequestType.StageIn,
+        'transform_tag': RequestType.StageIn.value,
+        'status': RequestStatus.New,
+        'priority': 0,
+        'lifetime': 30,
+        'request_metadata': {'workload_id': int(time.time()), 'src_rse': 'BNL-OSG2_DATATAPE', 'dest_rse': 'BNL-OSG2_DATADISK'}
+    }
+    return req_properties
+
+
+def get_example_real_tape_stagein_request():
+    req_properties = {
+        'scope': 'data17_13TeV',
+        'name': 'data17_13TeV.00341649.express_express.merge.RAW',
+        'requester': 'panda',
+        'request_type': RequestType.StageIn,
+        'transform_tag': RequestType.StageIn.value,
+        'status': RequestStatus.New,
+        'priority': 0,
+        'lifetime': 30,
+        'request_metadata': {'workload_id': int(time.time()), 'src_rse': 'BNL-OSG2_DATATAPE', 'dest_rse': 'BNL-OSG2_DATADISK'}
+    }
+    return req_properties
+
+
+def get_example_ess_request():
+    req_properties = {
+        'scope': 'test_scope',
+        'name': 'test_name_%s' % str(uuid()),
+        'requester': 'panda',
+        'request_type': RequestType.EventStreaming,
+        'transform_tag': 's3128',
+        'status': RequestStatus.New,
+        'priority': 0,
+        'lifetime': 30,
+        'request_metadata': {'workload_id': int(time.time()), 'events_per_range': 10}
+    }
+    return req_properties
+
+
+# https://bigpanda.cern.ch/tasknew/19163542/
+def get_real_example_ess_request():
+    req_properties = {
+        'scope': 'mc16_13TeV',
+        'name': 'mc16_13TeV.451129.MGPy8EG_A14N23LO_VBF_RS_G_ZZ_llqq_kt1_m1500.merge.EVNT.e7758_e5984_tid19153490_00',
+        'requester': 'panda',
+        'request_type': RequestType.EventStreaming,
+        'transform_tag': 's3126',
+        'status': RequestStatus.New,
+        'priority': 0,
+        'lifetime': 30,
+        'request_metadata': {'workload_id': 19163542, 'events_per_range': 10}
+    }
+    return req_properties
+
+
+# https://bigpanda.cern.ch/task/19660169/
+def get_example_derivation_request():
+    req_properties = {
+        'scope': 'mc16_13TeV',
+        'name': 'mc16_13TeV.410287.PhPy8EG_A14_ttbar_hdamp258p75_allhad_mtt_1700_2000.merge.AOD.e6686_e5984_s3126_r10724_r10726_tid15801996_00',
+        'requester': 'panda',
+        'request_type': RequestType.Derivation,
+        'transform_tag': 'p3978',
+        'status': RequestStatus.New,
+        'priority': 0,
+        'lifetime': 30,
+        'request_metadata': {'workload_id': 19660169, 'task_parameter': None}
+    }
+    return req_properties
+
+
+def is_same_req_trans_colls(req_trans_colls1, req_trans_colls2):
+    req_ids1 = list(req_trans_colls1.keys())
+    req_ids2 = list(req_trans_colls2.keys())
+    if not req_ids1 == req_ids2:
+        return False
+
+    for req_id in req_ids1:
+        tran_ids1 = list(req_trans_colls1[req_id].keys())
+        tran_ids2 = list(req_trans_colls2[req_id].keys())
+        if not tran_ids1 == tran_ids2:
+            return False
+
+        for tran_id in tran_ids1:
+            colls1 = req_trans_colls1[req_id][tran_id]
+            colls2 = req_trans_colls2[req_id][tran_id]
+            coll_ids1 = [coll['coll_id'] for coll in colls1]
+            coll_ids2 = [coll['coll_id'] for coll in colls2]
+            coll_ids1.sort()
+            coll_ids2.sort()
+            if not coll_ids1 == coll_ids2:
+                return False
+    return True
+
+
+def is_same_req_trans_coll_contents(req_trans_colls1, req_trans_colls2):
+    req_ids1 = list(req_trans_colls1.keys())
+    req_ids2 = list(req_trans_colls2.keys())
+    if not req_ids1 == req_ids2:
+        return False
+
+    for req_id in req_ids1:
+        tran_ids1 = list(req_trans_colls1[req_id].keys())
+        tran_ids2 = list(req_trans_colls2[req_id].keys())
+        if not tran_ids1 == tran_ids2:
+            return False
+
+        for tran_id in tran_ids1:
+            coll_contents1 = req_trans_colls1[req_id][tran_id]
+            coll_contents2 = req_trans_colls2[req_id][tran_id]
+            coll_scope_names1 = [scope_name for scope_name in coll_contents1]
+            coll_scope_names2 = [scope_name for scope_name in coll_contents2]
+            coll_scope_names1.sort()
+            coll_scope_names2.sort()
+            if not coll_scope_names1 == coll_scope_names1:
+                return False
+
+            for scope_name in coll_scope_names1:
+                contents1 = req_trans_colls1[req_id][tran_id][scope_name]['contents']
+                contents2 = req_trans_colls2[req_id][tran_id][scope_name]['contents']
+                content_ids1 = [content['content_id'] for content in contents1]
+                content_ids2 = [content['content_id'] for content in contents2]
+                if not content_ids1 == content_ids2:
+                    return False
+    return True

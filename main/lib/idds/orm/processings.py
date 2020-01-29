@@ -19,7 +19,7 @@ import json
 import sqlalchemy
 from sqlalchemy import BigInteger, Integer
 from sqlalchemy.exc import DatabaseError, IntegrityError
-from sqlalchemy.sql import text, outparam
+from sqlalchemy.sql import text, bindparam, outparam
 
 from idds.common import exceptions
 from idds.common.constants import GranularityType, ProcessingStatus
@@ -119,6 +119,68 @@ def get_processing(processing_id=None, transform_id=None, retries=0, session=Non
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('Processing(processing_id: %s, transform_id: %s, retries: %s) cannot be found: %s' %
                                   (processing_id, transform_id, retries, error))
+    except Exception as error:
+        raise error
+
+
+@read_session
+def get_processings_by_status(status, period=None, session=None):
+    """
+    Get processing or raise a NoObject exception.
+
+    :param status: Processing status of list of processing status.
+    :param period: Time period in seconds.
+    :param session: The database session in use.
+
+    :raises NoObject: If no processing is founded.
+
+    :returns: Processings.
+    """
+
+    try:
+        if not isinstance(status, (list, tuple)):
+            status = [status]
+        new_status = []
+        for st in status:
+            if isinstance(st, ProcessingStatus):
+                st = st.value
+            new_status.append(st)
+        status = new_status
+
+        # TODO add updated_at to db
+        period = None
+
+        if period:
+            select = """select * from atlas_idds.processings where status in :status and updated_at < :updated_at"""
+            stmt = text(select)
+            stmt = stmt.bindparams(bindparam('status', expanding=True))
+            result = session.execute(stmt, {'status': status,
+                                            'updated_at': datetime.datetime.utcnow() - datetime.timedelta(seconds=period)})
+        else:
+            select = """select * from atlas_idds.processings where status in :status"""
+            stmt = text(select)
+            stmt = stmt.bindparams(bindparam('status', expanding=True))
+            result = session.execute(stmt, {'status': status})
+
+        processings = result.fetchall()
+
+        if processings is None:
+            raise exceptions.NoObject('Processing(status: %s, period: %s) cannot be found' %
+                                      (status, period))
+
+        new_processings = []
+        for processing in processings:
+            processing = row2dict(processing)
+            if processing['granularity_type'] is not None:
+                processing['granularity_type'] = GranularityType(processing['granularity_type'])
+            if processing['status'] is not None:
+                processing['status'] = ProcessingStatus(processing['status'])
+            if processing['processing_metadata']:
+                processing['processing_metadata'] = json.loads(processing['processing_metadata'])
+            new_processings.append(processing)
+        return new_processings
+    except sqlalchemy.orm.exc.NoResultFound as error:
+        raise exceptions.NoObject('No processing attached with status (%s): %s' % (status, error))
     except Exception as error:
         raise error
 
