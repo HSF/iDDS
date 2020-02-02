@@ -136,6 +136,21 @@ def get_example_real_tape_stagein_request():
     return req_properties
 
 
+def get_example_prodsys2_tape_stagein_request():
+    req_properties = {
+        'scope': 'data18_13TeV',
+        'name': 'data18_13TeV.00359286.physics_Main.daq.RAW',
+        'requester': 'panda',
+        'request_type': RequestType.StageIn,
+        'transform_tag': 'prodsys2',
+        'status': RequestStatus.New,
+        'priority': 0,
+        'lifetime': 30,
+        'request_metadata': {'workload_id': '20357607', 'src_rse': 'SARA-MATRIX_DATATAPE', 'rule_id': '479c4d153d154d87856b34271e98ce0b'}
+    }
+    return req_properties
+
+
 def get_example_ess_request():
     req_properties = {
         'scope': 'test_scope',
