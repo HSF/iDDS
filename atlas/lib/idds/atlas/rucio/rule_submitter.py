@@ -15,6 +15,8 @@ Class of collection lister plubin
 
 import traceback
 
+from rucio.common.exception import DuplicateRule
+
 from idds.common import exceptions
 from idds.atlas.rucio.base_plugin import RucioPluginBase
 
@@ -26,18 +28,28 @@ class RuleSubmitter(RucioPluginBase):
 
     def __call__(self, processing, transform, input_collection):
         try:
-            processing_metadata = processing['processing_metadata']
+            transform_metadata = transform['transform_metadata']
+            if 'rule_id' in transform_metadata and transform_metadata['rule_id']:
+                return transform_metadata['rule_id']
+
             did = {'scope': input_collection['scope'], 'name': input_collection['name']}
 
-            rule_id = self.client.add_replication_rule(dids=[did],
-                                                       copies=1,
-                                                       rse_expression=processing_metadata['dest_rse'],
-                                                       source_replica_expression=processing_metadata['src_rse'],
-                                                       lifetime=self.lifetime,
-                                                       locked=False,
-                                                       grouping='DATASET',
-                                                       ask_approval=False)
-            return rule_id
+            try:
+                rule_id = self.client.add_replication_rule(dids=[did],
+                                                           copies=1,
+                                                           rse_expression=transform_metadata['dest_rse'],
+                                                           source_replica_expression=transform_metadata['src_rse'],
+                                                           lifetime=self.lifetime,
+                                                           locked=False,
+                                                           grouping='DATASET',
+                                                           ask_approval=False)
+                return rule_id
+            except DuplicateRule as ex:
+                self.logger.warn(ex)
+                rules = self.client.list_did_rules(scope=input_collection['scope'], name=input_collection['name'])
+                for rule in rules:
+                    if rule['account'] == self.client.account:
+                        return rule['id']
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
