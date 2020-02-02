@@ -15,7 +15,7 @@ Class of collection lister plubin
 
 import traceback
 
-from rucio.commmon.exceptions import DataIdentifierNotFound
+from rucio.common.exception import DataIdentifierNotFound
 
 from idds.common import exceptions
 from idds.atlas.rucio.base_plugin import RucioPluginBase
