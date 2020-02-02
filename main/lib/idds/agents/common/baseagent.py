@@ -154,6 +154,9 @@ class BaseAgent(Thread, PluginBase):
     def __calll__(self):
         self.run()
 
+    def terminate(self):
+        self.stop()
+
 
 if __name__ == '__main__':
     agent = BaseAgent()

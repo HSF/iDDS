@@ -122,6 +122,7 @@ class ContentStatus(Enum):
     FinalFailed = 4
     Lost = 5
     Deleted = 6
+    Mapped = 7
 
 
 class GranularityType(Enum):

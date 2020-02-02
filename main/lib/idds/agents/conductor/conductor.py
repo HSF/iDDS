@@ -44,14 +44,10 @@ class Conductor(BaseAgent):
         """
         Get messages
         """
-        messages = core_messages.retrieve_messages()
-        self.logger.info("Main thread get %s messages" % len(messages))
+        messages = core_messages.retrieve_messages(status=MessageStatus.New)
+        self.logger.info("Main thread get %s new messages" % len(messages))
 
-        msg_contents = []
-        for message in messages:
-            msg_contents.append(message['msg_content'])
-
-        return msg_contents
+        return messages
 
     def clean_messages(self, msgs):
         # core_messages.delete_messages(msgs)
@@ -88,7 +84,7 @@ class Conductor(BaseAgent):
                 try:
                     messages = self.get_messages()
                     for message in messages:
-                        self.message_queue.append(message)
+                        self.message_queue.put(message)
                     while not self.message_queue.empty():
                         time.sleep(1)
                     self.clean_messages(messages)
