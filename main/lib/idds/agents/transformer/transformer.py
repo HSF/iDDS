@@ -46,9 +46,9 @@ class Transformer(BaseAgent):
         Get new transforms to process
         """
 
-        transform_status = [TransformStatus.Ready]
+        transform_status = [TransformStatus.New, TransformStatus.Ready, TransformStatus.Extend]
         transforms_new = core_transforms.get_transforms_by_status(status=transform_status)
-        self.logger.info("Main thread get %s New transforms to process" % len(transforms_new))
+        self.logger.info("Main thread get %s New+Ready+Extend transforms to process" % len(transforms_new))
         return transforms_new
 
     def generate_transform_output_contents(self, transform, input_collection, output_collection, contents):
@@ -95,6 +95,7 @@ class Transformer(BaseAgent):
         """
         Process new transform
         """
+        self.logger.debug("process_new_transform: transform_id: %s" % transform['transform_id'])
         ret_collections = core_catalog.get_collections_by_request_transform_id(transform_id=transform['transform_id'])
         self.logger.debug("Processing transform(%s): ret_collections: %s" % (transform['transform_id'], ret_collections))
 
@@ -109,7 +110,12 @@ class Transformer(BaseAgent):
                                                                                         ret_transform,
                                                                                         collections))
 
-        if ret_transform and ret_transform['transform_metadata']['input_collection_changed']:
+        input_collection = None
+        for collection in collections:
+            if collection['relation_type'] == CollectionRelationType.Input:
+                input_collection = collection
+
+        if ret_transform and input_collection and (input_collection['processed_files'] is None or input_collection['processed_files'] < input_collection['total_files']):
             return self.generate_transform_outputs(ret_transform, collections)
         else:
             return {}
@@ -140,15 +146,11 @@ class Transformer(BaseAgent):
         self.logger.info("Main thread get %s transforming transforms to process" % len(transforms))
         return transforms
 
-    def process_transform_outputs(transform, collections):
+    def process_transform_outputs(self, transform, collections):
         output_collection = None
-        for request_id in collections:
-            for transform_id in collections:
-                if transform_id == transform['transform_id']:
-                    trans_collections = collections[request_id][transform_id]
-                    for collection in trans_collections:
-                        if collection['relation_type'] == CollectionRelationType.Output:
-                            output_collection = collection
+        for collection in collections:
+            if collection['relation_type'] == CollectionRelationType.Output:
+                output_collection = collection
 
         transform_metadata = transform['transform_metadata']
         if not transform_metadata:
@@ -180,18 +182,26 @@ class Transformer(BaseAgent):
         """
         process monitor transforms
         """
+        self.logger.debug("process_monitor_transform: transform_id: %s" % transform['transform_id'])
         ret_collections = core_catalog.get_collections_by_request_transform_id(transform_id=transform['transform_id'])
+
         collections = []
         ret_transform = None
         for request_id in ret_collections:
-            for transform_id in ret_collections:
+            for transform_id in ret_collections[request_id]:
                 if transform_id == transform['transform_id']:
                     collections = ret_collections[request_id][transform_id]
                     ret_transform = transform
 
-        if ret_transform and ret_transform['transform_metadata']['input_collection_changed']:
+        input_collection = None
+        for collection in collections:
+            if collection['relation_type'] == CollectionRelationType.Input:
+                input_collection = collection
+
+        transform_input, transform_output = None, None
+        if ret_transform and input_collection and (input_collection['processed_files'] is None or input_collection['processed_files'] < input_collection['total_files']):
             transform_input = self.generate_transform_outputs(ret_transform, collections)
-        if ret_transform and ret_transform['transform_metadata']['output_collection_changed']:
+        if ret_transform and 'output_collection_changed' in ret_transform['transform_metadata'] and ret_transform['transform_metadata']['output_collection_changed']:
             transform_output = self.process_transform_outputs(ret_transform, collections)
         ret = {'transform_input': transform_input,
                'transform_output': transform_output}
@@ -203,12 +213,12 @@ class Transformer(BaseAgent):
             transform_input = ret['transform_input']
             transform_output = ret['transform_output']
             if transform_input:
-                core_transforms.add_transform_output(transform=transform_input['transform'],
-                                                     input_collections=transform_input['input_collections'],
-                                                     output_collection=transform_input['output_collection'],
-                                                     input_contents=transform_input['input_contents'],
-                                                     output_contents=transform_input['output_contents'],
-                                                     processing=transform_input['processing'])
+                core_transforms.add_transform_outputs(transform=transform_input['transform'],
+                                                      input_collection=transform_input['input_collection'],
+                                                      output_collection=transform_input['output_collection'],
+                                                      input_contents=transform_input['input_contents'],
+                                                      output_contents=transform_input['output_contents'],
+                                                      processing=transform_input['processing'])
             if transform_output:
                 transform_id = transform_output['transform_id']
                 del transform_output['transform_id']

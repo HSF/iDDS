@@ -16,7 +16,11 @@ operations related to Processings.
 
 from idds.orm.base.session import read_session, transactional_session
 
-from idds.orm import processings as orm_processings
+from idds.orm import (processings as orm_processings,
+                      collections as orm_collections,
+                      contents as orm_contents,
+                      messages as orm_messages,
+                      transforms as orm_transforms)
 
 
 @transactional_session
@@ -106,3 +110,44 @@ def delete_processing(processing_id=None, session=None):
     :raises DatabaseException: If there is a database error.
     """
     return orm_processings.delete_processing(processing_id=processing_id, session=session)
+
+
+@transactional_session
+def update_processing_with_collection_contents(updated_processing, updated_collection, updated_files,
+                                               coll_msg_content, file_msg_content, transform_updates,
+                                               session=None):
+    """
+    Update processing with collection, contents, file messages and collection messages.
+
+    :param updated_processing: dict with processing id and parameters.
+    :param updated_collection: dict with collection id and parameters.
+    :param updated_files: list of content files.
+    :param coll_msg_content: message with collection info.
+    :param file_msg_content: message with files info.
+    """
+    if updated_files:
+        orm_contents.update_contents(updated_files, with_content_id=True, session=session)
+    if file_msg_content:
+        orm_messages.add_message(msg_type=file_msg_content['msg_type'],
+                                 status=file_msg_content['status'],
+                                 source=file_msg_content['source'],
+                                 msg_content=file_msg_content['msg_content'],
+                                 session=session)
+    if updated_collection:
+        orm_collections.update_collection(coll_id=updated_collection['coll_id'],
+                                          parameters=updated_collection['parameters'],
+                                          session=session)
+    if coll_msg_content:
+        orm_messages.add_message(msg_type=coll_msg_content['msg_type'],
+                                 status=coll_msg_content['status'],
+                                 source=coll_msg_content['source'],
+                                 msg_content=coll_msg_content['msg_content'],
+                                 session=session)
+    if updated_processing:
+        orm_processings.update_processing(processing_id=updated_processing['processing_id'],
+                                          parameters=updated_processing['parameters'],
+                                          session=session)
+    if transform_updates:
+        orm_transforms.update_transform(transform_id=transform_updates['transform_id'],
+                                        parameters=transform_updates['parameters'],
+                                        session=session)

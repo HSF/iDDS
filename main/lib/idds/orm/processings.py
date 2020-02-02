@@ -148,10 +148,10 @@ def get_processings_by_status(status, period=None, session=None):
         status = new_status
 
         # TODO add updated_at to db
-        period = None
+        # add updated_at
 
         if period:
-            select = """select * from atlas_idds.processings where status in :status and updated_at < :updated_at"""
+            select = """select * from atlas_idds.processings where status in :status and created_at < :updated_at"""
             stmt = text(select)
             stmt = stmt.bindparams(bindparam('status', expanding=True))
             result = session.execute(stmt, {'status': status,
@@ -205,6 +205,9 @@ def update_processing(processing_id, parameters, session=None):
             parameters['status'] = parameters['status'].value
         if 'processing_metadata' in parameters:
             parameters['processing_metadata'] = json.dumps(parameters['processing_metadata'])
+
+        #TODO will use updated_at
+        parameters['created_at'] = datetime.datetime.utcnow()
 
         update = "update atlas_idds.processings set "
         for key in parameters.keys():

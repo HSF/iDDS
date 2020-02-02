@@ -21,7 +21,7 @@ from idds.common.constants import (Sections, CollectionRelationType, CollectionS
                                    ContentType, ContentStatus)
 from idds.common.exceptions import AgentPluginError, IDDSException
 from idds.common.utils import setup_logging
-from idds.core import (catalog as core_catalog, transforms as core_transforms)
+from idds.core import (catalog as core_catalog)
 from idds.agents.common.baseagent import BaseAgent
 
 setup_logging(__name__)
@@ -109,11 +109,15 @@ class Transporter(BaseAgent):
             del parameters['contents']
             del parameters['coll_id']
             del parameters['transform_id']
-            new_contents = core_catalog.update_input_collection_with_contents(coll_id=coll['coll_id'],
-                                                                              parameters=parameters,
-                                                                              contents=coll['contents'])
-            if new_contents:
-                core_transforms.trigger_update_transform_status(coll['transform_id'], input_collection_changed=True)
+            core_catalog.update_input_collection_with_contents(coll_id=coll['coll_id'],
+                                                               parameters=parameters,
+                                                               contents=coll['contents'])
+
+            # new_contents = core_catalog.update_input_collection_with_contents(coll_id=coll['coll_id'],
+            #                                                                   parameters=parameters,
+            #                                                                   contents=coll['contents'])
+            # if new_contents:
+            #     core_transforms.trigger_update_transform_status(coll['transform_id'], input_collection_changed=True)
 
     def get_new_output_collections(self):
         """
