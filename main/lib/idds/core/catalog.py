@@ -190,6 +190,25 @@ def update_collection(coll_id, parameters, session=None):
     orm_collections.update_collection(coll_id=coll_id, parameters=parameters, session=session)
 
 
+@read_session
+def get_collection(coll_id=None, transform_id=None, relation_type=None, session=None):
+    """
+    Get a collection or raise a NoObject exception.
+
+    :param coll_id: The id of the collection.
+    :param transform_id: The transform id related to this collection.
+    :param relation_type: The relation between this collection and its transform,
+                          such as Input, Output, Log and so on.
+    :param session: The database session in use.
+
+    :raises NoObject: If no request is founded.
+
+    :returns: Collection.
+    """
+    return orm_collections.get_collection(coll_id=coll_id, transform_id=transform_id,
+                                          relation_type=relation_type, session=session)
+
+
 @transactional_session
 def add_contents(contents, returning_id=False, bulk_size=100, session=None):
     """
@@ -205,8 +224,8 @@ def add_contents(contents, returning_id=False, bulk_size=100, session=None):
 
     :returns: content id.
     """
-    orm_contents.add_contents(contents=contents, returning_id=returning_id, bulk_size=bulk_size,
-                              session=session)
+    return orm_contents.add_contents(contents=contents, returning_id=returning_id, bulk_size=bulk_size,
+                                     session=session)
 
 
 @transactional_session
@@ -226,11 +245,14 @@ def update_input_collection_with_contents(coll_id, parameters, contents, returni
 
     :returns new contents
     """
+    processed_files = 0
     avail_contents = orm_contents.get_contents(coll_id=coll_id, session=session)
     avail_contents_dict = {}
     for content in avail_contents:
         key = '%s:%s:%s:%s' % (content['scope'], content['name'], content['min_id'], content['max_id'])
         avail_contents_dict[key] = content
+        if content['status'] in [ContentStatus.Mapped, ContentStatus.Mapped.value]:
+            processed_files += 1
 
     to_addes = []
     # to_updates = []
@@ -258,8 +280,26 @@ def update_input_collection_with_contents(coll_id, parameters, contents, returni
     # there are new files
     if to_addes:
         add_contents(to_addes, returning_id=returning_id, bulk_size=bulk_size, session=session)
+
+    parameters['processed_files'] = processed_files
     update_collection(coll_id, parameters, session=session)
     return to_addes
+
+
+@transactional_session
+def update_contents(parameters, with_content_id=False, session=None):
+    """
+    updatecontents.
+
+    :param parameters: list of dictionary of parameters.
+    :param with_content_id: whether content_id is included.
+    :param session: The database session in use.
+
+    :raises NoObject: If no content is founded.
+    :raises DatabaseException: If there is a database error.
+
+    """
+    return orm_contents.update_contents(parameters, with_content_id=with_content_id, session=session)
 
 
 @read_session

@@ -24,9 +24,8 @@ echo=0
 pool_reset_on_return=rollback
 
 [rest]
-host = https://aipanda182.cern.ch:8443
-url_prefix = /idds
-debug = False
+host = https://aipanda182.cern.ch:443/idds
+#url_prefix = /idds
 
 #[section]
 #attr1 = <attr1>
@@ -68,7 +67,7 @@ plugin.notifier = idds.atlas.notifier.messaging.MessagingSender
 plugin.notifier.brokers = atlas-test-mb.cern.ch
 plugin.notifier.port = 61013
 # plugin.notifier.vhost =
-plugin.notifier.destination = /queue/atlasidds
+plugin.notifier.destination = /queue/atlas.idds
 plugin.notifier.username = atlasidds
 plugin.notifier.password = ******
 plugin.notifier.broker_timeout = 10

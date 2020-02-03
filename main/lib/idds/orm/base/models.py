@@ -20,9 +20,10 @@ from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import object_mapper
 from sqlalchemy.schema import CheckConstraint, Index, PrimaryKeyConstraint, Sequence, Table
 
+from idds.common.constants import (RequestType, RequestStatus, MessageType, MessageStatus, MessageSource)
 from idds.common.utils import date_to_str
 from idds.orm.base.enum import EnumSymbol
-from idds.orm.base.types import JSON
+from idds.orm.base.types import JSON, EnumWithValue
 from idds.orm.base.session import BASE, DEFAULT_SCHEMA_NAME
 from idds.common.constants import (SCOPE_LENGTH, NAME_LENGTH)
 
@@ -112,10 +113,10 @@ class Request(BASE, ModelBase):
     scope = Column(String(SCOPE_LENGTH))
     name = Column(String(NAME_LENGTH))
     requester = Column(String(20))
-    request_type = Column(Integer())
+    request_type = Column(EnumWithValue(RequestType))
     transform_tag = Column(String(10))
     priority = Column(Integer())
-    status = Column(Integer())
+    status = Column(EnumWithValue(RequestStatus))
     created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow)
     updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     accessed_at = Column("accessed_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
@@ -135,9 +136,9 @@ class Message(BASE, ModelBase):
     msg_id = Column(BigInteger().with_variant(Integer, "sqlite"),
                     Sequence('MESSAGE_ID_SEQ', schema=DEFAULT_SCHEMA_NAME),
                     primary_key=True)
-    msg_type = Column(Integer())
-    status = Column(Integer())
-    source = Column(Integer())
+    msg_type = Column(EnumWithValue(MessageType))
+    status = Column(EnumWithValue(MessageStatus))
+    source = Column(EnumWithValue(MessageSource))
     created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow)
     updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     msg_content = Column(JSON())

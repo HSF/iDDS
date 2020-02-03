@@ -22,7 +22,7 @@ from idds.common.constants import (Sections, CollectionStatus, ContentStatus,
 from idds.common.exceptions import (AgentPluginError, IDDSException)
 from idds.common.utils import setup_logging
 from idds.core import (catalog as core_catalog, transforms as core_transforms,
-                       messages as core_messages, processings as core_processings)
+                       processings as core_processings)
 from idds.agents.common.baseagent import BaseAgent
 
 setup_logging(__name__)
@@ -88,10 +88,10 @@ class Carrier(BaseAgent):
         """
         Get monitor processing
         """
-        processing_status = [ProcessingStatus.Submitted, ProcessingStatus.Running]
+        processing_status = [ProcessingStatus.Submitting, ProcessingStatus.Submitted, ProcessingStatus.Running]
         processings = core_processings.get_processings_by_status(status=processing_status,
                                                                  time_period=self.poll_time_period)
-        self.logger.info("Main thread get %s [submitted + running] processings to process" % len(processings))
+        self.logger.info("Main thread get %s [submitting + submitted + running] processings to process" % len(processings))
         return processings
 
     def process_output_collection(self, coll_id, content_status_statistics):
@@ -105,14 +105,14 @@ class Carrier(BaseAgent):
 
         if content_status_keys == [ContentStatus.Available] or content_status_keys == [ContentStatus.Available.value]:
             ret_coll = {'coll_id': coll_id,
-                        'coll_size': total_files,
+                        'total_files': total_files,
                         'coll_status': CollectionStatus.Closed,
                         'processing_files': 0,
                         'processed_files': processed_files,
                         'coll_metadata': {'status_statistics': content_status_statistics}}
         elif content_status_keys == [ContentStatus.FinalFailed] or content_status_keys == [ContentStatus.FinalFailed.value]:
             ret_coll = {'coll_id': coll_id,
-                        'coll_size': total_files,
+                        'total_files': total_files,
                         'coll_status': CollectionStatus.Failed,
                         'processing_files': 0,
                         'processed_files': processed_files,
@@ -121,7 +121,7 @@ class Carrier(BaseAgent):
             and (ContentStatus.FinalFailed in content_status_keys or ContentStatus.FinalFailed.value in content_status_keys)  # noqa: W503
             and (ContentStatus.Available in content_status_keys or ContentStatus.Available.value in content_status_keys)):    # noqa: W503
             ret_coll = {'coll_id': coll_id,
-                        'coll_size': total_files,
+                        'total_files': total_files,
                         'coll_status': CollectionStatus.SubClosed,
                         'processing_files': 0,
                         'processed_files': processed_files,
@@ -129,7 +129,7 @@ class Carrier(BaseAgent):
         elif (ContentStatus.New in content_status_keys or ContentStatus.New.value in content_status_keys            # noqa: W503
             or ContentStatus.Failed in content_status_keys or ContentStatus.Failed.value in content_status_keys):   # noqa: W503
             ret_coll = {'coll_id': coll_id,
-                        'coll_size': total_files,
+                        'total_files': total_files,
                         'coll_status': CollectionStatus.Open,
                         'processing_files': 0,
                         'processed_files': processed_files,
@@ -154,7 +154,7 @@ class Carrier(BaseAgent):
 
             if replicases_status:
                 output_coll_id = processing_metadata['output_collection']
-                files = core_catalog.get_contents(coll_id=output_coll_id)
+                files = core_catalog.get_contents_by_coll_id_status(coll_id=output_coll_id)
                 file_status_statistics = {}
                 for file in files:
                     file_key = '%s:%s' % (file['scope'], file['name'])
@@ -186,8 +186,14 @@ class Carrier(BaseAgent):
                 else:
                     processing_status = ProcessingStatus.Running
 
-                processing_metadata['content_status_statistics'] = file_status_statistics
+                file_statusvalue_statistics = {}
+                for key in file_status_statistics:
+                    file_statusvalue_statistics[key.name] = file_status_statistics[key]
+
+                processing_metadata['content_status_statistics'] = file_statusvalue_statistics
                 coll_ret = self.process_output_collection(output_coll_id, file_status_statistics)
+                if coll_ret:
+                    coll_ret['coll_metadata']['status_statistics'] = file_statusvalue_statistics
 
             ret = {'processing_id': processing['processing_id'],
                    'status': processing_status,
@@ -206,9 +212,21 @@ class Carrier(BaseAgent):
         while not self.monitor_output_queue.empty():
             processing = self.monitor_output_queue.get()
             if processing:
-                self.logger.info("Main thread processing %s status changed to %s" % (processing['processing_id'], processing['status']))
+                self.logger.info("Main thread processing(processing_id: %s) status changed to %s" % (processing['processing_id'], processing['status']))
+                self.logger.info(processing)
+                updated_processing = None
+                updated_collection = None
+                updated_files = None
+                coll_msg_content = None
+                file_msg_content = None
+                transform_updates = None
+
                 if 'updated_files' in processing:
-                    core_catalog.update_contents(processing['updated_files'])
+                    updated_files = processing['updated_files']
+                    transform = processing['transform']
+                    transform['transform_metadata']['output_collection_changed'] = True
+                    transform_updates = {'transform_id': transform['transform_id'],
+                                         'parameters': {'transform_metadata': transform['transform_metadata']}}
                 if 'updated_files_message' in processing:
                     transform = processing['transform']
                     transform_metadata = transform['transform_metadata']
@@ -218,16 +236,17 @@ class Carrier(BaseAgent):
                     msg_content = {'msg_type': 'file_stagein',
                                    'workload_id': workload_id,
                                    'files': processing['updated_files_message']}
-                    core_messages.add_message(msg_type=MessageType.StageInFile,
-                                              status=MessageStatus.New,
-                                              source=MessageSource.Carrier,
-                                              msg_content=msg_content)
+                    file_msg_content = {'msg_type': MessageType.StageInFile,
+                                        'status': MessageStatus.New,
+                                        'source': MessageSource.Carrier,
+                                        'msg_content': msg_content}
                 if 'coll_updates' in processing:
                     coll_updates = processing['coll_updates']
                     coll_id = coll_updates['coll_id']
                     parameters = coll_updates
                     del parameters['coll_id']
-                    core_catalog.update_collection(coll_id=coll_id, parameters=parameters)
+                    updated_collection = {'coll_id': coll_id,
+                                          'parameters': parameters}
 
                     if coll_updates['coll_status'] == CollectionStatus.Closed:
                         transform = processing['transform']
@@ -243,14 +262,22 @@ class Carrier(BaseAgent):
                                        'collections': [{'scope': input_collection['scope'],
                                                         'name': input_collection['scope'],
                                                         'status': 'Available'}]}
-                        core_messages.add_message(msg_type=MessageType.StageInCollection,
-                                                  status=MessageStatus.New,
-                                                  source=MessageSource.Carrier,
-                                                  msg_content=msg_content)
+                        coll_msg_content = {'msg_type': MessageType.StageInCollection,
+                                            'status': MessageStatus.New,
+                                            'source': MessageSource.Carrier,
+                                            'msg_content': msg_content}
 
                 parameters = {'status': processing['status'],
                               'processing_metadata': processing['processing_metadata']}
-                core_processings.update_processing(processing['processing_id'], parameters=parameters)
+                updated_processing = {'processing_id': processing['processing_id'],
+                                      'parameters': parameters}
+
+                core_processings.update_processing_with_collection_contents(updated_processing,
+                                                                            updated_collection,
+                                                                            updated_files,
+                                                                            coll_msg_content,
+                                                                            file_msg_content,
+                                                                            transform_updates)
 
     def prepare_finish_tasks(self):
         """
@@ -261,11 +288,11 @@ class Carrier(BaseAgent):
 
         processings = self.get_new_processings()
         for processing in processings:
-            self.submit_task(self.process_new_processings, self.new_output_queue, processing)
+            self.submit_task(self.process_new_processings, self.new_output_queue, (processing,))
 
         processings = self.get_monitor_processings()
         for processing in processings:
-            self.submit_task(self.process_monitor_processings, self.monitor_output_queue, processing)
+            self.submit_task(self.process_monitor_processings, self.monitor_output_queue, (processing,))
 
     def run(self):
         """

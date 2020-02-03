@@ -48,9 +48,9 @@ class Clerk(BaseAgent):
         # reqs_open = core_requests.get_requests_by_status_type(status=req_status, time_period=3600)
         # self.logger.info("Main thread get %s TransformingOpen requests to process" % len(reqs_open))
 
-        req_status = [RequestStatus.New]
+        req_status = [RequestStatus.New, RequestStatus.Extend]
         reqs_new = core_requests.get_requests_by_status_type(status=req_status)
-        self.logger.info("Main thread get %s New requests to process" % len(reqs_new))
+        self.logger.info("Main thread get %s [New+Extend] requests to process" % len(reqs_new))
 
         return reqs_new
 
@@ -121,6 +121,10 @@ class Clerk(BaseAgent):
                         if log_collection:
                             related_collections.append(log_collection)
 
+                        transform_metadata = copy.deepcopy(req['request_metadata'])
+                        if 'processing_metadata' in transform_metadata:
+                            del transform_metadata['processing_metadata']
+
                         transform = {'request_id': req['request_id'],
                                      'transform_type': convert_request_type_to_transform_type(req['request_type']),
                                      'transform_tag': req['transform_tag'],
@@ -128,7 +132,7 @@ class Clerk(BaseAgent):
                                      'status': TransformStatus.New,
                                      'retries': 0,
                                      'expired_at': req['expired_at'],
-                                     'transform_metadata': req['request_metadata'],
+                                     'transform_metadata': transform_metadata,
                                      'collections': related_collections
                                      }
                         # core_transforms.add_transform(**transform)
@@ -199,7 +203,7 @@ class Clerk(BaseAgent):
         """
         req_status = [RequestStatus.Transforming]
         reqs = core_requests.get_requests_by_status_type(status=req_status, time_period=self.poll_time_period)
-        self.logger.info("Main thread get %s Transforming requests to monitor" % len(reqs))
+        self.logger.info("Main thread get %s Transforming+Extend requests to monitor" % len(reqs))
         return reqs
 
     def process_monitor_request(self, req):
@@ -225,10 +229,17 @@ class Clerk(BaseAgent):
                        'errors': {'msg': 'No transforms founded(no collections founded)'}
                        }
         elif len(transform_status_keys) == 1:
-            ret_req = {'request_id': req['request_id'],
-                       'status': dict(RequestStatus.__members__)[transform_status_keys[0]],
-                       'request_metadata': req['request_metadata']
-                       }
+            if transform_status_keys[0] in [TransformStatus.Transforming, TransformStatus.Transforming.value,
+                                            TransformStatus.Extend, TransformStatus.Extend.value]:
+                ret_req = {'request_id': req['request_id'],
+                           'status': RequestStatus.Transforming,
+                           'request_metadata': req['request_metadata']
+                           }
+            else:
+                ret_req = {'request_id': req['request_id'],
+                           'status': dict(RequestStatus.__members__)[transform_status_keys[0]],
+                           'request_metadata': req['request_metadata']
+                           }
         else:
             ret_req = {'request_id': req['request_id'],
                        'status': RequestStatus.Transforming,
@@ -239,6 +250,7 @@ class Clerk(BaseAgent):
     def finish_monitor_requests(self):
         while not self.monitor_output_queue.empty():
             req = self.monitor_output_queue.get()
+            self.logger.debug("finish_monitor_requests: req: %s" % req)
             parameter = {}
             for key in ['status', 'errors', 'request_metadata']:
                 if key in req:

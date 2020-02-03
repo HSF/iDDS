@@ -228,12 +228,12 @@ def add_transform_outputs(transform, input_collection, output_collection, input_
     update_input_contents = []
     for input_content in input_contents:
         update_input_content = {'content_id': input_content['content_id'],
-                                'status': ContentStatus.Processing,
+                                'status': ContentStatus.Mapped,
                                 'path': None}
         update_input_contents.append(update_input_content)
-    orm_contents.update_contents(update_input_contents, session=session)
+    if update_input_contents:
+        orm_contents.update_contents(update_input_contents, with_content_id=True, session=session)
 
-    print(type(output_collection['coll_id']))
     orm_collections.update_collection(output_collection['coll_id'],
                                       {'coll_status': CollectionStatus.Processing},
                                       session=session)

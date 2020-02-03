@@ -290,12 +290,11 @@ def get_transforms_by_status(status, period=None, session=None):
 
         if period:
             # select = """select * from atlas_idds.transforms where status in :status and updated_at < :updated_at"""
-            select = """select * from atlas_idds.transforms where status in :status"""
+            select = """select * from atlas_idds.transforms where status in :status and started_at < :updated_at"""
             stmt = text(select)
             stmt = stmt.bindparams(bindparam('status', expanding=True))
-            # result = session.execute(stmt, {'status': status,
-            #                                 'updated_at': datetime.datetime.utcnow() - datetime.timedelta(seconds=period)})
-            result = session.execute(stmt, {'status': status})
+            result = session.execute(stmt, {'status': status,
+                                            'updated_at': datetime.datetime.utcnow() - datetime.timedelta(seconds=period)})
         else:
             select = """select * from atlas_idds.transforms where status in :status"""
             stmt = text(select)
@@ -344,6 +343,7 @@ def update_transform(transform_id, parameters, session=None):
 
         # TODO fix db to add updated_at
         # parameters['updated_at'] = datetime.datetime.utcnow()
+        parameters['started_at'] = datetime.datetime.utcnow()
 
         update = "update atlas_idds.transforms set "
         for key in parameters.keys():

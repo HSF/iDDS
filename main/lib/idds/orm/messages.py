@@ -19,8 +19,8 @@ from sqlalchemy import or_
 from sqlalchemy.exc import DatabaseError, IntegrityError
 
 from idds.common import exceptions
-from idds.orm.base.session import read_session, transactional_session
 from idds.orm.base import models
+from idds.orm.base.session import read_session, transactional_session
 
 
 @transactional_session
@@ -64,13 +64,7 @@ def retrieve_messages(bulk=1000, msg_type=None, status=None, source=None, sessio
     """
     messages = []
     try:
-        query = session.query(models.Message.msg_id,
-                              models.Message.msg_type,
-                              models.Message.status,
-                              models.Message.source,
-                              models.Message.created_at,
-                              models.Message.updated_at,
-                              models.Message.msg_content)
+        query = session.query(models.Message)
         if msg_type is not None:
             query = query.filter_by(msg_type=msg_type)
         if status is not None:
@@ -84,9 +78,7 @@ def retrieve_messages(bulk=1000, msg_type=None, status=None, source=None, sessio
         tmp = query.all()
         if tmp:
             for t in tmp:
-                t2 = dict(t)
-                t2.pop('_sa_instance_state')
-                messages.append(t2)
+                messages.append(t.to_dict())
         return messages
     except IntegrityError as e:
         raise exceptions.DatabaseException(e.args)
