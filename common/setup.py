@@ -98,6 +98,7 @@ setup(
     version=version,
     description='intelligent Data Delivery Service(iDDS) Package',
     long_description=readme,
+    long_description_content_type='text/markdown',
     license='GPL',
     author='IRIS-HEP Team',
     author_email='atlas-adc-panda@cern.ch',
