@@ -12,6 +12,7 @@
 import glob
 import os
 import re
+import io
 import sys
 from distutils.sysconfig import get_python_lib
 from setuptools import setup, find_packages, Distribution
@@ -23,11 +24,11 @@ working_dir = os.path.dirname(os.path.realpath(__file__))
 os.chdir(working_dir)
 
 
-with open('lib/idds/common/version.py', "rt", encoding="utf8") as f:
+with io.open('lib/idds/common/version.py', "rt", encoding="utf8") as f:
     version = re.search(r'release_version = "(.*?)"', f.read()).group(1)
 
 
-with open('README.md', "rt", encoding="utf8") as f:
+with io.open('README.md', "rt", encoding="utf8") as f:
     readme = f.read()
 
 
@@ -81,6 +82,10 @@ install_data_path = get_data_path()
 
 requirements_files = ['tools/env/environment.yml']
 install_requires = parse_requirements(requirements_files=requirements_files)
+
+if sys.version_info[0] == 2:
+    install_requires.append('enum34')
+
 data_files = [
     # config and cron files
     ('etc/idds/', glob.glob('etc/idds/*.template')),
@@ -89,14 +94,14 @@ data_files = [
 scripts = glob.glob('bin/*')
 
 setup(
-    name="iDDS-common",
+    name="idds-common",
     version=version,
     description='intelligent Data Delivery Service(iDDS) Package',
     long_description=readme,
     license='GPL',
     author='IRIS-HEP Team',
     author_email='atlas-adc-panda@cern.ch',
-    python_requires='>=3.6',
+    python_requires='>=2.7',
     packages=find_packages('lib/'),
     package_dir={'': 'lib'},
     install_requires=install_requires,
