@@ -154,19 +154,23 @@ class Transporter(BaseAgent):
             if new_contents:
                 self.register_contents(coll['scope'], coll['name'], new_contents)
 
-        contents = core_catalog.get_content_status_statistics(coll_id=coll['coll_id'])
-        content_status_keys = list(contents.keys())
-        total_files = sum(contents.values())
+        contents_statistics = core_catalog.get_content_status_statistics(coll_id=coll['coll_id'])
+        contents_statistics_with_name = {}
+        for key in contents_statistics:
+            contents_statistics_with_name[key.name] = contents_statistics[key]
+
+        content_status_keys = list(contents_statistics.keys())
+        total_files = sum(contents_statistics.values())
         new_files = 0
         processed_files = 0
-        if ContentStatus.Available in contents:
-            processed_files += contents[ContentStatus.Available]
-        if ContentStatus.Available.value in contents:
-            processed_files += contents[ContentStatus.Available.value]
-        if ContentStatus.New in contents:
-            new_files += contents[ContentStatus.New]
-        if ContentStatus.New.value in contents:
-            new_files += contents[ContentStatus.New.value]
+        if ContentStatus.Available in contents_statistics:
+            processed_files += contents_statistics[ContentStatus.Available]
+        if ContentStatus.Available.value in contents_statistics:
+            processed_files += contents_statistics[ContentStatus.Available.value]
+        if ContentStatus.New in contents_statistics:
+            new_files += contents_statistics[ContentStatus.New]
+        if ContentStatus.New.value in contents_statistics:
+            new_files += contents_statistics[ContentStatus.New.value]
 
         if content_status_keys == [ContentStatus.Available] or content_status_keys == [ContentStatus.Available.value]:
             ret_coll = {'coll_id': coll['coll_id'],
@@ -175,7 +179,7 @@ class Transporter(BaseAgent):
                         'new_files': new_files,
                         'processing_files': 0,
                         'processed_files': processed_files,
-                        'coll_metadata': {'status_statistics': contents}}
+                        'coll_metadata': {'status_statistics': contents_statistics_with_name}}
         elif content_status_keys == [ContentStatus.FinalFailed] or content_status_keys == [ContentStatus.FinalFailed.value]:
             ret_coll = {'coll_id': coll['coll_id'],
                         'coll_size': total_files,
@@ -183,7 +187,7 @@ class Transporter(BaseAgent):
                         'new_files': new_files,
                         'processing_files': 0,
                         'processed_files': processed_files,
-                        'coll_metadata': {'status_statistics': contents}}
+                        'coll_metadata': {'status_statistics': contents_statistics_with_name}}
         elif (len(content_status_keys) == 2                                                                                   # noqa: W503
             and (ContentStatus.FinalFailed in content_status_keys or ContentStatus.FinalFailed.value in content_status_keys)  # noqa: W503
             and (ContentStatus.Available in content_status_keys or ContentStatus.Available.value in content_status_keys)):    # noqa: W503
@@ -193,7 +197,7 @@ class Transporter(BaseAgent):
                         'new_files': new_files,
                         'processing_files': 0,
                         'processed_files': processed_files,
-                        'coll_metadata': {'status_statistics': contents}}
+                        'coll_metadata': {'status_statistics': contents_statistics_with_name}}
         elif (ContentStatus.New in content_status_keys or ContentStatus.New.value in content_status_keys            # noqa: W503
             or ContentStatus.Failed in content_status_keys or ContentStatus.Failed.value in content_status_keys):   # noqa: W503
             ret_coll = {'coll_id': coll['coll_id'],
@@ -202,7 +206,7 @@ class Transporter(BaseAgent):
                         'new_files': new_files,
                         'processing_files': 0,
                         'processed_files': processed_files,
-                        'coll_metadata': {'status_statistics': contents}}
+                        'coll_metadata': {'status_statistics': contents_statistics_with_name}}
 
         return ret_coll
 
@@ -221,15 +225,15 @@ class Transporter(BaseAgent):
         Prepare tasks and finished tasks
         """
         self.finish_processing_input_collections()
-        # self.finish_processing_output_collections()
+        self.finish_processing_output_collections()
 
         colls = self.get_new_input_collections()
         for coll in colls:
             self.submit_task(self.process_input_collection, self.processed_input_queue, (coll,))
 
-        # colls = self.get_new_output_collections()
-        # for coll in colls:
-        #    self.submit_task(self.process_output_collection, self.processed_output_queue, (coll,))
+        colls = self.get_new_output_collections()
+        for coll in colls:
+            self.submit_task(self.process_output_collection, self.processed_output_queue, (coll,))
 
     def run(self):
         """
