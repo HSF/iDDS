@@ -337,6 +337,7 @@ def get_collections_by_status(status, relation_type=CollectionRelationType.Input
             select = select + " and updated_at < :updated_at"
             params['updated_at'] = datetime.datetime.utcnow() - datetime.timedelta(seconds=time_period)
         if locking:
+            select = select + " and substatus=:substatus"
             params['substatus'] = CollectionSubStatus.Idle.value
 
         stmt = text(select)

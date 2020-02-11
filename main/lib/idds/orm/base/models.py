@@ -20,7 +20,8 @@ from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import object_mapper
 from sqlalchemy.schema import CheckConstraint, Index, PrimaryKeyConstraint, Sequence, Table
 
-from idds.common.constants import (RequestType, RequestStatus, MessageType, MessageStatus, MessageSource)
+from idds.common.constants import (RequestType, RequestStatus, RequestSubStatus,
+                                   MessageType, MessageStatus, MessageSource)
 from idds.common.utils import date_to_str
 from idds.orm.base.enum import EnumSymbol
 from idds.orm.base.types import JSON, EnumWithValue
@@ -117,6 +118,7 @@ class Request(BASE, ModelBase):
     transform_tag = Column(String(10))
     priority = Column(Integer())
     status = Column(EnumWithValue(RequestStatus))
+    substatus = Column(EnumWithValue(RequestSubStatus))
     created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow)
     updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     accessed_at = Column("accessed_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
