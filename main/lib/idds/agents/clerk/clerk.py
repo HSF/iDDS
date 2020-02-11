@@ -17,7 +17,7 @@ except ImportError:
     # Python 2
     from Queue import Queue
 
-from idds.common.constants import (Sections, RequestStatus, RequestType,
+from idds.common.constants import (Sections, RequestStatus, RequestSubStatus, RequestType,
                                    TransformStatus, CollectionRelationType,
                                    CollectionType, CollectionStatus)
 from idds.common.exceptions import AgentPluginError, IDDSException
@@ -49,7 +49,7 @@ class Clerk(BaseAgent):
         # self.logger.info("Main thread get %s TransformingOpen requests to process" % len(reqs_open))
 
         req_status = [RequestStatus.New, RequestStatus.Extend]
-        reqs_new = core_requests.get_requests_by_status_type(status=req_status)
+        reqs_new = core_requests.get_requests_by_status_type(status=req_status, locking=True)
         self.logger.info("Main thread get %s [New+Extend] requests to process" % len(reqs_new))
 
         return reqs_new
@@ -68,7 +68,7 @@ class Clerk(BaseAgent):
         output_collection['name'] = collection['name'] + '_iDDS.%s.%s' % (request_type.name, transform_tag)
         output_collection['coll_type'] = CollectionType.Dataset
         output_collection['relation_type'] = CollectionRelationType.Output
-        output_collection['coll_status'] = CollectionStatus.New
+        output_collection['status'] = CollectionStatus.New
         return output_collection
 
     def get_log_collection(self, input_collection, request_type, transform_tag):
@@ -80,7 +80,7 @@ class Clerk(BaseAgent):
         log_collection['name'] = collection['name'] + '_iDDS.%s.%s.log' % (request_type.name, transform_tag)
         log_collection['coll_type'] = CollectionType.Dataset
         log_collection['relation_type'] = CollectionRelationType.Log
-        log_collection['coll_status'] = CollectionStatus.New
+        log_collection['status'] = CollectionStatus.New
         return log_collection
 
     def process_new_request(self, req):
@@ -111,7 +111,7 @@ class Clerk(BaseAgent):
                                             'scope': collection['scope'],
                                             'name': collection['name'],
                                             'relation_type': CollectionRelationType.Input,
-                                            'coll_status': CollectionStatus.New,
+                                            'status': CollectionStatus.New,
                                             'expired_at': req['expired_at']}
                         related_collections.append(input_collection)
                         output_collection = self.get_output_collection(input_collection, req['request_type'], req['transform_tag'])
@@ -164,7 +164,7 @@ class Clerk(BaseAgent):
             try:
                 req = self.new_output_queue.get()
                 self.logger.info("Main thread finished processing requst: %s" % req)
-                parameter = {'status': req['status']}
+                parameter = {'status': req['status'], 'substatus': RequestSubStatus.Idle}
                 if 'request_metadata' not in req or not req['request_metadata']:
                     request_metadata = {}
                 else:
@@ -202,7 +202,7 @@ class Clerk(BaseAgent):
         Get requests to monitor
         """
         req_status = [RequestStatus.Transforming]
-        reqs = core_requests.get_requests_by_status_type(status=req_status, time_period=self.poll_time_period)
+        reqs = core_requests.get_requests_by_status_type(status=req_status, time_period=self.poll_time_period, locking=True)
         self.logger.info("Main thread get %s Transforming+Extend requests to monitor" % len(reqs))
         return reqs
 
@@ -251,7 +251,7 @@ class Clerk(BaseAgent):
         while not self.monitor_output_queue.empty():
             req = self.monitor_output_queue.get()
             self.logger.debug("finish_monitor_requests: req: %s" % req)
-            parameter = {}
+            parameter = {'substatus': RequestSubStatus.Idle}
             for key in ['status', 'errors', 'request_metadata']:
                 if key in req:
                     parameter[key] = req[key]

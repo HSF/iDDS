@@ -22,7 +22,7 @@ from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.sql import text, bindparam, outparam
 
 from idds.common import exceptions
-from idds.common.constants import RequestType, RequestStatus
+from idds.common.constants import RequestType, RequestStatus, RequestSubStatus
 from idds.orm.base.session import read_session, transactional_session
 from idds.orm.base import models
 from idds.orm.base.utils import row2dict
@@ -30,7 +30,8 @@ from idds.orm.base.utils import row2dict
 
 @transactional_session
 def add_request(scope, name, requester=None, request_type=None, transform_tag=None,
-                status=RequestStatus.New, priority=0, lifetime=30, request_metadata=None, session=None):
+                status=RequestStatus.New, substatus=RequestSubStatus.Idle, priority=0,
+                lifetime=30, request_metadata=None, session=None):
     """
     Add a request.
 
@@ -40,6 +41,7 @@ def add_request(scope, name, requester=None, request_type=None, transform_tag=No
     :param request_type: The type of the request, such as ESS, DAOD.
     :param transform_tag: Transform tag, such as ATLAS AMI tag.
     :param status: The request status as integer.
+    :param substatus: The request substatus as integer.
     :param priority: The priority as integer.
     :param lifetime: The life time as umber of days.
     :param request_metadata: The metadata as json.
@@ -53,10 +55,12 @@ def add_request(scope, name, requester=None, request_type=None, transform_tag=No
         request_type = request_type.value
     if isinstance(status, RequestStatus):
         status = status.value
+    if isinstance(substatus, RequestSubStatus):
+        substatus = substatus.value
 
     insert_request_sql = """insert into atlas_idds.requests(scope, name, requester, request_type, transform_tag, priority,
-                                                 status, created_at, updated_at, expired_at, request_metadata)
-                             values(:scope, :name, :requester, :request_type, :transform_tag, :priority, :status,
+                            status, substatus, created_at, updated_at, expired_at, request_metadata)
+                             values(:scope, :name, :requester, :request_type, :transform_tag, :priority, :status, :substatus,
                              :created_at, :updated_at, :expired_at, :request_metadata) RETURNING request_id into :request_id
                          """
 
@@ -69,7 +73,7 @@ def add_request(scope, name, requester=None, request_type=None, transform_tag=No
     try:
         request_id = None
         ret = session.execute(stmt, {"scope": scope, "name": name, "requester": requester, "request_type": request_type,
-                                     "transform_tag": transform_tag, "priority": priority, 'status': status,
+                                     "transform_tag": transform_tag, "priority": priority, 'status': status, 'substatus': substatus,
                                      'created_at': datetime.datetime.utcnow(), 'updated_at': datetime.datetime.utcnow(),
                                      'expired_at': datetime.datetime.utcnow() + datetime.timedelta(days=lifetime),
                                      'request_metadata': json.dumps(request_metadata) if request_metadata else request_metadata,
@@ -87,7 +91,8 @@ def add_request(scope, name, requester=None, request_type=None, transform_tag=No
 
 @transactional_session
 def add_request_new(scope, name, requester=None, request_type=None, transform_tag=None,
-                    status=RequestStatus.New, priority=0, lifetime=30, request_metadata=None, session=None):
+                    status=RequestStatus.New, substatus=RequestSubStatus.Idle, priority=0,
+                    lifetime=30, request_metadata=None, session=None):
     """
     Add a request.
 
@@ -97,6 +102,7 @@ def add_request_new(scope, name, requester=None, request_type=None, transform_ta
     :param request_type: The type of the request, such as ESS, DAOD.
     :param transform_tag: Transform tag, such as ATLAS AMI tag.
     :param status: The request status as integer.
+    :param substatus: The request substatus as integer.
     :param priority: The priority as integer.
     :param lifetime: The life time as umber of days.
     :param request_metadata: The metadata as json.
@@ -116,7 +122,7 @@ def add_request_new(scope, name, requester=None, request_type=None, transform_ta
 
     try:
         new_request = models.Request(scope=scope, name=name, requester=requester, request_type=request_type,
-                                     transform_tag=transform_tag, status=status, priority=priority,
+                                     transform_tag=transform_tag, status=status, substatus=substatus, priority=priority,
                                      expired_at=datetime.datetime.utcnow() + datetime.timedelta(days=lifetime),
                                      request_metadata=request_metadata)
         new_request.save(session=session)
@@ -211,7 +217,7 @@ def get_request(request_id=None, workload_id=None, session=None):
             request_id = get_request_id_by_workload_id(workload_id)
 
         req_select = """select request_id, scope, name, requester, request_type, transform_tag, priority,
-                        status, created_at, updated_at, accessed_at, expired_at, errors, request_metadata
+                        status, substatus, created_at, updated_at, accessed_at, expired_at, errors, request_metadata
                         from atlas_idds.requests where request_id=:request_id
                      """
         req_stmt = text(req_select)
@@ -292,7 +298,7 @@ def get_requests_by_requester(scope, name, requester, session=None):
 
     try:
         req_select = """select request_id, scope, name, requester, request_type, transform_tag, priority,
-                        status, created_at, updated_at, accessed_at, expired_at, errors, request_metadata
+                        status, substatus, created_at, updated_at, accessed_at, expired_at, errors, request_metadata
                         from atlas_idds.requests where scope=:scope and requester=:requester and name=:name
                      """
         req_stmt = text(req_select)
@@ -304,12 +310,13 @@ def get_requests_by_requester(scope, name, requester, session=None):
 
 
 @read_session
-def get_requests_by_status_type(status, request_type=None, time_period=None, session=None):
+def get_requests_by_status_type(status, request_type=None, time_period=None, locking=False, session=None):
     """
     Get requests.
 
     :param status: list of status of the request data.
     :param request_type: The type of the request data.
+    :param locking: Wheter to lock requests to avoid others get the same request.
 
     :raises NoObject: If no request are founded.
 
@@ -327,51 +334,31 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, ses
                 st = st.value
             new_status.append(st)
         status = new_status
-        if request_type is None:
-            if time_period is None:
-                req_select = """select request_id, scope, name, requester, request_type, transform_tag, priority,
-                                status, created_at, updated_at, accessed_at, expired_at, errors, request_metadata
-                                from atlas_idds.requests where status in :status order by priority desc
-                             """
-                req_stmt = text(req_select)
-                req_stmt = req_stmt.bindparams(bindparam('status', expanding=True))
-                result = session.execute(req_stmt, {'status': status})
-            else:
-                req_select = """select request_id, scope, name, requester, request_type, transform_tag, priority,
-                                status, created_at, updated_at, accessed_at, expired_at, errors, request_metadata
-                                from atlas_idds.requests where status in :status and updated_at < :updated_at
-                                order by priority desc
-                             """
-                req_stmt = text(req_select)
-                req_stmt = req_stmt.bindparams(bindparam('status', expanding=True))
-                result = session.execute(req_stmt, {'status': status,
-                                                    'updated_at': datetime.datetime.utcnow() - datetime.timedelta(seconds=time_period)})
-        else:
-            if isinstance(request_type, RequestType):
-                request_type = request_type.value
-            if time_period is None:
-                req_select = """select request_id, scope, name, requester, request_type, transform_tag, priority,
-                                status, created_at, updated_at, accessed_at, expired_at, errors, request_metadata
-                                from atlas_idds.requests where status in :status and request_type=:request_type
-                                order by priority desc
-                             """
-                req_stmt = text(req_select)
-                req_stmt = req_stmt.bindparams(bindparam('status', expanding=True))
-                result = session.execute(req_stmt, {'status': status, 'request_type': request_type})
-            else:
-                req_select = """select request_id, scope, name, requester, request_type, transform_tag, priority,
-                                status, created_at, updated_at, accessed_at, expired_at, errors, request_metadata
-                                from atlas_idds.requests where status in :status and request_type=:request_type
-                                and updated_at < :updated_at order by priority desc
-                             """
-                req_stmt = text(req_select)
-                req_stmt = req_stmt.bindparams(bindparam('status', expanding=True))
-                result = session.execute(req_stmt, {'status': status, 'request_type': request_type,
-                                                    'updated_at': datetime.datetime.utcnow() - datetime.timedelta(seconds=time_period)})
+
+        req_select = """select request_id, scope, name, requester, request_type, transform_tag, priority,
+                        status, substatus, created_at, updated_at, accessed_at, expired_at, errors, request_metadata
+                        from atlas_idds.requests where status in :status
+                     """
+        req_params = {'status': status}
+
+        if request_type is not None:
+            req_select = req_select + " and request_type=:request_type"
+            req_params['request_type'] = request_type
+        if time_period is not None:
+            req_select = req_select + " and updated_at < :updated_at"
+            req_params['updated_at'] = datetime.datetime.utcnow() - datetime.timedelta(seconds=time_period)
+        if locking:
+            req_select = req_select + " and substatus=:substatus"
+            req_params['substatus'] = RequestSubStatus.Idle.value
+
+        req_select = req_select + " order by priority desc"
+        req_stmt = text(req_select)
+        req_stmt = req_stmt.bindparams(bindparam('status', expanding=True))
+        result = session.execute(req_stmt, req_params)
         requests = result.fetchall()
         return [convert_request_to_dict(req) for req in requests]
     except sqlalchemy.orm.exc.NoResultFound as error:
-        raise exceptions.NoObject('No requests with status: %s, request_type: %s, time_period: %s' % (status, request_type, time_period, error))
+        raise exceptions.NoObject('No requests with status: %s, request_type: %s, time_period: %s, locking: %s, %s' % (status, request_type, time_period, locking, error))
 
 
 @transactional_session
@@ -392,6 +379,8 @@ def update_request(request_id, parameters, session=None):
             parameters['request_type'] = parameters['request_type'].value
         if 'status' in parameters and isinstance(parameters['status'], RequestStatus):
             parameters['status'] = parameters['status'].value
+        if 'substatus' in parameters and isinstance(parameters['substatus'], RequestSubStatus):
+            parameters['substatus'] = parameters['substatus'].value
         if 'request_metadata' in parameters:
             parameters['request_metadata'] = json.dumps(parameters['request_metadata'])
         if 'errors' in parameters:
