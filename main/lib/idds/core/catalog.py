@@ -15,7 +15,7 @@ operations related to Catalog(Collections and Contents).
 
 
 from idds.common import exceptions
-from idds.common.constants import (CollectionType, CollectionStatus,
+from idds.common.constants import (CollectionType, CollectionStatus, CollectionSubStatus,
                                    CollectionRelationType, ContentStatus)
 from idds.orm.base.session import read_session, transactional_session
 from idds.orm import (requests as orm_requests,
@@ -89,21 +89,27 @@ def get_collections_by_request_transform_id(request_id=None, transform_id=None, 
 
 
 @read_session
-def get_collections_by_status(status, relation_type=CollectionRelationType.Input, time_period=None, session=None):
+def get_collections_by_status(status, relation_type=CollectionRelationType.Input, time_period=None, locking=False, session=None):
     """
     Get collections by status, relation_type and time_period or raise a NoObject exception.
 
     :param status: The collection status.
     :param relation_type: The relation_type of the collection to the transform.
     :param time_period: time period in seconds since last update.
+    :param locking: Whether to retrieve unlocked files and lock them.
     :param session: The database session in use.
 
     :raises NoObject: If no collections are founded.
 
     :returns: list of Collections.
     """
-    return orm_collections.get_collections_by_status(status=status, relation_type=relation_type,
-                                                     time_period=time_period, session=session)
+    colls = orm_collections.get_collections_by_status(status=status, relation_type=relation_type,
+                                                      time_period=time_period, locking=locking, session=session)
+    if locking:
+        parameters = {'substatus': CollectionSubStatus.Locking}
+        for coll in colls:
+            orm_collections.update_collection(coll_id=coll['coll_id'], parameters=parameters, session=session)
+    return colls
 
 
 @read_session
@@ -245,6 +251,7 @@ def update_input_collection_with_contents(coll_id, parameters, contents, returni
 
     :returns new contents
     """
+    new_files = 0
     processed_files = 0
     avail_contents = orm_contents.get_contents(coll_id=coll_id, session=session)
     avail_contents_dict = {}
@@ -253,6 +260,8 @@ def update_input_collection_with_contents(coll_id, parameters, contents, returni
         avail_contents_dict[key] = content
         if content['status'] in [ContentStatus.Mapped, ContentStatus.Mapped.value]:
             processed_files += 1
+        if content['status'] in [ContentStatus.New, ContentStatus.New.value]:
+            new_files += 1
 
     to_addes = []
     # to_updates = []
@@ -282,6 +291,7 @@ def update_input_collection_with_contents(coll_id, parameters, contents, returni
         add_contents(to_addes, returning_id=returning_id, bulk_size=bulk_size, session=session)
 
     parameters['processed_files'] = processed_files
+    parameters['new_files'] = new_files
     update_collection(coll_id, parameters, session=session)
     return to_addes
 
