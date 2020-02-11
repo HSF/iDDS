@@ -18,7 +18,7 @@ except ImportError:
     from Queue import Queue
 
 from idds.common.constants import (Sections, CollectionRelationType, CollectionStatus,
-                                   CollSubStatus, ContentType, ContentStatus)
+                                   CollectionSubStatus, ContentType, ContentStatus)
 from idds.common.exceptions import AgentPluginError, IDDSException
 from idds.common.utils import setup_logging
 from idds.core import (catalog as core_catalog)
@@ -46,12 +46,14 @@ class Transporter(BaseAgent):
         coll_status = [CollectionStatus.Open]
         colls_open = core_catalog.get_collections_by_status(status=coll_status,
                                                             relation_type=CollectionRelationType.Input,
-                                                            time_period=self.poll_time_period)
+                                                            time_period=self.poll_time_period,
+                                                            locking=True)
         self.logger.info("Main thread get %s [open] input collections to process" % len(colls_open))
 
         coll_status = [CollectionStatus.New]
         colls_new = core_catalog.get_collections_by_status(status=coll_status,
-                                                           relation_type=CollectionRelationType.Input)
+                                                           relation_type=CollectionRelationType.Input,
+                                                           locking=True)
         self.logger.info("Main thread get %s [new] input collections to process" % len(colls_new))
 
         colls = colls_open + colls_new
@@ -109,6 +111,7 @@ class Transporter(BaseAgent):
             del parameters['contents']
             del parameters['coll_id']
             del parameters['transform_id']
+            parameters['substatus'] = CollectionSubStatus.Idle
             core_catalog.update_input_collection_with_contents(coll_id=coll['coll_id'],
                                                                parameters=parameters,
                                                                contents=coll['contents'])
@@ -126,7 +129,8 @@ class Transporter(BaseAgent):
         coll_status = [CollectionStatus.Updated]
         colls = core_catalog.get_collections_by_status(status=coll_status,
                                                        relation_type=CollectionRelationType.Output,
-                                                       time_period=1800)
+                                                       time_period=1800,
+                                                       locking=True)
         self.logger.info("Main thread get %s [Updated] output collections to process" % len(colls))
         return colls
 
@@ -150,20 +154,25 @@ class Transporter(BaseAgent):
             if new_contents:
                 self.register_contents(coll['scope'], coll['name'], new_contents)
 
-        """
         contents = core_catalog.get_content_status_statistics(coll_id=coll['coll_id'])
         content_status_keys = list(contents.keys())
         total_files = sum(contents.values())
+        new_files = 0
         processed_files = 0
         if ContentStatus.Available in contents:
             processed_files += contents[ContentStatus.Available]
         if ContentStatus.Available.value in contents:
             processed_files += contents[ContentStatus.Available.value]
+        if ContentStatus.New in contents:
+            new_files += contents[ContentStatus.New]
+        if ContentStatus.New.value in contents:
+            new_files += contents[ContentStatus.New.value]
 
         if content_status_keys == [ContentStatus.Available] or content_status_keys == [ContentStatus.Available.value]:
             ret_coll = {'coll_id': coll['coll_id'],
                         'coll_size': total_files,
                         'status': CollectionStatus.Closed,
+                        'new_files': new_files,
                         'processing_files': 0,
                         'processed_files': processed_files,
                         'coll_metadata': {'status_statistics': contents}}
@@ -171,6 +180,7 @@ class Transporter(BaseAgent):
             ret_coll = {'coll_id': coll['coll_id'],
                         'coll_size': total_files,
                         'status': CollectionStatus.Failed,
+                        'new_files': new_files,
                         'processing_files': 0,
                         'processed_files': processed_files,
                         'coll_metadata': {'status_statistics': contents}}
@@ -180,6 +190,7 @@ class Transporter(BaseAgent):
             ret_coll = {'coll_id': coll['coll_id'],
                         'coll_size': total_files,
                         'status': CollectionStatus.SubClosed,
+                        'new_files': new_files,
                         'processing_files': 0,
                         'processed_files': processed_files,
                         'coll_metadata': {'status_statistics': contents}}
@@ -188,36 +199,37 @@ class Transporter(BaseAgent):
             ret_coll = {'coll_id': coll['coll_id'],
                         'coll_size': total_files,
                         'status': CollectionStatus.Open,
+                        'new_files': new_files,
                         'processing_files': 0,
                         'processed_files': processed_files,
                         'coll_metadata': {'status_statistics': contents}}
 
         return ret_coll
-        """
 
     def finish_processing_output_collections(self):
         while not self.processed_output_queue.empty():
             coll = self.processed_output_queue.get()
             self.logger.info("Main thread finished processing output collection(%s) with number of contents: %s" % (coll['coll_id']))
-            # coll_id = coll['coll_id']
-            # parameters = coll
-            # del parameters['coll_id']
-            # core_catalog.update_collection(coll_id=coll_id, parameters=parameters)
+            coll_id = coll['coll_id']
+            parameters = coll
+            del parameters['coll_id']
+            parameters['substatus'] = CollectionSubStatus.Idle
+            core_catalog.update_collection(coll_id=coll_id, parameters=parameters)
 
     def prepare_finish_tasks(self):
         """
         Prepare tasks and finished tasks
         """
         self.finish_processing_input_collections()
-        self.finish_processing_output_collections()
+        # self.finish_processing_output_collections()
 
         colls = self.get_new_input_collections()
         for coll in colls:
             self.submit_task(self.process_input_collection, self.processed_input_queue, (coll,))
 
-        colls = self.get_new_output_collections()
-        for coll in colls:
-            self.submit_task(self.process_output_collection, self.processed_output_queue, (coll,))
+        # colls = self.get_new_output_collections()
+        # for coll in colls:
+        #    self.submit_task(self.process_output_collection, self.processed_output_queue, (coll,))
 
     def run(self):
         """
