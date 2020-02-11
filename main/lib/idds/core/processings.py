@@ -119,8 +119,8 @@ def delete_processing(processing_id=None, session=None):
 
 
 @transactional_session
-def update_processing_with_collection_contents(updated_processing, updated_collection, updated_files,
-                                               coll_msg_content, file_msg_content, transform_updates,
+def update_processing_with_collection_contents(updated_processing, updated_collection=None, updated_files=None,
+                                               coll_msg_content=None, file_msg_content=None, transform_updates=None,
                                                session=None):
     """
     Update processing with collection, contents, file messages and collection messages.
@@ -137,6 +137,8 @@ def update_processing_with_collection_contents(updated_processing, updated_colle
         orm_messages.add_message(msg_type=file_msg_content['msg_type'],
                                  status=file_msg_content['status'],
                                  source=file_msg_content['source'],
+                                 transform_id=file_msg_content['transform_id'],
+                                 num_contents=file_msg_content['num_contents'],
                                  msg_content=file_msg_content['msg_content'],
                                  session=session)
     if updated_collection:
@@ -147,6 +149,8 @@ def update_processing_with_collection_contents(updated_processing, updated_colle
         orm_messages.add_message(msg_type=coll_msg_content['msg_type'],
                                  status=coll_msg_content['status'],
                                  source=coll_msg_content['source'],
+                                 transform_id=coll_msg_content['transform_id'],
+                                 num_contents=coll_msg_content['num_contents'],
                                  msg_content=coll_msg_content['msg_content'],
                                  session=session)
     if updated_processing:
