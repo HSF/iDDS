@@ -245,8 +245,9 @@ def add_transform_outputs(transform, input_collection, output_collection, input_
             orm_contents.update_contents(update_input_contents, with_content_id=True, session=session)
 
     if output_collection:
+        # TODO, the status and new_files should be updated
         orm_collections.update_collection(output_collection['coll_id'],
-                                          {'coll_status': CollectionStatus.Processing},
+                                          {'status': CollectionStatus.Processing},
                                           session=session)
 
     if transform:
