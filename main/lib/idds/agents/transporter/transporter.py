@@ -18,7 +18,7 @@ except ImportError:
     from Queue import Queue
 
 from idds.common.constants import (Sections, CollectionRelationType, CollectionStatus,
-                                   ContentType, ContentStatus)
+                                   CollSubStatus, ContentType, ContentStatus)
 from idds.common.exceptions import AgentPluginError, IDDSException
 from idds.common.utils import setup_logging
 from idds.core import (catalog as core_catalog)
@@ -92,7 +92,7 @@ class Transporter(BaseAgent):
         new_coll = {'coll_id': coll['coll_id'],
                     'transform_id': coll['transform_id'],
                     'coll_size': coll_metadata['coll_size'],
-                    'coll_status': coll_metadata['coll_status'],
+                    'status': coll_metadata['status'],
                     'total_files': coll_metadata['total_files'],
                     'coll_metadata': {'availability': coll_metadata['availability'],
                                       'events': coll_metadata['events'],
@@ -163,14 +163,14 @@ class Transporter(BaseAgent):
         if content_status_keys == [ContentStatus.Available] or content_status_keys == [ContentStatus.Available.value]:
             ret_coll = {'coll_id': coll['coll_id'],
                         'coll_size': total_files,
-                        'coll_status': CollectionStatus.Closed,
+                        'status': CollectionStatus.Closed,
                         'processing_files': 0,
                         'processed_files': processed_files,
                         'coll_metadata': {'status_statistics': contents}}
         elif content_status_keys == [ContentStatus.FinalFailed] or content_status_keys == [ContentStatus.FinalFailed.value]:
             ret_coll = {'coll_id': coll['coll_id'],
                         'coll_size': total_files,
-                        'coll_status': CollectionStatus.Failed,
+                        'status': CollectionStatus.Failed,
                         'processing_files': 0,
                         'processed_files': processed_files,
                         'coll_metadata': {'status_statistics': contents}}
@@ -179,7 +179,7 @@ class Transporter(BaseAgent):
             and (ContentStatus.Available in content_status_keys or ContentStatus.Available.value in content_status_keys)):    # noqa: W503
             ret_coll = {'coll_id': coll['coll_id'],
                         'coll_size': total_files,
-                        'coll_status': CollectionStatus.SubClosed,
+                        'status': CollectionStatus.SubClosed,
                         'processing_files': 0,
                         'processed_files': processed_files,
                         'coll_metadata': {'status_statistics': contents}}
@@ -187,7 +187,7 @@ class Transporter(BaseAgent):
             or ContentStatus.Failed in content_status_keys or ContentStatus.Failed.value in content_status_keys):   # noqa: W503
             ret_coll = {'coll_id': coll['coll_id'],
                         'coll_size': total_files,
-                        'coll_status': CollectionStatus.Open,
+                        'status': CollectionStatus.Open,
                         'processing_files': 0,
                         'processed_files': processed_files,
                         'coll_metadata': {'status_statistics': contents}}
