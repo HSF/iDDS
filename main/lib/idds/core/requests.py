@@ -17,7 +17,7 @@ operations related to Requests.
 import datetime
 
 from idds.common import exceptions
-from idds.common.constants import RequestStatus, RequestType
+from idds.common.constants import RequestStatus, RequestSubStatus, RequestType
 from idds.orm.base.session import transactional_session
 from idds.orm import requests as orm_requests
 from idds.orm import transforms as orm_transforms
@@ -157,14 +157,21 @@ def update_request_with_transforms(request_id, parameters, transforms_to_add, tr
     return orm_requests.update_request(request_id, parameters, session=session)
 
 
-def get_requests_by_status_type(status, request_type=None, time_period=None):
+@transactional_session
+def get_requests_by_status_type(status, request_type=None, time_period=None, locking=False, session=None):
     """
     Get requests by status and type
 
     :param status: list of status of the request data.
     :param request_type: The type of the request data.
     :param time_period: Delay of seconds before last update.
+    :param locking: Wheter to lock requests to avoid others get the same request.
 
     :returns: list of Request.
     """
-    return orm_requests.get_requests_by_status_type(status, request_type, time_period)
+    reqs = orm_requests.get_requests_by_status_type(status, request_type, time_period, locking=locking, session=session)
+    if locking:
+        parameters = {'substatus': RequestSubStatus.Locking}
+        for req in reqs:
+            orm_requests.update_request(request_id=req['request_id'], parameters=parameters, session=session)
+    return reqs
