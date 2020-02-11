@@ -15,7 +15,7 @@ operations related to Processings.
 
 
 from idds.orm.base.session import read_session, transactional_session
-
+from idds.common.constants import ProcessingSubStatus
 from idds.orm import (processings as orm_processings,
                       collections as orm_collections,
                       contents as orm_contents,
@@ -66,20 +66,26 @@ def get_processing(processing_id=None, transform_id=None, retries=0, session=Non
                                           retries=retries, session=session)
 
 
-@read_session
-def get_processings_by_status(status, time_period=None, session=None):
+@transactional_session
+def get_processings_by_status(status, time_period=None, locking=False, session=None):
     """
     Get processing or raise a NoObject exception.
 
     :param status: Processing status of list of processing status.
     :param time_period: Time period in seconds.
+    :param locking: Whether to retrieve only unlocked items and lock them.
     :param session: The database session in use.
 
     :raises NoObject: If no processing is founded.
 
     :returns: Processings.
     """
-    return orm_processings.get_processings_by_status(status=status, period=time_period, session=session)
+    processings = orm_processings.get_processings_by_status(status=status, period=time_period, session=session)
+    if locking:
+        parameters = {'substatus': ProcessingSubStatus.Locking}
+        for processing in processings:
+            orm_processings.update_processing(processing['processing_id'], parameters=parameters, session=session)
+    return processings
 
 
 @transactional_session

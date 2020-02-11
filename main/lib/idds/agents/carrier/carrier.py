@@ -17,7 +17,7 @@ except ImportError:
     from Queue import Queue
 
 from idds.common.constants import (Sections, CollectionStatus, ContentStatus,
-                                   TransformType, ProcessingStatus,
+                                   TransformType, ProcessingStatus, ProcessingSubStatus,
                                    MessageType, MessageStatus, MessageSource)
 from idds.common.exceptions import (AgentPluginError, IDDSException)
 from idds.common.utils import setup_logging
@@ -46,35 +46,33 @@ class Carrier(BaseAgent):
         Get new processing
         """
         processing_status = [ProcessingStatus.New]
-        processings = core_processings.get_processings_by_status(status=processing_status)
+        processings = core_processings.get_processings_by_status(status=processing_status, locking=True)
         self.logger.info("Main thread get %s [new] processings to process" % len(processings))
         return processings
 
-    def submit_processing(self, processing):
+    def submit_processing(self, processing, transform, input_collection, output_collection):
+        if transform['transform_type'] == TransformType.StageIn:
+            if 'stagein_processer' not in self.plugins:
+                raise AgentPluginError('Plugin stagein_processer is required')
+            return self.plugins['stagein_processer'](processing, transform, input_collection, output_collection)
+
+        return None
+
+    def process_new_processings(self, processing):
         transform_id = processing['transform_id']
         processing_metadata = processing['processing_metadata']
         input_coll_id = processing_metadata['input_collection']
         input_collection = core_catalog.get_collection(coll_id=input_coll_id)
+        output_coll_id = processing_metadata['output_collection']
+        output_collection = core_catalog.get_collection(coll_id=output_coll_id)
         transform = core_transforms.get_transform(transform_id)
 
-        if transform['transform_type'] == TransformType.StageIn:
-            if 'rule_id' in processing_metadata:
-                ret = {'processing_id': processing['processing_id'],
-                       'status': ProcessingStatus.Submitted}
-            else:
-                if 'rule_submitter' not in self.plugins:
-                    raise AgentPluginError('Plugin rule_submitter is required')
-                rule_id = self.plugins['rule_submitter'](processing, transform, input_collection)
-                processing_metadata['rule_id'] = rule_id
-                ret = {'processing_id': processing['processing_id'],
-                       'status': ProcessingStatus.Submitted,
-                       'processing_metadata': processing_metadata}
+        ret = self.submit_processing(processing, transform, input_collection, output_collection)
+        if ret:
             return ret
-        return None
-
-    def process_new_processings(self, processing):
-        ret = self.submit_processing(processing)
-        return ret
+        else:
+            return {'processing_id': processing['processing_id'],
+                    'substatus': ProcessingSubStatus.Idle}
 
     def finish_new_processings(self):
         while not self.new_output_queue.empty():
@@ -90,8 +88,9 @@ class Carrier(BaseAgent):
         """
         processing_status = [ProcessingStatus.Submitting, ProcessingStatus.Submitted, ProcessingStatus.Running]
         processings = core_processings.get_processings_by_status(status=processing_status,
-                                                                 time_period=self.poll_time_period)
-        self.logger.info("Main thread get %s [submitting + submitted + running] processings to process" % len(processings))
+                                                                 time_period=self.poll_time_period,
+                                                                 locking=True)
+        self.logger.info("Main thread get %s [submitting + submitted + running] processings to process: %s" % (len(processings), str([processing['processing_id'] for processing in processings])))
         return processings
 
     def process_output_collection(self, coll_id, content_status_statistics):
@@ -106,14 +105,14 @@ class Carrier(BaseAgent):
         if content_status_keys == [ContentStatus.Available] or content_status_keys == [ContentStatus.Available.value]:
             ret_coll = {'coll_id': coll_id,
                         'total_files': total_files,
-                        'coll_status': CollectionStatus.Closed,
+                        'status': CollectionStatus.Closed,
                         'processing_files': 0,
                         'processed_files': processed_files,
                         'coll_metadata': {'status_statistics': content_status_statistics}}
         elif content_status_keys == [ContentStatus.FinalFailed] or content_status_keys == [ContentStatus.FinalFailed.value]:
             ret_coll = {'coll_id': coll_id,
                         'total_files': total_files,
-                        'coll_status': CollectionStatus.Failed,
+                        'status': CollectionStatus.Failed,
                         'processing_files': 0,
                         'processed_files': processed_files,
                         'coll_metadata': {'status_statistics': content_status_statistics}}
@@ -122,7 +121,7 @@ class Carrier(BaseAgent):
             and (ContentStatus.Available in content_status_keys or ContentStatus.Available.value in content_status_keys)):    # noqa: W503
             ret_coll = {'coll_id': coll_id,
                         'total_files': total_files,
-                        'coll_status': CollectionStatus.SubClosed,
+                        'status': CollectionStatus.SubClosed,
                         'processing_files': 0,
                         'processed_files': processed_files,
                         'coll_metadata': {'status_statistics': content_status_statistics}}
@@ -130,7 +129,7 @@ class Carrier(BaseAgent):
             or ContentStatus.Failed in content_status_keys or ContentStatus.Failed.value in content_status_keys):   # noqa: W503
             ret_coll = {'coll_id': coll_id,
                         'total_files': total_files,
-                        'coll_status': CollectionStatus.Open,
+                        'status': CollectionStatus.Open,
                         'processing_files': 0,
                         'processed_files': processed_files,
                         'coll_metadata': {'status_statistics': content_status_statistics}}
@@ -248,7 +247,7 @@ class Carrier(BaseAgent):
                     updated_collection = {'coll_id': coll_id,
                                           'parameters': parameters}
 
-                    if coll_updates['coll_status'] == CollectionStatus.Closed:
+                    if coll_updates['status'] == CollectionStatus.Closed:
                         transform = processing['transform']
                         transform_metadata = transform['transform_metadata']
                         processing_metadata = processing['processing_metadata']
@@ -268,6 +267,7 @@ class Carrier(BaseAgent):
                                             'msg_content': msg_content}
 
                 parameters = {'status': processing['status'],
+                              'substatus': ProcessingSubStatus.Idle,
                               'processing_metadata': processing['processing_metadata']}
                 updated_processing = {'processing_id': processing['processing_id'],
                                       'parameters': parameters}
