@@ -156,19 +156,19 @@ class Transformer(BaseAgent):
         if not transform_metadata:
             transform_metadata = {}
         transform_metadata['output_collection'] = output_collection['coll_metadata']
-        if output_collection['coll_status'] == CollectionStatus.Closed:
+        if output_collection['status'] == CollectionStatus.Closed:
             ret = {'transform_id': transform['transform_id'],
                    'status': TransformStatus.Finished,
                    'transform_metadata': transform_metadata}
-        elif output_collection['coll_status'] == CollectionStatus.SubClosed:
+        elif output_collection['status'] == CollectionStatus.SubClosed:
             ret = {'transform_id': transform['transform_id'],
                    'status': TransformStatus.SubFinished,
                    'transform_metadata': transform_metadata}
-        elif output_collection['coll_status'] == CollectionStatus.Failed:
+        elif output_collection['status'] == CollectionStatus.Failed:
             ret = {'transform_id': transform['transform_id'],
                    'status': TransformStatus.Failed,
                    'transform_metadata': transform_metadata}
-        elif output_collection['coll_status'] == CollectionStatus.Deleted:
+        elif output_collection['status'] == CollectionStatus.Deleted:
             ret = {'transform_id': transform['transform_id'],
                    'status': TransformStatus.Deleted,
                    'transform_metadata': transform_metadata}
