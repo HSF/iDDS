@@ -271,8 +271,8 @@ def update_input_collection_with_contents(coll_id, parameters, contents, returni
             """
             to_update = {'content_id': content['content_id'],
                          'status': content['status']}
-            if 'content_size' in content:
-                to_update['content_size'] = content['content_size']
+            if 'bytes' in content:
+                to_update['bytes'] = content['bytes']
             if 'md5' in content:
                 to_update['md5'] = content['md5']
             if 'adler32' in content:
