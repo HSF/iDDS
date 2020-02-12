@@ -37,7 +37,7 @@ class StageInTransformer(TransformerPluginBase):
                            'name': input_content['name'],
                            'min_id': input_content['min_id'],
                            'max_id': input_content['max_id'],
-                           'content_type': input_content['content_type'],
+                           'type': input_content['type'],
                            'adler32': input_content['adler32'],
                            'collcontent_metadata': content_metadata}
                 output_contents.append(content)
