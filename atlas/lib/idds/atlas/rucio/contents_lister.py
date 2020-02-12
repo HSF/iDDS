@@ -30,7 +30,7 @@ class ContentsLister(RucioPluginBase):
             for file in files:
                 ret_file = {'scope': file['scope'],
                             'name': file['name'],
-                            'content_size': file['bytes'],
+                            'bytes': file['bytes'],
                             'events': file['events'],
                             'adler32': file['adler32']}
                 ret_files.append(ret_file)

@@ -40,8 +40,8 @@ class CollectionLister(RucioPluginBase):
                 collection = {'scope': did_info['scope'],
                               'name': did_info['name'],
                               'total_files': did_info['length'],
-                              'coll_size': did_info['bytes'],
-                              'coll_type': coll_type}
+                              'bytes': did_info['bytes'],
+                              'type': coll_type}
                 collections.append(collection)
             return collections
         except Exception as ex:
