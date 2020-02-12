@@ -13,11 +13,13 @@
 operations related to Requests.
 """
 
+from idds.common.constants import RequestStatus
+
 from idds.core import requests
 
 
-def add_request(scope, name, requester=None, request_type=None, transform_tag=None,
-                status=None, priority=0, lifetime=30, request_metadata=None):
+def add_request(scope, name, requester=None, request_type=None, transform_tag=None, workload_id=None,
+                status=RequestStatus.New, priority=0, lifetime=30, request_metadata=None):
     """
     Add a request.
 
@@ -26,6 +28,7 @@ def add_request(scope, name, requester=None, request_type=None, transform_tag=No
     :param requestr: The requester, such as panda, user and so on.
     :param request_type: The type of the request, such as ESS, DAOD.
     :param transform_tag: Transform tag, such as ATLAS AMI tag.
+    :param workload_id: The external workload id.
     :param status: The request status as integer.
     :param priority: The priority as integer.
     :param lifetime: The life time as umber of days.
@@ -35,7 +38,7 @@ def add_request(scope, name, requester=None, request_type=None, transform_tag=No
     """
     kwargs = {'scope': scope, 'name': name, 'requester': requester, 'request_type': request_type,
               'transform_tag': transform_tag, 'status': status, 'priority': priority,
-              'lifetime': lifetime, 'request_metadata': request_metadata}
+              'workload_id': workload_id, 'lifetime': lifetime, 'request_metadata': request_metadata}
     return requests.add_request(**kwargs)
 
 

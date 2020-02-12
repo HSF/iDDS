@@ -15,7 +15,7 @@ operations related to Requests.
 
 
 from idds.common import exceptions
-from idds.common.constants import RequestSubStatus
+from idds.common.constants import RequestStatus, RequestSubStatus
 from idds.orm.base.session import transactional_session
 from idds.orm import requests as orm_requests
 from idds.orm import transforms as orm_transforms
@@ -24,8 +24,9 @@ from idds.orm import collections as orm_collections
 
 @transactional_session
 def add_request(scope, name, requester=None, request_type=None, transform_tag=None,
-                status=None, substatus=None, priority=0, lifetime=30, workload_id=None,
-                request_metadata=None, processing_metadata=None, session=None):
+                status=RequestStatus.New, substatus=RequestSubStatus.Idle, priority=0,
+                lifetime=30, workload_id=None, request_metadata=None,
+                processing_metadata=None, session=None):
     """
     Add a request.
 
