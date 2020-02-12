@@ -14,10 +14,8 @@ operations related to Requests.
 """
 
 
-import datetime
-
 from idds.common import exceptions
-from idds.common.constants import RequestStatus, RequestSubStatus, RequestType
+from idds.common.constants import RequestSubStatus
 from idds.orm.base.session import transactional_session
 from idds.orm import requests as orm_requests
 from idds.orm import transforms as orm_transforms
@@ -26,7 +24,8 @@ from idds.orm import collections as orm_collections
 
 @transactional_session
 def add_request(scope, name, requester=None, request_type=None, transform_tag=None,
-                status=None, priority=0, lifetime=30, request_metadata=None, session=None):
+                status=None, substatus=None, priority=0, lifetime=30, workload_id=None,
+                request_metadata=None, processing_metadata=None, session=None):
     """
     Add a request.
 
@@ -36,50 +35,21 @@ def add_request(scope, name, requester=None, request_type=None, transform_tag=No
     :param request_type: The type of the request, such as ESS, DAOD.
     :param transform_tag: Transform tag, such as ATLAS AMI tag.
     :param status: The request status as integer.
+    :param substatus: The request substatus as integer.
     :param priority: The priority as integer.
     :param lifetime: The life time as umber of days.
+    :param workload_id: The external workload id.
     :param request_metadata: The metadata as json.
+    :param processing_metadata: The metadata as json.
 
     :returns: request id.
     """
     kwargs = {'scope': scope, 'name': name, 'requester': requester, 'request_type': request_type,
-              'transform_tag': transform_tag, 'status': status, 'priority': priority,
-              'lifetime': lifetime, 'request_metadata': request_metadata, 'session': session}
-
-    if request_metadata and 'workload_id' in request_metadata:
-        try:
-            req = orm_requests.get_request(workload_id=request_metadata['workload_id'], session=session)
-            if is_same_request(kwargs, req):
-                # updateexpired_at time and status
-                new_status = RequestStatus.Extend
-                update_paramesters = {'status': new_status, 'priority': priority,
-                                      'expired_at': datetime.datetime.utcnow() + datetime.timedelta(days=lifetime)}
-                orm_requests.update_request(req['requestid'], update_paramesters, session=session)
-                return req['requestid']
-            else:
-                errmsg = "There is already a different request(%s) with the same workload id(%s)" % (req['request_id'],
-                                                                                                     request_metadata['workload_id'])
-                raise exceptions.ConflictRequestException(errmsg)
-        except exceptions.NoObject:
-            return orm_requests.add_request(**kwargs)
-    else:
-        return orm_requests.add_request(**kwargs)
-
-
-def is_same_request(new_req, req):
-    new_request_type = new_req['request_type']
-    request_type = req['request_type']
-    if isinstance(new_request_type, RequestType):
-        new_request_type = new_request_type.value
-    if isinstance(request_type, RequestType):
-        request_type = request_type.value
-
-    if (new_req['scope'] == req['scope'] and new_req['name'] == req['name']
-        and new_req['transform_tag'] == req['transform_tag']          # noqa: W503
-        and new_request_type == request_type                          # noqa: W503
-        and new_req['request_metadata'] == req['request_metadata']):  # noqa: W503
-        return True
-    return False
+              'transform_tag': transform_tag, 'status': status, 'substatus': substatus,
+              'priority': priority, 'lifetime': lifetime, 'workload_id': workload_id,
+              'request_metadata': request_metadata, 'processing_metadata': processing_metadata,
+              'session': session}
+    return orm_requests.add_request(**kwargs)
 
 
 def get_request(request_id=None, workload_id=None):

@@ -31,7 +31,8 @@ from idds.orm.base.utils import row2dict
 @transactional_session
 def add_request(scope, name, requester=None, request_type=None, transform_tag=None,
                 status=RequestStatus.New, substatus=RequestSubStatus.Idle, priority=0,
-                lifetime=30, request_metadata=None, session=None):
+                lifetime=30, workload_id=None, request_metadata=None,
+                processing_metadata=None, session=None):
     """
     Add a request.
 
@@ -44,7 +45,9 @@ def add_request(scope, name, requester=None, request_type=None, transform_tag=No
     :param substatus: The request substatus as integer.
     :param priority: The priority as integer.
     :param lifetime: The life time as umber of days.
+    :param workload_id: The external workload id.
     :param request_metadata: The metadata as json.
+    :param processing_metadata: The metadata as json.
 
     :raises DuplicatedObject: If an request with the same name exists.
     :raises DatabaseException: If there is a database error.
@@ -57,31 +60,32 @@ def add_request(scope, name, requester=None, request_type=None, transform_tag=No
         status = status.value
     if isinstance(substatus, RequestSubStatus):
         substatus = substatus.value
+    if request_metadata:
+        request_metadata = json.dumps(request_metadata)
+    if processing_metadata:
+        processing_metadata = json.dumps(processing_metadata)
 
     insert_request_sql = """insert into atlas_idds.requests(scope, name, requester, request_type, transform_tag, priority,
-                            status, substatus, created_at, updated_at, expired_at, request_metadata)
-                             values(:scope, :name, :requester, :request_type, :transform_tag, :priority, :status, :substatus,
-                             :created_at, :updated_at, :expired_at, :request_metadata) RETURNING request_id into :request_id
+                            status, substatus, workload_id, created_at, updated_at, expired_at, request_metadata,
+                            processing_metadata)
+                            values(:scope, :name, :requester, :request_type, :transform_tag, :priority, :status,
+                                   :substatus, :workload_id, :created_at, :updated_at, :expired_at,
+                                   :request_metadata, :processing_metadata) RETURNING request_id into :request_id
                          """
-
-    insert_req2worload_sql = """insert into atlas_idds.req2workload(request_id, workload_id)values(:request_id, :workload_id)"""
 
     stmt = text(insert_request_sql)
     stmt = stmt.bindparams(outparam("request_id", type_=BigInteger().with_variant(Integer, "sqlite")))
-    req2workload_stmt = text(insert_req2worload_sql)
 
     try:
         request_id = None
         ret = session.execute(stmt, {"scope": scope, "name": name, "requester": requester, "request_type": request_type,
-                                     "transform_tag": transform_tag, "priority": priority, 'status': status, 'substatus': substatus,
+                                     "transform_tag": transform_tag, "priority": priority, 'status': status,
+                                     'substatus': substatus, 'workload_id': workload_id,
                                      'created_at': datetime.datetime.utcnow(), 'updated_at': datetime.datetime.utcnow(),
                                      'expired_at': datetime.datetime.utcnow() + datetime.timedelta(days=lifetime),
-                                     'request_metadata': json.dumps(request_metadata) if request_metadata else request_metadata,
+                                     'request_metadata': request_metadata, 'processing_metadata': processing_metadata,
                                      'request_id': request_id})
         request_id = ret.out_parameters['request_id'][0]
-
-        if request_metadata and 'workload_id' in request_metadata:
-            session.execute(req2workload_stmt, {'request_id': request_id, 'workload_id': request_metadata['workload_id']})
         return request_id
     except IntegrityError as error:
         raise exceptions.DuplicatedObject('Request %s:%s already exists!: %s' % (scope, name, error))
@@ -92,7 +96,8 @@ def add_request(scope, name, requester=None, request_type=None, transform_tag=No
 @transactional_session
 def add_request_new(scope, name, requester=None, request_type=None, transform_tag=None,
                     status=RequestStatus.New, substatus=RequestSubStatus.Idle, priority=0,
-                    lifetime=30, request_metadata=None, session=None):
+                    lifetime=30, workload_id=None, request_metadata=None,
+                    processing_metadata=None, session=None):
     """
     Add a request.
 
@@ -105,7 +110,9 @@ def add_request_new(scope, name, requester=None, request_type=None, transform_ta
     :param substatus: The request substatus as integer.
     :param priority: The priority as integer.
     :param lifetime: The life time as umber of days.
+    :param workload_id: The external workload id.
     :param request_metadata: The metadata as json.
+    :param processing_metadata: The metadata as json.
 
     :raises DuplicatedObject: If an request with the same name exists.
     :raises DatabaseException: If there is a database error.
@@ -117,19 +124,14 @@ def add_request_new(scope, name, requester=None, request_type=None, transform_ta
     if isinstance(status, RequestStatus):
         status = status.value
 
-    insert_req2worload_sql = """insert into atlas_idds.req2workload(request_id, workload_id)values(:request_id, :workload_id)"""
-    req2workload_stmt = text(insert_req2worload_sql)
-
     try:
         new_request = models.Request(scope=scope, name=name, requester=requester, request_type=request_type,
-                                     transform_tag=transform_tag, status=status, substatus=substatus, priority=priority,
+                                     transform_tag=transform_tag, status=status, substatus=substatus,
+                                     priority=priority, workload_id=workload_id,
                                      expired_at=datetime.datetime.utcnow() + datetime.timedelta(days=lifetime),
-                                     request_metadata=request_metadata)
+                                     request_metadata=request_metadata, processing_metadata=processing_metadata)
         new_request.save(session=session)
         request_id = new_request.request_id
-
-        if request_metadata and 'workload_id' in request_metadata:
-            session.execute(req2workload_stmt, {'request_id': request_id, 'workload_id': request_metadata['workload_id']})
         return request_id
     except IntegrityError as error:
         raise exceptions.DuplicatedObject('Request %s:%s already exists!: %s' % (scope, name, error))
@@ -154,9 +156,9 @@ def get_request_id_by_workload_id(workload_id, session=None):
         return exceptions.WrongParameterException("workload_id should not be None")
 
     try:
-        req2workload_select = "select request_id from atlas_idds.req2workload where workload_id=:workload_id"
-        req2workload_stmt = text(req2workload_select)
-        result = session.execute(req2workload_stmt, {'workload_id': workload_id})
+        select = "select request_id from atlas_idds.requests where workload_id=:workload_id"
+        stmt = text(select)
+        result = session.execute(stmt, {'workload_id': workload_id})
         row = result.fetchone()
         if row:
             request_id = row[0]
@@ -195,6 +197,10 @@ def convert_request_to_dict(request):
         request['request_type'] = RequestType(request['request_type'])
     if request['status'] is not None:
         request['status'] = RequestStatus(request['status'])
+    if request['substatus'] is not None:
+        request['substatus'] = RequestSubStatus(request['substatus'])
+    if request['processing_metadata']:
+        request['processing_metadata'] = json.loads(request['processing_metadata'])
     return request
 
 
@@ -217,7 +223,8 @@ def get_request(request_id=None, workload_id=None, session=None):
             request_id = get_request_id_by_workload_id(workload_id)
 
         req_select = """select request_id, scope, name, requester, request_type, transform_tag, priority,
-                        status, substatus, created_at, updated_at, accessed_at, expired_at, errors, request_metadata
+                        status, substatus, workload_id, created_at, updated_at, accessed_at, expired_at, errors,
+                        request_metadata, processing_metadata
                         from atlas_idds.requests where request_id=:request_id
                      """
         req_stmt = text(req_select)
@@ -298,7 +305,8 @@ def get_requests_by_requester(scope, name, requester, session=None):
 
     try:
         req_select = """select request_id, scope, name, requester, request_type, transform_tag, priority,
-                        status, substatus, created_at, updated_at, accessed_at, expired_at, errors, request_metadata
+                        status, substatus, workload_id, created_at, updated_at, accessed_at, expired_at,
+                        errors, request_metadata, processing_metadata
                         from atlas_idds.requests where scope=:scope and requester=:requester and name=:name
                      """
         req_stmt = text(req_select)
@@ -336,7 +344,8 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, loc
         status = new_status
 
         req_select = """select request_id, scope, name, requester, request_type, transform_tag, priority,
-                        status, substatus, created_at, updated_at, accessed_at, expired_at, errors, request_metadata
+                        status, substatus, workload_id, created_at, updated_at, accessed_at, expired_at,
+                        errors, request_metadata, processing_metadata
                         from atlas_idds.requests where status in :status
                      """
         req_params = {'status': status}
@@ -383,6 +392,8 @@ def update_request(request_id, parameters, session=None):
             parameters['substatus'] = parameters['substatus'].value
         if 'request_metadata' in parameters:
             parameters['request_metadata'] = json.dumps(parameters['request_metadata'])
+        if 'processing_metadata' in parameters:
+            parameters['processing_metadata'] = json.dumps(parameters['processing_metadata'])
         if 'errors' in parameters:
             parameters['errors'] = json.dumps(parameters['errors'])
 
