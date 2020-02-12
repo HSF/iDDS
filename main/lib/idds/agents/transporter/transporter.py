@@ -93,7 +93,7 @@ class Transporter(BaseAgent):
             new_contents.append(new_content)
         new_coll = {'coll_id': coll['coll_id'],
                     'transform_id': coll['transform_id'],
-                    'coll_size': coll_metadata['coll_size'],
+                    'bytes': coll_metadata['bytes'],
                     'status': coll_metadata['status'],
                     'total_files': coll_metadata['total_files'],
                     'coll_metadata': {'availability': coll_metadata['availability'],
@@ -174,7 +174,7 @@ class Transporter(BaseAgent):
 
         if content_status_keys == [ContentStatus.Available] or content_status_keys == [ContentStatus.Available.value]:
             ret_coll = {'coll_id': coll['coll_id'],
-                        'coll_size': total_files,
+                        'bytes': total_files,
                         'status': CollectionStatus.Closed,
                         'new_files': new_files,
                         'processing_files': 0,
@@ -182,7 +182,7 @@ class Transporter(BaseAgent):
                         'coll_metadata': {'status_statistics': contents_statistics_with_name}}
         elif content_status_keys == [ContentStatus.FinalFailed] or content_status_keys == [ContentStatus.FinalFailed.value]:
             ret_coll = {'coll_id': coll['coll_id'],
-                        'coll_size': total_files,
+                        'bytes': total_files,
                         'status': CollectionStatus.Failed,
                         'new_files': new_files,
                         'processing_files': 0,
@@ -192,7 +192,7 @@ class Transporter(BaseAgent):
             and (ContentStatus.FinalFailed in content_status_keys or ContentStatus.FinalFailed.value in content_status_keys)  # noqa: W503
             and (ContentStatus.Available in content_status_keys or ContentStatus.Available.value in content_status_keys)):    # noqa: W503
             ret_coll = {'coll_id': coll['coll_id'],
-                        'coll_size': total_files,
+                        'bytes': total_files,
                         'status': CollectionStatus.SubClosed,
                         'new_files': new_files,
                         'processing_files': 0,
@@ -201,7 +201,7 @@ class Transporter(BaseAgent):
         elif (ContentStatus.New in content_status_keys or ContentStatus.New.value in content_status_keys            # noqa: W503
             or ContentStatus.Failed in content_status_keys or ContentStatus.Failed.value in content_status_keys):   # noqa: W503
             ret_coll = {'coll_id': coll['coll_id'],
-                        'coll_size': total_files,
+                        'bytes': total_files,
                         'status': CollectionStatus.Open,
                         'new_files': new_files,
                         'processing_files': 0,
