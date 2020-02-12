@@ -66,7 +66,7 @@ class Clerk(BaseAgent):
         collection = input_collection
         output_collection = copy.deepcopy(collection)
         output_collection['name'] = collection['name'] + '_iDDS.%s.%s' % (request_type.name, transform_tag)
-        output_collection['coll_type'] = CollectionType.Dataset
+        output_collection['type'] = CollectionType.Dataset
         output_collection['relation_type'] = CollectionRelationType.Output
         output_collection['status'] = CollectionStatus.New
         return output_collection
@@ -78,7 +78,7 @@ class Clerk(BaseAgent):
         collection = input_collection
         log_collection = copy.deepcopy(collection)
         log_collection['name'] = collection['name'] + '_iDDS.%s.%s.log' % (request_type.name, transform_tag)
-        log_collection['coll_type'] = CollectionType.Dataset
+        log_collection['type'] = CollectionType.Dataset
         log_collection['relation_type'] = CollectionRelationType.Log
         log_collection['status'] = CollectionStatus.New
         return log_collection
@@ -107,7 +107,7 @@ class Clerk(BaseAgent):
                     else:
                         related_collections = []
                         input_collection = {'transform_id': None,
-                                            'coll_type': collection['coll_type'],
+                                            'type': collection['type'],
                                             'scope': collection['scope'],
                                             'name': collection['name'],
                                             'relation_type': CollectionRelationType.Input,
@@ -139,7 +139,6 @@ class Clerk(BaseAgent):
                         transforms_to_add.append(transform)
                 ret_req = {'request_id': req['request_id'],
                            'status': RequestStatus.Transforming,
-                           'request_metadata': req['request_metadata'],
                            'processing_metadata': {'total_collections': len(collections),
                                                    'transforms_to_add': len(transforms_to_add),
                                                    'transforms_to_extend': len(transforms_to_extend)},
@@ -148,14 +147,12 @@ class Clerk(BaseAgent):
             else:
                 ret_req = {'request_id': req['request_id'],
                            'status': RequestStatus.Failed,
-                           'request_metadata': req['request_metadata'],
                            'errors': {'msg': 'No matching datasets with %s:%s' % (req['scope'], req['name'])}}
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
             ret_req = {'request_id': req['request_id'],
                        'status': RequestStatus.Failed,
-                       'request_metadata': req['request_metadata'],
                        'errors': {'msg': '%s: %s' % (ex, traceback.format_exc())}}
         return ret_req
 
@@ -165,21 +162,13 @@ class Clerk(BaseAgent):
                 req = self.new_output_queue.get()
                 self.logger.info("Main thread finished processing requst: %s" % req)
                 parameter = {'status': req['status'], 'substatus': RequestSubStatus.Idle}
-                if 'request_metadata' not in req or not req['request_metadata']:
-                    request_metadata = {}
-                else:
-                    request_metadata = req['request_metadata']
-                if 'processing_metadata' not in request_metadata:
-                    request_metadata['processing_metadata'] = {}
 
                 if 'processing_metadata' not in req or not req['processing_metadata']:
                     processing_metadata = {}
                 else:
                     processing_metadata = req['processing_metadata']
-                for key, value in processing_metadata.items():
-                    request_metadata['processing_metadata'][key] = value
 
-                parameter['request_metadata'] = request_metadata
+                parameter['processing_metadata'] = processing_metadata
 
                 if 'errors' in req:
                     parameter['errors'] = req['errors']
@@ -218,14 +207,14 @@ class Clerk(BaseAgent):
                 transform_status[status_name] = 1
             else:
                 transform_status[status_name] += 1
-        processing_metadata = req['request_metadata']['processing_metadata']
+        processing_metadata = req['processing_metadata']
         processing_metadata['transform_status'] = transform_status
 
         transform_status_keys = list(transform_status.keys())
         if len(transform_status_keys) == 0:
             ret_req = {'request_id': req['request_id'],
                        'status': RequestStatus.Failed,
-                       'request_metadata': req['request_metadata'],
+                       'processing_metadata': processing_metadata,
                        'errors': {'msg': 'No transforms founded(no collections founded)'}
                        }
         elif len(transform_status_keys) == 1:
@@ -233,17 +222,17 @@ class Clerk(BaseAgent):
                                             TransformStatus.Extend, TransformStatus.Extend.value]:
                 ret_req = {'request_id': req['request_id'],
                            'status': RequestStatus.Transforming,
-                           'request_metadata': req['request_metadata']
+                           'processing_metadata': processing_metadata
                            }
             else:
                 ret_req = {'request_id': req['request_id'],
                            'status': dict(RequestStatus.__members__)[transform_status_keys[0]],
-                           'request_metadata': req['request_metadata']
+                           'processing_metadata': processing_metadata
                            }
         else:
             ret_req = {'request_id': req['request_id'],
                        'status': RequestStatus.Transforming,
-                       'request_metadata': req['request_metadata']
+                       'processing_metadata': processing_metadata
                        }
         return ret_req
 
