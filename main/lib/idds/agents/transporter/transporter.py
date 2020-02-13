@@ -86,7 +86,7 @@ class Transporter(BaseAgent):
                            'max_id': content['events'],
                            'content_type': ContentType.File,
                            'status': ContentStatus.New,
-                           'content_size': content['content_size'],
+                           'bytes': content['bytes'],
                            'md5': content['md5'] if 'md5' in content else None,
                            'adler32': content['adler32'] if 'adler32' in content else None,
                            'expired_at': coll['expired_at']}

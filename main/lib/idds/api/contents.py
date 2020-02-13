@@ -17,7 +17,7 @@ from idds.core import contents
 
 
 def add_content(coll_id, scope, name, min_id, max_id, content_type=None, status=None,
-                content_size=0, md5=None, adler32=None, processing_id=None, storage_id=None, retries=0,
+                bytes=0, md5=None, adler32=None, processing_id=None, storage_id=None, retries=0,
                 path=None, expired_at=None, collcontent_metadata=None):
     """
     Add a content.
@@ -29,7 +29,7 @@ def add_content(coll_id, scope, name, min_id, max_id, content_type=None, status=
     :param max_id: The maximal id of the content.
     :param content_type: The type of the content.
     :param status: content status.
-    :param content_size: The size of the content.
+    :param bytes: The size of the content.
     :param md5: md5 checksum.
     :param alder32: adler32 checksum.
     :param processing_id: The processing id.
@@ -42,7 +42,7 @@ def add_content(coll_id, scope, name, min_id, max_id, content_type=None, status=
     :returns: content id.
     """
     kwargs = {'coll_id': coll_id, 'scope': scope, 'name': name, 'min_id': min_id, 'max_id': max_id,
-              'content_type': content_type, 'status': status, 'content_size': content_size,
+              'content_type': content_type, 'status': status, 'bytes': bytes,
               'md5': md5, 'adler32': adler32, 'processing_id': processing_id, 'storage_id': storage_id,
               'retries': retries, 'path': path, 'expired_at': expired_at,
               'collcontent_metadata': collcontent_metadata}
