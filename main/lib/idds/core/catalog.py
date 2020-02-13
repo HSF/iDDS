@@ -235,7 +235,7 @@ def add_contents(contents, returning_id=False, bulk_size=100, session=None):
 
 
 @transactional_session
-def update_input_collection_with_contents(coll_id, parameters, contents, returning_id=False, bulk_size=100, session=None):
+def update_input_collection_with_contents(coll, parameters, contents, returning_id=False, bulk_size=100, session=None):
     """
     update a collection.
 
@@ -253,7 +253,7 @@ def update_input_collection_with_contents(coll_id, parameters, contents, returni
     """
     new_files = 0
     processed_files = 0
-    avail_contents = orm_contents.get_contents(coll_id=coll_id, session=session)
+    avail_contents = orm_contents.get_contents(coll_id=coll['coll_id'], session=session)
     avail_contents_dict = {}
     for content in avail_contents:
         key = '%s:%s:%s:%s' % (content['scope'], content['name'], content['min_id'], content['max_id'])
@@ -292,6 +292,8 @@ def update_input_collection_with_contents(coll_id, parameters, contents, returni
 
     parameters['processed_files'] = processed_files
     parameters['new_files'] = new_files
+    if processed_files == coll['total_files']:
+        parameters['status'] = CollectionStatus.Closed
     update_collection(coll_id, parameters, session=session)
     return to_addes
 

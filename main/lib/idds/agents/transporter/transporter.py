@@ -75,32 +75,35 @@ class Transporter(BaseAgent):
         """
         Process input collection
         """
-        coll_metadata = self.get_collection_metadata(coll['scope'], coll['name'])
-        contents = self.get_contents(coll['scope'], coll['name'])
-        new_contents = []
-        for content in contents:
-            new_content = {'coll_id': coll['coll_id'],
-                           'scope': content['scope'],
-                           'name': content['name'],
-                           'min_id': 0,
-                           'max_id': content['events'],
-                           'content_type': ContentType.File,
-                           'status': ContentStatus.New,
-                           'bytes': content['bytes'],
-                           'md5': content['md5'] if 'md5' in content else None,
-                           'adler32': content['adler32'] if 'adler32' in content else None,
-                           'expired_at': coll['expired_at']}
-            new_contents.append(new_content)
-        new_coll = {'coll_id': coll['coll_id'],
-                    'transform_id': coll['transform_id'],
-                    'bytes': coll_metadata['bytes'],
-                    'status': coll_metadata['status'],
-                    'total_files': coll_metadata['total_files'],
-                    'coll_metadata': {'availability': coll_metadata['availability'],
-                                      'events': coll_metadata['events'],
-                                      'is_open': coll_metadata['is_open'],
-                                      'run_number': coll_metadata['run_number']},
-                    'contents': new_contents}
+        if coll['coll_metadata'] and coll['coll_metadata']['status'] in [CollectionStatus.Closed, CollectionStatus.Closed.name, CollectionStatus.Closed.value]:
+            new_coll = {'coll': coll, 'status': coll['status'], 'contents': []}
+        else:
+            coll_metadata = self.get_collection_metadata(coll['scope'], coll['name'])
+            contents = self.get_contents(coll['scope'], coll['name'])
+            new_contents = []
+            for content in contents:
+                new_content = {'coll_id': coll['coll_id'],
+                               'scope': content['scope'],
+                               'name': content['name'],
+                               'min_id': 0,
+                               'max_id': content['events'],
+                               'content_type': ContentType.File,
+                               'status': ContentStatus.New,
+                               'bytes': content['bytes'],
+                               'md5': content['md5'] if 'md5' in content else None,
+                               'adler32': content['adler32'] if 'adler32' in content else None,
+                               'expired_at': coll['expired_at']}
+                new_contents.append(new_content)
+            new_coll = {'coll': coll,
+                        'bytes': coll_metadata['bytes'],
+                        'status': CollectionStatus.Open,
+                        'total_files': coll_metadata['total_files'],
+                        'coll_metadata': {'availability': coll_metadata['availability'],
+                                          'events': coll_metadata['events'],
+                                          'is_open': coll_metadata['is_open'],
+                                          'status': coll_metadata['status'].name,
+                                          'run_number': coll_metadata['run_number']},
+                        'contents': new_contents}
         return new_coll
 
     def finish_processing_input_collections(self):
@@ -109,10 +112,9 @@ class Transporter(BaseAgent):
             self.logger.info("Main thread finished processing intput collection(%s) with number of contents: %s" % (coll['coll_id'], len(coll['contents'])))
             parameters = copy.deepcopy(coll)
             del parameters['contents']
-            del parameters['coll_id']
-            del parameters['transform_id']
+            del parameters['coll']
             parameters['substatus'] = CollectionSubStatus.Idle
-            core_catalog.update_input_collection_with_contents(coll_id=coll['coll_id'],
+            core_catalog.update_input_collection_with_contents(coll=coll['coll'],
                                                                parameters=parameters,
                                                                contents=coll['contents'])
 
