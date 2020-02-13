@@ -88,7 +88,7 @@ def get_collections_by_request_transform_id(request_id=None, transform_id=None, 
     return rets
 
 
-@read_session
+@transactional_session
 def get_collections_by_status(status, relation_type=CollectionRelationType.Input, time_period=None, locking=False, session=None):
     """
     Get collections by status, relation_type and time_period or raise a NoObject exception.
