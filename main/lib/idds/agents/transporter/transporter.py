@@ -126,7 +126,7 @@ class Transporter(BaseAgent):
         """
         Get new output collections
         """
-        coll_status = [CollectionStatus.Updated]
+        coll_status = [CollectionStatus.Updated, CollectionStatus.Processing]
         colls = core_catalog.get_collections_by_status(status=coll_status,
                                                        relation_type=CollectionRelationType.Output,
                                                        time_period=1800,
@@ -138,6 +138,15 @@ class Transporter(BaseAgent):
         if 'contents_register' not in self.plugins:
             raise AgentPluginError('Plugin contents_register is required')
         return self.plugins['contents_register'](scope, name, contents)
+
+    def is_input_collection_all_processed(self, coll_id_list):
+        is_all_processed = True
+        for coll_id in coll_id_list:
+            coll = core_catalog.get_collection(coll_id)
+            if not (coll['status'] == CollectionStatus.Closed and coll['total_files'] == coll['processed_files']):
+                is_all_processed = False
+                return is_all_processed
+        return is_all_processed
 
     def process_output_collection(self, coll):
         """
@@ -153,6 +162,11 @@ class Transporter(BaseAgent):
                     new_contents.append(content)
             if new_contents:
                 self.register_contents(coll['scope'], coll['name'], new_contents)
+
+        is_input_collection_all_processed = False
+        if 'input_collections' in coll['coll_metadata'] and coll['coll_metadata']['input_collections']:
+            input_coll_list = coll['coll_metadata']['input_collections']
+            is_input_collection_all_processed = self.is_input_collection_all_processed(input_coll_list)
 
         contents_statistics = core_catalog.get_content_status_statistics(coll_id=coll['coll_id'])
         contents_statistics_with_name = {}
@@ -172,42 +186,27 @@ class Transporter(BaseAgent):
         if ContentStatus.New.value in contents_statistics:
             new_files += contents_statistics[ContentStatus.New.value]
 
-        if content_status_keys == [ContentStatus.Available] or content_status_keys == [ContentStatus.Available.value]:
-            ret_coll = {'coll_id': coll['coll_id'],
-                        'bytes': total_files,
-                        'status': CollectionStatus.Closed,
-                        'new_files': new_files,
-                        'processing_files': 0,
-                        'processed_files': processed_files,
-                        'coll_metadata': {'status_statistics': contents_statistics_with_name}}
+        if not is_input_collection_all_processed:
+            coll_status = CollectionStatus.Open
+        elif content_status_keys == [ContentStatus.Available] or content_status_keys == [ContentStatus.Available.value]:
+            coll_status = CollectionStatus.Closed
         elif content_status_keys == [ContentStatus.FinalFailed] or content_status_keys == [ContentStatus.FinalFailed.value]:
-            ret_coll = {'coll_id': coll['coll_id'],
-                        'bytes': total_files,
-                        'status': CollectionStatus.Failed,
-                        'new_files': new_files,
-                        'processing_files': 0,
-                        'processed_files': processed_files,
-                        'coll_metadata': {'status_statistics': contents_statistics_with_name}}
+            coll_status = CollectionStatus.Failed
         elif (len(content_status_keys) == 2                                                                                   # noqa: W503
             and (ContentStatus.FinalFailed in content_status_keys or ContentStatus.FinalFailed.value in content_status_keys)  # noqa: W503
             and (ContentStatus.Available in content_status_keys or ContentStatus.Available.value in content_status_keys)):    # noqa: W503
-            ret_coll = {'coll_id': coll['coll_id'],
-                        'bytes': total_files,
-                        'status': CollectionStatus.SubClosed,
-                        'new_files': new_files,
-                        'processing_files': 0,
-                        'processed_files': processed_files,
-                        'coll_metadata': {'status_statistics': contents_statistics_with_name}}
+            coll_status = CollectionStatus.SubClosed
         elif (ContentStatus.New in content_status_keys or ContentStatus.New.value in content_status_keys            # noqa: W503
             or ContentStatus.Failed in content_status_keys or ContentStatus.Failed.value in content_status_keys):   # noqa: W503
-            ret_coll = {'coll_id': coll['coll_id'],
-                        'bytes': total_files,
-                        'status': CollectionStatus.Open,
-                        'new_files': new_files,
-                        'processing_files': 0,
-                        'processed_files': processed_files,
-                        'coll_metadata': {'status_statistics': contents_statistics_with_name}}
+            coll_status = CollectionStatus.Open
 
+        ret_coll = {'coll_id': coll['coll_id'],
+                    'total_files': total_files,
+                    'status': coll_status,
+                    'new_files': new_files,
+                    'processing_files': 0,
+                    'processed_files': processed_files,
+                    'coll_metadata': {'status_statistics': contents_statistics_with_name}}
         return ret_coll
 
     def finish_processing_output_collections(self):

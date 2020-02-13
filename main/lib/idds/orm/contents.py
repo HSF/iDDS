@@ -30,7 +30,7 @@ from idds.orm.base.utils import row2dict
 @transactional_session
 def add_content(coll_id, scope, name, min_id, max_id, type=ContentType.File, status=ContentStatus.New,
                 bytes=0, md5=None, adler32=None, processing_id=None, storage_id=None, retries=0,
-                path=None, expired_at=None, collcontent_metadata=None, returning_id=False, session=None):
+                path=None, expired_at=None, content_metadata=None, returning_id=False, session=None):
     """
     Add a content.
 
@@ -60,17 +60,17 @@ def add_content(coll_id, scope, name, min_id, max_id, type=ContentType.File, sta
         type = type.value
     if isinstance(status, ContentStatus):
         status = status.value
-    if collcontent_metadata:
-        collcontent_metadata = json.dumps(collcontent_metadata)
+    if content_metadata:
+        content_metadata = json.dumps(content_metadata)
 
     if returning_id:
         insert_coll_sql = """insert into atlas_idds.contents(coll_id, scope, name, min_id, max_id, type,
                                                                        status, bytes, md5, adler32, processing_id,
                                                                        storage_id, retries, path, expired_at,
-                                                                       collcontent_metadata)
+                                                                       content_metadata)
                              values(:coll_id, :scope, :name, :min_id, :max_id, :type, :status, :bytes,
                                     :md5, :adler32, :processing_id, :storage_id, :retries, :path, :expired_at,
-                                    :collcontent_metadata) RETURNING content_id into :content_id
+                                    :content_metadata) RETURNING content_id into :content_id
                           """
         stmt = text(insert_coll_sql)
         stmt = stmt.bindparams(outparam("content_id", type_=BigInteger().with_variant(Integer, "sqlite")))
@@ -78,10 +78,10 @@ def add_content(coll_id, scope, name, min_id, max_id, type=ContentType.File, sta
         insert_coll_sql = """insert into atlas_idds.contents(coll_id, scope, name, min_id, max_id, type,
                                                                        status, bytes, md5, adler32, processing_id,
                                                                        storage_id, retries, path, expired_at,
-                                                                       collcontent_metadata)
+                                                                       content_metadata)
                              values(:coll_id, :scope, :name, :min_id, :max_id, :type, :status, :bytes,
                                     :md5, :adler32, :processing_id, :storage_id, :retries, :path, :expired_at,
-                                    :collcontent_metadata)
+                                    :content_metadata)
                           """
         stmt = text(insert_coll_sql)
 
@@ -93,7 +93,7 @@ def add_content(coll_id, scope, name, min_id, max_id, type=ContentType.File, sta
                                          'adler32': adler32, 'processing_id': processing_id, 'storage_id': storage_id,
                                          'retries': retries, 'path': path, 'created_at': datetime.datetime.utcnow(),
                                          'updated_at': datetime.datetime.utcnow(), 'expired_at': expired_at,
-                                         'collcontent_metadata': collcontent_metadata, 'content_id': content_id})
+                                         'content_metadata': content_metadata, 'content_id': content_id})
             content_id = ret.out_parameters['content_id'][0]
         else:
             ret = session.execute(stmt, {'coll_id': coll_id, 'scope': scope, 'name': name, 'min_id': min_id, 'max_id': max_id,
@@ -101,7 +101,7 @@ def add_content(coll_id, scope, name, min_id, max_id, type=ContentType.File, sta
                                          'adler32': adler32, 'processing_id': processing_id, 'storage_id': storage_id,
                                          'retries': retries, 'path': path, 'created_at': datetime.datetime.utcnow(),
                                          'updated_at': datetime.datetime.utcnow(), 'expired_at': expired_at,
-                                         'collcontent_metadata': collcontent_metadata})
+                                         'content_metadata': content_metadata})
 
         return content_id
     except IntegrityError as error:
@@ -130,16 +130,16 @@ def add_contents(contents, returning_id=False, bulk_size=100, session=None):
                       'bytes': 0, 'md5': None, 'adler32': None, 'processing_id': None,
                       'storage_id': None, 'retries': 0, 'path': None,
                       'expired_at': datetime.datetime.utcnow() + datetime.timedelta(days=30),
-                      'collcontent_metadata': None}
+                      'content_metadata': None}
 
     if returning_id:
         insert_coll_sql = """insert into atlas_idds.contents(coll_id, scope, name, min_id, max_id, type,
                                                                        status, bytes, md5, adler32, processing_id,
                                                                        storage_id, retries, path, expired_at,
-                                                                       collcontent_metadata)
+                                                                       content_metadata)
                              values(:coll_id, :scope, :name, :min_id, :max_id, :type, :status, :bytes,
                                     :md5, :adler32, :processing_id, :storage_id, :retries, :path, :expired_at,
-                                    :collcontent_metadata) RETURNING content_id into :content_id
+                                    :content_metadata) RETURNING content_id into :content_id
                           """
         stmt = text(insert_coll_sql)
         stmt = stmt.bindparams(outparam("content_id", type_=BigInteger().with_variant(Integer, "sqlite")))
@@ -147,10 +147,10 @@ def add_contents(contents, returning_id=False, bulk_size=100, session=None):
         insert_coll_sql = """insert into atlas_idds.contents(coll_id, scope, name, min_id, max_id, type,
                                                                        status, bytes, md5, adler32, processing_id,
                                                                        storage_id, retries, path, expired_at,
-                                                                       collcontent_metadata)
+                                                                       content_metadata)
                              values(:coll_id, :scope, :name, :min_id, :max_id, :type, :status, :bytes,
                                     :md5, :adler32, :processing_id, :storage_id, :retries, :path, :expired_at,
-                                    :collcontent_metadata)
+                                    :content_metadata)
                           """
         stmt = text(insert_coll_sql)
 
@@ -167,8 +167,8 @@ def add_contents(contents, returning_id=False, bulk_size=100, session=None):
             param['type'] = param['type'].value
         if isinstance(param['status'], ContentStatus):
             param['status'] = param['status'].value
-        if param['collcontent_metadata']:
-            param['collcontent_metadata'] = json.dumps(param['collcontent_metadata'])
+        if param['content_metadata']:
+            param['content_metadata'] = json.dumps(param['content_metadata'])
         params.append(param)
 
     sub_params = [params[i:i + bulk_size] for i in range(0, len(params), bulk_size)]
@@ -287,8 +287,8 @@ def get_content(content_id=None, coll_id=None, scope=None, name=None, type=None,
             content['type'] = ContentType(content['type'])
         if content['status'] is not None:
             content['status'] = ContentStatus(content['status'])
-        if content['collcontent_metadata']:
-            content['collcontent_metadata'] = json.loads(content['collcontent_metadata'])
+        if content['content_metadata']:
+            content['content_metadata'] = json.loads(content['content_metadata'])
 
         return content
     except sqlalchemy.orm.exc.NoResultFound as error:
@@ -357,8 +357,8 @@ def get_match_contents(coll_id, scope, name, type=None, min_id=None, max_id=None
                 content['type'] = ContentType(content['type'])
             if content['status'] is not None:
                 content['status'] = ContentStatus(content['status'])
-            if content['collcontent_metadata']:
-                content['collcontent_metadata'] = json.loads(content['collcontent_metadata'])
+            if content['content_metadata']:
+                content['content_metadata'] = json.loads(content['content_metadata'])
             rets.append(content)
         return rets
     except sqlalchemy.orm.exc.NoResultFound as error:
@@ -448,8 +448,8 @@ def get_contents(scope=None, name=None, coll_id=None, status=None, session=None)
                 content['type'] = ContentType(content['type'])
             if content['status'] is not None:
                 content['status'] = ContentStatus(content['status'])
-            if content['collcontent_metadata']:
-                content['collcontent_metadata'] = json.loads(content['collcontent_metadata'])
+            if content['content_metadata']:
+                content['content_metadata'] = json.loads(content['content_metadata'])
             rets.append(content)
         return rets
     except sqlalchemy.orm.exc.NoResultFound as error:
@@ -500,8 +500,8 @@ def update_content(content_id, parameters, session=None):
             parameters['type'] = parameters['type'].value
         if 'status' in parameters and isinstance(parameters['status'], ContentStatus):
             parameters['status'] = parameters['status'].value
-        if 'collcontent_metadata' in parameters:
-            parameters['collcontent_metadata'] = json.dumps(parameters['collcontent_metadata'])
+        if 'content_metadata' in parameters:
+            parameters['content_metadata'] = json.dumps(parameters['content_metadata'])
 
         parameters['updated_at'] = datetime.datetime.utcnow()
 
