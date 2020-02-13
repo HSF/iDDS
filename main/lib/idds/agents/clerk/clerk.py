@@ -60,15 +60,19 @@ class Clerk(BaseAgent):
         return self.plugins['collection_lister'](scope, name)
 
     def get_output_collection(self, input_collection, request_type, transform_tag):
-        # if request_type in [RequestType.StageIn, RequestType.StageIn.value]:
-        #     return None
-
-        collection = input_collection
-        output_collection = copy.deepcopy(collection)
-        output_collection['name'] = collection['name'] + '_iDDS.%s.%s' % (request_type.name, transform_tag)
-        output_collection['type'] = CollectionType.Dataset
-        output_collection['relation_type'] = CollectionRelationType.Output
-        output_collection['status'] = CollectionStatus.New
+        if request_type in [RequestType.StageIn, RequestType.StageIn.value]:
+            collection = input_collection
+            output_collection = copy.deepcopy(collection)
+            output_collection['type'] = CollectionType.Dataset
+            output_collection['relation_type'] = CollectionRelationType.Output
+            output_collection['status'] = CollectionStatus.New
+        else:
+            collection = input_collection
+            output_collection = copy.deepcopy(collection)
+            output_collection['name'] = collection['name'] + '_iDDS.%s.%s' % (request_type.name, transform_tag)
+            output_collection['type'] = CollectionType.Dataset
+            output_collection['relation_type'] = CollectionRelationType.Output
+            output_collection['status'] = CollectionStatus.New
         return output_collection
 
     def get_log_collection(self, input_collection, request_type, transform_tag):
