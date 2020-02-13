@@ -6,7 +6,10 @@
 # - Wen Guan, <wen.guan@cern.ch>, 2019
 
 [common]
-logdir = /var/log/idds
+# if logdir is configured, idds will write to idds.log in this directory.
+# else idds will go to stdout/stderr.
+# With supervisord, it's good to write to stdout/stderr, then supervisord can manage and rotate logs.
+# logdir = /var/log/idds
 loglevel = DEBUG
 
 
