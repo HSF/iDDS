@@ -80,7 +80,7 @@ def get_content_properties():
         'max_id': 100,
         'content_type': ContentType.File,
         'status': ContentStatus.New,
-        'content_size': 1,
+        'bytes': 1,
         'md5': None,
         'adler32': None,
         'processing_id': None,
