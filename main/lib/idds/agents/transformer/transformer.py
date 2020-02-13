@@ -83,6 +83,9 @@ class Transformer(BaseAgent):
             processing_metadata = {'transform_id': transform['transform_id'],
                                    'input_collection': input_collection['coll_id'],
                                    'output_collection': output_collection['coll_id']}
+            for key in transform['transform_metadata']:
+                processing_metadata[key] = transform['transform_metadata'][key]
+
             new_processing = {'transform_id': transform['transform_id'],
                               'status': ProcessingStatus.New,
                               'processing_metadata': processing_metadata}
@@ -115,7 +118,7 @@ class Transformer(BaseAgent):
             if collection['relation_type'] == CollectionRelationType.Input:
                 input_collection = collection
 
-        if ret_transform and input_collection and (input_collection['processed_files'] is None or input_collection['processed_files'] < input_collection['total_files']):
+        if ret_transform and input_collection and input_collection['status'] not in [CollectionStatus.Closed, CollectionStatus.Closed.value]:
             ret = self.generate_transform_outputs(ret_transform, collections)
             ret['transform']['substatus'] = TransformSubStatus.Idle
             ret['transform']['status'] = TransformStatus.Transforming
@@ -203,7 +206,7 @@ class Transformer(BaseAgent):
                 output_collection = collection
 
         transform_input, transform_output = None, None
-        if ret_transform and input_collection and (input_collection['processed_files'] is None or input_collection['processed_files'] < input_collection['total_files']):
+        if ret_transform and input_collection and input_collection['status'] not in [CollectionStatus.Closed, CollectionStatus.Closed.value]:
             transform_input = self.generate_transform_outputs(ret_transform, collections)
             transform_input['transform']['substatus'] = TransformSubStatus.Idle
             transform_input['transform']['status'] = TransformStatus.Transforming
