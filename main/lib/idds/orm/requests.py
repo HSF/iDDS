@@ -22,7 +22,7 @@ from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.sql import text, bindparam, outparam
 
 from idds.common import exceptions
-from idds.common.constants import RequestType, RequestStatus, RequestSubStatus
+from idds.common.constants import RequestType, RequestStatus, RequestLocking
 from idds.orm.base.session import read_session, transactional_session
 from idds.orm.base import models
 from idds.orm.base.utils import row2dict
@@ -30,7 +30,7 @@ from idds.orm.base.utils import row2dict
 
 @transactional_session
 def add_request(scope, name, requester=None, request_type=None, transform_tag=None,
-                status=RequestStatus.New, substatus=RequestSubStatus.Idle, priority=0,
+                status=RequestStatus.New, locking=RequestLocking.Idle, priority=0,
                 lifetime=30, workload_id=None, request_metadata=None,
                 processing_metadata=None, session=None):
     """
@@ -42,7 +42,7 @@ def add_request(scope, name, requester=None, request_type=None, transform_tag=No
     :param request_type: The type of the request, such as ESS, DAOD.
     :param transform_tag: Transform tag, such as ATLAS AMI tag.
     :param status: The request status as integer.
-    :param substatus: The request substatus as integer.
+    :param locking: The request locking as integer.
     :param priority: The priority as integer.
     :param lifetime: The life time as umber of days.
     :param workload_id: The external workload id.
@@ -58,18 +58,18 @@ def add_request(scope, name, requester=None, request_type=None, transform_tag=No
         request_type = request_type.value
     if isinstance(status, RequestStatus):
         status = status.value
-    if isinstance(substatus, RequestSubStatus):
-        substatus = substatus.value
+    if isinstance(locking, RequestLocking):
+        locking = locking.value
     if request_metadata:
         request_metadata = json.dumps(request_metadata)
     if processing_metadata:
         processing_metadata = json.dumps(processing_metadata)
 
     insert_request_sql = """insert into atlas_idds.requests(scope, name, requester, request_type, transform_tag, priority,
-                            status, substatus, workload_id, created_at, updated_at, expired_at, request_metadata,
+                            status, locking, workload_id, created_at, updated_at, expired_at, request_metadata,
                             processing_metadata)
                             values(:scope, :name, :requester, :request_type, :transform_tag, :priority, :status,
-                                   :substatus, :workload_id, :created_at, :updated_at, :expired_at,
+                                   :locking, :workload_id, :created_at, :updated_at, :expired_at,
                                    :request_metadata, :processing_metadata) RETURNING request_id into :request_id
                          """
 
@@ -80,7 +80,7 @@ def add_request(scope, name, requester=None, request_type=None, transform_tag=No
         request_id = None
         ret = session.execute(stmt, {"scope": scope, "name": name, "requester": requester, "request_type": request_type,
                                      "transform_tag": transform_tag, "priority": priority, 'status': status,
-                                     'substatus': substatus, 'workload_id': workload_id,
+                                     'locking': locking, 'workload_id': workload_id,
                                      'created_at': datetime.datetime.utcnow(), 'updated_at': datetime.datetime.utcnow(),
                                      'expired_at': datetime.datetime.utcnow() + datetime.timedelta(days=lifetime),
                                      'request_metadata': request_metadata, 'processing_metadata': processing_metadata,
@@ -95,7 +95,7 @@ def add_request(scope, name, requester=None, request_type=None, transform_tag=No
 
 @transactional_session
 def add_request_new(scope, name, requester=None, request_type=None, transform_tag=None,
-                    status=RequestStatus.New, substatus=RequestSubStatus.Idle, priority=0,
+                    status=RequestStatus.New, locking=RequestLocking.Idle, priority=0,
                     lifetime=30, workload_id=None, request_metadata=None,
                     processing_metadata=None, session=None):
     """
@@ -107,7 +107,7 @@ def add_request_new(scope, name, requester=None, request_type=None, transform_ta
     :param request_type: The type of the request, such as ESS, DAOD.
     :param transform_tag: Transform tag, such as ATLAS AMI tag.
     :param status: The request status as integer.
-    :param substatus: The request substatus as integer.
+    :param locking: The request locking as integer.
     :param priority: The priority as integer.
     :param lifetime: The life time as umber of days.
     :param workload_id: The external workload id.
@@ -126,7 +126,7 @@ def add_request_new(scope, name, requester=None, request_type=None, transform_ta
 
     try:
         new_request = models.Request(scope=scope, name=name, requester=requester, request_type=request_type,
-                                     transform_tag=transform_tag, status=status, substatus=substatus,
+                                     transform_tag=transform_tag, status=status, locking=locking,
                                      priority=priority, workload_id=workload_id,
                                      expired_at=datetime.datetime.utcnow() + datetime.timedelta(days=lifetime),
                                      request_metadata=request_metadata, processing_metadata=processing_metadata)
@@ -197,8 +197,8 @@ def convert_request_to_dict(request):
         request['request_type'] = RequestType(request['request_type'])
     if request['status'] is not None:
         request['status'] = RequestStatus(request['status'])
-    if request['substatus'] is not None:
-        request['substatus'] = RequestSubStatus(request['substatus'])
+    if request['locking'] is not None:
+        request['locking'] = RequestLocking(request['locking'])
     if request['processing_metadata']:
         request['processing_metadata'] = json.loads(request['processing_metadata'])
     return request
@@ -223,7 +223,7 @@ def get_request(request_id=None, workload_id=None, session=None):
             request_id = get_request_id_by_workload_id(workload_id)
 
         req_select = """select request_id, scope, name, requester, request_type, transform_tag, priority,
-                        status, substatus, workload_id, created_at, updated_at, accessed_at, expired_at, errors,
+                        status, locking, workload_id, created_at, updated_at, accessed_at, expired_at, errors,
                         request_metadata, processing_metadata
                         from atlas_idds.requests where request_id=:request_id
                      """
@@ -305,7 +305,7 @@ def get_requests_by_requester(scope, name, requester, session=None):
 
     try:
         req_select = """select request_id, scope, name, requester, request_type, transform_tag, priority,
-                        status, substatus, workload_id, created_at, updated_at, accessed_at, expired_at,
+                        status, locking, workload_id, created_at, updated_at, accessed_at, expired_at,
                         errors, request_metadata, processing_metadata
                         from atlas_idds.requests where scope=:scope and requester=:requester and name=:name
                      """
@@ -344,7 +344,7 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, loc
         status = new_status
 
         req_select = """select request_id, scope, name, requester, request_type, transform_tag, priority,
-                        status, substatus, workload_id, created_at, updated_at, accessed_at, expired_at,
+                        status, locking, workload_id, created_at, updated_at, accessed_at, expired_at,
                         errors, request_metadata, processing_metadata
                         from atlas_idds.requests where status in :status
                      """
@@ -357,8 +357,8 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, loc
             req_select = req_select + " and updated_at < :updated_at"
             req_params['updated_at'] = datetime.datetime.utcnow() - datetime.timedelta(seconds=time_period)
         if locking:
-            req_select = req_select + " and substatus=:substatus"
-            req_params['substatus'] = RequestSubStatus.Idle.value
+            req_select = req_select + " and locking=:locking"
+            req_params['locking'] = RequestLocking.Idle.value
 
         req_select = req_select + " order by priority desc"
         req_stmt = text(req_select)
@@ -388,8 +388,8 @@ def update_request(request_id, parameters, session=None):
             parameters['request_type'] = parameters['request_type'].value
         if 'status' in parameters and isinstance(parameters['status'], RequestStatus):
             parameters['status'] = parameters['status'].value
-        if 'substatus' in parameters and isinstance(parameters['substatus'], RequestSubStatus):
-            parameters['substatus'] = parameters['substatus'].value
+        if 'locking' in parameters and isinstance(parameters['locking'], RequestLocking):
+            parameters['locking'] = parameters['locking'].value
         if 'request_metadata' in parameters:
             parameters['request_metadata'] = json.dumps(parameters['request_metadata'])
         if 'processing_metadata' in parameters:

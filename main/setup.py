@@ -116,7 +116,7 @@ data_files = [
 scripts = glob.glob('bin/*')
 
 setup(
-    name="idds",
+    name="idds-server",
     version=version,
     description='intelligent Data Delivery Service(iDDS) Package',
     long_description=readme,

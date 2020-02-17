@@ -85,7 +85,7 @@ data_files = []
 scripts = glob.glob('bin/*')
 
 setup(
-    name="iDDS-atlas",
+    name="idds-atlas",
     version=version,
     description='intelligent Data Delivery Service(iDDS) Package',
     long_description=readme,

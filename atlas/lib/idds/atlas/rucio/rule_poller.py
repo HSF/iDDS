@@ -40,7 +40,7 @@ class RulePoller(RucioPluginBase):
                 for lock in locks:
                     scope_name = '%s:%s' % (lock['scope'], lock['name'])
                     replicases_status[scope_name] = self.get_state(lock['state'])
-            return replicases_status
+            return rule, replicases_status
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())

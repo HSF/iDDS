@@ -20,8 +20,8 @@ from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import object_mapper
 from sqlalchemy.schema import CheckConstraint, UniqueConstraint, Index, PrimaryKeyConstraint, Sequence, Table
 
-from idds.common.constants import (RequestType, RequestStatus, RequestSubStatus,
-                                   MessageType, MessageStatus, MessageSource)
+from idds.common.constants import (RequestType, RequestStatus, RequestLocking,
+                                   MessageType, MessageStatus, MessageLocking, MessageSource)
 from idds.common.utils import date_to_str
 from idds.orm.base.enum import EnumSymbol
 from idds.orm.base.types import JSON, EnumWithValue
@@ -118,7 +118,7 @@ class Request(BASE, ModelBase):
     transform_tag = Column(String(10))
     priority = Column(Integer())
     status = Column(EnumWithValue(RequestStatus))
-    substatus = Column(EnumWithValue(RequestSubStatus))
+    locking = Column(EnumWithValue(RequestLocking))
     workload_id = Column(Integer())
     created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow)
     updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
@@ -143,6 +143,7 @@ class Message(BASE, ModelBase):
                     primary_key=True)
     msg_type = Column(EnumWithValue(MessageType))
     status = Column(EnumWithValue(MessageStatus))
+    locking = Column(EnumWithValue(MessageLocking))
     source = Column(EnumWithValue(MessageSource))
     transform_id = Column(Integer())
     num_contents = Column(Integer())

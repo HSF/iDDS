@@ -15,7 +15,7 @@ operations related to Requests.
 
 
 from idds.common import exceptions
-from idds.common.constants import RequestStatus, RequestSubStatus
+from idds.common.constants import RequestStatus, RequestLocking
 from idds.orm.base.session import transactional_session
 from idds.orm import requests as orm_requests
 from idds.orm import transforms as orm_transforms
@@ -24,7 +24,7 @@ from idds.orm import collections as orm_collections
 
 @transactional_session
 def add_request(scope, name, requester=None, request_type=None, transform_tag=None,
-                status=RequestStatus.New, substatus=RequestSubStatus.Idle, priority=0,
+                status=RequestStatus.New, locking=RequestLocking.Idle, priority=0,
                 lifetime=30, workload_id=None, request_metadata=None,
                 processing_metadata=None, session=None):
     """
@@ -36,7 +36,7 @@ def add_request(scope, name, requester=None, request_type=None, transform_tag=No
     :param request_type: The type of the request, such as ESS, DAOD.
     :param transform_tag: Transform tag, such as ATLAS AMI tag.
     :param status: The request status as integer.
-    :param substatus: The request substatus as integer.
+    :param locking: The request locking as integer.
     :param priority: The priority as integer.
     :param lifetime: The life time as umber of days.
     :param workload_id: The external workload id.
@@ -46,7 +46,7 @@ def add_request(scope, name, requester=None, request_type=None, transform_tag=No
     :returns: request id.
     """
     kwargs = {'scope': scope, 'name': name, 'requester': requester, 'request_type': request_type,
-              'transform_tag': transform_tag, 'status': status, 'substatus': substatus,
+              'transform_tag': transform_tag, 'status': status, 'locking': locking,
               'priority': priority, 'lifetime': lifetime, 'workload_id': workload_id,
               'request_metadata': request_metadata, 'processing_metadata': processing_metadata,
               'session': session}
@@ -119,9 +119,21 @@ def update_request_with_transforms(request_id, parameters, transforms_to_add, tr
         del transform['collections']
         transform_id = orm_transforms.add_transform(**transform, session=session)
 
-        for collection in collections:
+        input_coll_ids = []
+        log_coll_ids = []
+        for collection in collections['input_collections']:
             collection['transform_id'] = transform_id
+            input_coll_id = orm_collections.add_collection(**collection, session=session)
+            input_coll_ids.append(input_coll_id)
+        for collection in collections['log_collections']:
+            collection['transform_id'] = transform_id
+            log_coll_id = orm_collections.add_collection(**collection, session=session)
+            log_coll_ids.append(log_coll_id)
+        for collection in collections['output_collections']:
+            collection['transform_id'] = transform_id
+            collection['coll_metadata'] = {'input_collections': input_coll_ids, 'log_collections': log_coll_ids}
             orm_collections.add_collection(**collection, session=session)
+
     for transform in transforms_to_extend:
         transform_id = transform['transform_id']
         del transform['transform_id']
@@ -144,7 +156,7 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, loc
     """
     reqs = orm_requests.get_requests_by_status_type(status, request_type, time_period, locking=locking, session=session)
     if locking:
-        parameters = {'substatus': RequestSubStatus.Locking}
+        parameters = {'locking': RequestLocking.Locking}
         for req in reqs:
             orm_requests.update_request(request_id=req['request_id'], parameters=parameters, session=session)
     return reqs

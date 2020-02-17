@@ -22,20 +22,20 @@ from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.sql import text, bindparam, outparam
 
 from idds.common import exceptions
-from idds.common.constants import GranularityType, ProcessingStatus, ProcessingSubStatus
+from idds.common.constants import GranularityType, ProcessingStatus, ProcessingLocking
 from idds.orm.base.session import read_session, transactional_session
 from idds.orm.base.utils import row2dict
 
 
 @transactional_session
-def add_processing(transform_id, status=ProcessingStatus.New, substatus=ProcessingSubStatus.Idle, submitter=None,
+def add_processing(transform_id, status=ProcessingStatus.New, locking=ProcessingLocking.Idle, submitter=None,
                    granularity=None, granularity_type=None, expired_at=None, processing_metadata=None, session=None):
     """
     Add a processing.
 
     :param transform_id: Transform id.
     :param status: processing status.
-    :param substatus: processing substatus.
+    :param locking: processing locking.
     :param submitter: submitter name.
     :param granularity: Granularity size.
     :param granularity_type: Granularity type.
@@ -51,14 +51,14 @@ def add_processing(transform_id, status=ProcessingStatus.New, substatus=Processi
         granularity_type = granularity_type.value
     if isinstance(status, ProcessingStatus):
         status = status.value
-    if isinstance(substatus, ProcessingSubStatus):
-        substatus = substatus.value
+    if isinstance(locking, ProcessingLocking):
+        locking = locking.value
     if processing_metadata:
         processing_metadata = json.dumps(processing_metadata)
 
-    insert = """insert into atlas_idds.processings(transform_id, status, substatus, submitter, granularity_type,
+    insert = """insert into atlas_idds.processings(transform_id, status, locking, submitter, granularity_type,
                                                    granularity, created_at, updated_at, expired_at, processing_metadata)
-                values(:transform_id, :status, :substatus, :submitter, :granularity_type, :granularity, :created_at,
+                values(:transform_id, :status, :locking, :submitter, :granularity_type, :granularity, :created_at,
                        :updated_at, :expired_at, :processing_metadata) returning processing_id into :processing_id
              """
     stmt = text(insert)
@@ -66,7 +66,7 @@ def add_processing(transform_id, status=ProcessingStatus.New, substatus=Processi
 
     try:
         processing_id = None
-        ret = session.execute(stmt, {'transform_id': transform_id, 'status': status, 'substatus': substatus,
+        ret = session.execute(stmt, {'transform_id': transform_id, 'status': status, 'locking': locking,
                                      'submitter': submitter, 'granularity_type': granularity_type, 'granularity': granularity,
                                      'created_at': datetime.datetime.utcnow(), 'updated_at': datetime.datetime.utcnow(),
                                      'expired_at': expired_at, 'processing_metadata': processing_metadata, 'processing_id': processing_id})
@@ -115,8 +115,8 @@ def get_processing(processing_id=None, transform_id=None, retries=0, session=Non
             processing['granularity_type'] = GranularityType(processing['granularity_type'])
         if processing['status'] is not None:
             processing['status'] = ProcessingStatus(processing['status'])
-        if processing['substatus'] is not None:
-            processing['substatus'] = ProcessingSubStatus(processing['substatus'])
+        if processing['locking'] is not None:
+            processing['locking'] = ProcessingLocking(processing['locking'])
         if processing['processing_metadata']:
             processing['processing_metadata'] = json.loads(processing['processing_metadata'])
 
@@ -160,8 +160,8 @@ def get_processings_by_status(status, period=None, locking=False, session=None):
             select = select + " and updated_at < :updated_at"
             params['updated_at'] = datetime.datetime.utcnow() - datetime.timedelta(seconds=period)
         if locking:
-            select = select + " and substatus=:substatus"
-            params['substatus'] = ProcessingSubStatus.Idle.value
+            select = select + " and locking=:locking"
+            params['locking'] = ProcessingLocking.Idle.value
 
         stmt = text(select)
         stmt = stmt.bindparams(bindparam('status', expanding=True))
@@ -209,8 +209,8 @@ def update_processing(processing_id, parameters, session=None):
             parameters['granularity_type'] = parameters['granularity_type'].value
         if 'status' in parameters and isinstance(parameters['status'], ProcessingStatus):
             parameters['status'] = parameters['status'].value
-        if 'substatus' in parameters and isinstance(parameters['substatus'], ProcessingSubStatus):
-            parameters['substatus'] = parameters['substatus'].value
+        if 'locking' in parameters and isinstance(parameters['locking'], ProcessingLocking):
+            parameters['locking'] = parameters['locking'].value
         if 'processing_metadata' in parameters:
             parameters['processing_metadata'] = json.dumps(parameters['processing_metadata'])
 
