@@ -15,7 +15,7 @@ operations related to Catalog(Collections and Contents).
 
 
 from idds.common import exceptions
-from idds.common.constants import (CollectionType, CollectionStatus, CollectionSubStatus,
+from idds.common.constants import (CollectionType, CollectionStatus, CollectionLocking,
                                    CollectionRelationType, ContentStatus)
 from idds.orm.base.session import read_session, transactional_session
 from idds.orm import (requests as orm_requests,
@@ -106,7 +106,7 @@ def get_collections_by_status(status, relation_type=CollectionRelationType.Input
     colls = orm_collections.get_collections_by_status(status=status, relation_type=relation_type,
                                                       time_period=time_period, locking=locking, session=session)
     if locking:
-        parameters = {'substatus': CollectionSubStatus.Locking}
+        parameters = {'locking': CollectionLocking.Locking}
         for coll in colls:
             orm_collections.update_collection(coll_id=coll['coll_id'], parameters=parameters, session=session)
     return colls
@@ -294,7 +294,7 @@ def update_input_collection_with_contents(coll, parameters, contents, returning_
     parameters['new_files'] = new_files
     if processed_files == coll['total_files']:
         parameters['status'] = CollectionStatus.Closed
-    update_collection(coll_id, parameters, session=session)
+    update_collection(coll['coll_id'], parameters, session=session)
     return to_addes
 
 

@@ -98,7 +98,7 @@ class MessagingSender(PluginBase, threading.Thread):
     def send_message(self, msg):
         conn = random.sample(self.conns, 1)[0]
         if not conn.is_connected():
-            conn.start()
+            # conn.start()
             conn.connect(self.username, self.password, wait=True)
 
         self.logger.debug("Sending message to message broker: %s" % msg['msg_id'])

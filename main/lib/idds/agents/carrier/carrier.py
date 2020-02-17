@@ -16,7 +16,7 @@ except ImportError:
     # Python 2
     from Queue import Queue
 
-from idds.common.constants import (Sections, TransformType, ProcessingStatus, ProcessingSubStatus,
+from idds.common.constants import (Sections, TransformType, ProcessingStatus, ProcessingLocking,
                                    MessageType, MessageStatus, MessageSource)
 from idds.common.exceptions import (AgentPluginError, IDDSException)
 from idds.common.utils import setup_logging
@@ -71,7 +71,7 @@ class Carrier(BaseAgent):
             return ret
         else:
             return {'processing_id': processing['processing_id'],
-                    'substatus': ProcessingSubStatus.Idle}
+                    'locking': ProcessingLocking.Idle}
 
     def finish_new_processings(self):
         while not self.new_output_queue.empty():
@@ -92,11 +92,11 @@ class Carrier(BaseAgent):
         self.logger.info("Main thread get %s [submitting + submitted + running] processings to process: %s" % (len(processings), str([processing['processing_id'] for processing in processings])))
         return processings
 
-    def poll_processing(self, processing, transform, input_collection, output_collection):
+    def poll_processing(self, processing, transform, input_collection, output_collection, output_contents):
         if transform['transform_type'] == TransformType.StageIn:
             if 'stagein_poller' not in self.plugins:
                 raise AgentPluginError('Plugin stagein_poller is required')
-            return self.plugins['stagein_poller'](processing, transform, input_collection, output_collection)
+            return self.plugins['stagein_poller'](processing, transform, input_collection, output_collection, output_contents)
 
         return None
 
@@ -139,14 +139,15 @@ class Carrier(BaseAgent):
         ret_poll = self.poll_processing(processing, transform, input_collection, output_collection, output_contents)
         if not ret_poll:
             return {'processing_id': processing['processing_id'],
-                    'substatus': ProcessingSubStatus.Idle}
+                    'locking': ProcessingLocking.Idle}
 
         updated_files = ret_poll['updated_files']
+        file_msg = []
         if updated_files:
             file_msg = self.generate_file_message(transform, updated_files)
 
-        processing_parameters = {'status': processing['status'],
-                                 'substatus': ProcessingSubStatus.Idle,
+        processing_parameters = {'status': ret_poll['processing_updates']['status'],
+                                 'locking': ProcessingLocking.Idle,
                                  'processing_metadata': ret_poll['processing_updates']['processing_metadata']}
         updated_processing = {'processing_id': processing['processing_id'],
                               'parameters': processing_parameters}

@@ -89,7 +89,7 @@ data_files = [
 scripts = glob.glob('bin/*')
 
 setup(
-    name="iDDS-common",
+    name="idds-common",
     version=version,
     description='intelligent Data Delivery Service(iDDS) Package',
     long_description=readme,

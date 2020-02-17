@@ -24,20 +24,23 @@ from idds.orm.base.session import read_session, transactional_session
 
 
 @transactional_session
-def add_message(msg_type, status, source, msg_content, session=None):
+def add_message(msg_type, status, source, transform_id, num_contents, msg_content, session=None):
     """
     Add a message to be submitted asynchronously to a message broker.
 
     :param msg_type: The type of the msg as a number, e.g., finished_stagein.
     :param status: The status about the message
     :param source: The source where the message is from.
+    :param transform_id: The transform id.
+    :param num_contents: Number of items in msg_content.
     :param msg_content: The message msg_content as JSON.
     :param session: The database session.
     """
 
     try:
-        new_message = models.Message(msg_type=msg_type, status=status,
-                                     source=source, msg_content=msg_content)
+        new_message = models.Message(msg_type=msg_type, status=status, transform_id=transform_id,
+                                     source=source, num_contents=num_contents,
+                                     locking=0, msg_content=msg_content)
         new_message.save(session=session)
     except TypeError as e:
         raise exceptions.DatabaseException('Invalid JSON for msg_content: %s' % str(e))
