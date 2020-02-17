@@ -17,8 +17,8 @@ except ImportError:
     from Queue import Queue
 
 
-from idds.common.constants import (Sections, TransformStatus, TransformType,
-                                   CollectionRelationType, CollectionStatus,
+from idds.common.constants import (Sections, TransformStatus, TransformSubStatus,
+                                   TransformType, CollectionRelationType, CollectionStatus,
                                    ContentStatus, ProcessingStatus)
 from idds.common.exceptions import AgentPluginError, IDDSException
 from idds.common.utils import setup_logging
@@ -47,7 +47,7 @@ class Transformer(BaseAgent):
         """
 
         transform_status = [TransformStatus.New, TransformStatus.Ready, TransformStatus.Extend]
-        transforms_new = core_transforms.get_transforms_by_status(status=transform_status)
+        transforms_new = core_transforms.get_transforms_by_status(status=transform_status, locking=True)
         self.logger.info("Main thread get %s New+Ready+Extend transforms to process" % len(transforms_new))
         return transforms_new
 
@@ -116,9 +116,14 @@ class Transformer(BaseAgent):
                 input_collection = collection
 
         if ret_transform and input_collection and (input_collection['processed_files'] is None or input_collection['processed_files'] < input_collection['total_files']):
-            return self.generate_transform_outputs(ret_transform, collections)
+            ret = self.generate_transform_outputs(ret_transform, collections)
+            ret['transform']['substatus'] = TransformSubStatus.Idle
+            ret['transform']['status'] = TransformStatus.Transforming
+            return ret
         else:
-            return {}
+            transform['substatus'] = TransformSubStatus.Idle
+            return {'transform': transform, 'input_collection': None, 'output_collection': None,
+                    'input_contents': None, 'output_contents': None, 'processing': None}
 
     def finish_new_transforms(self):
         while not self.new_output_queue.empty():
@@ -142,33 +147,29 @@ class Transformer(BaseAgent):
         """
         transform_status = [TransformStatus.Transforming]
         transforms = core_transforms.get_transforms_by_status(status=transform_status,
-                                                              period=self.poll_time_period)
+                                                              period=self.poll_time_period,
+                                                              locking=True)
         self.logger.info("Main thread get %s transforming transforms to process" % len(transforms))
         return transforms
 
-    def process_transform_outputs(self, transform, collections):
-        output_collection = None
-        for collection in collections:
-            if collection['relation_type'] == CollectionRelationType.Output:
-                output_collection = collection
-
+    def process_transform_outputs(self, transform, output_collection):
         transform_metadata = transform['transform_metadata']
         if not transform_metadata:
             transform_metadata = {}
         transform_metadata['output_collection'] = output_collection['coll_metadata']
-        if output_collection['coll_status'] == CollectionStatus.Closed:
+        if output_collection['status'] == CollectionStatus.Closed:
             ret = {'transform_id': transform['transform_id'],
                    'status': TransformStatus.Finished,
                    'transform_metadata': transform_metadata}
-        elif output_collection['coll_status'] == CollectionStatus.SubClosed:
+        elif output_collection['status'] == CollectionStatus.SubClosed:
             ret = {'transform_id': transform['transform_id'],
                    'status': TransformStatus.SubFinished,
                    'transform_metadata': transform_metadata}
-        elif output_collection['coll_status'] == CollectionStatus.Failed:
+        elif output_collection['status'] == CollectionStatus.Failed:
             ret = {'transform_id': transform['transform_id'],
                    'status': TransformStatus.Failed,
                    'transform_metadata': transform_metadata}
-        elif output_collection['coll_status'] == CollectionStatus.Deleted:
+        elif output_collection['status'] == CollectionStatus.Deleted:
             ret = {'transform_id': transform['transform_id'],
                    'status': TransformStatus.Deleted,
                    'transform_metadata': transform_metadata}
@@ -194,15 +195,26 @@ class Transformer(BaseAgent):
                     ret_transform = transform
 
         input_collection = None
+        output_collection = None
         for collection in collections:
             if collection['relation_type'] == CollectionRelationType.Input:
                 input_collection = collection
+            if collection['relation_type'] == CollectionRelationType.Output:
+                output_collection = collection
 
         transform_input, transform_output = None, None
         if ret_transform and input_collection and (input_collection['processed_files'] is None or input_collection['processed_files'] < input_collection['total_files']):
             transform_input = self.generate_transform_outputs(ret_transform, collections)
-        if ret_transform and 'output_collection_changed' in ret_transform['transform_metadata'] and ret_transform['transform_metadata']['output_collection_changed']:
-            transform_output = self.process_transform_outputs(ret_transform, collections)
+            transform_input['transform']['substatus'] = TransformSubStatus.Idle
+            transform_input['transform']['status'] = TransformStatus.Transforming
+
+        if ret_transform and output_collection:
+            transform_output = self.process_transform_outputs(ret_transform, output_collection)
+            transform_output['substatus'] = TransformSubStatus.Idle
+        else:
+            transform_output = {'transform_id': transform['transform_id'],
+                                'substatus': TransformSubStatus.Idle}
+
         ret = {'transform_input': transform_input,
                'transform_output': transform_output}
         return ret
@@ -213,13 +225,17 @@ class Transformer(BaseAgent):
             transform_input = ret['transform_input']
             transform_output = ret['transform_output']
             if transform_input:
+                # combine the output changes into the same session
+                if transform_output:
+                    # status and substatus should use the items from transform_input
+                    transform_input['transform']['transform_metadata']['output_collection'] = transform_output['transform_metadata']['output_collection']
                 core_transforms.add_transform_outputs(transform=transform_input['transform'],
                                                       input_collection=transform_input['input_collection'],
                                                       output_collection=transform_input['output_collection'],
                                                       input_contents=transform_input['input_contents'],
                                                       output_contents=transform_input['output_contents'],
                                                       processing=transform_input['processing'])
-            if transform_output:
+            elif transform_output:
                 transform_id = transform_output['transform_id']
                 del transform_output['transform_id']
                 core_transforms.update_transform(transform_id=transform_id, parameters=transform_output)

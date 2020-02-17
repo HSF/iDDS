@@ -15,7 +15,7 @@ operations related to Processings.
 
 
 from idds.orm.base.session import read_session, transactional_session
-
+from idds.common.constants import ProcessingSubStatus
 from idds.orm import (processings as orm_processings,
                       collections as orm_collections,
                       contents as orm_contents,
@@ -66,20 +66,26 @@ def get_processing(processing_id=None, transform_id=None, retries=0, session=Non
                                           retries=retries, session=session)
 
 
-@read_session
-def get_processings_by_status(status, time_period=None, session=None):
+@transactional_session
+def get_processings_by_status(status, time_period=None, locking=False, session=None):
     """
     Get processing or raise a NoObject exception.
 
     :param status: Processing status of list of processing status.
     :param time_period: Time period in seconds.
+    :param locking: Whether to retrieve only unlocked items and lock them.
     :param session: The database session in use.
 
     :raises NoObject: If no processing is founded.
 
     :returns: Processings.
     """
-    return orm_processings.get_processings_by_status(status=status, period=time_period, session=session)
+    processings = orm_processings.get_processings_by_status(status=status, period=time_period, session=session)
+    if locking:
+        parameters = {'substatus': ProcessingSubStatus.Locking}
+        for processing in processings:
+            orm_processings.update_processing(processing['processing_id'], parameters=parameters, session=session)
+    return processings
 
 
 @transactional_session
@@ -113,8 +119,8 @@ def delete_processing(processing_id=None, session=None):
 
 
 @transactional_session
-def update_processing_with_collection_contents(updated_processing, updated_collection, updated_files,
-                                               coll_msg_content, file_msg_content, transform_updates,
+def update_processing_with_collection_contents(updated_processing, updated_collection=None, updated_files=None,
+                                               coll_msg_content=None, file_msg_content=None, transform_updates=None,
                                                session=None):
     """
     Update processing with collection, contents, file messages and collection messages.
@@ -131,6 +137,8 @@ def update_processing_with_collection_contents(updated_processing, updated_colle
         orm_messages.add_message(msg_type=file_msg_content['msg_type'],
                                  status=file_msg_content['status'],
                                  source=file_msg_content['source'],
+                                 transform_id=file_msg_content['transform_id'],
+                                 num_contents=file_msg_content['num_contents'],
                                  msg_content=file_msg_content['msg_content'],
                                  session=session)
     if updated_collection:
@@ -141,6 +149,8 @@ def update_processing_with_collection_contents(updated_processing, updated_colle
         orm_messages.add_message(msg_type=coll_msg_content['msg_type'],
                                  status=coll_msg_content['status'],
                                  source=coll_msg_content['source'],
+                                 transform_id=coll_msg_content['transform_id'],
+                                 num_contents=coll_msg_content['num_contents'],
                                  msg_content=coll_msg_content['msg_content'],
                                  session=session)
     if updated_processing:

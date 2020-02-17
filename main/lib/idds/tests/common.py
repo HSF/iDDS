@@ -62,7 +62,7 @@ def get_collection_properties():
         'transform_id': None,
         'relation_type': CollectionRelationType.Input,
         'coll_size': 0,
-        'coll_status': CollectionStatus.New,
+        'status': CollectionStatus.New,
         'total_files': 0,
         'retries': 0,
         'expired_at': datetime.datetime.utcnow().replace(microsecond=0),

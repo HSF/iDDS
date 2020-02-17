@@ -17,7 +17,7 @@ from idds.core import collections
 
 
 def add_collection(scope, name, coll_type=None, request_id=None, transform_id=None,
-                   relation_type=None, coll_size=0, coll_status=None, total_files=0, retries=0,
+                   relation_type=None, coll_size=0, status=None, total_files=0, retries=0,
                    expired_at=None, coll_metadata=None):
     """
     Add a collection.
@@ -40,7 +40,7 @@ def add_collection(scope, name, coll_type=None, request_id=None, transform_id=No
     """
     kwargs = {'scope': scope, 'name': name, 'coll_type': coll_type, 'request_id': request_id,
               'transform_id': transform_id, 'relation_type': relation_type, 'coll_size': coll_size,
-              'coll_status': coll_status, 'total_files': total_files, 'retries': retries,
+              'status': status, 'total_files': total_files, 'retries': retries,
               'expired_at': expired_at, 'coll_metadata': coll_metadata}
     return collections.add_collection(**kwargs)
 
