@@ -19,7 +19,7 @@ from idds.orm import messages as orm_messages
 
 
 @transactional_session
-def add_message(msg_type, status, source, msg_content, session=None):
+def add_message(msg_type, status, source, transform_id, num_contents, msg_content, bulk_size=None, session=None):
     """
     Add a message to be submitted asynchronously to a message broker.
 
@@ -30,7 +30,8 @@ def add_message(msg_type, status, source, msg_content, session=None):
     :param session: The database session.
     """
     return orm_messages.add_message(msg_type=msg_type, status=status, source=source,
-                                    msg_content=msg_content, session=session)
+                                    transform_id=transform_id, num_contents=num_contents,
+                                    bulk_size=bulk_size, msg_content=msg_content, session=session)
 
 
 @read_session

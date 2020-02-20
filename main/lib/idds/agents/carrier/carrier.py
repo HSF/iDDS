@@ -32,11 +32,13 @@ class Carrier(BaseAgent):
     Carrier works to submit and monitor tasks to WFMS.
     """
 
-    def __init__(self, num_threads=1, poll_time_period=1800, retrieve_bulk_size=None, **kwargs):
+    def __init__(self, num_threads=1, poll_time_period=1800, retrieve_bulk_size=None,
+                 message_bulk_size=1000, **kwargs):
         super(Carrier, self).__init__(num_threads=num_threads, **kwargs)
         self.config_section = Sections.Carrier
         self.poll_time_period = int(poll_time_period)
-        self.retrieve_bulk_size = retrieve_bulk_size
+        self.retrieve_bulk_size = int(retrieve_bulk_size)
+        self.message_bulk_size = int(message_bulk_size)
 
         self.new_output_queue = Queue()
         self.monitor_output_queue = Queue()
@@ -169,7 +171,8 @@ class Carrier(BaseAgent):
 
                 core_processings.update_processing_with_collection_contents(updated_processing=processing['processing_updates'],
                                                                             updated_files=processing['updated_files'],
-                                                                            file_msg_content=processing['file_message'])
+                                                                            file_msg_content=processing['file_message'],
+                                                                            message_bulk_size=self.message_bulk_size)
 
     def prepare_finish_tasks(self):
         """
