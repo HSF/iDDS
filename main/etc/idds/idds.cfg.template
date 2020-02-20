@@ -42,17 +42,20 @@ agents = clerk, transporter, transformer, carrier, conductor
 [clerk]
 num_threads = 1
 poll_time_period = 120
+retrieve_bulk_size = 10
 #plugin_sequence = collection_lister
 plugin.collection_lister = idds.atlas.rucio.collection_lister.CollectionLister
 
 [transformer]
 num_threads = 1
 poll_time_period = 120
+retrieve_bulk_size = 10
 plugin.stagein_transformer = idds.atlas.transformer.stagein_transformer.StageInTransformer
 
 [transporter]
 num_threads = 1
 poll_time_period = 600
+retrieve_bulk_size = 10
 plugin.collection_metadata_reader = idds.atlas.rucio.collection_metadata_reader.CollectionMetadataReader
 plugin.contents_lister = idds.atlas.rucio.contents_lister.ContentsLister
 plugin.contents_register = idds.atlas.rucio.contents_register.ContentsRegister
@@ -60,6 +63,7 @@ plugin.contents_register = idds.atlas.rucio.contents_register.ContentsRegister
 [carrier]
 num_threads = 1
 poll_time_period = 600
+retrieve_bulk_size = 10
 plugin.stagein_submitter = idds.atlas.processing.stagein_submitter.StageInSubmitter
 plugin.stagein_submitter.plugin.rule_submitter = idds.atlas.rucio.rule_submitter.RuleSubmitter
 #7 * 24 * 3600
@@ -68,6 +72,7 @@ plugin.stagein_poller = idds.atlas.processing.stagein_poller.StageInPoller
 plugin.stagein_poller.plugin.rule_poller = idds.atlas.rucio.rule_poller.RulePoller
 
 [conductor]
+retrieve_bulk_size = 1000
 plugin.notifier = idds.atlas.notifier.messaging.MessagingSender
 plugin.notifier.brokers = atlas-test-mb.cern.ch
 plugin.notifier.port = 61013
