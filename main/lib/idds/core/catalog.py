@@ -90,7 +90,8 @@ def get_collections_by_request_transform_id(request_id=None, transform_id=None, 
 
 
 @transactional_session
-def get_collections_by_status(status, relation_type=CollectionRelationType.Input, time_period=None, locking=False, session=None):
+def get_collections_by_status(status, relation_type=CollectionRelationType.Input, time_period=None,
+                              locking=False, bulk_size=None, session=None):
     """
     Get collections by status, relation_type and time_period or raise a NoObject exception.
 
@@ -104,7 +105,7 @@ def get_collections_by_status(status, relation_type=CollectionRelationType.Input
 
     :returns: list of Collections.
     """
-    colls = orm_collections.get_collections_by_status(status=status, relation_type=relation_type,
+    colls = orm_collections.get_collections_by_status(status=status, relation_type=relation_type, bulk_size=bulk_size,
                                                       time_period=time_period, locking=locking, session=session)
     if locking:
         parameters = {'locking': CollectionLocking.Locking}

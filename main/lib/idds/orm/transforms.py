@@ -277,7 +277,7 @@ def get_transforms(request_id, session=None):
 
 
 @read_session
-def get_transforms_by_status(status, period=None, locking=False, session=None):
+def get_transforms_by_status(status, period=None, locking=False, bulk_size=None, session=None):
     """
     Get transforms or raise a NoObject exception.
 
@@ -309,6 +309,8 @@ def get_transforms_by_status(status, period=None, locking=False, session=None):
         if locking:
             select = select + " and locking=:locking"
             params['locking'] = TransformLocking.Idle.value
+        if bulk_size:
+            select = select + " FETCH FIRST %s ROWS ONLY" % bulk_size
 
         stmt = text(select)
         stmt = stmt.bindparams(bindparam('status', expanding=True))

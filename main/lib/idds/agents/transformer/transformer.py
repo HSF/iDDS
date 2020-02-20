@@ -33,11 +33,11 @@ class Transformer(BaseAgent):
     Transformer works to process transforms.
     """
 
-    def __init__(self, num_threads=1, poll_time_period=1800, **kwargs):
+    def __init__(self, num_threads=1, poll_time_period=1800, retrieve_bulk_size=None, **kwargs):
         super(Transformer, self).__init__(num_threads=num_threads, **kwargs)
         self.config_section = Sections.Transformer
         self.poll_time_period = int(poll_time_period)
-
+        self.retrieve_bulk_size = retrieve_bulk_size
         self.new_output_queue = Queue()
         self.monitor_output_queue = Queue()
 
@@ -47,7 +47,7 @@ class Transformer(BaseAgent):
         """
 
         transform_status = [TransformStatus.New, TransformStatus.Ready, TransformStatus.Extend]
-        transforms_new = core_transforms.get_transforms_by_status(status=transform_status, locking=True)
+        transforms_new = core_transforms.get_transforms_by_status(status=transform_status, locking=True, bulk_size=self.retrieve_bulk_size)
         self.logger.info("Main thread get %s New+Ready+Extend transforms to process" % len(transforms_new))
         return transforms_new
 
@@ -151,7 +151,8 @@ class Transformer(BaseAgent):
         transform_status = [TransformStatus.Transforming]
         transforms = core_transforms.get_transforms_by_status(status=transform_status,
                                                               period=self.poll_time_period,
-                                                              locking=True)
+                                                              locking=True,
+                                                              bulk_size=self.retrieve_bulk_size)
         self.logger.info("Main thread get %s transforming transforms to process" % len(transforms))
         return transforms
 

@@ -33,9 +33,10 @@ class Transporter(BaseAgent):
     Transporter works to list collections from DDM and register contents to DDM.
     """
 
-    def __init__(self, num_threads=1, poll_time_period=1800, **kwargs):
+    def __init__(self, num_threads=1, poll_time_period=1800, retrieve_bulk_size=None, **kwargs):
         super(Transporter, self).__init__(num_threads=num_threads, **kwargs)
         self.poll_time_period = int(poll_time_period)
+        self.retrieve_bulk_size = retrieve_bulk_size
         self.config_section = Sections.Transporter
         self.processed_input_queue = Queue()
         self.processed_output_queue = Queue()
@@ -48,13 +49,15 @@ class Transporter(BaseAgent):
         colls_open = core_catalog.get_collections_by_status(status=coll_status,
                                                             relation_type=CollectionRelationType.Input,
                                                             time_period=self.poll_time_period,
-                                                            locking=True)
+                                                            locking=True,
+                                                            bulk_size=self.retrieve_bulk_size)
         self.logger.info("Main thread get %s [open] input collections to process" % len(colls_open))
 
         coll_status = [CollectionStatus.New]
         colls_new = core_catalog.get_collections_by_status(status=coll_status,
                                                            relation_type=CollectionRelationType.Input,
-                                                           locking=True)
+                                                           locking=True,
+                                                           bulk_size=self.retrieve_bulk_size)
         self.logger.info("Main thread get %s [new] input collections to process" % len(colls_new))
 
         colls = colls_open + colls_new
@@ -136,7 +139,8 @@ class Transporter(BaseAgent):
         colls = core_catalog.get_collections_by_status(status=coll_status,
                                                        relation_type=CollectionRelationType.Output,
                                                        time_period=self.poll_time_period,
-                                                       locking=True)
+                                                       locking=True,
+                                                       bulk_size=self.retrieve_bulk_size)
         self.logger.info("Main thread get %s [Updated + Processing] output collections to process" % len(colls))
         return colls
 

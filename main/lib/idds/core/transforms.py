@@ -123,7 +123,7 @@ def get_transforms(request_id, session=None):
 
 
 @read_session
-def get_transforms_by_status(status, period=None, locking=False, session=None):
+def get_transforms_by_status(status, period=None, locking=False, bulk_size=None, session=None):
     """
     Get transforms or raise a NoObject exception.
 
@@ -135,7 +135,8 @@ def get_transforms_by_status(status, period=None, locking=False, session=None):
 
     :returns: list of transform.
     """
-    transforms = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking, session=session)
+    transforms = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking,
+                                                         bulk_size=bulk_size, session=session)
     if locking:
         parameters = {'locking': TransformLocking.Locking}
         for transform in transforms:

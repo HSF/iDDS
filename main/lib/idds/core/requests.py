@@ -147,7 +147,7 @@ def update_request_with_transforms(request_id, parameters, transforms_to_add, tr
 
 
 @transactional_session
-def get_requests_by_status_type(status, request_type=None, time_period=None, locking=False, session=None):
+def get_requests_by_status_type(status, request_type=None, time_period=None, locking=False, bulk_size=None, session=None):
     """
     Get requests by status and type
 
@@ -155,10 +155,11 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, loc
     :param request_type: The type of the request data.
     :param time_period: Delay of seconds before last update.
     :param locking: Wheter to lock requests to avoid others get the same request.
+    :param bulk_size: Size limitation per retrieve.
 
     :returns: list of Request.
     """
-    reqs = orm_requests.get_requests_by_status_type(status, request_type, time_period, locking=locking, session=session)
+    reqs = orm_requests.get_requests_by_status_type(status, request_type, time_period, locking=locking, bulk_size=bulk_size, session=session)
     if locking:
         parameters = {'locking': RequestLocking.Locking}
         for req in reqs:

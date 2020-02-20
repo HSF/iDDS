@@ -53,7 +53,7 @@ def add_message(msg_type, status, source, transform_id, num_contents, msg_conten
 
 
 @read_session
-def retrieve_messages(bulk=1000, msg_type=None, status=None, source=None, session=None):
+def retrieve_messages(bulk_size=1000, msg_type=None, status=None, source=None, session=None):
     """
     Retrieve up to $bulk messages.
 
@@ -75,7 +75,8 @@ def retrieve_messages(bulk=1000, msg_type=None, status=None, source=None, sessio
         if source is not None:
             query = query.filter_by(source=source)
 
-        query = query.order_by(models.Message.created_at).limit(bulk)
+        if bulk_size:
+            query = query.order_by(models.Message.created_at).limit(bulk_size)
         # query = query.with_for_update(nowait=True)
 
         tmp = query.all()
