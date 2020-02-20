@@ -37,7 +37,7 @@ class Transformer(BaseAgent):
         super(Transformer, self).__init__(num_threads=num_threads, **kwargs)
         self.config_section = Sections.Transformer
         self.poll_time_period = int(poll_time_period)
-        self.retrieve_bulk_size = retrieve_bulk_size
+        self.retrieve_bulk_size = int(retrieve_bulk_size)
         self.new_output_queue = Queue()
         self.monitor_output_queue = Queue()
 

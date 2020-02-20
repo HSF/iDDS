@@ -35,7 +35,7 @@ class Conductor(BaseAgent):
     def __init__(self, num_threads=1, retrieve_bulk_size=None, **kwargs):
         super(Conductor, self).__init__(num_threads=num_threads, **kwargs)
         self.config_section = Sections.Conductor
-        self.retrieve_bulk_size = retrieve_bulk_size
+        self.retrieve_bulk_size = int(retrieve_bulk_size)
         self.message_queue = Queue()
 
     def __del__(self):

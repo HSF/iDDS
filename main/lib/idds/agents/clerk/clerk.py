@@ -36,7 +36,7 @@ class Clerk(BaseAgent):
     def __init__(self, num_threads=1, poll_time_period=1800, retrieve_bulk_size=None, **kwargs):
         super(Clerk, self).__init__(num_threads=num_threads, **kwargs)
         self.poll_time_period = int(poll_time_period)
-        self.retrieve_bulk_size = retrieve_bulk_size
+        self.retrieve_bulk_size = int(retrieve_bulk_size)
         self.config_section = Sections.Clerk
         self.new_output_queue = Queue()
         self.monitor_output_queue = Queue()

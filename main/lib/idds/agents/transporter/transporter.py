@@ -36,7 +36,7 @@ class Transporter(BaseAgent):
     def __init__(self, num_threads=1, poll_time_period=1800, retrieve_bulk_size=None, **kwargs):
         super(Transporter, self).__init__(num_threads=num_threads, **kwargs)
         self.poll_time_period = int(poll_time_period)
-        self.retrieve_bulk_size = retrieve_bulk_size
+        self.retrieve_bulk_size = int(retrieve_bulk_size)
         self.config_section = Sections.Transporter
         self.processed_input_queue = Queue()
         self.processed_output_queue = Queue()
@@ -205,7 +205,7 @@ class Transporter(BaseAgent):
             msg_content = {'msg_type': 'Collection_stagein',
                            'workload_id': coll['coll_metadata']['workload_id'] if 'workload_id' in coll['coll_metadata'] else None,
                            'collections': [{'scope': coll['scope'],
-                                            'name': coll['scope'],
+                                            'name': coll['name'],
                                             'status': 'Available'}]}
             coll_msg = {'msg_type': MessageType.StageInCollection,
                         'status': MessageStatus.New,

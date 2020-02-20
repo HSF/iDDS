@@ -64,6 +64,7 @@ plugin.contents_register = idds.atlas.rucio.contents_register.ContentsRegister
 num_threads = 1
 poll_time_period = 600
 retrieve_bulk_size = 10
+message_bulk_size = 2000
 plugin.stagein_submitter = idds.atlas.processing.stagein_submitter.StageInSubmitter
 plugin.stagein_submitter.plugin.rule_submitter = idds.atlas.rucio.rule_submitter.RuleSubmitter
 #7 * 24 * 3600
@@ -72,7 +73,7 @@ plugin.stagein_poller = idds.atlas.processing.stagein_poller.StageInPoller
 plugin.stagein_poller.plugin.rule_poller = idds.atlas.rucio.rule_poller.RulePoller
 
 [conductor]
-retrieve_bulk_size = 1000
+retrieve_bulk_size = 10
 plugin.notifier = idds.atlas.notifier.messaging.MessagingSender
 plugin.notifier.brokers = atlas-test-mb.cern.ch
 plugin.notifier.port = 61013
