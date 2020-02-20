@@ -21,7 +21,8 @@ from idds.orm.base.session import read_session, transactional_session
 from idds.orm import (requests as orm_requests,
                       transforms as orm_transforms,
                       collections as orm_collections,
-                      contents as orm_contents)
+                      contents as orm_contents,
+                      messages as orm_messages)
 
 
 @read_session
@@ -194,6 +195,30 @@ def update_collection(coll_id, parameters, session=None):
 
     """
     orm_collections.update_collection(coll_id=coll_id, parameters=parameters, session=session)
+
+
+@transactional_session
+def update_collection_with_msg(coll_id, parameters, msg=None, session=None):
+    """
+    update a collection.
+
+    :param coll_id: the collection id.
+    :param parameters: A dictionary of parameters.
+    :param session: The database session in use.
+
+    :raises NoObject: If no request is founded.
+    :raises DatabaseException: If there is a database error.
+
+    """
+    orm_collections.update_collection(coll_id=coll_id, parameters=parameters, session=session)
+    if msg:
+        orm_messages.add_message(msg_type=msg['msg_type'],
+                                 status=msg['status'],
+                                 source=msg['source'],
+                                 transform_id=msg['transform_id'],
+                                 num_contents=msg['num_contents'],
+                                 msg_content=msg['msg_content'],
+                                 session=session)
 
 
 @read_session

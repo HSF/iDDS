@@ -18,7 +18,8 @@ except ImportError:
     from Queue import Queue
 
 from idds.common.constants import (Sections, CollectionRelationType, CollectionStatus,
-                                   CollectionLocking, ContentType, ContentStatus)
+                                   CollectionLocking, ContentType, ContentStatus,
+                                   MessageType, MessageStatus, MessageSource)
 from idds.common.exceptions import AgentPluginError, IDDSException
 from idds.common.utils import setup_logging
 from idds.core import (catalog as core_catalog)
@@ -191,10 +192,24 @@ class Transporter(BaseAgent):
         if ContentStatus.New.value in contents_statistics:
             new_files += contents_statistics[ContentStatus.New.value]
 
+        coll_msg = None
         if not is_input_collection_all_processed:
             coll_status = CollectionStatus.Processing
         elif content_status_keys == [ContentStatus.Available] or content_status_keys == [ContentStatus.Available.value]:
             coll_status = CollectionStatus.Closed
+
+            msg_content = {'msg_type': 'Collection_stagein',
+                           'workload_id': coll['coll_metadata']['workload_id'] if 'workload_id' in coll['coll_metadata'] else None,
+                           'collections': [{'scope': coll['scope'],
+                                            'name': coll['scope'],
+                                            'status': 'Available'}]}
+            coll_msg = {'msg_type': MessageType.StageInCollection,
+                        'status': MessageStatus.New,
+                        'source': MessageSource.Transporter,
+                        'transform_id': coll['coll_metadata']['transform_id'] if 'transform_id' in coll['coll_metadata'] else None,
+                        'num_contents': 1,
+                        'msg_content': msg_content}
+
         elif content_status_keys == [ContentStatus.FinalFailed] or content_status_keys == [ContentStatus.FinalFailed.value]:
             coll_status = CollectionStatus.Failed
         elif (len(content_status_keys) == 2                                                                                   # noqa: W503
@@ -215,7 +230,8 @@ class Transporter(BaseAgent):
                     'new_files': new_files,
                     'processing_files': 0,
                     'processed_files': processed_files,
-                    'coll_metadata': coll_metadata}
+                    'coll_metadata': coll_metadata,
+                    'coll_msg': coll_msg}
         return ret_coll
 
     def finish_processing_output_collections(self):
@@ -223,10 +239,12 @@ class Transporter(BaseAgent):
             coll = self.processed_output_queue.get()
             self.logger.info("Main thread finished processing output collection(%s) with number of processed contents: %s" % (coll['coll_id'], coll['processed_files']))
             coll_id = coll['coll_id']
+            coll_msg = coll['coll_msg']
             parameters = coll
             del parameters['coll_id']
+            del coll['coll_msg']
             parameters['locking'] = CollectionLocking.Idle
-            core_catalog.update_collection(coll_id=coll_id, parameters=parameters)
+            core_catalog.update_collection_with_msg(coll_id=coll_id, parameters=parameters, msg=coll_msg)
 
     def prepare_finish_tasks(self):
         """
