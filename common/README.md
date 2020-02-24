@@ -1,5 +1,4 @@
-iDDS-common
+idds-common
 ====
 
-iDDS-common subpackage is for iDDS common data structures, common functions.
-
+idds-common subpackage is for iDDS common data structures, common functions.

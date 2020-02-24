@@ -10,6 +10,7 @@
 
 
 import glob
+import io
 import os
 import re
 import sys
@@ -23,11 +24,11 @@ working_dir = os.path.dirname(os.path.realpath(__file__))
 os.chdir(working_dir)
 
 
-with open('lib/idds/client/version.py', "rt", encoding="utf8") as f:
+with io.open('lib/idds/client/version.py', "rt", encoding="utf8") as f:
     version = re.search(r'release_version = "(.*?)"', f.read()).group(1)
 
 
-with open('README.md', "rt", encoding="utf8") as f:
+with io.open('README.md', "rt", encoding="utf8") as f:
     readme = f.read()
 
 
@@ -93,10 +94,11 @@ setup(
     version=version,
     description='intelligent Data Delivery Service(iDDS) Package',
     long_description=readme,
+    long_description_content_type='text/markdown',
     license='GPL',
     author='IRIS-HEP Team',
     author_email='atlas-adc-panda@cern.ch',
-    python_requires='>=3.6',
+    python_requires='>=2.7',
     packages=find_packages('lib/'),
     package_dir={'': 'lib'},
     install_requires=install_requires,
