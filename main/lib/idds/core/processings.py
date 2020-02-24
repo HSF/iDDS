@@ -15,7 +15,7 @@ operations related to Processings.
 
 
 from idds.orm.base.session import read_session, transactional_session
-from idds.common.constants import ProcessingSubStatus
+from idds.common.constants import ProcessingLocking
 from idds.orm import (processings as orm_processings,
                       collections as orm_collections,
                       contents as orm_contents,
@@ -82,7 +82,7 @@ def get_processings_by_status(status, time_period=None, locking=False, session=N
     """
     processings = orm_processings.get_processings_by_status(status=status, period=time_period, session=session)
     if locking:
-        parameters = {'substatus': ProcessingSubStatus.Locking}
+        parameters = {'locking': ProcessingLocking.Locking}
         for processing in processings:
             orm_processings.update_processing(processing['processing_id'], parameters=parameters, session=session)
     return processings

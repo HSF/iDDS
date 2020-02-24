@@ -17,7 +17,7 @@ except ImportError:
     # Python 2
     from Queue import Queue
 
-from idds.common.constants import (Sections, RequestStatus, RequestSubStatus, RequestType,
+from idds.common.constants import (Sections, RequestStatus, RequestLocking, RequestType,
                                    TransformStatus, CollectionRelationType,
                                    CollectionType, CollectionStatus)
 from idds.common.exceptions import AgentPluginError, IDDSException
@@ -60,15 +60,19 @@ class Clerk(BaseAgent):
         return self.plugins['collection_lister'](scope, name)
 
     def get_output_collection(self, input_collection, request_type, transform_tag):
-        # if request_type in [RequestType.StageIn, RequestType.StageIn.value]:
-        #     return None
-
-        collection = input_collection
-        output_collection = copy.deepcopy(collection)
-        output_collection['name'] = collection['name'] + '_iDDS.%s.%s' % (request_type.name, transform_tag)
-        output_collection['coll_type'] = CollectionType.Dataset
-        output_collection['relation_type'] = CollectionRelationType.Output
-        output_collection['status'] = CollectionStatus.New
+        if request_type in [RequestType.StageIn, RequestType.StageIn.value]:
+            collection = input_collection
+            output_collection = copy.deepcopy(collection)
+            output_collection['type'] = CollectionType.Dataset
+            output_collection['relation_type'] = CollectionRelationType.Output
+            output_collection['status'] = CollectionStatus.New
+        else:
+            collection = input_collection
+            output_collection = copy.deepcopy(collection)
+            output_collection['name'] = collection['name'] + '_iDDS.%s.%s' % (request_type.name, transform_tag)
+            output_collection['type'] = CollectionType.Dataset
+            output_collection['relation_type'] = CollectionRelationType.Output
+            output_collection['status'] = CollectionStatus.New
         return output_collection
 
     def get_log_collection(self, input_collection, request_type, transform_tag):
@@ -78,7 +82,7 @@ class Clerk(BaseAgent):
         collection = input_collection
         log_collection = copy.deepcopy(collection)
         log_collection['name'] = collection['name'] + '_iDDS.%s.%s.log' % (request_type.name, transform_tag)
-        log_collection['coll_type'] = CollectionType.Dataset
+        log_collection['type'] = CollectionType.Dataset
         log_collection['relation_type'] = CollectionRelationType.Log
         log_collection['status'] = CollectionStatus.New
         return log_collection
@@ -105,21 +109,21 @@ class Clerk(BaseAgent):
                                      'expired_at': req['expired_at'] if req['expired_at'] > transform['expired_at'] else transform['expired_at']}
                         transforms_to_extend.append(to_extend)
                     else:
-                        related_collections = []
+                        related_collections = {'input_collections': [], 'output_collections': [], 'log_collections': []}
                         input_collection = {'transform_id': None,
-                                            'coll_type': collection['coll_type'],
+                                            'type': collection['type'],
                                             'scope': collection['scope'],
                                             'name': collection['name'],
                                             'relation_type': CollectionRelationType.Input,
                                             'status': CollectionStatus.New,
                                             'expired_at': req['expired_at']}
-                        related_collections.append(input_collection)
+                        related_collections['input_collections'].append(input_collection)
                         output_collection = self.get_output_collection(input_collection, req['request_type'], req['transform_tag'])
                         if output_collection:
-                            related_collections.append(output_collection)
+                            related_collections['output_collections'].append(output_collection)
                         log_collection = self.get_log_collection(input_collection, req['request_type'], req['transform_tag'])
                         if log_collection:
-                            related_collections.append(log_collection)
+                            related_collections['log_collections'].append(log_collection)
 
                         transform_metadata = copy.deepcopy(req['request_metadata'])
                         if 'processing_metadata' in transform_metadata:
@@ -139,7 +143,6 @@ class Clerk(BaseAgent):
                         transforms_to_add.append(transform)
                 ret_req = {'request_id': req['request_id'],
                            'status': RequestStatus.Transforming,
-                           'request_metadata': req['request_metadata'],
                            'processing_metadata': {'total_collections': len(collections),
                                                    'transforms_to_add': len(transforms_to_add),
                                                    'transforms_to_extend': len(transforms_to_extend)},
@@ -148,14 +151,12 @@ class Clerk(BaseAgent):
             else:
                 ret_req = {'request_id': req['request_id'],
                            'status': RequestStatus.Failed,
-                           'request_metadata': req['request_metadata'],
                            'errors': {'msg': 'No matching datasets with %s:%s' % (req['scope'], req['name'])}}
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
             ret_req = {'request_id': req['request_id'],
                        'status': RequestStatus.Failed,
-                       'request_metadata': req['request_metadata'],
                        'errors': {'msg': '%s: %s' % (ex, traceback.format_exc())}}
         return ret_req
 
@@ -164,22 +165,14 @@ class Clerk(BaseAgent):
             try:
                 req = self.new_output_queue.get()
                 self.logger.info("Main thread finished processing requst: %s" % req)
-                parameter = {'status': req['status'], 'substatus': RequestSubStatus.Idle}
-                if 'request_metadata' not in req or not req['request_metadata']:
-                    request_metadata = {}
-                else:
-                    request_metadata = req['request_metadata']
-                if 'processing_metadata' not in request_metadata:
-                    request_metadata['processing_metadata'] = {}
+                parameter = {'status': req['status'], 'locking': RequestLocking.Idle}
 
                 if 'processing_metadata' not in req or not req['processing_metadata']:
                     processing_metadata = {}
                 else:
                     processing_metadata = req['processing_metadata']
-                for key, value in processing_metadata.items():
-                    request_metadata['processing_metadata'][key] = value
 
-                parameter['request_metadata'] = request_metadata
+                parameter['processing_metadata'] = processing_metadata
 
                 if 'errors' in req:
                     parameter['errors'] = req['errors']
@@ -218,32 +211,33 @@ class Clerk(BaseAgent):
                 transform_status[status_name] = 1
             else:
                 transform_status[status_name] += 1
-        processing_metadata = req['request_metadata']['processing_metadata']
+        processing_metadata = req['processing_metadata']
         processing_metadata['transform_status'] = transform_status
 
         transform_status_keys = list(transform_status.keys())
         if len(transform_status_keys) == 0:
             ret_req = {'request_id': req['request_id'],
                        'status': RequestStatus.Failed,
-                       'request_metadata': req['request_metadata'],
+                       'processing_metadata': processing_metadata,
                        'errors': {'msg': 'No transforms founded(no collections founded)'}
                        }
         elif len(transform_status_keys) == 1:
-            if transform_status_keys[0] in [TransformStatus.Transforming, TransformStatus.Transforming.value,
-                                            TransformStatus.Extend, TransformStatus.Extend.value]:
+            if transform_status_keys[0] in [TransformStatus.New, TransformStatus.New.name, 
+                                            TransformStatus.Transforming, TransformStatus.Transforming.name,
+                                            TransformStatus.Extend, TransformStatus.Extend.name]:
                 ret_req = {'request_id': req['request_id'],
                            'status': RequestStatus.Transforming,
-                           'request_metadata': req['request_metadata']
+                           'processing_metadata': processing_metadata
                            }
             else:
                 ret_req = {'request_id': req['request_id'],
                            'status': dict(RequestStatus.__members__)[transform_status_keys[0]],
-                           'request_metadata': req['request_metadata']
+                           'processing_metadata': processing_metadata
                            }
         else:
             ret_req = {'request_id': req['request_id'],
                        'status': RequestStatus.Transforming,
-                       'request_metadata': req['request_metadata']
+                       'processing_metadata': processing_metadata
                        }
         return ret_req
 
@@ -251,7 +245,7 @@ class Clerk(BaseAgent):
         while not self.monitor_output_queue.empty():
             req = self.monitor_output_queue.get()
             self.logger.debug("finish_monitor_requests: req: %s" % req)
-            parameter = {'substatus': RequestSubStatus.Idle}
+            parameter = {'locking': RequestLocking.Idle}
             for key in ['status', 'errors', 'request_metadata']:
                 if key in req:
                     parameter[key] = req[key]

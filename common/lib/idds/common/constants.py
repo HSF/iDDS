@@ -59,7 +59,7 @@ class RequestStatus(Enum):
     Cancelled = 9
 
 
-class RequestSubStatus(Enum):
+class RequestLocking(Enum):
     Idle = 0
     Locking = 1
 
@@ -91,7 +91,7 @@ class TransformStatus(Enum):
     Cancelled = 9
 
 
-class TransformSubStatus(Enum):
+class TransformLocking(Enum):
     Idle = 0
     Locking = 1
 
@@ -119,7 +119,7 @@ class CollectionStatus(Enum):
     Deleted = 7
 
 
-class CollectionSubStatus(Enum):
+class CollectionLocking(Enum):
     Idle = 0
     Locking = 1
 
@@ -155,7 +155,7 @@ class ProcessingStatus(Enum):
     Lost = 6
 
 
-class ProcessingSubStatus(Enum):
+class ProcessingLocking(Enum):
     Idle = 0
     Locking = 1
 
@@ -169,6 +169,11 @@ class MessageStatus(Enum):
     New = 0
     Fetched = 1
     Delivered = 2
+
+
+class MessageLocking(Enum):
+    Idle = 0
+    Locking = 1
 
 
 class MessageSource(Enum):

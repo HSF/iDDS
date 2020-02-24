@@ -16,7 +16,7 @@ operations related to Transform.
 from idds.common import exceptions
 
 from idds.common.constants import (TransformStatus,
-                                   TransformSubStatus,
+                                   TransformLocking,
                                    CollectionStatus,
                                    ContentStatus)
 from idds.orm.base.session import read_session, transactional_session
@@ -27,7 +27,7 @@ from idds.orm import (transforms as orm_transforms,
 
 
 @transactional_session
-def add_transform(transform_type, transform_tag=None, priority=0, status=TransformStatus.New, substatus=TransformSubStatus.Idle,
+def add_transform(transform_type, transform_tag=None, priority=0, status=TransformStatus.New, locking=TransformLocking.Idle,
                   retries=0, expired_at=None, transform_metadata=None, request_id=None, collections=None, session=None):
     """
     Add a transform.
@@ -36,7 +36,7 @@ def add_transform(transform_type, transform_tag=None, priority=0, status=Transfo
     :param transform_tag: Transform tag.
     :param priority: priority.
     :param status: Transform status.
-    :param substatus: Transform substatus.
+    :param locking: Transform locking.
     :param retries: The number of retries.
     :param expired_at: The datetime when it expires.
     :param transform_metadata: The metadata as json.
@@ -50,7 +50,7 @@ def add_transform(transform_type, transform_tag=None, priority=0, status=Transfo
         msg = "Transform must have collections, such as input collection, output collection and log collection"
         raise exceptions.WrongParameterException(msg)
     transform_id = orm_transforms.add_transform(transform_type=transform_type, transform_tag=transform_tag,
-                                                priority=priority, status=status, substatus=substatus, retries=retries,
+                                                priority=priority, status=status, locking=locking, retries=retries,
                                                 expired_at=expired_at, transform_metadata=transform_metadata,
                                                 request_id=request_id, session=session)
     for collection in collections:
@@ -137,7 +137,7 @@ def get_transforms_by_status(status, period=None, locking=False, session=None):
     """
     transforms = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking, session=session)
     if locking:
-        parameters = {'substatus': TransformSubStatus.Locking}
+        parameters = {'locking': TransformLocking.Locking}
         for transform in transforms:
             orm_transforms.update_transform(transform_id=transform['transform_id'], parameters=parameters, session=session)
     return transforms
@@ -252,7 +252,7 @@ def add_transform_outputs(transform, input_collection, output_collection, input_
 
     if transform:
         parameters = {'status': transform['status'],
-                      'substatus': transform['substatus'],
+                      'locking': transform['locking'],
                       'transform_metadata': transform['transform_metadata']}
         orm_transforms.update_transform(transform_id=transform['transform_id'],
                                         parameters=parameters,

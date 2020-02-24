@@ -29,12 +29,12 @@ class CollectionMetadataReader(RucioPluginBase):
         try:
             meta = {}
             did_meta = self.client.get_metadata(scope=scope, name=name)
-            meta = {'coll_size': did_meta['bytes'],
+            meta = {'bytes': did_meta['bytes'],
                     'availability': did_meta['availability'],
                     'events': did_meta['events'],
                     'is_open': did_meta['is_open'],
                     'run_number': did_meta['run_number'],
-                    'coll_status': CollectionStatus.Open if did_meta['is_open'] else CollectionStatus.Closed,
+                    'status': CollectionStatus.Open if did_meta['is_open'] else CollectionStatus.Closed,
                     'total_files': did_meta['length']}
             return meta
         except Exception as error:

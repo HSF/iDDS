@@ -17,7 +17,7 @@ except ImportError:
     from Queue import Queue
 
 
-from idds.common.constants import (Sections, TransformStatus, TransformSubStatus,
+from idds.common.constants import (Sections, TransformStatus, TransformLocking,
                                    TransformType, CollectionRelationType, CollectionStatus,
                                    ContentStatus, ProcessingStatus)
 from idds.common.exceptions import AgentPluginError, IDDSException
@@ -83,6 +83,9 @@ class Transformer(BaseAgent):
             processing_metadata = {'transform_id': transform['transform_id'],
                                    'input_collection': input_collection['coll_id'],
                                    'output_collection': output_collection['coll_id']}
+            for key in transform['transform_metadata']:
+                processing_metadata[key] = transform['transform_metadata'][key]
+
             new_processing = {'transform_id': transform['transform_id'],
                               'status': ProcessingStatus.New,
                               'processing_metadata': processing_metadata}
@@ -115,13 +118,13 @@ class Transformer(BaseAgent):
             if collection['relation_type'] == CollectionRelationType.Input:
                 input_collection = collection
 
-        if ret_transform and input_collection and (input_collection['processed_files'] is None or input_collection['processed_files'] < input_collection['total_files']):
+        if ret_transform and input_collection and input_collection['status'] not in [CollectionStatus.Closed, CollectionStatus.Closed.value]:
             ret = self.generate_transform_outputs(ret_transform, collections)
-            ret['transform']['substatus'] = TransformSubStatus.Idle
+            ret['transform']['locking'] = TransformLocking.Idle
             ret['transform']['status'] = TransformStatus.Transforming
             return ret
         else:
-            transform['substatus'] = TransformSubStatus.Idle
+            transform['locking'] = TransformLocking.Idle
             return {'transform': transform, 'input_collection': None, 'output_collection': None,
                     'input_contents': None, 'output_contents': None, 'processing': None}
 
@@ -203,17 +206,17 @@ class Transformer(BaseAgent):
                 output_collection = collection
 
         transform_input, transform_output = None, None
-        if ret_transform and input_collection and (input_collection['processed_files'] is None or input_collection['processed_files'] < input_collection['total_files']):
+        if ret_transform and input_collection and input_collection['status'] not in [CollectionStatus.Closed, CollectionStatus.Closed.value]:
             transform_input = self.generate_transform_outputs(ret_transform, collections)
-            transform_input['transform']['substatus'] = TransformSubStatus.Idle
+            transform_input['transform']['locking'] = TransformLocking.Idle
             transform_input['transform']['status'] = TransformStatus.Transforming
 
         if ret_transform and output_collection:
             transform_output = self.process_transform_outputs(ret_transform, output_collection)
-            transform_output['substatus'] = TransformSubStatus.Idle
+            transform_output['locking'] = TransformLocking.Idle
         else:
             transform_output = {'transform_id': transform['transform_id'],
-                                'substatus': TransformSubStatus.Idle}
+                                'locking': TransformLocking.Idle}
 
         ret = {'transform_input': transform_input,
                'transform_output': transform_output}
@@ -227,7 +230,7 @@ class Transformer(BaseAgent):
             if transform_input:
                 # combine the output changes into the same session
                 if transform_output:
-                    # status and substatus should use the items from transform_input
+                    # status and locking should use the items from transform_input
                     transform_input['transform']['transform_metadata']['output_collection'] = transform_output['transform_metadata']['output_collection']
                 core_transforms.add_transform_outputs(transform=transform_input['transform'],
                                                       input_collection=transform_input['input_collection'],

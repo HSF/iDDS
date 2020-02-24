@@ -18,10 +18,10 @@ import datetime
 from sqlalchemy import BigInteger, Boolean, Column, DateTime, Integer, String, event, DDL
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import object_mapper
-from sqlalchemy.schema import CheckConstraint, Index, PrimaryKeyConstraint, Sequence, Table
+from sqlalchemy.schema import CheckConstraint, UniqueConstraint, Index, PrimaryKeyConstraint, Sequence, Table
 
-from idds.common.constants import (RequestType, RequestStatus, RequestSubStatus,
-                                   MessageType, MessageStatus, MessageSource)
+from idds.common.constants import (RequestType, RequestStatus, RequestLocking,
+                                   MessageType, MessageStatus, MessageLocking, MessageSource)
 from idds.common.utils import date_to_str
 from idds.orm.base.enum import EnumSymbol
 from idds.orm.base.types import JSON, EnumWithValue
@@ -118,17 +118,20 @@ class Request(BASE, ModelBase):
     transform_tag = Column(String(10))
     priority = Column(Integer())
     status = Column(EnumWithValue(RequestStatus))
-    substatus = Column(EnumWithValue(RequestSubStatus))
+    locking = Column(EnumWithValue(RequestLocking))
+    workload_id = Column(Integer())
     created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow)
     updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     accessed_at = Column("accessed_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     expired_at = Column("expired_at", DateTime)
     errors = Column(JSON())
     request_metadata = Column(JSON())
+    processing_metadata = Column(JSON())
 
     _table_args = (PrimaryKeyConstraint('request_id', name='_REQUESTS_PK'),
                    CheckConstraint('status IS NOT NULL', name='REQ_STATUS_ID_NN'),
-                   Index('REQUESTS_SCOPE_NAME_IDX', 'scope', 'name', 'request_type', 'request_id'),
+                   UniqueConstraint('name', 'scope', 'requester', 'request_type', 'transform_tag', 'workload_id', name='REQUESTS_NAME_SCOPE_UQ '),
+                   Index('REQUESTS_SCOPE_NAME_IDX', 'scope', 'name', 'workload_id'),
                    Index('REQUESTS_STATUS_PRIO_IDX', 'status', 'priority', 'request_id'))
 
 
@@ -140,7 +143,10 @@ class Message(BASE, ModelBase):
                     primary_key=True)
     msg_type = Column(EnumWithValue(MessageType))
     status = Column(EnumWithValue(MessageStatus))
+    locking = Column(EnumWithValue(MessageLocking))
     source = Column(EnumWithValue(MessageSource))
+    transform_id = Column(Integer())
+    num_contents = Column(Integer())
     created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow)
     updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     msg_content = Column(JSON())
