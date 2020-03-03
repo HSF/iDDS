@@ -300,7 +300,8 @@ def get_collection_ids_by_transform_id(transform_id=None, session=None):
 
 
 @read_session
-def get_collections_by_status(status, relation_type=CollectionRelationType.Input, time_period=None, locking=False, session=None):
+def get_collections_by_status(status, relation_type=CollectionRelationType.Input, time_period=None,
+                              locking=False, bulk_size=None, session=None):
     """
     Get collections by status, relation_type and time_period or raise a NoObject exception.
 
@@ -340,6 +341,8 @@ def get_collections_by_status(status, relation_type=CollectionRelationType.Input
         if locking:
             select = select + " and locking=:locking"
             params['locking'] = CollectionLocking.Idle.value
+        if bulk_size:
+            select = select + " FETCH FIRST %s ROWS ONLY" % bulk_size
 
         stmt = text(select)
         stmt = stmt.bindparams(bindparam('status', expanding=True))

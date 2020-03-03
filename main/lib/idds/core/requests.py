@@ -131,7 +131,11 @@ def update_request_with_transforms(request_id, parameters, transforms_to_add, tr
             log_coll_ids.append(log_coll_id)
         for collection in collections['output_collections']:
             collection['transform_id'] = transform_id
-            collection['coll_metadata'] = {'input_collections': input_coll_ids, 'log_collections': log_coll_ids}
+            workload_id = transform['transform_metadata']['workload_id'] if 'workload_id' in transform['transform_metadata'] else None
+            collection['coll_metadata'] = {'transform_id': transform_id,
+                                           'workload_id': workload_id,
+                                           'input_collections': input_coll_ids,
+                                           'log_collections': log_coll_ids}
             orm_collections.add_collection(**collection, session=session)
 
     for transform in transforms_to_extend:
@@ -143,7 +147,7 @@ def update_request_with_transforms(request_id, parameters, transforms_to_add, tr
 
 
 @transactional_session
-def get_requests_by_status_type(status, request_type=None, time_period=None, locking=False, session=None):
+def get_requests_by_status_type(status, request_type=None, time_period=None, locking=False, bulk_size=None, session=None):
     """
     Get requests by status and type
 
@@ -151,10 +155,11 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, loc
     :param request_type: The type of the request data.
     :param time_period: Delay of seconds before last update.
     :param locking: Wheter to lock requests to avoid others get the same request.
+    :param bulk_size: Size limitation per retrieve.
 
     :returns: list of Request.
     """
-    reqs = orm_requests.get_requests_by_status_type(status, request_type, time_period, locking=locking, session=session)
+    reqs = orm_requests.get_requests_by_status_type(status, request_type, time_period, locking=locking, bulk_size=bulk_size, session=session)
     if locking:
         parameters = {'locking': RequestLocking.Locking}
         for req in reqs:

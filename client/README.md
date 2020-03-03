@@ -1,5 +1,4 @@
-iDDS-client
+idds-client
 ====
 
-iDDS-client subpackage is for iDDS rest client.
-
+idds-client subpackage is for iDDS rest client.

@@ -14,6 +14,7 @@ operations related to Messages.
 """
 
 import re
+import copy
 
 from sqlalchemy import or_
 from sqlalchemy.exc import DatabaseError, IntegrityError
@@ -24,7 +25,7 @@ from idds.orm.base.session import read_session, transactional_session
 
 
 @transactional_session
-def add_message(msg_type, status, source, transform_id, num_contents, msg_content, session=None):
+def add_message(msg_type, status, source, transform_id, num_contents, msg_content, bulk_size=None, session=None):
     """
     Add a message to be submitted asynchronously to a message broker.
 
@@ -38,10 +39,27 @@ def add_message(msg_type, status, source, transform_id, num_contents, msg_conten
     """
 
     try:
-        new_message = models.Message(msg_type=msg_type, status=status, transform_id=transform_id,
-                                     source=source, num_contents=num_contents,
-                                     locking=0, msg_content=msg_content)
-        new_message.save(session=session)
+        num_contents_list = []
+        msg_content_list = []
+        if bulk_size and num_contents > bulk_size:
+            if 'files' in msg_content:
+                files = msg_content['files']
+                chunks = [files[i:i + bulk_size] for i in range(0, len(files), bulk_size)]
+                for chunk in chunks:
+                    new_msg_content = copy.deepcopy(msg_content)
+                    new_msg_content['files'] = chunk
+                    new_num_contents = len(chunk)
+                    num_contents_list.append(new_num_contents)
+                    msg_content_list.append(new_msg_content)
+        else:
+            num_contents_list.append(num_contents)
+            msg_content_list.append(msg_content)
+
+        for msg_content, num_contents in zip(msg_content_list, num_contents_list):
+            new_message = models.Message(msg_type=msg_type, status=status, transform_id=transform_id,
+                                         source=source, num_contents=num_contents,
+                                         locking=0, msg_content=msg_content)
+            new_message.save(session=session)
     except TypeError as e:
         raise exceptions.DatabaseException('Invalid JSON for msg_content: %s' % str(e))
     except DatabaseError as e:
@@ -53,7 +71,7 @@ def add_message(msg_type, status, source, transform_id, num_contents, msg_conten
 
 
 @read_session
-def retrieve_messages(bulk=1000, msg_type=None, status=None, source=None, session=None):
+def retrieve_messages(bulk_size=1000, msg_type=None, status=None, source=None, session=None):
     """
     Retrieve up to $bulk messages.
 
@@ -75,7 +93,8 @@ def retrieve_messages(bulk=1000, msg_type=None, status=None, source=None, sessio
         if source is not None:
             query = query.filter_by(source=source)
 
-        query = query.order_by(models.Message.created_at).limit(bulk)
+        if bulk_size:
+            query = query.order_by(models.Message.created_at).limit(bulk_size)
         # query = query.with_for_update(nowait=True)
 
         tmp = query.all()

@@ -318,13 +318,14 @@ def get_requests_by_requester(scope, name, requester, session=None):
 
 
 @read_session
-def get_requests_by_status_type(status, request_type=None, time_period=None, locking=False, session=None):
+def get_requests_by_status_type(status, request_type=None, time_period=None, locking=False, bulk_size=None, session=None):
     """
     Get requests.
 
     :param status: list of status of the request data.
     :param request_type: The type of the request data.
     :param locking: Wheter to lock requests to avoid others get the same request.
+    :param bulk_size: Size limitation per retrieve.
 
     :raises NoObject: If no request are founded.
 
@@ -361,6 +362,9 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, loc
             req_params['locking'] = RequestLocking.Idle.value
 
         req_select = req_select + " order by priority desc"
+        if bulk_size:
+            req_select = req_select + " FETCH FIRST %s ROWS ONLY" % bulk_size
+
         req_stmt = text(req_select)
         req_stmt = req_stmt.bindparams(bindparam('status', expanding=True))
         result = session.execute(req_stmt, req_params)

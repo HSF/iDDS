@@ -33,9 +33,10 @@ class Clerk(BaseAgent):
     Clerk works to process requests and converts requests to transforms.
     """
 
-    def __init__(self, num_threads=1, poll_time_period=1800, **kwargs):
+    def __init__(self, num_threads=1, poll_time_period=1800, retrieve_bulk_size=None, **kwargs):
         super(Clerk, self).__init__(num_threads=num_threads, **kwargs)
         self.poll_time_period = int(poll_time_period)
+        self.retrieve_bulk_size = int(retrieve_bulk_size)
         self.config_section = Sections.Clerk
         self.new_output_queue = Queue()
         self.monitor_output_queue = Queue()
@@ -49,7 +50,8 @@ class Clerk(BaseAgent):
         # self.logger.info("Main thread get %s TransformingOpen requests to process" % len(reqs_open))
 
         req_status = [RequestStatus.New, RequestStatus.Extend]
-        reqs_new = core_requests.get_requests_by_status_type(status=req_status, locking=True)
+        reqs_new = core_requests.get_requests_by_status_type(status=req_status, locking=True,
+                                                             bulk_size=self.retrieve_bulk_size)
         self.logger.info("Main thread get %s [New+Extend] requests to process" % len(reqs_new))
 
         return reqs_new
@@ -195,7 +197,8 @@ class Clerk(BaseAgent):
         Get requests to monitor
         """
         req_status = [RequestStatus.Transforming]
-        reqs = core_requests.get_requests_by_status_type(status=req_status, time_period=self.poll_time_period, locking=True)
+        reqs = core_requests.get_requests_by_status_type(status=req_status, time_period=self.poll_time_period,
+                                                         locking=True, bulk_size=self.retrieve_bulk_size)
         self.logger.info("Main thread get %s Transforming+Extend requests to monitor" % len(reqs))
         return reqs
 
@@ -222,7 +225,7 @@ class Clerk(BaseAgent):
                        'errors': {'msg': 'No transforms founded(no collections founded)'}
                        }
         elif len(transform_status_keys) == 1:
-            if transform_status_keys[0] in [TransformStatus.New, TransformStatus.New.name, 
+            if transform_status_keys[0] in [TransformStatus.New, TransformStatus.New.name,
                                             TransformStatus.Transforming, TransformStatus.Transforming.name,
                                             TransformStatus.Extend, TransformStatus.Extend.name]:
                 ret_req = {'request_id': req['request_id'],

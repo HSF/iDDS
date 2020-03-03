@@ -129,7 +129,7 @@ def get_processing(processing_id=None, transform_id=None, retries=0, session=Non
 
 
 @read_session
-def get_processings_by_status(status, period=None, locking=False, session=None):
+def get_processings_by_status(status, period=None, locking=False, bulk_size=None, session=None):
     """
     Get processing or raise a NoObject exception.
 
@@ -162,6 +162,8 @@ def get_processings_by_status(status, period=None, locking=False, session=None):
         if locking:
             select = select + " and locking=:locking"
             params['locking'] = ProcessingLocking.Idle.value
+        if bulk_size:
+            select = select + " FETCH FIRST %s ROWS ONLY" % bulk_size
 
         stmt = text(select)
         stmt = stmt.bindparams(bindparam('status', expanding=True))
