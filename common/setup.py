@@ -13,6 +13,7 @@ import glob
 import io
 import os
 import re
+import io
 import sys
 from distutils.sysconfig import get_python_lib
 from setuptools import setup, find_packages, Distribution
