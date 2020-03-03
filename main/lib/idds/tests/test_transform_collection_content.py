@@ -79,9 +79,9 @@ class TestTransformCollectionContent(unittest.TestCase):
         for key in coll_properties:
             assert_equal(coll[key], coll_properties[key])
 
-        update_collection(coll_id, {'coll_status': CollectionStatus.Closed})
+        update_collection(coll_id, {'status': CollectionStatus.Closed})
         coll = get_collection(coll_id=coll_id)
-        assert_equal(coll['coll_status'], CollectionStatus.Closed)
+        assert_equal(coll['status'], CollectionStatus.Closed)
 
         content_properties['coll_id'] = coll_id
         content_id = add_content(returning_id=True, **content_properties)

@@ -62,7 +62,7 @@ def get_collection_properties():
         'transform_id': None,
         'relation_type': CollectionRelationType.Input,
         'coll_size': 0,
-        'coll_status': CollectionStatus.New,
+        'status': CollectionStatus.New,
         'total_files': 0,
         'retries': 0,
         'expired_at': datetime.datetime.utcnow().replace(microsecond=0),
@@ -80,7 +80,7 @@ def get_content_properties():
         'max_id': 100,
         'content_type': ContentType.File,
         'status': ContentStatus.New,
-        'content_size': 1,
+        'bytes': 1,
         'md5': None,
         'adler32': None,
         'processing_id': None,
@@ -132,6 +132,21 @@ def get_example_real_tape_stagein_request():
         'priority': 0,
         'lifetime': 30,
         'request_metadata': {'workload_id': int(time.time()), 'src_rse': 'BNL-OSG2_DATATAPE', 'dest_rse': 'BNL-OSG2_DATADISK'}
+    }
+    return req_properties
+
+
+def get_example_prodsys2_tape_stagein_request():
+    req_properties = {
+        'scope': 'data15_13TeV',
+        'name': 'data15_13TeV.00270949.physics_Main.merge.AOD.r7600_p2521_tid07734829_00',
+        'requester': 'panda',
+        'request_type': RequestType.StageIn,
+        'transform_tag': 'prodsys2',
+        'status': RequestStatus.New,
+        'priority': 0,
+        'lifetime': 30,
+        'request_metadata': {'workload_id': '20525133', 'src_rse': 'SARA-MATRIX_DATATAPE', 'rule_id': '329961145fb14760a9ae95ed12d53f3c'}
     }
     return req_properties
 

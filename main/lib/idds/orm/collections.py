@@ -22,15 +22,16 @@ from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.sql import text, bindparam, outparam
 
 from idds.common import exceptions
-from idds.common.constants import CollectionType, CollectionStatus, CollectionRelationType
+from idds.common.constants import CollectionType, CollectionStatus, CollectionLocking, CollectionRelationType
 from idds.orm.base.session import read_session, transactional_session
 from idds.orm.base.utils import row2dict
 
 
 @transactional_session
-def add_collection(scope, name, coll_type=CollectionType.Dataset, transform_id=None,
-                   relation_type=CollectionRelationType.Input, coll_size=0, coll_status=CollectionStatus.New,
-                   total_files=0, retries=0, expired_at=None, coll_metadata=None, session=None):
+def add_collection(scope, name, type=CollectionType.Dataset, transform_id=None,
+                   relation_type=CollectionRelationType.Input, bytes=0, status=CollectionStatus.New,
+                   locking=CollectionLocking.Idle, total_files=0, retries=0, expired_at=None,
+                   coll_metadata=None, session=None):
     """
     Add a collection.
 
@@ -42,6 +43,7 @@ def add_collection(scope, name, coll_type=CollectionType.Dataset, transform_id=N
                           such as Input, Output, Log and so on.
     :param size: The size of the collection.
     :param status: The status.
+    :param locking: The locking.
     :param total_files: Number of total files.
     :param retries: Number of retries.
     :param expired_at: The datetime when it expires.
@@ -52,30 +54,32 @@ def add_collection(scope, name, coll_type=CollectionType.Dataset, transform_id=N
 
     :returns: collection id.
     """
-    if isinstance(coll_type, CollectionType):
-        coll_type = coll_type.value
-    if isinstance(coll_status, CollectionStatus):
-        coll_status = coll_status.value
+    if isinstance(type, CollectionType):
+        type = type.value
+    if isinstance(status, CollectionStatus):
+        status = status.value
+    if isinstance(locking, CollectionLocking):
+        locking = locking.value
     if isinstance(relation_type, CollectionRelationType):
         relation_type = relation_type.value
     if coll_metadata:
         coll_metadata = json.dumps(coll_metadata)
 
-    insert_coll_sql = """insert into atlas_idds.collections(scope, name, coll_type, transform_id,
-                                                            in_out_type, coll_size, coll_status, total_files,
+    insert_coll_sql = """insert into atlas_idds.collections(scope, name, type, transform_id,
+                                                            relation_type, bytes, status, locking, total_files,
                                                             retries, created_at, updated_at, expired_at,
                                                             coll_metadata)
-                         values(:scope, :name, :coll_type, :transform_id, :in_out_type, :coll_size,
-                                :coll_status, :total_files, :retries, :created_at, :updated_at, :expired_at,
+                         values(:scope, :name, :type, :transform_id, :relation_type, :bytes,
+                                :status, :locking, :total_files, :retries, :created_at, :updated_at, :expired_at,
                                 :coll_metadata) returning coll_id into :coll_id
                       """
     stmt = text(insert_coll_sql)
     stmt = stmt.bindparams(outparam("coll_id", type_=BigInteger().with_variant(Integer, "sqlite")))
     try:
         coll_id = None
-        ret = session.execute(stmt, {'scope': scope, 'name': name, 'coll_type': coll_type,
-                                     'transform_id': transform_id, 'in_out_type': relation_type, 'coll_size': coll_size,
-                                     'coll_status': coll_status, 'total_files': total_files, 'retries': retries,
+        ret = session.execute(stmt, {'scope': scope, 'name': name, 'type': type,
+                                     'transform_id': transform_id, 'relation_type': relation_type, 'bytes': bytes,
+                                     'status': status, 'locking': locking, 'total_files': total_files, 'retries': retries,
                                      'created_at': datetime.datetime.utcnow(), 'updated_at': datetime.datetime.utcnow(),
                                      'expired_at': expired_at, 'coll_metadata': coll_metadata, 'coll_id': coll_id})
         coll_id = ret.out_parameters['coll_id'][0]
@@ -106,9 +110,9 @@ def get_collection_id(transform_id=None, relation_type=None, session=None):
     try:
         if relation_type is not None and isinstance(relation_type, CollectionRelationType):
             relation_type = relation_type.value
-        select = "select coll_id from atlas_idds.collections where transform_id=:transform_id and in_out_type=:in_out_type"
+        select = "select coll_id from atlas_idds.collections where transform_id=:transform_id and relation_type=:relation_type"
         stmt = text(select)
-        result = session.execute(stmt, {'transform_id': transform_id, 'in_out_type': relation_type})
+        result = session.execute(stmt, {'transform_id': transform_id, 'relation_type': relation_type})
         collection_id = result.fetchone()
 
         if collection_id is None:
@@ -148,10 +152,10 @@ def get_collection(coll_id=None, transform_id=None, relation_type=None, session=
             result = session.execute(stmt, {'coll_id': coll_id})
         else:
             coll_select = """select * from atlas_idds.collections
-                             where transform_id=:transform_id and in_out_type=:in_out_type
+                             where transform_id=:transform_id and relation_type=:relation_type
                           """
             stmt = text(coll_select)
-            result = session.execute(stmt, {'transform_id': transform_id, 'in_out_type': relation_type})
+            result = session.execute(stmt, {'transform_id': transform_id, 'relation_type': relation_type})
         collection = result.fetchone()
 
         if collection is None:
@@ -159,13 +163,14 @@ def get_collection(coll_id=None, transform_id=None, relation_type=None, session=
                                       (coll_id, transform_id, relation_type))
 
         collection = row2dict(collection)
-        if collection['coll_type'] is not None:
-            collection['coll_type'] = CollectionType(collection['coll_type'])
-        if collection['in_out_type'] is not None:
-            collection['in_out_type'] = CollectionRelationType(collection['in_out_type'])
-            collection['relation_type'] = collection['in_out_type']
-        if collection['coll_status'] is not None:
-            collection['coll_status'] = CollectionStatus(collection['coll_status'])
+        if collection['type'] is not None:
+            collection['type'] = CollectionType(collection['type'])
+        if collection['relation_type'] is not None:
+            collection['relation_type'] = CollectionRelationType(collection['relation_type'])
+        if collection['status'] is not None:
+            collection['status'] = CollectionStatus(collection['status'])
+        if collection['locking'] is not None:
+            collection['locking'] = CollectionLocking(collection['locking'])
         if collection['coll_metadata']:
             collection['coll_metadata'] = json.loads(collection['coll_metadata'])
 
@@ -201,13 +206,14 @@ def get_collections_by_transform_id(transform_id=None, session=None):
         ret = []
         for collection in collections:
             collection = row2dict(collection)
-            if collection['coll_type'] is not None:
-                collection['coll_type'] = CollectionType(collection['coll_type'])
-            if collection['in_out_type'] is not None:
-                collection['in_out_type'] = CollectionRelationType(collection['in_out_type'])
-                collection['relation_type'] = collection['in_out_type']
-            if collection['coll_status'] is not None:
-                collection['coll_status'] = CollectionStatus(collection['coll_status'])
+            if collection['type'] is not None:
+                collection['type'] = CollectionType(collection['type'])
+            if collection['relation_type'] is not None:
+                collection['relation_type'] = CollectionRelationType(collection['relation_type'])
+            if collection['status'] is not None:
+                collection['status'] = CollectionStatus(collection['status'])
+            if collection['locking'] is not None:
+                collection['locking'] = CollectionLocking(collection['locking'])
             if collection['coll_metadata']:
                 collection['coll_metadata'] = json.loads(collection['coll_metadata'])
             ret.append(collection)
@@ -244,13 +250,14 @@ def get_collections_by_transform_ids(transform_ids=None, session=None):
         ret = []
         for collection in collections:
             collection = row2dict(collection)
-            if collection['coll_type'] is not None:
-                collection['coll_type'] = CollectionType(collection['coll_type'])
-            if collection['in_out_type'] is not None:
-                collection['in_out_type'] = CollectionRelationType(collection['in_out_type'])
-                collection['relation_type'] = collection['in_out_type']
-            if collection['coll_status'] is not None:
-                collection['coll_status'] = CollectionStatus(collection['coll_status'])
+            if collection['type'] is not None:
+                collection['type'] = CollectionType(collection['type'])
+            if collection['relation_type'] is not None:
+                collection['relation_type'] = CollectionRelationType(collection['relation_type'])
+            if collection['status'] is not None:
+                collection['status'] = CollectionStatus(collection['status'])
+            if collection['locking'] is not None:
+                collection['locking'] = CollectionLocking(collection['locking'])
             if collection['coll_metadata']:
                 collection['coll_metadata'] = json.loads(collection['coll_metadata'])
             ret.append(collection)
@@ -293,13 +300,15 @@ def get_collection_ids_by_transform_id(transform_id=None, session=None):
 
 
 @read_session
-def get_collections_by_status(status, relation_type=CollectionRelationType.Input, time_period=None, session=None):
+def get_collections_by_status(status, relation_type=CollectionRelationType.Input, time_period=None,
+                              locking=False, bulk_size=None, session=None):
     """
     Get collections by status, relation_type and time_period or raise a NoObject exception.
 
     :param status: The collection status.
     :param relation_type: The relation_type of the collection to the transform.
     :param time_period: time period in seconds since last update.
+    :param locking: Wheter to retrieve unlocked files.
     :param session: The database session in use.
 
     :raises NoObject: If no collections are founded.
@@ -318,47 +327,39 @@ def get_collections_by_status(status, relation_type=CollectionRelationType.Input
             new_status.append(st)
         status = new_status
 
-        if relation_type is None:
-            if time_period is None:
-                select = """select * from atlas_idds.collections where coll_status in :status"""
-                stmt = text(select)
-                stmt = stmt.bindparams(bindparam('status', expanding=True))
-                result = session.execute(stmt, {'status': status})
-            else:
-                select = """select * from atlas_idds.collections where coll_status in :status
-                            and updated_at < :updated_at"""
-                stmt = text(select)
-                stmt = stmt.bindparams(bindparam('status', expanding=True))
-                result = session.execute(stmt, {'status': status,
-                                                'updated_at': datetime.datetime.utcnow() - datetime.timedelta(seconds=time_period)})
-        else:
+        select = """select * from atlas_idds.collections where status in :status"""
+        params = {'status': status}
+
+        if relation_type is not None:
             if isinstance(relation_type, CollectionRelationType):
                 relation_type = relation_type.value
-            if time_period is None:
-                select = """select * from atlas_idds.collections where coll_status in :status and in_out_type=:relation_type"""
-                stmt = text(select)
-                stmt = stmt.bindparams(bindparam('status', expanding=True))
-                result = session.execute(stmt, {'status': status, 'relation_type': relation_type})
-            else:
-                select = """select * from atlas_idds.collections where coll_status in :status
-                            and in_out_type = :relation_type
-                            and updated_at < :updated_at"""
-                stmt = text(select)
-                stmt = stmt.bindparams(bindparam('status', expanding=True))
-                result = session.execute(stmt, {'status': status, 'relation_type': relation_type,
-                                                'updated_at': datetime.datetime.utcnow() - datetime.timedelta(seconds=time_period)})
+            select = select + " and relation_type=:relation_type"
+            params['relation_type'] = relation_type
+        if time_period is not None:
+            select = select + " and updated_at < :updated_at"
+            params['updated_at'] = datetime.datetime.utcnow() - datetime.timedelta(seconds=time_period)
+        if locking:
+            select = select + " and locking=:locking"
+            params['locking'] = CollectionLocking.Idle.value
+        if bulk_size:
+            select = select + " FETCH FIRST %s ROWS ONLY" % bulk_size
+
+        stmt = text(select)
+        stmt = stmt.bindparams(bindparam('status', expanding=True))
+        result = session.execute(stmt, params)
 
         collections = result.fetchall()
         ret = []
         for collection in collections:
             collection = row2dict(collection)
-            if collection['coll_type'] is not None:
-                collection['coll_type'] = CollectionType(collection['coll_type'])
-            if collection['in_out_type'] is not None:
-                collection['in_out_type'] = CollectionRelationType(collection['in_out_type'])
-                collection['relation_type'] = collection['in_out_type']
-            if collection['coll_status'] is not None:
-                collection['coll_status'] = CollectionStatus(collection['coll_status'])
+            if collection['type'] is not None:
+                collection['type'] = CollectionType(collection['type'])
+            if collection['relation_type'] is not None:
+                collection['relation_type'] = CollectionRelationType(collection['relation_type'])
+            if collection['status'] is not None:
+                collection['status'] = CollectionStatus(collection['status'])
+            if collection['locking'] is not None:
+                collection['locking'] = CollectionLocking(collection['locking'])
             if collection['coll_metadata']:
                 collection['coll_metadata'] = json.loads(collection['coll_metadata'])
             ret.append(collection)
@@ -402,13 +403,14 @@ def get_collections(scope, name, transform_ids=None, session=None):
         ret = []
         for collection in collections:
             collection = row2dict(collection)
-            if collection['coll_type'] is not None:
-                collection['coll_type'] = CollectionType(collection['coll_type'])
-            if collection['in_out_type'] is not None:
-                collection['in_out_type'] = CollectionRelationType(collection['in_out_type'])
-                collection['relation_type'] = collection['in_out_type']
-            if collection['coll_status'] is not None:
-                collection['coll_status'] = CollectionStatus(collection['coll_status'])
+            if collection['type'] is not None:
+                collection['type'] = CollectionType(collection['type'])
+            if collection['relation_type'] is not None:
+                collection['relation_type'] = CollectionRelationType(collection['relation_type'])
+            if collection['status'] is not None:
+                collection['status'] = CollectionStatus(collection['status'])
+            if collection['locking'] is not None:
+                collection['locking'] = CollectionLocking(collection['locking'])
             if collection['coll_metadata']:
                 collection['coll_metadata'] = json.loads(collection['coll_metadata'])
             ret.append(collection)
@@ -447,7 +449,7 @@ def get_collection_id_by_scope_name(scope, name, transform_id=None, relation_typ
                 if isinstance(relation_type, CollectionRelationType):
                     relation_type = relation_type.value
                 select = """select * from atlas_idds.collections where scope=:scope
-                            and name=:name and transform_id=:transform_id and in_out_type=:relation_type"""
+                            and name=:name and transform_id=:transform_id and relation_type=:relation_type"""
                 stmt = text(select)
                 result = session.execute(stmt, {'scope': scope, 'name': name,
                                                 'transform_id': transform_id, 'relation_type': relation_type})
@@ -479,14 +481,14 @@ def update_collection(coll_id, parameters, session=None):
 
     """
     try:
-        if 'coll_type' in parameters and isinstance(parameters['coll_type'], CollectionType):
-            parameters['coll_type'] = parameters['coll_type'].value
-        if 'coll_status' in parameters and isinstance(parameters['coll_status'], CollectionStatus):
-            parameters['coll_status'] = parameters['coll_status'].value
+        if 'type' in parameters and isinstance(parameters['type'], CollectionType):
+            parameters['type'] = parameters['type'].value
+        if 'status' in parameters and isinstance(parameters['status'], CollectionStatus):
+            parameters['status'] = parameters['status'].value
+        if 'locking' in parameters and isinstance(parameters['locking'], CollectionLocking):
+            parameters['locking'] = parameters['locking'].value
         if 'relation_type' in parameters and isinstance(parameters['relation_type'], CollectionRelationType):
-            relation_type = parameters['relation_type'].value
-            del parameters['relation_type']
-            parameters['in_out_type'] = relation_type
+            parameters['relation_type'] = parameters['relation_type'].value
         if 'coll_metadata' in parameters:
             parameters['coll_metadata'] = json.dumps(parameters['coll_metadata'])
 

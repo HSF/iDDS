@@ -98,16 +98,17 @@ class MessagingSender(PluginBase, threading.Thread):
     def send_message(self, msg):
         conn = random.sample(self.conns, 1)[0]
         if not conn.is_connected():
-            conn.start()
+            # conn.start()
             conn.connect(self.username, self.password, wait=True)
 
-        self.logger.debug("Sending message to message broker: %s" % msg)
-        conn.send(body=json.dumps({'event_type': str(msg['event_type']).lower(),
-                                   'payload': msg['payload'],
-                                   'created_at': str(msg['created_at'])}),
+        self.logger.debug("Sending message to message broker: %s" % msg['msg_id'])
+        conn.send(body=json.dumps(msg['msg_content']),
                   destination=self.destination,
+                  id='atlas-idds-messaging',
+                  ack='auto',
                   headers={'persistent': 'true',
-                           'event_type': str(msg['event_type']).lower()})
+                           'vo': 'atlas',
+                           'msg_type': str(msg['msg_type']).lower()})
 
     def run(self):
         self.connect_to_messaging_brokers()

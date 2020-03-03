@@ -22,19 +22,20 @@ from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.sql import text, bindparam, outparam
 
 from idds.common import exceptions
-from idds.common.constants import GranularityType, ProcessingStatus
+from idds.common.constants import GranularityType, ProcessingStatus, ProcessingLocking
 from idds.orm.base.session import read_session, transactional_session
 from idds.orm.base.utils import row2dict
 
 
 @transactional_session
-def add_processing(transform_id, status, submitter=None, granularity=None, granularity_type=None,
-                   expired_at=None, processing_metadata=None, session=None):
+def add_processing(transform_id, status=ProcessingStatus.New, locking=ProcessingLocking.Idle, submitter=None,
+                   granularity=None, granularity_type=None, expired_at=None, processing_metadata=None, session=None):
     """
     Add a processing.
 
     :param transform_id: Transform id.
     :param status: processing status.
+    :param locking: processing locking.
     :param submitter: submitter name.
     :param granularity: Granularity size.
     :param granularity_type: Granularity type.
@@ -50,23 +51,25 @@ def add_processing(transform_id, status, submitter=None, granularity=None, granu
         granularity_type = granularity_type.value
     if isinstance(status, ProcessingStatus):
         status = status.value
+    if isinstance(locking, ProcessingLocking):
+        locking = locking.value
     if processing_metadata:
         processing_metadata = json.dumps(processing_metadata)
 
-    insert = """insert into atlas_idds.processings(transform_id, status, submitter, granularity_type,
-                                                   granularity, created_at, expired_at, processing_metadata)
-                values(:transform_id, :status, :submitter, :granularity_type, :granularity, :created_at,
-                       :expired_at, :processing_metadata) returning processing_id into :processing_id
+    insert = """insert into atlas_idds.processings(transform_id, status, locking, submitter, granularity_type,
+                                                   granularity, created_at, updated_at, expired_at, processing_metadata)
+                values(:transform_id, :status, :locking, :submitter, :granularity_type, :granularity, :created_at,
+                       :updated_at, :expired_at, :processing_metadata) returning processing_id into :processing_id
              """
     stmt = text(insert)
     stmt = stmt.bindparams(outparam("processing_id", type_=BigInteger().with_variant(Integer, "sqlite")))
 
     try:
         processing_id = None
-        ret = session.execute(stmt, {'transform_id': transform_id, 'status': status, 'submitter': submitter,
-                                     'granularity_type': granularity_type, 'granularity': granularity,
-                                     'created_at': datetime.datetime.utcnow(), 'expired_at': expired_at,
-                                     'processing_metadata': processing_metadata, 'processing_id': processing_id})
+        ret = session.execute(stmt, {'transform_id': transform_id, 'status': status, 'locking': locking,
+                                     'submitter': submitter, 'granularity_type': granularity_type, 'granularity': granularity,
+                                     'created_at': datetime.datetime.utcnow(), 'updated_at': datetime.datetime.utcnow(),
+                                     'expired_at': expired_at, 'processing_metadata': processing_metadata, 'processing_id': processing_id})
         processing_id = ret.out_parameters['processing_id'][0]
 
         return processing_id
@@ -112,6 +115,8 @@ def get_processing(processing_id=None, transform_id=None, retries=0, session=Non
             processing['granularity_type'] = GranularityType(processing['granularity_type'])
         if processing['status'] is not None:
             processing['status'] = ProcessingStatus(processing['status'])
+        if processing['locking'] is not None:
+            processing['locking'] = ProcessingLocking(processing['locking'])
         if processing['processing_metadata']:
             processing['processing_metadata'] = json.loads(processing['processing_metadata'])
 
@@ -124,12 +129,13 @@ def get_processing(processing_id=None, transform_id=None, retries=0, session=Non
 
 
 @read_session
-def get_processings_by_status(status, period=None, session=None):
+def get_processings_by_status(status, period=None, locking=False, bulk_size=None, session=None):
     """
     Get processing or raise a NoObject exception.
 
     :param status: Processing status of list of processing status.
     :param period: Time period in seconds.
+    :param locking: Whether to retrieve only unlocked items.
     :param session: The database session in use.
 
     :raises NoObject: If no processing is founded.
@@ -147,20 +153,21 @@ def get_processings_by_status(status, period=None, session=None):
             new_status.append(st)
         status = new_status
 
-        # TODO add updated_at to db
-        period = None
+        select = """select * from atlas_idds.processings where status in :status"""
+        params = {'status': status}
 
         if period:
-            select = """select * from atlas_idds.processings where status in :status and updated_at < :updated_at"""
-            stmt = text(select)
-            stmt = stmt.bindparams(bindparam('status', expanding=True))
-            result = session.execute(stmt, {'status': status,
-                                            'updated_at': datetime.datetime.utcnow() - datetime.timedelta(seconds=period)})
-        else:
-            select = """select * from atlas_idds.processings where status in :status"""
-            stmt = text(select)
-            stmt = stmt.bindparams(bindparam('status', expanding=True))
-            result = session.execute(stmt, {'status': status})
+            select = select + " and updated_at < :updated_at"
+            params['updated_at'] = datetime.datetime.utcnow() - datetime.timedelta(seconds=period)
+        if locking:
+            select = select + " and locking=:locking"
+            params['locking'] = ProcessingLocking.Idle.value
+        if bulk_size:
+            select = select + " FETCH FIRST %s ROWS ONLY" % bulk_size
+
+        stmt = text(select)
+        stmt = stmt.bindparams(bindparam('status', expanding=True))
+        result = session.execute(stmt, params)
 
         processings = result.fetchall()
 
@@ -178,6 +185,7 @@ def get_processings_by_status(status, period=None, session=None):
             if processing['processing_metadata']:
                 processing['processing_metadata'] = json.loads(processing['processing_metadata'])
             new_processings.append(processing)
+
         return new_processings
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('No processing attached with status (%s): %s' % (status, error))
@@ -203,8 +211,12 @@ def update_processing(processing_id, parameters, session=None):
             parameters['granularity_type'] = parameters['granularity_type'].value
         if 'status' in parameters and isinstance(parameters['status'], ProcessingStatus):
             parameters['status'] = parameters['status'].value
+        if 'locking' in parameters and isinstance(parameters['locking'], ProcessingLocking):
+            parameters['locking'] = parameters['locking'].value
         if 'processing_metadata' in parameters:
             parameters['processing_metadata'] = json.dumps(parameters['processing_metadata'])
+
+        parameters['updated_at'] = datetime.datetime.utcnow()
 
         update = "update atlas_idds.processings set "
         for key in parameters.keys():
@@ -212,7 +224,7 @@ def update_processing(processing_id, parameters, session=None):
         update = update[:-1]
         update += " where processing_id=:processing_id"
 
-        if parameters['status'] in [ProcessingStatus.Finished, ProcessingStatus.Failed, ProcessingStatus.Lost]:
+        if 'status' in parameters and parameters['status'] in [ProcessingStatus.Finished, ProcessingStatus.Failed, ProcessingStatus.Lost]:
             parameters['finished_at'] = datetime.datetime.utcnow()
         stmt = text(update)
         parameters['processing_id'] = processing_id

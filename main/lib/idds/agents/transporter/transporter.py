@@ -18,10 +18,11 @@ except ImportError:
     from Queue import Queue
 
 from idds.common.constants import (Sections, CollectionRelationType, CollectionStatus,
-                                   ContentType, ContentStatus)
+                                   CollectionLocking, ContentType, ContentStatus,
+                                   MessageType, MessageStatus, MessageSource)
 from idds.common.exceptions import AgentPluginError, IDDSException
 from idds.common.utils import setup_logging
-from idds.core import (catalog as core_catalog, transforms as core_transforms)
+from idds.core import (catalog as core_catalog)
 from idds.agents.common.baseagent import BaseAgent
 
 setup_logging(__name__)
@@ -32,9 +33,10 @@ class Transporter(BaseAgent):
     Transporter works to list collections from DDM and register contents to DDM.
     """
 
-    def __init__(self, num_threads=1, poll_time_period=1800, **kwargs):
+    def __init__(self, num_threads=1, poll_time_period=1800, retrieve_bulk_size=None, **kwargs):
         super(Transporter, self).__init__(num_threads=num_threads, **kwargs)
         self.poll_time_period = int(poll_time_period)
+        self.retrieve_bulk_size = int(retrieve_bulk_size)
         self.config_section = Sections.Transporter
         self.processed_input_queue = Queue()
         self.processed_output_queue = Queue()
@@ -46,12 +48,16 @@ class Transporter(BaseAgent):
         coll_status = [CollectionStatus.Open]
         colls_open = core_catalog.get_collections_by_status(status=coll_status,
                                                             relation_type=CollectionRelationType.Input,
-                                                            time_period=self.poll_time_period)
+                                                            time_period=self.poll_time_period,
+                                                            locking=True,
+                                                            bulk_size=self.retrieve_bulk_size)
         self.logger.info("Main thread get %s [open] input collections to process" % len(colls_open))
 
         coll_status = [CollectionStatus.New]
         colls_new = core_catalog.get_collections_by_status(status=coll_status,
-                                                           relation_type=CollectionRelationType.Input)
+                                                           relation_type=CollectionRelationType.Input,
+                                                           locking=True,
+                                                           bulk_size=self.retrieve_bulk_size)
         self.logger.info("Main thread get %s [new] input collections to process" % len(colls_new))
 
         colls = colls_open + colls_new
@@ -73,57 +79,69 @@ class Transporter(BaseAgent):
         """
         Process input collection
         """
-        coll_metadata = self.get_collection_metadata(coll['scope'], coll['name'])
-        contents = self.get_contents(coll['scope'], coll['name'])
-        new_contents = []
-        for content in contents:
-            new_content = {'coll_id': coll['coll_id'],
-                           'scope': content['scope'],
-                           'name': content['name'],
-                           'min_id': 0,
-                           'max_id': content['events'],
-                           'content_type': ContentType.File,
-                           'status': ContentStatus.New,
-                           'content_size': content['content_size'],
-                           'md5': content['md5'] if 'md5' in content else None,
-                           'adler32': content['adler32'] if 'adler32' in content else None,
-                           'expired_at': coll['expired_at']}
-            new_contents.append(new_content)
-        new_coll = {'coll_id': coll['coll_id'],
-                    'transform_id': coll['transform_id'],
-                    'coll_size': coll_metadata['coll_size'],
-                    'coll_status': coll_metadata['coll_status'],
-                    'total_files': coll_metadata['total_files'],
-                    'coll_metadata': {'availability': coll_metadata['availability'],
-                                      'events': coll_metadata['events'],
-                                      'is_open': coll_metadata['is_open'],
-                                      'run_number': coll_metadata['run_number']},
-                    'contents': new_contents}
+        if coll['coll_metadata'] and coll['coll_metadata']['status'] in [CollectionStatus.Closed, CollectionStatus.Closed.name, CollectionStatus.Closed.value]:
+            new_coll = {'coll': coll, 'status': coll['status'], 'contents': []}
+        else:
+            coll_metadata = self.get_collection_metadata(coll['scope'], coll['name'])
+            contents = self.get_contents(coll['scope'], coll['name'])
+            new_contents = []
+            for content in contents:
+                new_content = {'coll_id': coll['coll_id'],
+                               'scope': content['scope'],
+                               'name': content['name'],
+                               'min_id': 0,
+                               'max_id': content['events'],
+                               'content_type': ContentType.File,
+                               'status': ContentStatus.New,
+                               'bytes': content['bytes'],
+                               'md5': content['md5'] if 'md5' in content else None,
+                               'adler32': content['adler32'] if 'adler32' in content else None,
+                               'expired_at': coll['expired_at']}
+                new_contents.append(new_content)
+
+            coll['bytes'] = coll_metadata['bytes']
+            coll['total_files'] = coll_metadata['total_files']
+            new_coll = {'coll': coll,
+                        'bytes': coll_metadata['bytes'],
+                        'status': CollectionStatus.Open,
+                        'total_files': coll_metadata['total_files'],
+                        'coll_metadata': {'availability': coll_metadata['availability'],
+                                          'events': coll_metadata['events'],
+                                          'is_open': coll_metadata['is_open'],
+                                          'status': coll_metadata['status'].name,
+                                          'run_number': coll_metadata['run_number']},
+                        'contents': new_contents}
         return new_coll
 
     def finish_processing_input_collections(self):
         while not self.processed_input_queue.empty():
             coll = self.processed_input_queue.get()
-            self.logger.info("Main thread finished processing intput collection(%s) with number of contents: %s" % (coll['coll_id'], len(coll['contents'])))
+            self.logger.info("Main thread finished processing intput collection(%s) with number of contents: %s" % (coll['coll']['coll_id'], len(coll['contents'])))
             parameters = copy.deepcopy(coll)
             del parameters['contents']
-            del parameters['coll_id']
-            del parameters['transform_id']
-            new_contents = core_catalog.update_input_collection_with_contents(coll_id=coll['coll_id'],
-                                                                              parameters=parameters,
-                                                                              contents=coll['contents'])
-            if new_contents:
-                core_transforms.trigger_update_transform_status(coll['transform_id'], input_collection_changed=True)
+            del parameters['coll']
+            parameters['locking'] = CollectionLocking.Idle
+            core_catalog.update_input_collection_with_contents(coll=coll['coll'],
+                                                               parameters=parameters,
+                                                               contents=coll['contents'])
+
+            # new_contents = core_catalog.update_input_collection_with_contents(coll_id=coll['coll_id'],
+            #                                                                   parameters=parameters,
+            #                                                                   contents=coll['contents'])
+            # if new_contents:
+            #     core_transforms.trigger_update_transform_status(coll['transform_id'], input_collection_changed=True)
 
     def get_new_output_collections(self):
         """
         Get new output collections
         """
-        coll_status = [CollectionStatus.Updated]
+        coll_status = [CollectionStatus.Updated, CollectionStatus.Processing]
         colls = core_catalog.get_collections_by_status(status=coll_status,
                                                        relation_type=CollectionRelationType.Output,
-                                                       time_period=1800)
-        self.logger.info("Main thread get %s [Updated] output collections to process" % len(colls))
+                                                       time_period=self.poll_time_period,
+                                                       locking=True,
+                                                       bulk_size=self.retrieve_bulk_size)
+        self.logger.info("Main thread get %s [Updated + Processing] output collections to process" % len(colls))
         return colls
 
     def register_contents(self, scope, name, contents):
@@ -131,11 +149,20 @@ class Transporter(BaseAgent):
             raise AgentPluginError('Plugin contents_register is required')
         return self.plugins['contents_register'](scope, name, contents)
 
+    def is_input_collection_all_processed(self, coll_id_list):
+        is_all_processed = True
+        for coll_id in coll_id_list:
+            coll = core_catalog.get_collection(coll_id)
+            if not (coll['status'] == CollectionStatus.Closed and coll['total_files'] == coll['processed_files']):
+                is_all_processed = False
+                return is_all_processed
+        return is_all_processed
+
     def process_output_collection(self, coll):
         """
         Process output collection
         """
-        if 'to_register' in coll['coll_metadata'] and coll['coll_metadata']['to_register'] is True:
+        if coll['coll_metadata'] and 'to_register' in coll['coll_metadata'] and coll['coll_metadata']['to_register'] is True:
             contents = core_catalog.get_contents(coll_id=coll['coll_id'])
             registered_contents = self.get_contents(coll['scope'], coll['name'])
             registered_content_names = [con['name'] for con in registered_contents]
@@ -146,59 +173,82 @@ class Transporter(BaseAgent):
             if new_contents:
                 self.register_contents(coll['scope'], coll['name'], new_contents)
 
-        """
-        contents = core_catalog.get_content_status_statistics(coll_id=coll['coll_id'])
-        content_status_keys = list(contents.keys())
-        total_files = sum(contents.values())
-        processed_files = 0
-        if ContentStatus.Available in contents:
-            processed_files += contents[ContentStatus.Available]
-        if ContentStatus.Available.value in contents:
-            processed_files += contents[ContentStatus.Available.value]
+        is_input_collection_all_processed = False
+        if coll['coll_metadata'] and 'input_collections' in coll['coll_metadata'] and coll['coll_metadata']['input_collections']:
+            input_coll_list = coll['coll_metadata']['input_collections']
+            is_input_collection_all_processed = self.is_input_collection_all_processed(input_coll_list)
 
-        if content_status_keys == [ContentStatus.Available] or content_status_keys == [ContentStatus.Available.value]:
-            ret_coll = {'coll_id': coll['coll_id'],
-                        'coll_size': total_files,
-                        'coll_status': CollectionStatus.Closed,
-                        'processing_files': 0,
-                        'processed_files': processed_files,
-                        'coll_metadata': {'status_statistics': contents}}
+        contents_statistics = core_catalog.get_content_status_statistics(coll_id=coll['coll_id'])
+        contents_statistics_with_name = {}
+        for key in contents_statistics:
+            contents_statistics_with_name[key.name] = contents_statistics[key]
+
+        content_status_keys = list(contents_statistics.keys())
+        total_files = sum(contents_statistics.values())
+        new_files = 0
+        processed_files = 0
+        if ContentStatus.Available in contents_statistics:
+            processed_files += contents_statistics[ContentStatus.Available]
+        if ContentStatus.Available.value in contents_statistics:
+            processed_files += contents_statistics[ContentStatus.Available.value]
+        if ContentStatus.New in contents_statistics:
+            new_files += contents_statistics[ContentStatus.New]
+        if ContentStatus.New.value in contents_statistics:
+            new_files += contents_statistics[ContentStatus.New.value]
+
+        coll_msg = None
+        if not is_input_collection_all_processed:
+            coll_status = CollectionStatus.Processing
+        elif content_status_keys == [ContentStatus.Available] or content_status_keys == [ContentStatus.Available.value]:
+            coll_status = CollectionStatus.Closed
+
+            msg_content = {'msg_type': 'Collection_stagein',
+                           'workload_id': coll['coll_metadata']['workload_id'] if 'workload_id' in coll['coll_metadata'] else None,
+                           'collections': [{'scope': coll['scope'],
+                                            'name': coll['name'],
+                                            'status': 'Available'}]}
+            coll_msg = {'msg_type': MessageType.StageInCollection,
+                        'status': MessageStatus.New,
+                        'source': MessageSource.Transporter,
+                        'transform_id': coll['coll_metadata']['transform_id'] if 'transform_id' in coll['coll_metadata'] else None,
+                        'num_contents': 1,
+                        'msg_content': msg_content}
+
         elif content_status_keys == [ContentStatus.FinalFailed] or content_status_keys == [ContentStatus.FinalFailed.value]:
-            ret_coll = {'coll_id': coll['coll_id'],
-                        'coll_size': total_files,
-                        'coll_status': CollectionStatus.Failed,
-                        'processing_files': 0,
-                        'processed_files': processed_files,
-                        'coll_metadata': {'status_statistics': contents}}
+            coll_status = CollectionStatus.Failed
         elif (len(content_status_keys) == 2                                                                                   # noqa: W503
             and (ContentStatus.FinalFailed in content_status_keys or ContentStatus.FinalFailed.value in content_status_keys)  # noqa: W503
             and (ContentStatus.Available in content_status_keys or ContentStatus.Available.value in content_status_keys)):    # noqa: W503
-            ret_coll = {'coll_id': coll['coll_id'],
-                        'coll_size': total_files,
-                        'coll_status': CollectionStatus.SubClosed,
-                        'processing_files': 0,
-                        'processed_files': processed_files,
-                        'coll_metadata': {'status_statistics': contents}}
+            coll_status = CollectionStatus.SubClosed
         elif (ContentStatus.New in content_status_keys or ContentStatus.New.value in content_status_keys            # noqa: W503
             or ContentStatus.Failed in content_status_keys or ContentStatus.Failed.value in content_status_keys):   # noqa: W503
-            ret_coll = {'coll_id': coll['coll_id'],
-                        'coll_size': total_files,
-                        'coll_status': CollectionStatus.Open,
-                        'processing_files': 0,
-                        'processed_files': processed_files,
-                        'coll_metadata': {'status_statistics': contents}}
+            coll_status = CollectionStatus.Processing
 
+        coll_metadata = coll['coll_metadata']
+        if not coll_metadata:
+            coll_metadata = {}
+        coll_metadata['status_statistics'] = contents_statistics_with_name
+        ret_coll = {'coll_id': coll['coll_id'],
+                    'total_files': total_files,
+                    'status': coll_status,
+                    'new_files': new_files,
+                    'processing_files': 0,
+                    'processed_files': processed_files,
+                    'coll_metadata': coll_metadata,
+                    'coll_msg': coll_msg}
         return ret_coll
-        """
 
     def finish_processing_output_collections(self):
         while not self.processed_output_queue.empty():
             coll = self.processed_output_queue.get()
-            self.logger.info("Main thread finished processing output collection(%s) with number of contents: %s" % (coll['coll_id']))
-            # coll_id = coll['coll_id']
-            # parameters = coll
-            # del parameters['coll_id']
-            # core_catalog.update_collection(coll_id=coll_id, parameters=parameters)
+            self.logger.info("Main thread finished processing output collection(%s) with number of processed contents: %s" % (coll['coll_id'], coll['processed_files']))
+            coll_id = coll['coll_id']
+            coll_msg = coll['coll_msg']
+            parameters = coll
+            del parameters['coll_id']
+            del coll['coll_msg']
+            parameters['locking'] = CollectionLocking.Idle
+            core_catalog.update_collection_with_msg(coll_id=coll_id, parameters=parameters, msg=coll_msg)
 
     def prepare_finish_tasks(self):
         """

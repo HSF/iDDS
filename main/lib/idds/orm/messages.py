@@ -14,31 +14,52 @@ operations related to Messages.
 """
 
 import re
+import copy
 
 from sqlalchemy import or_
 from sqlalchemy.exc import DatabaseError, IntegrityError
 
 from idds.common import exceptions
-from idds.orm.base.session import read_session, transactional_session
 from idds.orm.base import models
+from idds.orm.base.session import read_session, transactional_session
 
 
 @transactional_session
-def add_message(msg_type, status, source, msg_content, session=None):
+def add_message(msg_type, status, source, transform_id, num_contents, msg_content, bulk_size=None, session=None):
     """
     Add a message to be submitted asynchronously to a message broker.
 
     :param msg_type: The type of the msg as a number, e.g., finished_stagein.
     :param status: The status about the message
     :param source: The source where the message is from.
+    :param transform_id: The transform id.
+    :param num_contents: Number of items in msg_content.
     :param msg_content: The message msg_content as JSON.
     :param session: The database session.
     """
 
     try:
-        new_message = models.Message(msg_type=msg_type, status=status,
-                                     source=source, msg_content=msg_content)
-        new_message.save(session=session)
+        num_contents_list = []
+        msg_content_list = []
+        if bulk_size and num_contents > bulk_size:
+            if 'files' in msg_content:
+                files = msg_content['files']
+                chunks = [files[i:i + bulk_size] for i in range(0, len(files), bulk_size)]
+                for chunk in chunks:
+                    new_msg_content = copy.deepcopy(msg_content)
+                    new_msg_content['files'] = chunk
+                    new_num_contents = len(chunk)
+                    num_contents_list.append(new_num_contents)
+                    msg_content_list.append(new_msg_content)
+        else:
+            num_contents_list.append(num_contents)
+            msg_content_list.append(msg_content)
+
+        for msg_content, num_contents in zip(msg_content_list, num_contents_list):
+            new_message = models.Message(msg_type=msg_type, status=status, transform_id=transform_id,
+                                         source=source, num_contents=num_contents,
+                                         locking=0, msg_content=msg_content)
+            new_message.save(session=session)
     except TypeError as e:
         raise exceptions.DatabaseException('Invalid JSON for msg_content: %s' % str(e))
     except DatabaseError as e:
@@ -50,7 +71,7 @@ def add_message(msg_type, status, source, msg_content, session=None):
 
 
 @read_session
-def retrieve_messages(bulk=1000, msg_type=None, status=None, source=None, session=None):
+def retrieve_messages(bulk_size=1000, msg_type=None, status=None, source=None, session=None):
     """
     Retrieve up to $bulk messages.
 
@@ -64,13 +85,7 @@ def retrieve_messages(bulk=1000, msg_type=None, status=None, source=None, sessio
     """
     messages = []
     try:
-        query = session.query(models.Message.msg_id,
-                              models.Message.msg_type,
-                              models.Message.status,
-                              models.Message.source,
-                              models.Message.created_at,
-                              models.Message.updated_at,
-                              models.Message.msg_content)
+        query = session.query(models.Message)
         if msg_type is not None:
             query = query.filter_by(msg_type=msg_type)
         if status is not None:
@@ -78,15 +93,14 @@ def retrieve_messages(bulk=1000, msg_type=None, status=None, source=None, sessio
         if source is not None:
             query = query.filter_by(source=source)
 
-        query = query.order_by(models.Message.created_at).limit(bulk)
+        if bulk_size:
+            query = query.order_by(models.Message.created_at).limit(bulk_size)
         # query = query.with_for_update(nowait=True)
 
         tmp = query.all()
         if tmp:
             for t in tmp:
-                t2 = dict(t)
-                t2.pop('_sa_instance_state')
-                messages.append(t2)
+                messages.append(t.to_dict())
         return messages
     except IntegrityError as e:
         raise exceptions.DatabaseException(e.args)

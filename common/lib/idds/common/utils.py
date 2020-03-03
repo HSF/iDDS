@@ -173,6 +173,16 @@ def run_process(cmd, stdout=None, stderr=None):
     return process
 
 
+def run_command(cmd):
+    """
+    Runs a command in an out-of-procees shell.
+    """
+    process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, preexec_fn=os.setsid)
+    stdout, stderr = process.communicate()
+    status = process.returncode()
+    return status, stdout, stderr
+
+
 def get_space_from_string(space_str):
     """
     Convert space with P, T, G, M to int

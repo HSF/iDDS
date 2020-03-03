@@ -22,14 +22,14 @@ from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.sql import text, bindparam, outparam
 
 from idds.common import exceptions
-from idds.common.constants import TransformType, TransformStatus, CollectionRelationType
+from idds.common.constants import TransformType, TransformStatus, TransformLocking, CollectionRelationType
 from idds.orm.base.session import read_session, transactional_session
 from idds.orm.base.utils import row2dict
 
 
 @transactional_session
-def add_transform(transform_type, transform_tag=None, priority=0, status=TransformStatus.New, retries=0,
-                  expired_at=None, transform_metadata=None, request_id=None, session=None):
+def add_transform(transform_type, transform_tag=None, priority=0, status=TransformStatus.New, locking=TransformLocking.Idle,
+                  retries=0, expired_at=None, transform_metadata=None, request_id=None, session=None):
     """
     Add a transform.
 
@@ -37,6 +37,7 @@ def add_transform(transform_type, transform_tag=None, priority=0, status=Transfo
     :param transform_tag: Transform tag.
     :param priority: priority.
     :param status: Transform status.
+    :param locking: Transform locking.
     :param retries: The number of retries.
     :param expired_at: The datetime when it expires.
     :param transform_metadata: The metadata as json.
@@ -50,12 +51,14 @@ def add_transform(transform_type, transform_tag=None, priority=0, status=Transfo
         transform_type = transform_type.value
     if isinstance(status, TransformStatus):
         status = status.value
+    if isinstance(locking, TransformLocking):
+        locking = locking.value
     if transform_metadata:
         transform_metadata = json.dumps(transform_metadata)
 
-    insert = """insert into atlas_idds.transforms(transform_type, transform_tag, priority, status, retries,
+    insert = """insert into atlas_idds.transforms(transform_type, transform_tag, priority, status, locking, retries,
                                                   created_at, expired_at, transform_metadata)
-                values(:transform_type, :transform_tag, :priority, :status, :retries, :created_at,
+                values(:transform_type, :transform_tag, :priority, :status, :locking, :retries, :created_at,
                        :expired_at, :transform_metadata) returning transform_id into :transform_id
              """
     stmt = text(insert)
@@ -64,8 +67,9 @@ def add_transform(transform_type, transform_tag=None, priority=0, status=Transfo
     try:
         transform_id = None
         ret = session.execute(stmt, {'transform_type': transform_type, 'transform_tag': transform_tag,
-                                     'priority': priority, 'status': status, 'retries': retries,
-                                     'created_at': datetime.datetime.utcnow(), 'expired_at': expired_at,
+                                     'priority': priority, 'status': status, 'locking': locking,
+                                     'retries': retries, 'created_at': datetime.datetime.utcnow(),
+                                     'updated_at': datetime.datetime.utcnow(), 'expired_at': expired_at,
                                      'transform_metadata': transform_metadata, 'transform_id': transform_id})
 
         transform_id = ret.out_parameters['transform_id'][0]
@@ -133,6 +137,8 @@ def get_transform(transform_id, session=None):
             transform['transform_type'] = TransformType(transform['transform_type'])
         if transform['status'] is not None:
             transform['status'] = TransformStatus(transform['status'])
+        if transform['locking'] is not None:
+            transform['locking'] = TransformLocking(transform['locking'])
         if transform['transform_metadata']:
             transform['transform_metadata'] = json.loads(transform['transform_metadata'])
 
@@ -163,12 +169,13 @@ def get_transform_with_input_collection(transform_type, transform_tag, coll_scop
     try:
         if isinstance(transform_type, TransformType):
             transform_type = transform_type.value
-        select = """select t.transform_id, t.transform_type, t.transform_tag, t.priority, t.status, t.retries,
-                    t.created_at, t.started_at, t.finished_at, t.expired_at, t.transform_metadata
+        select = """select t.transform_id, t.transform_type, t.transform_tag, t.priority, t.status,
+                    t.locking, t.retries, t.created_at, t.started_at, t.finished_at, t.expired_at,
+                    t.transform_metadata
                     from atlas_idds.transforms t join atlas_idds.collections c
                     on t.transform_type=:transform_type and t.transform_tag=:transform_tag
                     and t.transform_id=c.transform_id and c.scope=:scope and c.name=:name
-                    and c.in_out_type=:relation_type
+                    and c.relation_type=:relation_type
                  """
         stmt = text(select)
         result = session.execute(stmt, {'transform_type': transform_type,
@@ -183,6 +190,8 @@ def get_transform_with_input_collection(transform_type, transform_tag, coll_scop
                 transform['transform_type'] = TransformType(transform['transform_type'])
             if transform['status'] is not None:
                 transform['status'] = TransformStatus(transform['status'])
+            if transform['locking'] is not None:
+                transform['locking'] = TransformLocking(transform['locking'])
             if transform['transform_metadata']:
                 transform['transform_metadata'] = json.loads(transform['transform_metadata'])
 
@@ -254,6 +263,8 @@ def get_transforms(request_id, session=None):
                 transform['transform_type'] = TransformType(transform['transform_type'])
             if transform['status'] is not None:
                 transform['status'] = TransformStatus(transform['status'])
+            if transform['locking'] is not None:
+                transform['locking'] = TransformLocking(transform['locking'])
             if transform['transform_metadata']:
                 transform['transform_metadata'] = json.loads(transform['transform_metadata'])
             new_transforms.append(transform)
@@ -266,12 +277,13 @@ def get_transforms(request_id, session=None):
 
 
 @read_session
-def get_transforms_by_status(status, period=None, session=None):
+def get_transforms_by_status(status, period=None, locking=False, bulk_size=None, session=None):
     """
     Get transforms or raise a NoObject exception.
 
     :param status: Transform status or list of transform status.
     :param period: Time period in seconds.
+    :param locking: Whether to retrieved unlocked items.
     :param session: The database session in use.
 
     :raises NoObject: If no transform is founded.
@@ -288,19 +300,21 @@ def get_transforms_by_status(status, period=None, session=None):
             new_status.append(st)
         status = new_status
 
+        select = """select * from atlas_idds.transforms where status in :status"""
+        params = {'status': status}
+
         if period:
-            # select = """select * from atlas_idds.transforms where status in :status and updated_at < :updated_at"""
-            select = """select * from atlas_idds.transforms where status in :status"""
-            stmt = text(select)
-            stmt = stmt.bindparams(bindparam('status', expanding=True))
-            # result = session.execute(stmt, {'status': status,
-            #                                 'updated_at': datetime.datetime.utcnow() - datetime.timedelta(seconds=period)})
-            result = session.execute(stmt, {'status': status})
-        else:
-            select = """select * from atlas_idds.transforms where status in :status"""
-            stmt = text(select)
-            stmt = stmt.bindparams(bindparam('status', expanding=True))
-            result = session.execute(stmt, {'status': status})
+            select = select + " and updated_at < :updated_at"
+            params['updated_at'] = datetime.datetime.utcnow() - datetime.timedelta(seconds=period)
+        if locking:
+            select = select + " and locking=:locking"
+            params['locking'] = TransformLocking.Idle.value
+        if bulk_size:
+            select = select + " FETCH FIRST %s ROWS ONLY" % bulk_size
+
+        stmt = text(select)
+        stmt = stmt.bindparams(bindparam('status', expanding=True))
+        result = session.execute(stmt, params)
 
         transforms = result.fetchall()
         new_transforms = []
@@ -310,6 +324,8 @@ def get_transforms_by_status(status, period=None, session=None):
                 transform['transform_type'] = TransformType(transform['transform_type'])
             if transform['status'] is not None:
                 transform['status'] = TransformStatus(transform['status'])
+            if transform['locking'] is not None:
+                transform['locking'] = TransformLocking(transform['locking'])
             if transform['transform_metadata']:
                 transform['transform_metadata'] = json.loads(transform['transform_metadata'])
             new_transforms.append(transform)
@@ -339,11 +355,12 @@ def update_transform(transform_id, parameters, session=None):
             parameters['transform_type'] = parameters['transform_type'].value
         if 'status' in parameters and isinstance(parameters['status'], TransformStatus):
             parameters['status'] = parameters['status'].value
+        if 'locking' in parameters and isinstance(parameters['locking'], TransformLocking):
+            parameters['locking'] = parameters['locking'].value
         if 'transform_metadata' in parameters:
             parameters['transform_metadata'] = json.dumps(parameters['transform_metadata'])
 
-        # TODO fix db to add updated_at
-        # parameters['updated_at'] = datetime.datetime.utcnow()
+        parameters['updated_at'] = datetime.datetime.utcnow()
 
         update = "update atlas_idds.transforms set "
         for key in parameters.keys():

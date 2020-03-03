@@ -16,6 +16,7 @@ operations related to Transform.
 from idds.common import exceptions
 
 from idds.common.constants import (TransformStatus,
+                                   TransformLocking,
                                    CollectionStatus,
                                    ContentStatus)
 from idds.orm.base.session import read_session, transactional_session
@@ -26,8 +27,8 @@ from idds.orm import (transforms as orm_transforms,
 
 
 @transactional_session
-def add_transform(transform_type, transform_tag=None, priority=0, status=TransformStatus.New, retries=0,
-                  expired_at=None, transform_metadata=None, request_id=None, collections=None, session=None):
+def add_transform(transform_type, transform_tag=None, priority=0, status=TransformStatus.New, locking=TransformLocking.Idle,
+                  retries=0, expired_at=None, transform_metadata=None, request_id=None, collections=None, session=None):
     """
     Add a transform.
 
@@ -35,6 +36,7 @@ def add_transform(transform_type, transform_tag=None, priority=0, status=Transfo
     :param transform_tag: Transform tag.
     :param priority: priority.
     :param status: Transform status.
+    :param locking: Transform locking.
     :param retries: The number of retries.
     :param expired_at: The datetime when it expires.
     :param transform_metadata: The metadata as json.
@@ -48,7 +50,7 @@ def add_transform(transform_type, transform_tag=None, priority=0, status=Transfo
         msg = "Transform must have collections, such as input collection, output collection and log collection"
         raise exceptions.WrongParameterException(msg)
     transform_id = orm_transforms.add_transform(transform_type=transform_type, transform_tag=transform_tag,
-                                                priority=priority, status=status, retries=retries,
+                                                priority=priority, status=status, locking=locking, retries=retries,
                                                 expired_at=expired_at, transform_metadata=transform_metadata,
                                                 request_id=request_id, session=session)
     for collection in collections:
@@ -121,18 +123,25 @@ def get_transforms(request_id, session=None):
 
 
 @read_session
-def get_transforms_by_status(status, period=None, session=None):
+def get_transforms_by_status(status, period=None, locking=False, bulk_size=None, session=None):
     """
     Get transforms or raise a NoObject exception.
 
     :param status: Transform status or list of transform status.
     :param session: The database session in use.
+    :param locking: Whether to lock retrieved items.
 
     :raises NoObject: If no transform is founded.
 
     :returns: list of transform.
     """
-    return orm_transforms.get_transforms_by_status(status=status, period=period, session=session)
+    transforms = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking,
+                                                         bulk_size=bulk_size, session=session)
+    if locking:
+        parameters = {'locking': TransformLocking.Locking}
+        for transform in transforms:
+            orm_transforms.update_transform(transform_id=transform['transform_id'], parameters=parameters, session=session)
+    return transforms
 
 
 @transactional_session
@@ -223,31 +232,35 @@ def add_transform_outputs(transform, input_collection, output_collection, input_
 
     :raises DatabaseException: If there is a database error.
     """
-    orm_contents.add_contents(output_contents, session=session)
+    if output_contents:
+        orm_contents.add_contents(output_contents, session=session)
 
-    update_input_contents = []
-    for input_content in input_contents:
-        update_input_content = {'content_id': input_content['content_id'],
-                                'status': ContentStatus.Processing,
-                                'path': None}
-        update_input_contents.append(update_input_content)
-    orm_contents.update_contents(update_input_contents, session=session)
+    if input_contents:
+        update_input_contents = []
+        for input_content in input_contents:
+            update_input_content = {'content_id': input_content['content_id'],
+                                    'status': ContentStatus.Mapped,
+                                    'path': None}
+            update_input_contents.append(update_input_content)
+        if update_input_contents:
+            orm_contents.update_contents(update_input_contents, with_content_id=True, session=session)
 
-    print(type(output_collection['coll_id']))
-    orm_collections.update_collection(output_collection['coll_id'],
-                                      {'coll_status': CollectionStatus.Processing},
-                                      session=session)
+    if output_collection:
+        # TODO, the status and new_files should be updated
+        orm_collections.update_collection(output_collection['coll_id'],
+                                          {'status': CollectionStatus.Processing},
+                                          session=session)
 
-    transform_metadata = transform['transform_metadata']
-    transform_metadata['input_collection_changed'] = False
-    parameters = {'status': TransformStatus.Transforming,
-                  'transform_metadata': transform_metadata}
-    orm_transforms.update_transform(transform_id=transform['transform_id'],
-                                    parameters=parameters,
-                                    session=session)
+    if transform:
+        parameters = {'status': transform['status'],
+                      'locking': transform['locking'],
+                      'transform_metadata': transform['transform_metadata']}
+        orm_transforms.update_transform(transform_id=transform['transform_id'],
+                                        parameters=parameters,
+                                        session=session)
 
     if processing:
-        orm_processings.add_processing(**processing)
+        orm_processings.add_processing(**processing, session=session)
 
 
 @transactional_session

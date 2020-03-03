@@ -59,6 +59,11 @@ class RequestStatus(Enum):
     Cancelled = 9
 
 
+class RequestLocking(Enum):
+    Idle = 0
+    Locking = 1
+
+
 class RequestType(Enum):
     Derivation = 0
     EventStreaming = 1
@@ -86,6 +91,11 @@ class TransformStatus(Enum):
     Cancelled = 9
 
 
+class TransformLocking(Enum):
+    Idle = 0
+    Locking = 1
+
+
 class CollectionType(Enum):
     Container = 0
     Dataset = 1
@@ -109,6 +119,11 @@ class CollectionStatus(Enum):
     Deleted = 7
 
 
+class CollectionLocking(Enum):
+    Idle = 0
+    Locking = 1
+
+
 class ContentType(Enum):
     File = 0
     Event = 1
@@ -122,6 +137,7 @@ class ContentStatus(Enum):
     FinalFailed = 4
     Lost = 5
     Deleted = 6
+    Mapped = 7
 
 
 class GranularityType(Enum):
@@ -139,6 +155,11 @@ class ProcessingStatus(Enum):
     Lost = 6
 
 
+class ProcessingLocking(Enum):
+    Idle = 0
+    Locking = 1
+
+
 class MessageType(Enum):
     StageInFile = 0
     StageInCollection = 1
@@ -148,6 +169,11 @@ class MessageStatus(Enum):
     New = 0
     Fetched = 1
     Delivered = 2
+
+
+class MessageLocking(Enum):
+    Idle = 0
+    Locking = 1
 
 
 class MessageSource(Enum):

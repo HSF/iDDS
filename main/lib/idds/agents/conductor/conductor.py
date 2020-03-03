@@ -32,9 +32,10 @@ class Conductor(BaseAgent):
     Conductor works to notify workload management that the data is available.
     """
 
-    def __init__(self, num_threads=1, **kwargs):
+    def __init__(self, num_threads=1, retrieve_bulk_size=None, **kwargs):
         super(Conductor, self).__init__(num_threads=num_threads, **kwargs)
         self.config_section = Sections.Conductor
+        self.retrieve_bulk_size = int(retrieve_bulk_size)
         self.message_queue = Queue()
 
     def __del__(self):
@@ -44,14 +45,10 @@ class Conductor(BaseAgent):
         """
         Get messages
         """
-        messages = core_messages.retrieve_messages()
-        self.logger.info("Main thread get %s messages" % len(messages))
+        messages = core_messages.retrieve_messages(status=MessageStatus.New, bulk_size=self.retrieve_bulk_size)
+        self.logger.info("Main thread get %s new messages" % len(messages))
 
-        msg_contents = []
-        for message in messages:
-            msg_contents.append(message['msg_content'])
-
-        return msg_contents
+        return messages
 
     def clean_messages(self, msgs):
         # core_messages.delete_messages(msgs)
@@ -88,7 +85,7 @@ class Conductor(BaseAgent):
                 try:
                     messages = self.get_messages()
                     for message in messages:
-                        self.message_queue.append(message)
+                        self.message_queue.put(message)
                     while not self.message_queue.empty():
                         time.sleep(1)
                     self.clean_messages(messages)

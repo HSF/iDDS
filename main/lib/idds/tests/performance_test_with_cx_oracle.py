@@ -30,13 +30,13 @@ from idds.orm.collections import add_collection
 
 
 def add_content(coll_id, scope, name, min_id, max_id, content_type=ContentType.File, status=ContentStatus.New,
-                content_size=0, md5=None, adler32=None, processing_id=None, storage_id=None, retries=0,
+                bytes=0, md5=None, adler32=None, processing_id=None, storage_id=None, retries=0,
                 path=None, expired_at=None, collcontent_metadata=None, connection=None):
     insert_coll_sql = """insert into atlas_idds.collections_content(coll_id, scope, name, min_id, max_id, content_type,
-                                                                   status, content_size, md5, adler32, processing_id,
+                                                                   status, bytes, md5, adler32, processing_id,
                                                                    storage_id, retries, path, created_at, updated_at,
                                                                    expired_at, collcontent_metadata)
-                         values(:coll_id, :scope, :name, :min_id, :max_id, :content_type, :status, :content_size,
+                         values(:coll_id, :scope, :name, :min_id, :max_id, :content_type, :status, :bytes,
                                 :md5, :adler32, :processing_id, :storage_id, :retries, :path, :created_at, :updated_at,
                                 :expired_at, :collcontent_metadata)
                       """
@@ -49,7 +49,7 @@ def add_content(coll_id, scope, name, min_id, max_id, content_type=ContentType.F
 
     cursor = connection.cursor()
     cursor.execute(insert_coll_sql, {'coll_id': coll_id, 'scope': scope, 'name': name, 'min_id': min_id, 'max_id': max_id,
-                                     'content_type': content_type, 'status': status, 'content_size': content_size, 'md5': md5,
+                                     'content_type': content_type, 'status': status, 'bytes': bytes, 'md5': md5,
                                      'adler32': adler32, 'processing_id': processing_id, 'storage_id': storage_id,
                                      'retries': retries, 'path': path, 'created_at': datetime.datetime.utcnow(),
                                      'updated_at': datetime.datetime.utcnow(), 'expired_at': expired_at,
@@ -81,7 +81,7 @@ def get_collection_prop():
         'transform_id': None,
         'relation_type': CollectionRelationType.Input,
         'coll_size': 0,
-        'coll_status': CollectionStatus.New,
+        'status': CollectionStatus.New,
         'total_files': 0,
         'retries': 0,
         'expired_at': datetime.datetime.utcnow().replace(microsecond=0),
@@ -99,7 +99,7 @@ def get_content_prop():
         'max_id': 100,
         'content_type': ContentType.File,
         'status': ContentStatus.New,
-        'content_size': 1,
+        'bytes': 1,
         'md5': None,
         'adler32': None,
         'processing_id': None,
