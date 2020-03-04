@@ -300,6 +300,9 @@ class Clerk(BaseAgent):
                     parameter[key] = req[key]
             core_requests.update_request(req['request_id'], parameter)
 
+    def clean_locks(self):
+        core_requests.clean_locking()
+
     def run(self):
         """
         Main run function.
@@ -321,6 +324,9 @@ class Clerk(BaseAgent):
             task = self.create_task(task_func=self.process_monitor_requests, task_output_queue=self.monitor_output_queue, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
             self.add_task(task)
             task = self.create_task(task_func=self.finish_monitor_requests, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
+            self.add_task(task)
+
+            task = self.create_task(task_func=self.clean_locks, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1800, priority=1)
             self.add_task(task)
 
             self.execute()

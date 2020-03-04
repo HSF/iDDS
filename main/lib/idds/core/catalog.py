@@ -497,3 +497,13 @@ def get_content_status_statistics(coll_id=None, session=None):
     :returns: statistics group by status, as a dict.
     """
     return orm_contents.get_content_status_statistics(coll_id=coll_id, session=session)
+
+
+@transactional_session
+def clean_locking(time_period=3600, session=None):
+    """
+    Clearn locking which is older than time period.
+
+    :param time_period in seconds
+    """
+    orm_collections.clean_locking(time_period=time_period, session=session)

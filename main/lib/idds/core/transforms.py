@@ -280,3 +280,13 @@ def delete_transform(transform_id=None, session=None):
     :raises DatabaseException: If there is a database error.
     """
     orm_transforms.delete_transform(transform_id=transform_id, session=session)
+
+
+@transactional_session
+def clean_locking(time_period=3600, session=None):
+    """
+    Clearn locking which is older than time period.
+
+    :param time_period in seconds
+    """
+    orm_transforms.clean_locking(time_period=time_period, session=session)

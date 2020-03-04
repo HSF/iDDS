@@ -524,3 +524,18 @@ def delete_collection(coll_id=None, session=None):
         session.execute(stmt, {'coll_id': coll_id})
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('Collection %s cannot be found: %s' % (coll_id, error))
+
+
+@transactional_session
+def clean_locking(time_period=3600, session=None):
+    """
+    Clearn locking which is older than time period.
+
+    :param time_period in seconds
+    """
+
+    params = {'locking': 0,
+              'updated_at': datetime.datetime.utcnow() - datetime.timedelta(seconds=time_period)}
+    sql = "update atlas_idds.collections set locking = :locking where locking = 1 and updated_at < :updated_at"
+    stmt = text(sql)
+    session.execute(stmt, params)

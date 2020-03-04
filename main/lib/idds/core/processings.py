@@ -175,3 +175,13 @@ def update_processing_with_collection_contents(updated_processing, updated_colle
         orm_transforms.update_transform(transform_id=transform_updates['transform_id'],
                                         parameters=transform_updates['parameters'],
                                         session=session)
+
+
+@transactional_session
+def clean_locking(time_period=3600, session=None):
+    """
+    Clearn locking which is older than time period.
+
+    :param time_period in seconds
+    """
+    orm_processings.clean_locking(time_period=time_period, session=session)

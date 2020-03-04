@@ -286,6 +286,9 @@ class Transformer(BaseAgent):
                 del transform_output['transform_id']
                 core_transforms.update_transform(transform_id=transform_id, parameters=transform_output)
 
+    def clean_locks(self):
+        core_transforms.clean_locking()
+
     def run(self):
         """
         Main run function.
@@ -307,6 +310,9 @@ class Transformer(BaseAgent):
             task = self.create_task(task_func=self.process_monitor_transforms, task_output_queue=self.monitor_output_queue, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
             self.add_task(task)
             task = self.create_task(task_func=self.finish_monitor_transforms, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
+            self.add_task(task)
+
+            task = self.create_task(task_func=self.clean_locks, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1800, priority=1)
             self.add_task(task)
 
             self.execute()

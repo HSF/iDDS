@@ -280,3 +280,18 @@ def delete_processing(processing_id=None, session=None):
         session.execute(stmt, {'processing_id': processing_id})
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('Processing %s cannot be found: %s' % (processing_id, error))
+
+
+@transactional_session
+def clean_locking(time_period=3600, session=None):
+    """
+    Clearn locking which is older than time period.
+
+    :param time_period in seconds
+    """
+
+    params = {'locking': 0,
+              'updated_at': datetime.datetime.utcnow() - datetime.timedelta(seconds=time_period)}
+    sql = "update atlas_idds.processings set locking = :locking where locking = 1 and updated_at < :updated_at"
+    stmt = text(sql)
+    session.execute(stmt, params)

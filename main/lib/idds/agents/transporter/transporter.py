@@ -283,6 +283,9 @@ class Transporter(BaseAgent):
             parameters['locking'] = CollectionLocking.Idle
             core_catalog.update_collection_with_msg(coll_id=coll_id, parameters=parameters, msg=coll_msg)
 
+    def clean_locks(self):
+        core_catalog.clean_locking()
+
     def run(self):
         """
         Main run function.
@@ -304,6 +307,9 @@ class Transporter(BaseAgent):
             task = self.create_task(task_func=self.process_output_collections, task_output_queue=self.procesed_output_queue, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
             self.add_task(task)
             task = self.create_task(task_func=self.finish_processing_output_collections, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
+            self.add_task(task)
+
+            task = self.create_task(task_func=self.clean_locks, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1800, priority=1)
             self.add_task(task)
 
             self.execute()

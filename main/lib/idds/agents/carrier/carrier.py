@@ -206,6 +206,9 @@ class Carrier(BaseAgent):
                                                                             file_msg_content=processing['file_message'],
                                                                             message_bulk_size=self.message_bulk_size)
 
+    def clean_locks(self):
+        core_processings.clean_locking()
+
     def run(self):
         """
         Main run function.
@@ -227,6 +230,9 @@ class Carrier(BaseAgent):
             task = self.create_task(task_func=self.process_monitor_processings, task_output_queue=self.monitor_output_queue, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
             self.add_task(task)
             task = self.create_task(task_func=self.finish_monitor_processings, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
+            self.add_task(task)
+
+            task = self.create_task(task_func=self.clean_locks, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1800, priority=1)
             self.add_task(task)
 
             self.execute()
