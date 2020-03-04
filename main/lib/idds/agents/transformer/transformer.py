@@ -22,7 +22,7 @@ from idds.common.constants import (Sections, TransformStatus, TransformLocking,
                                    ContentStatus, ProcessingStatus)
 from idds.common.exceptions import AgentPluginError, IDDSException
 from idds.common.utils import setup_logging
-from idds.core import (transforms as core_transforms, catalog as core_catalog)
+from idds.core import (transforms as core_transforms, catalog as core_catalog, processings as core_processings)
 from idds.agents.common.baseagent import BaseAgent
 
 setup_logging(__name__)
@@ -78,8 +78,15 @@ class Transformer(BaseAgent):
                                                                   contents)
 
         self.logger.debug("Generating transform number of output contents: %s" % len(output_contents))
+
+        to_cancel_processing = []
+        if transform['status'] == TransformStatus.Extend:
+            processings = core_processings.get_processings_by_transform_id(transform['transform_id'])
+            for processing in processings:
+                to_cancel_processing.append(processing['processing_id'])
+
         new_processing = None
-        if output_contents:
+        if output_contents or transform['status'] == TransformStatus.Extend:
             processing_metadata = {'transform_id': transform['transform_id'],
                                    'input_collection': input_collection['coll_id'],
                                    'output_collection': output_collection['coll_id']}
@@ -92,7 +99,8 @@ class Transformer(BaseAgent):
             self.logger.debug("Generating transform output processing: %s" % new_processing)
 
         return {'transform': transform, 'input_collection': input_collection, 'output_collection': output_collection,
-                'input_contents': contents, 'output_contents': output_contents, 'processing': new_processing}
+                'input_contents': contents, 'output_contents': output_contents, 'processing': new_processing,
+                'to_cancel_processing': to_cancel_processing}
 
     def process_new_transform(self, transform):
         """
@@ -139,7 +147,8 @@ class Transformer(BaseAgent):
                                                           output_collection=ret['output_collection'],
                                                           input_contents=ret['input_contents'],
                                                           output_contents=ret['output_contents'],
-                                                          processing=ret['processing'])
+                                                          processing=ret['processing'],
+                                                          to_cancel_processing=ret['to_cancel_processing'])
             except Exception as ex:
                 self.logger.error(ex)
                 self.logger.error(traceback.format_exc())

@@ -18,7 +18,8 @@ from idds.common import exceptions
 from idds.common.constants import (TransformStatus,
                                    TransformLocking,
                                    CollectionStatus,
-                                   ContentStatus)
+                                   ContentStatus,
+                                   ProcessingStatus)
 from idds.orm.base.session import read_session, transactional_session
 from idds.orm import (transforms as orm_transforms,
                       collections as orm_collections,
@@ -219,7 +220,7 @@ def trigger_update_transform_status(transform_id, input_collection_changed=False
 
 @transactional_session
 def add_transform_outputs(transform, input_collection, output_collection, input_contents, output_contents,
-                          processing, session=None):
+                          processing, to_cancel_processing=None, session=None):
     """
     For input contents, add corresponding output contents.
 
@@ -259,6 +260,10 @@ def add_transform_outputs(transform, input_collection, output_collection, input_
                                         parameters=parameters,
                                         session=session)
 
+    if to_cancel_processing:
+        to_cancel_params = {'status': ProcessingStatus.Cancel}
+        for to_cancel_id in to_cancel_processing:
+            orm_processings.update_processing(processing_id=to_cancel_id, parameters=to_cancel_params)
     if processing:
         orm_processings.add_processing(**processing, session=session)
 

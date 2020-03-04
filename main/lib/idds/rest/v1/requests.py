@@ -109,6 +109,7 @@ class Request(IDDSController):
                 for key in kwargs:
                     if key in parameters:
                         data[key] = parameters[key]
+            data['status'] = RequestStatus.Extend
         except ValueError:
             return self.generate_http_response(HTTP_STATUS_CODE.BadRequest, exc_cls=exceptions.BadRequest.__name__, exc_msg='Cannot decode json parameter dictionary')
 
