@@ -80,13 +80,11 @@ def add_processing(transform_id, status=ProcessingStatus.New, locking=Processing
 
 
 @read_session
-def get_processing(processing_id=None, transform_id=None, retries=0, session=None):
+def get_processing(processing_id, session=None):
     """
     Get processing or raise a NoObject exception.
 
     :param processing_id: Processing id.
-    :param tranform_id: Transform id.
-    :param retries: Transform retries.
     :param session: The database session in use.
 
     :raises NoObject: If no processing is founded.
@@ -95,20 +93,13 @@ def get_processing(processing_id=None, transform_id=None, retries=0, session=Non
     """
 
     try:
-        if processing_id:
-            select = """select * from atlas_idds.processings where processing_id=:processing_id"""
-            stmt = text(select)
-            result = session.execute(stmt, {'processing_id': processing_id})
-        else:
-            # TODO: add retries to retrieve only the processing coressponding to the transform and retries
-            select = """select * from atlas_idds.processings where transform_id=:transform_id"""
-            stmt = text(select)
-            result = session.execute(stmt, {'transform_id': transform_id})
+        select = """select * from atlas_idds.processings where processing_id=:processing_id"""
+        stmt = text(select)
+        result = session.execute(stmt, {'processing_id': processing_id})
         processing = result.fetchone()
 
         if processing is None:
-            raise exceptions.NoObject('Processing(processing_id: %s, transform_id: %s, retries: %s) cannot be found' %
-                                      (processing_id, transform_id, retries))
+            raise exceptions.NoObject('Processing(processing_id: %s) cannot be found' % (processing_id))
 
         processing = row2dict(processing)
         if processing['granularity_type'] is not None:
@@ -122,8 +113,47 @@ def get_processing(processing_id=None, transform_id=None, retries=0, session=Non
 
         return processing
     except sqlalchemy.orm.exc.NoResultFound as error:
-        raise exceptions.NoObject('Processing(processing_id: %s, transform_id: %s, retries: %s) cannot be found: %s' %
-                                  (processing_id, transform_id, retries, error))
+        raise exceptions.NoObject('Processing(processing_id: %s) cannot be found: %s' %
+                                  (processing_id, error))
+    except Exception as error:
+        raise error
+
+
+@read_session
+def get_processings_by_transform_id(transform_id=None, session=None):
+    """
+    Get processings or raise a NoObject exception.
+
+    :param tranform_id: Transform id.
+    :param session: The database session in use.
+
+    :raises NoObject: If no processing is founded.
+
+    :returns: Processings.
+    """
+
+    try:
+        select = """select * from atlas_idds.processings where transform_id=:transform_id"""
+        stmt = text(select)
+        result = session.execute(stmt, {'transform_id': transform_id})
+        processings = result.fetchall()
+
+        ret = []
+        for processing in processings:
+            processing = row2dict(processing)
+            if processing['granularity_type'] is not None:
+                processing['granularity_type'] = GranularityType(processing['granularity_type'])
+            if processing['status'] is not None:
+                processing['status'] = ProcessingStatus(processing['status'])
+            if processing['locking'] is not None:
+                processing['locking'] = ProcessingLocking(processing['locking'])
+            if processing['processing_metadata']:
+                processing['processing_metadata'] = json.loads(processing['processing_metadata'])
+            ret.append(processing)
+        return ret
+    except sqlalchemy.orm.exc.NoResultFound as error:
+        raise exceptions.NoObject('Processings(transform_id: %s) cannot be found: %s' %
+                                  (transform_id, error))
     except Exception as error:
         raise error
 

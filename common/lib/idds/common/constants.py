@@ -153,6 +153,7 @@ class ProcessingStatus(Enum):
     Finished = 4
     Failed = 5
     Lost = 6
+    Cancel = 7
 
 
 class ProcessingLocking(Enum):

@@ -49,21 +49,33 @@ def add_processing(transform_id, status, submitter=None, granularity=None, granu
 
 
 @read_session
-def get_processing(processing_id=None, transform_id=None, retries=0, session=None):
+def get_processing(processing_id=None, session=None):
     """
     Get processing or raise a NoObject exception.
 
     :param processing_id: Processing id.
-    :param tranform_id: Transform id.
-    :param retries: Transform retries.
     :param session: The database session in use.
 
     :raises NoObject: If no processing is founded.
 
     :returns: Processing.
     """
-    return orm_processings.get_processing(processing_id=processing_id, transform_id=transform_id,
-                                          retries=retries, session=session)
+    return orm_processings.get_processing(processing_id=processing_id, session=session)
+
+
+@read_session
+def get_processings_by_transform_id(transform_id=None, session=None):
+    """
+    Get processings or raise a NoObject exception.
+
+    :param tranform_id: Transform id.
+    :param session: The database session in use.
+
+    :raises NoObject: If no processing is founded.
+
+    :returns: Processings.
+    """
+    return orm_processings.get_processings_by_transform_id(transform_id=transform_id, session=session)
 
 
 @transactional_session
