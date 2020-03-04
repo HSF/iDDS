@@ -20,7 +20,7 @@ except ImportError:
 from idds.common.constants import (Sections, RequestStatus, RequestLocking, RequestType,
                                    TransformStatus, CollectionRelationType,
                                    CollectionType, CollectionStatus)
-from idds.common.exceptions import AgentPluginError, IDDSException
+from idds.common.exceptions import AgentPluginError
 from idds.common.utils import setup_logging, convert_request_type_to_transform_type
 from idds.core import requests as core_requests, transforms as core_transforms
 from idds.agents.common.baseagent import BaseAgent
@@ -38,7 +38,10 @@ class Clerk(BaseAgent):
         self.poll_time_period = int(poll_time_period)
         self.retrieve_bulk_size = int(retrieve_bulk_size)
         self.config_section = Sections.Clerk
+
+        self.new_task_queue = Queue()
         self.new_output_queue = Queue()
+        self.monitor_task_queue = Queue()
         self.monitor_output_queue = Queue()
 
     def get_new_requests(self):
@@ -90,9 +93,6 @@ class Clerk(BaseAgent):
         return log_collection
 
     def process_new_request(self, req):
-        """
-        Process new request
-        """
         try:
             collections = self.get_collections(req['scope'], req['name'])
             if collections:
@@ -170,6 +170,24 @@ class Clerk(BaseAgent):
                        'status': RequestStatus.Failed,
                        'errors': {'msg': '%s: %s' % (ex, traceback.format_exc())}}
         return ret_req
+
+    def process_new_requests(self):
+        """
+        Process new request
+        """
+        ret = []
+        while not self.new_task_queue.empty():
+            try:
+                req = self.new_task_queue.get()
+                if req:
+                    self.logger.info("Main thread processing new requst: %s" % req)
+                    ret_req = self.process_new_request(req)
+                    if ret_req:
+                        ret.append(ret_req)
+            except Exception as ex:
+                self.logger.error(ex)
+                self.logger.error(traceback.format_exc())
+        return ret
 
     def finish_new_requests(self):
         while not self.new_output_queue.empty():
@@ -254,6 +272,24 @@ class Clerk(BaseAgent):
                        }
         return ret_req
 
+    def process_monitor_requests(self):
+        """
+        Process monitor request
+        """
+        ret = []
+        while not self.monitor_task_queue.empty():
+            try:
+                req = self.monitor_task_queue.get()
+                if req:
+                    self.logger.info("Main thread processing monitor requst: %s" % req)
+                    ret_req = self.process_monitor_request(req)
+                    if ret_req:
+                        ret.append(ret_req)
+            except Exception as ex:
+                self.logger.error(ex)
+                self.logger.error(traceback.format_exc())
+        return ret
+
     def finish_monitor_requests(self):
         while not self.monitor_output_queue.empty():
             req = self.monitor_output_queue.get()
@@ -264,27 +300,6 @@ class Clerk(BaseAgent):
                     parameter[key] = req[key]
             core_requests.update_request(req['request_id'], parameter)
 
-    def prepare_finish_tasks(self):
-        """
-        Prepare tasks and finished tasks
-        """
-        # finish tasks
-        self.finish_new_requests()
-        self.finish_monitor_requests()
-
-        # prepare tasks
-        reqs = self.get_new_requests()
-        for req in reqs:
-            self.submit_task(task_func=self.process_new_request,
-                             output_queue=self.new_output_queue,
-                             task_args=(req,))
-
-        reqs = self.get_monitor_requests()
-        for req in reqs:
-            self.submit_task(task_func=self.process_monitor_request,
-                             output_queue=self.monitor_output_queue,
-                             task_args=(req,))
-
     def run(self):
         """
         Main run function.
@@ -294,17 +309,21 @@ class Clerk(BaseAgent):
 
             self.load_plugins()
 
-            for i in range(self.num_threads):
-                self.executors.submit(self.run_tasks, i)
+            task = self.create_task(task_func=self.get_new_requests, task_output_queue=self.new_task_queue, task_args=tuple(), task_kwargs={}, delay_time=5, priority=1)
+            self.add_task(task)
+            task = self.create_task(task_func=self.process_new_requests, task_output_queue=self.new_output_queue, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
+            self.add_task(task)
+            task = self.create_task(task_func=self.finish_new_requests, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
+            self.add_task(task)
 
-            while not self.graceful_stop.is_set():
-                try:
-                    self.prepare_finish_tasks()
-                    self.sleep_for_tasks()
-                except IDDSException as error:
-                    self.logger.error("Main thread IDDSException: %s\n%s" % (str(error), traceback.format_exc()))
-                except Exception as error:
-                    self.logger.critical("Main thread exception: %s\n%s" % (str(error), traceback.format_exc()))
+            task = self.create_task(task_func=self.get_monitor_requests, task_output_queue=self.monitor_task_queue, task_args=tuple(), task_kwargs={}, delay_time=5, priority=1)
+            self.add_task(task)
+            task = self.create_task(task_func=self.process_monitor_requests, task_output_queue=self.monitor_output_queue, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
+            self.add_task(task)
+            task = self.create_task(task_func=self.finish_monitor_requests, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
+            self.add_task(task)
+
+            self.execute()
         except KeyboardInterrupt:
             self.stop()
 

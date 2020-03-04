@@ -18,7 +18,7 @@ except ImportError:
 
 from idds.common.constants import (Sections, TransformType, ProcessingStatus, ProcessingLocking,
                                    MessageType, MessageStatus, MessageSource)
-from idds.common.exceptions import (AgentPluginError, IDDSException)
+from idds.common.exceptions import (AgentPluginError)
 from idds.common.utils import setup_logging
 from idds.core import (catalog as core_catalog, transforms as core_transforms,
                        processings as core_processings)
@@ -40,7 +40,9 @@ class Carrier(BaseAgent):
         self.retrieve_bulk_size = int(retrieve_bulk_size)
         self.message_bulk_size = int(message_bulk_size)
 
+        self.new_task_queue = Queue()
         self.new_output_queue = Queue()
+        self.monitor_task_queue = Queue()
         self.monitor_output_queue = Queue()
 
     def get_new_processings(self):
@@ -60,7 +62,7 @@ class Carrier(BaseAgent):
 
         return None
 
-    def process_new_processings(self, processing):
+    def process_new_processing(self, processing):
         transform_id = processing['transform_id']
         processing_metadata = processing['processing_metadata']
         input_coll_id = processing_metadata['input_collection']
@@ -75,6 +77,21 @@ class Carrier(BaseAgent):
         else:
             return {'processing_id': processing['processing_id'],
                     'locking': ProcessingLocking.Idle}
+
+    def process_new_processings(self):
+        ret = []
+        while not self.new_task_queue.empty():
+            try:
+                processing = self.new_task_queue.get()
+                if processing:
+                    self.logger.info("Main thread processing new processing: %s" % processing)
+                    ret_processing = self.process_new_processing(processing)
+                    if ret_processing:
+                        ret.append(ret_processing)
+            except Exception as ex:
+                self.logger.error(ex)
+                self.logger.error(traceback.format_exc())
+        return ret
 
     def finish_new_processings(self):
         while not self.new_output_queue.empty():
@@ -130,7 +147,7 @@ class Carrier(BaseAgent):
                             'msg_content': msg_content}
         return file_msg_content
 
-    def process_monitor_processings(self, processing):
+    def process_monitor_processing(self, processing):
         transform_id = processing['transform_id']
         processing_metadata = processing['processing_metadata']
         input_coll_id = processing_metadata['input_collection']
@@ -162,6 +179,21 @@ class Carrier(BaseAgent):
                'file_message': file_msg}
         return ret
 
+    def process_monitor_processings(self):
+        ret = []
+        while not self.monitor_task_queue.empty():
+            try:
+                processing = self.monitor_task_queue.get()
+                if processing:
+                    self.logger.info("Main thread processing monitor processing: %s" % processing)
+                    ret_processing = self.process_monitor_processing(processing)
+                    if ret_processing:
+                        ret.append(ret_processing)
+            except Exception as ex:
+                self.logger.error(ex)
+                self.logger.error(traceback.format_exc())
+        return ret
+
     def finish_monitor_processings(self):
         while not self.monitor_output_queue.empty():
             processing = self.monitor_output_queue.get()
@@ -174,21 +206,6 @@ class Carrier(BaseAgent):
                                                                             file_msg_content=processing['file_message'],
                                                                             message_bulk_size=self.message_bulk_size)
 
-    def prepare_finish_tasks(self):
-        """
-        Prepare tasks and finished tasks
-        """
-        self.finish_new_processings()
-        self.finish_monitor_processings()
-
-        processings = self.get_new_processings()
-        for processing in processings:
-            self.submit_task(self.process_new_processings, self.new_output_queue, (processing,))
-
-        processings = self.get_monitor_processings()
-        for processing in processings:
-            self.submit_task(self.process_monitor_processings, self.monitor_output_queue, (processing,))
-
     def run(self):
         """
         Main run function.
@@ -198,17 +215,21 @@ class Carrier(BaseAgent):
 
             self.load_plugins()
 
-            for i in range(self.num_threads):
-                self.executors.submit(self.run_tasks, i)
+            task = self.create_task(task_func=self.get_new_processings, task_output_queue=self.new_task_queue, task_args=tuple(), task_kwargs={}, delay_time=5, priority=1)
+            self.add_task(task)
+            task = self.create_task(task_func=self.process_new_processings, task_output_queue=self.new_output_queue, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
+            self.add_task(task)
+            task = self.create_task(task_func=self.finish_new_processings, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
+            self.add_task(task)
 
-            while not self.graceful_stop.is_set():
-                try:
-                    self.prepare_finish_tasks()
-                    self.sleep_for_tasks()
-                except IDDSException as error:
-                    self.logger.error("Main thread IDDSException: %s" % str(error))
-                except Exception as error:
-                    self.logger.critical("Main thread exception: %s\n%s" % (str(error), traceback.format_exc()))
+            task = self.create_task(task_func=self.get_monitor_processings, task_output_queue=self.monitor_task_queue, task_args=tuple(), task_kwargs={}, delay_time=5, priority=1)
+            self.add_task(task)
+            task = self.create_task(task_func=self.process_monitor_processings, task_output_queue=self.monitor_output_queue, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
+            self.add_task(task)
+            task = self.create_task(task_func=self.finish_monitor_processings, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
+            self.add_task(task)
+
+            self.execute()
         except KeyboardInterrupt:
             self.stop()
 

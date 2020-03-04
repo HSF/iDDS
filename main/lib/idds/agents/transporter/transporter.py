@@ -20,7 +20,7 @@ except ImportError:
 from idds.common.constants import (Sections, CollectionRelationType, CollectionStatus,
                                    CollectionLocking, ContentType, ContentStatus,
                                    MessageType, MessageStatus, MessageSource)
-from idds.common.exceptions import AgentPluginError, IDDSException
+from idds.common.exceptions import AgentPluginError
 from idds.common.utils import setup_logging
 from idds.core import (catalog as core_catalog)
 from idds.agents.common.baseagent import BaseAgent
@@ -38,7 +38,10 @@ class Transporter(BaseAgent):
         self.poll_time_period = int(poll_time_period)
         self.retrieve_bulk_size = int(retrieve_bulk_size)
         self.config_section = Sections.Transporter
+
+        self.new_input_queue = Queue()
         self.processed_input_queue = Queue()
+        self.new_output_queue = Queue()
         self.processed_output_queue = Queue()
 
     def get_new_input_collections(self):
@@ -112,6 +115,21 @@ class Transporter(BaseAgent):
                                           'run_number': coll_metadata['run_number']},
                         'contents': new_contents}
         return new_coll
+
+    def process_input_collections(self):
+        ret = []
+        while not self.new_input_queue.empty():
+            try:
+                coll = self.new_input_queue.get()
+                if coll:
+                    self.logger.info("Main thread processing input collection: %s" % coll)
+                    ret_coll = self.process_input_collection(coll)
+                    if ret_coll:
+                        ret.append(ret_coll)
+            except Exception as ex:
+                self.logger.error(ex)
+                self.logger.error(traceback.format_exc())
+        return ret
 
     def finish_processing_input_collections(self):
         while not self.processed_input_queue.empty():
@@ -238,6 +256,21 @@ class Transporter(BaseAgent):
                     'coll_msg': coll_msg}
         return ret_coll
 
+    def process_output_collections(self):
+        ret = []
+        while not self.new_output_queue.empty():
+            try:
+                coll = self.new_output_queue.get()
+                if coll:
+                    self.logger.info("Main thread processing output collection: %s" % coll)
+                    ret_coll = self.process_output_collection(coll)
+                    if ret_coll:
+                        ret.append(ret_coll)
+            except Exception as ex:
+                self.logger.error(ex)
+                self.logger.error(traceback.format_exc())
+        return ret
+
     def finish_processing_output_collections(self):
         while not self.processed_output_queue.empty():
             coll = self.processed_output_queue.get()
@@ -250,21 +283,6 @@ class Transporter(BaseAgent):
             parameters['locking'] = CollectionLocking.Idle
             core_catalog.update_collection_with_msg(coll_id=coll_id, parameters=parameters, msg=coll_msg)
 
-    def prepare_finish_tasks(self):
-        """
-        Prepare tasks and finished tasks
-        """
-        self.finish_processing_input_collections()
-        self.finish_processing_output_collections()
-
-        colls = self.get_new_input_collections()
-        for coll in colls:
-            self.submit_task(self.process_input_collection, self.processed_input_queue, (coll,))
-
-        colls = self.get_new_output_collections()
-        for coll in colls:
-            self.submit_task(self.process_output_collection, self.processed_output_queue, (coll,))
-
     def run(self):
         """
         Main run function.
@@ -274,17 +292,21 @@ class Transporter(BaseAgent):
 
             self.load_plugins()
 
-            for i in range(self.num_threads):
-                self.executors.submit(self.run_tasks, i)
+            task = self.create_task(task_func=self.get_new_input_collections, task_output_queue=self.new_input_queue, task_args=tuple(), task_kwargs={}, delay_time=5, priority=1)
+            self.add_task(task)
+            task = self.create_task(task_func=self.process_input_collections, task_output_queue=self.procesed_input_queue, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
+            self.add_task(task)
+            task = self.create_task(task_func=self.finish_processing_input_collections, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
+            self.add_task(task)
 
-            while not self.graceful_stop.is_set():
-                try:
-                    self.prepare_finish_tasks()
-                    self.sleep_for_tasks()
-                except IDDSException as error:
-                    self.logger.error("Main thread IDDSException: %s" % str(error))
-                except Exception as error:
-                    self.logger.critical("Main thread exception: %s\n%s" % (str(error), traceback.format_exc()))
+            task = self.create_task(task_func=self.get_new_output_collections, task_output_queue=self.new_output_queue, task_args=tuple(), task_kwargs={}, delay_time=5, priority=1)
+            self.add_task(task)
+            task = self.create_task(task_func=self.process_output_collections, task_output_queue=self.procesed_output_queue, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
+            self.add_task(task)
+            task = self.create_task(task_func=self.finish_processing_output_collections, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
+            self.add_task(task)
+
+            self.execute()
         except KeyboardInterrupt:
             self.stop()
 

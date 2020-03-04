@@ -20,7 +20,7 @@ except ImportError:
 from idds.common.constants import (Sections, TransformStatus, TransformLocking,
                                    TransformType, CollectionRelationType, CollectionStatus,
                                    ContentStatus, ProcessingStatus)
-from idds.common.exceptions import AgentPluginError, IDDSException
+from idds.common.exceptions import AgentPluginError
 from idds.common.utils import setup_logging
 from idds.core import (transforms as core_transforms, catalog as core_catalog, processings as core_processings)
 from idds.agents.common.baseagent import BaseAgent
@@ -38,7 +38,10 @@ class Transformer(BaseAgent):
         self.config_section = Sections.Transformer
         self.poll_time_period = int(poll_time_period)
         self.retrieve_bulk_size = int(retrieve_bulk_size)
+
+        self.new_task_queue = Queue()
         self.new_output_queue = Queue()
+        self.monitor_task_queue = Queue()
         self.monitor_output_queue = Queue()
 
     def get_new_transforms(self):
@@ -136,6 +139,21 @@ class Transformer(BaseAgent):
             return {'transform': transform, 'input_collection': None, 'output_collection': None,
                     'input_contents': None, 'output_contents': None, 'processing': None}
 
+    def process_new_transforms(self):
+        ret = []
+        while not self.new_task_queue.empty():
+            try:
+                transform = self.new_task_queue.get()
+                if transform:
+                    self.logger.info("Main thread processing new transform: %s" % transform)
+                    ret_transform = self.process_new_transform(transform)
+                    if ret_transform:
+                        ret.append(ret_transform)
+            except Exception as ex:
+                self.logger.error(ex)
+                self.logger.error(traceback.format_exc())
+        return ret
+
     def finish_new_transforms(self):
         while not self.new_output_queue.empty():
             try:
@@ -232,6 +250,21 @@ class Transformer(BaseAgent):
                'transform_output': transform_output}
         return ret
 
+    def process_monitor_transforms(self):
+        ret = []
+        while not self.monitor_task_queue.empty():
+            try:
+                transform = self.monitor_task_queue.get()
+                if transform:
+                    self.logger.info("Main thread processing monitor transform: %s" % transform)
+                    ret_transform = self.process_monitor_transform(transform)
+                    if ret_transform:
+                        ret.append(ret_transform)
+            except Exception as ex:
+                self.logger.error(ex)
+                self.logger.error(traceback.format_exc())
+        return ret
+
     def finish_monitor_transforms(self):
         while not self.monitor_output_queue.empty():
             ret = self.monitor_output_queue.get()
@@ -253,23 +286,6 @@ class Transformer(BaseAgent):
                 del transform_output['transform_id']
                 core_transforms.update_transform(transform_id=transform_id, parameters=transform_output)
 
-    def prepare_finish_tasks(self):
-        """
-        Prepare tasks and finished tasks
-        """
-        # finish tasks
-        self.finish_new_transforms()
-        self.finish_monitor_transforms()
-
-        # prepare tasks
-        transforms = self.get_new_transforms()
-        for transform in transforms:
-            self.submit_task(self.process_new_transform, self.new_output_queue, (transform,))
-
-        transforms = self.get_monitor_transforms()
-        for transform in transforms:
-            self.submit_task(self.process_monitor_transform, self.monitor_output_queue, (transform,))
-
     def run(self):
         """
         Main run function.
@@ -279,17 +295,21 @@ class Transformer(BaseAgent):
 
             self.load_plugins()
 
-            for i in range(self.num_threads):
-                self.executors.submit(self.run_tasks, i)
+            task = self.create_task(task_func=self.get_new_transforms, task_output_queue=self.new_task_queue, task_args=tuple(), task_kwargs={}, delay_time=5, priority=1)
+            self.add_task(task)
+            task = self.create_task(task_func=self.process_new_transforms, task_output_queue=self.new_output_queue, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
+            self.add_task(task)
+            task = self.create_task(task_func=self.finish_new_transforms, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
+            self.add_task(task)
 
-            while not self.graceful_stop.is_set():
-                try:
-                    self.prepare_finish_tasks()
-                    self.sleep_for_tasks()
-                except IDDSException as error:
-                    self.logger.error("Main thread IDDSException: %s" % str(error))
-                except Exception as error:
-                    self.logger.critical("Main thread exception: %s\n%s" % (str(error), traceback.format_exc()))
+            task = self.create_task(task_func=self.get_monitor_transforms, task_output_queue=self.monitor_task_queue, task_args=tuple(), task_kwargs={}, delay_time=5, priority=1)
+            self.add_task(task)
+            task = self.create_task(task_func=self.process_monitor_transforms, task_output_queue=self.monitor_output_queue, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
+            self.add_task(task)
+            task = self.create_task(task_func=self.finish_monitor_transforms, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
+            self.add_task(task)
+
+            self.execute()
         except KeyboardInterrupt:
             self.stop()
 
