@@ -105,9 +105,15 @@ class Clerk(BaseAgent):
                                                                                     coll_scope=collection['scope'],
                                                                                     coll_name=collection['name'])
                     if transform:
+                        new_transform_metadata = copy.deepcopy(transform['transform_metadata'])
+                        if req['request_metadata']:
+                            for key in req['request_metadata']:
+                                new_transform_metadata[key] = req['request_metadata'][key]
+
                         to_extend = {'transform_id': transform['transform_id'],
                                      'priority': req['priority'] if req['priority'] > transform['priority'] else transform['priority'],
                                      'status': TransformStatus.Extend,
+                                     'transform_metadata': new_transform_metadata,
                                      'expired_at': req['expired_at'] if req['expired_at'] > transform['expired_at'] else transform['expired_at']}
                         transforms_to_extend.append(to_extend)
                     else:
@@ -150,6 +156,9 @@ class Clerk(BaseAgent):
                                                    'transforms_to_extend': len(transforms_to_extend)},
                            'transforms_to_add': transforms_to_add,
                            'transforms_to_extend': transforms_to_extend}
+                if not req['processing_metadata'] or 'request_metadata_history' not in req['processing_metadata']:
+                    ret_req['processing_metadata']['request_metadata_history'] = []
+                ret_req['processing_metadata']['request_metadata_history'].append(req['request_metadata'])
             else:
                 ret_req = {'request_id': req['request_id'],
                            'status': RequestStatus.Failed,
@@ -199,7 +208,7 @@ class Clerk(BaseAgent):
         req_status = [RequestStatus.Transforming]
         reqs = core_requests.get_requests_by_status_type(status=req_status, time_period=self.poll_time_period,
                                                          locking=True, bulk_size=self.retrieve_bulk_size)
-        self.logger.info("Main thread get %s Transforming+Extend requests to monitor" % len(reqs))
+        self.logger.info("Main thread get %s Transforming requests to monitor" % len(reqs))
         return reqs
 
     def process_monitor_request(self, req):
@@ -215,6 +224,7 @@ class Clerk(BaseAgent):
             else:
                 transform_status[status_name] += 1
         processing_metadata = req['processing_metadata']
+
         processing_metadata['transform_status'] = transform_status
 
         transform_status_keys = list(transform_status.keys())

@@ -141,7 +141,7 @@ def update_request_with_transforms(request_id, parameters, transforms_to_add, tr
     for transform in transforms_to_extend:
         transform_id = transform['transform_id']
         del transform['transform_id']
-        orm_transforms.add_req2transform(request_id, transform_id, session=session)
+        # orm_transforms.add_req2transform(request_id, transform_id, session=session)
         orm_transforms.update_transform(transform_id, parameters=transform, session=session)
     return orm_requests.update_request(request_id, parameters, session=session)
 
