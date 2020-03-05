@@ -28,7 +28,7 @@ from idds.orm.base.utils import row2dict
 
 
 @transactional_session
-def add_content(coll_id, scope, name, min_id, max_id, type=ContentType.File, status=ContentStatus.New,
+def add_content(coll_id, scope, name, min_id, max_id, content_type=ContentType.File, status=ContentStatus.New,
                 bytes=0, md5=None, adler32=None, processing_id=None, storage_id=None, retries=0,
                 path=None, expired_at=None, content_metadata=None, returning_id=False, session=None):
     """
@@ -39,7 +39,7 @@ def add_content(coll_id, scope, name, min_id, max_id, type=ContentType.File, sta
     :param name: The name of the request data.
     :param min_id: The minimal id of the content.
     :param max_id: The maximal id of the content.
-    :param type: The type of the content.
+    :param content_type: The type of the content.
     :param status: content status.
     :param bytes: The size of the content.
     :param md5: md5 checksum.
@@ -56,30 +56,30 @@ def add_content(coll_id, scope, name, min_id, max_id, type=ContentType.File, sta
 
     :returns: content id.
     """
-    if isinstance(type, ContentType):
-        type = type.value
+    if isinstance(content_type, ContentType):
+        content_type = content_type.value
     if isinstance(status, ContentStatus):
         status = status.value
     if content_metadata:
         content_metadata = json.dumps(content_metadata)
 
     if returning_id:
-        insert_coll_sql = """insert into atlas_idds.contents(coll_id, scope, name, min_id, max_id, type,
+        insert_coll_sql = """insert into atlas_idds.contents(coll_id, scope, name, min_id, max_id, content_type,
                                                                        status, bytes, md5, adler32, processing_id,
                                                                        storage_id, retries, path, expired_at,
                                                                        content_metadata)
-                             values(:coll_id, :scope, :name, :min_id, :max_id, :type, :status, :bytes,
+                             values(:coll_id, :scope, :name, :min_id, :max_id, :content_type, :status, :bytes,
                                     :md5, :adler32, :processing_id, :storage_id, :retries, :path, :expired_at,
                                     :content_metadata) RETURNING content_id into :content_id
                           """
         stmt = text(insert_coll_sql)
         stmt = stmt.bindparams(outparam("content_id", type_=BigInteger().with_variant(Integer, "sqlite")))
     else:
-        insert_coll_sql = """insert into atlas_idds.contents(coll_id, scope, name, min_id, max_id, type,
+        insert_coll_sql = """insert into atlas_idds.contents(coll_id, scope, name, min_id, max_id, content_type,
                                                                        status, bytes, md5, adler32, processing_id,
                                                                        storage_id, retries, path, expired_at,
                                                                        content_metadata)
-                             values(:coll_id, :scope, :name, :min_id, :max_id, :type, :status, :bytes,
+                             values(:coll_id, :scope, :name, :min_id, :max_id, :content_type, :status, :bytes,
                                     :md5, :adler32, :processing_id, :storage_id, :retries, :path, :expired_at,
                                     :content_metadata)
                           """
@@ -89,7 +89,7 @@ def add_content(coll_id, scope, name, min_id, max_id, type=ContentType.File, sta
         content_id = None
         if returning_id:
             ret = session.execute(stmt, {'coll_id': coll_id, 'scope': scope, 'name': name, 'min_id': min_id, 'max_id': max_id,
-                                         'type': type, 'status': status, 'bytes': bytes, 'md5': md5,
+                                         'content_type': content_type, 'status': status, 'bytes': bytes, 'md5': md5,
                                          'adler32': adler32, 'processing_id': processing_id, 'storage_id': storage_id,
                                          'retries': retries, 'path': path, 'created_at': datetime.datetime.utcnow(),
                                          'updated_at': datetime.datetime.utcnow(), 'expired_at': expired_at,
@@ -97,7 +97,7 @@ def add_content(coll_id, scope, name, min_id, max_id, type=ContentType.File, sta
             content_id = ret.out_parameters['content_id'][0]
         else:
             ret = session.execute(stmt, {'coll_id': coll_id, 'scope': scope, 'name': name, 'min_id': min_id, 'max_id': max_id,
-                                         'type': type, 'status': status, 'bytes': bytes, 'md5': md5,
+                                         'content_type': content_type, 'status': status, 'bytes': bytes, 'md5': md5,
                                          'adler32': adler32, 'processing_id': processing_id, 'storage_id': storage_id,
                                          'retries': retries, 'path': path, 'created_at': datetime.datetime.utcnow(),
                                          'updated_at': datetime.datetime.utcnow(), 'expired_at': expired_at,
@@ -126,29 +126,29 @@ def add_contents(contents, returning_id=False, bulk_size=100, session=None):
     :returns: content id.
     """
     default_params = {'coll_id': None, 'scope': None, 'name': None, 'min_id': None, 'max_id': None,
-                      'type': ContentType.File, 'status': ContentStatus.New,
+                      'content_type': ContentType.File, 'status': ContentStatus.New,
                       'bytes': 0, 'md5': None, 'adler32': None, 'processing_id': None,
                       'storage_id': None, 'retries': 0, 'path': None,
                       'expired_at': datetime.datetime.utcnow() + datetime.timedelta(days=30),
                       'content_metadata': None}
 
     if returning_id:
-        insert_coll_sql = """insert into atlas_idds.contents(coll_id, scope, name, min_id, max_id, type,
+        insert_coll_sql = """insert into atlas_idds.contents(coll_id, scope, name, min_id, max_id, content_type,
                                                                        status, bytes, md5, adler32, processing_id,
                                                                        storage_id, retries, path, expired_at,
                                                                        content_metadata)
-                             values(:coll_id, :scope, :name, :min_id, :max_id, :type, :status, :bytes,
+                             values(:coll_id, :scope, :name, :min_id, :max_id, :content_type, :status, :bytes,
                                     :md5, :adler32, :processing_id, :storage_id, :retries, :path, :expired_at,
                                     :content_metadata) RETURNING content_id into :content_id
                           """
         stmt = text(insert_coll_sql)
         stmt = stmt.bindparams(outparam("content_id", type_=BigInteger().with_variant(Integer, "sqlite")))
     else:
-        insert_coll_sql = """insert into atlas_idds.contents(coll_id, scope, name, min_id, max_id, type,
+        insert_coll_sql = """insert into atlas_idds.contents(coll_id, scope, name, min_id, max_id, content_type,
                                                                        status, bytes, md5, adler32, processing_id,
                                                                        storage_id, retries, path, expired_at,
                                                                        content_metadata)
-                             values(:coll_id, :scope, :name, :min_id, :max_id, :type, :status, :bytes,
+                             values(:coll_id, :scope, :name, :min_id, :max_id, :content_type, :status, :bytes,
                                     :md5, :adler32, :processing_id, :storage_id, :retries, :path, :expired_at,
                                     :content_metadata)
                           """
@@ -163,8 +163,8 @@ def add_contents(contents, returning_id=False, bulk_size=100, session=None):
             else:
                 param[key] = default_params[key]
 
-        if isinstance(param['type'], ContentType):
-            param['type'] = param['type'].value
+        if isinstance(param['content_type'], ContentType):
+            param['content_type'] = param['content_type'].value
         if isinstance(param['status'], ContentStatus):
             param['status'] = param['status'].value
         if param['content_metadata']:
@@ -194,7 +194,7 @@ def add_contents(contents, returning_id=False, bulk_size=100, session=None):
 
 
 @read_session
-def get_content_id(coll_id, scope, name, type=None, min_id=None, max_id=None, session=None):
+def get_content_id(coll_id, scope, name, content_type=None, min_id=None, max_id=None, session=None):
     """
     Get content id or raise a NoObject exception.
 
@@ -203,7 +203,7 @@ def get_content_id(coll_id, scope, name, type=None, min_id=None, max_id=None, se
     :param name: The name of the request data.
     :param min_id: The minimal id of the content.
     :param max_id: The maximal id of the content.
-    :param type: The type of the content.
+    :param content_type: The type of the content.
 
     :param session: The database session in use.
 
@@ -213,45 +213,45 @@ def get_content_id(coll_id, scope, name, type=None, min_id=None, max_id=None, se
     """
 
     try:
-        if type is not None and isinstance(type, ContentType):
-            type = type.value
-        if type is None:
+        if content_type is not None and isinstance(content_type, ContentType):
+            content_type = content_type.value
+        if content_type is None:
             select = """select content_id from atlas_idds.contents where coll_id=:coll_id and
                         scope=:scope and name=:name and min_id=:min_id and max_id=:max_id"""
             stmt = text(select)
             result = session.execute(stmt, {'coll_id': coll_id, 'scope': scope, 'name': name,
                                             'min_id': min_id, 'max_id': max_id})
         else:
-            if type == ContentType.File.value:
+            if content_type == ContentType.File.value:
                 select = """select content_id from atlas_idds.contents where coll_id=:coll_id and
-                            scope=:scope and name=:name and type=:type"""
+                            scope=:scope and name=:name and content_type=:content_type"""
                 stmt = text(select)
                 result = session.execute(stmt, {'coll_id': coll_id, 'scope': scope, 'name': name,
-                                                'type': type})
+                                                'content_type': content_type})
             else:
                 select = """select content_id from atlas_idds.contents where coll_id=:coll_id and
-                            scope=:scope and name=:name and type=:type and min_id=:min_id and
+                            scope=:scope and name=:name and content_type=:content_type and min_id=:min_id and
                             max_id=:max_id"""
                 stmt = text(select)
                 result = session.execute(stmt, {'coll_id': coll_id, 'scope': scope, 'name': name,
-                                                'type': type, 'min_id': min_id, 'max_id': max_id})
+                                                'content_type': content_type, 'min_id': min_id, 'max_id': max_id})
 
         content_id = result.fetchone()
 
         if content_id is None:
-            raise exceptions.NoObject('content(coll_id: %s, scope: %s, name: %s, type: %s, min_id: %s, max_id: %s) cannot be found' %
-                                      (coll_id, scope, name, type, min_id, max_id))
+            raise exceptions.NoObject('content(coll_id: %s, scope: %s, name: %s, content_type: %s, min_id: %s, max_id: %s) cannot be found' %
+                                      (coll_id, scope, name, content_type, min_id, max_id))
         content_id = content_id[0]
         return content_id
     except sqlalchemy.orm.exc.NoResultFound as error:
-        raise exceptions.NoObject('content(coll_id: %s, scope: %s, name: %s, type: %s, min_id: %s, max_id: %s) cannot be found: %s' %
-                                  (coll_id, scope, name, type, min_id, max_id, error))
+        raise exceptions.NoObject('content(coll_id: %s, scope: %s, name: %s, content_type: %s, min_id: %s, max_id: %s) cannot be found: %s' %
+                                  (coll_id, scope, name, content_type, min_id, max_id, error))
     except Exception as error:
         raise error
 
 
 @read_session
-def get_content(content_id=None, coll_id=None, scope=None, name=None, type=None, min_id=None, max_id=None, session=None):
+def get_content(content_id=None, coll_id=None, scope=None, name=None, content_type=None, min_id=None, max_id=None, session=None):
     """
     Get content or raise a NoObject exception.
 
@@ -261,7 +261,7 @@ def get_content(content_id=None, coll_id=None, scope=None, name=None, type=None,
     :param name: The name of the request data.
     :param min_id: The minimal id of the content.
     :param max_id: The maximal id of the content.
-    :param type: The type of the content.
+    :param content_type: The type of the content.
 
     :param session: The database session in use.
 
@@ -272,19 +272,19 @@ def get_content(content_id=None, coll_id=None, scope=None, name=None, type=None,
 
     try:
         if not content_id:
-            content_id = get_content_id(coll_id=coll_id, scope=scope, name=name, type=type, min_id=min_id, max_id=max_id, session=session)
+            content_id = get_content_id(coll_id=coll_id, scope=scope, name=name, content_type=content_type, min_id=min_id, max_id=max_id, session=session)
         select = """select * from atlas_idds.contents where content_id=:content_id"""
         stmt = text(select)
         result = session.execute(stmt, {'content_id': content_id})
         content = result.fetchone()
 
         if content is None:
-            raise exceptions.NoObject('content(content_id: %s, coll_id: %s, scope: %s, name: %s, type: %s, min_id: %s, max_id: %s) cannot be found' %
-                                      (content_id, coll_id, scope, name, type, min_id, max_id))
+            raise exceptions.NoObject('content(content_id: %s, coll_id: %s, scope: %s, name: %s, content_type: %s, min_id: %s, max_id: %s) cannot be found' %
+                                      (content_id, coll_id, scope, name, content_type, min_id, max_id))
 
         content = row2dict(content)
-        if content['type'] is not None:
-            content['type'] = ContentType(content['type'])
+        if content['content_type'] is not None:
+            content['content_type'] = ContentType(content['content_type'])
         if content['status'] is not None:
             content['status'] = ContentStatus(content['status'])
         if content['content_metadata']:
@@ -292,14 +292,14 @@ def get_content(content_id=None, coll_id=None, scope=None, name=None, type=None,
 
         return content
     except sqlalchemy.orm.exc.NoResultFound as error:
-        raise exceptions.NoObject('content(content_id: %s, coll_id: %s, scope: %s, name: %s, type: %s, min_id: %s, max_id: %s) cannot be found: %s' %
-                                  (content_id, coll_id, scope, name, type, min_id, max_id, error))
+        raise exceptions.NoObject('content(content_id: %s, coll_id: %s, scope: %s, name: %s, content_type: %s, min_id: %s, max_id: %s) cannot be found: %s' %
+                                  (content_id, coll_id, scope, name, content_type, min_id, max_id, error))
     except Exception as error:
         raise error
 
 
 @read_session
-def get_match_contents(coll_id, scope, name, type=None, min_id=None, max_id=None, session=None):
+def get_match_contents(coll_id, scope, name, content_type=None, min_id=None, max_id=None, session=None):
     """
     Get contents which matches the query or raise a NoObject exception.
 
@@ -308,7 +308,7 @@ def get_match_contents(coll_id, scope, name, type=None, min_id=None, max_id=None
     :param name: The name of the request data.
     :param min_id: The minimal id of the content.
     :param max_id: The maximal id of the content.
-    :param type: The type of the content.
+    :param content_type: The type of the content.
 
     :param session: The database session in use.
 
@@ -318,23 +318,23 @@ def get_match_contents(coll_id, scope, name, type=None, min_id=None, max_id=None
     """
 
     try:
-        if type is not None and isinstance(type, ContentType):
-            type = type.value
+        if content_type is not None and isinstance(content_type, ContentType):
+            content_type = content_type.value
 
-        if type is not None:
-            if type == ContentType.File.value:
+        if content_type is not None:
+            if content_type == ContentType.File.value:
                 select = """select * from atlas_idds.contents where coll_id=:coll_id and
-                            scope=:scope and name=:name and type=:type"""
+                            scope=:scope and name=:name and content_type=:content_type"""
                 stmt = text(select)
                 result = session.execute(stmt, {'coll_id': coll_id, 'scope': scope, 'name': name,
-                                                'type': type})
+                                                'content_type': content_type})
             else:
                 select = """select * from atlas_idds.contents where coll_id=:coll_id and
-                            scope=:scope and name=:name and type=:type
+                            scope=:scope and name=:name and content_type=:content_type
                             and min_id<=:min_id and max_id>=:max_id"""
                 stmt = text(select)
                 result = session.execute(stmt, {'coll_id': coll_id, 'scope': scope, 'name': name,
-                                                'type': type, 'min_id': min_id,
+                                                'content_type': content_type, 'min_id': min_id,
                                                 'max_id': max_id})
         else:
             if min_id is None or max_id is None:
@@ -353,8 +353,8 @@ def get_match_contents(coll_id, scope, name, type=None, min_id=None, max_id=None
         rets = []
         for content in contents:
             content = row2dict(content)
-            if content['type'] is not None:
-                content['type'] = ContentType(content['type'])
+            if content['content_type'] is not None:
+                content['content_type'] = ContentType(content['content_type'])
             if content['status'] is not None:
                 content['status'] = ContentStatus(content['status'])
             if content['content_metadata']:
@@ -362,8 +362,8 @@ def get_match_contents(coll_id, scope, name, type=None, min_id=None, max_id=None
             rets.append(content)
         return rets
     except sqlalchemy.orm.exc.NoResultFound as error:
-        raise exceptions.NoObject('No match contents for (coll_id: %s, scope: %s, name: %s, type: %s, min_id: %s, max_id: %s): %s' %
-                                  (coll_id, scope, name, type, min_id, max_id, error))
+        raise exceptions.NoObject('No match contents for (coll_id: %s, scope: %s, name: %s, content_type: %s, min_id: %s, max_id: %s): %s' %
+                                  (coll_id, scope, name, content_type, min_id, max_id, error))
     except Exception as error:
         raise error
 
@@ -444,8 +444,8 @@ def get_contents(scope=None, name=None, coll_id=None, status=None, session=None)
         rets = []
         for content in contents:
             content = row2dict(content)
-            if content['type'] is not None:
-                content['type'] = ContentType(content['type'])
+            if content['content_type'] is not None:
+                content['content_type'] = ContentType(content['content_type'])
             if content['status'] is not None:
                 content['status'] = ContentStatus(content['status'])
             if content['content_metadata']:
@@ -501,8 +501,8 @@ def update_content(content_id, parameters, session=None):
 
     """
     try:
-        if 'type' in parameters and isinstance(parameters['type'], ContentType):
-            parameters['type'] = parameters['type'].value
+        if 'content_type' in parameters and isinstance(parameters['content_type'], ContentType):
+            parameters['content_type'] = parameters['content_type'].value
         if 'status' in parameters and isinstance(parameters['status'], ContentStatus):
             parameters['status'] = parameters['status'].value
         if 'content_metadata' in parameters:

@@ -68,14 +68,14 @@ class Clerk(BaseAgent):
         if request_type in [RequestType.StageIn, RequestType.StageIn.value]:
             collection = input_collection
             output_collection = copy.deepcopy(collection)
-            output_collection['type'] = CollectionType.Dataset
+            output_collection['coll_type'] = CollectionType.Dataset
             output_collection['relation_type'] = CollectionRelationType.Output
             output_collection['status'] = CollectionStatus.New
         else:
             collection = input_collection
             output_collection = copy.deepcopy(collection)
             output_collection['name'] = collection['name'] + '_iDDS.%s.%s' % (request_type.name, transform_tag)
-            output_collection['type'] = CollectionType.Dataset
+            output_collection['coll_type'] = CollectionType.Dataset
             output_collection['relation_type'] = CollectionRelationType.Output
             output_collection['status'] = CollectionStatus.New
         return output_collection
@@ -87,7 +87,7 @@ class Clerk(BaseAgent):
         collection = input_collection
         log_collection = copy.deepcopy(collection)
         log_collection['name'] = collection['name'] + '_iDDS.%s.%s.log' % (request_type.name, transform_tag)
-        log_collection['type'] = CollectionType.Dataset
+        log_collection['coll_type'] = CollectionType.Dataset
         log_collection['relation_type'] = CollectionRelationType.Log
         log_collection['status'] = CollectionStatus.New
         return log_collection
@@ -119,7 +119,7 @@ class Clerk(BaseAgent):
                     else:
                         related_collections = {'input_collections': [], 'output_collections': [], 'log_collections': []}
                         input_collection = {'transform_id': None,
-                                            'type': collection['type'],
+                                            'coll_type': collection['coll_type'],
                                             'scope': collection['scope'],
                                             'name': collection['name'],
                                             'relation_type': CollectionRelationType.Input,

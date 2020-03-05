@@ -151,7 +151,7 @@ def get_collections(scope, name, request_id=None, workload_id=None, session=None
 
 
 @transactional_session
-def add_collection(scope, name, type=CollectionType.Dataset, transform_id=None,
+def add_collection(scope, name, coll_type=CollectionType.Dataset, transform_id=None,
                    relation_type=CollectionRelationType.Input, coll_size=0, status=CollectionStatus.New,
                    total_files=0, retries=0, expired_at=None, coll_metadata=None, session=None):
     """
@@ -159,7 +159,7 @@ def add_collection(scope, name, type=CollectionType.Dataset, transform_id=None,
 
     :param scope: The scope of the request data.
     :param name: The name of the request data.
-    :param type: The type of dataset as dataset or container.
+    :param coll_type: The type of dataset as dataset or container.
     :param transform_id: The transform id related to this collection.
     :param relation_type: The relation between this collection and its transform,
                           such as Input, Output, Log and so on.
@@ -175,7 +175,7 @@ def add_collection(scope, name, type=CollectionType.Dataset, transform_id=None,
 
     :returns: collection id.
     """
-    orm_collections.add_collection(scope=scope, name=name, type=type,
+    orm_collections.add_collection(scope=scope, name=name, coll_type=coll_type,
                                    transform_id=transform_id, relation_type=relation_type,
                                    coll_size=coll_size, status=status, total_files=total_files,
                                    retries=retries, expired_at=expired_at, coll_metadata=coll_metadata,
