@@ -59,6 +59,10 @@ class Carrier(BaseAgent):
             if 'stagein_submitter' not in self.plugins:
                 raise AgentPluginError('Plugin stagein_submitter is required')
             return self.plugins['stagein_submitter'](processing, transform, input_collection, output_collection)
+        if transform['transform_type'] == TransformType.ActiveLearning:
+            if 'activelearning_submitter' not in self.plugins:
+                raise AgentPluginError('Plugin activelearning_submitter is required')
+            return self.plugins['activelearning_submitter'](processing, transform, input_collection, output_collection)
 
         return None
 
@@ -99,6 +103,8 @@ class Carrier(BaseAgent):
             self.logger.info("Main thread submitted new processing: %s" % (processing['processing_id']))
             processing_id = processing['processing_id']
             del processing['processing_id']
+            processing['locking'] = ProcessingLocking.Idle
+            # self.logger.debug("wen: %s" % str(processing))
             core_processings.update_processing(processing_id=processing_id, parameters=processing)
 
     def get_monitor_processings(self):
@@ -118,6 +124,10 @@ class Carrier(BaseAgent):
             if 'stagein_poller' not in self.plugins:
                 raise AgentPluginError('Plugin stagein_poller is required')
             return self.plugins['stagein_poller'](processing, transform, input_collection, output_collection, output_contents)
+        if transform['transform_type'] == TransformType.ActiveLearning:
+            if 'activelearning_poller' not in self.plugins:
+                raise AgentPluginError('Plugin activelearning_poller is required')
+            return self.plugins['activelearning_poller'](processing, transform, input_collection, output_collection, output_contents)
 
         return None
 
@@ -136,10 +146,23 @@ class Carrier(BaseAgent):
         if 'workload_id' in transform['transform_metadata']:
             workload_id = transform['transform_metadata']['workload_id']
 
-        msg_content = {'msg_type': 'file_stagein',
+        if transform['transform_type'] in [TransformType.StageIn, TransformType.StageIn.value]:
+            msg_type = 'file_stagein'
+            msg_type_c = MessageType.StageInFile
+        elif transform['transform_type'] in [TransformType.ActiveLearning, TransformType.ActiveLearning.value]:
+            msg_type = 'file_activelearning'
+            msg_type_c = MessageType.ActiveLearningFile
+        elif transform['transform_type'] in [TransformType.HyperParameterTuning, TransformType.HyperParameterTuning.value]:
+            msg_type = 'file_hyperparemetertuning'
+            msg_type_c = MessageType.HyperParameterTuningFile
+        else:
+            msg_type = 'file_unknown'
+            msg_type_c = MessageType.UnknownFile
+
+        msg_content = {'msg_type': msg_type,
                        'workload_id': workload_id,
                        'files': updated_files_message}
-        file_msg_content = {'msg_type': MessageType.StageInFile,
+        file_msg_content = {'msg_type': msg_type_c,
                             'status': MessageStatus.New,
                             'source': MessageSource.Carrier,
                             'transform_id': transform['transform_id'],
@@ -170,6 +193,8 @@ class Carrier(BaseAgent):
         processing_parameters = {'status': ret_poll['processing_updates']['status'],
                                  'locking': ProcessingLocking.Idle,
                                  'processing_metadata': ret_poll['processing_updates']['processing_metadata']}
+        if 'output_metadata' in ret_poll['processing_updates']:
+            processing_parameters['output_metadata'] = ret_poll['processing_updates']['output_metadata']
         updated_processing = {'processing_id': processing['processing_id'],
                               'parameters': processing_parameters}
 
@@ -201,12 +226,14 @@ class Carrier(BaseAgent):
                 self.logger.info("Main thread processing(processing_id: %s) status changed to %s" % (processing['processing_updates']['processing_id'],
                                                                                                      processing['processing_updates']['parameters']['status']))
 
+                self.logger.debug("wen: processing %s" % str(processing))
                 core_processings.update_processing_with_collection_contents(updated_processing=processing['processing_updates'],
                                                                             updated_files=processing['updated_files'],
                                                                             file_msg_content=processing['file_message'],
                                                                             message_bulk_size=self.message_bulk_size)
 
     def clean_locks(self):
+        self.logger.info("clean locking")
         core_processings.clean_locking()
 
     def run(self):
