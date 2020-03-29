@@ -29,7 +29,8 @@ from idds.orm.base.utils import row2dict
 
 @transactional_session
 def add_processing(transform_id, status=ProcessingStatus.New, locking=ProcessingLocking.Idle, submitter=None,
-                   granularity=None, granularity_type=None, expired_at=None, processing_metadata=None, session=None):
+                   granularity=None, granularity_type=None, expired_at=None, processing_metadata=None,
+                   output_metadata=None, session=None):
     """
     Add a processing.
 
@@ -55,11 +56,14 @@ def add_processing(transform_id, status=ProcessingStatus.New, locking=Processing
         locking = locking.value
     if processing_metadata:
         processing_metadata = json.dumps(processing_metadata)
+    if output_metadata:
+        output_metadata = json.dumps(output_metadata)
 
     insert = """insert into atlas_idds.processings(transform_id, status, locking, submitter, granularity_type,
-                                                   granularity, created_at, updated_at, expired_at, processing_metadata)
+                                                   granularity, created_at, updated_at, expired_at, processing_metadata,
+                                                   output_metadata)
                 values(:transform_id, :status, :locking, :submitter, :granularity_type, :granularity, :created_at,
-                       :updated_at, :expired_at, :processing_metadata) returning processing_id into :processing_id
+                       :updated_at, :expired_at, :processing_metadata, :output_metadata) returning processing_id into :processing_id
              """
     stmt = text(insert)
     stmt = stmt.bindparams(outparam("processing_id", type_=BigInteger().with_variant(Integer, "sqlite")))
@@ -69,7 +73,8 @@ def add_processing(transform_id, status=ProcessingStatus.New, locking=Processing
         ret = session.execute(stmt, {'transform_id': transform_id, 'status': status, 'locking': locking,
                                      'submitter': submitter, 'granularity_type': granularity_type, 'granularity': granularity,
                                      'created_at': datetime.datetime.utcnow(), 'updated_at': datetime.datetime.utcnow(),
-                                     'expired_at': expired_at, 'processing_metadata': processing_metadata, 'processing_id': processing_id})
+                                     'expired_at': expired_at, 'processing_metadata': processing_metadata,
+                                     'output_metadata': output_metadata, 'processing_id': processing_id})
         processing_id = ret.out_parameters['processing_id'][0]
 
         return processing_id
@@ -110,6 +115,8 @@ def get_processing(processing_id, session=None):
             processing['locking'] = ProcessingLocking(processing['locking'])
         if processing['processing_metadata']:
             processing['processing_metadata'] = json.loads(processing['processing_metadata'])
+        if processing['output_metadata']:
+            processing['output_metadata'] = json.loads(processing['output_metadata'])
 
         return processing
     except sqlalchemy.orm.exc.NoResultFound as error:
@@ -149,6 +156,9 @@ def get_processings_by_transform_id(transform_id=None, session=None):
                 processing['locking'] = ProcessingLocking(processing['locking'])
             if processing['processing_metadata']:
                 processing['processing_metadata'] = json.loads(processing['processing_metadata'])
+            if processing['output_metadata']:
+                processing['output_metadata'] = json.loads(processing['output_metadata'])
+
             ret.append(processing)
         return ret
     except sqlalchemy.orm.exc.NoResultFound as error:
@@ -214,6 +224,8 @@ def get_processings_by_status(status, period=None, locking=False, bulk_size=None
                 processing['status'] = ProcessingStatus(processing['status'])
             if processing['processing_metadata']:
                 processing['processing_metadata'] = json.loads(processing['processing_metadata'])
+            if processing['output_metadata']:
+                processing['output_metadata'] = json.loads(processing['output_metadata'])
             new_processings.append(processing)
 
         return new_processings
@@ -245,6 +257,8 @@ def update_processing(processing_id, parameters, session=None):
             parameters['locking'] = parameters['locking'].value
         if 'processing_metadata' in parameters:
             parameters['processing_metadata'] = json.dumps(parameters['processing_metadata'])
+        if 'output_metadata' in parameters:
+            parameters['output_metadata'] = json.dumps(parameters['output_metadata'])
 
         parameters['updated_at'] = datetime.datetime.utcnow()
 
