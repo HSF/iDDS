@@ -151,9 +151,9 @@ def get_transform(transform_id, session=None):
 
 
 @read_session
-def get_transform_with_input_collection(transform_type, transform_tag, coll_scope, coll_name, session=None):
+def get_transforms_with_input_collection(transform_type, transform_tag, coll_scope, coll_name, session=None):
     """
-    Get transform or raise a NoObject exception.
+    Get transforms or raise a NoObject exception.
 
     :param transform_type: Transform type.
     :param transform_tag: Transform tag.
@@ -183,8 +183,9 @@ def get_transform_with_input_collection(transform_type, transform_tag, coll_scop
                                         'relation_type': CollectionRelationType.Input.value,
                                         'scope': coll_scope,
                                         'name': coll_name})
-        transform = result.fetchone()
-        if transform:
+        transforms = result.fetchall()
+        ret = []
+        for transform in transforms:
             transform = row2dict(transform)
             if transform['transform_type']:
                 transform['transform_type'] = TransformType(transform['transform_type'])
@@ -194,8 +195,8 @@ def get_transform_with_input_collection(transform_type, transform_tag, coll_scop
                 transform['locking'] = TransformLocking(transform['locking'])
             if transform['transform_metadata']:
                 transform['transform_metadata'] = json.loads(transform['transform_metadata'])
-
-        return transform
+            ret.append(transform)
+        return ret
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('Transform(transform_type: %s, transform_tag: %s, coll_scope: %s, coll_name: %s) cannot be found: %s' %
                                   (transform_type, transform_tag, coll_scope, coll_name, error))
