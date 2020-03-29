@@ -68,6 +68,8 @@ class RequestType(Enum):
     Derivation = 0
     EventStreaming = 1
     StageIn = 2
+    ActiveLearning = 3
+    HyperParameterTuning = 4
     Other = 99
 
 
@@ -75,6 +77,8 @@ class TransformType(Enum):
     Derivation = 0
     EventStreaming = 1
     StageIn = 2
+    ActiveLearning = 3
+    HyperParameterTuning = 4
     Other = 99
 
 
@@ -100,6 +104,7 @@ class CollectionType(Enum):
     Container = 0
     Dataset = 1
     File = 2
+    PseudoDataset = 3
 
 
 class CollectionRelationType(Enum):
@@ -127,6 +132,7 @@ class CollectionLocking(Enum):
 class ContentType(Enum):
     File = 0
     Event = 1
+    PseudoContent = 2
 
 
 class ContentStatus(Enum):
@@ -164,6 +170,12 @@ class ProcessingLocking(Enum):
 class MessageType(Enum):
     StageInFile = 0
     StageInCollection = 1
+    ActiveLearningFile = 2
+    ActiveLearningCollection = 3
+    HyperParameterTuningFile = 4
+    HyperParameterTuningCollection = 5
+    UnknownFile = 98
+    UnknownCollection = 99
 
 
 class MessageStatus(Enum):
