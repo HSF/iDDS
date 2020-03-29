@@ -75,7 +75,7 @@ def get_transform(transform_id, session=None):
 
 
 @read_session
-def get_transform_with_input_collection(transform_type, transform_tag, coll_scope, coll_name, session=None):
+def get_transforms_with_input_collection(transform_type, transform_tag, coll_scope, coll_name, session=None):
     """
     Get transform or raise a NoObject exception.
 
@@ -87,10 +87,10 @@ def get_transform_with_input_collection(transform_type, transform_tag, coll_scop
 
     :raises NoObject: If no transform is founded.
 
-    :returns: Transform.
+    :returns: Transforms.
     """
-    return orm_transforms.get_transform_with_input_collection(transform_type, transform_tag, coll_scope,
-                                                              coll_name, session=session)
+    return orm_transforms.get_transforms_with_input_collection(transform_type, transform_tag, coll_scope,
+                                                               coll_name, session=session)
 
 
 @read_session
