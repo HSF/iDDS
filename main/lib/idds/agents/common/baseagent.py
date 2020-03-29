@@ -25,11 +25,11 @@ class BaseAgent(TimerScheduler, PluginBase):
     """
 
     def __init__(self, num_threads=1, **kwargs):
+        super(BaseAgent, self).__init__(num_threads)
         self.name = self.__class__.__name__
         self.logger = None
         self.setup_logger()
-
-        super(BaseAgent, self).__init__(num_threads, self.logger)
+        self.set_logger(self.logger)
 
         self.config_section = Sections.Common
 
