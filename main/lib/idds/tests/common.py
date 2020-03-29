@@ -138,15 +138,30 @@ def get_example_real_tape_stagein_request():
 
 def get_example_prodsys2_tape_stagein_request():
     req_properties = {
-        'scope': 'data15_13TeV',
-        'name': 'data15_13TeV.00270949.physics_Main.merge.AOD.r7600_p2521_tid07734829_00',
+        'scope': 'data16_13TeV',
+        'name': 'data16_13TeV.00298773.physics_Main.daq.RAW',
         'requester': 'panda',
         'request_type': RequestType.StageIn,
         'transform_tag': 'prodsys2',
         'status': RequestStatus.New,
         'priority': 0,
         'lifetime': 30,
-        'request_metadata': {'workload_id': '20525133', 'src_rse': 'SARA-MATRIX_DATATAPE', 'rule_id': '329961145fb14760a9ae95ed12d53f3c'}
+        'request_metadata': {'workload_id': '20776834', 'src_rse': 'INFN-T1_DATATAPE', 'rule_id': 'ececf892223142b1b7c25b7593f50fe1'}
+    }
+    return req_properties
+
+
+def get_example_active_learning_request():
+    req_properties = {
+        'scope': 'data15_13TeV',
+        'name': 'data15_13TeV.00270949.physics_Main.merge.AOD.r7600_p2521_tid07734829_00',
+        'requester': 'panda',
+        'request_type': RequestType.ActiveLearning,
+        'transform_tag': 'prodsys2',
+        'status': RequestStatus.New,
+        'priority': 0,
+        'lifetime': 30,
+        'request_metadata': {'workload_id': '20525134', 'scripts': 'https://', 'executable': 'hostname', 'arguments': '-s'}
     }
     return req_properties
 
