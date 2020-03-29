@@ -10,6 +10,7 @@
 
 
 import time
+import traceback
 
 
 class TimerTask(object):
@@ -17,7 +18,7 @@ class TimerTask(object):
     The base class for Task which will be executed after some time
     """
 
-    def __init__(self, task_func, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=10, priority=1):
+    def __init__(self, task_func, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=10, priority=1, logger=None):
         self.to_execute_time = time.time()
         self.delay_time = delay_time
         self.priority = priority
@@ -25,6 +26,8 @@ class TimerTask(object):
         self.task_output_queue = task_output_queue
         self.task_args = task_args
         self.task_kwargs = task_kwargs
+
+        self.logger = logger
 
     def __eq__(one, two):
         return (one.to_execute_time, one.priority) == (two.to_execute_time, two.priority)
@@ -47,8 +50,19 @@ class TimerTask(object):
         return False
 
     def execute(self):
-        ret = self.task_func(*self.task_args, **self.task_kwargs)
-        if self.task_output_queue and ret is not None:
-            for ret_item in ret:
-                self.task_output_queue.put(ret_item)
-        self.to_execute_time = time.time() + self.delay_time
+        try:
+            # set it to avoid an exception
+            self.to_execute_time = time.time() + self.delay_time
+
+            ret = self.task_func(*self.task_args, **self.task_kwargs)
+            if self.task_output_queue and ret is not None:
+                for ret_item in ret:
+                    self.task_output_queue.put(ret_item)
+
+            # if there is no exception, this one is the correct one.
+            self.to_execute_time = time.time() + self.delay_time
+        except:
+            if self.logger:
+                self.logger.error('Failed to execute task func: %s, %s' % (self.task_func, traceback.format_exc()))
+            else:
+                print('Failed to execute task func: %s, %s' % (self.task_func, traceback.format_exc()))
