@@ -60,6 +60,10 @@ class Transformer(BaseAgent):
             if 'stagein_transformer' not in self.plugins:
                 raise AgentPluginError('Plugin stagein_transformer is required')
             return self.plugins['stagein_transformer'](transform, input_collection, output_collection, contents)
+        if transform['transform_type'] == TransformType.ActiveLearning:
+            if 'activelearning_transformer' not in self.plugins:
+                raise AgentPluginError('Plugin activelearning_transformer is required')
+            return self.plugins['activelearning_transformer'](transform, input_collection, output_collection, contents)
 
         return []
 
@@ -129,7 +133,9 @@ class Transformer(BaseAgent):
             if collection['relation_type'] == CollectionRelationType.Input:
                 input_collection = collection
 
-        if ret_transform and input_collection and input_collection['status'] not in [CollectionStatus.Closed, CollectionStatus.Closed.value]:
+        if ret_transform is not None \
+            and (ret_transform['status'] == TransformStatus.Extend                                                                  # noqa: W503
+            or (input_collection and input_collection['status'] not in [CollectionStatus.Closed, CollectionStatus.Closed.value])):  # noqa: W503
             ret = self.generate_transform_outputs(ret_transform, collections)
             ret['transform']['locking'] = TransformLocking.Idle
             ret['transform']['status'] = TransformStatus.Transforming
@@ -137,7 +143,7 @@ class Transformer(BaseAgent):
         else:
             transform['locking'] = TransformLocking.Idle
             return {'transform': transform, 'input_collection': None, 'output_collection': None,
-                    'input_contents': None, 'output_contents': None, 'processing': None}
+                    'input_contents': None, 'output_contents': None, 'processing': None, 'to_cancel_processing': []}
 
     def process_new_transforms(self):
         ret = []
@@ -160,6 +166,7 @@ class Transformer(BaseAgent):
                 ret = self.new_output_queue.get()
                 self.logger.debug("Main thread finishing processing transform: %s" % ret['transform'])
                 if ret:
+                    # self.logger.debug("wen: %s" % str(ret['output_contents']))
                     core_transforms.add_transform_outputs(transform=ret['transform'],
                                                           input_collection=ret['input_collection'],
                                                           output_collection=ret['output_collection'],
@@ -275,6 +282,7 @@ class Transformer(BaseAgent):
                 if transform_output:
                     # status and locking should use the items from transform_input
                     transform_input['transform']['transform_metadata']['output_collection'] = transform_output['transform_metadata']['output_collection']
+                # self.logger.debug("wen: %s" % str(transform_input['output_contents']))
                 core_transforms.add_transform_outputs(transform=transform_input['transform'],
                                                       input_collection=transform_input['input_collection'],
                                                       output_collection=transform_input['output_collection'],
@@ -287,6 +295,7 @@ class Transformer(BaseAgent):
                 core_transforms.update_transform(transform_id=transform_id, parameters=transform_output)
 
     def clean_locks(self):
+        self.logger.info("clean locking")
         core_transforms.clean_locking()
 
     def run(self):
