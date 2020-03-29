@@ -19,7 +19,7 @@ except ImportError:
 
 from idds.common.constants import (Sections, RequestStatus, RequestLocking, RequestType,
                                    TransformStatus, CollectionRelationType,
-                                   CollectionType, CollectionStatus)
+                                   CollectionType, CollectionStatus, TransformType)
 from idds.common.exceptions import AgentPluginError
 from idds.common.utils import setup_logging, convert_request_type_to_transform_type
 from idds.core import requests as core_requests, transforms as core_transforms
@@ -59,16 +59,45 @@ class Clerk(BaseAgent):
 
         return reqs_new
 
-    def get_collections(self, scope, name):
-        if 'collection_lister' not in self.plugins:
-            raise AgentPluginError('Plugin collection_lister is required')
-        return self.plugins['collection_lister'](scope, name)
+    def get_transform_with_input_collection(self, transform_type, transform_tag, coll_scope, coll_name, request_metadata):
+        transforms = core_transforms.get_transforms_with_input_collection(transform_type=transform_type,
+                                                                          transform_tag=transform_tag,
+                                                                          coll_scope=coll_scope,
+                                                                          coll_name=coll_name)
+        if not transforms:
+            return None
+
+        if transform_type in [TransformType.StageIn, TransformType.StageIn.value]:
+            for transform in transforms:
+                transform_metadata = transform['transform_metadata']
+                if ((('workload_id' in transform_metadata and 'workload_id' in request_metadata               # noqa: W503
+                    and transform_metadata['workload_id'] == request_metadata['workload_id'])                 # noqa: W503
+                    or ('workload_id' not in transform_metadata and 'workload_id' not in request_metadata))   # noqa: W503
+                    and (('rule_id' in transform_metadata and 'rule_id' in request_metadata                   # noqa: W503
+                    and transform_metadata['rule_id'] == request_metadata['rule_id'])                         # noqa: W503
+                    or ('rule_id' not in transform_metadata and 'rule_id' not in request_metadata))):         # noqa: W503
+                    return transform
+        else:
+            return None
+
+    def get_collections(self, scope, name, req=None):
+        if (req and req['request_metadata'] and 'is_pseudo_input' in req['request_metadata']                  # noqa: W503
+            and req['request_metadata']['is_pseudo_input'] == True):                                          # noqa: W503
+            collection = {'scope': scope, 'name': name, 'total_files': 1, 'bytes': 0,
+                          'coll_type': CollectionType.PseudoDataset}
+            return [collection]
+        else:
+            if 'collection_lister' not in self.plugins:
+                raise AgentPluginError('Plugin collection_lister is required')
+            return self.plugins['collection_lister'](scope, name)
 
     def get_output_collection(self, input_collection, request_type, transform_tag):
-        if request_type in [RequestType.StageIn, RequestType.StageIn.value]:
+        if request_type in [RequestType.StageIn, RequestType.StageIn.value,
+                            RequestType.ActiveLearning, RequestType.ActiveLearning.value,
+                            RequestType.HyperParameterTuning, RequestType.HyperParameterTuning.value]:
             collection = input_collection
             output_collection = copy.deepcopy(collection)
-            output_collection['coll_type'] = CollectionType.Dataset
+            # output_collection['coll_type'] = CollectionType.Dataset
             output_collection['relation_type'] = CollectionRelationType.Output
             output_collection['status'] = CollectionStatus.New
         else:
@@ -94,16 +123,18 @@ class Clerk(BaseAgent):
 
     def process_new_request(self, req):
         try:
-            collections = self.get_collections(req['scope'], req['name'])
+            collections = self.get_collections(req['scope'], req['name'], req)
             if collections:
                 transforms_to_add = []
                 transforms_to_extend = []
                 for collection in collections:
                     transform_type = convert_request_type_to_transform_type(req['request_type'])
-                    transform = core_transforms.get_transform_with_input_collection(transform_type=transform_type,
-                                                                                    transform_tag=req['transform_tag'],
-                                                                                    coll_scope=collection['scope'],
-                                                                                    coll_name=collection['name'])
+                    transform = self.get_transform_with_input_collection(transform_type=transform_type,
+                                                                         transform_tag=req['transform_tag'],
+                                                                         coll_scope=collection['scope'],
+                                                                         coll_name=collection['name'],
+                                                                         request_metadata=req['request_metadata'])
+
                     if transform:
                         new_transform_metadata = copy.deepcopy(transform['transform_metadata'])
                         if req['request_metadata']:
@@ -301,6 +332,7 @@ class Clerk(BaseAgent):
             core_requests.update_request(req['request_id'], parameter)
 
     def clean_locks(self):
+        self.logger.info("clean locking")
         core_requests.clean_locking()
 
     def run(self):
@@ -312,14 +344,14 @@ class Clerk(BaseAgent):
 
             self.load_plugins()
 
-            task = self.create_task(task_func=self.get_new_requests, task_output_queue=self.new_task_queue, task_args=tuple(), task_kwargs={}, delay_time=5, priority=1)
+            task = self.create_task(task_func=self.get_new_requests, task_output_queue=self.new_task_queue, task_args=tuple(), task_kwargs={}, delay_time=10, priority=1)
             self.add_task(task)
             task = self.create_task(task_func=self.process_new_requests, task_output_queue=self.new_output_queue, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
             self.add_task(task)
             task = self.create_task(task_func=self.finish_new_requests, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
             self.add_task(task)
 
-            task = self.create_task(task_func=self.get_monitor_requests, task_output_queue=self.monitor_task_queue, task_args=tuple(), task_kwargs={}, delay_time=5, priority=1)
+            task = self.create_task(task_func=self.get_monitor_requests, task_output_queue=self.monitor_task_queue, task_args=tuple(), task_kwargs={}, delay_time=10, priority=1)
             self.add_task(task)
             task = self.create_task(task_func=self.process_monitor_requests, task_output_queue=self.monitor_output_queue, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
             self.add_task(task)
