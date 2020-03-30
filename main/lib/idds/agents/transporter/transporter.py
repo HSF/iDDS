@@ -18,11 +18,11 @@ except ImportError:
     from Queue import Queue
 
 from idds.common.constants import (Sections, CollectionRelationType, CollectionStatus,
-                                   CollectionLocking, ContentType, ContentStatus,
-                                   MessageType, MessageStatus, MessageSource)
-from idds.common.exceptions import AgentPluginError, IDDSException
+                                   CollectionLocking, CollectionType, ContentType, ContentStatus,
+                                   TransformType, MessageType, MessageStatus, MessageSource)
+from idds.common.exceptions import AgentPluginError
 from idds.common.utils import setup_logging
-from idds.core import (catalog as core_catalog)
+from idds.core import (catalog as core_catalog, transforms as core_transforms)
 from idds.agents.common.baseagent import BaseAgent
 
 setup_logging(__name__)
@@ -38,7 +38,10 @@ class Transporter(BaseAgent):
         self.poll_time_period = int(poll_time_period)
         self.retrieve_bulk_size = int(retrieve_bulk_size)
         self.config_section = Sections.Transporter
+
+        self.new_input_queue = Queue()
         self.processed_input_queue = Queue()
+        self.new_output_queue = Queue()
         self.processed_output_queue = Queue()
 
     def get_new_input_collections(self):
@@ -79,7 +82,30 @@ class Transporter(BaseAgent):
         """
         Process input collection
         """
-        if coll['coll_metadata'] and coll['coll_metadata']['status'] in [CollectionStatus.Closed, CollectionStatus.Closed.name, CollectionStatus.Closed.value]:
+        if coll['coll_type'] in [CollectionType.PseudoDataset, CollectionType.PseudoDataset.value]:
+            pseudo_content = {'coll_id': coll['coll_id'],
+                              'scope': coll['scope'],
+                              'name': 'pseudo_%s' % coll['coll_id'],
+                              'min_id': 0,
+                              'max_id': 0,
+                              'content_type': ContentType.File,
+                              'status': ContentStatus.New,
+                              'bytes': 0,
+                              'md5': None,
+                              'adler32': None,
+                              'expired_at': coll['expired_at']}
+            new_coll = {'coll': coll,
+                        'bytes': 0,
+                        'status': CollectionStatus.Open,
+                        'total_files': 1,
+                        'new_files': 0,
+                        'processed_files': 0,
+                        'coll_metadata': {'availability': True,
+                                          'events': 0,
+                                          'is_open': False,
+                                          'status': CollectionStatus.Closed.name},
+                        'contents': [pseudo_content]}
+        elif coll['coll_metadata'] and coll['coll_metadata']['status'] in [CollectionStatus.Closed, CollectionStatus.Closed.name, CollectionStatus.Closed.value]:
             new_coll = {'coll': coll, 'status': coll['status'], 'contents': []}
         else:
             coll_metadata = self.get_collection_metadata(coll['scope'], coll['name'])
@@ -112,6 +138,21 @@ class Transporter(BaseAgent):
                                           'run_number': coll_metadata['run_number']},
                         'contents': new_contents}
         return new_coll
+
+    def process_input_collections(self):
+        ret = []
+        while not self.new_input_queue.empty():
+            try:
+                coll = self.new_input_queue.get()
+                if coll:
+                    self.logger.info("Main thread processing input collection: %s" % coll)
+                    ret_coll = self.process_input_collection(coll)
+                    if ret_coll:
+                        ret.append(ret_coll)
+            except Exception as ex:
+                self.logger.error(ex)
+                self.logger.error(traceback.format_exc())
+        return ret
 
     def finish_processing_input_collections(self):
         while not self.processed_input_queue.empty():
@@ -202,12 +243,26 @@ class Transporter(BaseAgent):
         elif content_status_keys == [ContentStatus.Available] or content_status_keys == [ContentStatus.Available.value]:
             coll_status = CollectionStatus.Closed
 
-            msg_content = {'msg_type': 'Collection_stagein',
+            transform = core_transforms.get_transform(coll['coll_metadata']['transform_id'])
+            if transform['transform_type'] in [TransformType.StageIn, TransformType.StageIn.value]:
+                msg_type = 'collection_stagein'
+                msg_type_c = MessageType.StageInCollection
+            elif transform['transform_type'] in [TransformType.ActiveLearning, TransformType.ActiveLearning.value]:
+                msg_type = 'collection_activelearning'
+                msg_type_c = MessageType.ActiveLearningCollection
+            elif transform['transform_type'] in [TransformType.HyperParameterTuning, TransformType.HyperParameterTuning.value]:
+                msg_type = 'collection_hyperparemetertuning'
+                msg_type_c = MessageType.HyperParameterTuningCollection
+            else:
+                msg_type = 'collection_unknown'
+                msg_type_c = MessageType.UnknownCollection
+
+            msg_content = {'msg_type': msg_type,
                            'workload_id': coll['coll_metadata']['workload_id'] if 'workload_id' in coll['coll_metadata'] else None,
                            'collections': [{'scope': coll['scope'],
                                             'name': coll['name'],
                                             'status': 'Available'}]}
-            coll_msg = {'msg_type': MessageType.StageInCollection,
+            coll_msg = {'msg_type': msg_type_c,
                         'status': MessageStatus.New,
                         'source': MessageSource.Transporter,
                         'transform_id': coll['coll_metadata']['transform_id'] if 'transform_id' in coll['coll_metadata'] else None,
@@ -238,6 +293,21 @@ class Transporter(BaseAgent):
                     'coll_msg': coll_msg}
         return ret_coll
 
+    def process_output_collections(self):
+        ret = []
+        while not self.new_output_queue.empty():
+            try:
+                coll = self.new_output_queue.get()
+                if coll:
+                    self.logger.info("Main thread processing output collection: %s" % coll)
+                    ret_coll = self.process_output_collection(coll)
+                    if ret_coll:
+                        ret.append(ret_coll)
+            except Exception as ex:
+                self.logger.error(ex)
+                self.logger.error(traceback.format_exc())
+        return ret
+
     def finish_processing_output_collections(self):
         while not self.processed_output_queue.empty():
             coll = self.processed_output_queue.get()
@@ -250,20 +320,9 @@ class Transporter(BaseAgent):
             parameters['locking'] = CollectionLocking.Idle
             core_catalog.update_collection_with_msg(coll_id=coll_id, parameters=parameters, msg=coll_msg)
 
-    def prepare_finish_tasks(self):
-        """
-        Prepare tasks and finished tasks
-        """
-        self.finish_processing_input_collections()
-        self.finish_processing_output_collections()
-
-        colls = self.get_new_input_collections()
-        for coll in colls:
-            self.submit_task(self.process_input_collection, self.processed_input_queue, (coll,))
-
-        colls = self.get_new_output_collections()
-        for coll in colls:
-            self.submit_task(self.process_output_collection, self.processed_output_queue, (coll,))
+    def clean_locks(self):
+        self.logger.info("clean locking")
+        core_catalog.clean_locking()
 
     def run(self):
         """
@@ -274,17 +333,24 @@ class Transporter(BaseAgent):
 
             self.load_plugins()
 
-            for i in range(self.num_threads):
-                self.executors.submit(self.run_tasks, i)
+            task = self.create_task(task_func=self.get_new_input_collections, task_output_queue=self.new_input_queue, task_args=tuple(), task_kwargs={}, delay_time=5, priority=1)
+            self.add_task(task)
+            task = self.create_task(task_func=self.process_input_collections, task_output_queue=self.processed_input_queue, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
+            self.add_task(task)
+            task = self.create_task(task_func=self.finish_processing_input_collections, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
+            self.add_task(task)
 
-            while not self.graceful_stop.is_set():
-                try:
-                    self.prepare_finish_tasks()
-                    self.sleep_for_tasks()
-                except IDDSException as error:
-                    self.logger.error("Main thread IDDSException: %s" % str(error))
-                except Exception as error:
-                    self.logger.critical("Main thread exception: %s\n%s" % (str(error), traceback.format_exc()))
+            task = self.create_task(task_func=self.get_new_output_collections, task_output_queue=self.new_output_queue, task_args=tuple(), task_kwargs={}, delay_time=5, priority=1)
+            self.add_task(task)
+            task = self.create_task(task_func=self.process_output_collections, task_output_queue=self.processed_output_queue, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
+            self.add_task(task)
+            task = self.create_task(task_func=self.finish_processing_output_collections, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
+            self.add_task(task)
+
+            task = self.create_task(task_func=self.clean_locks, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1800, priority=1)
+            self.add_task(task)
+
+            self.execute()
         except KeyboardInterrupt:
             self.stop()
 

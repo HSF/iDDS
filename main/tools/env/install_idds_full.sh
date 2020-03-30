@@ -41,3 +41,11 @@ systemctl enable supervisord
 #supervisorctl start all
 #supervisorctl stop all
 
+
+#condor
+yum install -y condor.x86_64 condor-python.x86_64
+#firewall-cmd --zone=public --add-port=9618/tcp --permanent
+firewall-cmd --zone=public --add-port=9618/udp --permanent
+firewall-cmd --zone=public --add-port=9600-9700/tcp --permanent
+firewall-cmd --reload
+

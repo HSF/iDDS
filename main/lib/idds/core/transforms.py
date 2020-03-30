@@ -18,7 +18,8 @@ from idds.common import exceptions
 from idds.common.constants import (TransformStatus,
                                    TransformLocking,
                                    CollectionStatus,
-                                   ContentStatus)
+                                   ContentStatus,
+                                   ProcessingStatus)
 from idds.orm.base.session import read_session, transactional_session
 from idds.orm import (transforms as orm_transforms,
                       collections as orm_collections,
@@ -74,7 +75,7 @@ def get_transform(transform_id, session=None):
 
 
 @read_session
-def get_transform_with_input_collection(transform_type, transform_tag, coll_scope, coll_name, session=None):
+def get_transforms_with_input_collection(transform_type, transform_tag, coll_scope, coll_name, session=None):
     """
     Get transform or raise a NoObject exception.
 
@@ -86,10 +87,10 @@ def get_transform_with_input_collection(transform_type, transform_tag, coll_scop
 
     :raises NoObject: If no transform is founded.
 
-    :returns: Transform.
+    :returns: Transforms.
     """
-    return orm_transforms.get_transform_with_input_collection(transform_type, transform_tag, coll_scope,
-                                                              coll_name, session=session)
+    return orm_transforms.get_transforms_with_input_collection(transform_type, transform_tag, coll_scope,
+                                                               coll_name, session=session)
 
 
 @read_session
@@ -219,7 +220,7 @@ def trigger_update_transform_status(transform_id, input_collection_changed=False
 
 @transactional_session
 def add_transform_outputs(transform, input_collection, output_collection, input_contents, output_contents,
-                          processing, session=None):
+                          processing, to_cancel_processing=None, session=None):
     """
     For input contents, add corresponding output contents.
 
@@ -259,6 +260,10 @@ def add_transform_outputs(transform, input_collection, output_collection, input_
                                         parameters=parameters,
                                         session=session)
 
+    if to_cancel_processing:
+        to_cancel_params = {'status': ProcessingStatus.Cancel}
+        for to_cancel_id in to_cancel_processing:
+            orm_processings.update_processing(processing_id=to_cancel_id, parameters=to_cancel_params)
     if processing:
         orm_processings.add_processing(**processing, session=session)
 
@@ -275,3 +280,13 @@ def delete_transform(transform_id=None, session=None):
     :raises DatabaseException: If there is a database error.
     """
     orm_transforms.delete_transform(transform_id=transform_id, session=session)
+
+
+@transactional_session
+def clean_locking(time_period=3600, session=None):
+    """
+    Clearn locking which is older than time period.
+
+    :param time_period in seconds
+    """
+    orm_transforms.clean_locking(time_period=time_period, session=session)
