@@ -36,7 +36,7 @@ def get_req_properties():
         'status': RequestStatus.New,
         'priority': 0,
         'lifetime': 30,
-        'request_metadata': {'workload_id': '20525134', 'scripts': 'https://', 'executable': 'hostname', 'arguments': '-s --input %IN', 'output_json': 'output.json'}
+        'request_metadata': {'workload_id': '20525134', 'sandbox': 'https://', 'executable': 'hostname', 'arguments': '-s --input %IN', 'output_json': 'output.json'}
     }
     return req_properties
 
@@ -47,7 +47,7 @@ test_codes = get_test_codes()
 
 client = Client(host=host)
 test_codes_url = client.upload(test_codes)
-props['request_metadata']['scripts'] = test_codes_url
+props['request_metadata']['sandbox'] = test_codes_url
 props['request_metadata']['executable'] = 'test.sh'
 props['request_metadata']['arguments'] = '-1 -2 test'
 # props['request_metadata']['result_parser'] = 'default'

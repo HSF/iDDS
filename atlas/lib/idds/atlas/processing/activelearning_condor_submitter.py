@@ -38,14 +38,14 @@ class ActiveLearningCondorSubmitter(ProcessingPluginBase):
                 files.append(file)
 
             input_list = ','.join(files)
-            scripts = transform['transform_metadata']['scripts']
+            sandbox = transform['transform_metadata']['sandbox']
             executable = transform['transform_metadata']['executable']
             arguments = transform['transform_metadata']['arguments']
             output_json = None
             if 'output_json' in transform['transform_metadata']:
                 output_json = transform['transform_metadata']['output_json']
 
-            job_id, outputs = self.submit_job(processing['processing_id'], scripts, executable, arguments, input_list, output_json)
+            job_id, outputs = self.submit_job(processing['processing_id'], sandbox, executable, arguments, input_list, output_json)
 
             processing_metadata = processing['processing_metadata']
             processing_metadata['job_id'] = job_id
@@ -71,9 +71,9 @@ class ActiveLearningCondorSubmitter(ProcessingPluginBase):
             os.makedirs(job_dir)
         return job_dir
 
-    def generate_submit_script(self, processing_id, scripts, executable, arguments, input_list, output_json):
+    def generate_submit_script(self, processing_id, sandbox, executable, arguments, input_list, output_json):
         script = "#!/bin/bash\n\n"
-        script += "scripts=%s\n" % str(scripts)
+        script += "sandbox=%s\n" % str(sandbox)
         script += "executable=%s\n" % str(executable)
         script += "arguments=%s\n" % str(arguments)
         script += "input_list=%s\n" % str(input_list)
@@ -84,9 +84,9 @@ class ActiveLearningCondorSubmitter(ProcessingPluginBase):
         script += "echo $X509_USER_PROXY\n"
         script += "\n"
 
-        script += "wget $scripts\n"
-        script += 'base_scripts="$(basename -- $scripts)"\n'
-        script += 'tar xzf $base_scripts\n'
+        script += "wget $sandbox\n"
+        script += 'base_sandbox="$(basename -- $sandbox)"\n'
+        script += 'tar xzf $base_sandbox\n'
         script += 'chmod +x $executable\n'
         script += 'echo ./$executable $arguments\n'
         script += './$executable $arguments\n'
@@ -98,8 +98,8 @@ class ActiveLearningCondorSubmitter(ProcessingPluginBase):
             f.write(script)
         return script_name
 
-    def generate_submit_file(self, processing_id, scripts, executable, arguments, input_list, output_json):
-        script_name = self.generate_submit_script(processing_id, scripts, executable, arguments, input_list, output_json)
+    def generate_submit_file(self, processing_id, sandbox, executable, arguments, input_list, output_json):
+        script_name = self.generate_submit_script(processing_id, sandbox, executable, arguments, input_list, output_json)
 
         jdl = "#Agent jdl file\n"
         jdl += "Universe        = vanilla\n"
@@ -139,8 +139,8 @@ class ActiveLearningCondorSubmitter(ProcessingPluginBase):
             f.write(jdl)
         return submit_file
 
-    def submit_job(self, processing_id, scripts, executable, arguments, input_list, output_json):
-        jdl_file = self.generate_submit_file(processing_id, scripts, executable, arguments, input_list, output_json)
+    def submit_job(self, processing_id, sandbox, executable, arguments, input_list, output_json):
+        jdl_file = self.generate_submit_file(processing_id, sandbox, executable, arguments, input_list, output_json)
         cmd = "condor_submit " + jdl_file
         status, output, error = run_command(cmd)
         jobid = None
