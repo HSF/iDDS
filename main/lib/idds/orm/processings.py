@@ -203,7 +203,7 @@ def get_processings_by_status(status, period=None, locking=False, bulk_size=None
             select = select + " and locking=:locking"
             params['locking'] = ProcessingLocking.Idle.value
         if bulk_size:
-            select = select + " FETCH FIRST %s ROWS ONLY" % bulk_size
+            select = select + " and rownum < %s + 1 order by processing_id asc" % bulk_size
 
         stmt = text(select)
         stmt = stmt.bindparams(bindparam('status', expanding=True))

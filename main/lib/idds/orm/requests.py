@@ -361,9 +361,10 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, loc
             req_select = req_select + " and locking=:locking"
             req_params['locking'] = RequestLocking.Idle.value
 
-        req_select = req_select + " order by priority desc"
         if bulk_size:
-            req_select = req_select + " FETCH FIRST %s ROWS ONLY" % bulk_size
+            req_select = req_select + " and rownum < %s + 1 order by priority desc, request_id asc" % bulk_size
+        else:
+            req_select = req_select + " order by priority desc"
 
         req_stmt = text(req_select)
         req_stmt = req_stmt.bindparams(bindparam('status', expanding=True))
