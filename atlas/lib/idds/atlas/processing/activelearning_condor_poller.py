@@ -69,11 +69,6 @@ class ActiveLearningCondorPoller(ProcessingPluginBase):
                         processing_metadata['job_status'] = job_status.name
                         err_msg = 'The job failed: %s' % job_err_msg
                         processing_metadata['final_errors'] = err_msg
-                    else:
-                        processing_status = ProcessingStatus.Failed
-                        processing_metadata['job_status'] = job_status.name
-                        err_msg = 'The job failed with unknown error: %s' % job_err_msg
-                        processing_metadata['final_errors'] = err_msg
 
                 updated_files = []
                 if processing_status in [ProcessingStatus.Finished, ProcessingStatus.Failed]:
