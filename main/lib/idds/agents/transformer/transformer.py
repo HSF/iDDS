@@ -194,7 +194,7 @@ class Transformer(BaseAgent):
         transform_metadata = transform['transform_metadata']
         if not transform_metadata:
             transform_metadata = {}
-        transform_metadata['output_collection'] = output_collection['coll_metadata']
+        transform_metadata['output_collection_meta'] = output_collection['coll_metadata']
         if output_collection['status'] == CollectionStatus.Closed:
             ret = {'transform_id': transform['transform_id'],
                    'status': TransformStatus.Finished,
