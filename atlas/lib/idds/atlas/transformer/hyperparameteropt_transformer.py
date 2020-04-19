@@ -38,11 +38,9 @@ class HyperParameterOptTransformer(TransformerPluginBase):
                 idds_output = None
                 if 'IDDS_OUTPUT' in initial_point:
                     idds_output = initial_point['IDDS_OUTPUT']
-                    del initial_point['IDDS_OUTPUT']
 
                 content_metadata = {'input_collection_id': input_collection['coll_id'],
-                                    'point': initial_point,
-                                    'output': idds_output
+                                    'point': initial_point
                                     }
                 content = {'coll_id': output_collection['coll_id'],
                            'scope': output_collection['scope'],
