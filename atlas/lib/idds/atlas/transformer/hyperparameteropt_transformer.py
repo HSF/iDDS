@@ -17,7 +17,7 @@ import traceback
 
 
 from idds.common import exceptions
-from idds.common.constants import ContentType
+from idds.common.constants import ContentType, ContentStatus
 from idds.atlas.transformer.base_plugin import TransformerPluginBase
 
 
@@ -35,7 +35,15 @@ class HyperParameterOptTransformer(TransformerPluginBase):
             output_contents = []
             i = 0
             for initial_point in initial_points:
-                content_metadata = {'input_collection_id': input_collection['coll_id']}
+                idds_output = None
+                if 'IDDS_OUTPUT' in initial_point:
+                    idds_output = initial_point['IDDS_OUTPUT']
+                    del initial_point['IDDS_OUTPUT']
+
+                content_metadata = {'input_collection_id': input_collection['coll_id'],
+                                    'point': initial_point,
+                                    'output': idds_output
+                                    }
                 content = {'coll_id': output_collection['coll_id'],
                            'scope': output_collection['scope'],
                            'name': 'pseudo_' + str(i),
@@ -43,6 +51,8 @@ class HyperParameterOptTransformer(TransformerPluginBase):
                            'max_id': 0,
                            'content_type': ContentType.PseudoContent,
                            'content_metadata': content_metadata}
+                if idds_output:
+                    content['status'] = ContentStatus.Available
                 output_contents.append(content)
                 i += 1
             return output_contents
