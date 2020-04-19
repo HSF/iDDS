@@ -12,6 +12,7 @@
 import datetime
 import logging
 import os
+import re
 import requests
 import subprocess
 import sys
@@ -326,3 +327,29 @@ def convert_request_type_to_transform_type(request_type):
     if isinstance(request_type, RequestType):
         request_type = request_type.value
     return TransformType(request_type)
+
+
+def get_parameters_from_string(text):
+    """
+    Find all strings starting with '%'. For example, for this string below, it should return ['NUM_POINTS', 'IN', 'OUT']
+    'run --rm -it -v "$(pwd)":/payload gitlab-registry.cern.ch/zhangruihpc/endpointcontainer:latest /bin/bash -c "echo "--num_points %NUM_POINTS"; /bin/cat /payload/%IN>/payload/%OUT"'
+    """
+    ret = re.findall(r"[%]\w+", text)
+    ret = [r.replace('%', '') for r in ret]
+    # remove dumplications
+    ret = list(set(ret))
+    return ret
+
+
+def replace_parameters_with_values(text, values):
+    """
+    Replace all strings starting with '%'. For example, for this string below, it should replace ['%NUM_POINTS', '%IN', '%OUT']
+    'run --rm -it -v "$(pwd)":/payload gitlab-registry.cern.ch/zhangruihpc/endpointcontainer:latest /bin/bash -c "echo "--num_points %NUM_POINTS"; /bin/cat /payload/%IN>/payload/%OUT"'
+
+    :param text
+    :param values: parameter values, for example {'NUM_POINTS': 5, 'IN': 'input.json', 'OUT': 'output.json'}
+    """
+    for key in values:
+        key1 = '%' + key
+        text = re.sub(key1, str(values[key]), text)
+    return text
