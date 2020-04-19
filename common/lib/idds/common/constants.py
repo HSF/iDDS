@@ -69,7 +69,7 @@ class RequestType(Enum):
     EventStreaming = 1
     StageIn = 2
     ActiveLearning = 3
-    HyperParameterTuning = 4
+    HyperParameterOpt = 4
     Other = 99
 
 
@@ -78,7 +78,7 @@ class TransformType(Enum):
     EventStreaming = 1
     StageIn = 2
     ActiveLearning = 3
-    HyperParameterTuning = 4
+    HyperParameterOpt = 4
     Other = 99
 
 
@@ -172,8 +172,8 @@ class MessageType(Enum):
     StageInCollection = 1
     ActiveLearningFile = 2
     ActiveLearningCollection = 3
-    HyperParameterTuningFile = 4
-    HyperParameterTuningCollection = 5
+    HyperParameterOptFile = 4
+    HyperParameterOptCollection = 5
     UnknownFile = 98
     UnknownCollection = 99
 

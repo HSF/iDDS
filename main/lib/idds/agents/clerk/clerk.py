@@ -94,7 +94,7 @@ class Clerk(BaseAgent):
     def get_output_collection(self, input_collection, request_type, transform_tag):
         if request_type in [RequestType.StageIn, RequestType.StageIn.value,
                             RequestType.ActiveLearning, RequestType.ActiveLearning.value,
-                            RequestType.HyperParameterTuning, RequestType.HyperParameterTuning.value]:
+                            RequestType.HyperParameterOpt, RequestType.HyperParameterOpt.value]:
             collection = input_collection
             output_collection = copy.deepcopy(collection)
             # output_collection['coll_type'] = CollectionType.Dataset

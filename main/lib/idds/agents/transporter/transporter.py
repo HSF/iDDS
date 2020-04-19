@@ -255,9 +255,9 @@ class Transporter(BaseAgent):
             elif transform['transform_type'] in [TransformType.ActiveLearning, TransformType.ActiveLearning.value]:
                 msg_type = 'collection_activelearning'
                 msg_type_c = MessageType.ActiveLearningCollection
-            elif transform['transform_type'] in [TransformType.HyperParameterTuning, TransformType.HyperParameterTuning.value]:
-                msg_type = 'collection_hyperparemetertuning'
-                msg_type_c = MessageType.HyperParameterTuningCollection
+            elif transform['transform_type'] in [TransformType.HyperParameterOpt, TransformType.HyperParameterOpt.value]:
+                msg_type = 'collection_hyperparameteropt'
+                msg_type_c = MessageType.HyperParameterOptCollection
             else:
                 msg_type = 'collection_unknown'
                 msg_type_c = MessageType.UnknownCollection

@@ -152,9 +152,9 @@ class Carrier(BaseAgent):
         elif transform['transform_type'] in [TransformType.ActiveLearning, TransformType.ActiveLearning.value]:
             msg_type = 'file_activelearning'
             msg_type_c = MessageType.ActiveLearningFile
-        elif transform['transform_type'] in [TransformType.HyperParameterTuning, TransformType.HyperParameterTuning.value]:
-            msg_type = 'file_hyperparemetertuning'
-            msg_type_c = MessageType.HyperParameterTuningFile
+        elif transform['transform_type'] in [TransformType.HyperParameterOpt, TransformType.HyperParameterOpt.value]:
+            msg_type = 'file_hyperparameteropt'
+            msg_type_c = MessageType.HyperParameterOptFile
         else:
             msg_type = 'file_unknown'
             msg_type_c = MessageType.UnknownFile
