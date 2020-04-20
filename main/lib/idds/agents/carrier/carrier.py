@@ -152,9 +152,9 @@ class Carrier(BaseAgent):
         elif transform['transform_type'] in [TransformType.ActiveLearning, TransformType.ActiveLearning.value]:
             msg_type = 'file_activelearning'
             msg_type_c = MessageType.ActiveLearningFile
-        elif transform['transform_type'] in [TransformType.HyperParameterTuning, TransformType.HyperParameterTuning.value]:
-            msg_type = 'file_hyperparemetertuning'
-            msg_type_c = MessageType.HyperParameterTuningFile
+        elif transform['transform_type'] in [TransformType.HyperParameterOpt, TransformType.HyperParameterOpt.value]:
+            msg_type = 'file_hyperparameteropt'
+            msg_type_c = MessageType.HyperParameterOptFile
         else:
             msg_type = 'file_unknown'
             msg_type_c = MessageType.UnknownFile
@@ -185,6 +185,9 @@ class Carrier(BaseAgent):
             return {'processing_id': processing['processing_id'],
                     'locking': ProcessingLocking.Idle}
 
+        new_files = []
+        if 'new_files' in ret_poll:
+            new_files = ret_poll['new_files']
         updated_files = ret_poll['updated_files']
         file_msg = []
         if updated_files:
@@ -201,6 +204,7 @@ class Carrier(BaseAgent):
         ret = {'transform': transform,
                'processing_updates': updated_processing,
                'updated_files': updated_files,
+               'new_files': new_files,
                'file_message': file_msg}
         return ret
 
@@ -229,6 +233,7 @@ class Carrier(BaseAgent):
                 self.logger.debug("wen: processing %s" % str(processing))
                 core_processings.update_processing_with_collection_contents(updated_processing=processing['processing_updates'],
                                                                             updated_files=processing['updated_files'],
+                                                                            new_files=processing['new_files'],
                                                                             file_msg_content=processing['file_message'],
                                                                             message_bulk_size=self.message_bulk_size)
 

@@ -136,7 +136,7 @@ def get_example_real_tape_stagein_request():
     return req_properties
 
 
-def get_example_prodsys2_tape_stagein_request():
+def get_example_prodsys2_tape_stagein_request_old():
     req_properties = {
         'scope': 'data16_13TeV',
         'name': 'data16_13TeV.00298773.physics_Main.daq.RAW',
@@ -151,6 +151,21 @@ def get_example_prodsys2_tape_stagein_request():
     return req_properties
 
 
+def get_example_prodsys2_tape_stagein_request():
+    req_properties = {
+        'scope': 'data16_13TeV',
+        'name': 'data16_13TeV.00301915.physics_Main.daq.RAW',
+        'requester': 'panda',
+        'request_type': RequestType.StageIn,
+        'transform_tag': 'prodsys2',
+        'status': RequestStatus.New,
+        'priority': 0,
+        'lifetime': 30,
+        'request_metadata': {'workload_id': '20776936', 'src_rse': 'NDGF-T1_DATATAPE', 'rule_id': '1d522d631327478db5773b554f65b0ff'}
+    }
+    return req_properties
+
+
 def get_example_active_learning_request():
     req_properties = {
         'scope': 'data15_13TeV',
@@ -161,7 +176,7 @@ def get_example_active_learning_request():
         'status': RequestStatus.New,
         'priority': 0,
         'lifetime': 30,
-        'request_metadata': {'workload_id': '20525134', 'scripts': 'https://', 'executable': 'hostname', 'arguments': '-s'}
+        'request_metadata': {'workload_id': '20525134', 'sandbox': 'https://', 'executable': 'hostname', 'arguments': '-s'}
     }
     return req_properties
 

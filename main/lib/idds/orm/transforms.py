@@ -311,7 +311,7 @@ def get_transforms_by_status(status, period=None, locking=False, bulk_size=None,
             select = select + " and locking=:locking"
             params['locking'] = TransformLocking.Idle.value
         if bulk_size:
-            select = select + " FETCH FIRST %s ROWS ONLY" % bulk_size
+            select = select + " and rownum < %s + 1 order by transform_id" % bulk_size
 
         stmt = text(select)
         stmt = stmt.bindparams(bindparam('status', expanding=True))

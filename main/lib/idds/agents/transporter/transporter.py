@@ -22,7 +22,7 @@ from idds.common.constants import (Sections, CollectionRelationType, CollectionS
                                    TransformType, MessageType, MessageStatus, MessageSource)
 from idds.common.exceptions import AgentPluginError
 from idds.common.utils import setup_logging
-from idds.core import (catalog as core_catalog, transforms as core_transforms)
+from idds.core import (catalog as core_catalog, transforms as core_transforms, processings as core_processings)
 from idds.agents.common.baseagent import BaseAgent
 
 setup_logging(__name__)
@@ -228,6 +228,7 @@ class Transporter(BaseAgent):
         total_files = sum(contents_statistics.values())
         new_files = 0
         processed_files = 0
+        output_metadata = None
         if ContentStatus.Available in contents_statistics:
             processed_files += contents_statistics[ContentStatus.Available]
         if ContentStatus.Available.value in contents_statistics:
@@ -244,15 +245,19 @@ class Transporter(BaseAgent):
             coll_status = CollectionStatus.Closed
 
             transform = core_transforms.get_transform(coll['coll_metadata']['transform_id'])
+            if 'processing_id' in transform['transform_metadata']:
+                processing = core_processings.get_processing(transform['transform_metadata']['processing_id'])
+                output_metadata = processing['output_metadata']
+
             if transform['transform_type'] in [TransformType.StageIn, TransformType.StageIn.value]:
                 msg_type = 'collection_stagein'
                 msg_type_c = MessageType.StageInCollection
             elif transform['transform_type'] in [TransformType.ActiveLearning, TransformType.ActiveLearning.value]:
                 msg_type = 'collection_activelearning'
                 msg_type_c = MessageType.ActiveLearningCollection
-            elif transform['transform_type'] in [TransformType.HyperParameterTuning, TransformType.HyperParameterTuning.value]:
-                msg_type = 'collection_hyperparemetertuning'
-                msg_type_c = MessageType.HyperParameterTuningCollection
+            elif transform['transform_type'] in [TransformType.HyperParameterOpt, TransformType.HyperParameterOpt.value]:
+                msg_type = 'collection_hyperparameteropt'
+                msg_type_c = MessageType.HyperParameterOptCollection
             else:
                 msg_type = 'collection_unknown'
                 msg_type_c = MessageType.UnknownCollection
@@ -261,7 +266,8 @@ class Transporter(BaseAgent):
                            'workload_id': coll['coll_metadata']['workload_id'] if 'workload_id' in coll['coll_metadata'] else None,
                            'collections': [{'scope': coll['scope'],
                                             'name': coll['name'],
-                                            'status': 'Available'}]}
+                                            'status': 'Available'}],
+                           'output': output_metadata}
             coll_msg = {'msg_type': msg_type_c,
                         'status': MessageStatus.New,
                         'source': MessageSource.Transporter,
@@ -283,6 +289,7 @@ class Transporter(BaseAgent):
         if not coll_metadata:
             coll_metadata = {}
         coll_metadata['status_statistics'] = contents_statistics_with_name
+        coll_metadata['output_metadata'] = output_metadata
         ret_coll = {'coll_id': coll['coll_id'],
                     'total_files': total_files,
                     'status': coll_status,

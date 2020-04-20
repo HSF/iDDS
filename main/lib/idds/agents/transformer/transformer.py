@@ -194,7 +194,7 @@ class Transformer(BaseAgent):
         transform_metadata = transform['transform_metadata']
         if not transform_metadata:
             transform_metadata = {}
-        transform_metadata['output_collection'] = output_collection['coll_metadata']
+        transform_metadata['output_collection_meta'] = output_collection['coll_metadata']
         if output_collection['status'] == CollectionStatus.Closed:
             ret = {'transform_id': transform['transform_id'],
                    'status': TransformStatus.Finished,
@@ -281,7 +281,7 @@ class Transformer(BaseAgent):
                 # combine the output changes into the same session
                 if transform_output:
                     # status and locking should use the items from transform_input
-                    transform_input['transform']['transform_metadata']['output_collection'] = transform_output['transform_metadata']['output_collection']
+                    transform_input['transform']['transform_metadata']['output_collection_meta'] = transform_output['transform_metadata']['output_collection_meta']
                 # self.logger.debug("wen: %s" % str(transform_input['output_contents']))
                 core_transforms.add_transform_outputs(transform=transform_input['transform'],
                                                       input_collection=transform_input['input_collection'],

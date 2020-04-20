@@ -252,20 +252,27 @@ def add_transform_outputs(transform, input_collection, output_collection, input_
                                           {'status': CollectionStatus.Processing},
                                           session=session)
 
+    if to_cancel_processing:
+        to_cancel_params = {'status': ProcessingStatus.Cancel}
+        for to_cancel_id in to_cancel_processing:
+            orm_processings.update_processing(processing_id=to_cancel_id, parameters=to_cancel_params)
+    processing_id = None
+    if processing:
+        processing_id = orm_processings.add_processing(**processing, session=session)
+
     if transform:
+        if processing_id is not None:
+            if not transform['transform_metadata']:
+                transform['transform_metadata'] = {'processing_id': processing_id}
+            else:
+                transform['transform_metadata']['processing_id'] = processing_id
+
         parameters = {'status': transform['status'],
                       'locking': transform['locking'],
                       'transform_metadata': transform['transform_metadata']}
         orm_transforms.update_transform(transform_id=transform['transform_id'],
                                         parameters=parameters,
                                         session=session)
-
-    if to_cancel_processing:
-        to_cancel_params = {'status': ProcessingStatus.Cancel}
-        for to_cancel_id in to_cancel_processing:
-            orm_processings.update_processing(processing_id=to_cancel_id, parameters=to_cancel_params)
-    if processing:
-        orm_processings.add_processing(**processing, session=session)
 
 
 @transactional_session

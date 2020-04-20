@@ -12,34 +12,50 @@
 """
 Class of activelearning condor plubin
 """
-import json
 import os
+import json
 import traceback
 
 
 from idds.common import exceptions
-from idds.common.constants import ProcessingStatus
+from idds.common.constants import ContentStatus, ProcessingStatus
+from idds.common.utils import replace_parameters_with_values
 from idds.atlas.processing.condor_submitter import CondorSubmitter
 from idds.core import (catalog as core_catalog)
 
 
-class ActiveLearningCondorSubmitter(CondorSubmitter):
+class HyperParameterOptCondorSubmitter(CondorSubmitter):
     def __init__(self, workdir, **kwargs):
-        super(ActiveLearningCondorSubmitter, self).__init__(workdir, **kwargs)
+        super(HyperParameterOptCondorSubmitter, self).__init__(workdir, **kwargs)
+        if not hasattr(self, 'max_unevaluated_points'):
+            self.max_unevaluated_points = 1
+        if not hasattr(self, 'min_unevaluated_points'):
+            self.min_unevaluated_points = 1
 
     def __call__(self, processing, transform, input_collection, output_collection):
         try:
-            contents = core_catalog.get_contents_by_coll_id_status(coll_id=input_collection['coll_id'])
-            files = []
+            contents = core_catalog.get_contents_by_coll_id_status(coll_id=output_collection['coll_id'])
+            points = []
+            unevaluated_points = 0
             for content in contents:
-                file = '%s:%s' % (content['scope'], content['name'])
-                files.append(file)
+                point = content['content_metadata']['point']
+                points.append(point)
+                if not content['status'] == ContentStatus.Available:
+                    unevaluated_points += 1
 
-            input_list = ','.join(files)
+            if unevaluated_points >= self.min_unevaluated_points:
+                # not submit the job
+                processing_metadata = processing['processing_metadata']
+                processing_metadata['unevaluated_points'] = unevaluated_points
+                ret = {'processing_id': processing['processing_id'],
+                       'status': ProcessingStatus.New,
+                       'processing_metadata': processing_metadata}
+                return ret
+
             job_dir = self.get_job_dir(processing['processing_id'])
             input_json = 'idds_input.json'
             with open(os.path.join(job_dir, input_json), 'w') as f:
-                json.dump(files, f)
+                json.dump(points, f)
 
             sandbox = None
             if 'sandbox' in transform['transform_metadata']:
@@ -50,6 +66,14 @@ class ActiveLearningCondorSubmitter(CondorSubmitter):
             if 'output_json' in transform['transform_metadata']:
                 output_json = transform['transform_metadata']['output_json']
 
+            param_values = {'NUM_POINTS': self.max_unevaluated_points - unevaluated_points,
+                            'IN': 'input_json',
+                            'OUT': output_json}
+
+            executable = replace_parameters_with_values(executable, param_values)
+            arguments = replace_parameters_with_values(arguments, param_values)
+
+            input_list = None
             job_id, outputs = self.submit_job(processing['processing_id'], sandbox, executable, arguments, input_list, input_json, output_json)
 
             processing_metadata = processing['processing_metadata']

@@ -49,3 +49,12 @@ firewall-cmd --zone=public --add-port=9618/udp --permanent
 firewall-cmd --zone=public --add-port=9600-9700/tcp --permanent
 firewall-cmd --reload
 
+
+#docker
+groupadd docker
+yum install docker
+systemctl start docker
+systemctl status docker
+systemctl enable docker
+usermod -aG docker $(whoami)
+

@@ -16,13 +16,36 @@ import traceback
 
 
 from idds.common import exceptions
-from idds.common.constants import ContentStatus, ProcessingStatus
+from idds.common.constants import ContentStatus, ContentType, ProcessingStatus
 from idds.atlas.processing.condor_poller import CondorPoller
+from idds.core import (catalog as core_catalog)
 
 
-class ActiveLearningCondorPoller(CondorPoller):
+class HyperParameterOptCondorPoller(CondorPoller):
     def __init__(self, workdir, **kwargs):
-        super(ActiveLearningCondorPoller, self).__init__(workdir, **kwargs)
+        super(HyperParameterOptCondorPoller, self).__init__(workdir, **kwargs)
+
+    def generate_new_contents(self, transform, input_collection, output_collection, points):
+        if not isinstance(points, (tuple, list)):
+            points = [points]
+        avail_points = core_catalog.get_contents_by_coll_id_status(coll_id=output_collection['coll_id'])
+
+        output_contents = []
+        i = len(avail_points)
+        for point in points:
+            content_metadata = {'input_collection_id': input_collection['coll_id'],
+                                'point': point
+                                }
+            content = {'coll_id': output_collection['coll_id'],
+                       'scope': output_collection['scope'],
+                       'name': 'pseudo_' + str(i),
+                       'min_id': 0,
+                       'max_id': 0,
+                       'content_type': ContentType.PseudoContent,
+                       'content_metadata': content_metadata}
+            output_contents.append(content)
+            i += 1
+        return output_contents
 
     def __call__(self, processing, transform, input_collection, output_collection, output_contents):
         try:
@@ -38,6 +61,7 @@ class ActiveLearningCondorPoller(CondorPoller):
                     job_status = ProcessingStatus.Failed
                     job_err_msg = 'job_id is cannot be found in the processing metadata.'
 
+                new_files = []
                 processing_status = ProcessingStatus.Running
                 if job_status in [ProcessingStatus.Finished, ProcessingStatus.Finished.value]:
                     if 'output_json' in transform['transform_metadata']:
@@ -48,6 +72,7 @@ class ActiveLearningCondorPoller(CondorPoller):
                             processing_metadata['final_error'] = None
                             # processing_metadata['final_outputs'] = job_outputs
                             output_metadata = job_outputs
+                            new_files = self.generate_new_contents(transform, input_collection, output_collection, job_outputs)
                         else:
                             processing_status = ProcessingStatus.Failed
                             processing_metadata['job_status'] = job_status.name
@@ -87,7 +112,7 @@ class ActiveLearningCondorPoller(CondorPoller):
                 if output_metadata:
                     processing_updates['output_metadata'] = output_metadata
 
-            return {'updated_files': updated_files, 'processing_updates': processing_updates}
+            return {'updated_files': updated_files, 'processing_updates': processing_updates, 'new_files': new_files}
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())

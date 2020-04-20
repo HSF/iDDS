@@ -342,7 +342,7 @@ def get_collections_by_status(status, relation_type=CollectionRelationType.Input
             select = select + " and locking=:locking"
             params['locking'] = CollectionLocking.Idle.value
         if bulk_size:
-            select = select + " FETCH FIRST %s ROWS ONLY" % bulk_size
+            select = select + " and rownum < %s + 1 order by coll_id asc" % bulk_size
 
         stmt = text(select)
         stmt = stmt.bindparams(bindparam('status', expanding=True))

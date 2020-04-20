@@ -29,14 +29,15 @@ def get_test_codes():
 def get_req_properties():
     req_properties = {
         'scope': 'data15_13TeV',
-        'name': 'data15_13TeV.00270949.physics_Main.merge.AOD.r7600_p2521_tid07734829_00',
+        'name': 'data15_13TeV.00270949.pseudo.1',
         'requester': 'panda',
-        'request_type': RequestType.ActiveLearning,
+        'request_type': RequestType.HyperParameterOpt,
         'transform_tag': 'prodsys2',
         'status': RequestStatus.New,
         'priority': 0,
         'lifetime': 30,
-        'request_metadata': {'workload_id': '20525134', 'sandbox': 'https://', 'executable': 'hostname', 'arguments': '-s --input %IN', 'output_json': 'output.json'}
+        # 'request_metadata': {'workload_id': '20525134', 'sandbox': None, 'executable': 'docker run --rm -it -v "$(pwd)":/payload gitlab-registry.cern.ch/zhangruihpc/endpointcontainer:latest /bin/bash -c "/bin/cat /payload/input_json.txt>/payload/output_json.txt"', 'arguments': '-s --input %IN', 'output_json': 'output.json'}  # noqa: E501
+        'request_metadata': {'workload_id': '20525134', 'is_pseudo_input': True, 'sandbox': None, 'executable': 'docker', 'arguments': 'run --rm -it -v "$(pwd)":/payload gitlab-registry.cern.ch/zhangruihpc/endpointcontainer:latest /bin/bash -c "echo "--num_points %NUM_POINTS"; /bin/cat /payload/%IN>/payload/%OUT"', 'initial_points': [{'A': 1, 'B': 2, 'IDDS_OUTPUT': 0.3}, {'A': 1, 'B': 3}], 'output_json': 'output.json'}  # noqa: E501
     }
     return req_properties
 
@@ -46,10 +47,6 @@ props = get_req_properties()
 test_codes = get_test_codes()
 
 client = Client(host=host)
-test_codes_url = client.upload(test_codes)
-props['request_metadata']['sandbox'] = test_codes_url
-props['request_metadata']['executable'] = 'test.sh'
-props['request_metadata']['arguments'] = '-1 -2 test'
 # props['request_metadata']['result_parser'] = 'default'
 
 request_id = client.add_request(**props)
