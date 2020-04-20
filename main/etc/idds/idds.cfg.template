@@ -29,6 +29,8 @@ pool_reset_on_return=rollback
 [rest]
 host = https://aipanda182.cern.ch:443/idds
 #url_prefix = /idds
+#cacher_dir = /tmp
+cacher_dir = /data/idds
 
 #[section]
 #attr1 = <attr1>
@@ -51,6 +53,7 @@ num_threads = 1
 poll_time_period = 120
 retrieve_bulk_size = 10
 plugin.stagein_transformer = idds.atlas.transformer.stagein_transformer.StageInTransformer
+plugin.activelearning_transformer = idds.atlas.transformer.activelearning_transformer.ActiveLearningTransformer
 
 [transporter]
 num_threads = 1
@@ -71,6 +74,11 @@ plugin.stagein_submitter.plugin.rule_submitter = idds.atlas.rucio.rule_submitter
 plugin.stagein_submitter.plugin.rule_submitter.lifetime = 604800
 plugin.stagein_poller = idds.atlas.processing.stagein_poller.StageInPoller
 plugin.stagein_poller.plugin.rule_poller = idds.atlas.rucio.rule_poller.RulePoller
+
+plugin.activelearning_submitter = idds.atlas.processing.activelearning_condor_submitter.ActiveLearningCondorSubmitter
+plugin.activelearning_submitter.workdir = /data/idds_processing
+plugin.activelearning_poller = idds.atlas.processing.activelearning_condor_poller.ActiveLearningCondorPoller
+plugin.activelearning_poller.workdir = /data/idds_processing
 
 [conductor]
 retrieve_bulk_size = 10

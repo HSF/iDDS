@@ -12,6 +12,7 @@
 import datetime
 import logging
 import os
+import re
 import requests
 import subprocess
 import sys
@@ -43,10 +44,10 @@ def setup_logging(name):
     if config_has_section('common') and config_has_option('common', 'logdir'):
         logging.basicConfig(filename=os.path.join(config_get('common', 'logdir'), name),
                             level=loglevel,
-                            format='%(asctime)s\t%(threadName)s\t%(levelname)s\t%(message)s')
+                            format='%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s')
     else:
         logging.basicConfig(stream=sys.stdout, level=loglevel,
-                            format='%(asctime)s\t%(threadName)s\t%(levelname)s\t%(message)s')
+                            format='%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s')
 
 
 def get_rest_url_prefix():
@@ -67,6 +68,15 @@ def get_rest_debug():
     if config_has_section('rest') and config_has_option('rest', 'debug'):
         return config_get_bool('rest', 'debug')
     return False
+
+
+def get_rest_cacher_dir():
+    cacher_dir = None
+    if config_has_section('rest') and config_has_option('rest', 'cacher_dir'):
+        cacher_dir = config_get('rest', 'cacher_dir')
+    if cacher_dir and os.path.exists(cacher_dir):
+        return cacher_dir
+    raise Exception("cacher_dir is not defined or it doesn't exist")
 
 
 def str_to_date(string):
@@ -179,7 +189,11 @@ def run_command(cmd):
     """
     process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, preexec_fn=os.setsid)
     stdout, stderr = process.communicate()
-    status = process.returncode()
+    if stdout is not None and type(stdout) in [bytes]:
+        stdout = stdout.decode()
+    if stderr is not None and type(stderr) in [bytes]:
+        stderr = stderr.decode()
+    status = process.returncode
     return status, stdout, stderr
 
 
@@ -313,3 +327,29 @@ def convert_request_type_to_transform_type(request_type):
     if isinstance(request_type, RequestType):
         request_type = request_type.value
     return TransformType(request_type)
+
+
+def get_parameters_from_string(text):
+    """
+    Find all strings starting with '%'. For example, for this string below, it should return ['NUM_POINTS', 'IN', 'OUT']
+    'run --rm -it -v "$(pwd)":/payload gitlab-registry.cern.ch/zhangruihpc/endpointcontainer:latest /bin/bash -c "echo "--num_points %NUM_POINTS"; /bin/cat /payload/%IN>/payload/%OUT"'
+    """
+    ret = re.findall(r"[%]\w+", text)
+    ret = [r.replace('%', '') for r in ret]
+    # remove dumplications
+    ret = list(set(ret))
+    return ret
+
+
+def replace_parameters_with_values(text, values):
+    """
+    Replace all strings starting with '%'. For example, for this string below, it should replace ['%NUM_POINTS', '%IN', '%OUT']
+    'run --rm -it -v "$(pwd)":/payload gitlab-registry.cern.ch/zhangruihpc/endpointcontainer:latest /bin/bash -c "echo "--num_points %NUM_POINTS"; /bin/cat /payload/%IN>/payload/%OUT"'
+
+    :param text
+    :param values: parameter values, for example {'NUM_POINTS': 5, 'IN': 'input.json', 'OUT': 'output.json'}
+    """
+    for key in values:
+        key1 = '%' + key
+        text = re.sub(key1, str(values[key]), text)
+    return text

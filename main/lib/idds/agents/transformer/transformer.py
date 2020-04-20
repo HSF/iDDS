@@ -20,9 +20,9 @@ except ImportError:
 from idds.common.constants import (Sections, TransformStatus, TransformLocking,
                                    TransformType, CollectionRelationType, CollectionStatus,
                                    ContentStatus, ProcessingStatus)
-from idds.common.exceptions import AgentPluginError, IDDSException
+from idds.common.exceptions import AgentPluginError
 from idds.common.utils import setup_logging
-from idds.core import (transforms as core_transforms, catalog as core_catalog)
+from idds.core import (transforms as core_transforms, catalog as core_catalog, processings as core_processings)
 from idds.agents.common.baseagent import BaseAgent
 
 setup_logging(__name__)
@@ -38,7 +38,10 @@ class Transformer(BaseAgent):
         self.config_section = Sections.Transformer
         self.poll_time_period = int(poll_time_period)
         self.retrieve_bulk_size = int(retrieve_bulk_size)
+
+        self.new_task_queue = Queue()
         self.new_output_queue = Queue()
+        self.monitor_task_queue = Queue()
         self.monitor_output_queue = Queue()
 
     def get_new_transforms(self):
@@ -57,6 +60,10 @@ class Transformer(BaseAgent):
             if 'stagein_transformer' not in self.plugins:
                 raise AgentPluginError('Plugin stagein_transformer is required')
             return self.plugins['stagein_transformer'](transform, input_collection, output_collection, contents)
+        if transform['transform_type'] == TransformType.ActiveLearning:
+            if 'activelearning_transformer' not in self.plugins:
+                raise AgentPluginError('Plugin activelearning_transformer is required')
+            return self.plugins['activelearning_transformer'](transform, input_collection, output_collection, contents)
 
         return []
 
@@ -78,8 +85,15 @@ class Transformer(BaseAgent):
                                                                   contents)
 
         self.logger.debug("Generating transform number of output contents: %s" % len(output_contents))
+
+        to_cancel_processing = []
+        if transform['status'] == TransformStatus.Extend:
+            processings = core_processings.get_processings_by_transform_id(transform['transform_id'])
+            for processing in processings:
+                to_cancel_processing.append(processing['processing_id'])
+
         new_processing = None
-        if output_contents:
+        if output_contents or transform['status'] == TransformStatus.Extend:
             processing_metadata = {'transform_id': transform['transform_id'],
                                    'input_collection': input_collection['coll_id'],
                                    'output_collection': output_collection['coll_id']}
@@ -92,7 +106,8 @@ class Transformer(BaseAgent):
             self.logger.debug("Generating transform output processing: %s" % new_processing)
 
         return {'transform': transform, 'input_collection': input_collection, 'output_collection': output_collection,
-                'input_contents': contents, 'output_contents': output_contents, 'processing': new_processing}
+                'input_contents': contents, 'output_contents': output_contents, 'processing': new_processing,
+                'to_cancel_processing': to_cancel_processing}
 
     def process_new_transform(self, transform):
         """
@@ -118,7 +133,9 @@ class Transformer(BaseAgent):
             if collection['relation_type'] == CollectionRelationType.Input:
                 input_collection = collection
 
-        if ret_transform and input_collection and input_collection['status'] not in [CollectionStatus.Closed, CollectionStatus.Closed.value]:
+        if ret_transform is not None \
+            and (ret_transform['status'] == TransformStatus.Extend                                                                  # noqa: W503
+            or (input_collection and input_collection['status'] not in [CollectionStatus.Closed, CollectionStatus.Closed.value])):  # noqa: W503
             ret = self.generate_transform_outputs(ret_transform, collections)
             ret['transform']['locking'] = TransformLocking.Idle
             ret['transform']['status'] = TransformStatus.Transforming
@@ -126,7 +143,22 @@ class Transformer(BaseAgent):
         else:
             transform['locking'] = TransformLocking.Idle
             return {'transform': transform, 'input_collection': None, 'output_collection': None,
-                    'input_contents': None, 'output_contents': None, 'processing': None}
+                    'input_contents': None, 'output_contents': None, 'processing': None, 'to_cancel_processing': []}
+
+    def process_new_transforms(self):
+        ret = []
+        while not self.new_task_queue.empty():
+            try:
+                transform = self.new_task_queue.get()
+                if transform:
+                    self.logger.info("Main thread processing new transform: %s" % transform)
+                    ret_transform = self.process_new_transform(transform)
+                    if ret_transform:
+                        ret.append(ret_transform)
+            except Exception as ex:
+                self.logger.error(ex)
+                self.logger.error(traceback.format_exc())
+        return ret
 
     def finish_new_transforms(self):
         while not self.new_output_queue.empty():
@@ -134,12 +166,14 @@ class Transformer(BaseAgent):
                 ret = self.new_output_queue.get()
                 self.logger.debug("Main thread finishing processing transform: %s" % ret['transform'])
                 if ret:
+                    # self.logger.debug("wen: %s" % str(ret['output_contents']))
                     core_transforms.add_transform_outputs(transform=ret['transform'],
                                                           input_collection=ret['input_collection'],
                                                           output_collection=ret['output_collection'],
                                                           input_contents=ret['input_contents'],
                                                           output_contents=ret['output_contents'],
-                                                          processing=ret['processing'])
+                                                          processing=ret['processing'],
+                                                          to_cancel_processing=ret['to_cancel_processing'])
             except Exception as ex:
                 self.logger.error(ex)
                 self.logger.error(traceback.format_exc())
@@ -160,7 +194,7 @@ class Transformer(BaseAgent):
         transform_metadata = transform['transform_metadata']
         if not transform_metadata:
             transform_metadata = {}
-        transform_metadata['output_collection'] = output_collection['coll_metadata']
+        transform_metadata['output_collection_meta'] = output_collection['coll_metadata']
         if output_collection['status'] == CollectionStatus.Closed:
             ret = {'transform_id': transform['transform_id'],
                    'status': TransformStatus.Finished,
@@ -223,6 +257,21 @@ class Transformer(BaseAgent):
                'transform_output': transform_output}
         return ret
 
+    def process_monitor_transforms(self):
+        ret = []
+        while not self.monitor_task_queue.empty():
+            try:
+                transform = self.monitor_task_queue.get()
+                if transform:
+                    self.logger.info("Main thread processing monitor transform: %s" % transform)
+                    ret_transform = self.process_monitor_transform(transform)
+                    if ret_transform:
+                        ret.append(ret_transform)
+            except Exception as ex:
+                self.logger.error(ex)
+                self.logger.error(traceback.format_exc())
+        return ret
+
     def finish_monitor_transforms(self):
         while not self.monitor_output_queue.empty():
             ret = self.monitor_output_queue.get()
@@ -232,7 +281,8 @@ class Transformer(BaseAgent):
                 # combine the output changes into the same session
                 if transform_output:
                     # status and locking should use the items from transform_input
-                    transform_input['transform']['transform_metadata']['output_collection'] = transform_output['transform_metadata']['output_collection']
+                    transform_input['transform']['transform_metadata']['output_collection_meta'] = transform_output['transform_metadata']['output_collection_meta']
+                # self.logger.debug("wen: %s" % str(transform_input['output_contents']))
                 core_transforms.add_transform_outputs(transform=transform_input['transform'],
                                                       input_collection=transform_input['input_collection'],
                                                       output_collection=transform_input['output_collection'],
@@ -244,22 +294,9 @@ class Transformer(BaseAgent):
                 del transform_output['transform_id']
                 core_transforms.update_transform(transform_id=transform_id, parameters=transform_output)
 
-    def prepare_finish_tasks(self):
-        """
-        Prepare tasks and finished tasks
-        """
-        # finish tasks
-        self.finish_new_transforms()
-        self.finish_monitor_transforms()
-
-        # prepare tasks
-        transforms = self.get_new_transforms()
-        for transform in transforms:
-            self.submit_task(self.process_new_transform, self.new_output_queue, (transform,))
-
-        transforms = self.get_monitor_transforms()
-        for transform in transforms:
-            self.submit_task(self.process_monitor_transform, self.monitor_output_queue, (transform,))
+    def clean_locks(self):
+        self.logger.info("clean locking")
+        core_transforms.clean_locking()
 
     def run(self):
         """
@@ -270,17 +307,24 @@ class Transformer(BaseAgent):
 
             self.load_plugins()
 
-            for i in range(self.num_threads):
-                self.executors.submit(self.run_tasks, i)
+            task = self.create_task(task_func=self.get_new_transforms, task_output_queue=self.new_task_queue, task_args=tuple(), task_kwargs={}, delay_time=5, priority=1)
+            self.add_task(task)
+            task = self.create_task(task_func=self.process_new_transforms, task_output_queue=self.new_output_queue, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
+            self.add_task(task)
+            task = self.create_task(task_func=self.finish_new_transforms, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
+            self.add_task(task)
 
-            while not self.graceful_stop.is_set():
-                try:
-                    self.prepare_finish_tasks()
-                    self.sleep_for_tasks()
-                except IDDSException as error:
-                    self.logger.error("Main thread IDDSException: %s" % str(error))
-                except Exception as error:
-                    self.logger.critical("Main thread exception: %s\n%s" % (str(error), traceback.format_exc()))
+            task = self.create_task(task_func=self.get_monitor_transforms, task_output_queue=self.monitor_task_queue, task_args=tuple(), task_kwargs={}, delay_time=5, priority=1)
+            self.add_task(task)
+            task = self.create_task(task_func=self.process_monitor_transforms, task_output_queue=self.monitor_output_queue, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
+            self.add_task(task)
+            task = self.create_task(task_func=self.finish_monitor_transforms, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
+            self.add_task(task)
+
+            task = self.create_task(task_func=self.clean_locks, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1800, priority=1)
+            self.add_task(task)
+
+            self.execute()
         except KeyboardInterrupt:
             self.stop()
 

@@ -141,7 +141,7 @@ def update_request_with_transforms(request_id, parameters, transforms_to_add, tr
     for transform in transforms_to_extend:
         transform_id = transform['transform_id']
         del transform['transform_id']
-        orm_transforms.add_req2transform(request_id, transform_id, session=session)
+        # orm_transforms.add_req2transform(request_id, transform_id, session=session)
         orm_transforms.update_transform(transform_id, parameters=transform, session=session)
     return orm_requests.update_request(request_id, parameters, session=session)
 
@@ -165,3 +165,13 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, loc
         for req in reqs:
             orm_requests.update_request(request_id=req['request_id'], parameters=parameters, session=session)
     return reqs
+
+
+@transactional_session
+def clean_locking(time_period=3600, session=None):
+    """
+    Clearn locking which is older than time period.
+
+    :param time_period in seconds
+    """
+    orm_requests.clean_locking(time_period=time_period, session=session)

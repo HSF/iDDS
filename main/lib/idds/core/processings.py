@@ -49,21 +49,33 @@ def add_processing(transform_id, status, submitter=None, granularity=None, granu
 
 
 @read_session
-def get_processing(processing_id=None, transform_id=None, retries=0, session=None):
+def get_processing(processing_id=None, session=None):
     """
     Get processing or raise a NoObject exception.
 
     :param processing_id: Processing id.
-    :param tranform_id: Transform id.
-    :param retries: Transform retries.
     :param session: The database session in use.
 
     :raises NoObject: If no processing is founded.
 
     :returns: Processing.
     """
-    return orm_processings.get_processing(processing_id=processing_id, transform_id=transform_id,
-                                          retries=retries, session=session)
+    return orm_processings.get_processing(processing_id=processing_id, session=session)
+
+
+@read_session
+def get_processings_by_transform_id(transform_id=None, session=None):
+    """
+    Get processings or raise a NoObject exception.
+
+    :param tranform_id: Transform id.
+    :param session: The database session in use.
+
+    :raises NoObject: If no processing is founded.
+
+    :returns: Processings.
+    """
+    return orm_processings.get_processings_by_transform_id(transform_id=transform_id, session=session)
 
 
 @transactional_session
@@ -120,7 +132,7 @@ def delete_processing(processing_id=None, session=None):
 
 
 @transactional_session
-def update_processing_with_collection_contents(updated_processing, updated_collection=None, updated_files=None,
+def update_processing_with_collection_contents(updated_processing, updated_collection=None, updated_files=None, new_files=None,
                                                coll_msg_content=None, file_msg_content=None, transform_updates=None,
                                                message_bulk_size=1000, session=None):
     """
@@ -134,6 +146,8 @@ def update_processing_with_collection_contents(updated_processing, updated_colle
     """
     if updated_files:
         orm_contents.update_contents(updated_files, with_content_id=True, session=session)
+    if new_files:
+        orm_contents.add_contents(contents=new_files, returning_id=False, session=session)
     if file_msg_content:
         orm_messages.add_message(msg_type=file_msg_content['msg_type'],
                                  status=file_msg_content['status'],
@@ -163,3 +177,13 @@ def update_processing_with_collection_contents(updated_processing, updated_colle
         orm_transforms.update_transform(transform_id=transform_updates['transform_id'],
                                         parameters=transform_updates['parameters'],
                                         session=session)
+
+
+@transactional_session
+def clean_locking(time_period=3600, session=None):
+    """
+    Clearn locking which is older than time period.
+
+    :param time_period in seconds
+    """
+    orm_processings.clean_locking(time_period=time_period, session=session)

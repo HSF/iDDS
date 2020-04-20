@@ -19,8 +19,8 @@ except ImportError:
 
 from idds.common.constants import (Sections, RequestStatus, RequestLocking, RequestType,
                                    TransformStatus, CollectionRelationType,
-                                   CollectionType, CollectionStatus)
-from idds.common.exceptions import AgentPluginError, IDDSException
+                                   CollectionType, CollectionStatus, TransformType)
+from idds.common.exceptions import AgentPluginError
 from idds.common.utils import setup_logging, convert_request_type_to_transform_type
 from idds.core import requests as core_requests, transforms as core_transforms
 from idds.agents.common.baseagent import BaseAgent
@@ -38,7 +38,10 @@ class Clerk(BaseAgent):
         self.poll_time_period = int(poll_time_period)
         self.retrieve_bulk_size = int(retrieve_bulk_size)
         self.config_section = Sections.Clerk
+
+        self.new_task_queue = Queue()
         self.new_output_queue = Queue()
+        self.monitor_task_queue = Queue()
         self.monitor_output_queue = Queue()
 
     def get_new_requests(self):
@@ -56,23 +59,52 @@ class Clerk(BaseAgent):
 
         return reqs_new
 
-    def get_collections(self, scope, name):
-        if 'collection_lister' not in self.plugins:
-            raise AgentPluginError('Plugin collection_lister is required')
-        return self.plugins['collection_lister'](scope, name)
+    def get_transform_with_input_collection(self, transform_type, transform_tag, coll_scope, coll_name, request_metadata):
+        transforms = core_transforms.get_transforms_with_input_collection(transform_type=transform_type,
+                                                                          transform_tag=transform_tag,
+                                                                          coll_scope=coll_scope,
+                                                                          coll_name=coll_name)
+        if not transforms:
+            return None
+
+        if transform_type in [TransformType.StageIn, TransformType.StageIn.value]:
+            for transform in transforms:
+                transform_metadata = transform['transform_metadata']
+                if ((('workload_id' in transform_metadata and 'workload_id' in request_metadata               # noqa: W503
+                    and transform_metadata['workload_id'] == request_metadata['workload_id'])                 # noqa: W503
+                    or ('workload_id' not in transform_metadata and 'workload_id' not in request_metadata))   # noqa: W503
+                    and (('rule_id' in transform_metadata and 'rule_id' in request_metadata                   # noqa: W503
+                    and transform_metadata['rule_id'] == request_metadata['rule_id'])                         # noqa: W503
+                    or ('rule_id' not in transform_metadata and 'rule_id' not in request_metadata))):         # noqa: W503
+                    return transform
+        else:
+            return None
+
+    def get_collections(self, scope, name, req=None):
+        if (req and req['request_metadata'] and 'is_pseudo_input' in req['request_metadata']                  # noqa: W503
+            and req['request_metadata']['is_pseudo_input'] == True):                                          # noqa: W503
+            collection = {'scope': scope, 'name': name, 'total_files': 1, 'bytes': 0,
+                          'coll_type': CollectionType.PseudoDataset}
+            return [collection]
+        else:
+            if 'collection_lister' not in self.plugins:
+                raise AgentPluginError('Plugin collection_lister is required')
+            return self.plugins['collection_lister'](scope, name)
 
     def get_output_collection(self, input_collection, request_type, transform_tag):
-        if request_type in [RequestType.StageIn, RequestType.StageIn.value]:
+        if request_type in [RequestType.StageIn, RequestType.StageIn.value,
+                            RequestType.ActiveLearning, RequestType.ActiveLearning.value,
+                            RequestType.HyperParameterOpt, RequestType.HyperParameterOpt.value]:
             collection = input_collection
             output_collection = copy.deepcopy(collection)
-            output_collection['type'] = CollectionType.Dataset
+            # output_collection['coll_type'] = CollectionType.Dataset
             output_collection['relation_type'] = CollectionRelationType.Output
             output_collection['status'] = CollectionStatus.New
         else:
             collection = input_collection
             output_collection = copy.deepcopy(collection)
             output_collection['name'] = collection['name'] + '_iDDS.%s.%s' % (request_type.name, transform_tag)
-            output_collection['type'] = CollectionType.Dataset
+            output_collection['coll_type'] = CollectionType.Dataset
             output_collection['relation_type'] = CollectionRelationType.Output
             output_collection['status'] = CollectionStatus.New
         return output_collection
@@ -84,36 +116,41 @@ class Clerk(BaseAgent):
         collection = input_collection
         log_collection = copy.deepcopy(collection)
         log_collection['name'] = collection['name'] + '_iDDS.%s.%s.log' % (request_type.name, transform_tag)
-        log_collection['type'] = CollectionType.Dataset
+        log_collection['coll_type'] = CollectionType.Dataset
         log_collection['relation_type'] = CollectionRelationType.Log
         log_collection['status'] = CollectionStatus.New
         return log_collection
 
     def process_new_request(self, req):
-        """
-        Process new request
-        """
         try:
-            collections = self.get_collections(req['scope'], req['name'])
+            collections = self.get_collections(req['scope'], req['name'], req)
             if collections:
                 transforms_to_add = []
                 transforms_to_extend = []
                 for collection in collections:
                     transform_type = convert_request_type_to_transform_type(req['request_type'])
-                    transform = core_transforms.get_transform_with_input_collection(transform_type=transform_type,
-                                                                                    transform_tag=req['transform_tag'],
-                                                                                    coll_scope=collection['scope'],
-                                                                                    coll_name=collection['name'])
+                    transform = self.get_transform_with_input_collection(transform_type=transform_type,
+                                                                         transform_tag=req['transform_tag'],
+                                                                         coll_scope=collection['scope'],
+                                                                         coll_name=collection['name'],
+                                                                         request_metadata=req['request_metadata'])
+
                     if transform:
+                        new_transform_metadata = copy.deepcopy(transform['transform_metadata'])
+                        if req['request_metadata']:
+                            for key in req['request_metadata']:
+                                new_transform_metadata[key] = req['request_metadata'][key]
+
                         to_extend = {'transform_id': transform['transform_id'],
                                      'priority': req['priority'] if req['priority'] > transform['priority'] else transform['priority'],
                                      'status': TransformStatus.Extend,
+                                     'transform_metadata': new_transform_metadata,
                                      'expired_at': req['expired_at'] if req['expired_at'] > transform['expired_at'] else transform['expired_at']}
                         transforms_to_extend.append(to_extend)
                     else:
                         related_collections = {'input_collections': [], 'output_collections': [], 'log_collections': []}
                         input_collection = {'transform_id': None,
-                                            'type': collection['type'],
+                                            'coll_type': collection['coll_type'],
                                             'scope': collection['scope'],
                                             'name': collection['name'],
                                             'relation_type': CollectionRelationType.Input,
@@ -150,6 +187,9 @@ class Clerk(BaseAgent):
                                                    'transforms_to_extend': len(transforms_to_extend)},
                            'transforms_to_add': transforms_to_add,
                            'transforms_to_extend': transforms_to_extend}
+                if not req['processing_metadata'] or 'request_metadata_history' not in req['processing_metadata']:
+                    ret_req['processing_metadata']['request_metadata_history'] = []
+                ret_req['processing_metadata']['request_metadata_history'].append(req['request_metadata'])
             else:
                 ret_req = {'request_id': req['request_id'],
                            'status': RequestStatus.Failed,
@@ -161,6 +201,24 @@ class Clerk(BaseAgent):
                        'status': RequestStatus.Failed,
                        'errors': {'msg': '%s: %s' % (ex, traceback.format_exc())}}
         return ret_req
+
+    def process_new_requests(self):
+        """
+        Process new request
+        """
+        ret = []
+        while not self.new_task_queue.empty():
+            try:
+                req = self.new_task_queue.get()
+                if req:
+                    self.logger.info("Main thread processing new requst: %s" % req)
+                    ret_req = self.process_new_request(req)
+                    if ret_req:
+                        ret.append(ret_req)
+            except Exception as ex:
+                self.logger.error(ex)
+                self.logger.error(traceback.format_exc())
+        return ret
 
     def finish_new_requests(self):
         while not self.new_output_queue.empty():
@@ -199,7 +257,7 @@ class Clerk(BaseAgent):
         req_status = [RequestStatus.Transforming]
         reqs = core_requests.get_requests_by_status_type(status=req_status, time_period=self.poll_time_period,
                                                          locking=True, bulk_size=self.retrieve_bulk_size)
-        self.logger.info("Main thread get %s Transforming+Extend requests to monitor" % len(reqs))
+        self.logger.info("Main thread get %s Transforming requests to monitor" % len(reqs))
         return reqs
 
     def process_monitor_request(self, req):
@@ -215,6 +273,7 @@ class Clerk(BaseAgent):
             else:
                 transform_status[status_name] += 1
         processing_metadata = req['processing_metadata']
+
         processing_metadata['transform_status'] = transform_status
 
         transform_status_keys = list(transform_status.keys())
@@ -244,6 +303,24 @@ class Clerk(BaseAgent):
                        }
         return ret_req
 
+    def process_monitor_requests(self):
+        """
+        Process monitor request
+        """
+        ret = []
+        while not self.monitor_task_queue.empty():
+            try:
+                req = self.monitor_task_queue.get()
+                if req:
+                    self.logger.info("Main thread processing monitor requst: %s" % req)
+                    ret_req = self.process_monitor_request(req)
+                    if ret_req:
+                        ret.append(ret_req)
+            except Exception as ex:
+                self.logger.error(ex)
+                self.logger.error(traceback.format_exc())
+        return ret
+
     def finish_monitor_requests(self):
         while not self.monitor_output_queue.empty():
             req = self.monitor_output_queue.get()
@@ -254,26 +331,9 @@ class Clerk(BaseAgent):
                     parameter[key] = req[key]
             core_requests.update_request(req['request_id'], parameter)
 
-    def prepare_finish_tasks(self):
-        """
-        Prepare tasks and finished tasks
-        """
-        # finish tasks
-        self.finish_new_requests()
-        self.finish_monitor_requests()
-
-        # prepare tasks
-        reqs = self.get_new_requests()
-        for req in reqs:
-            self.submit_task(task_func=self.process_new_request,
-                             output_queue=self.new_output_queue,
-                             task_args=(req,))
-
-        reqs = self.get_monitor_requests()
-        for req in reqs:
-            self.submit_task(task_func=self.process_monitor_request,
-                             output_queue=self.monitor_output_queue,
-                             task_args=(req,))
+    def clean_locks(self):
+        self.logger.info("clean locking")
+        core_requests.clean_locking()
 
     def run(self):
         """
@@ -284,17 +344,24 @@ class Clerk(BaseAgent):
 
             self.load_plugins()
 
-            for i in range(self.num_threads):
-                self.executors.submit(self.run_tasks, i)
+            task = self.create_task(task_func=self.get_new_requests, task_output_queue=self.new_task_queue, task_args=tuple(), task_kwargs={}, delay_time=10, priority=1)
+            self.add_task(task)
+            task = self.create_task(task_func=self.process_new_requests, task_output_queue=self.new_output_queue, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
+            self.add_task(task)
+            task = self.create_task(task_func=self.finish_new_requests, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
+            self.add_task(task)
 
-            while not self.graceful_stop.is_set():
-                try:
-                    self.prepare_finish_tasks()
-                    self.sleep_for_tasks()
-                except IDDSException as error:
-                    self.logger.error("Main thread IDDSException: %s\n%s" % (str(error), traceback.format_exc()))
-                except Exception as error:
-                    self.logger.critical("Main thread exception: %s\n%s" % (str(error), traceback.format_exc()))
+            task = self.create_task(task_func=self.get_monitor_requests, task_output_queue=self.monitor_task_queue, task_args=tuple(), task_kwargs={}, delay_time=10, priority=1)
+            self.add_task(task)
+            task = self.create_task(task_func=self.process_monitor_requests, task_output_queue=self.monitor_output_queue, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
+            self.add_task(task)
+            task = self.create_task(task_func=self.finish_monitor_requests, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
+            self.add_task(task)
+
+            task = self.create_task(task_func=self.clean_locks, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1800, priority=1)
+            self.add_task(task)
+
+            self.execute()
         except KeyboardInterrupt:
             self.stop()
 

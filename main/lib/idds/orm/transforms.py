@@ -151,9 +151,9 @@ def get_transform(transform_id, session=None):
 
 
 @read_session
-def get_transform_with_input_collection(transform_type, transform_tag, coll_scope, coll_name, session=None):
+def get_transforms_with_input_collection(transform_type, transform_tag, coll_scope, coll_name, session=None):
     """
-    Get transform or raise a NoObject exception.
+    Get transforms or raise a NoObject exception.
 
     :param transform_type: Transform type.
     :param transform_tag: Transform tag.
@@ -183,8 +183,9 @@ def get_transform_with_input_collection(transform_type, transform_tag, coll_scop
                                         'relation_type': CollectionRelationType.Input.value,
                                         'scope': coll_scope,
                                         'name': coll_name})
-        transform = result.fetchone()
-        if transform:
+        transforms = result.fetchall()
+        ret = []
+        for transform in transforms:
             transform = row2dict(transform)
             if transform['transform_type']:
                 transform['transform_type'] = TransformType(transform['transform_type'])
@@ -194,8 +195,8 @@ def get_transform_with_input_collection(transform_type, transform_tag, coll_scop
                 transform['locking'] = TransformLocking(transform['locking'])
             if transform['transform_metadata']:
                 transform['transform_metadata'] = json.loads(transform['transform_metadata'])
-
-        return transform
+            ret.append(transform)
+        return ret
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('Transform(transform_type: %s, transform_tag: %s, coll_scope: %s, coll_name: %s) cannot be found: %s' %
                                   (transform_type, transform_tag, coll_scope, coll_name, error))
@@ -310,7 +311,7 @@ def get_transforms_by_status(status, period=None, locking=False, bulk_size=None,
             select = select + " and locking=:locking"
             params['locking'] = TransformLocking.Idle.value
         if bulk_size:
-            select = select + " FETCH FIRST %s ROWS ONLY" % bulk_size
+            select = select + " and rownum < %s + 1 order by transform_id" % bulk_size
 
         stmt = text(select)
         stmt = stmt.bindparams(bindparam('status', expanding=True))
@@ -397,3 +398,18 @@ def delete_transform(transform_id=None, session=None):
         session.execute(stmt, {'transform_id': transform_id})
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('Transfrom %s cannot be found: %s' % (transform_id, error))
+
+
+@transactional_session
+def clean_locking(time_period=3600, session=None):
+    """
+    Clearn locking which is older than time period.
+
+    :param time_period in seconds
+    """
+
+    params = {'locking': 0,
+              'updated_at': datetime.datetime.utcnow() - datetime.timedelta(seconds=time_period)}
+    sql = "update atlas_idds.transforms set locking = :locking where locking = 1 and updated_at < :updated_at"
+    stmt = text(sql)
+    session.execute(stmt, params)

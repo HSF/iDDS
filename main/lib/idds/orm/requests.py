@@ -361,9 +361,10 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, loc
             req_select = req_select + " and locking=:locking"
             req_params['locking'] = RequestLocking.Idle.value
 
-        req_select = req_select + " order by priority desc"
         if bulk_size:
-            req_select = req_select + " FETCH FIRST %s ROWS ONLY" % bulk_size
+            req_select = req_select + " and rownum < %s + 1 order by priority desc, request_id asc" % bulk_size
+        else:
+            req_select = req_select + " order by priority desc"
 
         req_stmt = text(req_select)
         req_stmt = req_stmt.bindparams(bindparam('status', expanding=True))
@@ -441,3 +442,18 @@ def delete_request(request_id=None, workload_id=None, session=None):
         session.execute(req_stmt, {'request_id': request_id})
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('Request %s cannot be found: %s' % (request_id, error))
+
+
+@transactional_session
+def clean_locking(time_period=3600, session=None):
+    """
+    Clearn locking which is older than time period.
+
+    :param time_period in seconds
+    """
+
+    params = {'locking': 0,
+              'updated_at': datetime.datetime.utcnow() - datetime.timedelta(seconds=time_period)}
+    sql = "update atlas_idds.requests set locking = :locking where locking = 1 and updated_at < :updated_at"
+    stmt = text(sql)
+    session.execute(stmt, params)

@@ -43,6 +43,7 @@ host = get_rest_host()
 props = get_req_properties()
 props = get_example_real_tape_stagein_request()
 props = get_example_prodsys2_tape_stagein_request()
+# props = get_example_active_learning_request()
 
 client = Client(host=host)
 request_id = client.add_request(**props)
