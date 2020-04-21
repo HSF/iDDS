@@ -37,7 +37,7 @@ def get_req_properties():
         'priority': 0,
         'lifetime': 30,
         # 'request_metadata': {'workload_id': '20525134', 'sandbox': None, 'executable': 'docker run --rm -it -v "$(pwd)":/payload gitlab-registry.cern.ch/zhangruihpc/endpointcontainer:latest /bin/bash -c "/bin/cat /payload/input_json.txt>/payload/output_json.txt"', 'arguments': '-s --input %IN', 'output_json': 'output.json'}  # noqa: E501
-        'request_metadata': {'workload_id': '20525134', 'is_pseudo_input': True, 'sandbox': None, 'executable': 'docker', 'arguments': 'run --rm -it -v "$(pwd)":/payload gitlab-registry.cern.ch/zhangruihpc/endpointcontainer:latest /bin/bash -c "echo "--num_points %NUM_POINTS"; /bin/cat /payload/%IN>/payload/%OUT"', 'initial_points': [{'A': 1, 'B': 2, 'IDDS_OUTPUT': 0.3}, {'A': 1, 'B': 3}], 'output_json': 'output.json'}  # noqa: E501
+        'request_metadata': {'workload_id': '20525134', 'is_pseudo_input': True, 'sandbox': None, 'executable': 'docker', 'arguments': 'run --rm -it -v "$(pwd)":/payload gitlab-registry.cern.ch/zhangruihpc/endpointcontainer:latest /bin/bash -c "echo "--num_points %NUM_POINTS"; /bin/cat /payload/%IN>/payload/%OUT"', 'initial_points': [({'A': 1, 'B': 2}, 0.3), ({'A': 1, 'B': 3}, None)], 'output_json': 'output.json'}  # noqa: E501
     }
     return req_properties
 
