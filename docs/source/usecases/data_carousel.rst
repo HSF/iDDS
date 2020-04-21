@@ -44,7 +44,7 @@ replicas.
 Future improvements to shorten the tails on completing tasks
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-iDDS gives JEDI knowledge of problematic files which means that iDDS and/or JEDI can take actions if necessary.
+iDDS gives JEDI knowledge of problematic files, which means that iDDS and/or JEDI can take actions if necessary.
 For example, when files are stuck for long time, iDDS would make new rules to transfer them from other sites.
 Possible actions and conditions to trigger them to be defined.
 
