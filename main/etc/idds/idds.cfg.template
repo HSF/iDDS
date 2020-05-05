@@ -54,6 +54,7 @@ poll_time_period = 120
 retrieve_bulk_size = 10
 plugin.stagein_transformer = idds.atlas.transformer.stagein_transformer.StageInTransformer
 plugin.activelearning_transformer = idds.atlas.transformer.activelearning_transformer.ActiveLearningTransformer
+plugin.hyperparameteropt_transformer = idds.atlas.transformer.hyperparameteropt_transformer.HyperParameterOptTransformer
 
 [transporter]
 num_threads = 1
@@ -79,6 +80,14 @@ plugin.activelearning_submitter = idds.atlas.processing.activelearning_condor_su
 plugin.activelearning_submitter.workdir = /data/idds_processing
 plugin.activelearning_poller = idds.atlas.processing.activelearning_condor_poller.ActiveLearningCondorPoller
 plugin.activelearning_poller.workdir = /data/idds_processing
+
+plugin.hyperparameteropt_submitter = idds.atlas.processing.hyperparameteropt_condor_submitter.HyperParameterOptCondorSubmitter
+plugin.hyperparameteropt_submitter.workdir = /data/idds_processing
+plugin.hyperparameteropt_submitter.nevergrad.executable = 'localnevergradexec'
+plugin.hyperparameteropt_submitter.nevergrad.arguments = '--max_points % MAX_POINTS --num_points %NUM_POINTS --input %IN --output %OUT'
+plugin.hyperparameteropt_submitter.nevergrad.output_json = 'output.json'
+plugin.hyperparameteropt_poller = idds.atlas.processing.hyperparameteropt_condor_poller.HyperParameterOptCondorPoller
+plugin.hyperparameteropt_poller.workdir = /data/idds_processing
 
 [conductor]
 retrieve_bulk_size = 10
