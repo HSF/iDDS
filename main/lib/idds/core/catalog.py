@@ -340,6 +340,22 @@ def update_contents(parameters, with_content_id=False, session=None):
     return orm_contents.update_contents(parameters, with_content_id=with_content_id, session=session)
 
 
+@transactional_session
+def update_content(content_id, parameters, session=None):
+    """
+    update a content.
+
+    :param content_id: the content id.
+    :param parameters: A dictionary of parameters.
+    :param session: The database session in use.
+
+    :raises NoObject: If no content is founded.
+    :raises DatabaseException: If there is a database error.
+
+    """
+    return orm_contents.update_content(content_id, parameters, session=session)
+
+
 @read_session
 def get_contents(coll_scope=None, coll_name=None, request_id=None, workload_id=None, relation_type=None, session=None):
     """
@@ -507,3 +523,79 @@ def clean_locking(time_period=3600, session=None):
     :param time_period in seconds
     """
     orm_collections.clean_locking(time_period=time_period, session=session)
+
+
+@read_session
+def get_output_content_by_request_id_content_name(request_id, content_scope, content_name, transform_id=None, content_type=None, min_id=None, max_id=None, session=None):
+    """
+    Get output content by request_id and content name
+
+    :param request_id: requestn id.
+    :param content_name: The name of the content.
+    :param session: The database session in use.
+
+    :returns: content of the output collection.
+    """
+    transform_ids = orm_transforms.get_transform_ids(request_id, session=session)
+
+    found_transform_id = None
+    if transform_ids:
+        if len(transform_ids) == 1:
+            found_transform_id = transform_ids[0]
+        elif len(transform_ids) > 1 and transform_id is None:
+            raise "Number of the transforms(%s) is bigger than 1 and transform id is not provided" % len(transform_ids)
+        else:
+            for tf_id in transform_ids:
+                if tf_id == transform_id:
+                    found_transform_id = tf_id
+                    break
+
+    coll_id = None
+    if found_transform_id:
+        coll_id = orm_collections.get_collection_id(transform_id=found_transform_id,
+                                                    relation_type=CollectionRelationType.Output,
+                                                    session=session)
+    content = None
+    if coll_id:
+        content = orm_contents.get_content(coll_id=coll_id, scope=content_scope, name=content_name, content_type=content_type, min_id=min_id, max_id=max_id, session=session)
+    return content
+
+
+@read_session
+def get_output_contents_by_request_id_status(request_id, content_status, limit, transform_id=None, session=None):
+    """
+    Get output content by request_id and content name
+
+    :param request_id: requestn id.
+    :param content_status: The content status.
+    :param limit: limit number of contents.
+    :param session: The database session in use.
+
+    :returns: content of the output collection.
+    """
+    transform_ids = orm_transforms.get_transform_ids(request_id, session=session)
+
+    found_transform_id = None
+    if transform_ids:
+        if len(transform_ids) == 1:
+            found_transform_id = transform_ids[0]
+        elif len(transform_ids) > 1 and transform_id is None:
+            raise "Number of the transforms(%s) is bigger than 1 and transform id is not provided" % len(transform_ids)
+        else:
+            for tf_id in transform_ids:
+                if tf_id == transform_id:
+                    found_transform_id = tf_id
+                    break
+
+    coll_id = None
+    if found_transform_id:
+        coll_id = orm_collections.get_collection_id(transform_id=found_transform_id,
+                                                    relation_type=CollectionRelationType.Output,
+                                                    session=session)
+
+    contents = []
+    if coll_id:
+        contents = orm_contents.get_contents(coll_id=coll_id, status=content_status, session=session)
+    if contents and limit and len(contents) > limit:
+        contents = contents[:limit]
+    return contents
