@@ -160,7 +160,8 @@ class ProcessingStatus(Enum):
     Failed = 5
     Lost = 6
     Cancel = 7
-
+    FinishedOnStep = 8
+    FinishedOnExec = 9
 
 class ProcessingLocking(Enum):
     Idle = 0
