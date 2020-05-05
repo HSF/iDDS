@@ -64,6 +64,10 @@ class Transformer(BaseAgent):
             if 'activelearning_transformer' not in self.plugins:
                 raise AgentPluginError('Plugin activelearning_transformer is required')
             return self.plugins['activelearning_transformer'](transform, input_collection, output_collection, contents)
+        if transform['transform_type'] == TransformType.HyperParameterOpt:
+            if 'hyperparameteropt_transformer' not in self.plugins:
+                raise AgentPluginError('Plugin hyperparameteropt_transformer is required')
+            return self.plugins['hyperparameteropt_transformer'](transform, input_collection, output_collection, contents)
 
         return []
 
@@ -77,7 +81,7 @@ class Transformer(BaseAgent):
             if collection['relation_type'] == CollectionRelationType.Output:
                 output_collection = collection
 
-        status = [ContentStatus.New, ContentStatus.Failed]
+        status = [ContentStatus.Available, ContentStatus.Failed]
         contents = core_catalog.get_contents_by_coll_id_status(coll_id=input_collection['coll_id'], status=status)
         output_contents = self.generate_transform_output_contents(transform,
                                                                   input_collection,
