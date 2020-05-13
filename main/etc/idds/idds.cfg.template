@@ -83,19 +83,34 @@ plugin.activelearning_poller.workdir = /data/idds_processing
 
 plugin.hyperparameteropt_submitter = idds.atlas.processing.hyperparameteropt_condor_submitter.HyperParameterOptCondorSubmitter
 plugin.hyperparameteropt_submitter.workdir = /data/idds_processing
-plugin.hyperparameteropt_submitter.nevergrad.executable = 'localnevergradexec'
-plugin.hyperparameteropt_submitter.nevergrad.arguments = '--max_points % MAX_POINTS --num_points %NUM_POINTS --input %IN --output %OUT'
-plugin.hyperparameteropt_submitter.nevergrad.output_json = 'output.json'
+plugin.hyperparameteropt_submitter.max_unevaluated_points = 10
+plugin.hyperparameteropt_submitter.min_unevaluated_points = 2
+
+plugin.hyperparameteropt_submitter.nevergrad.executable = docker
+plugin.hyperparameteropt_submitter.nevergrad.arguments = run -v $(pwd):/data wguanicedew/idds_hpo_nevergrad python /opt/hyperparameteropt_nevergrad.py --max_points=%%MAX_POINTS --num_points=%%NUM_POINTS --input=/data/%%IN --output=/data/%%OUT
+plugin.hyperparameteropt_submitter.nevergrad.output_json = output.json
+plugin.hyperparameteropt_submitter.nevergrad.should_transfer_executable = False
+
+plugin.hyperparameteropt_submitter.bayesian.executable = /opt/idds/lib/python3.6/site-packages/idds/atlas/processing/hyperparameteropt_bayesian.py
+plugin.hyperparameteropt_submitter.bayesian.arguments = --max_points %%MAX_POINTS --num_points %%NUM_POINTS --input %%IN --output %%OUT
+plugin.hyperparameteropt_submitter.bayesian.output_json = output.json
+plugin.hyperparameteropt_submitter.bayesian.should_transfer_executable = True
+
 plugin.hyperparameteropt_poller = idds.atlas.processing.hyperparameteropt_condor_poller.HyperParameterOptCondorPoller
 plugin.hyperparameteropt_poller.workdir = /data/idds_processing
+plugin.hyperparameteropt_poller.max_unevaluated_points = 20
+plugin.hyperparameteropt_poller.min_unevaluated_points = 2
+
 
 [conductor]
 retrieve_bulk_size = 10
 plugin.notifier = idds.atlas.notifier.messaging.MessagingSender
-plugin.notifier.brokers = atlas-test-mb.cern.ch
+# plugin.notifier.brokers = atlas-test-mb.cern.ch
+plugin.notifier.brokers = atlas-mb.cern.ch
 plugin.notifier.port = 61013
 # plugin.notifier.vhost =
-plugin.notifier.destination = /queue/atlas.idds
+# plugin.notifier.destination = /queue/atlas.idds
+plugin.notifier.destination = /topic/atlas.idds
 plugin.notifier.username = atlasidds
 plugin.notifier.password = ******
 plugin.notifier.broker_timeout = 10
