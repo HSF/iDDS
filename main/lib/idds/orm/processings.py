@@ -253,6 +253,8 @@ def update_processing(processing_id, parameters, session=None):
             parameters['granularity_type'] = parameters['granularity_type'].value
         if 'status' in parameters and isinstance(parameters['status'], ProcessingStatus):
             parameters['status'] = parameters['status'].value
+        if 'substatus' in parameters and isinstance(parameters['substatus'], ProcessingStatus):
+            parameters['substatus'] = parameters['substatus'].value
         if 'locking' in parameters and isinstance(parameters['locking'], ProcessingLocking):
             parameters['locking'] = parameters['locking'].value
         if 'processing_metadata' in parameters:

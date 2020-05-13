@@ -36,10 +36,13 @@ class CondorSubmitter(ProcessingPluginBase):
             os.makedirs(job_dir)
         return job_dir
 
-    def generate_submit_script(self, processing_id, sandbox, executable, arguments, input_list, input_json, output_json):
+    def generate_submit_script(self, processing_id, sandbox, executable, arguments, input_list, input_json, output_json, should_transfer_executable=False):
         script = "#!/bin/bash\n\n"
         script += "sandbox=%s\n" % str(sandbox)
-        script += "executable=%s\n" % str(executable)
+        if should_transfer_executable:
+            script += "executable=%s\n" % os.path.basename(executable)
+        else:
+            script += "executable=%s\n" % str(executable)
         script += "arguments=%s\n" % str(arguments)
         script += "input_list=%s\n" % str(input_list)
         script += "input_json=%s\n" % str(input_json)
@@ -54,9 +57,15 @@ class CondorSubmitter(ProcessingPluginBase):
             script += "wget $sandbox\n"
             script += 'base_sandbox="$(basename -- $sandbox)"\n'
             script += 'tar xzf $base_sandbox\n'
-        script += 'chmod +x $executable\n'
-        script += 'echo ./$executable $arguments\n'
-        script += './$executable $arguments\n'
+        if should_transfer_executable:
+            script += 'chmod +x %s\n' % os.path.basename(executable)
+            script += "echo '%s' '%s'\n" % (os.path.basename(executable), str(arguments))
+            script += './%s %s\n' % (os.path.basename(executable), str(arguments))
+        else:
+            script += 'chmod +x %s\n' % str(executable)
+            script += "echo '%s' '%s'\n" % (str(executable), str(arguments))
+            script += '%s %s\n' % (str(executable), str(arguments))
+
         script += '\n'
 
         script_name = 'processing_%s.sh' % processing_id
@@ -65,8 +74,8 @@ class CondorSubmitter(ProcessingPluginBase):
             f.write(script)
         return script_name
 
-    def generate_submit_file(self, processing_id, sandbox, executable, arguments, input_list, input_json, output_json):
-        script_name = self.generate_submit_script(processing_id, sandbox, executable, arguments, input_list, input_json, output_json)
+    def generate_submit_file(self, processing_id, sandbox, executable, arguments, input_list, input_json, output_json, should_transfer_executable=False):
+        script_name = self.generate_submit_script(processing_id, sandbox, executable, arguments, input_list, input_json, output_json, should_transfer_executable=should_transfer_executable)
 
         jdl = "#Agent jdl file\n"
         jdl += "Universe        = vanilla\n"
@@ -85,7 +94,13 @@ class CondorSubmitter(ProcessingPluginBase):
         # jdl += "transfer_input_files = file1, file2\n"
         if input_json:
             jdl += "should_transfer_files = yes\n"
-            jdl += "transfer_input_files = %s\n" % input_json
+            if should_transfer_executable:
+                jdl += "transfer_input_files = %s, %s\n" % (executable, input_json)
+            else:
+                jdl += "transfer_input_files = %s\n" % input_json
+        else:
+            if should_transfer_executable:
+                jdl += "transfer_input_files = %s\n" % (executable)
         if output_json:
             jdl += "should_transfer_files = yes\n"
             jdl += "transfer_output_files = %s\n" % output_json
@@ -109,8 +124,8 @@ class CondorSubmitter(ProcessingPluginBase):
             f.write(jdl)
         return submit_file
 
-    def submit_job(self, processing_id, sandbox, executable, arguments, input_list, input_json, output_json):
-        jdl_file = self.generate_submit_file(processing_id, sandbox, executable, arguments, input_list, input_json, output_json)
+    def submit_job(self, processing_id, sandbox, executable, arguments, input_list, input_json, output_json, should_transfer_executable=False):
+        jdl_file = self.generate_submit_file(processing_id, sandbox, executable, arguments, input_list, input_json, output_json, should_transfer_executable=should_transfer_executable)
         cmd = "condor_submit " + jdl_file
         status, output, error = run_command(cmd)
         jobid = None

@@ -83,7 +83,7 @@ class Clerk(BaseAgent):
     def get_collections(self, scope, name, req=None):
         if (req and req['request_metadata'] and 'is_pseudo_input' in req['request_metadata']                  # noqa: W503
             and req['request_metadata']['is_pseudo_input'] == True):                                          # noqa: W503
-            collection = {'scope': scope, 'name': name, 'total_files': 1, 'bytes': 0,
+            collection = {'scope': scope, 'name': name, 'total_files': 1, 'bytes': 0, 'processed_files': 1,
                           'coll_type': CollectionType.PseudoDataset}
             return [collection]
         else:

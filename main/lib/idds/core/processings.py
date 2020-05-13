@@ -132,7 +132,8 @@ def delete_processing(processing_id=None, session=None):
 
 
 @transactional_session
-def update_processing_with_collection_contents(updated_processing, updated_collection=None, updated_files=None, new_files=None,
+def update_processing_with_collection_contents(updated_processing, new_processing=None, updated_collection=None,
+                                               updated_files=None, new_files=None,
                                                coll_msg_content=None, file_msg_content=None, transform_updates=None,
                                                message_bulk_size=1000, session=None):
     """
@@ -173,6 +174,8 @@ def update_processing_with_collection_contents(updated_processing, updated_colle
         orm_processings.update_processing(processing_id=updated_processing['processing_id'],
                                           parameters=updated_processing['parameters'],
                                           session=session)
+    if new_processing:
+        orm_processings.add_processing(**new_processing, session=session)
     if transform_updates:
         orm_transforms.update_transform(transform_id=transform_updates['transform_id'],
                                         parameters=transform_updates['parameters'],

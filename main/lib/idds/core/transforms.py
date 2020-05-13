@@ -255,7 +255,7 @@ def add_transform_outputs(transform, input_collection, output_collection, input_
     if to_cancel_processing:
         to_cancel_params = {'status': ProcessingStatus.Cancel}
         for to_cancel_id in to_cancel_processing:
-            orm_processings.update_processing(processing_id=to_cancel_id, parameters=to_cancel_params)
+            orm_processings.update_processing(processing_id=to_cancel_id, parameters=to_cancel_params, session=session)
     processing_id = None
     if processing:
         processing_id = orm_processings.add_processing(**processing, session=session)

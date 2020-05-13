@@ -10,10 +10,11 @@
 
 
 """
-Test active learning client.
+Test hyper parameter optimization test  client.
 """
 
 import os
+# from uuid import uuid4 as uuid
 
 from idds.client.client import Client
 from idds.common.constants import RequestType, RequestStatus
@@ -28,8 +29,8 @@ def get_test_codes():
 
 def get_req_properties():
     req_properties = {
-        'scope': 'data15_13TeV',
-        'name': 'data15_13TeV.00270949.pseudo.1',
+        # 'scope': 'data15_13TeV',
+        # 'name': 'data15_13TeV.00270949.pseudo.%s' % str(uuid()),
         'requester': 'panda',
         'request_type': RequestType.HyperParameterOpt,
         'transform_tag': 'prodsys2',
@@ -37,7 +38,9 @@ def get_req_properties():
         'priority': 0,
         'lifetime': 30,
         # 'request_metadata': {'workload_id': '20525134', 'sandbox': None, 'executable': 'docker run --rm -it -v "$(pwd)":/payload gitlab-registry.cern.ch/zhangruihpc/endpointcontainer:latest /bin/bash -c "/bin/cat /payload/input_json.txt>/payload/output_json.txt"', 'arguments': '-s --input %IN', 'output_json': 'output.json'}  # noqa: E501
-        'request_metadata': {'workload_id': '20525134', 'is_pseudo_input': True, 'sandbox': None, 'executable': 'docker', 'arguments': 'run --rm -it -v "$(pwd)":/payload gitlab-registry.cern.ch/zhangruihpc/endpointcontainer:latest /bin/bash -c "echo "--num_points %NUM_POINTS"; /bin/cat /payload/%IN>/payload/%OUT"', 'initial_points': [{'A': 1, 'B': 2, 'IDDS_OUTPUT': 0.3}, {'A': 1, 'B': 3}], 'output_json': 'output.json'}  # noqa: E501
+        # 'request_metadata': {'workload_id': '20525134', 'is_pseudo_input': True, 'sandbox': None, 'executable': 'docker', 'arguments': 'run --rm -it -v "$(pwd)":/payload gitlab-registry.cern.ch/zhangruihpc/endpointcontainer:latest /bin/cat /payload/%IN>%OUT', 'initial_points': [({'A': 1, 'B': 2}, 0.3), ({'A': 1, 'B': 3}, None)], 'output_json': 'output.json'}  # noqa: E501
+        # 'request_metadata': {'workload_id': '20525134', 'is_pseudo_input': True, 'sandbox': None, 'method': 'nevergrad', 'opt_space': {'A': [1, 2, 3], 'B': (1, 10)}, 'initial_points': [({'A': 1, 'B': 2}, 0.3), ({'A': 1, 'B': 3}, None)], 'max_points': 10}  # noqa: E501
+        'request_metadata': {'workload_id': '20525134', 'sandbox': None, 'executable': 'docker', 'arguments': 'run -v $(pwd):/data wguanicedew/idds_hpo_nevergrad python /opt/hyperparameteropt_nevergrad.py --max_points=%MAX_POINTS --num_points=%NUM_POINTS --input=/data/%IN --output=/data/%OUT', 'output_json': 'output.json', 'opt_space': {"A": {"type": "Choice", "params": {"choices": [1, 4]}}, "B": {"type": "Scalar", "bounds": [0, 5]}}, 'initial_points': [({'A': 1, 'B': 2}, 0.3), ({'A': 1, 'B': 3}, None)], 'max_points': 20, 'num_points_per_generation': 10}  # noqa: E501
     }
     return req_properties
 
