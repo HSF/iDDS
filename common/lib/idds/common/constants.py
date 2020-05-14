@@ -163,6 +163,7 @@ class ProcessingStatus(Enum):
     FinishedOnStep = 8
     FinishedOnExec = 9
 
+
 class ProcessingLocking(Enum):
     Idle = 0
     Locking = 1
