@@ -15,6 +15,7 @@ operations related to Requests.
 
 import datetime
 import json
+import random
 
 import sqlalchemy
 from sqlalchemy import BigInteger, Integer
@@ -60,6 +61,21 @@ def add_request(scope, name, requester=None, request_type=None, transform_tag=No
         status = status.value
     if isinstance(locking, RequestLocking):
         locking = locking.value
+
+    is_pseudo_input = None
+    if request_type in [RequestType.HyperParameterOpt.value]:
+        if not scope:
+            scope = 'hpo'
+            is_pseudo_input = True
+        if not name:
+            name = 'hpo.' + datetime.datetime.utcnow().strftime("%Y_%m_%d_%H_%M_%S_%f") + str(random.randint(1, 1000))
+            is_pseudo_input = True
+
+    if is_pseudo_input:
+        if not request_metadata:
+            request_metadata = {}
+        request_metadata['is_pseudo_input'] = True
+
     if request_metadata:
         request_metadata = json.dumps(request_metadata)
     if processing_metadata:
