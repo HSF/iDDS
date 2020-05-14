@@ -28,6 +28,9 @@ class HyperParameterOptTransformer(TransformerPluginBase):
 
     def __call__(self, transform, input_collection, output_collection, input_contents):
         try:
+            if not input_contents:
+                return []
+
             transform_metadata = transform['transform_metadata']
             initial_points = []
             if 'initial_points' in transform_metadata:
