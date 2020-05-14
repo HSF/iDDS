@@ -316,10 +316,15 @@ def update_input_collection_with_contents(coll, parameters, contents, returning_
     if to_addes:
         add_contents(to_addes, returning_id=returning_id, bulk_size=bulk_size, session=session)
 
+    if 'total_files' in parameters:
+        total_files = parameters['total_files']
+    else:
+        total_files = coll['total_files']
     parameters['processed_files'] = processed_files
     parameters['new_files'] = new_files
-    if processed_files == coll['total_files']:
+    if processed_files == total_files:
         parameters['status'] = CollectionStatus.Closed
+
     update_collection(coll['coll_id'], parameters, session=session)
     return to_addes
 
