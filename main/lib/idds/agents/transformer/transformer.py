@@ -81,7 +81,7 @@ class Transformer(BaseAgent):
             if collection['relation_type'] == CollectionRelationType.Output:
                 output_collection = collection
 
-        status = [ContentStatus.Available, ContentStatus.Failed]
+        status = [ContentStatus.New, ContentStatus.Available, ContentStatus.Failed]
         contents = core_catalog.get_contents_by_coll_id_status(coll_id=input_collection['coll_id'], status=status)
         output_contents = self.generate_transform_output_contents(transform,
                                                                   input_collection,
