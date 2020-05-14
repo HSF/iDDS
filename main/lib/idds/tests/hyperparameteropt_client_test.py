@@ -20,6 +20,7 @@ from idds.common.utils import get_rest_host
 
 request_id = sys.argv[1]
 
+# host = "https://aipanda181.cern.ch:443/idds"
 host = get_rest_host()
 
 client = Client(host=host)
