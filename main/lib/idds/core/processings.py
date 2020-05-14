@@ -150,14 +150,17 @@ def update_processing_with_collection_contents(updated_processing, new_processin
     if new_files:
         orm_contents.add_contents(contents=new_files, returning_id=False, session=session)
     if file_msg_content:
-        orm_messages.add_message(msg_type=file_msg_content['msg_type'],
-                                 status=file_msg_content['status'],
-                                 source=file_msg_content['source'],
-                                 transform_id=file_msg_content['transform_id'],
-                                 num_contents=file_msg_content['num_contents'],
-                                 msg_content=file_msg_content['msg_content'],
-                                 bulk_size=message_bulk_size,
-                                 session=session)
+        if not type(file_msg_content) in [list, tuple]:
+            file_msg_content = [file_msg_content]
+        for file_msg_con in file_msg_content:
+            orm_messages.add_message(msg_type=file_msg_con['msg_type'],
+                                     status=file_msg_con['status'],
+                                     source=file_msg_con['source'],
+                                     transform_id=file_msg_con['transform_id'],
+                                     num_contents=file_msg_con['num_contents'],
+                                     msg_content=file_msg_con['msg_content'],
+                                     bulk_size=message_bulk_size,
+                                     session=session)
     if updated_collection:
         orm_collections.update_collection(coll_id=updated_collection['coll_id'],
                                           parameters=updated_collection['parameters'],
