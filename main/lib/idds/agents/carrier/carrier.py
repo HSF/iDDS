@@ -198,9 +198,13 @@ class Carrier(BaseAgent):
         if 'new_files' in ret_poll:
             new_files = ret_poll['new_files']
         updated_files = ret_poll['updated_files']
-        file_msg = []
+        file_msgs = []
+        if new_files:
+            file_msg = self.generate_file_message(transform, new_files)
+            file_msgs.append(file_msg)
         if updated_files:
             file_msg = self.generate_file_message(transform, updated_files)
+            file_msgs.append(file_msg)
 
         processing_status = ret_poll['processing_updates']['status']
         processing_metadata = ret_poll['processing_updates']['processing_metadata']
@@ -224,7 +228,7 @@ class Carrier(BaseAgent):
                'new_processing': new_processing,
                'updated_files': updated_files,
                'new_files': new_files,
-               'file_message': file_msg}
+               'file_message': file_msgs}
         return ret
 
     def process_monitor_processings(self):
