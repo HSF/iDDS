@@ -35,6 +35,7 @@ def generate_new_points(input_points, opt_space, max_points, num_points):
     # pbounds={'x': (-2, 2), 'y': (-3, 3)}
     if len(input_points) > max_points:
         return []
+    num_points = min(num_points, max_points - len(input_points))
 
     utility = UtilityFunction(kind="ucb", kappa=2.5, xi=0.0)
     optimizer = BayesianOptimization(f=None,
