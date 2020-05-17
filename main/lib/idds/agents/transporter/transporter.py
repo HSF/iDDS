@@ -297,6 +297,8 @@ class Transporter(BaseAgent):
         elif (ContentStatus.New in content_status_keys or ContentStatus.New.value in content_status_keys            # noqa: W503
             or ContentStatus.Failed in content_status_keys or ContentStatus.Failed.value in content_status_keys):   # noqa: W503
             coll_status = CollectionStatus.Processing
+        else:
+            coll_status = CollectionStatus.Processing
 
         coll_metadata = coll['coll_metadata']
         if not coll_metadata:
