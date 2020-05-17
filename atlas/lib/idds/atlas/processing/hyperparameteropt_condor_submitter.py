@@ -144,6 +144,8 @@ class HyperParameterOptCondorSubmitter(CondorSubmitter):
             if 'opt_space' in transform['transform_metadata']:
                 opt_space = transform['transform_metadata']['opt_space']
                 opt_points['opt_space'] = opt_space
+            else:
+                opt_points['opt_space'] = None
             with open(os.path.join(job_dir, input_json), 'w') as f:
                 json.dump(opt_points, f)
 
