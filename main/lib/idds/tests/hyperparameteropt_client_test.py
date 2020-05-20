@@ -18,7 +18,12 @@ import sys
 from idds.client.client import Client
 from idds.common.utils import get_rest_host
 
-request_id = sys.argv[1]
+if len(sys.argv) == 2:
+    workload_id = sys.argv[1]
+    request_id = None
+elif len(sys.argv) == 3:
+    workload_id = sys.argv[1]
+    request_id = sys.argv[2]
 
 # host = "https://aipanda181.cern.ch:443/idds"
 host = get_rest_host()
@@ -26,12 +31,15 @@ host = get_rest_host()
 client = Client(host=host)
 # props['request_metadata']['result_parser'] = 'default'
 
-params = client.get_hyperparameters(request_id=request_id)
+params = client.get_hyperparameters(workload_id=workload_id, request_id=request_id)
 print(params)
-for param in params:
-    id = param['id']
-    if param['loss'] is None:
-        print("updating %s" % id)
-        ret = client.update_hyperparameter(request_id=request_id, id=id, loss=0.3)
-        print(ret)
-        break
+if not params:
+    print("No parameters")
+else:
+    for param in params:
+        id = param['id']
+        if param['loss'] is None:
+            print("updating %s" % id)
+            ret = client.update_hyperparameter(workload_id=workload_id, request_id=request_id, id=id, loss=0.3)
+            print(ret)
+            break
