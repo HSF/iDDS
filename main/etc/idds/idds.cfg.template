@@ -6,7 +6,10 @@
 # - Wen Guan, <wen.guan@cern.ch>, 2019
 
 [common]
-#logdir = /var/log/idds
+# if logdir is configured, idds will write to idds.log in this directory.
+# else idds will go to stdout/stderr.
+# With supervisord, it's good to write to stdout/stderr, then supervisord can manage and rotate logs.
+# logdir = /var/log/idds
 loglevel = DEBUG
 
 
@@ -24,11 +27,90 @@ echo=0
 pool_reset_on_return=rollback
 
 [rest]
-host = https://aipanda182.cern.ch:8443/idds
-#url_prefix = 
-debug = False
+host = https://aipanda182.cern.ch:443/idds
+#url_prefix = /idds
+#cacher_dir = /tmp
+cacher_dir = /data/idds
 
 #[section]
+#attr1 = <attr1>
 #plugin.<plugin_name> = <lib.path.name.ClassName>
 #plugin.<plugin_name>.<attr1> = <value1>
 #plugin.<plugin_name>.<attr2> = <value2>
+
+[main]
+agents = clerk, transporter, transformer, carrier, conductor
+
+[clerk]
+num_threads = 1
+poll_time_period = 120
+retrieve_bulk_size = 10
+#plugin_sequence = collection_lister
+plugin.collection_lister = idds.atlas.rucio.collection_lister.CollectionLister
+
+[transformer]
+num_threads = 1
+poll_time_period = 120
+retrieve_bulk_size = 10
+plugin.stagein_transformer = idds.atlas.transformer.stagein_transformer.StageInTransformer
+plugin.activelearning_transformer = idds.atlas.transformer.activelearning_transformer.ActiveLearningTransformer
+plugin.hyperparameteropt_transformer = idds.atlas.transformer.hyperparameteropt_transformer.HyperParameterOptTransformer
+
+[transporter]
+num_threads = 1
+poll_time_period = 600
+retrieve_bulk_size = 10
+plugin.collection_metadata_reader = idds.atlas.rucio.collection_metadata_reader.CollectionMetadataReader
+plugin.contents_lister = idds.atlas.rucio.contents_lister.ContentsLister
+plugin.contents_register = idds.atlas.rucio.contents_register.ContentsRegister
+
+[carrier]
+num_threads = 1
+poll_time_period = 600
+retrieve_bulk_size = 10
+message_bulk_size = 2000
+plugin.stagein_submitter = idds.atlas.processing.stagein_submitter.StageInSubmitter
+plugin.stagein_submitter.plugin.rule_submitter = idds.atlas.rucio.rule_submitter.RuleSubmitter
+#7 * 24 * 3600
+plugin.stagein_submitter.plugin.rule_submitter.lifetime = 604800
+plugin.stagein_poller = idds.atlas.processing.stagein_poller.StageInPoller
+plugin.stagein_poller.plugin.rule_poller = idds.atlas.rucio.rule_poller.RulePoller
+
+plugin.activelearning_submitter = idds.atlas.processing.activelearning_condor_submitter.ActiveLearningCondorSubmitter
+plugin.activelearning_submitter.workdir = /data/idds_processing
+plugin.activelearning_poller = idds.atlas.processing.activelearning_condor_poller.ActiveLearningCondorPoller
+plugin.activelearning_poller.workdir = /data/idds_processing
+
+plugin.hyperparameteropt_submitter = idds.atlas.processing.hyperparameteropt_condor_submitter.HyperParameterOptCondorSubmitter
+plugin.hyperparameteropt_submitter.workdir = /data/idds_processing
+plugin.hyperparameteropt_submitter.max_unevaluated_points = 10
+plugin.hyperparameteropt_submitter.min_unevaluated_points = 2
+
+plugin.hyperparameteropt_submitter.nevergrad.executable = docker
+plugin.hyperparameteropt_submitter.nevergrad.arguments = run -v $(pwd):/data wguanicedew/idds_hpo_nevergrad python /opt/hyperparameteropt_nevergrad.py --max_points=%%MAX_POINTS --num_points=%%NUM_POINTS --input=/data/%%IN --output=/data/%%OUT
+plugin.hyperparameteropt_submitter.nevergrad.output_json = output.json
+plugin.hyperparameteropt_submitter.nevergrad.should_transfer_executable = False
+
+plugin.hyperparameteropt_submitter.bayesian.executable = /opt/idds/lib/python3.6/site-packages/idds/atlas/processing/hyperparameteropt_bayesian.py
+plugin.hyperparameteropt_submitter.bayesian.arguments = --max_points %%MAX_POINTS --num_points %%NUM_POINTS --input %%IN --output %%OUT
+plugin.hyperparameteropt_submitter.bayesian.output_json = output.json
+plugin.hyperparameteropt_submitter.bayesian.should_transfer_executable = True
+
+plugin.hyperparameteropt_poller = idds.atlas.processing.hyperparameteropt_condor_poller.HyperParameterOptCondorPoller
+plugin.hyperparameteropt_poller.workdir = /data/idds_processing
+plugin.hyperparameteropt_poller.max_unevaluated_points = 20
+plugin.hyperparameteropt_poller.min_unevaluated_points = 2
+
+
+[conductor]
+retrieve_bulk_size = 10
+plugin.notifier = idds.atlas.notifier.messaging.MessagingSender
+# plugin.notifier.brokers = atlas-test-mb.cern.ch
+plugin.notifier.brokers = atlas-mb.cern.ch
+plugin.notifier.port = 61013
+# plugin.notifier.vhost =
+# plugin.notifier.destination = /queue/atlas.idds
+plugin.notifier.destination = /topic/atlas.idds
+plugin.notifier.username = atlasidds
+plugin.notifier.password = ******
+plugin.notifier.broker_timeout = 10

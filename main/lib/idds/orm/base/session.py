@@ -135,6 +135,7 @@ def get_engine(echo=True):
         config_params = [('pool_size', int), ('max_overflow', int), ('pool_timeout', int),
                          ('pool_recycle', int), ('echo', int), ('echo_pool', str),
                          ('pool_reset_on_return', str), ('use_threadlocal', int)]
+        # params = {'max_identifier_length': 128}
         params = {}
         for param, param_type in config_params:
             try:

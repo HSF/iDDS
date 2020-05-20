@@ -1,13 +1,20 @@
 #!/bin/bash
 
-yum install -y httpd.x86_64 conda gridsite mod_ssl.x86_64
+yum install -y httpd.x86_64 conda gridsite mod_ssl.x86_64 httpd-devel.x86_64 gcc.x86_64
 mkdir /opt/idds
 mkdir /opt/idds_source
 # git clone @github_idds@ /opt/idds_source
 # python setup.py install --old-and-unmanageable
 
-conda env create --prefix=/opt/idds -f idds_source/tools/environment.yml
+conda env create --prefix=/opt/idds -f main/tools/env/environment.yml
 conda activate /opt/idds
 pip install mod_wsgi
 #conda deactivate
+
+export RUCIO_HOME=/opt/idds/
+export RUCIO_ACCOUNT=wguan
+export X509_USER_PROXY=/tmp/x509up_u23959
+
+# bash /opt/idds/bin/run-idds
+
 

@@ -21,7 +21,7 @@ import uuid
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.dialects.oracle import RAW, CLOB
 from sqlalchemy.dialects.mysql import BINARY
-from sqlalchemy.types import TypeDecorator, CHAR, String
+from sqlalchemy.types import TypeDecorator, CHAR, String, Integer
 import sqlalchemy.types as types
 
 
@@ -115,3 +115,24 @@ class JSON(TypeDecorator):
             return json.loads(value)
         else:
             return json.loads(value)
+
+
+class EnumWithValue(TypeDecorator):
+    """
+    Enables passing in a Python enum and storing the enum's *value* in the db.
+    The default would have stored the enum's *name* (ie the string).
+    """
+    impl = Integer
+
+    def __init__(self, enumtype, *args, **kwargs):
+        super(EnumWithValue, self).__init__(*args, **kwargs)
+        self._enumtype = enumtype
+
+    def process_bind_param(self, value, dialect):
+        if isinstance(value, int):
+            return value
+
+        return value.value
+
+    def process_result_value(self, value, dialect):
+        return self._enumtype(value)

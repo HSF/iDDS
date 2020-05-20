@@ -1,4 +1,4 @@
-name: iDDS
+name: iDDS-atlas
 dependencies:
 - python==3.6
 - pip
@@ -9,4 +9,5 @@ dependencies:
   - flake8           # Wrapper around PyFlakes&pep8
   - pytest           # python testing tool
   - nose             # nose test tools
-
+  - rucio-clients
+  - rucio-clients-atlas
