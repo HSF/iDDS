@@ -55,6 +55,20 @@ def add_request(scope, name, requester=None, request_type=None, transform_tag=No
     return orm_requests.add_request(**kwargs)
 
 
+def get_request_ids_by_workload_id(workload_id):
+    """
+    Get request id or raise a NoObject exception.
+
+    :param workload_id: The workload_id of the request.
+    :param session: The database session in use.
+
+    :raises NoObject: If no request is founded.
+
+    :returns: Request ids.
+    """
+    return orm_requests.get_request_ids_by_workload_id(workload_id)
+
+
 def get_request(request_id=None, workload_id=None):
     """
     Get a request or raise a NoObject exception.
