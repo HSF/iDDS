@@ -66,23 +66,23 @@ For iDDS HPO, users can define their own HPO generator through docker. When iDDS
     d. '%OUT': The generator needs to create a an output json file which includes all new points. iDDS will read this file to parse all points. The 'OUT' file name is defined in the 'output_json' in the request_metadata.
 
 
-Communication between the Pilot and User-defined HPO Training Application
---------------------------------------------------------------------------
+Communication between the Pilot and User-defined HPO Training Program/Container
+-------------------------------------------------------------------------------------
 
-The pilot and user-defined HPO training application communicate with each other using the following files
+The pilot and user-defined HPO training program/container communicate with each other using the following files
 in the current directory.
 Their file names can be defined as HPO task parameters.
 
-Input for HPO Training Application
-***********************************
-The pilot places two json files before running HPO training application.
+Input for HPO Training Program/Container
+*****************************************
+The pilot places two json files before running HPO training program/container.
 One file contains a list of file names in the training dataset.
 If those files are directly read from the storage the file contains a list of full paths.
 The other file contains a set of hyperparameter to be evaluated.
 
-Output from HPO Training Application
-*************************************
-HPO training application evaluates the hyperparameter set and produces one json file
-which contains a dictionary with the following key-values: 'status': integer (0: OK, others: Not Good),
-'loss': float, 'message': string (optional). It is possible to produce another json file to report
+Output from HPO Training Program/Container
+***********************************************
+HPO training program/container evaluates the hyperparameter set and produces one json file
+which contains a dictionary with the following key-values: ``status``: ``integer`` (0: OK, others: Not Good),
+``loss``: ``float``, ``message``: ``string`` (optional). It is possible to produce another json file to report
 job metadata to PanDA which can contain an arbitrary dictionary.
