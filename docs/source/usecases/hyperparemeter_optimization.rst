@@ -1,40 +1,42 @@
 HyperParameterOptimization(HPO)
 ===============================
 
-HPO is an usecase of iDDS. The purpose of iDDS HPO is to use iDDS to generate hyper parameters for machine learning and trigger production system to automatically process the machine learning training with provided hyper parameters.
+HPO is a usecase of iDDS. The purpose of iDDS HPO is to use iDDS to generate hyperparameters for machine learning and trigger production system to automatically process the machine learning training with provided hyperparameters.
 
 iDDS HPO workflow
 ^^^^^^^^^^^^^^^^^
 
-1. User creates a HPO request through iDDS RESTful service.
-2. iDDS HPO generates multiple groups of hyper parameters and stores them in iDDS. Here one group of hyper parameter corresponds a machine learning training job.
-3. User gets the hyper parameters from iDDS. Here there are two ways to get the hyper parameters.
+1. The user submit a HPO task to JEDI.
+2. JEDI submits a HPO request to iDDS.
+3. iDDS generates multiple sets of hyperparameters and stores them in iDDS database. Each set of hyperparameters has a serial number and corresponds to a machine learning training job.
+4. Serial numbers are sent to JEDI through ActiveMQ.
+5. JEDI generates PanDA jobs and dispatches them to pilots running on compute resources.
+6. Each PanDA job fetches a serial number from PanDA and converts it to a set of hyperparameters by checking with iDDS.
+7. Once the hyperparameter set is evaluated the validation loss is registered to iDDS.
+8. The PanDA job fetches another serial number and evaluates corresponding hyperparameter set if wall-time is still available.
+9. When the number of unprocessed hyperparameter sets goes below a threshold, iDDS automatically generates new sets of hyperparameters. This step will continue until:
 
-    a. For new hyper parameters, iDDS will send a message to ActiveMQ. In this way, production system such as ATLAS JEDI/PanDA can consume these messages to generate a job for every group of hyper parameters.
-    b. iDDS also provides RESTful services and client to retrieve the hyper parameters. Users can use the client to retrieve new hyper parameters and generate machine learning training jobs.
+    a. The total number of groups of hyperparameters reaches max_points. This parameter can be defined in the request.
+    b. The hyperparameter generate process fails or returns [].
 
-4. User finishes the machine learning job and registers the loss of a group of hyper parameters. iDDS provides the RESTful services and client to register the loss.
-5. When the number of left unprocessed hyper parameters is below than a threshold, iDDS will automatically generate new groups of hyper parameters. This step will continue until:
-
-    a. max_points is reached. The total number of groups of hyper parameters reaches this number. This parameter can be defined in the request.
-    b. The hyper parameter generate process fails or returns [].
+10. When all hyperparameter sets are evaluated iDDS sends a message to JEDI to terminate the HPO task.
 
 
-Hyper Parameter Generation
+Hyperparameter Generation
 --------------------------
 
-Currently iDDS support several different ways to generate hyper parameters.
+Currently iDDS support several different ways to generate hyperparameters.
     1. bayesian: This is a predefined method in iDDS.
 
-        a. The process to generate new hyper parameters: atlas/lib/idds/atlas/processing/hyperparameteropt_bayesian.py
+        a. The process to generate new hyperparameters: atlas/lib/idds/atlas/processing/hyperparameteropt_bayesian.py
         b. The example code to generate requests: main/lib/idds/tests/hyperparameteropt_bayesian_test.py
 
     2. nevergrad: This is another predefined method in iDDS.
 
-        a. The process to generate new hyper parameters: atlas/lib/idds/atlas/processing/hyperparameteropt_nevergrad.py
+        a. The process to generate new hyperparameters: atlas/lib/idds/atlas/processing/hyperparameteropt_nevergrad.py
         b. The example code to generate requests: main/lib/idds/tests/hyperparameteropt_nevergrad_test.py
 
-    3. container: Users can also define his own hyper parameter generator with container.
+    3. container: Users can also define his own hyperparameter generator with container.
 
         b. Here is a docker example: main/lib/idds/tests/hyperparameteropt_docker_test.py
 
@@ -42,23 +44,45 @@ Currently iDDS support several different ways to generate hyper parameters.
 RESTful Service
 ----------------
 
-1. To retrieve hyper parameters.
+1. To retrieve hyperparameters.
 
     client.get_hyperparameters(request_id, status=None, limit=None)
 
-2. To register loss of a group of hyper parameters.
+2. To register loss of a group of hyperparameters.
 
     client.update_hyperparameter(request_id, id, loss)
 
 3. Example code: main/lib/idds/tests/hyperparameteropt_client_test.py
 
 
-User defied HPO Generator
-----------------------
+User-defied HPO Generator
+--------------------------
 
 For iDDS HPO, users can define their own HPO generator through docker. When iDDS calls these generators, iDDS will provide these parameters:
 
-    a. '%MAX_POINTS': max number of groups of hyper parameters. iDDS will not stop generating new hyper parameters until it receives an output []. So the generator needs to take care of the max number of points.
-    b. '%NUM_POINTS': The number of groups of hyper parameters per generation or per iteration. The default is 10. Users can also update it in the request with 'num_points_per_generation' in the request_metadata.
-    c. '%IN': Every time when iDDS calls the generator, iDDS will generate a json file 'idds_input.json' in the current working directory which includes all points(one point is a group of hyper parameter) with corresponding loss or None(if loss is not available). When using docker, users need to mount the current directory and tell the generator the file path in container.
+    a. '%MAX_POINTS': max number of groups of hyperparameters. iDDS will not stop generating new hyperparameters until it receives an output []. So the generator needs to take care of the max number of points.
+    b. '%NUM_POINTS': The number of groups of hyperparameters per generation or per iteration. The default is 10. Users can also update it in the request with 'num_points_per_generation' in the request_metadata.
+    c. '%IN': Every time when iDDS calls the generator, iDDS will generate a json file 'idds_input.json' in the current working directory which includes all points(one point is a group of hyperparameter) with corresponding loss or None(if loss is not available). When using docker, users need to mount the current directory and tell the generator the file path in container.
     d. '%OUT': The generator needs to create a an output json file which includes all new points. iDDS will read this file to parse all points. The 'OUT' file name is defined in the 'output_json' in the request_metadata.
+
+
+Communication between the Pilot and User-defined HPO Training Application
+--------------------------------------------------------------------------
+
+The pilot and user-defined HPO training application communicate with each other using the following files
+in the current directory.
+Their file names can be defined as HPO task parameters.
+
+Input for HPO Training Application
+***********************************
+The pilot places two json files before running HPO training application.
+One file contains a list of file names in the training dataset.
+If those files are directly read from the storage the file contains a list of full paths.
+The other file contains a set of hyperparameter to be evaluated.
+
+Output from HPO Training Application
+*************************************
+HPO training application evaluates the hyperparameter set and produces one json file
+which contains a dictionary with the following key-values: 'status': integer (0: OK, others: Not Good),
+'loss': float, 'message': string (optional). It is possible to produce another json file to report
+job metadata to PanDA which can contain an arbitrary dictionary.
