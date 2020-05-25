@@ -86,6 +86,8 @@ class CondorPoller(ProcessingPluginBase):
         return final_job_status, ret_err
 
     def parse_job_outputs(self, processing_id, output_json):
+        if not output_json:
+            return None, 'output_json(%s) is not defined' % output_json
         job_dir = self.get_job_dir(processing_id)
         full_output_json = os.path.join(job_dir, output_json)
         if not os.path.exists(full_output_json):
