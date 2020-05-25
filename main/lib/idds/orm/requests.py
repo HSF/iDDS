@@ -15,6 +15,7 @@ operations related to Requests.
 
 import datetime
 import json
+import random
 
 import sqlalchemy
 from sqlalchemy import BigInteger, Integer
@@ -60,6 +61,21 @@ def add_request(scope, name, requester=None, request_type=None, transform_tag=No
         status = status.value
     if isinstance(locking, RequestLocking):
         locking = locking.value
+
+    is_pseudo_input = None
+    if request_type in [RequestType.HyperParameterOpt.value]:
+        if not scope:
+            scope = 'hpo'
+            is_pseudo_input = True
+        if not name:
+            name = 'hpo.' + datetime.datetime.utcnow().strftime("%Y_%m_%d_%H_%M_%S_%f") + str(random.randint(1, 1000))
+            is_pseudo_input = True
+
+    if is_pseudo_input:
+        if not request_metadata:
+            request_metadata = {}
+        request_metadata['is_pseudo_input'] = True
+
     if request_metadata:
         request_metadata = json.dumps(request_metadata)
     if processing_metadata:
@@ -140,7 +156,7 @@ def add_request_new(scope, name, requester=None, request_type=None, transform_ta
 
 
 @read_session
-def get_request_id_by_workload_id(workload_id, session=None):
+def get_request_ids_by_workload_id(workload_id, session=None):
     """
     Get request id or raise a NoObject exception.
 
@@ -159,10 +175,12 @@ def get_request_id_by_workload_id(workload_id, session=None):
         select = "select request_id from atlas_idds.requests where workload_id=:workload_id"
         stmt = text(select)
         result = session.execute(stmt, {'workload_id': workload_id})
-        row = result.fetchone()
-        if row:
-            request_id = row[0]
-            return request_id
+        rows = result.fetchall()
+        if rows:
+            request_ids = []
+            for row in rows:
+                request_ids.append(row[0])
+            return request_ids
         else:
             raise exceptions.NoObject('request with workload_id:%s cannot be found.' % (workload_id))
     except sqlalchemy.orm.exc.NoResultFound as error:
@@ -170,7 +188,7 @@ def get_request_id_by_workload_id(workload_id, session=None):
 
 
 @read_session
-def get_request_id(request_id=None, workload_id=None, session=None):
+def get_request_ids(request_id=None, workload_id=None, session=None):
     """
     Get request id or raise a NoObject exception.
 
@@ -183,8 +201,8 @@ def get_request_id(request_id=None, workload_id=None, session=None):
     :returns: Request id.
     """
     if request_id:
-        return request_id
-    return get_request_id_by_workload_id(workload_id)
+        return [request_id]
+    return get_request_ids_by_workload_id(workload_id)
 
 
 def convert_request_to_dict(request):
@@ -220,7 +238,10 @@ def get_request(request_id=None, workload_id=None, session=None):
 
     try:
         if not request_id and workload_id:
-            request_id = get_request_id_by_workload_id(workload_id)
+            request_ids = get_request_ids_by_workload_id(workload_id)
+            if request_ids and len(request_ids) > 1:
+                raise exceptions.IDDSException("More than one request with the same workload_id")
+            request_id = request_ids[0]
 
         req_select = """select request_id, scope, name, requester, request_type, transform_tag, priority,
                         status, locking, workload_id, created_at, updated_at, accessed_at, expired_at, errors,
@@ -256,7 +277,11 @@ def extend_request(request_id=None, workload_id=None, lifetime=30, session=None)
     """
     try:
         if not request_id and workload_id:
-            request_id = get_request_id_by_workload_id(workload_id)
+            request_ids = get_request_ids_by_workload_id(workload_id)
+            if request_ids and len(request_ids) > 1:
+                raise exceptions.IDDSException("More than one request with the same workload_id")
+            request_id = request_ids[0]
+
         req_update = "update atlas_idds.requests set expired_at=:expired_at where request_id=:request_id"
         req_stmt = text(req_update)
         session.execute(req_stmt, {'expired_at': datetime.datetime.utcnow() + datetime.timedelta(days=lifetime),
@@ -279,7 +304,10 @@ def cancel_request(request_id=None, workload_id=None, session=None):
     """
     try:
         if not request_id and workload_id:
-            request_id = get_request_id_by_workload_id(workload_id)
+            request_ids = get_request_ids_by_workload_id(workload_id)
+            if request_ids and len(request_ids) > 1:
+                raise exceptions.IDDSException("More than one request with the same workload_id")
+            request_id = request_ids[0]
 
         req_update = "update atlas_idds.requests set status=:status where request_id=:request_id"
         req_stmt = text(req_update)
@@ -431,7 +459,10 @@ def delete_request(request_id=None, workload_id=None, session=None):
     """
     try:
         if not request_id and workload_id:
-            request_id = get_request_id_by_workload_id(workload_id)
+            request_ids = get_request_ids_by_workload_id(workload_id)
+            if request_ids and len(request_ids) > 1:
+                raise exceptions.IDDSException("More than one request with the same workload_id")
+            request_id = request_ids[0]
 
         req2workload_delete = "delete from atlas_idds.req2workload where request_id=:request_id"
         req2workload_stmt = text(req2workload_delete)

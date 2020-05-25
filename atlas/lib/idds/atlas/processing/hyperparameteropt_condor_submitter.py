@@ -28,13 +28,17 @@ class HyperParameterOptCondorSubmitter(CondorSubmitter):
     def __init__(self, workdir, **kwargs):
         super(HyperParameterOptCondorSubmitter, self).__init__(workdir, **kwargs)
         if not hasattr(self, 'max_unevaluated_points'):
-            self.max_unevaluated_points = None
+            self.max_unevaluated_points = 10
         else:
             self.max_unevaluated_points = int(self.max_unevaluated_points)
         if not hasattr(self, 'min_unevaluated_points'):
-            self.min_unevaluated_points = None
+            self.min_unevaluated_points = 1
         else:
             self.min_unevaluated_points = int(self.min_unevaluated_points)
+        if not hasattr(self, 'max_points'):
+            self.max_points = 100
+        else:
+            self.max_points = int(self.max_points)
 
     def get_executable_arguments_for_method(self, transform_metadata, input_json, unevaluated_points):
         method = transform_metadata['method']
@@ -62,10 +66,14 @@ class HyperParameterOptCondorSubmitter(CondorSubmitter):
             if 'max_points' in transform_metadata:
                 max_points = transform_metadata['max_points']
             else:
-                max_points = self.max_unevaluated_points - unevaluated_points
+                max_points = self.max_points
+            if 'num_points_per_generation' in transform_metadata:
+                num_points = transform_metadata['num_points_per_generation']
+            else:
+                num_points = self.max_unevaluated_points - unevaluated_points
 
             param_values = {'MAX_POINTS': max_points,
-                            'NUM_POINTS': min(self.max_unevaluated_points, max_points) - unevaluated_points,
+                            'NUM_POINTS': num_points,
                             'IN': input_json,
                             'OUT': output_json}
 
@@ -86,9 +94,14 @@ class HyperParameterOptCondorSubmitter(CondorSubmitter):
         if 'max_points' in transform_metadata:
             max_points = transform_metadata['max_points']
         else:
-            max_points = self.max_unevaluated_points - unevaluated_points
+            max_points = self.max_points
+        if 'num_points_per_generation' in transform_metadata:
+            num_points = transform_metadata['num_points_per_generation']
+        else:
+            num_points = self.max_unevaluated_points - unevaluated_points
+
         param_values = {'MAX_POINTS': max_points,
-                        'NUM_POINTS': min(self.max_unevaluated_points, max_points) - unevaluated_points,
+                        'NUM_POINTS': num_points,
                         'IN': input_json,
                         'OUT': output_json}
 
@@ -131,6 +144,8 @@ class HyperParameterOptCondorSubmitter(CondorSubmitter):
             if 'opt_space' in transform['transform_metadata']:
                 opt_space = transform['transform_metadata']['opt_space']
                 opt_points['opt_space'] = opt_space
+            else:
+                opt_points['opt_space'] = None
             with open(os.path.join(job_dir, input_json), 'w') as f:
                 json.dump(opt_points, f)
 

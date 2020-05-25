@@ -52,6 +52,7 @@ class HyperParameterOptCondorPoller(CondorPoller):
                        'min_id': 0,
                        'max_id': 0,
                        'path': json.dumps((point, None)),
+                       'status': ContentStatus.New,
                        'content_type': ContentType.PseudoContent,
                        'content_metadata': content_metadata}
             output_contents.append(content)

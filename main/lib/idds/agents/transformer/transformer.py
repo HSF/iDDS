@@ -81,7 +81,7 @@ class Transformer(BaseAgent):
             if collection['relation_type'] == CollectionRelationType.Output:
                 output_collection = collection
 
-        status = [ContentStatus.Available, ContentStatus.Failed]
+        status = [ContentStatus.New, ContentStatus.Available, ContentStatus.Failed]
         contents = core_catalog.get_contents_by_coll_id_status(coll_id=input_collection['coll_id'], status=status)
         output_contents = self.generate_transform_output_contents(transform,
                                                                   input_collection,
@@ -97,7 +97,8 @@ class Transformer(BaseAgent):
                 to_cancel_processing.append(processing['processing_id'])
 
         new_processing = None
-        if output_contents or transform['status'] == TransformStatus.Extend:
+        if output_contents or transform['status'] == TransformStatus.Extend \
+            or (transform['transform_type'] in [TransformType.HyperParameterOpt, TransformType.HyperParameterOpt.value] and contents):  # noqa: W503
             processing_metadata = {'transform_id': transform['transform_id'],
                                    'input_collection': input_collection['coll_id'],
                                    'output_collection': output_collection['coll_id']}

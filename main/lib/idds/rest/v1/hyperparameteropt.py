@@ -16,14 +16,14 @@ from flask import Blueprint
 from idds.common import exceptions
 from idds.common.constants import HTTP_STATUS_CODE
 from idds.common.constants import ContentType
-from idds.core import catalog
+from idds.core import catalog, requests as core_requests
 from idds.rest.v1.controller import IDDSController
 
 
 class HyperParameterOpt(IDDSController):
     """  get and update hyper parameters. """
 
-    def put(self, request_id, id, loss):
+    def put(self, workload_id, request_id, id, loss):
         """ Update the loss for the hyper parameter.
 
         HTTP Success:
@@ -33,6 +33,30 @@ class HyperParameterOpt(IDDSController):
             404 Not Found
             500 Internal Error
         """
+        try:
+            if workload_id == 'null':
+                workload_id = None
+            if request_id == 'null':
+                request_id = None
+
+            if workload_id is None and request_id is None:
+                error = "One of workload_id and request_id should not be None or empty"
+                return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
+            if not request_id:
+                request_ids = core_requests.get_request_ids_by_workload_id(workload_id)
+                if not request_ids:
+                    error = "Cannot find requests with this workloa_id: %s" % workload_id
+                    return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
+                else:
+                    if len(request_ids) > 1:
+                        error = "More than one request with the same workload_id. request_id should be provided."
+                        return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
+                    else:
+                        request_id = request_ids[0]
+        except Exception as error:
+            print(error)
+            print(format_exc())
+            return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
 
         try:
             loss = float(loss)
@@ -53,7 +77,7 @@ class HyperParameterOpt(IDDSController):
 
         return self.generate_http_response(HTTP_STATUS_CODE.OK, data={'status': 0, 'message': 'update successfully'})
 
-    def get(self, request_id, status=None, limit=None):
+    def get(self, workload_id, request_id, status=None, limit=None):
         """ Get hyper parameters.
         :param request_id: The id of the request.
         :param status: status of the hyper parameters. None for all statuses.
@@ -66,6 +90,30 @@ class HyperParameterOpt(IDDSController):
             500 InternalError
         :returns: list of hyper parameters.
         """
+        try:
+            if workload_id == 'null':
+                workload_id = None
+            if request_id == 'null':
+                request_id = None
+
+            if workload_id is None and request_id is None:
+                error = "One of workload_id and request_id should not be None or empty"
+                return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
+            if not request_id:
+                request_ids = core_requests.get_request_ids_by_workload_id(workload_id)
+                if not request_ids:
+                    error = "Cannot find requests with this workloa_id: %s" % workload_id
+                    return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
+                else:
+                    if len(request_ids) > 1:
+                        error = "More than one request with the same workload_id. request_id should be provided."
+                        return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
+                    else:
+                        request_id = request_ids[0]
+        except Exception as error:
+            print(error)
+            print(format_exc())
+            return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
 
         try:
             if status == 'null':
@@ -109,6 +157,6 @@ def get_blueprint():
     bp = Blueprint('hpo', __name__)
 
     hpo_view = HyperParameterOpt.as_view('hpo')
-    bp.add_url_rule('/hpo/<request_id>/<id>/<loss>', view_func=hpo_view, methods=['put', ])
-    bp.add_url_rule('/hpo/<request_id>/<status>/<limit>', view_func=hpo_view, methods=['get', ])
+    bp.add_url_rule('/hpo/<workload_id>/<request_id>/<id>/<loss>', view_func=hpo_view, methods=['put', ])
+    bp.add_url_rule('/hpo/<workload_id>/<request_id>/<status>/<limit>', view_func=hpo_view, methods=['get', ])
     return bp

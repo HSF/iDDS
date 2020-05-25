@@ -53,6 +53,10 @@ class CondorSubmitter(ProcessingPluginBase):
         script += "echo $X509_USER_PROXY\n"
         script += "\n"
 
+        script += "echo 'user id:'\n"
+        script += "id\n"
+        script += "\n"
+
         if sandbox and len(sandbox) > 0:
             script += "wget $sandbox\n"
             script += 'base_sandbox="$(basename -- $sandbox)"\n'
