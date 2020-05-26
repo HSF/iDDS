@@ -1,0 +1,300 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>idds.tests package &mdash; iDDS 0.0.4 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="idds" href="../client/modules.html" />
+    <link rel="prev" title="idds.rest.v1 package" href="idds.rest.v1.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../index.html" class="icon icon-home"> iDDS
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../general/requirements_functions.html">Functions and Example Workflows</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../general/schematic_view.html">Schematic View</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../general/architecture.html">Architecture</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../usecases/data_carousel.html">Data Carousel</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../usecases/active_learning.html">Active Learning(AL)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../usecases/hyperparemeter_optimization.html">HyperParameterOptimization(HPO)</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../users/installing_client.html">Installing iDDS Clients</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../users/cli_examples.html">iDDS RESTful client: Examples</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../libraries.html">iDDS Codes</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="../libraries.html#libraies">Libraies</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../common/modules.html">idds</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="modules.html">idds</a><ul class="current">
+<li class="toctree-l4 current"><a class="reference internal" href="idds.html">idds package</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../client/modules.html">idds</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../atlas/modules.html">idds</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">iDDS</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../libraries.html">iDDS Codes</a> &raquo;</li>
+        
+          <li><a href="modules.html">idds</a> &raquo;</li>
+        
+          <li><a href="idds.html">idds package</a> &raquo;</li>
+        
+      <li>idds.tests package</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../../_sources/codes/main/idds.tests.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="idds-tests-package">
+<h1>idds.tests package<a class="headerlink" href="#idds-tests-package" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="idds-tests-activelearning-test-module">
+<h2>idds.tests.activelearning_test module<a class="headerlink" href="#idds-tests-activelearning-test-module" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="idds-tests-broker-test-module">
+<h2>idds.tests.broker_test module<a class="headerlink" href="#idds-tests-broker-test-module" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="idds-tests-cacher-test-module">
+<h2>idds.tests.cacher_test module<a class="headerlink" href="#idds-tests-cacher-test-module" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="idds-tests-client-test-module">
+<h2>idds.tests.client_test module<a class="headerlink" href="#idds-tests-client-test-module" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="idds-tests-common-module">
+<h2>idds.tests.common module<a class="headerlink" href="#idds-tests-common-module" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="idds-tests-datacarousel-test-module">
+<h2>idds.tests.datacarousel_test module<a class="headerlink" href="#idds-tests-datacarousel-test-module" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="idds-tests-hyperparameteropt-bayesian-test-module">
+<h2>idds.tests.hyperparameteropt_bayesian_test module<a class="headerlink" href="#idds-tests-hyperparameteropt-bayesian-test-module" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="idds-tests-hyperparameteropt-client-test-module">
+<h2>idds.tests.hyperparameteropt_client_test module<a class="headerlink" href="#idds-tests-hyperparameteropt-client-test-module" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="idds-tests-hyperparameteropt-docker-local-test-module">
+<h2>idds.tests.hyperparameteropt_docker_local_test module<a class="headerlink" href="#idds-tests-hyperparameteropt-docker-local-test-module" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="idds-tests-hyperparameteropt-docker-test-module">
+<h2>idds.tests.hyperparameteropt_docker_test module<a class="headerlink" href="#idds-tests-hyperparameteropt-docker-test-module" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="idds-tests-hyperparameteropt-nevergrad-test-module">
+<h2>idds.tests.hyperparameteropt_nevergrad_test module<a class="headerlink" href="#idds-tests-hyperparameteropt-nevergrad-test-module" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="idds-tests-message-test-module">
+<h2>idds.tests.message_test module<a class="headerlink" href="#idds-tests-message-test-module" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="idds-tests-performance-test-with-cx-oracle-module">
+<h2>idds.tests.performance_test_with_cx_oracle module<a class="headerlink" href="#idds-tests-performance-test-with-cx-oracle-module" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="idds-tests-performance-test-with-sqlalchemy-module">
+<h2>idds.tests.performance_test_with_sqlalchemy module<a class="headerlink" href="#idds-tests-performance-test-with-sqlalchemy-module" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="idds-tests-rest-test-module">
+<h2>idds.tests.rest_test module<a class="headerlink" href="#idds-tests-rest-test-module" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="idds-tests-test-catalog-module">
+<h2>idds.tests.test_catalog module<a class="headerlink" href="#idds-tests-test-catalog-module" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="idds-tests-test-request-transform-module">
+<h2>idds.tests.test_request_transform module<a class="headerlink" href="#idds-tests-test-request-transform-module" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="idds-tests-test-requests-module">
+<h2>idds.tests.test_requests module<a class="headerlink" href="#idds-tests-test-requests-module" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="idds-tests-test-transform-collection-content-module">
+<h2>idds.tests.test_transform_collection_content module<a class="headerlink" href="#idds-tests-test-transform-collection-content-module" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="idds-tests-test-transform-processing-module">
+<h2>idds.tests.test_transform_processing module<a class="headerlink" href="#idds-tests-test-transform-processing-module" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="module-contents">
+<h2>Module contents<a class="headerlink" href="#module-contents" title="Permalink to this headline">¶</a></h2>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="../client/modules.html" class="btn btn-neutral float-right" title="idds" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="idds.rest.v1.html" class="btn btn-neutral float-left" title="idds.rest.v1 package" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2020, Wen Guan (Wisconsin, IRIS-HEP, ATLAS@CERN)
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

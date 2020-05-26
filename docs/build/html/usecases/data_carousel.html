@@ -1,0 +1,291 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Data Carousel &mdash; iDDS 0.0.4 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Active Learning(AL)" href="active_learning.html" />
+    <link rel="prev" title="Architecture" href="../general/architecture.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> iDDS
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../general/requirements_functions.html">Functions and Example Workflows</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../general/schematic_view.html">Schematic View</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../general/architecture.html">Architecture</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Data Carousel</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#workflow">Workflow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#advantages">Advantages</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#future-improvements-to-shorten-the-tails-on-completing-tasks">Future improvements to shorten the tails on completing tasks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#idds-atlas-data-carousel-status-monitor">iDDS ATLAS data carousel status monitor</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="active_learning.html">Active Learning(AL)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="hyperparemeter_optimization.html">HyperParameterOptimization(HPO)</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../users/installing_client.html">Installing iDDS Clients</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../users/cli_examples.html">iDDS RESTful client: Examples</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../codes/libraries.html">iDDS Codes</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">iDDS</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html">Docs</a> &raquo;</li>
+        
+      <li>Data Carousel</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../_sources/usecases/data_carousel.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="data-carousel">
+<h1>Data Carousel<a class="headerlink" href="#data-carousel" title="Permalink to this headline">¶</a></h1>
+<p>Data Carousel is a use-case of iDDS. The purpose of Data Carousel with iDDS is to release tasks quickly enough,
+avoid redundant job attempts, and improve error handling.</p>
+<div class="section" id="workflow">
+<h2>Workflow<a class="headerlink" href="#workflow" title="Permalink to this headline">¶</a></h2>
+<ol class="arabic simple">
+<li><p>Prodsys2 submits tasks with <em>inputPreStaging</em> and <em>toStaging</em> parameters to JEDI.</p></li>
+<li><p>Tasks go to <em>staging</em> state in JEDI.</p></li>
+<li><p>Prodsys2 creates rules in Rucio to stage-in data from tape to disk by taking into account global share,
+the number of requests in each FTS channel, and so on, and immediately sends notifications to JEDI
+before rules are completed.</p></li>
+<li><p>For each task, JEDI finds input dataset scope/name and the corresponding rule and sends a request to iDDS.</p></li>
+<li><p>iDDS creates a transform object for each request to monitor the rule. Note that in this use-case, tape and disk
+file replicas are regarded as input and output collections, respectively, and thus data are not really transformed.</p></li>
+<li><p>iDDS periodically checks the rule and notifies JEDI via ActiveMQ when files become available on disk
+(or disk buffer of the tape system).</p></li>
+<li><p>JEDI generates jobs using only input files which have disk replicas, assigns the jobs, and submits them to PanDA.</p></li>
+<li><p>PanDA creates rules in Rucio to transfer input files if jobs are assigned to satellites where input data are
+unavailable.</p></li>
+<li><p>Jobs get started when input files are or become available.</p></li>
+</ol>
+</div>
+<div class="section" id="advantages">
+<h2>Advantages<a class="headerlink" href="#advantages" title="Permalink to this headline">¶</a></h2>
+<p>Without iDDS, JEDI is not aware of which files are on disk while input data are being staged-in,
+and generates jobs using input files even if some of them have not had disk replicas yet. There
+are some issues.</p>
+<ul class="simple">
+<li><p>Jobs create other redundant rules in Rucio and requests in FTS to stage-in input files from tape to disk
+if those files are available only on tape.</p></li>
+<li><p>Those jobs tend to silently sit in assigned state and occupy queues until they eventually time-out.
+They may prevent new jobs from being assigned to the queues, leading to unbalanced job distribution.</p></li>
+</ul>
+<p>A naive solution is to not generate jobs until 90% of the input files become available on disk, i.e.,
+not to release tasks very quickly. iDDS has solved those issues by letting JEDI timely use only the files with disk
+replicas.</p>
+</div>
+<div class="section" id="future-improvements-to-shorten-the-tails-on-completing-tasks">
+<h2>Future improvements to shorten the tails on completing tasks<a class="headerlink" href="#future-improvements-to-shorten-the-tails-on-completing-tasks" title="Permalink to this headline">¶</a></h2>
+<p>iDDS gives JEDI knowledge of problematic files, which means that iDDS and/or JEDI can take actions if necessary.
+For example, when files are stuck for long time, iDDS would make new rules to transfer them from other sites.
+Possible actions and conditions to trigger them to be defined.</p>
+</div>
+<div class="section" id="idds-atlas-data-carousel-status-monitor">
+<h2>iDDS ATLAS data carousel status monitor<a class="headerlink" href="#idds-atlas-data-carousel-status-monitor" title="Permalink to this headline">¶</a></h2>
+<p>Monitor: <a class="reference external" href="https://bigpanda.cern.ch/idds/">https://bigpanda.cern.ch/idds/</a></p>
+<ol class="arabic">
+<li><p>transform_status:</p>
+<blockquote>
+<div><ol class="loweralpha simple">
+<li><p>Finished: All files are processed.</p></li>
+<li><p>Transforming: Some files are still under processing.</p></li>
+</ol>
+</div></blockquote>
+</li>
+<li><p>in_status: Input dataset status. If the input dataset is not closed, it means it’s still possible that some other system will add more files to the input dataset. So iDDS will monitor whehter there are new files added to this input dataset.</p></li>
+<li><p>in_total_files: Total number of files in the input dataset.</p></li>
+<li><p>in_processed_files: Total number of files handled by iDDS(Files that are used as input in an iDDS transformation).</p></li>
+<li><p>out_status: The status of the output dataset. It will be closed(the transform will be finished) when:</p>
+<blockquote>
+<div><ol class="loweralpha simple">
+<li><p>All input files are processed and the input dataset is closed.</p></li>
+<li><p>All output files are processed.</p></li>
+</ol>
+</div></blockquote>
+</li>
+<li><p>out_total_files: Total number of files in the output dataset.</p></li>
+<li><p>output_processed_files: Total number of processed files in the output dataset.</p></li>
+</ol>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="active_learning.html" class="btn btn-neutral float-right" title="Active Learning(AL)" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="../general/architecture.html" class="btn btn-neutral float-left" title="Architecture" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2020, Wen Guan (Wisconsin, IRIS-HEP, ATLAS@CERN)
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>
