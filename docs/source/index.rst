@@ -7,15 +7,8 @@ Welcome to iDDS's documentation!
 ================================
 
 iDDS(intelligent Data Delivery Service) is an intelligent Data Delivery Service. It's designed
- to intelligently transform and deliver the needed data to the processing workflow in a
-fine-grained approach for High Energy Physics workloads. It will not only reduce the need for 
-replicas, but also enable benefits such as decreasing the time period of caching transient data,
-transforming expensive replicas to cheaper format data at remote sites and only cache cheaper
-new data for processing. iDDS will also work to orchestrate the WorkFlow Management System (WFMS)
-and the Distributed Data Management (DDM) systems to trigger them to process the data as soon as
-possible. In addition, iDDS will have intelligent algorithms to adjust the lifetime of cache,
-the format transformation and the delivery destination. The iDDS will increase the efficiency of
-data usage, reduce storage usage for processing and speed up the processing workflow.
+to intelligently transform and deliver the needed data to the processing workflow in a
+fine-grained approach for High Energy Physics workloads.
 
 iDDS is developed with modular and is highly scalable with plugin structure.
 
@@ -58,6 +51,14 @@ User Documentation
 
    users/installing_client
    users/cli_examples
+
+Source Codes
+=============
+
+.. toctree::
+   :maxdepth: 1
+
+   codes/libraries
 
 Indices and tables
 ==================
