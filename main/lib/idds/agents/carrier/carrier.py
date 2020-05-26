@@ -215,9 +215,11 @@ class Carrier(BaseAgent):
                 new_processing = ret_poll['new_processing']
 
         processing_parameters = {'status': processing_status,
-                                 'substatus': ret_poll['processing_updates']['substatus'],
                                  'locking': ProcessingLocking.Idle,
                                  'processing_metadata': processing_metadata}
+        if 'substatus' in ret_poll['processing_updates']:
+            processing_parameters['substatus'] = ret_poll['processing_updates']['substatus']
+
         if 'output_metadata' in ret_poll['processing_updates']:
             processing_parameters['output_metadata'] = ret_poll['processing_updates']['output_metadata']
         updated_processing = {'processing_id': processing['processing_id'],

@@ -10,12 +10,13 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-# import os
-# import sys
+import os
+import sys
 # sys.path.insert(0, os.path.abspath('.'))
-
-import sphinx_rtd_theme
-
+sys.path.insert(0, os.path.abspath('../../common/lib/idds'))
+sys.path.insert(1, os.path.abspath('../../main/lib/idds'))
+sys.path.insert(2, os.path.abspath('../../client/lib/idds'))
+sys.path.insert(3, os.path.abspath('../../atlas/lib/idds'))
 
 # -- Project information -----------------------------------------------------
 
@@ -23,14 +24,16 @@ project = 'iDDS'
 copyright = '2020, Wen Guan (Wisconsin, IRIS-HEP, ATLAS@CERN)'
 author = 'Wen Guan (Wisconsin, IRIS-HEP, ATLAS@CERN)'
 
+# The full version, including alpha/beta/rc tags
+release = '0.0.4'
+
 
 # -- General configuration ---------------------------------------------------
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ['recommonmark',
-              'sphinx_rtd_theme'
+extensions = [
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -47,7 +50,8 @@ exclude_patterns = []
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'alabaster'
+# html_theme = 'alabaster'
+html_theme = 'sphinx_rtd_theme'
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,

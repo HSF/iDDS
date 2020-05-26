@@ -109,7 +109,7 @@ class Request(IDDSController):
                 for key in kwargs:
                     if key in parameters:
                         data[key] = parameters[key]
-            data['status'] = RequestStatus.Extend
+            # data['status'] = RequestStatus.Extend
         except ValueError:
             return self.generate_http_response(HTTP_STATUS_CODE.BadRequest, exc_cls=exceptions.BadRequest.__name__, exc_msg='Cannot decode json parameter dictionary')
 
@@ -147,6 +147,9 @@ class Request(IDDSController):
                 req['request_type'] = req['request_type'].value
             if req['status'] is not None:
                 req['status'] = req['status'].value
+            if req['locking'] is not None:
+                req['locking'] = req['locking'].value
+
             for key in req:
                 if req[key] and isinstance(req[key], datetime.datetime):
                     req[key] = date_to_str(req[key])

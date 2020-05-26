@@ -57,4 +57,17 @@ systemctl start docker
 systemctl status docker
 systemctl enable docker
 usermod -aG docker $(whoami)
+usermod -aG docker nobody  # for condor jobs which are running in this account
+
+# shpinx https://sphinx-rtd-tutorial.readthedocs.io/en/latest/sphinx-config.html
+#[wguan@lxplus723 docs]$ make html
+pip install --upgrade sphinx
+pip install --upgrade sphinx-rtd-theme
+sphinx-quickstart
+make clean
+make html
+sphinx-apidoc -o ./source/codes/main/ ../main/lib/idds
+sphinx-apidoc -o ./source/codes/common/ ../common/lib/idds
+sphinx-apidoc -o ./source/codes/client/ ../client/lib/idds
+sphinx-apidoc -o ./source/codes/atlas/ ../atlas/lib/idds
 
