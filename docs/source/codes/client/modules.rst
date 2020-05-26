@@ -1,5 +1,5 @@
-idds
-====
+idds client
+===========
 
 .. toctree::
    :maxdepth: 4
