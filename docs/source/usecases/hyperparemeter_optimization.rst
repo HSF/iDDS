@@ -67,7 +67,6 @@ For iDDS HPO, users can define their own HPO generator through docker. When iDDS
     e. input_idds.json: This a file created by iDDS as an input for %IN. Here is one example of idds_input.json(main/lib/idds/tests/idds_input.json). The format of idds_input.json is {"points": [[hyperparameter, loss], [hyperparameter, null]], "opt_space": <opt space>}. 'opt_space' is a copy of the content from your request. If in your request 'opt_space' is not defined, in idds_input.json 'opt_space' will be null(If a hyper parameter is not yet evaluated, the loss will be null(It's None in python dictionary. After json.dumps, it's converted to null). 'points' includes all hyper parameters, whether they are evaluated or not. If a hyper parameter is not yet evaluated, the loss will be null.
     f. How to test the container. Here is one example. Users can update the request part and test their docker locally.
 
-
 Communication between the Pilot and User-defined HPO Training Program/Container
 -------------------------------------------------------------------------------------
 
@@ -88,3 +87,4 @@ HPO training program/container evaluates the hyperparameter set and produces one
 which contains a dictionary with the following key-values: ``status``: ``integer`` (0: OK, others: Not Good),
 ``loss``: ``float``, ``message``: ``string`` (optional). It is possible to produce another json file to report
 job metadata to PanDA which can contain an arbitrary dictionary.
+
