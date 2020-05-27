@@ -33,11 +33,13 @@ class Transformer(BaseAgent):
     Transformer works to process transforms.
     """
 
-    def __init__(self, num_threads=1, poll_time_period=1800, retrieve_bulk_size=None, **kwargs):
+    def __init__(self, num_threads=1, poll_time_period=1800, retrieve_bulk_size=None,
+                 message_bulk_size=1000, **kwargs):
         super(Transformer, self).__init__(num_threads=num_threads, **kwargs)
         self.config_section = Sections.Transformer
         self.poll_time_period = int(poll_time_period)
         self.retrieve_bulk_size = int(retrieve_bulk_size)
+        self.message_bulk_size = int(message_bulk_size)
 
         self.new_task_queue = Queue()
         self.new_output_queue = Queue()
@@ -90,6 +92,11 @@ class Transformer(BaseAgent):
 
         self.logger.debug("Generating transform number of output contents: %s" % len(output_contents))
 
+        file_msgs = []
+        if output_contents:
+            file_msg = self.generate_file_message(transform, output_contents)
+            file_msgs.append(file_msg)
+
         to_cancel_processing = []
         if transform['status'] == TransformStatus.Extend:
             processings = core_processings.get_processings_by_transform_id(transform['transform_id'])
@@ -112,7 +119,7 @@ class Transformer(BaseAgent):
 
         return {'transform': transform, 'input_collection': input_collection, 'output_collection': output_collection,
                 'input_contents': contents, 'output_contents': output_contents, 'processing': new_processing,
-                'to_cancel_processing': to_cancel_processing}
+                'to_cancel_processing': to_cancel_processing, 'messages': file_msgs}
 
     def process_new_transform(self, transform):
         """
@@ -148,7 +155,7 @@ class Transformer(BaseAgent):
         else:
             transform['locking'] = TransformLocking.Idle
             return {'transform': transform, 'input_collection': None, 'output_collection': None,
-                    'input_contents': None, 'output_contents': None, 'processing': None, 'to_cancel_processing': []}
+                    'input_contents': None, 'output_contents': None, 'processing': None, 'to_cancel_processing': [], 'messages': []}
 
     def process_new_transforms(self):
         ret = []
@@ -178,7 +185,9 @@ class Transformer(BaseAgent):
                                                           input_contents=ret['input_contents'],
                                                           output_contents=ret['output_contents'],
                                                           processing=ret['processing'],
-                                                          to_cancel_processing=ret['to_cancel_processing'])
+                                                          to_cancel_processing=ret['to_cancel_processing'],
+                                                          messages=ret['messages'],
+                                                          message_bulk_size=self.message_bulk_size)
             except Exception as ex:
                 self.logger.error(ex)
                 self.logger.error(traceback.format_exc())
@@ -293,7 +302,9 @@ class Transformer(BaseAgent):
                                                       output_collection=transform_input['output_collection'],
                                                       input_contents=transform_input['input_contents'],
                                                       output_contents=transform_input['output_contents'],
-                                                      processing=transform_input['processing'])
+                                                      processing=transform_input['processing'],
+                                                      messages=transform_input['messages'],
+                                                      message_bulk_size=self.message_bulk_size)
             elif transform_output:
                 transform_id = transform_output['transform_id']
                 del transform_output['transform_id']
