@@ -77,7 +77,7 @@ class HyperParameterOpt(IDDSController):
 
         return self.generate_http_response(HTTP_STATUS_CODE.OK, data={'status': 0, 'message': 'update successfully'})
 
-    def get(self, workload_id, request_id, status=None, limit=None):
+    def get(self, workload_id, request_id, id=None, status=None, limit=None):
         """ Get hyper parameters.
         :param request_id: The id of the request.
         :param status: status of the hyper parameters. None for all statuses.
@@ -95,6 +95,8 @@ class HyperParameterOpt(IDDSController):
                 workload_id = None
             if request_id == 'null':
                 request_id = None
+            if id == 'null':
+                id = None
 
             if workload_id is None and request_id is None:
                 error = "One of workload_id and request_id should not be None or empty"
@@ -121,7 +123,7 @@ class HyperParameterOpt(IDDSController):
             if limit == 'null':
                 limit = None
 
-            contents = catalog.get_output_contents_by_request_id_status(request_id, status, limit)
+            contents = catalog.get_output_contents_by_request_id_status(request_id, str(id), status, limit)
             hyperparameters = []
             for content in contents:
                 point = content['path']
@@ -158,5 +160,5 @@ def get_blueprint():
 
     hpo_view = HyperParameterOpt.as_view('hpo')
     bp.add_url_rule('/hpo/<workload_id>/<request_id>/<id>/<loss>', view_func=hpo_view, methods=['put', ])
-    bp.add_url_rule('/hpo/<workload_id>/<request_id>/<status>/<limit>', view_func=hpo_view, methods=['get', ])
+    bp.add_url_rule('/hpo/<workload_id>/<request_id>/<id>/<status>/<limit>', view_func=hpo_view, methods=['get', ])
     return bp
