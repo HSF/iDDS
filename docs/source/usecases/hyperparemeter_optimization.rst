@@ -87,4 +87,6 @@ Output from HPO Training Program/Container
 HPO training program/container evaluates the hyperparameter set and produces one json file
 which contains a dictionary with the following key-values: ``status``: ``integer`` (0: OK, others: Not Good),
 ``loss``: ``float``, ``message``: ``string`` (optional). It is possible to produce another json file to report
-job metadata to PanDA which can contain an arbitrary dictionary.
+job metadata to PanDA. It can be an arbitrary dictionary, but the size must be less than 1MB. It is also possible
+to produce a tarball to contain training metrics files. The tarball is uploaded to the storage so that it can be
+larger.
