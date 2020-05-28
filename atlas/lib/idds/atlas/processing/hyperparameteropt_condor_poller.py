@@ -184,6 +184,11 @@ class HyperParameterOptCondorPoller(CondorPoller):
                         err_msg = 'The job failed: %s' % job_err_msg
                         processing_metadata['final_errors'] = err_msg
 
+                if processing_status == ProcessingStatus.FinishedOnExec:
+                    job_dir = self.get_job_dir(processing['processing_id'])
+                    tar_file_name = self.tar_job_logs(job_dir)
+                    processing_metadata['job_logs_tar'] = tar_file_name
+
                 updated_files = []
                 for file in output_contents:
                     if file['status'] not in [ContentStatus.Available, ContentStatus.Available.value]:
