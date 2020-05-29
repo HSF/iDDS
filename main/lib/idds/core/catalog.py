@@ -606,7 +606,7 @@ def get_output_contents_by_request_id_status(request_id, name, content_status, l
     if name:
         new_contents = []
         for content in contents:
-            if content['name'] == name:
+            if str(content['name']) == str(name):
                 new_contents.append(content)
         contents = new_contents
 

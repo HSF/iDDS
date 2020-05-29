@@ -76,7 +76,7 @@ class HPOClient(BaseRestClient):
             workload_id = 'null'
         if not request_id:
             request_id = 'null'
-        if not id:
+        if id is None:
             id = 'null'
         if status is None:
             status = 'null'
