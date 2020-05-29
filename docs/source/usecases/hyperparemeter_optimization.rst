@@ -37,7 +37,7 @@ Currently iDDS support several different ways to generate hyperparameter points.
         a. The process to generate new hyperparameters: atlas/lib/idds/atlas/processing/hyperparameteropt_nevergrad.py
         b. The example code to generate requests: main/lib/idds/tests/hyperparameteropt_nevergrad_test.py
 
-    3. Steering container: Users can also provide their own container images to generate hyperparameter points. See `User-defied Steering Containers`_ for the details.
+    3. Steering container: Users can also provide their own container images to generate hyperparameter points. See `User-defied Steering Container`_ for the details.
 
         b. Here is a docker example: main/lib/idds/tests/hyperparameteropt_docker_test.py
 
@@ -57,14 +57,15 @@ RESTful Service
 
 
 
-User-defied Steering Containers
+User-defied Steering Container
 --------------------------------
 
 Users can provide their own container images to generate hyperparameter points using
 the ask-and-tell pattern. Note that users need to use HPO packages such as skopt and
 nevergrad which support the ask-and-tell pattern when making Steering containers.
 Users can also provide execution strings to specify what are executed in containers.
-Each execution string needs to contain the following placeholders like ``... --input=%IN ...``.
+Each execution string needs to contain the following placeholders to get some parameters
+through command-line arguments.
 
 %MAX_POINTS
   The max number of hyperparameter points to be evaluated in the entire search. iDDS will not stop generating new hyperparameter points until it receives an empty list []. So the container needs to return [] if enough hyperparameter points are generated.
@@ -79,6 +80,8 @@ Each execution string needs to contain the following placeholders like ``... --i
    The name of output file which the container creates in the current directory. The file contains a json-formatted list of new hyperparameter points.
 
 When iDDS runs Steering containers, iDDS will replace %XYZ with actual parameters.
+For example, if an execution string is something like ``python opt.py --n=%NUM_POINT=%IN ...``,
+``python opt.py --n=%NUM_POINT=10 ...`` will be executed in the container.
 Input and output are done through json files in the current directly ($PWD) so that
 the directory needs to be mounted.
 
@@ -99,8 +102,9 @@ The format of the dictionary is the same as the one in the input.
 
 Basically what the Steering container needs to do is as follows:
 
-1. Json-load %IN and update the optimizer with all hyperparameter points using the tell method.
-2. Generate min(%NUM_POINTS, %MAX_POINTS-<the number of hyperparameter points generated so far>) new hyperparameter points using the ask method, and json-dump them to %OUT.
+1. Define an optimizer with a search space.
+2. Json-load %IN and update the optimizer with all hyperparameter points in %IN using the tell method.
+3. Generate min(%NUM_POINTS, %MAX_POINTS-<the number of hyperparameter points generated so far>) new hyperparameter points using the ask method, and json-dump them to %OUT.
 
 How to test the Steering container
 ************************************
@@ -108,9 +112,11 @@ Here is one example. Users can update the request part and test their docker loc
 
 
 
-Communication between the Pilot and User-defined Evaluation Container
------------------------------------------------------------------------
+User-defined Evaluation Container
+-----------------------------------
 
+Users can provide their own container images to evaluate hyperparameter points and can provide
+execution strings to specify what are executed in their containers.
 The pilot and user-defined Evaluation container communicate with each other using the following files
 in the current directory ($PWD), so that the directory needs to be mounted.
 Their filenames can be defined in HPO task parameters.
