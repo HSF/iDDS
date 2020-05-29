@@ -36,7 +36,7 @@ class LogsClient(BaseRestClient):
         """
         super(LogsClient, self).__init__(host=host, client_proxy=client_proxy, timeout=timeout)
 
-    def download(self, workload_id=None, request_id=None):
+    def download_logs(self, workload_id=None, request_id=None, dest_dir='./', filename=None):
         """
         Donwload log files.
 
@@ -45,12 +45,12 @@ class LogsClient(BaseRestClient):
 
         :raise exceptions if it's not downloaded successfully.
         """
-        filename = 'logs'
+        def_filename = 'logs'
         if workload_id:
-            filename = filename + "_" + str(workload_id)
+            def_filename = def_filename + "_" + str(workload_id)
         if request_id:
-            filename = filename + "_" + str(request_id)
-        filename = filename + ".tgz"
+            def_filename = def_filename + "_" + str(request_id)
+        def_filename = def_filename + ".tar.gz"
 
         if not workload_id:
             workload_id = 'null'
@@ -73,9 +73,22 @@ class LogsClient(BaseRestClient):
         response = requests.get(url, verify=False)
         # print(response)
         # print(response.text)
-        print(response.headers)
+        # print(response.content)
+        # print(response.headers)
+
+        if not filename:
+            if response.headers and 'Content-Disposition' in response.headers:
+                cont_desc = response.headers['Content-Disposition']
+                for cont in cont_desc.split(";"):
+                    cont = cont.strip()
+                    if 'filename' in cont:
+                        filename = cont.replace("filename=", "")
+        if not filename:
+            filename = def_filename
+        filename = os.path.join(dest_dir, filename)
+
         if response and response.text:
-            with open(filename, 'w') as fp:
-                fp.write(response.text)
+            with open(filename, 'wb') as fp:
+                fp.write(response.content)
             return filename
         return None

@@ -78,9 +78,9 @@ class Logs(IDDSController):
                 return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
 
             cache_dir = os.path.dirname(files[0])
-            output_filename = "%s.logs.tgz" % request_id
+            output_filename = "%s.logs.tar.gz" % request_id
             tar_zip_files(cache_dir, output_filename, files)
-            return send_from_directory(cache_dir, output_filename, as_attachment=True)
+            return send_from_directory(cache_dir, output_filename, as_attachment=True, mimetype='application/x-tgz')
         except exceptions.NoObject as error:
             return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
         except exceptions.IDDSException as error:
