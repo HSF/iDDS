@@ -36,6 +36,10 @@ print(params)
 if not params:
     print("No parameters")
 else:
+    param_0 = client.get_hyperparameters(workload_id=workload_id, request_id=request_id, id=0)
+    print(param_0)
+    if not param_0:
+        print("failed to get param 0")
     for param in params:
         id = param['id']
         if param['loss'] is None:
