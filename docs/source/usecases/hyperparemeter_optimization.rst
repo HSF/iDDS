@@ -1,7 +1,7 @@
 HyperParameterOptimization(HPO)
 ===============================
 
-HPO is a usecase of iDDS. The purpose of iDDS HPO is to use iDDS to generate hyperparameters for machine learning and trigger production system to automatically process the machine learning training with provided hyperparameters.
+HPO is a use-case of iDDS. The purpose of iDDS HPO is to use iDDS to generate hyperparameters for machine learning and trigger production system to automatically process the machine learning training with provided hyperparameters.
 
 iDDS HPO workflow
 ^^^^^^^^^^^^^^^^^
@@ -37,7 +37,7 @@ Currently iDDS support several different ways to generate hyperparameter points.
         a. The process to generate new hyperparameters: atlas/lib/idds/atlas/processing/hyperparameteropt_nevergrad.py
         b. The example code to generate requests: main/lib/idds/tests/hyperparameteropt_nevergrad_test.py
 
-    3. Steering container: Users can also provide their own container images to generate hyperparameter points. See `User-defied Steering Container`_ for the details.
+    3. Steering container: Users can also provide their own container images to generate hyperparameter points. See `User-defined Steering Container`_ for the details.
 
         b. Here is a docker example: main/lib/idds/tests/hyperparameteropt_docker_test.py
 
@@ -57,7 +57,7 @@ RESTful Service
 
 
 
-User-defied Steering Container
+User-defined Steering Container
 --------------------------------
 
 Users can provide their own container images to generate hyperparameter points using
