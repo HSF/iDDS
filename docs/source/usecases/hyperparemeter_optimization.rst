@@ -61,24 +61,26 @@ User-defied Steering Containers
 --------------------------------
 
 Users can provide their own container images to generate hyperparameter points using
-the ask-and-tell pattern.
+the ask-and-tell pattern. Note that users need to use HPO packages such as skopt and
+nevergrad which support the ask-and-tell pattern when making Steering containers.
 Users can also provide execution strings to specify what are executed in containers.
-Each execution string needs to contain the following parameters.
+Each execution string needs to contain the following placeholders like ``... --input=%IN ...``.
+
+%MAX_POINTS
+  The max number of hyperparameter points to be evaluated in the entire search. iDDS will not stop generating new hyperparameter points until it receives an empty list []. So the container needs to return [] if enough hyperparameter points are generated.
+
+%NUM_POINTS
+   The number of hyperparameter points to be generated in this call. The default is 10. It can be changed by setting 'num_points_per_generation' in the request_metadata.
+
+%IN
+   The name of input file which iDDS places in the current directory every time it calls the container. The file contains a json-formatted list of all hyperparameter points, which have been generated so far, with corresponding loss or None (if it is not yet evaluated).
+
+%OUT
+   The name of output file which the container creates in the current directory. The file contains a json-formatted list of new hyperparameter points.
+
 When iDDS runs Steering containers, iDDS will replace %XYZ with actual parameters.
 Input and output are done through json files in the current directly ($PWD) so that
 the directory needs to be mounted.
-
-%MAX_POINTS
-  The max number of hyperparameter points. iDDS will not stop generating new hyperparameter points until it receives an empty list []. So the container needs to return [] if enough hyperparameter points are generated.
-
-%NUM_POINTS
-   The number of hyperparameter points to be generated in this call. The default is 10. It can by changed by setting 'num_points_per_generation' in the request_metadata.
-
-%IN
-   The input filename which iDDS places in the current directory every time it calls the container. The file contains a json-formatted list of all hyperparameter points, which have been generated so far, with corresponding loss or None (if it is not yet evaluated).
-
-%OUT
-   The output filename which the container creates in the current directory. The file contains a json-formatted list of new hyperparameter points.
 
 Here is one example for the input (main/lib/idds/tests/idds_input.json). It is a json dump of
 ``{"points": [[{hyperparameter_point_1}, loss_or_None], ..., [{hyperparameter_point_N}, loss_or_None]], "opt_space": <opt space>}``.
@@ -90,6 +92,10 @@ the dictionary could be something like ``{'epochs': blah_1, 'batch_size': blah_2
 If a hyperparameter point is not yet evaluated, the ``loss_or_None`` will be None.
 ``opt_space`` is a copy of the content from your request. If in your request ``opt_space`` is not defined,
 ``opt_space`` will be None.
+
+The output is a json dump of ``[{new_hyperparameter_point_1}, , ..., [{new_hyperparameter_point_N}]``.
+``{new_hyperparameter_point}`` is a dictionary representing a new hyperparameter point.
+The format of the dictionary is the same as the one in the input.
 
 Basically what the Steering container needs to do is as follows:
 
@@ -113,8 +119,9 @@ Input for Evaluation Container
 *****************************************
 The pilot places two json files before running the Evaluation container.
 One file contains a json-formatted list of all filenames in the training dataset,
-i.e., it is a json-dump of ``[filename_1, filename_2, ..., filename_N]``.
-If training data files need to be directly read from the storage the file contains a json-formatted list of full paths.
+i.e., it is a json-dump of ``[training_data_filename_1, training_data_filename_2, ..., training_data_filename_N]``.
+If training data files need to be directly read from the storage the file contains a json-formatted list of full paths
+to training data files.
 The other file contains a single hyperparameter point to be evaluated.
 A hyperparameter point is represented as a dictionary and the format of the dictionary follows
 what the Steering container generated.
