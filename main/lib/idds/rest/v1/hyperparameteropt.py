@@ -122,8 +122,10 @@ class HyperParameterOpt(IDDSController):
                 status = None
             if limit == 'null':
                 limit = None
+            if id == 'null':
+                id = None
 
-            contents = catalog.get_output_contents_by_request_id_status(request_id, str(id), status, limit)
+            contents = catalog.get_output_contents_by_request_id_status(request_id, id, status, limit)
             hyperparameters = []
             for content in contents:
                 point = content['path']
