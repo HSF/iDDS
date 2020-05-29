@@ -18,7 +18,7 @@ iDDS HPO workflow
 9. When the number of unprocessed hyperparameter points goes below a threshold, iDDS automatically generates new hyperparameter points. This step will continue until:
 
     a. The total number of hyperparameter points reaches max_points. This parameter can be defined in the request.
-    b. The Steering container fails or returns [].
+    b. The Steering container / pre-defined method fails or returns [].
 
 10. When all hyperparameter points are evaluated, iDDS sends a message to JEDI to terminate the HPO task.
 
@@ -68,10 +68,17 @@ When iDDS runs Steering containers, iDDS will replace %XYZ with actual parameter
 Input and output are done through json files in the current directly ($PWD) so that
 the directory needs to be mounted.
 
-- '%MAX_POINTS': The max number of hyperparameter points. iDDS will not stop generating new hyperparameter points until it receives an empty list []. So the container needs to return [] if enough hyperparameter points are generated.
-- '%NUM_POINTS': The number of hyperparameter points to be generated in this call. The default is 10. It can by changed by setting 'num_points_per_generation' in the request_metadata.
-- '%IN': The input filename which iDDS places in the current directory every time it calls the container. The file contains a json-formatted list of all hyperparameter points, which have been generated so far, with corresponding loss or None (if it is not yet evaluated).
-- '%OUT': The output filename which the container creates in the current directory. The file contains a json-formatted list of new hyperparameter points.
+%MAX_POINTS
+  The max number of hyperparameter points. iDDS will not stop generating new hyperparameter points until it receives an empty list []. So the container needs to return [] if enough hyperparameter points are generated.
+
+%NUM_POINTS
+   The number of hyperparameter points to be generated in this call. The default is 10. It can by changed by setting 'num_points_per_generation' in the request_metadata.
+
+%IN
+   The input filename which iDDS places in the current directory every time it calls the container. The file contains a json-formatted list of all hyperparameter points, which have been generated so far, with corresponding loss or None (if it is not yet evaluated).
+
+%OUT
+   The output filename which the container creates in the current directory. The file contains a json-formatted list of new hyperparameter points.
 
 Here is one example for the input (main/lib/idds/tests/idds_input.json). It is a json dump of
 ``{"points": [[{hyperparameter_point_1}, loss_or_None], ..., [{hyperparameter_point_N}, loss_or_None]], "opt_space": <opt space>}``.
