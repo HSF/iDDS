@@ -49,6 +49,7 @@ class HyperParameterOptTransformer(TransformerPluginBase):
                            'name': str(i),
                            'min_id': 0,
                            'max_id': 0,
+                           'status': ContentStatus.New,
                            'path': json.dumps((point, idds_output)),
                            'content_type': ContentType.PseudoContent,
                            'content_metadata': content_metadata}
