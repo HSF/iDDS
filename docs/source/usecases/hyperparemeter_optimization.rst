@@ -15,7 +15,7 @@ iDDS HPO workflow
 6. Each PanDA job fetches a serial number from PanDA and converts it to the corresponding hyperparameter point by checking with iDDS.
 7. Once the hyperparameter point is evaluated using the Evaluation container, the loss is registered to iDDS.
 8. The PanDA job fetches another serial number and evaluates the corresponding hyperparameter point if wall-time is still available.
-9. When the number of unprocessed hyperparameter points goes below a threshold, iDDS automatically generates new hyperparameter points. This step will continue until:
+9. When the number of unprocessed hyperparameter points goes below a threshold, iDDS automatically generates new hyperparameter points. Steps 3-9 will be iterated until:
 
     a. The total number of hyperparameter points reaches max_points. This parameter can be defined in the request.
     b. The Steering container / pre-defined method fails or returns [].
@@ -32,7 +32,7 @@ Currently iDDS support several different ways to generate hyperparameter points.
         a. The process to generate new hyperparameters: atlas/lib/idds/atlas/processing/hyperparameteropt_bayesian.py
         b. The example code to generate requests: main/lib/idds/tests/hyperparameteropt_bayesian_test.py
 
-    2. nevergrad: This is another pre-defined method in iDDS.
+    2. `nevergrad <https://github.com/facebookresearch/nevergrad>`_: This is another pre-defined method in iDDS.
 
         a. The process to generate new hyperparameters: atlas/lib/idds/atlas/processing/hyperparameteropt_nevergrad.py
         b. The example code to generate requests: main/lib/idds/tests/hyperparameteropt_nevergrad_test.py
@@ -61,20 +61,22 @@ User-defined Steering Container
 --------------------------------
 
 Users can provide their own container images to generate hyperparameter points using
-the ask-and-tell pattern. Note that users need to use HPO packages such as skopt and
-nevergrad which support the ask-and-tell pattern when making Steering containers.
+the ask-and-tell pattern. Note that users need to use HPO packages such as
+`skopt <https://scikit-optimize.github.io/stable/>`_ and
+`nevergrad <https://github.com/facebookresearch/nevergrad>`_ which support
+the ask-and-tell pattern when making Steering containers.
 Users can also provide execution strings to specify what are executed in containers.
 Each execution string needs to contain the following placeholders to get some parameters
 through command-line arguments.
 
 %MAX_POINTS
-  The max number of hyperparameter points to be evaluated in the entire search. iDDS will not stop generating new hyperparameter points until it receives an empty list []. So the container needs to return [] if enough hyperparameter points are generated.
+  The max number of hyperparameter points to be evaluated in the entire search. iDDS stops generating new hyperparameter points when it receives an empty list []. The container needs to return [] if enough hyperparameter points are generated.
 
 %NUM_POINTS
-   The number of hyperparameter points to be generated in this call. The default is 10. It can be changed by setting 'num_points_per_generation' in the request_metadata.
+   The number of hyperparameter points to be generated in this iteration. The default is 10. It can be changed by setting 'num_points_per_generation' in the request_metadata. The Steering container runs (%MAX_POINTS / %NUM_POINTS) times in the entire search.
 
 %IN
-   The name of input file which iDDS places in the current directory every time it calls the container. The file contains a json-formatted list of all hyperparameter points, which have been generated so far, with corresponding loss or None (if it is not yet evaluated).
+   The name of input file which iDDS places in the current directory every time it calls the container. The file contains a json-formatted list of all hyperparameter points, which have been generated so far, with corresponding loss (or None if it is not yet evaluated).
 
 %OUT
    The name of output file which the container creates in the current directory. The file contains a json-formatted list of new hyperparameter points.
@@ -104,7 +106,7 @@ Basically what the Steering container needs to do is as follows:
 
 1. Define an optimizer with a search space.
 2. Json-load %IN and update the optimizer with all hyperparameter points in %IN using the tell method.
-3. Generate min(%NUM_POINTS, %MAX_POINTS-<the number of hyperparameter points generated so far>) new hyperparameter points using the ask method, and json-dump them to %OUT.
+3. Generate min(%NUM_POINTS, %MAX_POINTS - <the number of hyperparameter points generated so far>) new hyperparameter points using the ask method, and json-dump them to %OUT.
 
 How to test the Steering container
 ************************************
@@ -119,7 +121,12 @@ Users can provide their own container images to evaluate hyperparameter points a
 execution strings to specify what are executed in their containers.
 The pilot and user-defined Evaluation container communicate with each other using the following files
 in the current directory ($PWD), so that the directory needs to be mounted.
-Their filenames can be defined in HPO task parameters.
+Their filenames can be defined in HPO task parameters. There are two files for input
+(one for a hyperparameter point to be evaluated and the other for training data) and
+three files for output (the first one to report the loss, the second one to report job metadata,
+and the last one to preserve training metrics). The input file for a hyperparameter point and
+the output file to report the loss are mandatory, while other files are optional.
+
 
 Input for Evaluation Container
 *****************************************
@@ -139,8 +146,9 @@ For example, if the Steering container generates a hyperparameter point like
 Output from Evaluation Container
 ***********************************************
 The Evaluation container evaluates the hyperparameter point and produces one json file.
-The file contains a dictionary with the following key-values: ``status``: ``integer`` (0: OK, others: Not Good),
+The file contains a json-formatted dictionary with the following key-values: ``status``: ``integer`` (0: OK, others: Not Good),
 ``loss``: ``float``, ``message``: ``string`` (optional). It is possible to produce another json file to report
 job metadata to PanDA. It is a json-dump of an arbitrary dictionary, but the size must be less than 1MB.
 It is also possible to produce a tarball to preserve training metrics. The tarball is uploaded to the storage
-so that the size can be larger.
+so that the size can be larger. The tarball can be used for post-processing such as visualization
+of the search results after been downloaded locally.
