@@ -106,7 +106,7 @@ Basically what the Steering container needs to do is as follows:
 
 1. Define an optimizer with a search space.
 2. Json-load %IN and update the optimizer with all hyperparameter points in %IN using the tell method.
-3. Generate new hyperparameter points using the ask method, and json-dump them to %OUT. The number of new hyperparameter points is min(%NUM_POINTS, %MAX_POINTS - <the number of hyperparameter points generated so far>).
+3. Generate new hyperparameter points using the ask method, and json-dump them to %OUT. The number of new hyperparameter points is ``min(%NUM_POINTS, %MAX_POINTS - NUM_POINTS_SO_FAR)`` where ``NUM_POINTS_SO_FAR`` stands for the total number of hyperparameter points generated so far.
 
 How to test the Steering container
 ************************************
