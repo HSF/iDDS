@@ -28,11 +28,12 @@ Below is one example for data carousel request.
 
 .. code-block:: python
 
-    request_id = client.add_request(\*\*props)
+    request_id = client.add_request(**props)
 
 3. Example codes:
 
 .. code-block:: python
+
     main/lib/idds/tests/datacarousel_test.py,
     main/lib/idds/tests/activelearning_test.py
     main/lib/idds/tests/hyperparameteropt_bayesian_test.py
@@ -63,6 +64,7 @@ iDDS HPO(HyperParameterClient)
 3. Example code:
 
 .. code-block:: python
+
     main/lib/idds/tests/hyperparameteropt_client_test.py
 
 iDDS logs client
@@ -73,9 +75,11 @@ iDDS also provides a rest service for users to download logs for tasks running o
 1. Download logs:
 
 .. code-block:: python
+
     client.download_logs(workload_id=workload_id, request_id=request_id, dest_dir='/tmp')
 
 2. Example codes:
 
 .. code-block:: python
+
     main/lib/idds/tests/logs_test.py
