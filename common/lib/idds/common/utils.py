@@ -16,6 +16,7 @@ import re
 import requests
 import subprocess
 import sys
+import tarfile
 
 from enum import Enum
 
@@ -353,3 +354,10 @@ def replace_parameters_with_values(text, values):
         key1 = '%' + key
         text = re.sub(key1, str(values[key]), text)
     return text
+
+
+def tar_zip_files(output_dir, output_filename, files):
+    output_filename = os.path.join(output_dir, output_filename)
+    with tarfile.open(output_filename, "w:gz") as tar:
+        for file in files:
+            tar.add(file, arcname=os.path.basename(file))

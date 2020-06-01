@@ -132,7 +132,8 @@ def delete_processing(processing_id=None, session=None):
 
 
 @transactional_session
-def update_processing_with_collection_contents(updated_processing, updated_collection=None, updated_files=None, new_files=None,
+def update_processing_with_collection_contents(updated_processing, new_processing=None, updated_collection=None,
+                                               updated_files=None, new_files=None,
                                                coll_msg_content=None, file_msg_content=None, transform_updates=None,
                                                message_bulk_size=1000, session=None):
     """
@@ -149,14 +150,17 @@ def update_processing_with_collection_contents(updated_processing, updated_colle
     if new_files:
         orm_contents.add_contents(contents=new_files, returning_id=False, session=session)
     if file_msg_content:
-        orm_messages.add_message(msg_type=file_msg_content['msg_type'],
-                                 status=file_msg_content['status'],
-                                 source=file_msg_content['source'],
-                                 transform_id=file_msg_content['transform_id'],
-                                 num_contents=file_msg_content['num_contents'],
-                                 msg_content=file_msg_content['msg_content'],
-                                 bulk_size=message_bulk_size,
-                                 session=session)
+        if not type(file_msg_content) in [list, tuple]:
+            file_msg_content = [file_msg_content]
+        for file_msg_con in file_msg_content:
+            orm_messages.add_message(msg_type=file_msg_con['msg_type'],
+                                     status=file_msg_con['status'],
+                                     source=file_msg_con['source'],
+                                     transform_id=file_msg_con['transform_id'],
+                                     num_contents=file_msg_con['num_contents'],
+                                     msg_content=file_msg_con['msg_content'],
+                                     bulk_size=message_bulk_size,
+                                     session=session)
     if updated_collection:
         orm_collections.update_collection(coll_id=updated_collection['coll_id'],
                                           parameters=updated_collection['parameters'],
@@ -173,6 +177,8 @@ def update_processing_with_collection_contents(updated_processing, updated_colle
         orm_processings.update_processing(processing_id=updated_processing['processing_id'],
                                           parameters=updated_processing['parameters'],
                                           session=session)
+    if new_processing:
+        orm_processings.add_processing(**new_processing, session=session)
     if transform_updates:
         orm_transforms.update_transform(transform_id=transform_updates['transform_id'],
                                         parameters=transform_updates['parameters'],

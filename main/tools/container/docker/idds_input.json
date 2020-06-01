@@ -1,0 +1,1 @@
+{"points": [[{"A": 1, "B": 2}, 0.3], [{"A": 1, "B": 3}, null]], "opt_space": {"A": {"type": "Choice", "params": {"choices": [1, 4]}}, "B": {"type": "Scalar", "bounds": [0, 5]}}}

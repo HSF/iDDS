@@ -19,7 +19,8 @@ except ImportError:
 
 from idds.common.constants import (Sections, CollectionRelationType, CollectionStatus,
                                    CollectionLocking, CollectionType, ContentType, ContentStatus,
-                                   TransformType, MessageType, MessageStatus, MessageSource)
+                                   TransformType, ProcessingStatus,
+                                   MessageType, MessageStatus, MessageSource)
 from idds.common.exceptions import AgentPluginError
 from idds.common.utils import setup_logging
 from idds.core import (catalog as core_catalog, transforms as core_transforms, processings as core_processings)
@@ -88,8 +89,8 @@ class Transporter(BaseAgent):
                               'name': 'pseudo_%s' % coll['coll_id'],
                               'min_id': 0,
                               'max_id': 0,
-                              'content_type': ContentType.File,
-                              'status': ContentStatus.New,
+                              'content_type': ContentType.PseudoContent,
+                              'status': ContentStatus.Available,
                               'bytes': 0,
                               'md5': None,
                               'adler32': None,
@@ -118,7 +119,7 @@ class Transporter(BaseAgent):
                                'min_id': 0,
                                'max_id': content['events'],
                                'content_type': ContentType.File,
-                               'status': ContentStatus.New,
+                               'status': ContentStatus.Available,
                                'bytes': content['bytes'],
                                'md5': content['md5'] if 'md5' in content else None,
                                'adler32': content['adler32'] if 'adler32' in content else None,
@@ -199,6 +200,16 @@ class Transporter(BaseAgent):
                 return is_all_processed
         return is_all_processed
 
+    def is_all_processings_finished(self, transform_id):
+        processings = core_processings.get_processings_by_transform_id(transform_id=transform_id)
+        for processing in processings:
+            if not processing['status'] in [ProcessingStatus.Finished, ProcessingStatus.Failed, ProcessingStatus.Lost,
+                                            ProcessingStatus.Cancel, ProcessingStatus.FinishedOnStep, ProcessingStatus.FinishedOnExec,
+                                            ProcessingStatus.Finished.value, ProcessingStatus.Failed.value, ProcessingStatus.Lost.value,
+                                            ProcessingStatus.Cancel.value, ProcessingStatus.FinishedOnStep.value, ProcessingStatus.FinishedOnExec.value]:
+                return False
+        return True
+
     def process_output_collection(self, coll):
         """
         Process output collection
@@ -213,6 +224,8 @@ class Transporter(BaseAgent):
                     new_contents.append(content)
             if new_contents:
                 self.register_contents(coll['scope'], coll['name'], new_contents)
+
+        is_all_processings_finished = self.is_all_processings_finished(coll['transform_id'])
 
         is_input_collection_all_processed = False
         if coll['coll_metadata'] and 'input_collections' in coll['coll_metadata'] and coll['coll_metadata']['input_collections']:
@@ -239,7 +252,7 @@ class Transporter(BaseAgent):
             new_files += contents_statistics[ContentStatus.New.value]
 
         coll_msg = None
-        if not is_input_collection_all_processed:
+        if not is_input_collection_all_processed or not is_all_processings_finished:
             coll_status = CollectionStatus.Processing
         elif content_status_keys == [ContentStatus.Available] or content_status_keys == [ContentStatus.Available.value]:
             coll_status = CollectionStatus.Closed
@@ -283,6 +296,8 @@ class Transporter(BaseAgent):
             coll_status = CollectionStatus.SubClosed
         elif (ContentStatus.New in content_status_keys or ContentStatus.New.value in content_status_keys            # noqa: W503
             or ContentStatus.Failed in content_status_keys or ContentStatus.Failed.value in content_status_keys):   # noqa: W503
+            coll_status = CollectionStatus.Processing
+        else:
             coll_status = CollectionStatus.Processing
 
         coll_metadata = coll['coll_metadata']

@@ -16,8 +16,7 @@ except ImportError:
     # Python 2
     from Queue import Queue
 
-from idds.common.constants import (Sections, TransformType, ProcessingStatus, ProcessingLocking,
-                                   MessageType, MessageStatus, MessageSource)
+from idds.common.constants import (Sections, TransformType, ProcessingStatus, ProcessingLocking)
 from idds.common.exceptions import (AgentPluginError)
 from idds.common.utils import setup_logging
 from idds.core import (catalog as core_catalog, transforms as core_transforms,
@@ -50,7 +49,7 @@ class Carrier(BaseAgent):
         Get new processing
         """
         processing_status = [ProcessingStatus.New]
-        processings = core_processings.get_processings_by_status(status=processing_status, locking=True, bulk_size=self.retrieve_bulk_size)
+        processings = core_processings.get_processings_by_status(status=processing_status, time_period=120, locking=True, bulk_size=self.retrieve_bulk_size)
         self.logger.info("Main thread get %s [new] processings to process" % len(processings))
         return processings
 
@@ -63,6 +62,10 @@ class Carrier(BaseAgent):
             if 'activelearning_submitter' not in self.plugins:
                 raise AgentPluginError('Plugin activelearning_submitter is required')
             return self.plugins['activelearning_submitter'](processing, transform, input_collection, output_collection)
+        if transform['transform_type'] == TransformType.HyperParameterOpt:
+            if 'hyperparameteropt_submitter' not in self.plugins:
+                raise AgentPluginError('Plugin hyperparameteropt_submitter is required')
+            return self.plugins['hyperparameteropt_submitter'](processing, transform, input_collection, output_collection)
 
         return None
 
@@ -111,7 +114,7 @@ class Carrier(BaseAgent):
         """
         Get monitor processing
         """
-        processing_status = [ProcessingStatus.Submitting, ProcessingStatus.Submitted, ProcessingStatus.Running]
+        processing_status = [ProcessingStatus.Submitting, ProcessingStatus.Submitted, ProcessingStatus.Running, ProcessingStatus.FinishedOnExec]
         processings = core_processings.get_processings_by_status(status=processing_status,
                                                                  time_period=self.poll_time_period,
                                                                  locking=True,
@@ -128,47 +131,12 @@ class Carrier(BaseAgent):
             if 'activelearning_poller' not in self.plugins:
                 raise AgentPluginError('Plugin activelearning_poller is required')
             return self.plugins['activelearning_poller'](processing, transform, input_collection, output_collection, output_contents)
+        if transform['transform_type'] == TransformType.HyperParameterOpt:
+            if 'hyperparameteropt_poller' not in self.plugins:
+                raise AgentPluginError('Plugin hyperparameteropt_poller is required')
+            return self.plugins['hyperparameteropt_poller'](processing, transform, input_collection, output_collection, output_contents)
 
         return None
-
-    def generate_file_message(self, transform, files):
-        if not files:
-            return None
-
-        updated_files_message = []
-        for file in files:
-            updated_file_message = {'scope': file['scope'],
-                                    'name': file['name'],
-                                    'status': file['status'].name}
-            updated_files_message.append(updated_file_message)
-
-        workload_id = None
-        if 'workload_id' in transform['transform_metadata']:
-            workload_id = transform['transform_metadata']['workload_id']
-
-        if transform['transform_type'] in [TransformType.StageIn, TransformType.StageIn.value]:
-            msg_type = 'file_stagein'
-            msg_type_c = MessageType.StageInFile
-        elif transform['transform_type'] in [TransformType.ActiveLearning, TransformType.ActiveLearning.value]:
-            msg_type = 'file_activelearning'
-            msg_type_c = MessageType.ActiveLearningFile
-        elif transform['transform_type'] in [TransformType.HyperParameterOpt, TransformType.HyperParameterOpt.value]:
-            msg_type = 'file_hyperparameteropt'
-            msg_type_c = MessageType.HyperParameterOptFile
-        else:
-            msg_type = 'file_unknown'
-            msg_type_c = MessageType.UnknownFile
-
-        msg_content = {'msg_type': msg_type,
-                       'workload_id': workload_id,
-                       'files': updated_files_message}
-        file_msg_content = {'msg_type': msg_type_c,
-                            'status': MessageStatus.New,
-                            'source': MessageSource.Carrier,
-                            'transform_id': transform['transform_id'],
-                            'num_contents': len(updated_files_message),
-                            'msg_content': msg_content}
-        return file_msg_content
 
     def process_monitor_processing(self, processing):
         transform_id = processing['transform_id']
@@ -189,13 +157,28 @@ class Carrier(BaseAgent):
         if 'new_files' in ret_poll:
             new_files = ret_poll['new_files']
         updated_files = ret_poll['updated_files']
-        file_msg = []
+        file_msgs = []
+        if new_files:
+            file_msg = self.generate_file_message(transform, new_files)
+            file_msgs.append(file_msg)
         if updated_files:
             file_msg = self.generate_file_message(transform, updated_files)
+            file_msgs.append(file_msg)
 
-        processing_parameters = {'status': ret_poll['processing_updates']['status'],
+        processing_status = ret_poll['processing_updates']['status']
+        processing_metadata = ret_poll['processing_updates']['processing_metadata']
+
+        new_processing = None
+        if processing_status == ProcessingStatus.FinishedOnStep:
+            if 'new_processing' in ret_poll:
+                new_processing = ret_poll['new_processing']
+
+        processing_parameters = {'status': processing_status,
                                  'locking': ProcessingLocking.Idle,
-                                 'processing_metadata': ret_poll['processing_updates']['processing_metadata']}
+                                 'processing_metadata': processing_metadata}
+        if 'substatus' in ret_poll['processing_updates']:
+            processing_parameters['substatus'] = ret_poll['processing_updates']['substatus']
+
         if 'output_metadata' in ret_poll['processing_updates']:
             processing_parameters['output_metadata'] = ret_poll['processing_updates']['output_metadata']
         updated_processing = {'processing_id': processing['processing_id'],
@@ -203,9 +186,10 @@ class Carrier(BaseAgent):
 
         ret = {'transform': transform,
                'processing_updates': updated_processing,
+               'new_processing': new_processing,
                'updated_files': updated_files,
                'new_files': new_files,
-               'file_message': file_msg}
+               'file_message': file_msgs}
         return ret
 
     def process_monitor_processings(self):
@@ -232,6 +216,7 @@ class Carrier(BaseAgent):
 
                 self.logger.debug("wen: processing %s" % str(processing))
                 core_processings.update_processing_with_collection_contents(updated_processing=processing['processing_updates'],
+                                                                            new_processing=processing['new_processing'],
                                                                             updated_files=processing['updated_files'],
                                                                             new_files=processing['new_files'],
                                                                             file_msg_content=processing['file_message'],

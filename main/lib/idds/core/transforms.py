@@ -24,6 +24,7 @@ from idds.orm.base.session import read_session, transactional_session
 from idds.orm import (transforms as orm_transforms,
                       collections as orm_collections,
                       contents as orm_contents,
+                      messages as orm_messages,
                       processings as orm_processings)
 
 
@@ -220,7 +221,7 @@ def trigger_update_transform_status(transform_id, input_collection_changed=False
 
 @transactional_session
 def add_transform_outputs(transform, input_collection, output_collection, input_contents, output_contents,
-                          processing, to_cancel_processing=None, session=None):
+                          processing, to_cancel_processing=None, messages=None, message_bulk_size=1000, session=None):
     """
     For input contents, add corresponding output contents.
 
@@ -235,6 +236,19 @@ def add_transform_outputs(transform, input_collection, output_collection, input_
     """
     if output_contents:
         orm_contents.add_contents(output_contents, session=session)
+
+    if messages:
+        if not type(messages) in [list, tuple]:
+            messages = [messages]
+        for message in messages:
+            orm_messages.add_message(msg_type=message['msg_type'],
+                                     status=message['status'],
+                                     source=message['source'],
+                                     transform_id=message['transform_id'],
+                                     num_contents=message['num_contents'],
+                                     msg_content=message['msg_content'],
+                                     bulk_size=message_bulk_size,
+                                     session=session)
 
     if input_contents:
         update_input_contents = []
@@ -255,7 +269,7 @@ def add_transform_outputs(transform, input_collection, output_collection, input_
     if to_cancel_processing:
         to_cancel_params = {'status': ProcessingStatus.Cancel}
         for to_cancel_id in to_cancel_processing:
-            orm_processings.update_processing(processing_id=to_cancel_id, parameters=to_cancel_params)
+            orm_processings.update_processing(processing_id=to_cancel_id, parameters=to_cancel_params, session=session)
     processing_id = None
     if processing:
         processing_id = orm_processings.add_processing(**processing, session=session)

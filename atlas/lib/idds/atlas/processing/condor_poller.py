@@ -14,7 +14,8 @@ Class of activelearning condor plubin
 """
 import os
 import json
-
+import shutil
+import tarfile
 
 from idds.common import exceptions
 from idds.common.constants import ProcessingStatus
@@ -37,6 +38,19 @@ class CondorPoller(ProcessingPluginBase):
         if not os.path.exists(job_dir):
             os.makedirs(job_dir)
         return job_dir
+
+    def tar_job_logs(self, job_dir):
+        output_filename = os.path.basename(job_dir) + '.tgz'
+        output_filename = os.path.join(os.path.dirname(job_dir), output_filename)
+        with tarfile.open(output_filename, "w:gz") as tar:
+            tar.add(job_dir, arcname=os.path.basename(job_dir))
+
+        try:
+            shutil.rmtree(job_dir)
+        except OSError as e:
+            self.logger.error("Failed to remove job dir %s with error: %s - %s." % (job_dir, e.filename, e.strerror))
+
+        return output_filename
 
     def poll_job_status(self, processing_id, job_id):
         # 0 Unexpanded     U
@@ -86,6 +100,8 @@ class CondorPoller(ProcessingPluginBase):
         return final_job_status, ret_err
 
     def parse_job_outputs(self, processing_id, output_json):
+        if not output_json:
+            return None, 'output_json(%s) is not defined' % output_json
         job_dir = self.get_job_dir(processing_id)
         full_output_json = os.path.join(job_dir, output_json)
         if not os.path.exists(full_output_json):

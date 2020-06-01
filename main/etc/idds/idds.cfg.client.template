@@ -1,0 +1,38 @@
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Wen Guan, <wen.guan@cern.ch>, 2019
+
+[common]
+# if logdir is configured, idds will write to idds.log in this directory.
+# else idds will go to stdout/stderr.
+# With supervisord, it's good to write to stdout/stderr, then supervisord can manage and rotate logs.
+# logdir = /var/log/idds
+loglevel = DEBUG
+
+[database]
+#default = mysql://idds:idds@pcuwvirt5.cern.ch/idds
+#default = mysql://idds:idds_passwd@aipanda182.cern.ch/idds
+#default = sqlite:////tmp/idds.db
+#default = oracle://_____________:___________@(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=_________)(PORT=______))(ADDRESS=(PROTOCOL=TCP)(HOST=_________)(PORT=_____))(CONNECT_DATA=(SERVER=DEDICATED)(SERVICE_NAME=__________)))
+#default = oracle://_____________:___________@(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=127.0.0.1)(PORT=______))(CONNECT_DATA=(SERVER=DEDICATED)(SERVICE_NAME=_____________)))
+
+#default = postgresql://idds:idds@localhost/idds
+pool_size=20
+pool_recycle=3600
+echo=0
+pool_reset_on_return=rollback
+
+[rest]
+host = https://aipanda181.cern.ch:443/idds
+#url_prefix = /idds
+#cacher_dir = /tmp
+cacher_dir = /data/idds
+
+#[section]
+#attr1 = <attr1>
+#plugin.<plugin_name> = <lib.path.name.ClassName>
+#plugin.<plugin_name>.<attr1> = <value1>
+#plugin.<plugin_name>.<attr2> = <value2>

@@ -17,7 +17,7 @@ import traceback
 
 
 from idds.common import exceptions
-from idds.common.constants import ContentType
+from idds.common.constants import ContentType, ContentStatus
 from idds.atlas.transformer.base_plugin import TransformerPluginBase
 
 
@@ -36,6 +36,8 @@ class ActiveLearningTransformer(TransformerPluginBase):
                            'name': 'activelearning_%s' % output_collection['coll_id'],
                            'min_id': 0,
                            'max_id': 0,
+                           'status': ContentStatus.New,
+                           'path': None,
                            'content_type': ContentType.PseudoContent,
                            'adler32': None,
                            'content_metadata': content_metadata}

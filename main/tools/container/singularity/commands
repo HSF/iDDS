@@ -1,0 +1,6 @@
+cd /opt/singularity/
+singularity build --sandbox idds_ng idds_nevergrad.def 
+singularity exec idds_ng /bin/hostname
+singularity exec idds_ng python /opt/hyperparameteropt_nevergrad.py
+singularity build idds_nevergrad.simg idds_ng/
+singularity exec idds_nevergrad.simg python /opt/hyperparameteropt_nevergrad.py

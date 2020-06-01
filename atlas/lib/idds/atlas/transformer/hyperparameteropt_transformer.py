@@ -13,6 +13,7 @@
 Class of collection lister plubin
 """
 
+import json
 import traceback
 
 
@@ -27,6 +28,9 @@ class HyperParameterOptTransformer(TransformerPluginBase):
 
     def __call__(self, transform, input_collection, output_collection, input_contents):
         try:
+            if not input_contents:
+                return []
+
             transform_metadata = transform['transform_metadata']
             initial_points = []
             if 'initial_points' in transform_metadata:
@@ -35,18 +39,18 @@ class HyperParameterOptTransformer(TransformerPluginBase):
             output_contents = []
             i = 0
             for initial_point in initial_points:
-                idds_output = None
-                if 'IDDS_OUTPUT' in initial_point:
-                    idds_output = initial_point['IDDS_OUTPUT']
+                point, idds_output = initial_point
 
-                content_metadata = {'input_collection_id': input_collection['coll_id'],
-                                    'point': initial_point
+                content_metadata = {'input_collection_id': input_collection['coll_id']
                                     }
                 content = {'coll_id': output_collection['coll_id'],
-                           'scope': output_collection['scope'],
-                           'name': 'pseudo_' + str(i),
+                           # 'scope': output_collection['scope'],
+                           'scope': 'hpo',
+                           'name': str(i),
                            'min_id': 0,
                            'max_id': 0,
+                           'status': ContentStatus.New,
+                           'path': json.dumps((point, idds_output)),
                            'content_type': ContentType.PseudoContent,
                            'content_metadata': content_metadata}
                 if idds_output:
