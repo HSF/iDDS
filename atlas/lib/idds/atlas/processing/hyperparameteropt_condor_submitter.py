@@ -121,22 +121,6 @@ class HyperParameterOptCondorSubmitter(CondorSubmitter):
                 if not content['status'] == ContentStatus.Available:
                     unevaluated_points += 1
 
-            """
-            if self.min_unevaluated_points and unevaluated_points >= self.min_unevaluated_points:
-                # not submit the job
-                processing_metadata = processing['processing_metadata']
-                processing_metadata['unevaluated_points'] = unevaluated_points
-                processing_metadata['not_submit'] = 'unevaluated_points(%s) > min_unevaluated_points(%s)' % (unevaluated_points, self.min_unevaluated_points)
-                self.logger.info("processing_id(%s) not submit currently because unevaluated_points(%s) >= min_unevaluated_points(%s)" % (processing['processing_id'], unevaluated_points, self.min_unevaluated_points))
-                ret = {'processing_id': processing['processing_id'],
-                       'status': ProcessingStatus.New,
-                       'processing_metadata': processing_metadata}
-                return ret
-
-            if 'not_submit' in processing_metadata:
-                del processing_metadata['not_submit']
-            """
-
             job_dir = self.get_job_dir(processing['processing_id'])
             input_json = 'idds_input.json'
             opt_space = None
@@ -160,6 +144,7 @@ class HyperParameterOptCondorSubmitter(CondorSubmitter):
                 processing_metadata['submitter'] = self.name
                 processing_metadata['submit_errors'] = errors
                 processing_metadata['output_json'] = output_json
+                # processing_metadata['job_dir'] = job_dir
                 ret = {'processing_id': processing['processing_id'],
                        'status': ProcessingStatus.Submitted,
                        'processing_metadata': processing_metadata}
@@ -171,6 +156,7 @@ class HyperParameterOptCondorSubmitter(CondorSubmitter):
                 processing_metadata['job_id'] = job_id
                 processing_metadata['submitter'] = self.name
                 processing_metadata['output_json'] = output_json
+                # processing_metadata['job_dir'] = job_dir
                 if not job_id:
                     processing_metadata['submit_errors'] = outputs
                 else:

@@ -84,7 +84,7 @@ class CacherClient(BaseRestClient):
         # print(response)
         # print(response.text)
         if response and response.text:
-            with open(filename, 'w') as fp:
-                fp.write(response.text)
+            with open(filename, 'wb') as fp:
+                fp.write(response.content)
             return filename
         return None

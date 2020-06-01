@@ -567,11 +567,12 @@ def get_output_content_by_request_id_content_name(request_id, content_scope, con
 
 
 @read_session
-def get_output_contents_by_request_id_status(request_id, content_status, limit, transform_id=None, session=None):
+def get_output_contents_by_request_id_status(request_id, name, content_status, limit, transform_id=None, session=None):
     """
     Get output content by request_id and content name
 
     :param request_id: requestn id.
+    :param name: the content name.
     :param content_status: The content status.
     :param limit: limit number of contents.
     :param session: The database session in use.
@@ -601,6 +602,14 @@ def get_output_contents_by_request_id_status(request_id, content_status, limit, 
     contents = []
     if coll_id:
         contents = orm_contents.get_contents(coll_id=coll_id, status=content_status, session=session)
+
+    if name:
+        new_contents = []
+        for content in contents:
+            if str(content['name']) == str(name):
+                new_contents.append(content)
+        contents = new_contents
+
     if contents and limit and len(contents) > limit:
         contents = contents[:limit]
     return contents

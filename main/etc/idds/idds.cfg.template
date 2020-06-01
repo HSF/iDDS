@@ -12,6 +12,11 @@
 # logdir = /var/log/idds
 loglevel = DEBUG
 
+# aipanda182 prod
+# aipanda181 dev
+# aipanda180 condor
+# aipanda187 monitor(can be reused)
+# aipanda160, 161, 162 (new vms)
 
 [database]
 #default = mysql://idds:idds@pcuwvirt5.cern.ch/idds

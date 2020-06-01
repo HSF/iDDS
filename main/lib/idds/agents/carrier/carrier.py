@@ -16,8 +16,7 @@ except ImportError:
     # Python 2
     from Queue import Queue
 
-from idds.common.constants import (Sections, TransformType, ProcessingStatus, ProcessingLocking,
-                                   MessageType, MessageStatus, MessageSource)
+from idds.common.constants import (Sections, TransformType, ProcessingStatus, ProcessingLocking)
 from idds.common.exceptions import (AgentPluginError)
 from idds.common.utils import setup_logging
 from idds.core import (catalog as core_catalog, transforms as core_transforms,
@@ -138,46 +137,6 @@ class Carrier(BaseAgent):
             return self.plugins['hyperparameteropt_poller'](processing, transform, input_collection, output_collection, output_contents)
 
         return None
-
-    def generate_file_message(self, transform, files):
-        if not files:
-            return None
-
-        updated_files_message = []
-        for file in files:
-            updated_file_message = {'scope': file['scope'],
-                                    'name': file['name'],
-                                    'path': file['path'],
-                                    'status': file['status'].name}
-            updated_files_message.append(updated_file_message)
-
-        workload_id = None
-        if 'workload_id' in transform['transform_metadata']:
-            workload_id = transform['transform_metadata']['workload_id']
-
-        if transform['transform_type'] in [TransformType.StageIn, TransformType.StageIn.value]:
-            msg_type = 'file_stagein'
-            msg_type_c = MessageType.StageInFile
-        elif transform['transform_type'] in [TransformType.ActiveLearning, TransformType.ActiveLearning.value]:
-            msg_type = 'file_activelearning'
-            msg_type_c = MessageType.ActiveLearningFile
-        elif transform['transform_type'] in [TransformType.HyperParameterOpt, TransformType.HyperParameterOpt.value]:
-            msg_type = 'file_hyperparameteropt'
-            msg_type_c = MessageType.HyperParameterOptFile
-        else:
-            msg_type = 'file_unknown'
-            msg_type_c = MessageType.UnknownFile
-
-        msg_content = {'msg_type': msg_type,
-                       'workload_id': workload_id,
-                       'files': updated_files_message}
-        file_msg_content = {'msg_type': msg_type_c,
-                            'status': MessageStatus.New,
-                            'source': MessageSource.Carrier,
-                            'transform_id': transform['transform_id'],
-                            'num_contents': len(updated_files_message),
-                            'msg_content': msg_content}
-        return file_msg_content
 
     def process_monitor_processing(self, processing):
         transform_id = processing['transform_id']

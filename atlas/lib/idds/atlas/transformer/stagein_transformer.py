@@ -17,6 +17,7 @@ import traceback
 
 
 from idds.common import exceptions
+from idds.common.constants import ContentStatus
 from idds.atlas.transformer.base_plugin import TransformerPluginBase
 
 
@@ -37,6 +38,8 @@ class StageInTransformer(TransformerPluginBase):
                            'name': input_content['name'],
                            'min_id': input_content['min_id'],
                            'max_id': input_content['max_id'],
+                           'status': ContentStatus.New,
+                           'path': None,
                            'content_type': input_content['content_type'],
                            'adler32': input_content['adler32'],
                            'content_metadata': content_metadata}

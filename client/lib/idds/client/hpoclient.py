@@ -60,7 +60,7 @@ class HPOClient(BaseRestClient):
         r = self.get_request_response(url, type='PUT')
         return r
 
-    def get_hyperparameters(self, workload_id, request_id, status=None, limit=None):
+    def get_hyperparameters(self, workload_id, request_id, id=None, status=None, limit=None):
         """
         Get hyperparameters from the Head service.
 
@@ -76,6 +76,8 @@ class HPOClient(BaseRestClient):
             workload_id = 'null'
         if not request_id:
             request_id = 'null'
+        if id is None:
+            id = 'null'
         if status is None:
             status = 'null'
         if limit is None:
@@ -84,7 +86,7 @@ class HPOClient(BaseRestClient):
         if workload_id == 'null' and request_id == 'null':
             raise exceptions.IDDSException("One of workload_id and request_id should not be None or empty")
 
-        url = self.build_url(self.host, path=os.path.join(path, str(workload_id), str(request_id), str(status), str(limit)))
+        url = self.build_url(self.host, path=os.path.join(path, str(workload_id), str(request_id), str(id), str(status), str(limit)))
 
         params = self.get_request_response(url, type='GET')
 
