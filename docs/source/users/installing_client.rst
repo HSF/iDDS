@@ -35,12 +35,17 @@ config client
 
 To use iDDS client to access the iDDS server, a config file is needed. Below is an example of the config file.
 
+.. code-block:: python
+
     [common]
     loglevel = INFO
+
     [rest]
     host = https://<hostname>:<port>/idds
 
 iDDS will look for this config file in order of:
+
+.. code-block:: python
 
     ${IDDS_CONFIG}
     ${IDDS_HOME}/etc/idds/idds.cfg

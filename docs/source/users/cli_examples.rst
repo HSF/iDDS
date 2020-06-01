@@ -10,6 +10,8 @@ iDDS request client
 
 Below is one example for data carousel request.
 
+.. code-block:: python
+
     req_properties = {
         'scope': 'data16_13TeV',
         'name': 'data16_13TeV.00298862.physics_Main.daq.RAW',
@@ -24,10 +26,13 @@ Below is one example for data carousel request.
 
 2. add request
 
+.. code-block:: python
+
     request_id = client.add_request(\*\*props)
 
 3. Example codes:
 
+.. code-block:: python
     main/lib/idds/tests/datacarousel_test.py,
     main/lib/idds/tests/activelearning_test.py
     main/lib/idds/tests/hyperparameteropt_bayesian_test.py
@@ -40,6 +45,8 @@ iDDS HPO(HyperParameterClient)
 
 1. To retrieve hyperparameters.
 
+.. code-block:: python
+
     client.get_hyperparameters(workload_id, request_id, id=None, status=None, limit=None)
 
     examples:
@@ -49,10 +56,13 @@ iDDS HPO(HyperParameterClient)
 
 2. To register loss of a group of hyperparameters.
 
+.. code-block:: python
+
     client.update_hyperparameter(request_id, id, loss)
 
 3. Example code:
 
+.. code-block:: python
     main/lib/idds/tests/hyperparameteropt_client_test.py
 
 iDDS logs client
@@ -62,8 +72,10 @@ iDDS also provides a rest service for users to download logs for tasks running o
 
 1. Download logs:
 
+.. code-block:: python
     client.download_logs(workload_id=workload_id, request_id=request_id, dest_dir='/tmp')
 
 2. Example codes:
 
+.. code-block:: python
     main/lib/idds/tests/logs_test.py
