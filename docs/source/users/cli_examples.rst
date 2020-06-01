@@ -15,7 +15,7 @@ Below is one example for data carousel request.
         'name': 'data16_13TeV.00298862.physics_Main.daq.RAW',
         'requester': 'panda',
         'request_type': RequestType.StageIn,
-        'transform_tag': 'prodsys2',
+        'transform_tag': 's2395',
         'status': RequestStatus.New,
         'priority': 0,
         'lifetime': 30,
