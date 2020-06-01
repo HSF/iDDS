@@ -47,7 +47,12 @@ RESTful Service
 
 1. To retrieve hyperparameters.
 
-    client.get_hyperparameters(request_id, status=None, limit=None)
+    client.get_hyperparameters(workload_id, request_id, id=None, status=None, limit=None)
+
+    examples:
+        client.get_hyperparameters(workload_id=123, request_id=None)
+        client.get_hyperparameters(workload_id=None, request_id=456)
+        client.get_hyperparameters(workload_id=None, request_id=456, id=0)
 
 2. To register loss of a group of hyperparameters.
 

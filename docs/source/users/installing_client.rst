@@ -29,3 +29,20 @@ To upgrade via pip::
 
    $> pip install --upgrade idds-common idds-client
 
+
+config client
+~~~~~~~~~~~~~
+
+To use iDDS client to access the iDDS server, a config file is needed. Below is an example of the config file.
+
+    [common]
+    loglevel = INFO
+    [rest]
+    host = https://<hostname>:<port>/idds
+
+iDDS will look for this config file in order of:
+
+    ${IDDS_CONFIG}
+    ${IDDS_HOME}/etc/idds/idds.cfg
+    /etc/idds/idds.cfg
+    ${VIRTUAL_ENV}/etc/idds/idds.cfg
