@@ -115,7 +115,7 @@ Basically what the Steering container needs to do is as follows:
 
 How to test the Steering container
 ************************************
-Here is one example (main/lib/idds/tests/hyperparameteropt_docker_test.py). Users can update the request part and test their docker locally.
+Here is one example (`Steering_local_test https://github.com/HSF/iDDS/blob/master/main/lib/idds/tests/hyperparameteropt_docker_local_test.py`_). Users can update the request part and test their docker locally.
 
 
 
