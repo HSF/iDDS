@@ -12,6 +12,7 @@
 # logdir = /var/log/idds
 loglevel = DEBUG
 
+# iddsserver.cern.ch: aipanda181, aipanda182
 # aipanda182 prod
 # aipanda181 prod
 # aipanda160 dev
