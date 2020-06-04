@@ -13,7 +13,8 @@
 loglevel = DEBUG
 
 # aipanda182 prod
-# aipanda181 dev
+# aipanda181 prod
+# aipanda160 dev
 # aipanda180 condor
 # aipanda187 monitor(can be reused)
 # aipanda160, 161, 162 (new vms)
