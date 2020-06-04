@@ -87,8 +87,8 @@ through command-line arguments.
    The name of output file which the container creates in the current directory. The file contains a json-formatted list of new hyperparameter points.
 
 When iDDS runs Steering containers, iDDS will replace %XYZ with actual parameters.
-For example, if an execution string is something like ``python opt.py --n=%NUM_POINT=%IN ...``,
-``python opt.py --n=%NUM_POINT=10 ...`` will be executed in the container.
+For example, if an execution string is something like ``python opt.py --n=%NUM_POINT ...``,
+``python opt.py --n=10 ...`` will be executed in the container.
 Input and output are done through json files in the current directly ($PWD) so that
 the directory needs to be mounted.
 
