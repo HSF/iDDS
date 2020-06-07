@@ -32,6 +32,12 @@ WSGIPythonPath {python_site_packages_path}
 
 Listen 443
 
+RewriteEngine on
+RewriteCond %{REQUEST_METHOD} ^(TRACE|TRACK)
+RewriteRule .* - [F]
+RedirectMatch 403 /\..*$
+TraceEnable off
+
 <VirtualHost *:443>
     # ServerName aipanda182.cern.ch:443
     ServerAdmin wguan@cern.ch
