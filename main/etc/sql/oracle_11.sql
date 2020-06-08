@@ -32,6 +32,7 @@ CREATE TABLE REQUESTS
         locking NUMBER(2),
         created_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)) constraint REQ_CREATED_NN NOT NULL,
         updated_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)) constraint REQ_UPDATED_NN NOT NULL,
+        next_poll_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)) constraint REQ_NEXT_POLL_NN NOT NULL,
         accessed_at DATE,
         expired_at DATE,
         errors VARCHAR2(1024),
@@ -56,7 +57,7 @@ CREATE OR REPLACE TRIGGER TRIG_REQUEST_ID
 
 CREATE INDEX REQUESTS_SCOPE_NAME_IDX ON REQUESTS (name, scope, workload_id) LOCAL;
 --- drop index REQUESTS_STATUS_PRIORITY_IDX
-CREATE INDEX REQUESTS_STATUS_PRIORITY_IDX ON REQUESTS (status, priority, request_id, locking, updated_at, created_at) LOCAL COMPRESS 1;
+CREATE INDEX REQUESTS_STATUS_PRIORITY_IDX ON REQUESTS (status, priority, request_id, locking, updated_at, next_poll_at, created_at) LOCAL COMPRESS 1;
 
 
 --- transforms
@@ -75,6 +76,7 @@ CREATE TABLE TRANSFORMS
         retries NUMBER(5) DEFAULT 0,
         created_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)) constraint TRANSFORM_CREATED_NN NOT NULL,
         updated_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)) constraint TRANSFORM_UPDATED_NN NOT NULL,
+        next_poll_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)) constraint TRANSFORM_NEXT_POLL_NN NOT NULL,
         started_at DATE,
         finished_at DATE,
         expired_at DATE,
@@ -97,7 +99,7 @@ CREATE OR REPLACE TRIGGER TRIG_TRANSFORM_ID
 
 
 CREATE INDEX TRANSFORMS_TYPE_TAG_IDX ON TRANSFORMS (transform_type, transform_tag, transform_id) LOCAL;
-CREATE INDEX TRANSFORMS_STATUS_UPDATED_IDX ON TRANSFORMS (status, locking, updated_at, created_at) LOCAL;
+CREATE INDEX TRANSFORMS_STATUS_UPDATED_IDX ON TRANSFORMS (status, locking, updated_at, next_poll_at, created_at) LOCAL;
 
 --- req2transforms
 CREATE TABLE REQ2TRANSFORMS
@@ -145,6 +147,7 @@ CREATE TABLE PROCESSINGS
         granularity_type NUMBER(2),
         created_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)) constraint PROCESSING_CREATED_NN NOT NULL,
         updated_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)) constraint PROCESSING_UPDATED_NN NOT NULL,
+        next_poll_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)) constraint PROCESSING_NEXT_POLL_NN NOT NULL,
         submitted_at DATE,
         finished_at DATE,
         expired_at DATE,
@@ -171,7 +174,7 @@ CREATE OR REPLACE TRIGGER TRIG_PROCESSING_ID
     END;
  /
 
-CREATE INDEX PROCESSINGS_STATUS_UPDATED_IDX ON PROCESSINGS (status, locking, updated_at, created_at) LOCAL;
+CREATE INDEX PROCESSINGS_STATUS_UPDATED_IDX ON PROCESSINGS (status, locking, updated_at, next_poll_at, created_at) LOCAL;
 
 
 --- collections
@@ -198,6 +201,7 @@ CREATE TABLE COLLECTIONS
     retries NUMBER(5) DEFAULT 0,
     created_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)) constraint COLLECTION_CREATED_NN NOT NULL,
     updated_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)) constraint COLLECTION_UPDATED_NN NOT NULL,
+    next_poll_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)) constraint COLLECTION_NEXT_POLL_NN NOT NULL,
     accessed_at DATE,
     expired_at DATE,
     coll_metadata CLOB,
@@ -225,7 +229,7 @@ CREATE OR REPLACE TRIGGER TRIG_COLLECTION_ID
 
 CREATE INDEX COLLECTIONS_STATUS_RELAT_IDX ON COLLECTIONS(status, relation_type);
 CREATE INDEX COLLECTIONS_TRANSFORM_IDX ON COLLECTIONS(transform_id, coll_id);
-CREATE INDEX COLLECTIONS_STATUS_UPDATED_IDX ON COLLECTIONS (status, locking, updated_at, created_at) LOCAL;
+CREATE INDEX COLLECTIONS_STATUS_UPDATED_IDX ON COLLECTIONS (status, locking, updated_at, next_poll_at, created_at) LOCAL;
 
 
 --- contents

@@ -32,6 +32,7 @@ CREATE TABLE REQUESTS
         locking NUMBER(2),
         created_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)) constraint REQ_CREATED_NN NOT NULL,
         updated_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)) constraint REQ_UPDATED_NN NOT NULL,
+        next_poll_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)) constraint REQ_NEXT_POLL_NN NOT NULL,
         accessed_at DATE,
         expired_at DATE,
         errors VARCHAR2(1024),
@@ -47,7 +48,7 @@ INTERVAL ( 100000 )
 
 CREATE INDEX REQUESTS_SCOPE_NAME_IDX ON REQUESTS (name, scope, workload_id) LOCAL;
 --- drop index REQUESTS_STATUS_PRIORITY_IDX
-CREATE INDEX REQUESTS_STATUS_PRIORITY_IDX ON REQUESTS (status, priority, request_id, locking, updated_at, created_at) LOCAL COMPRESS 1;
+CREATE INDEX REQUESTS_STATUS_PRIORITY_IDX ON REQUESTS (status, priority, request_id, locking, updated_at, next_poll_at, created_at) LOCAL COMPRESS 1;
 
 
 --- transforms
@@ -65,6 +66,7 @@ CREATE TABLE TRANSFORMS
         retries NUMBER(5) DEFAULT 0,
         created_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)) constraint TRANSFORM_CREATED_NN NOT NULL,
         updated_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)) constraint TRANSFORM_UPDATED_NN NOT NULL,
+        next_poll_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)) constraint TRANSFORM_NEXT_POLL_NN NOT NULL,
         started_at DATE,
         finished_at DATE,
         expired_at DATE,
@@ -76,8 +78,9 @@ PARTITION BY RANGE(TRANSFORM_ID)
 INTERVAL ( 100000 )
 ( PARTITION initial_part VALUES LESS THAN (1) );
 
+--- alter table transforms add next_poll_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)) constraint TRANSFORM_NEXT_POLL_NN NOT NULL;
 CREATE INDEX TRANSFORMS_TYPE_TAG_IDX ON TRANSFORMS (transform_type, transform_tag, transform_id) LOCAL;
-CREATE INDEX TRANSFORMS_STATUS_UPDATED_AT_IDX ON TRANSFORMS (status, locking, updated_at, created_at) LOCAL;
+CREATE INDEX TRANSFORMS_STATUS_UPDATED_AT_IDX ON TRANSFORMS (status, locking, updated_at, next_poll_at, created_at) LOCAL;
 
 --- req2transforms
 CREATE TABLE REQ2TRANSFORMS
@@ -117,6 +120,7 @@ CREATE TABLE PROCESSINGS
         granularity_type NUMBER(2),
         created_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)) constraint PROCESSING_CREATED_NN NOT NULL,
         updated_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)) constraint PROCESSING_UPDATED_NN NOT NULL,
+        next_poll_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)) constraint PROCESSING_NEXT_POLL_NN NOT NULL,
         submitted_at DATE,
         finished_at DATE,
         expired_at DATE,
@@ -126,10 +130,9 @@ CREATE TABLE PROCESSINGS
         CONSTRAINT PROCESSINGS_TRANSFORM_ID_FK FOREIGN KEY(transform_id) REFERENCES TRANSFORMS(transform_id)
 )
 PCTFREE 0
-COMPRESS FOR OLTP
 PARTITION BY REFERENCE(PROCESSINGS_TRANSFORM_ID_FK);
 
-CREATE INDEX PROCESSINGS_STATUS_UPDATED_AT_IDX ON PROCESSINGS (status, locking, updated_at, created_at) LOCAL;
+CREATE INDEX PROCESSINGS_STATUS_UPDATED_AT_IDX ON PROCESSINGS (status, locking, updated_at, next_poll_at, created_at) LOCAL;
 
 
 --- collections
@@ -155,6 +158,7 @@ CREATE TABLE COLLECTIONS
     retries NUMBER(5) DEFAULT 0,
     created_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)) constraint COLLECTION_CREATED_NN NOT NULL,
     updated_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)) constraint COLLECTION_UPDATED_NN NOT NULL,
+    next_poll_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)) constraint COLLECTION_NEXT_POLL_NN NOT NULL,
     accessed_at DATE,
     expired_at DATE,
     coll_metadata CLOB constraint COLLECTION_METADATA_ensure_json CHECK (COLL_METADATA IS JSON (LAX)),
@@ -163,12 +167,11 @@ CREATE TABLE COLLECTIONS
     CONSTRAINT COLLECTION_TRANSFORM_ID_FK FOREIGN KEY(transform_id) REFERENCES TRANSFORMS(transform_id)
 )
 PCTFREE 0
-COMPRESS FOR OLTP
 PARTITION BY REFERENCE(COLLECTION_TRANSFORM_ID_FK);
 
 CREATE INDEX COLLECTIONS_STATUS_RELATIONTYPE_IDX ON COLLECTIONS(status, relation_type);
 CREATE INDEX COLLECTIONS_TRANSFORM_IDX ON COLLECTIONS(transform_id, coll_id);
-CREATE INDEX COLLECTIONS_STATUS_UPDATED_AT_IDX ON COLLECTIONS (status, locking, updated_at, created_at) LOCAL;
+CREATE INDEX COLLECTIONS_STATUS_UPDATED_AT_IDX ON COLLECTIONS (status, locking, updated_at, next_poll_at, created_at) LOCAL;
 
 
 --- contents
@@ -197,12 +200,11 @@ CREATE TABLE CONTENTS
         accessed_at DATE,
         expired_at DATE,
         content_metadata CLOB constraint CONTENT_METADATA_ENSURE_JSON CHECK(CONTENT_METADATA IS JSON(LAX)),
-        CONSTRAINT CONTENT_PK PRIMARY KEY (name, scope, coll_id, type, min_id, max_id) USING INDEX LOCAL,
+        CONSTRAINT CONTENT_PK PRIMARY KEY (name, scope, coll_id, content_type, min_id, max_id) USING INDEX LOCAL,
         CONSTRAINT CONTENT_UQ UNIQUE (content_id, coll_id) USING INDEX LOCAL,  
         CONSTRAINT CONTENT_COLL_ID_FK FOREIGN KEY(coll_id) REFERENCES COLLECTIONS(coll_id)
 )
 PCTFREE 0
-COMPRESS FOR OLTP
 PARTITION BY REFERENCE(CONTENT_COLL_ID_FK);
 
 CREATE INDEX CONTENTS_STATUS_UPDATED_AT_IDX ON CONTENTS (status, locking, updated_at, created_at) LOCAL;
