@@ -50,14 +50,17 @@ agents = clerk, transporter, transformer, carrier, conductor
 
 [clerk]
 num_threads = 1
-poll_time_period = 120
+poll_time_period = 30
 retrieve_bulk_size = 10
 #plugin_sequence = collection_lister
 plugin.collection_lister = idds.atlas.rucio.collection_lister.CollectionLister
 
 [transformer]
 num_threads = 1
-poll_time_period = 120
+# poll_time_period = 30
+# time period for polling input open collections
+poll_input_time_period = 600
+poll_output_time_period = 30
 retrieve_bulk_size = 10
 plugin.stagein_transformer = idds.atlas.transformer.stagein_transformer.StageInTransformer
 plugin.activelearning_transformer = idds.atlas.transformer.activelearning_transformer.ActiveLearningTransformer

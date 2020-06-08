@@ -31,7 +31,7 @@ class Carrier(BaseAgent):
     Carrier works to submit and monitor tasks to WFMS.
     """
 
-    def __init__(self, num_threads=1, poll_time_period=1800, retrieve_bulk_size=None,
+    def __init__(self, num_threads=1, poll_time_period=10, retrieve_bulk_size=None,
                  message_bulk_size=1000, **kwargs):
         super(Carrier, self).__init__(num_threads=num_threads, **kwargs)
         self.config_section = Sections.Carrier
@@ -49,7 +49,7 @@ class Carrier(BaseAgent):
         Get new processing
         """
         processing_status = [ProcessingStatus.New]
-        processings = core_processings.get_processings_by_status(status=processing_status, time_period=120, locking=True, bulk_size=self.retrieve_bulk_size)
+        processings = core_processings.get_processings_by_status(status=processing_status, locking=True, bulk_size=self.retrieve_bulk_size)
         self.logger.info("Main thread get %s [new] processings to process" % len(processings))
         return processings
 
