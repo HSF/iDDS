@@ -58,6 +58,7 @@ def create_rule(scope, name, rucio_client, src_rse, dest_rse, account='ddmadmin'
     return rule_id
 
 
+# max_waiting_time is used for idds to create new rules
 def get_req_properties():
     req_properties = {
         'scope': 'data16_13TeV',
@@ -68,7 +69,7 @@ def get_req_properties():
         'status': RequestStatus.New,
         'priority': 0,
         'lifetime': 30,
-        'request_metadata': {'workload_id': '20776840', 'src_rse': 'NDGF-T1_DATATAPE', 'dest_rse': 'NDGF-T1_DATADISK', 'rule_id': '236e4bf87e11490291e3259b14724e30'}
+        'request_metadata': {'workload_id': '20776840', 'max_waiting_time': 345600, 'src_rse': 'NDGF-T1_DATATAPE', 'dest_rse': 'NDGF-T1_DATADISK', 'rule_id': '236e4bf87e11490291e3259b14724e30'}
     }
     return req_properties
 

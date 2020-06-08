@@ -47,7 +47,12 @@ RESTful Service
 
 1. To retrieve hyperparameters.
 
-    client.get_hyperparameters(request_id, status=None, limit=None)
+    client.get_hyperparameters(workload_id, request_id, id=None, status=None, limit=None)
+
+    examples:
+        client.get_hyperparameters(workload_id=123, request_id=None)
+        client.get_hyperparameters(workload_id=None, request_id=456)
+        client.get_hyperparameters(workload_id=None, request_id=456, id=0)
 
 2. To register loss of a group of hyperparameters.
 
@@ -82,8 +87,8 @@ through command-line arguments.
    The name of output file which the container creates in the current directory. The file contains a json-formatted list of new hyperparameter points.
 
 When iDDS runs Steering containers, iDDS will replace %XYZ with actual parameters.
-For example, if an execution string is something like ``python opt.py --n=%NUM_POINT=%IN ...``,
-``python opt.py --n=%NUM_POINT=10 ...`` will be executed in the container.
+For example, if an execution string is something like ``python opt.py --n=%NUM_POINT ...``,
+``python opt.py --n=10 ...`` will be executed in the container.
 Input and output are done through json files in the current directly ($PWD) so that
 the directory needs to be mounted.
 
@@ -110,7 +115,7 @@ Basically what the Steering container needs to do is as follows:
 
 How to test the Steering container
 ************************************
-Here is one example (main/lib/idds/tests/hyperparameteropt_docker_test.py). Users can update the request part and test their docker locally.
+Here is one example (`Steering_local_test https://github.com/HSF/iDDS/blob/master/main/lib/idds/tests/hyperparameteropt_docker_local_test.py`_). Users can update the request part and test their docker locally.
 
 
 

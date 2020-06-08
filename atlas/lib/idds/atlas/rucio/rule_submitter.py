@@ -48,7 +48,7 @@ class RuleSubmitter(RucioPluginBase):
                 self.logger.warn(ex)
                 rules = self.client.list_did_rules(scope=input_collection['scope'], name=input_collection['name'])
                 for rule in rules:
-                    if rule['account'] == self.client.account:
+                    if rule['account'] == self.client.account and rule['rse_expression'] == transform_metadata['dest_rse']:
                         return rule['id']
         except Exception as ex:
             self.logger.error(ex)

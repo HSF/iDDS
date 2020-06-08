@@ -85,8 +85,18 @@ class HyperParameterOptCondorSubmitter(CondorSubmitter):
         sandbox = None
         if 'sandbox' in transform_metadata:
             sandbox = transform_metadata['sandbox']
-        executable = transform_metadata['executable']
-        arguments = transform_metadata['arguments']
+        executable = transform_metadata['executable'].strip()
+        arguments = transform_metadata['arguments'].strip()
+
+        if executable == 'docker' and sandbox:
+            if 'workdir' in transform_metadata:
+                docker_workdir = transform_metadata['workdir']
+            else:
+                docker_workdir = None
+
+            arg_pre = 'run --rm -v $(pwd):%s %s ' % (docker_workdir, sandbox)
+            arguments = arg_pre + arguments
+            sandbox = None
 
         output_json = None
         if 'output_json' in transform_metadata:
