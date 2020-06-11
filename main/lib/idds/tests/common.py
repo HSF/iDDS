@@ -12,6 +12,7 @@
 common funcs for tests
 """
 
+import random
 import time
 import datetime
 from uuid import uuid4 as uuid
@@ -30,7 +31,7 @@ def get_request_properties():
         'requester': 'panda',
         'request_type': RequestType.EventStreaming,
         'transform_tag': 's3218',
-        'workload_id': int(time.time()),
+        'workload_id': int(time.time()) + random.randint(0, 1000000),
         'status': RequestStatus.New,
         'priority': 0,
         'lifetime': 30,

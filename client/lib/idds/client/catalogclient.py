@@ -59,12 +59,20 @@ class CatalogClient(BaseRestClient):
 
         collections = self.get_request_response(url, type='GET')
 
+        # print(collections)
         # json dumps will change integer key to string and json.loads will not change it back. fix it.
         new_collections = {}
-        for coll_id in collections:
-            new_collections[int(coll_id)] = {}
-            for trans_id in collections[coll_id]:
-                new_collections[int(coll_id)][int(trans_id)] = collections[coll_id][trans_id]
+        for req_id in collections:
+            if req_id is not None:
+                if req_id == 'null':
+                    new_req_id = None
+                else:
+                    new_req_id = int(req_id)
+            else:
+                new_req_id = req_id
+            new_collections[new_req_id] = {}
+            for trans_id in collections[req_id]:
+                new_collections[new_req_id][int(trans_id)] = collections[req_id][trans_id]
         return new_collections
 
     def get_contents(self, coll_scope=None, coll_name=None, request_id=None, workload_id=None, relation_type=None):
@@ -97,10 +105,17 @@ class CatalogClient(BaseRestClient):
 
         contents = self.get_request_response(url, type='GET')
         new_contents = {}
-        for coll_id in contents:
-            new_contents[int(coll_id)] = {}
-            for trans_id in contents[coll_id]:
-                new_contents[int(coll_id)][int(trans_id)] = contents[coll_id][trans_id]
+        for req_id in contents:
+            if req_id is not None:
+                if req_id == 'null':
+                    new_req_id = None
+                else:
+                    new_req_id = int(req_id)
+            else:
+                new_req_id = req_id
+            new_contents[new_req_id] = {}
+            for trans_id in contents[req_id]:
+                new_contents[new_req_id][int(trans_id)] = contents[req_id][trans_id]
 
         return new_contents
 

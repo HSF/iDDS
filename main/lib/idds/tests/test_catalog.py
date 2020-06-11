@@ -455,11 +455,11 @@ class TestCatalog(unittest.TestCase):
         assert_equal(colls[0]['coll_id'], origin_coll_id)
 
         req_trans_colls1 = client.get_collections(request_id=None, workload_id=req_properties['workload_id'])
-        assert_equal(is_same_req_trans_colls(req_trans_colls, req_trans_colls1), True)
+        assert_equal(is_same_req_trans_colls(req_trans_colls, req_trans_colls1, allow_request_id_None=True), True)
 
         req_trans_colls1 = client.get_collections(scope=coll_properties['scope'], name=coll_properties['name'],
                                                   request_id=None, workload_id=None)
-        assert_equal(is_same_req_trans_colls(req_trans_colls, req_trans_colls1), True)
+        assert_equal(is_same_req_trans_colls(req_trans_colls, req_trans_colls1, allow_request_id_None=True), True)
 
         content_output_properties = get_content_properties()
         content_output_properties['content_type'] = ContentType.File
