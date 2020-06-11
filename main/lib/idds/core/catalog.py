@@ -18,75 +18,10 @@ from idds.common import exceptions
 from idds.common.constants import (CollectionType, CollectionStatus, CollectionLocking,
                                    CollectionRelationType, ContentStatus)
 from idds.orm.base.session import read_session, transactional_session
-from idds.orm import (requests as orm_requests,
-                      transforms as orm_transforms,
+from idds.orm import (transforms as orm_transforms,
                       collections as orm_collections,
                       contents as orm_contents,
                       messages as orm_messages)
-
-
-@read_session
-def get_collections_by_request(request_id=None, workload_id=None, session=None):
-    """
-    Get collections of a request.
-
-    :param request_id: the request id.
-    :param workload_id: The workload_id of the request.
-    :param session: The database session in use.
-
-    :returns: dict of {'transform_id': []}
-    """
-    request_id = orm_requests.get_request_id(request_id, workload_id, session=session)
-    transform_ids = orm_transforms.get_transform_ids(request_id, session=session)
-    collections = orm_collections.get_collections_by_transform_ids(transform_ids=transform_ids,
-                                                                   session=session)
-    rets = {}
-    for collection in collections:
-        if request_id not in rets:
-            rets[request_id] = {}
-        transform_id = collection['transform_id']
-        if transform_id not in rets[request_id]:
-            rets[request_id][transform_id] = []
-        rets[request_id][transform_id].append(collection)
-    return rets
-
-
-@read_session
-def get_collections_by_request_transform_id(request_id=None, transform_id=None, session=None):
-    """
-    Get collections by request_id and transform id or raise a NoObject exception.
-
-    :param request_id: The request id related to this collection.
-    :param transform_id: The transform id related to this collection.
-    :param session: The database session in use.
-    :raises NoObject: If no collections are founded.
-
-    :returns: list of Collections.
-    """
-    if request_id is not None:
-        request_id = orm_requests.get_request_id(request_id=request_id, session=session)
-        transform_ids = orm_transforms.get_transform_ids(request_id, transform_id=transform_id, session=session)
-    else:
-        if transform_id is None:
-            transform_ids = []
-        else:
-            transform_ids = [transform_id]
-
-    if transform_ids:
-        collections = orm_collections.get_collections_by_transform_ids(transform_ids=transform_ids,
-                                                                       session=session)
-    else:
-        collections = []
-
-    rets = {}
-    for collection in collections:
-        if request_id not in rets:
-            rets[request_id] = {}
-        transform_id = collection['transform_id']
-        if transform_id not in rets[request_id]:
-            rets[request_id][transform_id] = []
-        rets[request_id][transform_id].append(collection)
-    return rets
 
 
 @transactional_session
@@ -115,7 +50,8 @@ def get_collections_by_status(status, relation_type=CollectionRelationType.Input
 
 
 @read_session
-def get_collections(scope, name, request_id=None, workload_id=None, session=None):
+def get_collections(scope=None, name=None, request_id=None, workload_id=None, transform_id=None,
+                    relation_type=None, session=None):
     """
     Get collections by scope, name, request_id and workload id.
 
@@ -123,22 +59,26 @@ def get_collections(scope, name, request_id=None, workload_id=None, session=None
     :param name: name the the collection.
     :param request_id: the request id.
     :param workload_id: The workload_id of the request.
+    :param transform_id: The transform id related to this collection.
+    :param relation_type: The relation between this collection and its transform,
+                          such as Input, Output, Log and so on.
     :param session: The database session in use.
 
     :returns: dict of collections
     """
-    if scope is None and name is None:
-        return get_collections_by_request(request_id=request_id, workload_id=workload_id, session=session)
+    if request_id or workload_id or transform_id:
+        transform_ids = orm_transforms.get_transform_ids(request_id=request_id,
+                                                         workload_id=workload_id,
+                                                         transform_id=transform_id, session=session)
 
-    if request_id is None and workload_id is not None:
-        request_id = orm_requests.get_request_id(request_id, workload_id, session=session)
-
-    transform_ids = None
-    if request_id:
-        transform_ids = orm_transforms.get_transform_ids(request_id, session=session)
-
-    collections = orm_collections.get_collections(scope=scope, name=name, transform_ids=transform_ids,
-                                                  session=session)
+        if transform_ids:
+            collections = orm_collections.get_collections(scope=scope, name=name, transform_id=transform_ids,
+                                                          relation_type=relation_type, session=session)
+        else:
+            collections = []
+    else:
+        collections = orm_collections.get_collections(scope=scope, name=name,
+                                                      relation_type=relation_type, session=session)
     rets = {}
     for collection in collections:
         if request_id not in rets:
@@ -183,12 +123,13 @@ def add_collection(scope, name, coll_type=CollectionType.Dataset, transform_id=N
 
 
 @transactional_session
-def update_collection(coll_id, parameters, session=None):
+def update_collection(coll_id, parameters, msg=None, session=None):
     """
     update a collection.
 
     :param coll_id: the collection id.
     :param parameters: A dictionary of parameters.
+    :param msg: messages.
     :param session: The database session in use.
 
     :raises NoObject: If no request is founded.
@@ -197,21 +138,6 @@ def update_collection(coll_id, parameters, session=None):
     """
     orm_collections.update_collection(coll_id=coll_id, parameters=parameters, session=session)
 
-
-@transactional_session
-def update_collection_with_msg(coll_id, parameters, msg=None, session=None):
-    """
-    update a collection.
-
-    :param coll_id: the collection id.
-    :param parameters: A dictionary of parameters.
-    :param session: The database session in use.
-
-    :raises NoObject: If no request is founded.
-    :raises DatabaseException: If there is a database error.
-
-    """
-    orm_collections.update_collection(coll_id=coll_id, parameters=parameters, session=session)
     if msg:
         orm_messages.add_message(msg_type=msg['msg_type'],
                                  status=msg['status'],
@@ -242,12 +168,11 @@ def get_collection(coll_id=None, transform_id=None, relation_type=None, session=
 
 
 @transactional_session
-def add_contents(contents, returning_id=False, bulk_size=100, session=None):
+def add_contents(contents, bulk_size=100, session=None):
     """
     Add contents.
 
     :param contents: dict of contents.
-    :param returning_id: whether to return id.
     :param bulk_size: bulk per insert to db.
     :param session: session.
 
@@ -256,19 +181,18 @@ def add_contents(contents, returning_id=False, bulk_size=100, session=None):
 
     :returns: content id.
     """
-    return orm_contents.add_contents(contents=contents, returning_id=returning_id, bulk_size=bulk_size,
+    return orm_contents.add_contents(contents=contents, bulk_size=bulk_size,
                                      session=session)
 
 
 @transactional_session
-def update_input_collection_with_contents(coll, parameters, contents, returning_id=False, bulk_size=100, session=None):
+def update_input_collection_with_contents(coll, parameters, contents, bulk_size=100, session=None):
     """
     update a collection.
 
     :param coll_id: the collection id.
     :param parameters: A dictionary of parameters.
     :param contents: dict of contents.
-    :param returning_id: whether to return id.
     :param bulk_size: bulk per insert to db.
     :param session: The database session in use.
 
@@ -314,7 +238,7 @@ def update_input_collection_with_contents(coll, parameters, contents, returning_
 
     # there are new files
     if to_addes:
-        add_contents(to_addes, returning_id=returning_id, bulk_size=bulk_size, session=session)
+        add_contents(to_addes, bulk_size=bulk_size, session=session)
 
     if 'total_files' in parameters:
         total_files = parameters['total_files']
@@ -330,19 +254,18 @@ def update_input_collection_with_contents(coll, parameters, contents, returning_
 
 
 @transactional_session
-def update_contents(parameters, with_content_id=False, session=None):
+def update_contents(parameters, session=None):
     """
     updatecontents.
 
     :param parameters: list of dictionary of parameters.
-    :param with_content_id: whether content_id is included.
     :param session: The database session in use.
 
     :raises NoObject: If no content is founded.
     :raises DatabaseException: If there is a database error.
 
     """
-    return orm_contents.update_contents(parameters, with_content_id=with_content_id, session=session)
+    return orm_contents.update_contents(parameters, session=session)
 
 
 @transactional_session
@@ -362,7 +285,8 @@ def update_content(content_id, parameters, session=None):
 
 
 @read_session
-def get_contents(coll_scope=None, coll_name=None, request_id=None, workload_id=None, relation_type=None, session=None):
+def get_contents(coll_scope=None, coll_name=None, request_id=None, workload_id=None, transform_id=None,
+                 relation_type=None, session=None):
     """
     Get contents with collection scope, collection name, request id, workload id and relation type.
 
@@ -370,16 +294,15 @@ def get_contents(coll_scope=None, coll_name=None, request_id=None, workload_id=N
     :param coll_name: name the the collection.
     :param request_id: the request id.
     :param workload_id: The workload_id of the request.
+    :param transform_id: The transform id related to this collection.
     :param relation_type: The relation type between the collection and transform: input, outpu, logs and etc.
     :param session: The database session in use.
 
     :returns: dict of contents
     """
-    if request_id is None and workload_id is None:
-        raise exceptions.WrongParameterException("Either request_id or workload_id should not be None")
-
     req_transfomr_collections = get_collections(scope=coll_scope, name=coll_name, request_id=request_id,
-                                                workload_id=workload_id, session=session)
+                                                workload_id=workload_id, transform_id=transform_id,
+                                                relation_type=relation_type, session=session)
 
     rets = {}
     for request_id in req_transfomr_collections:
@@ -387,19 +310,15 @@ def get_contents(coll_scope=None, coll_name=None, request_id=None, workload_id=N
         for transform_id in req_transfomr_collections[request_id]:
             rets[request_id][transform_id] = {}
             for collection in req_transfomr_collections[request_id][transform_id]:
-                if relation_type is not None:
-                    if isinstance(relation_type, CollectionRelationType):
-                        relation_type = relation_type.value
-                if relation_type is None or collection['relation_type'].value == relation_type:
-                    scope = collection['scope']
-                    name = collection['name']
-                    coll_id = collection['coll_id']
-                    coll_relation_type = collection['relation_type']
-                    scope_name = '%s:%s' % (scope, name)
-                    contents = orm_contents.get_contents(coll_id=coll_id, session=session)
-                    rets[request_id][transform_id][scope_name] = {'collection': collection,
-                                                                  'relation_type': coll_relation_type,
-                                                                  'contents': contents}
+                scope = collection['scope']
+                name = collection['name']
+                coll_id = collection['coll_id']
+                coll_relation_type = collection['relation_type']
+                scope_name = '%s:%s' % (scope, name)
+                contents = orm_contents.get_contents(coll_id=coll_id, session=session)
+                rets[request_id][transform_id][scope_name] = {'collection': collection,
+                                                              'relation_type': coll_relation_type,
+                                                              'contents': contents}
     return rets
 
 
@@ -433,35 +352,47 @@ def register_output_contents(coll_scope, coll_name, contents, request_id=None, w
                                         'status': <status>, 'path': <path>}].
     :param session: The database session in use.
     """
+    transform_ids = orm_transforms.get_transform_ids(request_id=request_id,
+                                                     workload_id=workload_id,
+                                                     session=session)
 
-    if (request_id is None and workload_id is None) or coll_scope is None or coll_name is None:
-        msg = "Only one of (request_id, workload_id) can be None. All other parameters should not be None: "
-        msg += "request_id=%s, workload_id=%s, coll_scope=%s, coll_name=%s" % (request_id, workload_id, coll_scope, coll_name)
+    if transform_ids:
+        collections = orm_collections.get_collections(scope=coll_scope, name=coll_name, transform_id=transform_ids,
+                                                      relation_type=relation_type, session=session)
+    else:
+        collections = []
+
+    coll_def = "request_id=%s, workload_id=%s, coll_scope=%s" % (request_id, workload_id, coll_scope)
+    coll_def += ", coll_name=%s, relation_type: %s" % (coll_name, relation_type)
+
+    if len(collections) != 1:
+        msg = "There should be only one collection matched. However there are %s collections" % len(collections)
+        msg += coll_def
         raise exceptions.WrongParameterException(msg)
-    if request_id is None and workload_id is not None:
-        request_id = orm_requests.get_request_id(request_id, workload_id, session=session)
 
-    coll_id = orm_collections.get_collection_id_by_scope_name(coll_scope, coll_name, request_id, relation_type, session=session)
+    coll_id = collections[0]['coll_id']
 
-    parameters = []
+    keys = ['scope', 'name', 'min_id', 'max_id']
     for content in contents:
-        if 'status' not in content or content['status'] is None:
-            raise exceptions.WrongParameterException("Content status is required and should not be None: %s" % content)
-        if content['status'] in [ContentStatus.Available, ContentStatus.Available.value]:
-            content_keys = ['scope', 'name', 'min_id', 'max_id', 'status', 'path']
-        else:
-            content_keys = ['scope', 'name', 'min_id', 'max_id', 'status']
+        ex_content = orm_contents.get_content(coll_id=coll_id, scope=content['scope'],
+                                              name=content['name'], min_id=content['min_id'],
+                                              max_id=content['max_id'], session=session)
 
-        parameter = {}
-        for key in content_keys:
-            if content[key] is None:
-                raise exceptions.WrongParameterException("Content %s should not be None" % key)
-            parameter[key] = content[key]
-        if isinstance(parameter['status'], ContentStatus):
-            parameter['status'] = parameter['status'].value
-        parameter['coll_id'] = coll_id
-        parameters.append(parameter)
-    orm_contents.update_contents(parameters, session=session)
+        content_def = "scope: %s, name: %s, min_id: %s, max_id: %s" % (content['scope'],
+                                                                       content['name'],
+                                                                       content['min_id'],
+                                                                       content['max_id'])
+
+        if not ex_content:
+            msg = "No matched content in collection(%s) with content(%s)" % (coll_def, content_def)
+            raise exceptions.WrongParameterException(msg)
+
+        for key in keys:
+            if key in content:
+                del content[key]
+        content['content_id'] = ex_content['content_id']
+
+    orm_contents.update_contents(contents, session=session)
 
 
 @read_session
@@ -485,13 +416,26 @@ def get_match_contents(coll_scope, coll_name, scope, name, min_id=None, max_id=N
 
     :returns: list of contents
     """
+    transform_ids = orm_transforms.get_transform_ids(request_id=request_id,
+                                                     workload_id=workload_id,
+                                                     session=session)
 
-    if (request_id is None and workload_id is None) or coll_scope is None or coll_name is None:
-        msg = "Only one of (request_id, workload_id) can be None. All other parameters should not be None: "
-        msg += "request_id=%s, workload_id=%s, coll_scope=%s, coll_name=%s" % (request_id, workload_id, coll_scope, coll_name)
+    if transform_ids:
+        collections = orm_collections.get_collections(scope=coll_scope, name=coll_name, transform_id=transform_ids,
+                                                      relation_type=relation_type, session=session)
+    else:
+        collections = []
+
+    coll_def = "request_id=%s, workload_id=%s, coll_scope=%s" % (request_id, workload_id, coll_scope)
+    coll_def += ", coll_name=%s, relation_type: %s" % (coll_name, relation_type)
+
+    if len(collections) != 1:
+        msg = "There should be only one collection matched. However there are %s collections" % len(collections)
+        msg += coll_def
         raise exceptions.WrongParameterException(msg)
 
-    coll_id = orm_collections.get_collection_id_by_scope_name(coll_scope, coll_name, request_id, relation_type, session=session)
+    coll_id = collections[0]['coll_id']
+
     contents = orm_contents.get_match_contents(coll_id=coll_id, scope=scope, name=name, min_id=min_id, max_id=max_id, session=session)
 
     if not only_return_best_match:
@@ -530,6 +474,7 @@ def clean_locking(time_period=3600, session=None):
     orm_collections.clean_locking(time_period=time_period, session=session)
 
 
+###########
 @read_session
 def get_output_content_by_request_id_content_name(request_id, content_scope, content_name, transform_id=None, content_type=None, min_id=None, max_id=None, session=None):
     """
