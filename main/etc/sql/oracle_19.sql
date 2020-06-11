@@ -200,7 +200,10 @@ CREATE TABLE CONTENTS
         accessed_at DATE,
         expired_at DATE,
         content_metadata CLOB constraint CONTENT_METADATA_ENSURE_JSON CHECK(CONTENT_METADATA IS JSON(LAX)),
-        CONSTRAINT CONTENT_PK PRIMARY KEY (name, scope, coll_id, content_type, min_id, max_id) USING INDEX LOCAL,
+        --- CONSTRAINT CONTENT_PK PRIMARY KEY (name, scope, coll_id, content_type, min_id, max_id) USING INDEX LOCAL,
+        CONSTRAINT CONTENT_PK PRIMARY KEY (content_id),
+        ---- CONSTRAINT CONTENT_SCOPE_NAME_UQ UNIQUE (name, scope, coll_id, content_type, min_id, max_id) USING INDEX LOCAL,
+        CONSTRAINT CONTENT_SCOPE_NAME_UQ UNIQUE (name, scope, coll_id, min_id, max_id) USING INDEX LOCAL,
         CONSTRAINT CONTENT_UQ UNIQUE (content_id, coll_id) USING INDEX LOCAL,  
         CONSTRAINT CONTENT_COLL_ID_FK FOREIGN KEY(coll_id) REFERENCES COLLECTIONS(coll_id)
 )
