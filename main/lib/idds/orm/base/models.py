@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2020
 
 
 """
@@ -14,6 +14,7 @@ SQLAlchemy models for idds relational data
 """
 
 import datetime
+from enum import Enum
 
 from sqlalchemy import BigInteger, Boolean, Column, DateTime, Integer, String, event, DDL
 from sqlalchemy.ext.compiler import compiles
@@ -23,8 +24,9 @@ from sqlalchemy.schema import CheckConstraint, UniqueConstraint, Index, PrimaryK
 from idds.common.constants import (RequestType, RequestStatus, RequestLocking,
                                    TransformType, TransformStatus, TransformLocking,
                                    ProcessingStatus, ProcessingLocking,
-                                   CollectionStatus, CollectionLocking,
-                                   ContentStatus, ContentLocking,
+                                   CollectionStatus, CollectionLocking, CollectionType,
+                                   CollectionRelationType, ContentType,
+                                   ContentStatus, ContentLocking, GranularityType,
                                    MessageType, MessageStatus, MessageLocking, MessageSource)
 from idds.common.utils import date_to_str
 from idds.orm.base.enum import EnumSymbol
@@ -91,6 +93,10 @@ class ModelBase(object):
         return self.__dict__.items()
 
     def to_dict(self):
+        return {key: value for key, value
+                in self.__dict__.items() if not key.startswith('_')}
+
+    def to_dict_json(self):
         return {key: self._expand_item(value) for key, value
                 in self.__dict__.items() if not key.startswith('_')}
 
@@ -107,6 +113,8 @@ class ModelBase(object):
             return obj.days * 24 * 60 * 60 + obj.seconds
         elif isinstance(obj, EnumSymbol):
             return obj.description
+        elif isinstance(obj, Enum):
+            return obj.value
 
         return obj
 
@@ -127,6 +135,7 @@ class Request(BASE, ModelBase):
     locking = Column(EnumWithValue(RequestLocking))
     created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow)
     updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    next_poll_at = Column("next_poll_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     accessed_at = Column("accessed_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     expired_at = Column("expired_at", DateTime)
     errors = Column(JSON())
@@ -137,7 +146,7 @@ class Request(BASE, ModelBase):
                    CheckConstraint('status IS NOT NULL', name='REQUESTS_STATUS_ID_NN'),
                    # UniqueConstraint('name', 'scope', 'requester', 'request_type', 'transform_tag', 'workload_id', name='REQUESTS_NAME_SCOPE_UQ '),
                    Index('REQUESTS_SCOPE_NAME_IDX', 'workload_id', 'request_id', 'name', 'scope'),
-                   Index('REQUESTS_STATUS_PRIO_IDX', 'status', 'priority', 'workload_id', 'request_id', 'locking', 'updated_at', 'created_at'))
+                   Index('REQUESTS_STATUS_PRIO_IDX', 'status', 'priority', 'workload_id', 'request_id', 'locking', 'updated_at', 'next_poll_at', 'created_at'))
 
 
 class Transform(BASE, ModelBase):
@@ -154,6 +163,7 @@ class Transform(BASE, ModelBase):
     retries = Column(Integer(), default=0)
     created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow)
     updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    next_poll_at = Column("next_poll_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     started_at = Column("started_at", DateTime)
     finished_at = Column("finished_at", DateTime)
     expired_at = Column("expired_at", DateTime)
@@ -162,14 +172,14 @@ class Transform(BASE, ModelBase):
     _table_args = (PrimaryKeyConstraint('transform_id', name='TRANSFORMS_PK'),
                    CheckConstraint('status IS NOT NULL', name='TRANSFORMS_STATUS_ID_NN'),
                    Index('TRANSFORMS_TYPE_TAG_IDX', 'transform_type', 'transform_tag', 'transform_id'),
-                   Index('TRANSFORMS_STATUS_UPDATED_IDX', 'status', 'locking', 'updated_at', 'created_at'))
+                   Index('TRANSFORMS_STATUS_UPDATED_IDX', 'status', 'locking', 'updated_at', 'next_poll_at', 'created_at'))
 
 
 class Req2transform(BASE, ModelBase):
     """Represents a request to transform"""
     __tablename__ = 'req2transforms'
-    request_id = Column(BigInteger().with_variant(Integer, "sqlite"))
-    transform_id = Column(BigInteger().with_variant(Integer, "sqlite"))
+    request_id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    transform_id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
 
     _table_args = (PrimaryKeyConstraint('request_id', 'transform_id', name='REQ2TRANSFORMS_PK'),
                    ForeignKeyConstraint(['request_id'], ['requests.request_id'], name='REQ2TRANSFORMS_REQ_ID_FK'),
@@ -187,10 +197,11 @@ class Processing(BASE, ModelBase):
     submitter = Column(String(20))
     submitted_id = Column(Integer())
     granularity = Column(Integer())
-    granularity_type = Column(Integer())
+    granularity_type = Column(EnumWithValue(GranularityType))
     created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow)
     updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
-    submitted_at = Column("started_at", DateTime)
+    next_poll_at = Column("next_poll_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    submitted_at = Column("submitted_at", DateTime)
     finished_at = Column("finished_at", DateTime)
     expired_at = Column("expired_at", DateTime)
     processing_metadata = Column(JSON())
@@ -200,16 +211,16 @@ class Processing(BASE, ModelBase):
                    ForeignKeyConstraint(['transform_id'], ['transforms.transform_id'], name='PROCESSINGS_TRANSFORM_ID_FK'),
                    CheckConstraint('status IS NOT NULL', name='PROCESSINGS_STATUS_ID_NN'),
                    CheckConstraint('transform_id IS NOT NULL', name='PROCESSINGS_TRANSFORM_ID_NN'),
-                   Index('PROCESSINGS_STATUS_UPDATED_IDX', 'status', 'locking', 'updated_at', 'created_at'))
+                   Index('PROCESSINGS_STATUS_UPDATED_IDX', 'status', 'locking', 'updated_at', 'next_poll_at', 'created_at'))
 
 
 class Collection(BASE, ModelBase):
     """Represents a collection"""
     __tablename__ = 'collections'
     coll_id = Column(BigInteger().with_variant(Integer, "sqlite"), Sequence('COLLECTION_ID_SEQ', schema=DEFAULT_SCHEMA_NAME), primary_key=True)
-    coll_type = Column(Integer())
+    coll_type = Column(EnumWithValue(CollectionType))
     transform_id = Column(BigInteger().with_variant(Integer, "sqlite"))
-    relation_type = Column(Integer())
+    relation_type = Column(EnumWithValue(CollectionRelationType))
     scope = Column(String(SCOPE_LENGTH))
     name = Column(String(NAME_LENGTH))
     bytes = Column(Integer())
@@ -225,6 +236,7 @@ class Collection(BASE, ModelBase):
     retries = Column(Integer(), default=0)
     created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow)
     updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    next_poll_at = Column("next_poll_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     accessed_at = Column("accessed_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     expired_at = Column("expired_at", DateTime)
     coll_metadata = Column(JSON())
@@ -236,19 +248,19 @@ class Collection(BASE, ModelBase):
                    CheckConstraint('transform_id IS NOT NULL', name='COLLECTIONS_TRANSFORM_ID_NN'),
                    Index('COLLECTIONS_STATUS_RELAT_IDX', 'status', 'relation_type'),
                    Index('COLLECTIONS_TRANSFORM_IDX', 'transform_id', 'coll_id'),
-                   Index('COLLECTIONS_STATUS_UPDATED_IDX', 'status', 'locking', 'updated_at', 'created_at'))
+                   Index('COLLECTIONS_STATUS_UPDATED_IDX', 'status', 'locking', 'updated_at', 'next_poll_at', 'created_at'))
 
 
 class Content(BASE, ModelBase):
     """Represents a content"""
     __tablename__ = 'contents'
-    content_id = Column(BigInteger().with_variant(Integer, "sqlite"), Sequence('CONTENT_ID_SEQ', schema=DEFAULT_SCHEMA_NAME))
+    content_id = Column(BigInteger().with_variant(Integer, "sqlite"), Sequence('CONTENT_ID_SEQ', schema=DEFAULT_SCHEMA_NAME), primary_key=True)
     coll_id = Column(BigInteger().with_variant(Integer, "sqlite"))
     scope = Column(String(SCOPE_LENGTH))
     name = Column(String(NAME_LENGTH))
     min_id = Column(Integer())
     max_id = Column(Integer())
-    content_type = Column(Integer())
+    content_type = Column(EnumWithValue(ContentType))
     status = Column(EnumWithValue(ContentStatus))
     substatus = Column(Integer())
     locking = Column(EnumWithValue(ContentLocking))
@@ -265,7 +277,9 @@ class Content(BASE, ModelBase):
     expired_at = Column("expired_at", DateTime)
     content_metadata = Column(JSON())
 
-    _table_args = (PrimaryKeyConstraint('name', 'scope', 'coll_id', 'content_type', 'min_id', 'max_id', name='CONTENTS_PK'),
+    _table_args = (PrimaryKeyConstraint('content_id', name='CONTENTS_PK'),
+                   # UniqueConstraint('name', 'scope', 'coll_id', 'content_type', 'min_id', 'max_id', name='CONTENT_SCOPE_NAME_UQ'),
+                   UniqueConstraint('name', 'scope', 'coll_id', 'min_id', 'max_id', name='CONTENT_SCOPE_NAME_UQ'),
                    UniqueConstraint('content_id', 'coll_id', name='CONTENTS_UQ'),
                    ForeignKeyConstraint(['coll_id'], ['collections.coll_id'], name='CONTENTS_COLL_ID_FK'),
                    CheckConstraint('status IS NOT NULL', name='CONTENTS_STATUS_ID_NN'),

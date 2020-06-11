@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2020
 
 
 """
@@ -14,17 +14,38 @@ operations related to Processings.
 """
 
 import datetime
-import json
 
 import sqlalchemy
-from sqlalchemy import BigInteger, Integer
 from sqlalchemy.exc import DatabaseError, IntegrityError
-from sqlalchemy.sql import text, bindparam, outparam
+from sqlalchemy.sql.expression import asc
 
 from idds.common import exceptions
-from idds.common.constants import GranularityType, ProcessingStatus, ProcessingLocking
+from idds.common.constants import ProcessingStatus, ProcessingLocking
 from idds.orm.base.session import read_session, transactional_session
-from idds.orm.base.utils import row2dict
+from idds.orm.base import models
+
+
+def create_processing(transform_id, status=ProcessingStatus.New, locking=ProcessingLocking.Idle, submitter=None,
+                      granularity=None, granularity_type=None, expired_at=None, processing_metadata=None,
+                      output_metadata=None):
+    """
+    Create a processing.
+
+    :param transform_id: Transform id.
+    :param status: processing status.
+    :param locking: processing locking.
+    :param submitter: submitter name.
+    :param granularity: Granularity size.
+    :param granularity_type: Granularity type.
+    :param expired_at: The datetime when it expires.
+    :param processing_metadata: The metadata as json.
+
+    :returns: processing.
+    """
+    new_processing = models.Processing(transform_id=transform_id, status=status, locking=locking, submitter=submitter,
+                                       granularity=granularity, granularity_type=granularity_type, expired_at=expired_at,
+                                       processing_metadata=processing_metadata, output_metadata=output_metadata)
+    return new_processing
 
 
 @transactional_session
@@ -48,36 +69,13 @@ def add_processing(transform_id, status=ProcessingStatus.New, locking=Processing
 
     :returns: processing id.
     """
-    if isinstance(granularity_type, GranularityType):
-        granularity_type = granularity_type.value
-    if isinstance(status, ProcessingStatus):
-        status = status.value
-    if isinstance(locking, ProcessingLocking):
-        locking = locking.value
-    if processing_metadata:
-        processing_metadata = json.dumps(processing_metadata)
-    if output_metadata:
-        output_metadata = json.dumps(output_metadata)
-
-    insert = """insert into atlas_idds.processings(transform_id, status, locking, submitter, granularity_type,
-                                                   granularity, created_at, updated_at, expired_at, processing_metadata,
-                                                   output_metadata)
-                values(:transform_id, :status, :locking, :submitter, :granularity_type, :granularity, :created_at,
-                       :updated_at, :expired_at, :processing_metadata, :output_metadata) returning processing_id into :processing_id
-             """
-    stmt = text(insert)
-    stmt = stmt.bindparams(outparam("processing_id", type_=BigInteger().with_variant(Integer, "sqlite")))
-
     try:
-        processing_id = None
-        ret = session.execute(stmt, {'transform_id': transform_id, 'status': status, 'locking': locking,
-                                     'submitter': submitter, 'granularity_type': granularity_type, 'granularity': granularity,
-                                     'created_at': datetime.datetime.utcnow(), 'updated_at': datetime.datetime.utcnow(),
-                                     'expired_at': expired_at, 'processing_metadata': processing_metadata,
-                                     'output_metadata': output_metadata, 'processing_id': processing_id})
-        processing_id = ret.out_parameters['processing_id'][0]
-
-        return processing_id
+        new_processing = create_processing(transform_id=transform_id, status=status, locking=locking, submitter=submitter,
+                                           granularity=granularity, granularity_type=granularity_type, expired_at=expired_at,
+                                           processing_metadata=processing_metadata, output_metadata=output_metadata)
+        new_processing.save(session=session)
+        proc_id = new_processing.processing_id
+        return proc_id
     except IntegrityError as error:
         raise exceptions.DuplicatedObject('Processing already exists!: %s' % (error))
     except DatabaseError as error:
@@ -98,27 +96,13 @@ def get_processing(processing_id, session=None):
     """
 
     try:
-        select = """select * from atlas_idds.processings where processing_id=:processing_id"""
-        stmt = text(select)
-        result = session.execute(stmt, {'processing_id': processing_id})
-        processing = result.fetchone()
-
-        if processing is None:
-            raise exceptions.NoObject('Processing(processing_id: %s) cannot be found' % (processing_id))
-
-        processing = row2dict(processing)
-        if processing['granularity_type'] is not None:
-            processing['granularity_type'] = GranularityType(processing['granularity_type'])
-        if processing['status'] is not None:
-            processing['status'] = ProcessingStatus(processing['status'])
-        if processing['locking'] is not None:
-            processing['locking'] = ProcessingLocking(processing['locking'])
-        if processing['processing_metadata']:
-            processing['processing_metadata'] = json.loads(processing['processing_metadata'])
-        if processing['output_metadata']:
-            processing['output_metadata'] = json.loads(processing['output_metadata'])
-
-        return processing
+        query = session.query(models.Processing)\
+                       .filter_by(processing_id=processing_id)
+        ret = query.first()
+        if not ret:
+            return None
+        else:
+            return ret
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('Processing(processing_id: %s) cannot be found: %s' %
                                   (processing_id, error))
@@ -140,27 +124,16 @@ def get_processings_by_transform_id(transform_id=None, session=None):
     """
 
     try:
-        select = """select * from atlas_idds.processings where transform_id=:transform_id"""
-        stmt = text(select)
-        result = session.execute(stmt, {'transform_id': transform_id})
-        processings = result.fetchall()
-
-        ret = []
-        for processing in processings:
-            processing = row2dict(processing)
-            if processing['granularity_type'] is not None:
-                processing['granularity_type'] = GranularityType(processing['granularity_type'])
-            if processing['status'] is not None:
-                processing['status'] = ProcessingStatus(processing['status'])
-            if processing['locking'] is not None:
-                processing['locking'] = ProcessingLocking(processing['locking'])
-            if processing['processing_metadata']:
-                processing['processing_metadata'] = json.loads(processing['processing_metadata'])
-            if processing['output_metadata']:
-                processing['output_metadata'] = json.loads(processing['output_metadata'])
-
-            ret.append(processing)
-        return ret
+        query = session.query(models.Processing)\
+                       .filter_by(transform_id=transform_id)
+        ret = query.all()
+        if not ret:
+            return []
+        else:
+            items = []
+            for t in ret:
+                items.append(t)
+            return items
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('Processings(transform_id: %s) cannot be found: %s' %
                                   (transform_id, error))
@@ -169,13 +142,15 @@ def get_processings_by_transform_id(transform_id=None, session=None):
 
 
 @read_session
-def get_processings_by_status(status, period=None, locking=False, bulk_size=None, session=None):
+def get_processings_by_status(status, period=None, locking=False, bulk_size=None, submitter=None, session=None):
     """
     Get processing or raise a NoObject exception.
 
     :param status: Processing status of list of processing status.
     :param period: Time period in seconds.
     :param locking: Whether to retrieve only unlocked items.
+    :param bulk_size: bulk size limitation.
+    :param submitter: The submitter name.
     :param session: The database session in use.
 
     :raises NoObject: If no processing is founded.
@@ -186,49 +161,30 @@ def get_processings_by_status(status, period=None, locking=False, bulk_size=None
     try:
         if not isinstance(status, (list, tuple)):
             status = [status]
-        new_status = []
-        for st in status:
-            if isinstance(st, ProcessingStatus):
-                st = st.value
-            new_status.append(st)
-        status = new_status
+        if len(status) == 1:
+            status = [status[0], status[0]]
 
-        select = """select * from atlas_idds.processings where status in :status"""
-        params = {'status': status}
+        query = session.query(models.Processing)\
+                       .filter(models.Processing.status.in_(status))\
+                       .filter(models.Processing.next_poll_at < datetime.datetime.utcnow())
 
         if period:
-            select = select + " and updated_at < :updated_at"
-            params['updated_at'] = datetime.datetime.utcnow() - datetime.timedelta(seconds=period)
+            query = query.filter(models.Processing.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=period))
         if locking:
-            select = select + " and locking=:locking"
-            params['locking'] = ProcessingLocking.Idle.value
+            query = query.filter(models.Processing.locking == ProcessingLocking.Idle)
+        if submitter:
+            query = query.filter(models.Processing.submitter == submitter)
         if bulk_size:
-            select = select + " and rownum < %s + 1 order by processing_id asc" % bulk_size
+            query = query.limit(bulk_size)
 
-        stmt = text(select)
-        stmt = stmt.bindparams(bindparam('status', expanding=True))
-        result = session.execute(stmt, params)
+        query = query.order_by(asc(models.Processing.updated_at))
 
-        processings = result.fetchall()
-
-        if processings is None:
-            raise exceptions.NoObject('Processing(status: %s, period: %s) cannot be found' %
-                                      (status, period))
-
-        new_processings = []
-        for processing in processings:
-            processing = row2dict(processing)
-            if processing['granularity_type'] is not None:
-                processing['granularity_type'] = GranularityType(processing['granularity_type'])
-            if processing['status'] is not None:
-                processing['status'] = ProcessingStatus(processing['status'])
-            if processing['processing_metadata']:
-                processing['processing_metadata'] = json.loads(processing['processing_metadata'])
-            if processing['output_metadata']:
-                processing['output_metadata'] = json.loads(processing['output_metadata'])
-            new_processings.append(processing)
-
-        return new_processings
+        tmp = query.all()
+        rets = []
+        if tmp:
+            for t in tmp:
+                rets.append(t)
+        return rets
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('No processing attached with status (%s): %s' % (status, error))
     except Exception as error:
@@ -249,32 +205,14 @@ def update_processing(processing_id, parameters, session=None):
 
     """
     try:
-        if 'granularity_type' in parameters and isinstance(parameters['granularity_type'], GranularityType):
-            parameters['granularity_type'] = parameters['granularity_type'].value
-        if 'status' in parameters and isinstance(parameters['status'], ProcessingStatus):
-            parameters['status'] = parameters['status'].value
-        if 'substatus' in parameters and isinstance(parameters['substatus'], ProcessingStatus):
-            parameters['substatus'] = parameters['substatus'].value
-        if 'locking' in parameters and isinstance(parameters['locking'], ProcessingLocking):
-            parameters['locking'] = parameters['locking'].value
-        if 'processing_metadata' in parameters:
-            parameters['processing_metadata'] = json.dumps(parameters['processing_metadata'])
-        if 'output_metadata' in parameters:
-            parameters['output_metadata'] = json.dumps(parameters['output_metadata'])
 
         parameters['updated_at'] = datetime.datetime.utcnow()
-
-        update = "update atlas_idds.processings set "
-        for key in parameters.keys():
-            update += key + "=:" + key + ","
-        update = update[:-1]
-        update += " where processing_id=:processing_id"
-
-        if 'status' in parameters and parameters['status'] in [ProcessingStatus.Finished, ProcessingStatus.Failed, ProcessingStatus.Lost]:
+        if 'status' in parameters and parameters['status'] in [ProcessingStatus.Finished, ProcessingStatus.Failed,
+                                                               ProcessingStatus.Lost]:
             parameters['finished_at'] = datetime.datetime.utcnow()
-        stmt = text(update)
-        parameters['processing_id'] = processing_id
-        session.execute(stmt, parameters)
+
+        session.query(models.Processing).filter_by(processing_id=processing_id)\
+               .update(parameters, synchronize_session=False)
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('Processing %s cannot be found: %s' % (processing_id, error))
 
@@ -291,9 +229,7 @@ def delete_processing(processing_id=None, session=None):
     :raises DatabaseException: If there is a database error.
     """
     try:
-        delete = "delete from atlas_idds.processings where processing_id=:processing_id"
-        stmt = text(delete)
-        session.execute(stmt, {'processing_id': processing_id})
+        session.query(models.Processing).filter_by(processing_id=processing_id).delete()
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('Processing %s cannot be found: %s' % (processing_id, error))
 
@@ -305,9 +241,7 @@ def clean_locking(time_period=3600, session=None):
 
     :param time_period in seconds
     """
-
-    params = {'locking': 0,
-              'updated_at': datetime.datetime.utcnow() - datetime.timedelta(seconds=time_period)}
-    sql = "update atlas_idds.processings set locking = :locking where locking = 1 and updated_at < :updated_at"
-    stmt = text(sql)
-    session.execute(stmt, params)
+    params = {'locking': 0}
+    session.query(models.Processing).filter(models.Processing.locking == ProcessingLocking.Locking)\
+           .filter(models.Processing.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=time_period))\
+           .update(params, synchronize_session=False)
