@@ -75,11 +75,11 @@ class RequestClient(BaseRestClient):
         if 'status' in data and data['status'] is not None and isinstance(data['status'], RequestStatus):
             data['status'] = data['status'].value
 
-        print('data: %s' % str(data))
+        # print('data: %s' % str(data))
         r = self.get_request_response(url, type='PUT', data=data)
         return r
 
-    def get_request(self, request_id=None, workload_id=None):
+    def get_requests(self, request_id=None, workload_id=None):
         """
         Get request from the Head service.
 
@@ -95,11 +95,12 @@ class RequestClient(BaseRestClient):
             workload_id = 'null'
         url = self.build_url(self.host, path=os.path.join(path, str(request_id), str(workload_id)))
 
-        request = self.get_request_response(url, type='GET')
+        requests = self.get_request_response(url, type='GET')
 
-        if request['request_type'] is not None:
-            request['request_type'] = RequestType(request['request_type'])
-        if request['status'] is not None:
-            request['status'] = RequestStatus(request['status'])
+        for request in requests:
+            if request['request_type'] is not None:
+                request['request_type'] = RequestType(request['request_type'])
+            if request['status'] is not None:
+                request['status'] = RequestStatus(request['status'])
 
-        return request
+        return requests
