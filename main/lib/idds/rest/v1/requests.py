@@ -65,19 +65,19 @@ class Request(IDDSController):
             400 Bad request
             500 Internal Error
         """
-        kwargs = {'scope': None, 'name': None, 'requester': None, 'request_type': None, 'transform_tag': None,
-                  'status': RequestStatus.New, 'priority': 0, 'lifetime': 30, 'request_metadata': None}
         try:
             parameters = self.get_request().data and json.loads(self.get_request().data)
-            if parameters:
-                for key in kwargs:
-                    if key in parameters:
-                        kwargs[key] = parameters[key]
+            if 'status' not in parameters:
+                parameters['status'] = RequestStatus.New
+            if 'priority' not in parameters:
+                parameters['priority'] = 0
+            if 'lifetime' not in parameters:
+                parameters['lifetime'] = 30
         except ValueError:
             return self.generate_http_response(HTTP_STATUS_CODE.BadRequest, exc_cls=exceptions.BadRequest.__name__, exc_msg='Cannot decode json parameter dictionary')
 
         try:
-            request_id = add_request(**kwargs)
+            request_id = add_request(**parameters)
         except exceptions.DuplicatedObject as error:
             return self.generate_http_response(HTTP_STATUS_CODE.Conflict, exc_cls=error.__class__.__name__, exc_msg=error)
         except exceptions.IDDSException as error:
@@ -98,21 +98,15 @@ class Request(IDDSController):
             404 Not Found
             500 Internal Error
         """
-        kwargs = {'request_type': None, 'transform_tag': None, 'status': RequestStatus.New, 'priority': 0, 'lifetime': 30, 'request_metadata': None}
-        data = {}
         try:
             request = self.get_request()
             parameters = request.data and json.loads(request.data)
-            if parameters:
-                for key in kwargs:
-                    if key in parameters:
-                        data[key] = parameters[key]
-            # data['status'] = RequestStatus.Extend
+            # parameters['status'] = RequestStatus.Extend
         except ValueError:
             return self.generate_http_response(HTTP_STATUS_CODE.BadRequest, exc_cls=exceptions.BadRequest.__name__, exc_msg='Cannot decode json parameter dictionary')
 
         try:
-            update_request(request_id, data)
+            update_request(request_id, parameters)
         except exceptions.NoObject as error:
             return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
         except exceptions.IDDSException as error:
