@@ -40,11 +40,11 @@ class Transporter(BaseAgent):
         if poll_input_time_period is None:
             self.poll_input_time_period = self.poll_time_period
         else:
-            self.poll_input_time_period = init(poll_input_time_period)
+            self.poll_input_time_period = int(poll_input_time_period)
         if poll_output_time_period is None:
             self.poll_output_time_period = self.poll_time_period
         else:
-            self.poll_output_time_period = init(poll_output_time_period)
+            self.poll_output_time_period = int(poll_output_time_period)
 
         self.retrieve_bulk_size = int(retrieve_bulk_size)
         self.config_section = Sections.Transporter

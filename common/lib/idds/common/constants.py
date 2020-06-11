@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2020
 
 """
 Constants.
@@ -144,6 +144,11 @@ class ContentStatus(Enum):
     Lost = 5
     Deleted = 6
     Mapped = 7
+
+
+class ContentLocking(Enum):
+    Idle = 0
+    Locking = 1
 
 
 class GranularityType(Enum):
