@@ -14,15 +14,14 @@ Test Request.
 """
 
 import unittest2 as unittest
-from nose.tools import assert_equal, assert_raises
+from nose.tools import assert_equal
 
 from idds.client.client import Client
-from idds.common import exceptions
 from idds.common.constants import RequestStatus
 from idds.common.utils import (check_database, has_config, setup_logging,
                                check_rest_host, get_rest_host, check_user_proxy)
 from idds.orm.requests import (add_request, get_request, update_request,
-                               delete_request)
+                               delete_requests)
 from idds.tests.common import get_request_properties
 
 setup_logging(__name__)
@@ -47,19 +46,19 @@ class TestRequest(unittest.TestCase):
             assert_equal(request[key], properties[key])
 
         request_id1 = add_request(**properties)
-        delete_request(request_id1)
+        delete_requests(request_id=request_id1)
 
         update_request(request_id, parameters={'status': RequestStatus.Failed})
         request = get_request(request_id=request_id)
         assert_equal(request['status'], RequestStatus.Failed)
 
-        with assert_raises(exceptions.NoObject):
-            get_request(request_id=999999)
+        req = get_request(request_id=999999)
+        assert_equal(req, None)
 
-        delete_request(request_id)
+        delete_requests(request_id=request_id)
 
-        with assert_raises(exceptions.NoObject):
-            get_request(request_id=request_id)
+        req = get_request(request_id=request_id)
+        assert_equal(req, None)
 
     @unittest.skipIf(not has_config(), "No config file")
     @unittest.skipIf(not check_user_proxy(), "No user proxy to access REST")
@@ -74,17 +73,19 @@ class TestRequest(unittest.TestCase):
 
         request_id = client.add_request(**properties)
 
-        request = client.get_request(request_id=request_id)
-        assert_equal(request_id, request['request_id'])
+        requests = client.get_requests(request_id=request_id)
+        assert_equal(len(requests), 1)
+        assert_equal(request_id, requests[0]['request_id'])
 
         for key in properties:
             if key in ['lifetime']:
                 continue
-            assert_equal(request[key], properties[key])
+            assert_equal(requests[0][key], properties[key])
 
         client.update_request(request_id, parameters={'status': RequestStatus.Failed})
-        request = client.get_request(request_id=request_id)
-        assert_equal(request['status'], RequestStatus.Failed)
+        requests = client.get_requests(request_id=request_id)
+        assert_equal(len(requests), 1)
+        assert_equal(requests[0]['status'], RequestStatus.Failed)
 
-        with assert_raises(exceptions.NoObject):
-            client.get_request(request_id=999999)
+        reqs = client.get_requests(request_id=999999)
+        assert_equal(len(reqs), 0)
