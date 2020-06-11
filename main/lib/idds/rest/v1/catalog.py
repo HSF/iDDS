@@ -18,7 +18,7 @@ from flask import Blueprint
 from idds.common import exceptions
 from idds.common.constants import HTTP_STATUS_CODE
 from idds.common.utils import convert_nojsontype_to_value
-from idds.api.catalog import get_collections, get_contents, register_output_contents, get_match_contents
+from idds.core.catalog import get_collections, get_contents, register_output_contents, get_match_contents
 from idds.rest.v1.controller import IDDSController
 
 

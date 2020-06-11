@@ -16,10 +16,9 @@ Test Request.
 import copy
 
 import unittest2 as unittest
-from nose.tools import assert_equal, assert_raises, assert_in
+from nose.tools import assert_equal, assert_in
 
 from idds.client.client import Client
-from idds.common import exceptions
 from idds.common.constants import (CollectionRelationType, ContentType, ContentStatus)
 from idds.common.utils import (check_database, has_config, setup_logging,
                                check_rest_host, get_rest_host, check_user_proxy)
