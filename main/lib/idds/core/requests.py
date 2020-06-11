@@ -48,7 +48,7 @@ def create_request(scope, name, requester=None, request_type=None, transform_tag
               'transform_tag': transform_tag, 'status': status, 'locking': locking,
               'priority': priority, 'lifetime': lifetime, 'workload_id': workload_id,
               'request_metadata': request_metadata, 'processing_metadata': processing_metadata}
-    if request_metadata and 'workload_id' in request_metadata:
+    if workload_id is None and request_metadata and 'workload_id' in request_metadata:
         kwargs['workload_id'] = int(request_metadata['workload_id'])
     return orm_requests.create_request(**kwargs)
 
@@ -81,7 +81,7 @@ def add_request(scope, name, requester=None, request_type=None, transform_tag=No
               'priority': priority, 'lifetime': lifetime, 'workload_id': workload_id,
               'request_metadata': request_metadata, 'processing_metadata': processing_metadata,
               'session': session}
-    if request_metadata and 'workload_id' in request_metadata:
+    if workload_id is None and request_metadata and 'workload_id' in request_metadata:
         kwargs['workload_id'] = int(request_metadata['workload_id'])
     return orm_requests.add_request(**kwargs)
 
