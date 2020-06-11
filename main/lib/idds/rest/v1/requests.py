@@ -9,7 +9,6 @@
 # - Wen Guan, <wen.guan@cern.ch>, 2019
 
 
-import datetime
 import json
 from traceback import format_exc
 
@@ -18,13 +17,12 @@ from flask import Blueprint
 from idds.common import exceptions
 from idds.common.constants import HTTP_STATUS_CODE
 from idds.common.constants import RequestStatus
-from idds.common.utils import date_to_str
-from idds.api.requests import add_request, get_request, update_request
+from idds.core.requests import add_request, get_requests, update_request
 from idds.rest.v1.controller import IDDSController
 
 
 class Requests(IDDSController):
-    """ Create request """
+    """ Get request """
 
     def get(self):
         """
@@ -45,7 +43,7 @@ class Requests(IDDSController):
                 self.generate_http_response(HTTP_STATUS_CODE.BadRequest,
                                             exc_cls=exceptions.BadRequest.__name__,
                                             exc_msg="request_id and workload_id are both None. One should not be None")
-            reqs = get_request(request_id=request_id, workload_id=workload_id)
+            reqs = get_requests(request_id=request_id, workload_id=workload_id)
         except exceptions.NoObject as error:
             return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
         except exceptions.IDDSException as error:
@@ -53,7 +51,7 @@ class Requests(IDDSController):
         except Exception as error:
             return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
 
-        return self.generate_http_response(HTTP_STATUS_CODE.OK, data=reqs)
+        return self.generate_http_response(HTTP_STATUS_CODE.OK, data=[req.to_dict_json() for req in reqs])
 
 
 class Request(IDDSController):
@@ -142,17 +140,7 @@ class Request(IDDSController):
             if workload_id == 'null':
                 workload_id = None
 
-            req = get_request(request_id=request_id, workload_id=workload_id)
-            if req['request_type'] is not None:
-                req['request_type'] = req['request_type'].value
-            if req['status'] is not None:
-                req['status'] = req['status'].value
-            if req['locking'] is not None:
-                req['locking'] = req['locking'].value
-
-            for key in req:
-                if req[key] and isinstance(req[key], datetime.datetime):
-                    req[key] = date_to_str(req[key])
+            reqs = get_requests(request_id=request_id, workload_id=workload_id)
         except exceptions.NoObject as error:
             return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
         except exceptions.IDDSException as error:
@@ -162,7 +150,7 @@ class Request(IDDSController):
             print(format_exc())
             return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
 
-        return self.generate_http_response(HTTP_STATUS_CODE.OK, data=req)
+        return self.generate_http_response(HTTP_STATUS_CODE.OK, data=[req.to_dict_json() for req in reqs])
 
     def post_test(self):
         import pprint
