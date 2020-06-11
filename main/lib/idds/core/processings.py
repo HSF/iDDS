@@ -49,43 +49,46 @@ def add_processing(transform_id, status, submitter=None, granularity=None, granu
 
 
 @read_session
-def get_processing(processing_id=None, session=None):
+def get_processing(processing_id=None, to_json=False, session=None):
     """
     Get processing or raise a NoObject exception.
 
     :param processing_id: Processing id.
+    :param to_json: return json format.
     :param session: The database session in use.
 
     :raises NoObject: If no processing is founded.
 
     :returns: Processing.
     """
-    return orm_processings.get_processing(processing_id=processing_id, session=session)
+    return orm_processings.get_processing(processing_id=processing_id, to_json=to_json, session=session)
 
 
 @read_session
-def get_processings_by_transform_id(transform_id=None, session=None):
+def get_processings_by_transform_id(transform_id=None, to_json=False, session=None):
     """
     Get processings or raise a NoObject exception.
 
     :param tranform_id: Transform id.
+    :param to_json: return json format.
     :param session: The database session in use.
 
     :raises NoObject: If no processing is founded.
 
     :returns: Processings.
     """
-    return orm_processings.get_processings_by_transform_id(transform_id=transform_id, session=session)
+    return orm_processings.get_processings_by_transform_id(transform_id=transform_id, to_json=to_json, session=session)
 
 
 @transactional_session
-def get_processings_by_status(status, time_period=None, locking=False, bulk_size=None, session=None):
+def get_processings_by_status(status, time_period=None, locking=False, bulk_size=None, to_json=False, session=None):
     """
     Get processing or raise a NoObject exception.
 
     :param status: Processing status of list of processing status.
     :param time_period: Time period in seconds.
     :param locking: Whether to retrieve only unlocked items and lock them.
+    :param to_json: return json format.
     :param session: The database session in use.
 
     :raises NoObject: If no processing is founded.
@@ -93,7 +96,7 @@ def get_processings_by_status(status, time_period=None, locking=False, bulk_size
     :returns: Processings.
     """
     processings = orm_processings.get_processings_by_status(status=status, period=time_period, locking=locking,
-                                                            bulk_size=bulk_size, session=session)
+                                                            bulk_size=bulk_size, to_json=to_json, session=session)
     if locking:
         parameters = {'locking': ProcessingLocking.Locking}
         for processing in processings:

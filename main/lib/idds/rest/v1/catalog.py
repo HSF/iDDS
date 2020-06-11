@@ -16,7 +16,7 @@ import traceback
 from flask import Blueprint
 
 from idds.common import exceptions
-from idds.common.constants import HTTP_STATUS_CODE, CollectionRelationType
+from idds.common.constants import HTTP_STATUS_CODE
 from idds.core.catalog import get_collections, get_contents, register_output_contents, get_match_contents
 from idds.rest.v1.controller import IDDSController
 
@@ -48,12 +48,7 @@ class Collections(IDDSController):
             else:
                 workload_id = int(workload_id)
 
-            rets = get_collections(scope=scope, name=name, request_id=request_id, workload_id=workload_id)
-            for req_id in rets:
-                for trans_id in rets[req_id]:
-                    colls = rets[req_id][trans_id]
-                    colls = [coll.to_dict_json() for coll in colls]
-                    rets[req_id][trans_id] = colls
+            rets = get_collections(scope=scope, name=name, request_id=request_id, workload_id=workload_id, to_json=True)
         except exceptions.NoObject as error:
             return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
         except exceptions.IDDSException as error:
@@ -98,21 +93,7 @@ class Contents(IDDSController):
                 relation_type = int(relation_type)
 
             rets = get_contents(coll_scope=coll_scope, coll_name=coll_name, request_id=request_id,
-                                workload_id=workload_id, relation_type=relation_type)
-            for req_id in rets:
-                for trans_id in rets[req_id]:
-                    for scope_name in rets[req_id][trans_id]:
-                        if 'collection' in rets[req_id][trans_id][scope_name]:
-                            rets[req_id][trans_id][scope_name]['collection'] = rets[req_id][trans_id][scope_name]['collection'].to_dict_json()
-                        if 'relation_type' in rets[req_id][trans_id][scope_name]:
-                            relation_type = rets[req_id][trans_id][scope_name]['relation_type']
-                            if isinstance(relation_type, CollectionRelationType):
-                                relation_type = relation_type.value
-                            rets[req_id][trans_id][scope_name]['relation_type'] = relation_type
-                        if 'contents' in rets[req_id][trans_id][scope_name]:
-                            contents = rets[req_id][trans_id][scope_name]['contents']
-                            contents = [content.to_dict_json() for content in contents]
-                            rets[req_id][trans_id][scope_name]['contents'] = contents
+                                workload_id=workload_id, relation_type=relation_type, to_json=True)
         except exceptions.NoObject as error:
             return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
         except exceptions.IDDSException as error:
@@ -172,7 +153,7 @@ class Catalog(IDDSController):
                     only_return_best_match = False
 
             rets = get_match_contents(coll_scope=coll_scope, coll_name=coll_name, scope=scope, name=name,
-                                      min_id=min_id, max_id=max_id, request_id=request_id,
+                                      min_id=min_id, max_id=max_id, request_id=request_id, to_json=True,
                                       workload_id=workload_id, only_return_best_match=only_return_best_match)
         except exceptions.NoObject as error:
             return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
@@ -183,7 +164,7 @@ class Catalog(IDDSController):
             print(traceback.format_exc())
             return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
 
-        return self.generate_http_response(HTTP_STATUS_CODE.OK, data=[ret.to_dict_json() for ret in rets])
+        return self.generate_http_response(HTTP_STATUS_CODE.OK, data=rets)
 
     def post(self, coll_scope, coll_name, request_id, workload_id):
         """ register output contents.

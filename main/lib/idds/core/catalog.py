@@ -26,7 +26,7 @@ from idds.orm import (transforms as orm_transforms,
 
 @transactional_session
 def get_collections_by_status(status, relation_type=CollectionRelationType.Input, time_period=None,
-                              locking=False, bulk_size=None, session=None):
+                              locking=False, bulk_size=None, to_json=False, session=None):
     """
     Get collections by status, relation_type and time_period or raise a NoObject exception.
 
@@ -34,6 +34,8 @@ def get_collections_by_status(status, relation_type=CollectionRelationType.Input
     :param relation_type: The relation_type of the collection to the transform.
     :param time_period: time period in seconds since last update.
     :param locking: Whether to retrieve unlocked files and lock them.
+    :param to_json: return json format.
+
     :param session: The database session in use.
 
     :raises NoObject: If no collections are founded.
@@ -41,7 +43,9 @@ def get_collections_by_status(status, relation_type=CollectionRelationType.Input
     :returns: list of Collections.
     """
     colls = orm_collections.get_collections_by_status(status=status, relation_type=relation_type, bulk_size=bulk_size,
-                                                      time_period=time_period, locking=locking, session=session)
+                                                      time_period=time_period, locking=locking, to_json=to_json,
+                                                      session=session)
+
     if locking:
         parameters = {'locking': CollectionLocking.Locking}
         for coll in colls:
@@ -51,7 +55,7 @@ def get_collections_by_status(status, relation_type=CollectionRelationType.Input
 
 @read_session
 def get_collections(scope=None, name=None, request_id=None, workload_id=None, transform_id=None,
-                    relation_type=None, session=None):
+                    relation_type=None, to_json=False, session=None):
     """
     Get collections by scope, name, request_id and workload id.
 
@@ -62,6 +66,7 @@ def get_collections(scope=None, name=None, request_id=None, workload_id=None, tr
     :param transform_id: The transform id related to this collection.
     :param relation_type: The relation between this collection and its transform,
                           such as Input, Output, Log and so on.
+    :param to_json: return json format.
     :param session: The database session in use.
 
     :returns: dict of collections
@@ -73,11 +78,12 @@ def get_collections(scope=None, name=None, request_id=None, workload_id=None, tr
 
         if transform_ids:
             collections = orm_collections.get_collections(scope=scope, name=name, transform_id=transform_ids,
-                                                          relation_type=relation_type, session=session)
+                                                          relation_type=relation_type, to_json=to_json,
+                                                          session=session)
         else:
             collections = []
     else:
-        collections = orm_collections.get_collections(scope=scope, name=name,
+        collections = orm_collections.get_collections(scope=scope, name=name, to_json=to_json,
                                                       relation_type=relation_type, session=session)
     rets = {}
     for collection in collections:
@@ -149,7 +155,7 @@ def update_collection(coll_id, parameters, msg=None, session=None):
 
 
 @read_session
-def get_collection(coll_id=None, transform_id=None, relation_type=None, session=None):
+def get_collection(coll_id=None, transform_id=None, relation_type=None, to_json=False, session=None):
     """
     Get a collection or raise a NoObject exception.
 
@@ -157,6 +163,7 @@ def get_collection(coll_id=None, transform_id=None, relation_type=None, session=
     :param transform_id: The transform id related to this collection.
     :param relation_type: The relation between this collection and its transform,
                           such as Input, Output, Log and so on.
+    :param to_json: return json format.
     :param session: The database session in use.
 
     :raises NoObject: If no request is founded.
@@ -164,7 +171,8 @@ def get_collection(coll_id=None, transform_id=None, relation_type=None, session=
     :returns: Collection.
     """
     return orm_collections.get_collection(coll_id=coll_id, transform_id=transform_id,
-                                          relation_type=relation_type, session=session)
+                                          relation_type=relation_type, to_json=to_json,
+                                          session=session)
 
 
 @transactional_session
@@ -286,7 +294,7 @@ def update_content(content_id, parameters, session=None):
 
 @read_session
 def get_contents(coll_scope=None, coll_name=None, request_id=None, workload_id=None, transform_id=None,
-                 relation_type=None, session=None):
+                 relation_type=None, to_json=False, session=None):
     """
     Get contents with collection scope, collection name, request id, workload id and relation type.
 
@@ -296,13 +304,14 @@ def get_contents(coll_scope=None, coll_name=None, request_id=None, workload_id=N
     :param workload_id: The workload_id of the request.
     :param transform_id: The transform id related to this collection.
     :param relation_type: The relation type between the collection and transform: input, outpu, logs and etc.
+    :param to_json: return json format.
     :param session: The database session in use.
 
     :returns: dict of contents
     """
     req_transfomr_collections = get_collections(scope=coll_scope, name=coll_name, request_id=request_id,
                                                 workload_id=workload_id, transform_id=transform_id,
-                                                relation_type=relation_type, session=session)
+                                                relation_type=relation_type, to_json=to_json, session=session)
 
     rets = {}
     for request_id in req_transfomr_collections:
@@ -315,7 +324,7 @@ def get_contents(coll_scope=None, coll_name=None, request_id=None, workload_id=N
                 coll_id = collection['coll_id']
                 coll_relation_type = collection['relation_type']
                 scope_name = '%s:%s' % (scope, name)
-                contents = orm_contents.get_contents(coll_id=coll_id, session=session)
+                contents = orm_contents.get_contents(coll_id=coll_id, to_json=to_json, session=session)
                 rets[request_id][transform_id][scope_name] = {'collection': collection,
                                                               'relation_type': coll_relation_type,
                                                               'contents': contents}
@@ -323,19 +332,20 @@ def get_contents(coll_scope=None, coll_name=None, request_id=None, workload_id=N
 
 
 @read_session
-def get_contents_by_coll_id_status(coll_id, status=None, session=None):
+def get_contents_by_coll_id_status(coll_id, status=None, to_json=False, session=None):
     """
     Get contents or raise a NoObject exception.
 
     :param coll_id: Collection id.
     :param status: Content status or list of content status.
+    :param to_json: return json format.
     :param session: The database session in use.
 
     :raises NoObject: If no content is founded.
 
     :returns: list of contents.
     """
-    return orm_contents.get_contents(coll_id=coll_id, status=status, session=session)
+    return orm_contents.get_contents(coll_id=coll_id, status=status, to_json=to_json, session=session)
 
 
 @transactional_session
@@ -398,7 +408,7 @@ def register_output_contents(coll_scope, coll_name, contents, request_id=None, w
 @read_session
 def get_match_contents(coll_scope, coll_name, scope, name, min_id=None, max_id=None,
                        request_id=None, workload_id=None, relation_type=None,
-                       only_return_best_match=False, session=None):
+                       only_return_best_match=False, to_json=False, session=None):
     """
     Get matched contents with collection scope, collection name, scope, name, min_id, max_id,
     request id, workload id and only_return_best_match.
@@ -436,7 +446,8 @@ def get_match_contents(coll_scope, coll_name, scope, name, min_id=None, max_id=N
 
     coll_id = collections[0]['coll_id']
 
-    contents = orm_contents.get_match_contents(coll_id=coll_id, scope=scope, name=name, min_id=min_id, max_id=max_id, session=session)
+    contents = orm_contents.get_match_contents(coll_id=coll_id, scope=scope, name=name, min_id=min_id, max_id=max_id,
+                                               to_json=to_json, session=session)
 
     if not only_return_best_match:
         return contents
@@ -485,12 +496,15 @@ def clean_next_poll_at(status, session=None):
 
 
 @read_session
-def get_output_content_by_request_id_content_name(request_id, content_scope, content_name, transform_id=None, content_type=None, min_id=None, max_id=None, session=None):
+def get_output_content_by_request_id_content_name(request_id, content_scope, content_name, transform_id=None,
+                                                  content_type=None, min_id=None, max_id=None, to_json=False,
+                                                  session=None):
     """
     Get output content by request_id and content name
 
     :param request_id: requestn id.
     :param content_name: The name of the content.
+    :param to_json: return json format.
     :param session: The database session in use.
 
     :returns: content of the output collection.
@@ -516,12 +530,13 @@ def get_output_content_by_request_id_content_name(request_id, content_scope, con
                                                     session=session)
     content = None
     if coll_id:
-        content = orm_contents.get_content(coll_id=coll_id, scope=content_scope, name=content_name, content_type=content_type, min_id=min_id, max_id=max_id, session=session)
+        content = orm_contents.get_content(coll_id=coll_id, scope=content_scope, name=content_name, content_type=content_type,
+                                           min_id=min_id, max_id=max_id, to_json=to_json, session=session)
     return content
 
 
 @read_session
-def get_output_contents_by_request_id_status(request_id, name, content_status, limit, transform_id=None, session=None):
+def get_output_contents_by_request_id_status(request_id, name, content_status, limit, transform_id=None, to_json=False, session=None):
     """
     Get output content by request_id and content name
 
@@ -529,6 +544,7 @@ def get_output_contents_by_request_id_status(request_id, name, content_status, l
     :param name: the content name.
     :param content_status: The content status.
     :param limit: limit number of contents.
+    :param to_json: return json format.
     :param session: The database session in use.
 
     :returns: content of the output collection.
@@ -555,7 +571,7 @@ def get_output_contents_by_request_id_status(request_id, name, content_status, l
 
     contents = []
     if coll_id:
-        contents = orm_contents.get_contents(coll_id=coll_id, status=content_status, session=session)
+        contents = orm_contents.get_contents(coll_id=coll_id, status=content_status, to_json=to_json, session=session)
 
     if name:
         new_contents = []

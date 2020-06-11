@@ -106,7 +106,7 @@ def add_req2transform(request_id, transform_id, session=None):
 
 
 @read_session
-def get_transform(transform_id, session=None):
+def get_transform(transform_id, to_json=False, session=None):
     """
     Get transform or raise a NoObject exception.
 
@@ -125,7 +125,10 @@ def get_transform(transform_id, session=None):
         if not ret:
             return None
         else:
-            return ret
+            if to_json:
+                return ret.to_dict_json()
+            else:
+                return ret.to_dict()
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('Transform(transform_id: %s) cannot be found: %s' %
                                   (transform_id, error))
@@ -134,7 +137,7 @@ def get_transform(transform_id, session=None):
 
 
 @read_session
-def get_transforms_with_input_collection(transform_type, transform_tag, coll_scope, coll_name, session=None):
+def get_transforms_with_input_collection(transform_type, transform_tag, coll_scope, coll_name, to_json=False, session=None):
     """
     Get transforms or raise a NoObject exception.
 
@@ -142,6 +145,8 @@ def get_transforms_with_input_collection(transform_type, transform_tag, coll_sco
     :param transform_tag: Transform tag.
     :param coll_scope: The collection scope.
     :param coll_name: The collection name.
+    :param to_json: return json format.
+
     :param session: The database session in use.
 
     :raises NoObject: If no transform is founded.
@@ -163,7 +168,10 @@ def get_transforms_with_input_collection(transform_type, transform_tag, coll_sco
         rets = []
         if tmp:
             for transf in tmp:
-                rets.append(transf)
+                if to_json:
+                    rets.append(transf.to_dict_json())
+                else:
+                    rets.append(transf.to_dict())
         return rets
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('Transform(transform_type: %s, transform_tag: %s, coll_scope: %s, coll_name: %s) cannot be found: %s' %
@@ -213,7 +221,7 @@ def get_transform_ids(request_id=None, workload_id=None, transform_id=None, sess
 
 
 @read_session
-def get_transforms(request_id=None, workload_id=None, transform_id=None, session=None):
+def get_transforms(request_id=None, workload_id=None, transform_id=None, to_json=False, session=None):
     """
     Get transforms or raise a NoObject exception.
 
@@ -247,7 +255,10 @@ def get_transforms(request_id=None, workload_id=None, transform_id=None, session
         rets = []
         if tmp:
             for t in tmp:
-                rets.append(t)
+                if to_json:
+                    rets.append(t.to_dict_json())
+                else:
+                    rets.append(t.to_dict())
         return rets
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('No transforms attached with request id (%s): %s' %
@@ -257,13 +268,15 @@ def get_transforms(request_id=None, workload_id=None, transform_id=None, session
 
 
 @read_session
-def get_transforms_by_status(status, period=None, locking=False, bulk_size=None, session=None):
+def get_transforms_by_status(status, period=None, locking=False, bulk_size=None, to_json=False, session=None):
     """
     Get transforms or raise a NoObject exception.
 
     :param status: Transform status or list of transform status.
     :param period: Time period in seconds.
     :param locking: Whether to retrieved unlocked items.
+    :param to_json: return json format.
+
     :param session: The database session in use.
 
     :raises NoObject: If no transform is founded.
@@ -284,17 +297,21 @@ def get_transforms_by_status(status, period=None, locking=False, bulk_size=None,
             query = query.filter(models.Transform.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=period))
         if locking:
             query = query.filter(models.Transform.locking == TransformLocking.Idle)
-        if bulk_size:
-            query = query.limit(bulk_size)
 
         query = query.order_by(desc(models.Request.priority))\
                      .order_by(asc(models.Request.updated_at))
+
+        if bulk_size:
+            query = query.limit(bulk_size)
 
         tmp = query.all()
         rets = []
         if tmp:
             for t in tmp:
-                rets.append(t)
+                if to_json:
+                    rets.append(t.to_dict_json())
+                else:
+                    rets.append(t.to_dict())
         return rets
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('No transforms attached with status (%s): %s' %

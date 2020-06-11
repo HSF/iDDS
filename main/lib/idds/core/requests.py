@@ -16,7 +16,7 @@ operations related to Requests.
 
 from idds.common import exceptions
 from idds.common.constants import RequestStatus, RequestLocking
-from idds.orm.base.session import transactional_session
+from idds.orm.base.session import read_session, transactional_session
 from idds.orm import requests as orm_requests
 from idds.orm import transforms as orm_transforms
 from idds.orm import collections as orm_collections
@@ -86,7 +86,8 @@ def add_request(scope, name, requester=None, request_type=None, transform_tag=No
     return orm_requests.add_request(**kwargs)
 
 
-def get_request_ids_by_workload_id(workload_id):
+@read_session
+def get_request_ids_by_workload_id(workload_id, session=None):
     """
     Get request id or raise a NoObject exception.
 
@@ -97,24 +98,28 @@ def get_request_ids_by_workload_id(workload_id):
 
     :returns: Request ids.
     """
-    return orm_requests.get_request_ids_by_workload_id(workload_id)
+    return orm_requests.get_request_ids_by_workload_id(workload_id, session=session)
 
 
-def get_requests(request_id=None, workload_id=None):
+@read_session
+def get_requests(request_id=None, workload_id=None, to_json=False, session=None):
     """
     Get a request or raise a NoObject exception.
 
     :param request_id: The id of the request.
     :param workload_id: The workload_id of the request.
+    :param to_json: return json format.
 
     :raises NoObject: If no request is founded.
 
     :returns: Request.
     """
-    return orm_requests.get_requests(request_id=request_id, workload_id=workload_id)
+    return orm_requests.get_requests(request_id=request_id, workload_id=workload_id,
+                                     to_json=to_json, session=session)
 
 
-def extend_requests(request_id=None, workload_id=None, lifetime=30):
+@transactional_session
+def extend_requests(request_id=None, workload_id=None, lifetime=30, session=None):
     """
     extend an request's lifetime.
 
@@ -122,27 +127,30 @@ def extend_requests(request_id=None, workload_id=None, lifetime=30):
     :param workload_id: The workload_id of the request.
     :param lifetime: The life time as umber of days.
     """
-    return orm_requests.extend_request(request_id=request_id, workload_id=workload_id, lifetime=lifetime)
+    return orm_requests.extend_request(request_id=request_id, workload_id=workload_id, lifetime=lifetime,
+                                       session=session)
 
 
-def cancel_requests(request_id=None, workload_id=None):
+@transactional_session
+def cancel_requests(request_id=None, workload_id=None, session=None):
     """
     cancel an request.
 
     :param request_id: The id of the request.
     :param workload_id: The workload_id of the request.
     """
-    return orm_requests.cancel_request(request_id=request_id, workload_id=workload_id)
+    return orm_requests.cancel_request(request_id=request_id, workload_id=workload_id, session=session)
 
 
-def update_request(request_id, parameters):
+@transactional_session
+def update_request(request_id, parameters, session=None):
     """
     update an request.
 
     :param request_id: the request id.
     :param parameters: A dictionary of parameters.
     """
-    return orm_requests.update_request(request_id, parameters)
+    return orm_requests.update_request(request_id, parameters, session=session)
 
 
 @transactional_session
@@ -192,7 +200,7 @@ def update_request_with_transforms(request_id, parameters, transforms_to_add, tr
 
 
 @transactional_session
-def get_requests_by_status_type(status, request_type=None, time_period=None, locking=False, bulk_size=None, session=None):
+def get_requests_by_status_type(status, request_type=None, time_period=None, locking=False, bulk_size=None, to_json=False, session=None):
     """
     Get requests by status and type
 
@@ -201,10 +209,12 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, loc
     :param time_period: Delay of seconds before last update.
     :param locking: Wheter to lock requests to avoid others get the same request.
     :param bulk_size: Size limitation per retrieve.
+    :param to_json: return json format.
 
     :returns: list of Request.
     """
-    reqs = orm_requests.get_requests_by_status_type(status, request_type, time_period, locking=locking, bulk_size=bulk_size, session=session)
+    reqs = orm_requests.get_requests_by_status_type(status, request_type, time_period, locking=locking, bulk_size=bulk_size,
+                                                    to_json=to_json, session=session)
     if locking:
         parameters = {'locking': RequestLocking.Locking}
         for req in reqs:

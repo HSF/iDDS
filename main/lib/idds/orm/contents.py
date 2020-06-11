@@ -149,7 +149,7 @@ def add_contents(contents, bulk_size=500, session=None):
 
 
 @read_session
-def get_content(content_id=None, coll_id=None, scope=None, name=None, content_type=None, min_id=0, max_id=0, session=None):
+def get_content(content_id=None, coll_id=None, scope=None, name=None, content_type=None, min_id=0, max_id=0, to_json=False, session=None):
     """
     Get contentor raise a NoObject exception.
 
@@ -160,6 +160,7 @@ def get_content(content_id=None, coll_id=None, scope=None, name=None, content_ty
     :param min_id: The minimal id of the content.
     :param max_id: The maximal id of the content.
     :param content_type: The type of the content.
+    :param to_json: return json format.
 
     :param session: The database session in use.
 
@@ -193,7 +194,10 @@ def get_content(content_id=None, coll_id=None, scope=None, name=None, content_ty
         if not ret:
             return None
         else:
-            return ret
+            if to_json:
+                return ret.to_dict_json()
+            else:
+                return ret.to_dict()
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('content(content_id: %s, coll_id: %s, scope: %s, name: %s, content_type: %s, min_id: %s, max_id: %s) cannot be found: %s' %
                                   (content_id, coll_id, scope, name, content_type, min_id, max_id, error))
@@ -202,7 +206,7 @@ def get_content(content_id=None, coll_id=None, scope=None, name=None, content_ty
 
 
 @read_session
-def get_match_contents(coll_id, scope, name, content_type=None, min_id=None, max_id=None, session=None):
+def get_match_contents(coll_id, scope, name, content_type=None, min_id=None, max_id=None, to_json=False, session=None):
     """
     Get contents which matches the query or raise a NoObject exception.
 
@@ -212,6 +216,7 @@ def get_match_contents(coll_id, scope, name, content_type=None, min_id=None, max
     :param min_id: The minimal id of the content.
     :param max_id: The maximal id of the content.
     :param content_type: The type of the content.
+    :param to_json: return json format.
 
     :param session: The database session in use.
 
@@ -237,7 +242,10 @@ def get_match_contents(coll_id, scope, name, content_type=None, min_id=None, max
         rets = []
         if tmp:
             for t in tmp:
-                rets.append(t)
+                if to_json:
+                    rets.append(t.to_dict_json())
+                else:
+                    rets.append(t.to_dict())
         return rets
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('No match contents for (coll_id: %s, scope: %s, name: %s, content_type: %s, min_id: %s, max_id: %s): %s' %
@@ -247,13 +255,14 @@ def get_match_contents(coll_id, scope, name, content_type=None, min_id=None, max
 
 
 @read_session
-def get_contents(scope=None, name=None, coll_id=None, status=None, session=None):
+def get_contents(scope=None, name=None, coll_id=None, status=None, to_json=False, session=None):
     """
     Get content or raise a NoObject exception.
 
     :param scope: The scope of the content data.
     :param name: The name of the content data.
     :param coll_id: Collection id.
+    :param to_json: return json format.
 
     :param session: The database session in use.
 
@@ -283,7 +292,10 @@ def get_contents(scope=None, name=None, coll_id=None, status=None, session=None)
         rets = []
         if tmp:
             for t in tmp:
-                rets.append(t)
+                if to_json:
+                    rets.append(t.to_dict_json())
+                else:
+                    rets.append(t.to_dict())
         return rets
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('No record can be found with (scope=%s, name=%s, coll_id=%s): %s' %

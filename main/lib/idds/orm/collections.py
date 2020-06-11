@@ -129,7 +129,7 @@ def get_collection_id(transform_id, relation_type, session=None):
 
 
 @read_session
-def get_collection(coll_id=None, transform_id=None, relation_type=None, session=None):
+def get_collection(coll_id=None, transform_id=None, relation_type=None, to_json=False, session=None):
     """
     Get a collection or raise a NoObject exception.
 
@@ -137,6 +137,7 @@ def get_collection(coll_id=None, transform_id=None, relation_type=None, session=
     :param transform_id: The transform id related to this collection.
     :param relation_type: The relation between this collection and its transform,
                           such as Input, Output, Log and so on.
+    :param to_json: return json format.
     :param session: The database session in use.
 
     :raises NoObject: If no request is founded.
@@ -155,7 +156,10 @@ def get_collection(coll_id=None, transform_id=None, relation_type=None, session=
         if not ret:
             return None
         else:
-            return ret
+            if to_json:
+                return ret.to_dict_json()
+            else:
+                return ret.to_dict()
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('collection(coll_id: %s, transform_id: %s, relation_type: %s) cannot be found: %s' %
                                   (coll_id, transform_id, relation_type, error))
@@ -195,7 +199,7 @@ def get_collection_ids_by_transform_id(transform_id=None, session=None):
 
 @read_session
 def get_collections_by_status(status, relation_type=CollectionRelationType.Input, time_period=None,
-                              locking=False, bulk_size=None, session=None):
+                              locking=False, bulk_size=None, to_json=False, session=None):
     """
     Get collections by status, relation_type and time_period or raise a NoObject exception.
 
@@ -203,6 +207,7 @@ def get_collections_by_status(status, relation_type=CollectionRelationType.Input
     :param relation_type: The relation_type of the collection to the transform.
     :param time_period: time period in seconds since last update.
     :param locking: Wheter to retrieve unlocked files.
+    :param to_json: return json format.
     :param session: The database session in use.
 
     :raises NoObject: If no collections are founded.
@@ -225,16 +230,19 @@ def get_collections_by_status(status, relation_type=CollectionRelationType.Input
             query = query.filter(models.Collection.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=time_period))
         if locking:
             query = query.filter(models.Collection.locking == CollectionLocking.Idle)
-        if bulk_size:
-            query = query.limit(bulk_size)
 
         query = query.order_by(asc(models.Collection.updated_at))
+        if bulk_size:
+            query = query.limit(bulk_size)
 
         tmp = query.all()
         rets = []
         if tmp:
             for t in tmp:
-                rets.append(t)
+                if to_json:
+                    rets.append(t.to_dict_json())
+                else:
+                    rets.append(t.to_dict())
         return rets
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('No collections with  status(%s), relation_type(%s), time_period(%s): %s' %
@@ -244,7 +252,7 @@ def get_collections_by_status(status, relation_type=CollectionRelationType.Input
 
 
 @read_session
-def get_collections(scope=None, name=None, transform_id=None, relation_type=None, session=None):
+def get_collections(scope=None, name=None, transform_id=None, relation_type=None, to_json=False, session=None):
     """
     Get collections by request id or raise a NoObject exception.
 
@@ -252,6 +260,7 @@ def get_collections(scope=None, name=None, transform_id=None, relation_type=None
     :param name: collection name, can be wildcard.
     :param transform_id: list of transform id related to this collection.
     :param relation_type: The relation type between this collection and the transform: Input, Ouput and Log.
+    :param to_json: return json format.
     :param session: The database session in use.
 
     :raises NoObject: If no collections are founded.
@@ -278,7 +287,10 @@ def get_collections(scope=None, name=None, transform_id=None, relation_type=None
         rets = []
         if tmp:
             for t in tmp:
-                rets.append(t)
+                if to_json:
+                    rets.append(t.to_dict_json())
+                else:
+                    rets.append(t.to_dict())
         return rets
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('No collection with  scope(%s), name(%s), transform_id(%s): %s, relation_type: %s' %

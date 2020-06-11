@@ -165,11 +165,13 @@ def get_request_ids(request_id=None, workload_id=None, session=None):
 
 
 @read_session
-def get_request(request_id, session=None):
+def get_request(request_id, to_json=False, session=None):
     """
     Get a request or raise a NoObject exception.
 
     :param request_id: The id of the request.
+    :param to_json: return json format.
+
     :param session: The database session in use.
 
     :raises NoObject: If no request is founded.
@@ -185,17 +187,22 @@ def get_request(request_id, session=None):
         if not ret:
             return None
         else:
-            return ret
+            if to_json:
+                return ret.to_dict_json()
+            else:
+                return ret.to_dict()
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('request request_id: %s cannot be found: %s' % (request_id, error))
 
 
 @read_session
-def get_requests(request_id=None, workload_id=None, session=None):
+def get_requests(request_id=None, workload_id=None, to_json=False, session=None):
     """
     Get a request or raise a NoObject exception.
 
     :param workload_id: The workload id of the request.
+    :param to_json: return json format.
+
     :param session: The database session in use.
 
     :raises NoObject: If no request is founded.
@@ -215,7 +222,10 @@ def get_requests(request_id=None, workload_id=None, session=None):
         rets = []
         if tmp:
             for t in tmp:
-                rets.append(t)
+                if to_json:
+                    rets.append(t.to_dict_json())
+                else:
+                    rets.append(t.to_dict())
         return rets
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('request workload_id: %s cannot be found: %s' % (workload_id, error))
@@ -273,13 +283,14 @@ def cancel_requests(request_id=None, workload_id=None, session=None):
 
 
 @read_session
-def get_requests_by_requester(scope, name, requester, session=None):
+def get_requests_by_requester(scope, name, requester, to_json=False, session=None):
     """
     Get requests.
 
     :param scope: The scope of the request data.
     :param name: The name of the request data.
     :param requestr: The requester, such as panda, user and so on.
+    :param to_json: return json format.
 
     :raises NoObject: If no request is founded.
 
@@ -296,14 +307,17 @@ def get_requests_by_requester(scope, name, requester, session=None):
         rets = []
         if tmp:
             for req in tmp:
-                rets.append(req)
+                if to_json:
+                    rets.append(req.to_dict_json())
+                else:
+                    rets.append(req.to_dict())
         return rets
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('No requests with scope:name(%s:%s) and requester(%s) %s' % (scope, name, requester, error))
 
 
 @read_session
-def get_requests_by_status_type(status, request_type=None, time_period=None, locking=False, bulk_size=None, session=None):
+def get_requests_by_status_type(status, request_type=None, time_period=None, locking=False, bulk_size=None, to_json=False, session=None):
     """
     Get requests.
 
@@ -311,6 +325,7 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, loc
     :param request_type: The type of the request data.
     :param locking: Wheter to lock requests to avoid others get the same request.
     :param bulk_size: Size limitation per retrieve.
+    :param to_json: return json format.
 
     :raises NoObject: If no request are founded.
 
@@ -345,7 +360,10 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, loc
         rets = []
         if tmp:
             for req in tmp:
-                rets.append(req)
+                if to_json:
+                    rets.append(req.to_dict_json())
+                else:
+                    rets.append(req.to_dict())
         return rets
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('No requests with status: %s, request_type: %s, time_period: %s, locking: %s, %s' % (status, request_type, time_period, locking, error))

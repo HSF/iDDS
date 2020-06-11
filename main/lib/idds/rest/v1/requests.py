@@ -43,7 +43,7 @@ class Requests(IDDSController):
                 self.generate_http_response(HTTP_STATUS_CODE.BadRequest,
                                             exc_cls=exceptions.BadRequest.__name__,
                                             exc_msg="request_id and workload_id are both None. One should not be None")
-            reqs = get_requests(request_id=request_id, workload_id=workload_id)
+            reqs = get_requests(request_id=request_id, workload_id=workload_id, to_json=True)
         except exceptions.NoObject as error:
             return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
         except exceptions.IDDSException as error:
@@ -51,7 +51,7 @@ class Requests(IDDSController):
         except Exception as error:
             return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
 
-        return self.generate_http_response(HTTP_STATUS_CODE.OK, data=[req.to_dict_json() for req in reqs])
+        return self.generate_http_response(HTTP_STATUS_CODE.OK, data=reqs)
 
 
 class Request(IDDSController):
@@ -134,7 +134,7 @@ class Request(IDDSController):
             if workload_id == 'null':
                 workload_id = None
 
-            reqs = get_requests(request_id=request_id, workload_id=workload_id)
+            reqs = get_requests(request_id=request_id, workload_id=workload_id, to_json=True)
         except exceptions.NoObject as error:
             return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
         except exceptions.IDDSException as error:
@@ -144,7 +144,7 @@ class Request(IDDSController):
             print(format_exc())
             return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
 
-        return self.generate_http_response(HTTP_STATUS_CODE.OK, data=[req.to_dict_json() for req in reqs])
+        return self.generate_http_response(HTTP_STATUS_CODE.OK, data=reqs)
 
     def post_test(self):
         import pprint

@@ -360,6 +360,7 @@ class TestCatalog(unittest.TestCase):
         input_content_ids = [input_content['content_id'] for input_content in input_contents]
         assert_equal(input_content_ids, [origin_content_input_id_0_100, origin_content_input_id_100_200, content_input_properties_name1_id])
         output_content_ids = [output_content['content_id'] for output_content in output_contents]
+        output_content_ids.sort()
         assert_equal(output_content_ids, [origin_content_output_id_0_1000, origin_content_output_id_0_100,
                                           origin_content_output_id_100_200, content_output_properties_name1_id])
 
@@ -490,6 +491,7 @@ class TestCatalog(unittest.TestCase):
         contents = coll_contents[coll_scope_name]['contents']
         assert_equal(len(contents), 4)
         output_content_ids = [output_content['content_id'] for output_content in contents]
+        output_content_ids.sort()
         assert_equal(output_content_ids, [origin_content_output_id_0_1000, origin_content_output_id_0_100,
                                           origin_content_output_id_100_200, content_output_properties_name1_id])
 

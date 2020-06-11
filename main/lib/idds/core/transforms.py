@@ -61,22 +61,23 @@ def add_transform(transform_type, transform_tag=None, priority=0, status=Transfo
 
 
 @read_session
-def get_transform(transform_id, session=None):
+def get_transform(transform_id, to_json=False, session=None):
     """
     Get transform or raise a NoObject exception.
 
     :param transform_id: Transform id.
+    :param to_json: return json format.
     :param session: The database session in use.
 
     :raises NoObject: If no transform is founded.
 
     :returns: Transform.
     """
-    return orm_transforms.get_transform(transform_id=transform_id, session=session)
+    return orm_transforms.get_transform(transform_id=transform_id, to_json=to_json, session=session)
 
 
 @read_session
-def get_transforms_with_input_collection(transform_type, transform_tag, coll_scope, coll_name, session=None):
+def get_transforms_with_input_collection(transform_type, transform_tag, coll_scope, coll_name, to_json=False, session=None):
     """
     Get transform or raise a NoObject exception.
 
@@ -84,6 +85,7 @@ def get_transforms_with_input_collection(transform_type, transform_tag, coll_sco
     :param transform_tag: Transform tag.
     :param coll_scope: The collection scope.
     :param coll_name: The collection name.
+    :param to_json: return json format.
     :param session: The database session in use.
 
     :raises NoObject: If no transform is founded.
@@ -91,7 +93,7 @@ def get_transforms_with_input_collection(transform_type, transform_tag, coll_sco
     :returns: Transforms.
     """
     return orm_transforms.get_transforms_with_input_collection(transform_type, transform_tag, coll_scope,
-                                                               coll_name, session=session)
+                                                               coll_name, to_json=to_json, session=session)
 
 
 @read_session
@@ -110,35 +112,37 @@ def get_transform_ids(request_id, session=None):
 
 
 @read_session
-def get_transforms(request_id, session=None):
+def get_transforms(request_id, to_json=False, session=None):
     """
     Get transforms or raise a NoObject exception.
 
     :param request_id: Request id.
+    :param to_json: return json format.
     :param session: The database session in use.
 
     :raises NoObject: If no transform is founded.
 
     :returns: list of transform.
     """
-    return orm_transforms.get_transforms(request_id=request_id, session=session)
+    return orm_transforms.get_transforms(request_id=request_id, to_json=to_json, session=session)
 
 
 @read_session
-def get_transforms_by_status(status, period=None, locking=False, bulk_size=None, session=None):
+def get_transforms_by_status(status, period=None, locking=False, bulk_size=None, to_json=False, session=None):
     """
     Get transforms or raise a NoObject exception.
 
     :param status: Transform status or list of transform status.
     :param session: The database session in use.
     :param locking: Whether to lock retrieved items.
+    :param to_json: return json format.
 
     :raises NoObject: If no transform is founded.
 
     :returns: list of transform.
     """
     transforms = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking,
-                                                         bulk_size=bulk_size, session=session)
+                                                         bulk_size=bulk_size, to_json=to_json, session=session)
     if locking:
         parameters = {'locking': TransformLocking.Locking}
         for transform in transforms:
