@@ -474,6 +474,16 @@ def clean_locking(time_period=3600, session=None):
     orm_collections.clean_locking(time_period=time_period, session=session)
 
 
+@transactional_session
+def clean_next_poll_at(status, session=None):
+    """
+    Clearn next_poll_at.
+
+    :param status: status of the collection
+    """
+    orm_collections.clean_next_poll_at(status=status, session=session)
+
+
 @read_session
 def get_output_content_by_request_id_content_name(request_id, content_scope, content_name, transform_id=None, content_type=None, min_id=None, max_id=None, session=None):
     """

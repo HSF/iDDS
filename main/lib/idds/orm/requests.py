@@ -336,10 +336,10 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, loc
             query = query.filter(models.Request.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=time_period))
         if locking:
             query = query.filter(models.Request.locking == RequestLocking.Idle)
-        if bulk_size:
-            query = query.limit(bulk_size)
         query = query.order_by(desc(models.Request.priority))\
                      .order_by(asc(models.Request.updated_at))
+        if bulk_size:
+            query = query.limit(bulk_size)
 
         tmp = query.all()
         rets = []
@@ -403,6 +403,23 @@ def clean_locking(time_period=3600, session=None):
     """
 
     params = {'locking': 0}
-    session.query(models.Request).filter(models.Request.locking == RequestLocking.lock)\
+    session.query(models.Request).filter(models.Request.locking == RequestLocking.Locking)\
            .filter(models.Request.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=time_period))\
+           .update(params, synchronize_session=False)
+
+
+@transactional_session
+def clean_next_poll_at(status, session=None):
+    """
+    Clearn next_poll_at.
+
+    :param status: status of the request
+    """
+    if not isinstance(status, (list, tuple)):
+        status = [status]
+    if len(status) == 1:
+        status = [status[0], status[0]]
+
+    params = {'next_poll_at': datetime.datetime.utcnow()}
+    session.query(models.Request).filter(models.Request.status.in_(status))\
            .update(params, synchronize_session=False)

@@ -254,3 +254,13 @@ def clean_locking(time_period=3600, session=None):
     :param time_period in seconds
     """
     orm_transforms.clean_locking(time_period=time_period, session=session)
+
+
+@transactional_session
+def clean_next_poll_at(status, session=None):
+    """
+    Clearn next_poll_at.
+
+    :param status: status of the transform
+    """
+    orm_transforms.clean_next_poll_at(status=status, session=session)

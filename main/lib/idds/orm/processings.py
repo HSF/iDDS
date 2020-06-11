@@ -245,3 +245,20 @@ def clean_locking(time_period=3600, session=None):
     session.query(models.Processing).filter(models.Processing.locking == ProcessingLocking.Locking)\
            .filter(models.Processing.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=time_period))\
            .update(params, synchronize_session=False)
+
+
+@transactional_session
+def clean_next_poll_at(status, session=None):
+    """
+    Clearn next_poll_at.
+
+    :param status: status of the processing
+    """
+    if not isinstance(status, (list, tuple)):
+        status = [status]
+    if len(status) == 1:
+        status = [status[0], status[0]]
+
+    params = {'next_poll_at': datetime.datetime.utcnow()}
+    session.query(models.Processing).filter(models.Processing.status.in_(status))\
+           .update(params, synchronize_session=False)
