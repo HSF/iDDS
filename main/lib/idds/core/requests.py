@@ -22,6 +22,37 @@ from idds.orm import transforms as orm_transforms
 from idds.orm import collections as orm_collections
 
 
+def create_request(scope, name, requester=None, request_type=None, transform_tag=None,
+                   status=RequestStatus.New, locking=RequestLocking.Idle, priority=0,
+                   lifetime=30, workload_id=None, request_metadata=None,
+                   processing_metadata=None):
+    """
+    Add a request.
+
+    :param scope: The scope of the request data.
+    :param name: The name of the request data.
+    :param requestr: The requester, such as panda, user and so on.
+    :param request_type: The type of the request, such as ESS, DAOD.
+    :param transform_tag: Transform tag, such as ATLAS AMI tag.
+    :param status: The request status as integer.
+    :param locking: The request locking as integer.
+    :param priority: The priority as integer.
+    :param lifetime: The life time as umber of days.
+    :param workload_id: The external workload id.
+    :param request_metadata: The metadata as json.
+    :param processing_metadata: The metadata as json.
+
+    :returns: request id.
+    """
+    kwargs = {'scope': scope, 'name': name, 'requester': requester, 'request_type': request_type,
+              'transform_tag': transform_tag, 'status': status, 'locking': locking,
+              'priority': priority, 'lifetime': lifetime, 'workload_id': workload_id,
+              'request_metadata': request_metadata, 'processing_metadata': processing_metadata}
+    if request_metadata and 'workload_id' in request_metadata:
+        kwargs['workload_id'] = int(request_metadata['workload_id'])
+    return orm_requests.create_request(**kwargs)
+
+
 @transactional_session
 def add_request(scope, name, requester=None, request_type=None, transform_tag=None,
                 status=RequestStatus.New, locking=RequestLocking.Idle, priority=0,
@@ -69,7 +100,7 @@ def get_request_ids_by_workload_id(workload_id):
     return orm_requests.get_request_ids_by_workload_id(workload_id)
 
 
-def get_request(request_id=None, workload_id=None):
+def get_requests(request_id=None, workload_id=None):
     """
     Get a request or raise a NoObject exception.
 
@@ -80,10 +111,10 @@ def get_request(request_id=None, workload_id=None):
 
     :returns: Request.
     """
-    return orm_requests.get_request(request_id=request_id, workload_id=workload_id)
+    return orm_requests.get_requests(request_id=request_id, workload_id=workload_id)
 
 
-def extend_request(request_id=None, workload_id=None, lifetime=30):
+def extend_requests(request_id=None, workload_id=None, lifetime=30):
     """
     extend an request's lifetime.
 
@@ -94,7 +125,7 @@ def extend_request(request_id=None, workload_id=None, lifetime=30):
     return orm_requests.extend_request(request_id=request_id, workload_id=workload_id, lifetime=lifetime)
 
 
-def cancel_request(request_id=None, workload_id=None):
+def cancel_requests(request_id=None, workload_id=None):
     """
     cancel an request.
 
