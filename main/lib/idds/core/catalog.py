@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2020
 
 
 """
@@ -474,7 +474,6 @@ def clean_locking(time_period=3600, session=None):
     orm_collections.clean_locking(time_period=time_period, session=session)
 
 
-###########
 @read_session
 def get_output_content_by_request_id_content_name(request_id, content_scope, content_name, transform_id=None, content_type=None, min_id=None, max_id=None, session=None):
     """

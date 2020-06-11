@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2020
 
 
 """
@@ -159,63 +159,6 @@ def update_transform(transform_id, parameters, session=None):
     :raises DatabaseException: If there is a database error.
 
     """
-    orm_transforms.update_transform(transform_id=transform_id, parameters=parameters, session=session)
-
-
-@transactional_session
-def trigger_update_transform_status(transform_id, input_collection_changed=False,
-                                    output_collection_changed=False, session=None):
-    """
-    update transform status based on input/output collection changes.
-
-    :param transform_id: the transform id.
-    :param input_collection_changed: Whether input collection is changed.
-    :param output_collection_changed: Whether output collection is changed.
-    :param session: The database session in use.
-
-    :raises NoObject: If no content is founded.
-    :raises DatabaseException: If there is a database error.
-
-    """
-    if not input_collection_changed and not output_collection_changed:
-        return
-
-    transform = orm_transforms.get_transform(transform_id, session=session)
-    status = transform['status']
-    transform_metadata = transform['transform_metadata']
-
-    if 'input_collection_changed' not in transform_metadata:
-        transform_metadata['input_collection_changed'] = input_collection_changed
-    else:
-        transform_metadata['input_collection_changed'] = transform_metadata['input_collection_changed'] or input_collection_changed
-    if 'output_collection_changed' not in transform_metadata:
-        transform_metadata['output_collection_changed'] = output_collection_changed
-    else:
-        transform_metadata['output_collection_changed'] = transform_metadata['output_collection_changed'] or output_collection_changed
-
-    if isinstance(status, TransformStatus):
-        status = status.value
-
-    new_status = status
-    if input_collection_changed:
-        if status in [TransformStatus.ToCancel.value, TransformStatus.Cancelling.value,
-                      TransformStatus.Failed.value, TransformStatus.Cancelled.value]:
-            new_status = status
-        elif status in [TransformStatus.New.value, TransformStatus.Extend.value]:
-            new_status = TransformStatus.Ready.value
-        elif status in [TransformStatus.Transforming.value]:
-            new_status = TransformStatus.Transforming.value
-        elif status in [TransformStatus.Finished.value, TransformStatus.SubFinished.value]:
-            new_status = TransformStatus.Transforming.value
-
-    elif input_collection_changed or output_collection_changed:
-        if status in [TransformStatus.ToCancel.value, TransformStatus.Cancelling.value,
-                      TransformStatus.Failed.value, TransformStatus.Cancelled.value]:
-            new_status = status
-        else:
-            new_status = TransformStatus.Transforming.value
-
-    parameters = {'status': new_status, 'transform_metadata': transform_metadata}
     orm_transforms.update_transform(transform_id=transform_id, parameters=parameters, session=session)
 
 
