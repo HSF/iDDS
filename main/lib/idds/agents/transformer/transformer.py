@@ -53,7 +53,10 @@ class Transformer(BaseAgent):
 
         transform_status = [TransformStatus.New, TransformStatus.Ready, TransformStatus.Extend]
         transforms_new = core_transforms.get_transforms_by_status(status=transform_status, locking=True, bulk_size=self.retrieve_bulk_size)
-        self.logger.info("Main thread get %s New+Ready+Extend transforms to process" % len(transforms_new))
+
+        self.logger.debug("Main thread get %s New+Ready+Extend transforms to process" % len(transforms_new))
+        if transforms_new:
+            self.logger.info("Main thread get %s New+Ready+Extend transforms to process" % len(transforms_new))
         return transforms_new
 
     def generate_transform_output_contents(self, transform, input_collection, output_collection, contents):
@@ -176,7 +179,7 @@ class Transformer(BaseAgent):
         while not self.new_output_queue.empty():
             try:
                 ret = self.new_output_queue.get()
-                self.logger.debug("Main thread finishing processing transform: %s" % ret['transform'])
+                self.logger.info("Main thread finishing processing transform: %s" % ret['transform'])
                 if ret:
                     # self.logger.debug("wen: %s" % str(ret['output_contents']))
                     core_transforms.add_transform_outputs(transform=ret['transform'],
@@ -201,7 +204,10 @@ class Transformer(BaseAgent):
                                                               period=self.poll_time_period,
                                                               locking=True,
                                                               bulk_size=self.retrieve_bulk_size)
-        self.logger.info("Main thread get %s transforming transforms to process" % len(transforms))
+
+        self.logger.debug("Main thread get %s transforming transforms to process" % len(transforms))
+        if transforms:
+            self.logger.info("Main thread get %s transforming transforms to process" % len(transforms))
         return transforms
 
     def process_transform_outputs(self, transform, output_collection):
@@ -323,18 +329,18 @@ class Transformer(BaseAgent):
 
             self.load_plugins()
 
-            task = self.create_task(task_func=self.get_new_transforms, task_output_queue=self.new_task_queue, task_args=tuple(), task_kwargs={}, delay_time=5, priority=1)
+            task = self.create_task(task_func=self.get_new_transforms, task_output_queue=self.new_task_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
             self.add_task(task)
-            task = self.create_task(task_func=self.process_new_transforms, task_output_queue=self.new_output_queue, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
+            task = self.create_task(task_func=self.process_new_transforms, task_output_queue=self.new_output_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
             self.add_task(task)
             task = self.create_task(task_func=self.finish_new_transforms, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
             self.add_task(task)
 
-            task = self.create_task(task_func=self.get_monitor_transforms, task_output_queue=self.monitor_task_queue, task_args=tuple(), task_kwargs={}, delay_time=5, priority=1)
+            task = self.create_task(task_func=self.get_monitor_transforms, task_output_queue=self.monitor_task_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
             self.add_task(task)
-            task = self.create_task(task_func=self.process_monitor_transforms, task_output_queue=self.monitor_output_queue, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
+            task = self.create_task(task_func=self.process_monitor_transforms, task_output_queue=self.monitor_output_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
             self.add_task(task)
-            task = self.create_task(task_func=self.finish_monitor_transforms, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
+            task = self.create_task(task_func=self.finish_monitor_transforms, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
             self.add_task(task)
 
             task = self.create_task(task_func=self.clean_locks, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1800, priority=1)
