@@ -13,6 +13,7 @@
 operations related to Transform.
 """
 
+import datetime
 from idds.common import exceptions
 
 from idds.common.constants import (TransformStatus,
@@ -206,6 +207,10 @@ def add_transform_outputs(transform, input_collection, output_collection, input_
             update_input_contents.append(update_input_content)
         if update_input_contents:
             orm_contents.update_contents(update_input_contents, session=session)
+            # update inut collection next_poll_at to trigger transporter to update its status
+            orm_collections.update_collection(input_collection['coll_id'],
+                                              {'next_poll_at': datetime.datetime.utcnow(),
+                                              session=session)
 
     if output_collection:
         # TODO, the status and new_files should be updated
