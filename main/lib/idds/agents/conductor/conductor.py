@@ -46,7 +46,10 @@ class Conductor(BaseAgent):
         Get messages
         """
         messages = core_messages.retrieve_messages(status=MessageStatus.New, bulk_size=self.retrieve_bulk_size)
-        self.logger.info("Main thread get %s new messages" % len(messages))
+
+        self.logger.debug("Main thread get %s new messages" % len(messages))
+        if messages:
+            self.logger.info("Main thread get %s new messages" % len(messages))
 
         return messages
 
