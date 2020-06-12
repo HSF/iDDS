@@ -26,7 +26,7 @@ from idds.orm.base.session import read_session, transactional_session
 from idds.orm.base import models
 
 
-def create_request(scope, name, requester=None, request_type=None, transform_tag=None,
+def create_request(scope=None, name=None, requester=None, request_type=None, transform_tag=None,
                    status=RequestStatus.New, locking=RequestLocking.Idle, priority=0,
                    lifetime=30, workload_id=None, request_metadata=None,
                    processing_metadata=None):
@@ -76,7 +76,7 @@ def create_request(scope, name, requester=None, request_type=None, transform_tag
 
 
 @transactional_session
-def add_request(scope, name, requester=None, request_type=None, transform_tag=None,
+def add_request(scope=None, name=None, requester=None, request_type=None, transform_tag=None,
                 status=RequestStatus.New, locking=RequestLocking.Idle, priority=0,
                 lifetime=30, workload_id=None, request_metadata=None,
                 processing_metadata=None, session=None):
