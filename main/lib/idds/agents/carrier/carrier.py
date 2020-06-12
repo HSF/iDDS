@@ -226,7 +226,7 @@ class Carrier(BaseAgent):
                 self.logger.info("Main thread processing(processing_id: %s) status changed to %s" % (processing['processing_updates']['processing_id'],
                                                                                                      processing['processing_updates']['parameters']['status']))
 
-                self.logger.debug("wen: processing %s" % str(processing))
+                self.logger.info("Main thread finishing monitor processing %s" % str(processing))
                 core_processings.update_processing_with_collection_contents(updated_processing=processing['processing_updates'],
                                                                             new_processing=processing['new_processing'],
                                                                             updated_files=processing['updated_files'],

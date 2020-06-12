@@ -60,7 +60,7 @@ class Transformer(BaseAgent):
         return transforms_new
 
     def generate_transform_output_contents(self, transform, input_collection, output_collection, contents):
-        self.logger.debug("generate_transform_output_contents: transform: %s, number of input_contents: %s" % (transform, len(contents)))
+        self.logger.info("generate_transform_output_contents: transform: %s, number of input_contents: %s" % (transform, len(contents)))
         if transform['transform_type'] == TransformType.StageIn:
             if 'stagein_transformer' not in self.plugins:
                 raise AgentPluginError('Plugin stagein_transformer is required')
@@ -77,7 +77,7 @@ class Transformer(BaseAgent):
         return []
 
     def generate_transform_outputs(self, transform, collections):
-        self.logger.debug("Generating transform outputs: transform: %s, collections: %s" % (transform, collections))
+        self.logger.info("Generating transform outputs: transform: %s, collections: %s" % (transform, collections))
         input_collection = None
         output_collection = None
         for collection in collections:
@@ -93,7 +93,7 @@ class Transformer(BaseAgent):
                                                                   output_collection,
                                                                   contents)
 
-        self.logger.debug("Generating transform number of output contents: %s" % len(output_contents))
+        self.logger.info("Generating transform number of output contents: %s" % len(output_contents))
 
         file_msgs = []
         if output_contents:
@@ -118,7 +118,7 @@ class Transformer(BaseAgent):
             new_processing = {'transform_id': transform['transform_id'],
                               'status': ProcessingStatus.New,
                               'processing_metadata': processing_metadata}
-            self.logger.debug("Generating transform output processing: %s" % new_processing)
+            self.logger.info("Generating transform output processing: %s" % new_processing)
 
         return {'transform': transform, 'input_collection': input_collection, 'output_collection': output_collection,
                 'input_contents': contents, 'output_contents': output_contents, 'processing': new_processing,
@@ -128,9 +128,9 @@ class Transformer(BaseAgent):
         """
         Process new transform
         """
-        self.logger.debug("process_new_transform: transform_id: %s" % transform['transform_id'])
+        # self.logger.info("process_new_transform: transform_id: %s" % transform['transform_id'])
         ret_collections = core_catalog.get_collections(transform_id=transform['transform_id'])
-        self.logger.debug("Processing transform(%s): ret_collections: %s" % (transform['transform_id'], ret_collections))
+        self.logger.info("Processing transform(%s): ret_collections: %s" % (transform['transform_id'], ret_collections))
 
         collections = []
         ret_transform = None
@@ -139,7 +139,7 @@ class Transformer(BaseAgent):
                 if transform_id == transform['transform_id']:
                     collections = ret_collections[request_id][transform_id]
                     ret_transform = transform
-        self.logger.debug("Processing transform(%s): transform: %s, collections: %s" % (transform['transform_id'],
+        self.logger.info("Processing transform(%s): transform: %s, collections: %s" % (transform['transform_id'],
                                                                                         ret_transform,
                                                                                         collections))
 
@@ -241,7 +241,7 @@ class Transformer(BaseAgent):
         """
         process monitor transforms
         """
-        self.logger.debug("process_monitor_transform: transform_id: %s" % transform['transform_id'])
+        self.logger.info("process_monitor_transform: transform_id: %s" % transform['transform_id'])
         ret_collections = core_catalog.get_collections(transform_id=transform['transform_id'])
 
         collections = []

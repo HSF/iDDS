@@ -330,7 +330,7 @@ class Clerk(BaseAgent):
     def finish_monitor_requests(self):
         while not self.monitor_output_queue.empty():
             req = self.monitor_output_queue.get()
-            self.logger.debug("finish_monitor_requests: req: %s" % req)
+            self.logger.info("finish_monitor_requests: req: %s" % req)
             parameter = {'locking': RequestLocking.Idle}
             for key in ['status', 'errors', 'request_metadata']:
                 if key in req:

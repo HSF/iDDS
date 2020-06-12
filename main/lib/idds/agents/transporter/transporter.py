@@ -194,12 +194,6 @@ class Transporter(BaseAgent):
                                                                parameters=parameters,
                                                                contents=coll['contents'])
 
-            # new_contents = core_catalog.update_input_collection_with_contents(coll_id=coll['coll_id'],
-            #                                                                   parameters=parameters,
-            #                                                                   contents=coll['contents'])
-            # if new_contents:
-            #     core_transforms.trigger_update_transform_status(coll['transform_id'], input_collection_changed=True)
-
     def get_new_output_collections(self):
         """
         Get new output collections
