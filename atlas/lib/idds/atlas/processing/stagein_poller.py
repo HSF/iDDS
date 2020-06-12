@@ -183,6 +183,7 @@ class StageInPoller(ProcessingPluginBase):
                     processing_metadata['new_rule_ids'].append(new_rule_id)
 
             processing_updates = {'status': processing_status,
+                                  'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period),
                                   'processing_metadata': processing_metadata}
 
             return {'updated_files': updated_files, 'processing_updates': processing_updates}

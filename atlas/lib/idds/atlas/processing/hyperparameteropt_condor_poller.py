@@ -13,6 +13,7 @@
 Class of activelearning condor plubin
 """
 import copy
+import datetime
 import json
 import traceback
 
@@ -126,6 +127,7 @@ class HyperParameterOptCondorPoller(CondorPoller):
 
                 processing_updates = {'status': processing_status,
                                       'substatus': processing['substatus'],
+                                      'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period),
                                       'processing_metadata': processing['processing_metadata']}
 
                 return {'updated_files': updated_files, 'processing_updates': processing_updates,
@@ -206,6 +208,7 @@ class HyperParameterOptCondorPoller(CondorPoller):
 
                 processing_updates = {'status': processing_status,
                                       'substatus': processing_substatus,
+                                      'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period),
                                       'processing_metadata': processing_metadata}
                 if output_metadata is not None:
                     processing_updates['output_metadata'] = output_metadata

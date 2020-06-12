@@ -12,6 +12,7 @@
 """
 Class of activelearning condor plubin
 """
+import datetime
 import json
 import os
 import traceback
@@ -62,6 +63,7 @@ class ActiveLearningCondorSubmitter(CondorSubmitter):
 
             ret = {'processing_id': processing['processing_id'],
                    'status': ProcessingStatus.Submitted,
+                   'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period),
                    'processing_metadata': processing_metadata}
             return ret
         except Exception as ex:
