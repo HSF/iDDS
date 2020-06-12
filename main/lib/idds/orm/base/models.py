@@ -192,7 +192,7 @@ class Processing(BASE, ModelBase):
     processing_id = Column(BigInteger().with_variant(Integer, "sqlite"), Sequence('PROCESSING_ID_SEQ', schema=DEFAULT_SCHEMA_NAME), primary_key=True)
     transform_id = Column(BigInteger().with_variant(Integer, "sqlite"))
     status = Column(EnumWithValue(ProcessingStatus))
-    substatus = Column(Integer())
+    substatus = Column(EnumWithValue(ProcessingStatus))
     locking = Column(EnumWithValue(ProcessingLocking))
     submitter = Column(String(20))
     submitted_id = Column(Integer())
