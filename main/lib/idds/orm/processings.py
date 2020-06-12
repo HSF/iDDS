@@ -27,7 +27,7 @@ from idds.orm.base import models
 
 def create_processing(transform_id, status=ProcessingStatus.New, locking=ProcessingLocking.Idle, submitter=None,
                       granularity=None, granularity_type=GranularityType.File, expired_at=None, processing_metadata=None,
-                      output_metadata=None):
+                      substatus=ProcessingStatus.New, output_metadata=None):
     """
     Create a processing.
 
@@ -42,9 +42,10 @@ def create_processing(transform_id, status=ProcessingStatus.New, locking=Process
 
     :returns: processing.
     """
-    new_processing = models.Processing(transform_id=transform_id, status=status, locking=locking, submitter=submitter,
-                                       granularity=granularity, granularity_type=granularity_type, expired_at=expired_at,
-                                       processing_metadata=processing_metadata, output_metadata=output_metadata)
+    new_processing = models.Processing(transform_id=transform_id, status=status, substatus=substatus, locking=locking,
+                                       submitter=submitter, granularity=granularity, granularity_type=granularity_type,
+                                       expired_at=expired_at, processing_metadata=processing_metadata,
+                                       output_metadata=output_metadata)
     return new_processing
 
 
