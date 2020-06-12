@@ -126,7 +126,7 @@ class Transformer(BaseAgent):
         Process new transform
         """
         self.logger.debug("process_new_transform: transform_id: %s" % transform['transform_id'])
-        ret_collections = core_catalog.get_collections_by_request_transform_id(transform_id=transform['transform_id'])
+        ret_collections = core_catalog.get_collections(transform_id=transform['transform_id'])
         self.logger.debug("Processing transform(%s): ret_collections: %s" % (transform['transform_id'], ret_collections))
 
         collections = []
@@ -236,7 +236,7 @@ class Transformer(BaseAgent):
         process monitor transforms
         """
         self.logger.debug("process_monitor_transform: transform_id: %s" % transform['transform_id'])
-        ret_collections = core_catalog.get_collections_by_request_transform_id(transform_id=transform['transform_id'])
+        ret_collections = core_catalog.get_collections(transform_id=transform['transform_id'])
 
         collections = []
         ret_transform = None

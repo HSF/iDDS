@@ -349,7 +349,7 @@ class Transporter(BaseAgent):
             del parameters['coll_id']
             del coll['coll_msg']
             parameters['locking'] = CollectionLocking.Idle
-            core_catalog.update_collection_with_msg(coll_id=coll_id, parameters=parameters, msg=coll_msg)
+            core_catalog.update_collection(coll_id=coll_id, parameters=parameters, msg=coll_msg)
 
     def clean_locks(self):
         self.logger.info("clean locking")
