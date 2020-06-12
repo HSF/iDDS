@@ -140,8 +140,8 @@ class Transformer(BaseAgent):
                     collections = ret_collections[request_id][transform_id]
                     ret_transform = transform
         self.logger.info("Processing transform(%s): transform: %s, collections: %s" % (transform['transform_id'],
-                                                                                        ret_transform,
-                                                                                        collections))
+                                                                                       ret_transform,
+                                                                                       collections))
 
         input_collection = None
         for collection in collections:

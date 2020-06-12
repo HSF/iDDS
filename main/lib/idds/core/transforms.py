@@ -209,7 +209,7 @@ def add_transform_outputs(transform, input_collection, output_collection, input_
             orm_contents.update_contents(update_input_contents, session=session)
             # update inut collection next_poll_at to trigger transporter to update its status
             orm_collections.update_collection(input_collection['coll_id'],
-                                              {'next_poll_at': datetime.datetime.utcnow(),
+                                              {'next_poll_at': datetime.datetime.utcnow()},
                                               session=session)
 
     if output_collection:
