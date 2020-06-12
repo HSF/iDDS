@@ -151,7 +151,7 @@ def update_processing_with_collection_contents(updated_processing, new_processin
     if updated_files:
         orm_contents.update_contents(updated_files, session=session)
     if new_files:
-        orm_contents.add_contents(contents=new_files, returning_id=False, session=session)
+        orm_contents.add_contents(contents=new_files, session=session)
     if file_msg_content:
         if not type(file_msg_content) in [list, tuple]:
             file_msg_content = [file_msg_content]
