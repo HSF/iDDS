@@ -351,8 +351,8 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, loc
             query = query.filter(models.Request.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=time_period))
         if locking:
             query = query.filter(models.Request.locking == RequestLocking.Idle)
-        query = query.order_by(desc(models.Request.priority))\
-                     .order_by(asc(models.Request.updated_at))
+        query = query.order_by(asc(models.Request.updated_at))\
+                     .order_by(desc(models.Request.priority))
         if bulk_size:
             query = query.limit(bulk_size)
 
