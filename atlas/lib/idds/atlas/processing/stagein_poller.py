@@ -61,6 +61,8 @@ class StageInPoller(ProcessingPluginBase):
             return self.default_max_waiting_time
 
     def should_create_new_rule(self, basic_rule, new_rules, transform):
+        if new_rules:
+            return False
         if self.check_all_rules_for_new_rule:
             rules = [basic_rule] + new_rules
         else:
@@ -68,6 +70,11 @@ class StageInPoller(ProcessingPluginBase):
 
         for rule in rules:
             if self.get_rule_lifetime(rule) >= self.get_max_waiting_time(transform):
+                msg = "For transform(%s), rule lifetime (%s seconds) >= max_waiting_time(%s)" % (transform['transform_id'],
+                                                                                                 self.get_rule_lifetime(rule),
+                                                                                                 self.get_max_waiting_time(transform))
+                msg += "should create new rule"
+                self.logger.info(msg)
                 return True
         return False
 
@@ -158,8 +165,11 @@ class StageInPoller(ProcessingPluginBase):
                 file_statusvalue_statistics[key.name] = file_status_statistics[key]
             processing_metadata['content_status_statistics'] = file_statusvalue_statistics
 
+            new_rule_id = None
             if remain_files and self.should_create_new_rule(basic_rule, new_rules, transform):
+                self.logger.info("creating new rules")
                 new_rule_id = self.create_new_rule(rule=basic_rule, dids=remain_files, dest_rse=basic_rule['rse_expression'])
+                self.logger.info("For transform(%s), new rule id: %s" % (transform['transform_id'], new_rule_id))
             if new_rule_id is not None:
                 if ('new_rule_ids' not in processing_metadata):
                     processing_metadata['new_rule_ids'] = [new_rule_id]

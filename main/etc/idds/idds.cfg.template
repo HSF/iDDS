@@ -89,9 +89,6 @@ plugin.stagein_poller.plugin.rule_poller = idds.atlas.rucio.rule_poller.RulePoll
 plugin.stagein_poller.plugin.rule_poller.default_max_waiting_time = 345600
 plugin.stagein_poller.plugin.rule_poller.check_all_rules_for_new_rule = True
 plugin.stagein_poller.plugin.rule_poller.new_rule_lifetime = 604800
-plugin.stagein_poller.plugin.rule_poller.
-plugin.stagein_poller.plugin.rule_poller.
-plugin.stagein_poller.plugin.rule_poller.
 plugin.stagein_poller.plugin.rule_creator = idds.atlas.rucio.rule_creator.RuleCreator
 # new_rule_lifetime will overwrite this one
 plugin.stagein_poller.plugin.rule_creator.lifetime = 604800
