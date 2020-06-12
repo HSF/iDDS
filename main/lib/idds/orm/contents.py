@@ -106,7 +106,7 @@ def add_content(coll_id, scope, name, min_id=0, max_id=0, content_type=ContentTy
 
 
 @transactional_session
-def add_contents(contents, bulk_size=500, session=None):
+def add_contents(contents, bulk_size=1000, session=None):
     """
     Add contents.
 
@@ -120,27 +120,23 @@ def add_contents(contents, bulk_size=500, session=None):
     """
     default_params = {'coll_id': None, 'scope': None, 'name': None, 'min_id': 0, 'max_id': 0,
                       'content_type': ContentType.File, 'status': ContentStatus.New,
+                      'locking': ContentLocking.Idle,
                       'bytes': 0, 'md5': None, 'adler32': None, 'processing_id': None,
                       'storage_id': None, 'retries': 0, 'path': None,
                       'expired_at': datetime.datetime.utcnow() + datetime.timedelta(days=30),
                       'content_metadata': None}
 
-    params = []
     for content in contents:
-        param = {}
         for key in default_params:
-            if key in content:
-                param[key] = content[key]
-            else:
-                param[key] = default_params[key]
-        params.append(param)
+            if key not in content:
+                content[key] = default_params[key]
 
-    sub_params = [params[i:i + bulk_size] for i in range(0, len(params), bulk_size)]
+    sub_params = [contents[i:i + bulk_size] for i in range(0, len(contents), bulk_size)]
 
     try:
         for sub_param in sub_params:
             session.bulk_insert_mappings(models.Content, sub_param)
-        content_ids = [None for _ in range(len(params))]
+        content_ids = [None for _ in range(len(contents))]
         return content_ids
     except IntegrityError as error:
         raise exceptions.DuplicatedObject('Duplicated objects: %s' % (error))

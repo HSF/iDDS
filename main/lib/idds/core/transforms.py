@@ -205,7 +205,7 @@ def add_transform_outputs(transform, input_collection, output_collection, input_
                                     'path': None}
             update_input_contents.append(update_input_content)
         if update_input_contents:
-            orm_contents.update_contents(update_input_contents, with_content_id=True, session=session)
+            orm_contents.update_contents(update_input_contents, session=session)
 
     if output_collection:
         # TODO, the status and new_files should be updated

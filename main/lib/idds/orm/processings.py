@@ -20,13 +20,13 @@ from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.sql.expression import asc
 
 from idds.common import exceptions
-from idds.common.constants import ProcessingStatus, ProcessingLocking
+from idds.common.constants import ProcessingStatus, ProcessingLocking, GranularityType
 from idds.orm.base.session import read_session, transactional_session
 from idds.orm.base import models
 
 
 def create_processing(transform_id, status=ProcessingStatus.New, locking=ProcessingLocking.Idle, submitter=None,
-                      granularity=None, granularity_type=None, expired_at=None, processing_metadata=None,
+                      granularity=None, granularity_type=GranularityType.File, expired_at=None, processing_metadata=None,
                       output_metadata=None):
     """
     Create a processing.
@@ -50,7 +50,7 @@ def create_processing(transform_id, status=ProcessingStatus.New, locking=Process
 
 @transactional_session
 def add_processing(transform_id, status=ProcessingStatus.New, locking=ProcessingLocking.Idle, submitter=None,
-                   granularity=None, granularity_type=None, expired_at=None, processing_metadata=None,
+                   granularity=None, granularity_type=GranularityType.File, expired_at=None, processing_metadata=None,
                    output_metadata=None, session=None):
     """
     Add a processing.

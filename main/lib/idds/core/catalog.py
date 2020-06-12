@@ -176,7 +176,7 @@ def get_collection(coll_id=None, transform_id=None, relation_type=None, to_json=
 
 
 @transactional_session
-def add_contents(contents, bulk_size=100, session=None):
+def add_contents(contents, bulk_size=1000, session=None):
     """
     Add contents.
 
@@ -194,7 +194,7 @@ def add_contents(contents, bulk_size=100, session=None):
 
 
 @transactional_session
-def update_input_collection_with_contents(coll, parameters, contents, bulk_size=100, session=None):
+def update_input_collection_with_contents(coll, parameters, contents, bulk_size=1000, session=None):
     """
     update a collection.
 

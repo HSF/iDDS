@@ -298,8 +298,8 @@ def get_transforms_by_status(status, period=None, locking=False, bulk_size=None,
         if locking:
             query = query.filter(models.Transform.locking == TransformLocking.Idle)
 
-        query = query.order_by(desc(models.Request.priority))\
-                     .order_by(asc(models.Request.updated_at))
+        query = query.order_by(desc(models.Transform.priority))\
+                     .order_by(asc(models.Transform.updated_at))
 
         if bulk_size:
             query = query.limit(bulk_size)
