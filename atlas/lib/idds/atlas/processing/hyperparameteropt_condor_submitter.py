@@ -37,9 +37,16 @@ class HyperParameterOptCondorSubmitter(CondorSubmitter):
         else:
             self.min_unevaluated_points = int(self.min_unevaluated_points)
         if not hasattr(self, 'max_points'):
-            self.max_points = 100
+            self.max_points = 1000000000
         else:
             self.max_points = int(self.max_points)
+
+    def get_max_points(self, transform_metadata):
+        if 'max_points' in transform_metadata:
+            max_points = transform_metadata['max_points']
+        else:
+            max_points = self.max_points
+        return max_points
 
     def get_executable_arguments_for_method(self, transform_metadata, input_json, unevaluated_points):
         method = transform_metadata['method']
@@ -64,10 +71,7 @@ class HyperParameterOptCondorSubmitter(CondorSubmitter):
             else:
                 should_transfer_executable = False
 
-            if 'max_points' in transform_metadata:
-                max_points = transform_metadata['max_points']
-            else:
-                max_points = self.max_points
+            max_points = self.get_max_points(transform_metadata)
             if 'num_points_per_generation' in transform_metadata:
                 num_points = transform_metadata['num_points_per_generation']
             else:
@@ -102,10 +106,7 @@ class HyperParameterOptCondorSubmitter(CondorSubmitter):
         output_json = None
         if 'output_json' in transform_metadata:
             output_json = transform_metadata['output_json']
-        if 'max_points' in transform_metadata:
-            max_points = transform_metadata['max_points']
-        else:
-            max_points = self.max_points
+        max_points = self.get_max_points(transform_metadata)
         if 'num_points_per_generation' in transform_metadata:
             num_points = transform_metadata['num_points_per_generation']
         else:
@@ -155,6 +156,7 @@ class HyperParameterOptCondorSubmitter(CondorSubmitter):
                 processing_metadata['submitter'] = self.name
                 processing_metadata['submit_errors'] = errors
                 processing_metadata['output_json'] = output_json
+                processing_metadata['max_points'] = self.get_max_points(transform['transform_metadata'])
                 # processing_metadata['job_dir'] = job_dir
                 ret = {'processing_id': processing['processing_id'],
                        'status': ProcessingStatus.Submitted,
@@ -167,6 +169,7 @@ class HyperParameterOptCondorSubmitter(CondorSubmitter):
                 processing_metadata['job_id'] = job_id
                 processing_metadata['submitter'] = self.name
                 processing_metadata['output_json'] = output_json
+                processing_metadata['max_points'] = self.get_max_points(transform['transform_metadata'])
                 # processing_metadata['job_dir'] = job_dir
                 if not job_id:
                     processing_metadata['submit_errors'] = outputs
