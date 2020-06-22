@@ -91,7 +91,12 @@ class StageInPoller(ProcessingPluginBase):
 
             dataset_scope = rule['scope']
             dataset_name = rule['name'] + ".idds_sub_%s" % int(time.time())
-            self.logger.info("Creating new rule for dataset %s:%s" % (dataset_scope, dataset_name))
+            if not src_rse:
+                old_src_rse = rule['source_replica_expression']
+                if old_src_rse:
+                    src_rse = "*\(%s)" % old_src_rse  # noqa: W605
+            self.logger.info("Creating new rule for dataset %s:%s, src_rse_expression: %s" % (dataset_scope, dataset_name, src_rse))
+
             rule_id = self.plugins['rule_creator'](dataset_scope=dataset_scope,
                                                    dataset_name=dataset_name,
                                                    dids=dids,
