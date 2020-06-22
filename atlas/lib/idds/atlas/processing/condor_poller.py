@@ -62,13 +62,13 @@ class CondorPoller(ProcessingPluginBase):
         # 6 Submission_err E
         cmd = "condor_q -format '%s' ClusterId  -format ' %s' Processing_id -format ' %s' JobStatus " + str(job_id)
         status, output, error = run_command(cmd)
-        self.logger.debug("poll job status: %s" % cmd)
-        self.logger.debug("status: %s, output: %s, error: %s" % (status, output, error))
+        self.logger.info("poll job status: %s" % cmd)
+        self.logger.info("status: %s, output: %s, error: %s" % (status, output, error))
         if status == 0 and len(output) == 0:
             cmd = "condor_history -format '%s' ClusterId  -format ' %s' Processing_id -format ' %s' JobStatus " + str(job_id)
             status, output, error = run_command(cmd)
-            self.logger.debug("poll job status: %s" % cmd)
-            self.logger.debug("status: %s, output: %s, error: %s" % (status, output, error))
+            self.logger.info("poll job status: %s" % cmd)
+            self.logger.info("status: %s, output: %s, error: %s" % (status, output, error))
 
         ret_err = None
         if status == 0:

@@ -70,6 +70,9 @@ class CondorSubmitter(ProcessingPluginBase):
             script += "echo '%s' '%s'\n" % (str(executable), str(arguments))
             script += '%s %s\n' % (str(executable), str(arguments))
 
+        if 'docker' in executable:
+            script += 'docker image rm -f %s\n' % str(sandbox)
+
         script += '\n'
 
         script_name = 'processing_%s.sh' % processing_id

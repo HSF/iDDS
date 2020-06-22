@@ -13,6 +13,7 @@
 Class of activelearning condor plubin
 """
 import copy
+import datetime
 import json
 import traceback
 
@@ -83,6 +84,12 @@ class HyperParameterOptCondorPoller(CondorPoller):
             del new_processing['processing_metadata']['output_json']
         return new_processing
 
+    def get_max_points(self, processing):
+        processing_metadata = processing['processing_metadata']
+        if 'max_points' in processing_metadata and processing_metadata['max_points']:
+            return processing_metadata['max_points']
+        return None
+
     def __call__(self, processing, transform, input_collection, output_collection, output_contents):
         try:
             # if 'result_parser' in transform['transform_metadata'] and transform['transform_metadata']['result_parser']
@@ -111,14 +118,18 @@ class HyperParameterOptCondorPoller(CondorPoller):
                 if self.min_unevaluated_points and unevaluated_points >= self.min_unevaluated_points:
                     pass
                 else:
+                    # check whether max_points reached
+                    max_points = self.get_max_points(processing)
+                    if output_contents is None:
+                        output_contents = []
                     p_output_metadata = processing['output_metadata']
-                    if p_output_metadata:
-                        processing_status = ProcessingStatus.FinishedOnStep
-                    else:
+                    if not p_output_metadata or (max_points and len(output_contents) >= max_points):
                         if unevaluated_points == 0:
                             processing_status = ProcessingStatus.Finished
                         else:
                             pass
+                    else:
+                        processing_status = ProcessingStatus.FinishedOnStep
 
                 new_processing = None
                 if processing_status == ProcessingStatus.FinishedOnStep:
@@ -126,6 +137,7 @@ class HyperParameterOptCondorPoller(CondorPoller):
 
                 processing_updates = {'status': processing_status,
                                       'substatus': processing['substatus'],
+                                      'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period),
                                       'processing_metadata': processing['processing_metadata']}
 
                 return {'updated_files': updated_files, 'processing_updates': processing_updates,
@@ -206,9 +218,20 @@ class HyperParameterOptCondorPoller(CondorPoller):
 
                 processing_updates = {'status': processing_status,
                                       'substatus': processing_substatus,
+                                      'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period),
                                       'processing_metadata': processing_metadata}
                 if output_metadata is not None:
                     processing_updates['output_metadata'] = output_metadata
+
+                # check whether max_points reached
+                max_points = self.get_max_points(processing)
+                if output_contents is None:
+                    output_contents = []
+                if max_points and new_files and len(output_contents) + len(new_files) >= max_points:
+                    left_points = max_points - len(output_contents)
+                    if left_points <= 0:
+                        left_points = 0
+                    new_files = new_files[:left_points]
 
             return {'updated_files': updated_files, 'processing_updates': processing_updates,
                     'new_processing': None, 'new_files': new_files}

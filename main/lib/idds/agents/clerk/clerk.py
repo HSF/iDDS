@@ -33,7 +33,7 @@ class Clerk(BaseAgent):
     Clerk works to process requests and converts requests to transforms.
     """
 
-    def __init__(self, num_threads=1, poll_time_period=1800, retrieve_bulk_size=None, **kwargs):
+    def __init__(self, num_threads=1, poll_time_period=10, retrieve_bulk_size=None, **kwargs):
         super(Clerk, self).__init__(num_threads=num_threads, **kwargs)
         self.poll_time_period = int(poll_time_period)
         self.retrieve_bulk_size = int(retrieve_bulk_size)
@@ -55,7 +55,10 @@ class Clerk(BaseAgent):
         req_status = [RequestStatus.New, RequestStatus.Extend]
         reqs_new = core_requests.get_requests_by_status_type(status=req_status, locking=True,
                                                              bulk_size=self.retrieve_bulk_size)
-        self.logger.info("Main thread get %s [New+Extend] requests to process" % len(reqs_new))
+
+        self.logger.debug("Main thread get %s [New+Extend] requests to process" % len(reqs_new))
+        if reqs_new:
+            self.logger.info("Main thread get %s [New+Extend] requests to process" % len(reqs_new))
 
         return reqs_new
 
@@ -257,7 +260,10 @@ class Clerk(BaseAgent):
         req_status = [RequestStatus.Transforming]
         reqs = core_requests.get_requests_by_status_type(status=req_status, time_period=self.poll_time_period,
                                                          locking=True, bulk_size=self.retrieve_bulk_size)
-        self.logger.info("Main thread get %s Transforming requests to monitor" % len(reqs))
+
+        self.logger.debug("Main thread get %s Transforming requests to monitor" % len(reqs))
+        if reqs:
+            self.logger.info("Main thread get %s Transforming requests to monitor" % len(reqs))
         return reqs
 
     def process_monitor_request(self, req):
@@ -324,7 +330,7 @@ class Clerk(BaseAgent):
     def finish_monitor_requests(self):
         while not self.monitor_output_queue.empty():
             req = self.monitor_output_queue.get()
-            self.logger.debug("finish_monitor_requests: req: %s" % req)
+            self.logger.info("finish_monitor_requests: req: %s" % req)
             parameter = {'locking': RequestLocking.Idle}
             for key in ['status', 'errors', 'request_metadata']:
                 if key in req:
@@ -344,18 +350,18 @@ class Clerk(BaseAgent):
 
             self.load_plugins()
 
-            task = self.create_task(task_func=self.get_new_requests, task_output_queue=self.new_task_queue, task_args=tuple(), task_kwargs={}, delay_time=10, priority=1)
+            task = self.create_task(task_func=self.get_new_requests, task_output_queue=self.new_task_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
             self.add_task(task)
-            task = self.create_task(task_func=self.process_new_requests, task_output_queue=self.new_output_queue, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
+            task = self.create_task(task_func=self.process_new_requests, task_output_queue=self.new_output_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
             self.add_task(task)
-            task = self.create_task(task_func=self.finish_new_requests, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
+            task = self.create_task(task_func=self.finish_new_requests, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
             self.add_task(task)
 
-            task = self.create_task(task_func=self.get_monitor_requests, task_output_queue=self.monitor_task_queue, task_args=tuple(), task_kwargs={}, delay_time=10, priority=1)
+            task = self.create_task(task_func=self.get_monitor_requests, task_output_queue=self.monitor_task_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
             self.add_task(task)
-            task = self.create_task(task_func=self.process_monitor_requests, task_output_queue=self.monitor_output_queue, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
+            task = self.create_task(task_func=self.process_monitor_requests, task_output_queue=self.monitor_output_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
             self.add_task(task)
-            task = self.create_task(task_func=self.finish_monitor_requests, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
+            task = self.create_task(task_func=self.finish_monitor_requests, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
             self.add_task(task)
 
             task = self.create_task(task_func=self.clean_locks, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1800, priority=1)

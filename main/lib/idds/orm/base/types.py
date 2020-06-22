@@ -87,7 +87,7 @@ class JSON(TypeDecorator):
         if dialect.name == 'postgresql':
             return dialect.type_descriptor(JSONB())
         elif dialect.name == 'mysql':
-            return dialect.type_descriptor(String(1024))
+            return dialect.type_descriptor(String(4096))
             # return dialect.type_descriptor(types.JSON())
         elif dialect.name == 'oracle':
             return dialect.type_descriptor(CLOB())

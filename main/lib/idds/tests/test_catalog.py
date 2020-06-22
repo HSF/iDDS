@@ -16,14 +16,13 @@ Test Request.
 import copy
 
 import unittest2 as unittest
-from nose.tools import assert_equal, assert_raises, assert_in
+from nose.tools import assert_equal, assert_in
 
 from idds.client.client import Client
-from idds.common import exceptions
 from idds.common.constants import (CollectionRelationType, ContentType, ContentStatus)
 from idds.common.utils import (check_database, has_config, setup_logging,
                                check_rest_host, get_rest_host, check_user_proxy)
-from idds.core.catalog import (get_collections_by_request, get_collections, get_contents,
+from idds.core.catalog import (get_collections, get_contents,
                                register_output_contents, get_match_contents)
 from idds.orm.requests import add_request
 from idds.orm.transforms import add_transform
@@ -51,7 +50,6 @@ class TestCatalog(unittest.TestCase):
 
         coll_properties = get_collection_properties()
         coll_properties['transform_id'] = origin_trans_id
-        coll_properties['request_id'] = origin_request_id
         coll_input_properties = copy.deepcopy(coll_properties)
         coll_input_properties['name'] = coll_input_properties['name'] + '_input'
         coll_output_properties = copy.deepcopy(coll_properties)
@@ -66,7 +64,7 @@ class TestCatalog(unittest.TestCase):
         origin_coll_log_id = add_collection(**coll_log_properties)
         origin_coll_id_list = [origin_coll_input_id, origin_coll_output_id, origin_coll_log_id]
 
-        req_trans_colls = get_collections_by_request(request_id=origin_request_id, workload_id=None)
+        req_trans_colls = get_collections(request_id=origin_request_id, workload_id=None)
         assert_equal(len(req_trans_colls.keys()), 1)
         req_id = list(req_trans_colls.keys())[0]
         assert_equal(origin_request_id, req_id)
@@ -94,16 +92,16 @@ class TestCatalog(unittest.TestCase):
                     else:
                         assert_equal(coll[key], coll_log_properties[key])
 
-        req_trans_colls1 = get_collections_by_request(request_id=None, workload_id=req_properties['request_metadata']['workload_id'])
+        req_trans_colls1 = get_collections(request_id=None, workload_id=req_properties['workload_id'])
+        assert_equal(is_same_req_trans_colls(req_trans_colls, req_trans_colls1, allow_request_id_None=True), True)
+
+        req_trans_colls1 = get_collections(request_id=origin_request_id, workload_id=req_properties['workload_id'])
         assert_equal(is_same_req_trans_colls(req_trans_colls, req_trans_colls1), True)
 
-        req_trans_colls1 = get_collections_by_request(request_id=origin_request_id, workload_id=req_properties['request_metadata']['workload_id'])
-        assert_equal(is_same_req_trans_colls(req_trans_colls, req_trans_colls1), True)
-
-        req_trans_colls = get_collections(scope=coll_properties['scope'], name=coll_properties['name'], request_id=None, workload_id=None)
+        req_trans_colls = get_collections(scope=coll_properties['scope'], name=coll_properties['name'] + "*", request_id=None, workload_id=None)
         assert_equal(len(req_trans_colls.keys()), 1)
         req_id = list(req_trans_colls.keys())[0]
-        assert_equal(origin_request_id, req_id)
+        assert_equal(None, req_id)
         assert_equal(len(req_trans_colls[req_id].keys()), 1)
         trans_id = list(req_trans_colls[req_id].keys())[0]
         assert_equal(trans_id, origin_trans_id)
@@ -144,10 +142,10 @@ class TestCatalog(unittest.TestCase):
             if key == 'name':
                 assert_equal(coll[key], coll_input_properties[key])
 
-        req_trans_colls = get_collections(scope=coll_properties['scope'], name=coll_output_properties['name'], request_id=None, workload_id=req_properties['request_metadata']['workload_id'])
+        req_trans_colls = get_collections(scope=coll_properties['scope'], name=coll_output_properties['name'], request_id=None, workload_id=req_properties['workload_id'])
         assert_equal(len(req_trans_colls.keys()), 1)
         req_id = list(req_trans_colls.keys())[0]
-        assert_equal(origin_request_id, req_id)
+        assert_equal(None, req_id)
         assert_equal(len(req_trans_colls[req_id].keys()), 1)
         trans_id = list(req_trans_colls[req_id].keys())[0]
         assert_equal(trans_id, origin_trans_id)
@@ -160,7 +158,7 @@ class TestCatalog(unittest.TestCase):
             if key == 'name':
                 assert_equal(coll[key], coll_output_properties[key])
 
-        req_trans_colls = get_collections(scope=coll_properties['scope'], name=coll_log_properties['name'], request_id=origin_request_id, workload_id=req_properties['request_metadata']['workload_id'])
+        req_trans_colls = get_collections(scope=coll_properties['scope'], name=coll_log_properties['name'], request_id=origin_request_id, workload_id=req_properties['workload_id'])
         assert_equal(len(req_trans_colls.keys()), 1)
         req_id = list(req_trans_colls.keys())[0]
         assert_equal(origin_request_id, req_id)
@@ -195,7 +193,7 @@ class TestCatalog(unittest.TestCase):
         origin_coll_log_id1 = add_collection(**coll_log_properties1)
         origin_coll_id_list1 = [origin_coll_input_id1, origin_coll_output_id1, origin_coll_log_id1]
 
-        req_trans_colls = get_collections_by_request(request_id=origin_request_id, workload_id=None)
+        req_trans_colls = get_collections(request_id=origin_request_id, workload_id=None)
         assert_equal(len(req_trans_colls.keys()), 1)
         req_id = list(req_trans_colls.keys())[0]
         assert_equal(origin_request_id, req_id)
@@ -244,16 +242,16 @@ class TestCatalog(unittest.TestCase):
                             else:
                                 assert_equal(coll[key], coll_log_properties1[key])
 
-        req_trans_colls1 = get_collections_by_request(request_id=None, workload_id=req_properties['request_metadata']['workload_id'])
+        req_trans_colls1 = get_collections(request_id=None, workload_id=req_properties['workload_id'])
+        assert_equal(is_same_req_trans_colls(req_trans_colls, req_trans_colls1, allow_request_id_None=True), True)
+
+        req_trans_colls1 = get_collections(request_id=origin_request_id, workload_id=req_properties['workload_id'])
         assert_equal(is_same_req_trans_colls(req_trans_colls, req_trans_colls1), True)
 
-        req_trans_colls1 = get_collections_by_request(request_id=origin_request_id, workload_id=req_properties['request_metadata']['workload_id'])
-        assert_equal(is_same_req_trans_colls(req_trans_colls, req_trans_colls1), True)
-
-        req_trans_colls = get_collections(scope=coll_properties['scope'], name=coll_properties['name'], request_id=None, workload_id=None)
+        req_trans_colls = get_collections(scope=coll_properties['scope'], name=coll_properties['name'] + "*", request_id=None, workload_id=None)
         assert_equal(len(req_trans_colls.keys()), 1)
         req_id = list(req_trans_colls.keys())[0]
-        assert_equal(origin_request_id, req_id)
+        assert_equal(None, req_id)
         assert_equal(len(req_trans_colls[req_id].keys()), 2)
         for trans_id in req_trans_colls[req_id]:
             if trans_id == origin_trans_id:
@@ -308,7 +306,6 @@ class TestCatalog(unittest.TestCase):
 
         coll_properties = get_collection_properties()
         coll_properties['transform_id'] = origin_trans_id
-        coll_properties['request_id'] = origin_request_id
         coll_input_properties = copy.deepcopy(coll_properties)
         coll_input_properties['name'] = coll_input_properties['name'] + '_input'
         coll_output_properties = copy.deepcopy(coll_properties)
@@ -320,40 +317,37 @@ class TestCatalog(unittest.TestCase):
 
         content_input_properties = get_content_properties()
         content_input_properties['coll_id'] = origin_coll_input_id
-        origin_content_input_id_0_100 = add_content(returning_id=True, **content_input_properties)
+        origin_content_input_id_0_100 = add_content(**content_input_properties)
         content_input_properties_100_200 = copy.deepcopy(content_input_properties)
         content_input_properties_100_200['min_id'] = 100
         content_input_properties_100_200['max_id'] = 200
-        origin_content_input_id_100_200 = add_content(returning_id=True, **content_input_properties_100_200)
+        origin_content_input_id_100_200 = add_content(**content_input_properties_100_200)
         content_input_properties_name1 = copy.deepcopy(content_input_properties)
         content_input_properties_name1['name'] = content_input_properties_name1['name'] + '_1'
-        content_input_properties_name1_id = add_content(returning_id=True, **content_input_properties_name1)
+        content_input_properties_name1_id = add_content(**content_input_properties_name1)
 
         content_output_properties = get_content_properties()
         content_output_properties['content_type'] = ContentType.File
         content_output_properties['min_id'] = 0
         content_output_properties['max_id'] = 1000
         content_output_properties['coll_id'] = origin_coll_output_id
-        origin_content_output_id_0_1000 = add_content(returning_id=True, **content_output_properties)
+        origin_content_output_id_0_1000 = add_content(**content_output_properties)
         content_output_properties_0_100 = copy.deepcopy(content_output_properties)
         content_output_properties_0_100['min_id'] = 0
         content_output_properties_0_100['max_id'] = 100
         content_output_properties['content_type'] = ContentType.Event
-        origin_content_output_id_0_100 = add_content(returning_id=True, **content_output_properties_0_100)
+        origin_content_output_id_0_100 = add_content(**content_output_properties_0_100)
         content_output_properties_100_200 = copy.deepcopy(content_output_properties)
         content_output_properties_100_200['min_id'] = 100
         content_output_properties_100_200['max_id'] = 200
         content_output_properties['content_type'] = ContentType.Event
-        origin_content_output_id_100_200 = add_content(returning_id=True, **content_output_properties_100_200)
+        origin_content_output_id_100_200 = add_content(**content_output_properties_100_200)
         content_output_properties_name1 = copy.deepcopy(content_output_properties)
         content_output_properties_name1['name'] = content_output_properties_name1['name'] + '_1'
-        content_output_properties_name1_id = add_content(returning_id=True, **content_output_properties_name1)
+        content_output_properties_name1_id = add_content(**content_output_properties_name1)
 
-        with assert_raises(exceptions.WrongParameterException):
-            get_contents(coll_scope=None, coll_name=None, request_id=None, workload_id=None, relation_type=None)
-
-        req_trans_coll_contents = get_contents(coll_scope=coll_properties['scope'], coll_name=coll_properties['name'],
-                                               request_id=origin_request_id, workload_id=req_properties['request_metadata']['workload_id'])
+        req_trans_coll_contents = get_contents(coll_scope=coll_properties['scope'], coll_name=coll_properties['name'] + "*",
+                                               request_id=origin_request_id, workload_id=req_properties['workload_id'])
         coll_contents = req_trans_coll_contents[origin_request_id][origin_trans_id]
         coll_input_scope_name = '%s:%s' % (coll_input_properties['scope'], coll_input_properties['name'])
         coll_output_scope_name = '%s:%s' % (coll_output_properties['scope'], coll_output_properties['name'])
@@ -366,19 +360,20 @@ class TestCatalog(unittest.TestCase):
         input_content_ids = [input_content['content_id'] for input_content in input_contents]
         assert_equal(input_content_ids, [origin_content_input_id_0_100, origin_content_input_id_100_200, content_input_properties_name1_id])
         output_content_ids = [output_content['content_id'] for output_content in output_contents]
+        output_content_ids.sort()
         assert_equal(output_content_ids, [origin_content_output_id_0_1000, origin_content_output_id_0_100,
                                           origin_content_output_id_100_200, content_output_properties_name1_id])
 
-        req_trans_coll_contents = get_contents(coll_scope=coll_properties['scope'], coll_name=coll_properties['name'],
-                                               request_id=origin_request_id, workload_id=req_properties['request_metadata']['workload_id'],
+        req_trans_coll_contents = get_contents(coll_scope=coll_properties['scope'], coll_name=coll_properties['name'] + "*",
+                                               request_id=origin_request_id, workload_id=req_properties['workload_id'],
                                                relation_type=CollectionRelationType.Input)
         coll_contents = req_trans_coll_contents[origin_request_id][origin_trans_id]
         coll_input_scope_name = '%s:%s' % (coll_input_properties['scope'], coll_input_properties['name'])
         coll_scope_names = list(coll_contents.keys())
         assert_equal(coll_scope_names, [coll_input_scope_name])
 
-        req_trans_coll_contents = get_contents(coll_scope=coll_properties['scope'], coll_name=coll_properties['name'],
-                                               request_id=origin_request_id, workload_id=req_properties['request_metadata']['workload_id'],
+        req_trans_coll_contents = get_contents(coll_scope=coll_properties['scope'], coll_name=coll_properties['name'] + "*",
+                                               request_id=origin_request_id, workload_id=req_properties['workload_id'],
                                                relation_type=CollectionRelationType.Output)
         coll_contents = req_trans_coll_contents[origin_request_id][origin_trans_id]
         coll_output_scope_name = '%s:%s' % (coll_output_properties['scope'], coll_output_properties['name'])
@@ -402,7 +397,7 @@ class TestCatalog(unittest.TestCase):
         contents = get_match_contents(coll_scope=coll_output_properties['scope'], coll_name=coll_output_properties['name'],
                                       scope=content_output_properties['scope'], name=content_output_properties['name'],
                                       min_id=None, max_id=None, request_id=origin_request_id,
-                                      workload_id=req_properties['request_metadata']['workload_id'], only_return_best_match=False)
+                                      workload_id=req_properties['workload_id'], only_return_best_match=False)
         assert_equal(len(contents), 3)
         content_ids = [content['content_id'] for content in contents]
         content_ids.sort()
@@ -413,7 +408,7 @@ class TestCatalog(unittest.TestCase):
         contents = get_match_contents(coll_scope=coll_output_properties['scope'], coll_name=coll_output_properties['name'],
                                       scope=content_output_properties['scope'], name=content_output_properties['name'],
                                       min_id=0, max_id=50, request_id=origin_request_id,
-                                      workload_id=req_properties['request_metadata']['workload_id'], only_return_best_match=False)
+                                      workload_id=req_properties['workload_id'], only_return_best_match=False)
         assert_equal(len(contents), 2)
         content_ids = [content['content_id'] for content in contents]
         content_ids.sort()
@@ -424,7 +419,7 @@ class TestCatalog(unittest.TestCase):
         contents = get_match_contents(coll_scope=coll_output_properties['scope'], coll_name=coll_output_properties['name'],
                                       scope=content_output_properties['scope'], name=content_output_properties['name'],
                                       min_id=0, max_id=50, request_id=origin_request_id,
-                                      workload_id=req_properties['request_metadata']['workload_id'], only_return_best_match=True)
+                                      workload_id=req_properties['workload_id'], only_return_best_match=True)
         assert_equal(len(contents), 1)
         content_ids = [content['content_id'] for content in contents]
         assert_equal(content_ids, [origin_content_output_id_0_100])
@@ -446,7 +441,6 @@ class TestCatalog(unittest.TestCase):
 
         coll_properties = get_collection_properties()
         coll_properties['transform_id'] = origin_trans_id
-        coll_properties['request_id'] = origin_request_id
         coll_properties['relation_type'] = CollectionRelationType.Output
         origin_coll_id = add_collection(**coll_properties)
 
@@ -461,35 +455,35 @@ class TestCatalog(unittest.TestCase):
         assert_equal(len(colls), 1)
         assert_equal(colls[0]['coll_id'], origin_coll_id)
 
-        req_trans_colls1 = client.get_collections(request_id=None, workload_id=req_properties['request_metadata']['workload_id'])
-        assert_equal(is_same_req_trans_colls(req_trans_colls, req_trans_colls1), True)
+        req_trans_colls1 = client.get_collections(request_id=None, workload_id=req_properties['workload_id'])
+        assert_equal(is_same_req_trans_colls(req_trans_colls, req_trans_colls1, allow_request_id_None=True), True)
 
         req_trans_colls1 = client.get_collections(scope=coll_properties['scope'], name=coll_properties['name'],
                                                   request_id=None, workload_id=None)
-        assert_equal(is_same_req_trans_colls(req_trans_colls, req_trans_colls1), True)
+        assert_equal(is_same_req_trans_colls(req_trans_colls, req_trans_colls1, allow_request_id_None=True), True)
 
         content_output_properties = get_content_properties()
         content_output_properties['content_type'] = ContentType.File
         content_output_properties['min_id'] = 0
         content_output_properties['max_id'] = 1000
         content_output_properties['coll_id'] = origin_coll_id
-        origin_content_output_id_0_1000 = add_content(returning_id=True, **content_output_properties)
+        origin_content_output_id_0_1000 = add_content(**content_output_properties)
         content_output_properties_0_100 = copy.deepcopy(content_output_properties)
         content_output_properties_0_100['min_id'] = 0
         content_output_properties_0_100['max_id'] = 100
         content_output_properties['content_type'] = ContentType.Event
-        origin_content_output_id_0_100 = add_content(returning_id=True, **content_output_properties_0_100)
+        origin_content_output_id_0_100 = add_content(**content_output_properties_0_100)
         content_output_properties_100_200 = copy.deepcopy(content_output_properties)
         content_output_properties_100_200['min_id'] = 100
         content_output_properties_100_200['max_id'] = 200
         content_output_properties['content_type'] = ContentType.Event
-        origin_content_output_id_100_200 = add_content(returning_id=True, **content_output_properties_100_200)
+        origin_content_output_id_100_200 = add_content(**content_output_properties_100_200)
         content_output_properties_name1 = copy.deepcopy(content_output_properties)
         content_output_properties_name1['name'] = content_output_properties_name1['name'] + '_1'
-        content_output_properties_name1_id = add_content(returning_id=True, **content_output_properties_name1)
+        content_output_properties_name1_id = add_content(**content_output_properties_name1)
 
         req_trans_coll_contents = client.get_contents(coll_scope=coll_properties['scope'], coll_name=coll_properties['name'],
-                                                      request_id=origin_request_id, workload_id=req_properties['request_metadata']['workload_id'])
+                                                      request_id=origin_request_id, workload_id=req_properties['workload_id'])
         coll_contents = req_trans_coll_contents[origin_request_id][origin_trans_id]
         coll_scope_name = '%s:%s' % (coll_properties['scope'], coll_properties['name'])
         coll_scope_names = [scope_name for scope_name in coll_contents]
@@ -497,18 +491,19 @@ class TestCatalog(unittest.TestCase):
         contents = coll_contents[coll_scope_name]['contents']
         assert_equal(len(contents), 4)
         output_content_ids = [output_content['content_id'] for output_content in contents]
+        output_content_ids.sort()
         assert_equal(output_content_ids, [origin_content_output_id_0_1000, origin_content_output_id_0_100,
                                           origin_content_output_id_100_200, content_output_properties_name1_id])
 
         req_trans_coll_contents1 = client.get_contents(coll_scope=coll_properties['scope'], coll_name=coll_properties['name'],
-                                                       request_id=origin_request_id, workload_id=req_properties['request_metadata']['workload_id'],
+                                                       request_id=origin_request_id, workload_id=req_properties['workload_id'],
                                                        relation_type=CollectionRelationType.Output)
         assert_equal(is_same_req_trans_coll_contents(req_trans_coll_contents, req_trans_coll_contents1), True)
 
         contents = client.get_match_contents(coll_scope=coll_properties['scope'], coll_name=coll_properties['name'],
                                              scope=content_output_properties['scope'], name=content_output_properties['name'],
                                              min_id=None, max_id=None, request_id=origin_request_id,
-                                             workload_id=req_properties['request_metadata']['workload_id'], only_return_best_match=False)
+                                             workload_id=req_properties['workload_id'], only_return_best_match=False)
         assert_equal(len(contents), 3)
         content_ids = [content['content_id'] for content in contents]
         content_ids.sort()
@@ -519,7 +514,7 @@ class TestCatalog(unittest.TestCase):
         contents = client.get_match_contents(coll_scope=coll_properties['scope'], coll_name=coll_properties['name'],
                                              scope=content_output_properties['scope'], name=content_output_properties['name'],
                                              min_id=0, max_id=50, request_id=origin_request_id,
-                                             workload_id=req_properties['request_metadata']['workload_id'], only_return_best_match=False)
+                                             workload_id=req_properties['workload_id'], only_return_best_match=False)
         assert_equal(len(contents), 2)
         content_ids = [content['content_id'] for content in contents]
         content_ids.sort()
@@ -530,7 +525,7 @@ class TestCatalog(unittest.TestCase):
         contents = client.get_match_contents(coll_scope=coll_properties['scope'], coll_name=coll_properties['name'],
                                              scope=content_output_properties['scope'], name=content_output_properties['name'],
                                              min_id=0, max_id=50, request_id=origin_request_id,
-                                             workload_id=req_properties['request_metadata']['workload_id'], only_return_best_match=True)
+                                             workload_id=req_properties['workload_id'], only_return_best_match=True)
         assert_equal(len(contents), 1)
         content_ids = [content['content_id'] for content in contents]
         assert_equal(content_ids, [origin_content_output_id_0_100])
@@ -543,7 +538,7 @@ class TestCatalog(unittest.TestCase):
                      'status': ContentStatus.Failed}]
         client.register_contents(coll_scope=coll_properties['scope'], coll_name=coll_properties['name'],
                                  contents=contents, request_id=origin_request_id,
-                                 workload_id=req_properties['request_metadata']['workload_id'])
+                                 workload_id=req_properties['workload_id'])
         content = get_content(content_id=origin_content_output_id_0_1000)
         assert_equal(content['status'], ContentStatus.Available)
         assert_equal(content['path'], '/abc/test_path')

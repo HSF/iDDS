@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2020
 
 
 import json
@@ -50,7 +50,7 @@ class IDDSController(MethodView):
             return json.dumps(message)
 
     def generate_http_response(self, status_code, data=None, exc_cls=None, exc_msg=None):
-        resp = Response(response=json.dumps(data) if data else data, status=status_code, content_type='application/json')
+        resp = Response(response=json.dumps(data) if data is not None else data, status=status_code, content_type='application/json')
         if exc_cls:
             resp.headers['ExceptionClass'] = exc_cls
             resp.headers['ExceptionMessage'] = self.generate_message(exc_cls, exc_msg)

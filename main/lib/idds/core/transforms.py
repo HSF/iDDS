@@ -6,13 +6,14 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2020
 
 
 """
 operations related to Transform.
 """
 
+import datetime
 from idds.common import exceptions
 
 from idds.common.constants import (TransformStatus,
@@ -61,22 +62,23 @@ def add_transform(transform_type, transform_tag=None, priority=0, status=Transfo
 
 
 @read_session
-def get_transform(transform_id, session=None):
+def get_transform(transform_id, to_json=False, session=None):
     """
     Get transform or raise a NoObject exception.
 
     :param transform_id: Transform id.
+    :param to_json: return json format.
     :param session: The database session in use.
 
     :raises NoObject: If no transform is founded.
 
     :returns: Transform.
     """
-    return orm_transforms.get_transform(transform_id=transform_id, session=session)
+    return orm_transforms.get_transform(transform_id=transform_id, to_json=to_json, session=session)
 
 
 @read_session
-def get_transforms_with_input_collection(transform_type, transform_tag, coll_scope, coll_name, session=None):
+def get_transforms_with_input_collection(transform_type, transform_tag, coll_scope, coll_name, to_json=False, session=None):
     """
     Get transform or raise a NoObject exception.
 
@@ -84,6 +86,7 @@ def get_transforms_with_input_collection(transform_type, transform_tag, coll_sco
     :param transform_tag: Transform tag.
     :param coll_scope: The collection scope.
     :param coll_name: The collection name.
+    :param to_json: return json format.
     :param session: The database session in use.
 
     :raises NoObject: If no transform is founded.
@@ -91,7 +94,7 @@ def get_transforms_with_input_collection(transform_type, transform_tag, coll_sco
     :returns: Transforms.
     """
     return orm_transforms.get_transforms_with_input_collection(transform_type, transform_tag, coll_scope,
-                                                               coll_name, session=session)
+                                                               coll_name, to_json=to_json, session=session)
 
 
 @read_session
@@ -110,35 +113,37 @@ def get_transform_ids(request_id, session=None):
 
 
 @read_session
-def get_transforms(request_id, session=None):
+def get_transforms(request_id, to_json=False, session=None):
     """
     Get transforms or raise a NoObject exception.
 
     :param request_id: Request id.
+    :param to_json: return json format.
     :param session: The database session in use.
 
     :raises NoObject: If no transform is founded.
 
     :returns: list of transform.
     """
-    return orm_transforms.get_transforms(request_id=request_id, session=session)
+    return orm_transforms.get_transforms(request_id=request_id, to_json=to_json, session=session)
 
 
 @read_session
-def get_transforms_by_status(status, period=None, locking=False, bulk_size=None, session=None):
+def get_transforms_by_status(status, period=None, locking=False, bulk_size=None, to_json=False, session=None):
     """
     Get transforms or raise a NoObject exception.
 
     :param status: Transform status or list of transform status.
     :param session: The database session in use.
     :param locking: Whether to lock retrieved items.
+    :param to_json: return json format.
 
     :raises NoObject: If no transform is founded.
 
     :returns: list of transform.
     """
     transforms = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking,
-                                                         bulk_size=bulk_size, session=session)
+                                                         bulk_size=bulk_size, to_json=to_json, session=session)
     if locking:
         parameters = {'locking': TransformLocking.Locking}
         for transform in transforms:
@@ -159,63 +164,6 @@ def update_transform(transform_id, parameters, session=None):
     :raises DatabaseException: If there is a database error.
 
     """
-    orm_transforms.update_transform(transform_id=transform_id, parameters=parameters, session=session)
-
-
-@transactional_session
-def trigger_update_transform_status(transform_id, input_collection_changed=False,
-                                    output_collection_changed=False, session=None):
-    """
-    update transform status based on input/output collection changes.
-
-    :param transform_id: the transform id.
-    :param input_collection_changed: Whether input collection is changed.
-    :param output_collection_changed: Whether output collection is changed.
-    :param session: The database session in use.
-
-    :raises NoObject: If no content is founded.
-    :raises DatabaseException: If there is a database error.
-
-    """
-    if not input_collection_changed and not output_collection_changed:
-        return
-
-    transform = orm_transforms.get_transform(transform_id, session=session)
-    status = transform['status']
-    transform_metadata = transform['transform_metadata']
-
-    if 'input_collection_changed' not in transform_metadata:
-        transform_metadata['input_collection_changed'] = input_collection_changed
-    else:
-        transform_metadata['input_collection_changed'] = transform_metadata['input_collection_changed'] or input_collection_changed
-    if 'output_collection_changed' not in transform_metadata:
-        transform_metadata['output_collection_changed'] = output_collection_changed
-    else:
-        transform_metadata['output_collection_changed'] = transform_metadata['output_collection_changed'] or output_collection_changed
-
-    if isinstance(status, TransformStatus):
-        status = status.value
-
-    new_status = status
-    if input_collection_changed:
-        if status in [TransformStatus.ToCancel.value, TransformStatus.Cancelling.value,
-                      TransformStatus.Failed.value, TransformStatus.Cancelled.value]:
-            new_status = status
-        elif status in [TransformStatus.New.value, TransformStatus.Extend.value]:
-            new_status = TransformStatus.Ready.value
-        elif status in [TransformStatus.Transforming.value]:
-            new_status = TransformStatus.Transforming.value
-        elif status in [TransformStatus.Finished.value, TransformStatus.SubFinished.value]:
-            new_status = TransformStatus.Transforming.value
-
-    elif input_collection_changed or output_collection_changed:
-        if status in [TransformStatus.ToCancel.value, TransformStatus.Cancelling.value,
-                      TransformStatus.Failed.value, TransformStatus.Cancelled.value]:
-            new_status = status
-        else:
-            new_status = TransformStatus.Transforming.value
-
-    parameters = {'status': new_status, 'transform_metadata': transform_metadata}
     orm_transforms.update_transform(transform_id=transform_id, parameters=parameters, session=session)
 
 
@@ -258,7 +206,11 @@ def add_transform_outputs(transform, input_collection, output_collection, input_
                                     'path': None}
             update_input_contents.append(update_input_content)
         if update_input_contents:
-            orm_contents.update_contents(update_input_contents, with_content_id=True, session=session)
+            orm_contents.update_contents(update_input_contents, session=session)
+            # update inut collection next_poll_at to trigger transporter to update its status
+            orm_collections.update_collection(input_collection['coll_id'],
+                                              {'next_poll_at': datetime.datetime.utcnow()},
+                                              session=session)
 
     if output_collection:
         # TODO, the status and new_files should be updated
@@ -311,3 +263,13 @@ def clean_locking(time_period=3600, session=None):
     :param time_period in seconds
     """
     orm_transforms.clean_locking(time_period=time_period, session=session)
+
+
+@transactional_session
+def clean_next_poll_at(status, session=None):
+    """
+    Clearn next_poll_at.
+
+    :param status: status of the transform
+    """
+    orm_transforms.clean_next_poll_at(status=status, session=session)

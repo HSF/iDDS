@@ -69,7 +69,7 @@ def get_req_properties():
         'status': RequestStatus.New,
         'priority': 0,
         'lifetime': 30,
-        'request_metadata': {'workload_id': '20776840', 'max_waiting_time': 345600, 'src_rse': 'NDGF-T1_DATATAPE', 'dest_rse': 'NDGF-T1_DATADISK', 'rule_id': '236e4bf87e11490291e3259b14724e30'}
+        'request_metadata': {'workload_id': '20776840', 'max_waiting_time': 3600, 'src_rse': 'NDGF-T1_DATATAPE', 'dest_rse': 'NDGF-T1_DATADISK', 'rule_id': '236e4bf87e11490291e3259b14724e30'}
     }
     return req_properties
 

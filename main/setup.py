@@ -80,7 +80,9 @@ def replace_python_path(conf_files, python_lib_path, install_bin_path, install_h
         new_file = conf_file.replace('.template', '.install_template')
         with open(conf_file, 'r') as f:
             template = f.read()
-        template = template.format(python_site_packages_path=python_lib_path, GLOBAL='GLOBAL',
+        template = template.format(python_site_packages_path=python_lib_path,
+                                   GLOBAL='GLOBAL',
+                                   REQUEST_METHOD='REQUEST_METHOD',
                                    python_site_home_path=install_home_path,
                                    python_site_bin_path=install_bin_path)
         with open(new_file, 'w') as f:
@@ -108,6 +110,7 @@ replace_data_path(wsgi_file, install_data_path)
 
 requirements_files = ['tools/env/environment.yml']
 install_requires = parse_requirements(requirements_files=requirements_files)
+install_requires = install_requires + ['idds-common', 'idds-client']
 extras_requires = dict(mysql=['mysqlclient'])
 data_files = [
     # config and cron files

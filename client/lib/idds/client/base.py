@@ -102,6 +102,7 @@ class BaseRestClient(object):
 
             if result is not None:
                 if result.status_code == HTTP_STATUS_CODE.OK:
+                    # print(result.text)
                     if result.text:
                         return json.loads(result.text)
                     else:

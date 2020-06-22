@@ -6,13 +6,14 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2020
 
 
 """
 Class of collection lister plubin
 """
 
+import datetime
 import traceback
 
 
@@ -38,6 +39,7 @@ class StageInSubmitter(ProcessingPluginBase):
                 processing_metadata['rule_id'] = rule_id
                 ret = {'processing_id': processing['processing_id'],
                        'status': ProcessingStatus.Submitted,
+                       'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period),
                        'processing_metadata': processing_metadata}
             return ret
         except Exception as ex:

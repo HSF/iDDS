@@ -44,6 +44,8 @@ class RuleCreator(RucioPluginBase):
                                                        locked=False,
                                                        grouping='DATASET',
                                                        ask_approval=False)
+            if type(rule_id) in (list, tuple):
+                rule_id = rule_id[0]
             return rule_id
         except DuplicateRule as ex:
             self.logger.warn(ex)

@@ -18,8 +18,9 @@ from idds.common.plugin.plugin_base import PluginBase
 
 
 class ProcessingPluginBase(PluginBase):
-    def __init__(self, **kwargs):
+    def __init__(self, poll_time_period=2, **kwargs):
         super(ProcessingPluginBase, self).__init__(**kwargs)
+        self.poll_time_period = int(poll_time_period)
 
     def __call__(self, **kwargs):
         return exceptions.NotImplementedException(self.get_class_name())

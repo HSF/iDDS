@@ -51,6 +51,7 @@ class StageInPoller(ProcessingPluginBase):
         current_time = datetime.datetime.utcnow()
         life_diff = current_time - rule['created_at']
         life_time = life_diff.total_seconds()
+        # self.logger.info("rule created_at %s, rule life time %s" % (rule['created_at'], life_time))
         return life_time
 
     def get_max_waiting_time(self, transform):
@@ -61,13 +62,22 @@ class StageInPoller(ProcessingPluginBase):
             return self.default_max_waiting_time
 
     def should_create_new_rule(self, basic_rule, new_rules, transform):
+        if new_rules:
+            # self.logger.info("There are already new rules(%s), will not create new rule." % str(new_rules))
+            return False
         if self.check_all_rules_for_new_rule:
             rules = [basic_rule] + new_rules
         else:
             rules = [basic_rule]
 
+        # self.logger.debug("max_waiting_time: %s" % self.get_max_waiting_time(transform))
         for rule in rules:
             if self.get_rule_lifetime(rule) >= self.get_max_waiting_time(transform):
+                msg = "For transform(%s), rule lifetime (%s seconds) >= max_waiting_time(%s)" % (transform['transform_id'],
+                                                                                                 self.get_rule_lifetime(rule),
+                                                                                                 self.get_max_waiting_time(transform))
+                msg += "should create new rule"
+                self.logger.info(msg)
                 return True
         return False
 
@@ -80,7 +90,8 @@ class StageInPoller(ProcessingPluginBase):
                 return None
 
             dataset_scope = rule['scope']
-            dataset_name = rule['name'] + ".idds.sub_%s" % int(time.time())
+            dataset_name = rule['name'] + ".idds_sub_%s" % int(time.time())
+            self.logger.info("Creating new rule for dataset %s:%s" % (dataset_scope, dataset_name))
             rule_id = self.plugins['rule_creator'](dataset_scope=dataset_scope,
                                                    dataset_name=dataset_name,
                                                    dids=dids,
@@ -126,6 +137,7 @@ class StageInPoller(ProcessingPluginBase):
             for file in output_contents:
                 file_key = '%s:%s' % (file['scope'], file['name'])
                 new_file_status = self.get_replica_status(file_key, basic_replicases_status, new_replicases_statuses)
+
                 if not new_file_status == file['status']:
                     file['status'] = new_file_status
 
@@ -158,8 +170,12 @@ class StageInPoller(ProcessingPluginBase):
                 file_statusvalue_statistics[key.name] = file_status_statistics[key]
             processing_metadata['content_status_statistics'] = file_statusvalue_statistics
 
+            new_rule_id = None
+            # self.logger.info("number of remain files: %s" % len(remain_files))
             if remain_files and self.should_create_new_rule(basic_rule, new_rules, transform):
+                self.logger.info("creating new rules")
                 new_rule_id = self.create_new_rule(rule=basic_rule, dids=remain_files, dest_rse=basic_rule['rse_expression'])
+                self.logger.info("For transform(%s), new rule id: %s" % (transform['transform_id'], new_rule_id))
             if new_rule_id is not None:
                 if ('new_rule_ids' not in processing_metadata):
                     processing_metadata['new_rule_ids'] = [new_rule_id]
@@ -167,6 +183,7 @@ class StageInPoller(ProcessingPluginBase):
                     processing_metadata['new_rule_ids'].append(new_rule_id)
 
             processing_updates = {'status': processing_status,
+                                  'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period),
                                   'processing_metadata': processing_metadata}
 
             return {'updated_files': updated_files, 'processing_updates': processing_updates}

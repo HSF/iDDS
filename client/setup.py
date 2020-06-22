@@ -13,7 +13,6 @@ import glob
 import io
 import os
 import re
-import io
 import sys
 from distutils.sysconfig import get_python_lib
 from setuptools import setup, find_packages, Distribution
@@ -83,6 +82,7 @@ install_data_path = get_data_path()
 
 requirements_files = ['tools/env/environment.yml']
 install_requires = parse_requirements(requirements_files=requirements_files)
+install_requires = install_requires + ['idds-common']
 data_files = [
     # config and cron files
     ('etc/idds/', glob.glob('etc/idds/*.template')),

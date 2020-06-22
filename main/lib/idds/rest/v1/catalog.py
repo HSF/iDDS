@@ -17,8 +17,7 @@ from flask import Blueprint
 
 from idds.common import exceptions
 from idds.common.constants import HTTP_STATUS_CODE
-from idds.common.utils import convert_nojsontype_to_value
-from idds.api.catalog import get_collections, get_contents, register_output_contents, get_match_contents
+from idds.core.catalog import get_collections, get_contents, register_output_contents, get_match_contents
 from idds.rest.v1.controller import IDDSController
 
 
@@ -49,8 +48,7 @@ class Collections(IDDSController):
             else:
                 workload_id = int(workload_id)
 
-            rets = get_collections(scope=scope, name=name, request_id=request_id, workload_id=workload_id)
-            rets = convert_nojsontype_to_value(rets)
+            rets = get_collections(scope=scope, name=name, request_id=request_id, workload_id=workload_id, to_json=True)
         except exceptions.NoObject as error:
             return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
         except exceptions.IDDSException as error:
@@ -95,8 +93,7 @@ class Contents(IDDSController):
                 relation_type = int(relation_type)
 
             rets = get_contents(coll_scope=coll_scope, coll_name=coll_name, request_id=request_id,
-                                workload_id=workload_id, relation_type=relation_type)
-            rets = convert_nojsontype_to_value(rets)
+                                workload_id=workload_id, relation_type=relation_type, to_json=True)
         except exceptions.NoObject as error:
             return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
         except exceptions.IDDSException as error:
@@ -156,9 +153,8 @@ class Catalog(IDDSController):
                     only_return_best_match = False
 
             rets = get_match_contents(coll_scope=coll_scope, coll_name=coll_name, scope=scope, name=name,
-                                      min_id=min_id, max_id=max_id, request_id=request_id,
+                                      min_id=min_id, max_id=max_id, request_id=request_id, to_json=True,
                                       workload_id=workload_id, only_return_best_match=only_return_best_match)
-            rets = convert_nojsontype_to_value(rets)
         except exceptions.NoObject as error:
             return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
         except exceptions.IDDSException as error:
