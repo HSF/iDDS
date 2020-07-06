@@ -72,7 +72,7 @@ class StageInPoller(ProcessingPluginBase):
 
         # self.logger.debug("max_waiting_time: %s" % self.get_max_waiting_time(transform))
         for rule in rules:
-            if self.get_rule_lifetime(rule) >= self.get_max_waiting_time(transform):
+            if rule and self.get_rule_lifetime(rule) >= self.get_max_waiting_time(transform):
                 msg = "For transform(%s), rule lifetime (%s seconds) >= max_waiting_time(%s)" % (transform['transform_id'],
                                                                                                  self.get_rule_lifetime(rule),
                                                                                                  self.get_max_waiting_time(transform))
@@ -87,6 +87,9 @@ class StageInPoller(ProcessingPluginBase):
                 # raise exceptions.AgentPluginError('Plugin rule_creator is required')
                 err_msg = "Plugin rule_creator is required"
                 self.logger.error(err_msg)
+                return None
+
+            if not rule:
                 return None
 
             dataset_scope = rule['scope']
@@ -118,12 +121,19 @@ class StageInPoller(ProcessingPluginBase):
     def __call__(self, processing, transform, input_collection, output_collection, output_contents):
         try:
             processing_metadata = processing['processing_metadata']
+            all_rule_notfound = True
 
             if 'rule_poller' not in self.plugins:
                 raise exceptions.AgentPluginError('Plugin rule_poller is required')
 
             rule_id = processing_metadata['rule_id']
-            basic_rule, basic_replicases_status = self.plugins['rule_poller'](rule_id)
+            try:
+                basic_rule, basic_replicases_status = self.plugins['rule_poller'](rule_id)
+                all_rule_notfound = False
+            except exceptions.ProcessNotFound as ex:
+                self.logger.warn(ex)
+                basic_rule = None
+                basic_replicases_status = []
 
             if 'new_rule_ids' in processing_metadata:
                 new_rule_ids = processing_metadata['new_rule_ids']
@@ -131,7 +141,12 @@ class StageInPoller(ProcessingPluginBase):
                 new_rule_ids = []
             new_rules, new_replicases_statuses = [], []
             for rule_id in new_rule_ids:
-                new_rule, new_replicases_status = self.plugins['rule_poller'](rule_id)
+                try:
+                    new_rule, new_replicases_status = self.plugins['rule_poller'](rule_id)
+                    all_rule_notfound = False
+                except exceptions.ProcessNotFound as ex:
+                    self.logger.warn(ex)
+                    new_rule, new_replicases_status = None, []
                 new_rules.append(new_rule)
                 new_replicases_statuses.append(new_replicases_status)
 
@@ -186,6 +201,9 @@ class StageInPoller(ProcessingPluginBase):
                     processing_metadata['new_rule_ids'] = [new_rule_id]
                 else:
                     processing_metadata['new_rule_ids'].append(new_rule_id)
+
+            if all_rule_notfound and new_rule_id is None:
+                processing_status = ProcessingStatus.Failed
 
             processing_updates = {'status': processing_status,
                                   'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period),

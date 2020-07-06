@@ -15,6 +15,8 @@ Class of collection lister plubin
 
 import traceback
 
+from rucio.common.exception import RuleNotFound
+
 from idds.common import exceptions
 from idds.common.constants import ContentStatus
 from idds.atlas.rucio.base_plugin import RucioPluginBase
@@ -41,6 +43,9 @@ class RulePoller(RucioPluginBase):
                     scope_name = '%s:%s' % (lock['scope'], lock['name'])
                     replicases_status[scope_name] = self.get_state(lock['state'])
             return rule, replicases_status
+        except RuleNotFound as ex:
+            msg = "rule(%s) not found: %s" % (str(rule_id), str(ex))
+            raise exceptions.ProcessNotFound(msg)
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
