@@ -25,7 +25,7 @@ from idds.core import (catalog as core_catalog)
 
 
 class HyperParameterOptCondorPoller(CondorPoller):
-    def __init__(self, workdir, **kwargs):
+    def __init__(self, workdir, max_life_time=14 * 24 * 3600, **kwargs):
         super(HyperParameterOptCondorPoller, self).__init__(workdir, **kwargs)
         if not hasattr(self, 'max_unevaluated_points'):
             self.max_unevaluated_points = None
@@ -35,6 +35,8 @@ class HyperParameterOptCondorPoller(CondorPoller):
             self.min_unevaluated_points = None
         else:
             self.min_unevaluated_points = int(self.min_unevaluated_points)
+
+        self.max_life_time = int(max_life_time)
 
     def generate_new_contents(self, transform, input_collection, output_collection, points):
         if not isinstance(points, (tuple, list)):
@@ -134,6 +136,14 @@ class HyperParameterOptCondorPoller(CondorPoller):
                 new_processing = None
                 if processing_status == ProcessingStatus.FinishedOnStep:
                     new_processing = self.create_new_processing(processing)
+
+                # fail processes if it waits too long time
+                if processing_status not in [ProcessingStatus.Finished, ProcessingStatus.FinishedOnStep]:
+                    current_time = datetime.datetime.utcnow()
+                    life_diff = current_time - processing['created_at']
+                    life_time = life_diff.total_seconds()
+                    if life_time > self.max_life_time:
+                        processing_status = ProcessingStatus.TimeOut
 
                 processing_updates = {'status': processing_status,
                                       'substatus': processing['substatus'],

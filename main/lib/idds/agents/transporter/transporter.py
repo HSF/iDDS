@@ -227,9 +227,13 @@ class Transporter(BaseAgent):
         processings = core_processings.get_processings_by_transform_id(transform_id=transform_id)
         for processing in processings:
             if not processing['status'] in [ProcessingStatus.Finished, ProcessingStatus.Failed, ProcessingStatus.Lost,
-                                            ProcessingStatus.Cancel, ProcessingStatus.FinishedOnStep, ProcessingStatus.FinishedOnExec,
+                                            # ProcessingStatus.Cancel, ProcessingStatus.FinishedOnStep, ProcessingStatus.FinishedOnExec,
+                                            ProcessingStatus.Cancel, ProcessingStatus.FinishedOnStep,
+                                            ProcessingStatus.TimeOut,
                                             ProcessingStatus.Finished.value, ProcessingStatus.Failed.value, ProcessingStatus.Lost.value,
-                                            ProcessingStatus.Cancel.value, ProcessingStatus.FinishedOnStep.value, ProcessingStatus.FinishedOnExec.value]:
+                                            # ProcessingStatus.Cancel.value, ProcessingStatus.FinishedOnStep.value, ProcessingStatus.FinishedOnExec.value,
+                                            ProcessingStatus.Cancel.value, ProcessingStatus.FinishedOnStep.value,
+                                            ProcessingStatus.TimeOut.value]:
                 return False
         return True
 
@@ -319,9 +323,11 @@ class Transporter(BaseAgent):
             coll_status = CollectionStatus.SubClosed
         elif (ContentStatus.New in content_status_keys or ContentStatus.New.value in content_status_keys            # noqa: W503
             or ContentStatus.Failed in content_status_keys or ContentStatus.Failed.value in content_status_keys):   # noqa: W503
-            coll_status = CollectionStatus.Processing
+            # coll_status = CollectionStatus.Processing
+            coll_status = CollectionStatus.Failed
         else:
-            coll_status = CollectionStatus.Processing
+            # coll_status = CollectionStatus.Processing
+            coll_status = CollectionStatus.Failed
 
         coll_metadata = coll['coll_metadata']
         if not coll_metadata:
