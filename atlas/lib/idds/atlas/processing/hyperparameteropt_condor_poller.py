@@ -158,10 +158,17 @@ class HyperParameterOptCondorPoller(CondorPoller):
             if 'submitter' in processing_metadata and processing_metadata['submitter'] == self.name:
                 job_id = processing_metadata['job_id']
                 if job_id:
-                    job_status, job_err_msg = self.poll_job_status(processing['processing_id'], job_id)
+                    job_status, job_err_msg, std_out_msg, std_err_msg = self.poll_job_status(processing['processing_id'], job_id)
                 else:
                     job_status = ProcessingStatus.Failed
                     job_err_msg = 'job_id is cannot be found in the processing metadata.'
+                    std_out_msg = None
+                    std_err_msg = None
+
+                if std_out_msg:
+                    std_out_msg = std_out_msg[-5000:]
+                if std_err_msg:
+                    std_err_msg = std_err_msg[-5000:]
 
                 new_files = []
                 processing_status = ProcessingStatus.Running
@@ -182,7 +189,7 @@ class HyperParameterOptCondorPoller(CondorPoller):
                             processing_status = ProcessingStatus.FinishedOnExec
                             processing_substatus = ProcessingStatus.Finished
                             processing_metadata['job_status'] = job_status.name
-                            processing_metadata['final_error'] = None
+                            processing_metadata['final_error'] = "No new hyperparameters are created." + " stderr: (%s), stdout: (%s)" % (std_out_msg, std_err_msg)
                             # processing_metadata['final_outputs'] = job_outputs
                             output_metadata = job_outputs
                             new_files = self.generate_new_contents(transform, input_collection, output_collection, job_outputs)
@@ -191,20 +198,20 @@ class HyperParameterOptCondorPoller(CondorPoller):
                             processing_substatus = ProcessingStatus.Failed
                             processing_metadata['job_status'] = job_status.name
                             err_msg = 'Failed to parse outputs: %s' % str(parser_errors)
-                            processing_metadata['final_errors'] = err_msg
+                            processing_metadata['final_errors'] = err_msg + " stderr: (%s), stdout: (%s)" % (std_out_msg, std_err_msg)
                     else:
                         processing_status = ProcessingStatus.FinishedOnExec
                         processing_substatus = ProcessingStatus.Failed
                         processing_metadata['job_status'] = job_status.name
                         err_msg = 'Failed to parse outputs: "output_json" file is not defined and it is the only way currently supported to parse the results'
-                        processing_metadata['final_errors'] = err_msg
+                        processing_metadata['final_errors'] = err_msg + " stderr: (%s), stdout: (%s)" % (std_out_msg, std_err_msg)
                 else:
                     if job_status in [ProcessingStatus.Failed, ProcessingStatus.Cancel]:
                         processing_status = ProcessingStatus.FinishedOnExec
                         processing_substatus = ProcessingStatus.Failed
                         processing_metadata['job_status'] = job_status.name
                         err_msg = 'The job failed: %s' % job_err_msg
-                        processing_metadata['final_errors'] = err_msg
+                        processing_metadata['final_errors'] = err_msg + " stderr: (%s), stdout: (%s)" % (std_out_msg, std_err_msg)
 
                 if processing_status == ProcessingStatus.FinishedOnExec:
                     job_dir = self.get_job_dir(processing['processing_id'])
