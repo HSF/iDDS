@@ -168,6 +168,7 @@ class ProcessingStatus(Enum):
     FinishedOnStep = 8
     FinishedOnExec = 9
     TimeOut = 10
+    FinishedTerm = 11
 
 
 class ProcessingLocking(Enum):
