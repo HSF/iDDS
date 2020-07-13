@@ -156,10 +156,10 @@ class HyperParameterOptCondorPoller(CondorPoller):
                     life_time = life_diff.total_seconds()
                     if life_time > self.max_life_time:
                         processing_status = ProcessingStatus.TimeOut
-                        if processing_metadata['final_error']:
-                            processing_metadata['final_error'] = "Timeout(%s seconds) to wait evaluation reports" % self.max_life_time + processing_metadata['final_error']
+                        if processing_metadata['final_errors']:
+                            processing_metadata['final_errors'] = "Timeout(%s seconds) to wait evaluation reports" % self.max_life_time + processing_metadata['final_errors']
                         else:
-                            processing_metadata['final_error'] = "Timeout(%s seconds) to wait evaluation reports" % self.max_life_time
+                            processing_metadata['final_errors'] = "Timeout(%s seconds) to wait evaluation reports" % self.max_life_time
                     else:
                         if self.min_unevaluated_points and unevaluated_points >= self.min_unevaluated_points:
                             pass
@@ -213,7 +213,7 @@ class HyperParameterOptCondorPoller(CondorPoller):
                             processing_status = ProcessingStatus.FinishedOnExec
                             processing_substatus = ProcessingStatus.Finished
                             processing_metadata['job_status'] = job_status.name
-                            processing_metadata['final_error'] = None
+                            processing_metadata['final_errors'] = None
                             # processing_metadata['final_outputs'] = job_outputs
                             output_metadata = job_outputs
                             new_files = self.generate_new_contents(transform, input_collection, output_collection, job_outputs)
@@ -221,7 +221,7 @@ class HyperParameterOptCondorPoller(CondorPoller):
                             processing_status = ProcessingStatus.FinishedOnExec
                             processing_substatus = ProcessingStatus.FinishedTerm
                             processing_metadata['job_status'] = job_status.name
-                            processing_metadata['final_error'] = "No new hyperparameters are created." + " stderr: (%s), stdout: (%s)" % (std_out_msg, std_err_msg)
+                            processing_metadata['final_errors'] = "No new hyperparameters are created." + " stderr: (%s), stdout: (%s)" % (std_out_msg, std_err_msg)
                             # processing_metadata['final_outputs'] = job_outputs
                             output_metadata = job_outputs
                             new_files = self.generate_new_contents(transform, input_collection, output_collection, job_outputs)
