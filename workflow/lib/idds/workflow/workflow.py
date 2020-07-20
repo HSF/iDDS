@@ -8,8 +8,6 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2020
 
-from .work import Work
-
 
 class Condition(object):
     def __init__(self, cond, prework, true_work, false_work=None):
@@ -27,7 +25,7 @@ class Condition(object):
         self.true_work = true_work
         self.false_work = false_work
 
-    def all_works():
+    def all_works(self):
         works = []
         works.append(self.prework)
         works.append(self.true_work)
@@ -35,18 +33,19 @@ class Condition(object):
             works.append(self.false_work)
         return works
 
-    def all_next_works():
+    def all_next_works(self):
         works = []
         works.append(self.true_work)
         if self.false_work:
             works.append(self.false_work)
         return works
 
-    def get_next_work():
+    def get_next_work(self):
         if self.cond():
             return self.true_work
         else:
             return self.false_work
+
 
 class Workflow(object):
 
@@ -69,7 +68,7 @@ class Workflow(object):
     def add_condition(self, cond):
         cond_works = cond.all_works()
         for cond_work in cond_works:
-            assert_in(cond_work, self.works)
+            assert(cond_work in self.works)
         # for next_work in cond.all_next_works():
         #     if next_work in self.current_works:
         #         del self.current_works[next_work]
@@ -82,7 +81,7 @@ class Workflow(object):
         return self.current_works
 
     def update_work_status(self, work, status):
-        assert_in(work, self.current_works)
+        assert(work in self.current_works)
         work.status = status
         if work.is_terminated():
             if work not in self.work_conds:

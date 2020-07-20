@@ -9,11 +9,14 @@
 # - Wen Guan, <wen.guan@cern.ch>, 2020
 
 import copy
+import re
 
 from .base import Base
+
+
 class Parameter(object):
     def __init__(self, params):
-        assert_equal(type(params), dict)
+        assert(type(params) in [dict])
         self.params = params
 
     def add(self, name, value):
@@ -54,6 +57,9 @@ class Work(Base):
         self.sandbox = sandbox
         self.work_id = work_id
 
+        self.input_collection_scope, self.input_collection_name = None, None
+        self.output_collection_scope, self.output_collection_name = None, None
+
         self.status = 'new'
         self.next_works = []
 
@@ -69,7 +75,7 @@ class Work(Base):
         self.next_works.append(work)
 
     def initialize_work(self):
-        for key in self.parameters.get_param_names()
+        for key in self.parameters.get_param_names():
             self.arguments = re.sub(key, str(self.parameters.get_param_value(key)), self.arguments)
 
     def set_input_collection(self, scope, name):
@@ -77,7 +83,7 @@ class Work(Base):
         self.input_collection_name = name
 
     def get_input_collection(self):
-        return self.input_collection_scope, input_collection_name
+        return self.input_collection_scope, self.input_collection_name
 
     def get_input_contents(self):
         pass
@@ -88,9 +94,7 @@ class Work(Base):
         self.input_collection_name = name
 
     def get_output_collection(self):
-        return self.output_collection_scope, output_collection_name
+        return self.output_collection_scope, self.output_collection_name
 
     def get_output_contents(self):
         pass
-
-
