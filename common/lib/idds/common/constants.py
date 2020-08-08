@@ -64,12 +64,31 @@ class RequestLocking(Enum):
     Locking = 1
 
 
+class WorkprogressStatus(Enum):
+    New = 0
+    Ready = 1
+    Transforming = 2
+    Finished = 3
+    SubFinished = 4
+    Failed = 5
+    Extend = 6
+    ToCancel = 7
+    Cancelling = 8
+    Cancelled = 9
+
+
+class WorkprogressLocking(Enum):
+    Idle = 0
+    Locking = 1
+
+
 class RequestType(Enum):
-    Derivation = 0
+    Workflow = 0
     EventStreaming = 1
     StageIn = 2
     ActiveLearning = 3
     HyperParameterOpt = 4
+    Derivation = 5
     Other = 99
 
 
