@@ -74,6 +74,22 @@ def add_workprogress(request_id, scope, name, priority=0, status=WorkProgressSta
                                              session=session)
 
 
+@transactional_session
+def add_workprogresses(workprogresses, bulk_size=1000, session=None):
+    """
+    Add workprogresses.
+
+    :param workprogresses: dict of workprogress.
+    :param session: session.
+
+    :raises DuplicatedObject: If a collection with the same name exists.
+    :raises DatabaseException: If there is a database error.
+
+    :returns: workprogress ids.
+    """
+    return orm_workprogress.add_workprogresses(workprogresses, bulk_size=bulk_size, session=session)
+
+
 @read_session
 def get_workprogresses(request_id, to_json=False, session=None):
     """

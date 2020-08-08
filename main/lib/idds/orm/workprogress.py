@@ -89,6 +89,32 @@ def add_workprogress(request_id, scope, name, priority=0, status=WorkProgressSta
         raise exceptions.DatabaseException(error)
 
 
+@transactional_session
+def add_workprogresses(workprogresses, bulk_size=1000, session=None):
+    """
+    Add workprogresses.
+
+    :param workprogresses: dict of workprogress.
+    :param session: session.
+
+    :raises DuplicatedObject: If a collection with the same name exists.
+    :raises DatabaseException: If there is a database error.
+
+    :returns: workprogress ids.
+    """
+    sub_params = [workprogresses[i:i + bulk_size] for i in range(0, len(workprogresses), bulk_size)]
+
+    try:
+        for sub_param in sub_params:
+            session.bulk_insert_mappings(models.Workprogress, sub_param)
+        wp_ids = [None for _ in range(len(workprogresses))]
+        return wp_ids
+    except IntegrityError as error:
+        raise exceptions.DuplicatedObject('Duplicated objects: %s' % (error))
+    except DatabaseError as error:
+        raise exceptions.DatabaseException(error)
+
+
 @read_session
 def get_workprogresses(request_id, to_json=False, session=None):
     """
