@@ -22,6 +22,7 @@ from sqlalchemy.orm import object_mapper
 from sqlalchemy.schema import CheckConstraint, UniqueConstraint, Index, PrimaryKeyConstraint, ForeignKeyConstraint, Sequence, Table
 
 from idds.common.constants import (RequestType, RequestStatus, RequestLocking,
+                                   WorkprogressStatus, WorkprogressLocking,
                                    TransformType, TransformStatus, TransformLocking,
                                    ProcessingStatus, ProcessingLocking,
                                    CollectionStatus, CollectionLocking, CollectionType,
@@ -147,6 +148,49 @@ class Request(BASE, ModelBase):
                    # UniqueConstraint('name', 'scope', 'requester', 'request_type', 'transform_tag', 'workload_id', name='REQUESTS_NAME_SCOPE_UQ '),
                    Index('REQUESTS_SCOPE_NAME_IDX', 'workload_id', 'request_id', 'name', 'scope'),
                    Index('REQUESTS_STATUS_PRIO_IDX', 'status', 'priority', 'workload_id', 'request_id', 'locking', 'updated_at', 'next_poll_at', 'created_at'))
+
+
+class Workprogress(BASE, ModelBase):
+    """Represents a workprogress which monitors the progress of a workflow"""
+    __tablename__ = 'workprogresses'
+    workprogress_id = Column(BigInteger().with_variant(Integer, "sqlite"), Sequence('WORKPROGRESS_ID_SEQ', schema=DEFAULT_SCHEMA_NAME), primary_key=True)
+    request_id = Column(BigInteger().with_variant(Integer, "sqlite"))
+    scope = Column(String(SCOPE_LENGTH))
+    name = Column(String(NAME_LENGTH))
+    # requester = Column(String(20))
+    # request_type = Column(EnumWithValue(RequestType))
+    # transform_tag = Column(String(20))
+    # workload_id = Column(Integer())
+    priority = Column(Integer())
+    status = Column(EnumWithValue(WorkprogressStatus))
+    substatus = Column(Integer())
+    locking = Column(EnumWithValue(WorkprogressLocking))
+    created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    next_poll_at = Column("next_poll_at", DateTime, default=datetime.datetime.utcnow)
+    accessed_at = Column("accessed_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    expired_at = Column("expired_at", DateTime)
+    errors = Column(JSON())
+    workload_metadata = Column(JSON())
+    processing_metadata = Column(JSON())
+
+    _table_args = (PrimaryKeyConstraint('workprogress_id', name='WORKPROGRESS_PK'),
+                   ForeignKeyConstraint(['request_id'], ['requests.request_id'], name='REQ2WORKPROGRESS_REQ_ID_FK')
+                   CheckConstraint('status IS NOT NULL', name='WORKPROGRESS_STATUS_ID_NN'),
+                   # UniqueConstraint('name', 'scope', 'requester', 'request_type', 'transform_tag', 'workload_id', name='REQUESTS_NAME_SCOPE_UQ '),
+                   Index('WORKPROGRESS_SCOPE_NAME_IDX', 'workprogress_id', 'request_id', 'name', 'scope'),
+                   Index('WORKPROGRESS_STATUS_PRIO_IDX', 'status', 'priority', 'workprogress_id', 'locking', 'updated_at', 'next_poll_at', 'created_at'))
+
+
+class Workflow2transform(BASE, ModelBase):
+    """Represents a workprogress to transform"""
+    __tablename__ = 'wg2transforms'
+    workprogress_id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    transform_id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+
+    _table_args = (PrimaryKeyConstraint('workprogress_id', 'transform_id', name='WP2TRANSFORMS_PK'),
+                   ForeignKeyConstraint(['workprogress_id'], ['workprogresses.workprogress_id'], name='WP2TRANSFORMS_WORK_ID_FK'),
+                   ForeignKeyConstraint(['transform_id'], ['transforms.transform_id'], name='WP2TRANSFORMS_TRANS_ID_FK'))
 
 
 class Transform(BASE, ModelBase):
