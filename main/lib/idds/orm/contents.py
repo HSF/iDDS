@@ -18,6 +18,7 @@ import datetime
 import sqlalchemy
 from sqlalchemy import func
 from sqlalchemy.exc import DatabaseError, IntegrityError
+from sqlalchemy.sql.expression import asc
 
 from idds.common import exceptions
 from idds.common.constants import ContentType, ContentStatus, ContentLocking
@@ -25,13 +26,16 @@ from idds.orm.base.session import read_session, transactional_session
 from idds.orm.base import models
 
 
-def create_content(coll_id, scope, name, min_id, max_id, content_type=ContentType.File, status=ContentStatus.New,
+def create_content(transform_id, coll_id, map_id, scope, name, min_id, max_id, content_type=ContentType.File,
+                   status=ContentStatus.New,
                    bytes=0, md5=None, adler32=None, processing_id=None, storage_id=None, retries=0,
                    locking=ContentLocking.Idle, path=None, expired_at=None, content_metadata=None):
     """
     Create a content.
 
+    :param transform_id: transform id.
     :param coll_id: collection id.
+    :param map_id: The id to map inputs to outputs.
     :param scope: The scope of the request data.
     :param name: The name of the request data.
     :param min_id: The minimal id of the content.
@@ -51,7 +55,8 @@ def create_content(coll_id, scope, name, min_id, max_id, content_type=ContentTyp
     :returns: content.
     """
 
-    new_content = models.Content(coll_id=coll_id, scope=scope, name=name, min_id=min_id, max_id=max_id,
+    new_content = models.Content(transform_id=transform_id, coll_id=coll_id, map_id=map_id,
+                                 scope=scope, name=name, min_id=min_id, max_id=max_id,
                                  content_type=content_type, status=status, bytes=bytes, md5=md5,
                                  adler32=adler32, processing_id=processing_id, storage_id=storage_id,
                                  retries=retries, path=path, expired_at=expired_at, locking=locking,
@@ -60,13 +65,15 @@ def create_content(coll_id, scope, name, min_id, max_id, content_type=ContentTyp
 
 
 @transactional_session
-def add_content(coll_id, scope, name, min_id=0, max_id=0, content_type=ContentType.File, status=ContentStatus.New,
+def add_content(transform_id, coll_id, map_id, scope, name, min_id=0, max_id=0, content_type=ContentType.File, status=ContentStatus.New,
                 bytes=0, md5=None, adler32=None, processing_id=None, storage_id=None, retries=0,
                 locking=ContentLocking.Idle, path=None, expired_at=None, content_metadata=None, session=None):
     """
     Add a content.
 
+    :param transform_id: transform id.
     :param coll_id: collection id.
+    :param map_id: The id to map inputs to outputs.
     :param scope: The scope of the request data.
     :param name: The name of the request data.
     :param min_id: The minimal id of the content.
@@ -90,7 +97,8 @@ def add_content(coll_id, scope, name, min_id=0, max_id=0, content_type=ContentTy
     """
 
     try:
-        new_content = create_content(coll_id=coll_id, scope=scope, name=name, min_id=min_id, max_id=max_id,
+        new_content = create_content(transform_id=transform_id, coll_id=coll_id, map_id=map_id,
+                                     scope=scope, name=name, min_id=min_id, max_id=max_id,
                                      content_type=content_type, status=status, bytes=bytes, md5=md5,
                                      adler32=adler32, processing_id=processing_id, storage_id=storage_id,
                                      retries=retries, path=path, expired_at=expired_at,
@@ -99,8 +107,8 @@ def add_content(coll_id, scope, name, min_id=0, max_id=0, content_type=ContentTy
         content_id = new_content.content_id
         return content_id
     except IntegrityError as error:
-        raise exceptions.DuplicatedObject('Content coll_id:scope:name(%s:%s:%s) already exists!: %s' %
-                                          (coll_id, scope, name, error))
+        raise exceptions.DuplicatedObject('Content transform_id:map_id(%s:%s) already exists!: %s' %
+                                          (transform_id, map_id, error))
     except DatabaseError as error:
         raise exceptions.DatabaseException(error)
 
@@ -118,7 +126,8 @@ def add_contents(contents, bulk_size=1000, session=None):
 
     :returns: content id.
     """
-    default_params = {'coll_id': None, 'scope': None, 'name': None, 'min_id': 0, 'max_id': 0,
+    default_params = {'transform_id': None, 'coll_id': None, 'map_id': None,
+                      'scope': None, 'name': None, 'min_id': 0, 'max_id': 0,
                       'content_type': ContentType.File, 'status': ContentStatus.New,
                       'locking': ContentLocking.Idle,
                       'bytes': 0, 'md5': None, 'adler32': None, 'processing_id': None,
@@ -296,6 +305,41 @@ def get_contents(scope=None, name=None, coll_id=None, status=None, to_json=False
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('No record can be found with (scope=%s, name=%s, coll_id=%s): %s' %
                                   (scope, name, coll_id, error))
+    except Exception as error:
+        raise error
+
+
+@read_session
+def get_contents_by_transform(transform_id, to_json=False, session=None):
+    """
+    Get content or raise a NoObject exception.
+
+    :param transform_id: transform id.
+    :param to_json: return json format.
+
+    :param session: The database session in use.
+
+    :raises NoObject: If no content is founded.
+
+    :returns: list of contents.
+    """
+
+    try:
+        query = session.query(models.Content).filter(models.Content.transform_id == transform_id)
+        query = query.order_by(asc(models.Content.map_id))
+
+        tmp = query.all()
+        rets = []
+        if tmp:
+            for t in tmp:
+                if to_json:
+                    rets.append(t.to_dict_json())
+                else:
+                    rets.append(t.to_dict())
+        return rets
+    except sqlalchemy.orm.exc.NoResultFound as error:
+        raise exceptions.NoObject('No record can be found with (transform_id=%s): %s' %
+                                  (transform_id, error))
     except Exception as error:
         raise error
 

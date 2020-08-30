@@ -50,7 +50,7 @@ def create_transform(transform_type, transform_tag=None, priority=0, status=Tran
 
 @transactional_session
 def add_transform(transform_type, transform_tag=None, priority=0, status=TransformStatus.New, locking=TransformLocking.Idle,
-                  retries=0, expired_at=None, transform_metadata=None, request_id=None, session=None):
+                  retries=0, expired_at=None, transform_metadata=None, workprogress_id=None, session=None):
     """
     Add a transform.
 
@@ -75,9 +75,9 @@ def add_transform(transform_type, transform_tag=None, priority=0, status=Transfo
         new_transform.save(session=session)
         transform_id = new_transform.transform_id
 
-        if request_id:
-            new_req2transform = models.Req2transform(request_id=request_id, transform_id=transform_id)
-            new_req2transform.save(session=session)
+        if workprogress_id:
+            new_wp2transform = models.Workprogress2transform(workprogress_id=workprogress_id, transform_id=transform_id)
+            new_wp2transform.save(session=session)
 
         return transform_id
     except IntegrityError as error:
@@ -101,6 +101,25 @@ def add_req2transform(request_id, transform_id, session=None):
     except IntegrityError as error:
         raise exceptions.DuplicatedObject('Request2Transform already exists!(%s:%s): %s' %
                                           (request_id, transform_id, error))
+    except DatabaseError as error:
+        raise exceptions.DatabaseException(error)
+
+
+@transactional_session
+def add_wp2transform(workprogress_id, transform_id, session=None):
+    """
+    Add the relation between workprogress_id and transform_id
+
+    :param workprogress_id: Workprogress id.
+    :param transform_id: Transform id.
+    :param session: The database session in use.
+    """
+    try:
+        new_wp2transform = models.Workprogress2transform(workprogress_id=workprogress_id, transform_id=transform_id)
+        new_wp2transform.save(session=session)
+    except IntegrityError as error:
+        raise exceptions.DuplicatedObject('Workprogress2Transform already exists!(%s:%s): %s' %
+                                          (workprogress_id, transform_id, error))
     except DatabaseError as error:
         raise exceptions.DatabaseException(error)
 
@@ -181,11 +200,11 @@ def get_transforms_with_input_collection(transform_type, transform_tag, coll_sco
 
 
 @read_session
-def get_transform_ids(request_id=None, workload_id=None, transform_id=None, session=None):
+def get_transform_ids(workprogress_id=None, request_id=None, workload_id=None, transform_id=None, session=None):
     """
     Get transform ids or raise a NoObject exception.
 
-    :param request_id: Request id.
+    :param workprogress_id: Workprogress id.
     :param workload_id: Workload id.
     :param transform_id: Transform id.
     :param session: The database session in use.

@@ -14,19 +14,18 @@ operations related to workflow model.
 """
 
 import datetime
-import random
 
 import sqlalchemy
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.sql.expression import asc, desc
 
 from idds.common import exceptions
-from idds.common.constants import RequestType, RequestStatus, RequestLocking
+from idds.common.constants import WorkprogressStatus, WorkprogressLocking
 from idds.orm.base.session import read_session, transactional_session
 from idds.orm.base import models
 
 
-def create_workprogress(request_id, scope, name, priority=0, status=WorkProgressStatus.New, locking=WorkProgressLocking.Idle,
+def create_workprogress(request_id, scope, name, priority=0, status=WorkprogressStatus.New, locking=WorkprogressLocking.Idle,
                         expired_at=None, errors=None, workprogress_metadata=None, processing_metadata=None):
     """
     Create a workprogress.
@@ -52,7 +51,7 @@ def create_workprogress(request_id, scope, name, priority=0, status=WorkProgress
 
 
 @transactional_session
-def add_workprogress(request_id, scope, name, priority=0, status=WorkProgressStatus.New, locking=WorkProgressLocking.Idle,
+def add_workprogress(request_id, scope, name, priority=0, status=WorkprogressStatus.New, locking=WorkprogressLocking.Idle,
                      expired_at=None, errors=None, workprogress_metadata=None, processing_metadata=None,
                      session=None):
     """
@@ -77,7 +76,7 @@ def add_workprogress(request_id, scope, name, priority=0, status=WorkProgressSta
 
     try:
         new_wp = create_workprogress(request_id=request_id, scope=scope, name=name, priority=priority, status=status,
-                                     locking=locking, expired_at=expired_at, 
+                                     locking=locking, expired_at=expired_at,
                                      workprogress_metadata=workprogress_metadata,
                                      processing_metadata=processing_metadata)
         new_wp.save(session=session)
@@ -179,7 +178,7 @@ def get_workprogress(workprogress_id, to_json=False, session=None):
 
 
 @read_session
-def get_workprogresses_by_status(status, time_period=None, locking=False, bulk_size=None, to_json=False, session=None):
+def get_workprogresses_by_status(status, period=None, locking=False, bulk_size=None, to_json=False, session=None):
     """
     Get workprogresses.
 
@@ -206,8 +205,8 @@ def get_workprogresses_by_status(status, time_period=None, locking=False, bulk_s
                        .filter(models.Workprogress.status.in_(status))\
                        .filter(models.Workprogress.next_poll_at < datetime.datetime.utcnow())
 
-        if time_period is not None:
-            query = query.filter(models.Workprogress.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=time_period))
+        if period is not None:
+            query = query.filter(models.Workprogress.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=period))
         if locking:
             query = query.filter(models.Workprogress.locking == WorkprogressLocking.Idle)
         query = query.order_by(asc(models.Workprogress.updated_at))\
@@ -225,7 +224,7 @@ def get_workprogresses_by_status(status, time_period=None, locking=False, bulk_s
                     rets.append(t.to_dict())
         return rets
     except sqlalchemy.orm.exc.NoResultFound as error:
-        raise exceptions.NoObject('No workprogresses with status: %s, time_period: %s, locking: %s, %s' % (status, time_period, locking, error))
+        raise exceptions.NoObject('No workprogresses with status: %s, period: %s, locking: %s, %s' % (status, period, locking, error))
 
 
 @transactional_session
