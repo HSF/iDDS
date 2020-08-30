@@ -171,26 +171,15 @@ class Workprogress(BASE, ModelBase):
     accessed_at = Column("accessed_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     expired_at = Column("expired_at", DateTime)
     errors = Column(JSON())
-    workload_metadata = Column(JSON())
+    workprogress_metadata = Column(JSON())
     processing_metadata = Column(JSON())
 
     _table_args = (PrimaryKeyConstraint('workprogress_id', name='WORKPROGRESS_PK'),
-                   ForeignKeyConstraint(['request_id'], ['requests.request_id'], name='REQ2WORKPROGRESS_REQ_ID_FK')
+                   ForeignKeyConstraint(['request_id'], ['requests.request_id'], name='REQ2WORKPROGRESS_REQ_ID_FK'),
                    CheckConstraint('status IS NOT NULL', name='WORKPROGRESS_STATUS_ID_NN'),
                    # UniqueConstraint('name', 'scope', 'requester', 'request_type', 'transform_tag', 'workload_id', name='REQUESTS_NAME_SCOPE_UQ '),
                    Index('WORKPROGRESS_SCOPE_NAME_IDX', 'workprogress_id', 'request_id', 'name', 'scope'),
                    Index('WORKPROGRESS_STATUS_PRIO_IDX', 'status', 'priority', 'workprogress_id', 'locking', 'updated_at', 'next_poll_at', 'created_at'))
-
-
-class Workflow2transform(BASE, ModelBase):
-    """Represents a workprogress to transform"""
-    __tablename__ = 'wg2transforms'
-    workprogress_id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
-    transform_id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
-
-    _table_args = (PrimaryKeyConstraint('workprogress_id', 'transform_id', name='WP2TRANSFORMS_PK'),
-                   ForeignKeyConstraint(['workprogress_id'], ['workprogresses.workprogress_id'], name='WP2TRANSFORMS_WORK_ID_FK'),
-                   ForeignKeyConstraint(['transform_id'], ['transforms.transform_id'], name='WP2TRANSFORMS_TRANS_ID_FK'))
 
 
 class Transform(BASE, ModelBase):
@@ -219,15 +208,15 @@ class Transform(BASE, ModelBase):
                    Index('TRANSFORMS_STATUS_UPDATED_IDX', 'status', 'locking', 'updated_at', 'next_poll_at', 'created_at'))
 
 
-class Req2transform(BASE, ModelBase):
-    """Represents a request to transform"""
-    __tablename__ = 'req2transforms'
-    request_id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+class Workprogress2transform(BASE, ModelBase):
+    """Represents a workprogress to transform"""
+    __tablename__ = 'wp2transforms'
+    workprogress_id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
     transform_id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
 
-    _table_args = (PrimaryKeyConstraint('request_id', 'transform_id', name='REQ2TRANSFORMS_PK'),
-                   ForeignKeyConstraint(['request_id'], ['requests.request_id'], name='REQ2TRANSFORMS_REQ_ID_FK'),
-                   ForeignKeyConstraint(['transform_id'], ['transforms.transform_id'], name='REQ2TRANSFORMS_TRANS_ID_FK'))
+    _table_args = (PrimaryKeyConstraint('workprogress_id', 'transform_id', name='WP2TRANSFORM_PK'),
+                   ForeignKeyConstraint(['workprogress_id'], ['workprogresses.workprogress_id'], name='WP2TRANSFORM_WORK_ID_FK'),
+                   ForeignKeyConstraint(['transform_id'], ['transforms.transform_id'], name='WP2TRANSFORM_TRANS_ID_FK'))
 
 
 class Processing(BASE, ModelBase):
@@ -299,14 +288,16 @@ class Content(BASE, ModelBase):
     """Represents a content"""
     __tablename__ = 'contents'
     content_id = Column(BigInteger().with_variant(Integer, "sqlite"), Sequence('CONTENT_ID_SEQ', schema=DEFAULT_SCHEMA_NAME), primary_key=True)
+    transform_id = Column(BigInteger().with_variant(Integer, "sqlite"))
     coll_id = Column(BigInteger().with_variant(Integer, "sqlite"))
+    map_id = Column(BigInteger().with_variant(Integer, "sqlite"), default=0)
     scope = Column(String(SCOPE_LENGTH))
     name = Column(String(NAME_LENGTH))
     min_id = Column(Integer())
     max_id = Column(Integer())
     content_type = Column(EnumWithValue(ContentType))
     status = Column(EnumWithValue(ContentStatus))
-    substatus = Column(Integer())
+    substatus = Column(EnumWithValue(ContentStatus))
     locking = Column(EnumWithValue(ContentLocking))
     bytes = Column(Integer())
     md5 = Column(String(32))
@@ -323,8 +314,10 @@ class Content(BASE, ModelBase):
 
     _table_args = (PrimaryKeyConstraint('content_id', name='CONTENTS_PK'),
                    # UniqueConstraint('name', 'scope', 'coll_id', 'content_type', 'min_id', 'max_id', name='CONTENT_SCOPE_NAME_UQ'),
-                   UniqueConstraint('name', 'scope', 'coll_id', 'min_id', 'max_id', name='CONTENT_SCOPE_NAME_UQ'),
-                   UniqueConstraint('content_id', 'coll_id', name='CONTENTS_UQ'),
+                   # UniqueConstraint('name', 'scope', 'coll_id', 'min_id', 'max_id', name='CONTENT_SCOPE_NAME_UQ'),
+                   # UniqueConstraint('content_id', 'coll_id', name='CONTENTS_UQ'),
+                   UniqueConstraint('transform_id', 'coll_id', 'map_id', name='CONTENT_ID_UQ'),
+                   ForeignKeyConstraint(['transform_id'], ['transforms.transform_id'], name='CONTENTS_TRANSFORM_ID_FK'),
                    ForeignKeyConstraint(['coll_id'], ['collections.coll_id'], name='CONTENTS_COLL_ID_FK'),
                    CheckConstraint('status IS NOT NULL', name='CONTENTS_STATUS_ID_NN'),
                    CheckConstraint('coll_id IS NOT NULL', name='CONTENTS_COLL_ID_NN'),
@@ -356,7 +349,7 @@ def register_models(engine):
     Creates database tables for all models with the given engine
     """
 
-    models = (Request, Transform, Req2transform, Processing, Collection, Content)
+    models = (Request, Workprogress, Transform, Workprogress2transform, Processing, Collection, Content)
 
     for model in models:
         model.metadata.create_all(engine)   # pylint: disable=maybe-no-member
@@ -367,7 +360,7 @@ def unregister_models(engine):
     Drops database tables for all models with the given engine
     """
 
-    models = (Request, Transform, Req2transform, Processing, Collection, Content)
+    models = (Request, Workprogress, Transform, Workprogress2transform, Processing, Collection, Content)
 
     for model in models:
         model.metadata.drop_all(engine)   # pylint: disable=maybe-no-member

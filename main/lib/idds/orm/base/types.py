@@ -15,7 +15,6 @@ Borrowed from:
 https://github.com/rucio/rucio/blob/master/lib/rucio/db/sqla/types.py
 """
 
-import json
 import uuid
 
 from sqlalchemy.dialects.postgresql import UUID, JSONB
@@ -23,6 +22,8 @@ from sqlalchemy.dialects.oracle import RAW, CLOB
 from sqlalchemy.dialects.mysql import BINARY
 from sqlalchemy.types import TypeDecorator, CHAR, String, Integer
 import sqlalchemy.types as types
+
+from idds.common.utils import json_dumps, json_loads
 
 
 class GUID(TypeDecorator):
@@ -98,23 +99,23 @@ class JSON(TypeDecorator):
         if value is None:
             return value
         elif dialect.name == 'postgresql':
-            return json.dumps(value)
+            return json_dumps(value)
         elif dialect.name == 'oracle':
-            return json.dumps(value)
+            return json_dumps(value)
         elif dialect.name == 'mysql':
-            return json.dumps(value)
+            return json_dumps(value)
         else:
-            return json.dumps(value)
+            return json_dumps(value)
 
     def process_result_value(self, value, dialect):
         if value is None:
             return value
         elif dialect.name == 'oracle':
-            return json.loads(value)
+            return json_loads(value)
         elif dialect.name == 'mysql':
-            return json.loads(value)
+            return json_loads(value)
         else:
-            return json.loads(value)
+            return json_loads(value)
 
 
 class EnumWithValue(TypeDecorator):
