@@ -34,8 +34,8 @@ The iDDS daemons are active agents that orchestrate the collaborative work of th
 whole system. They are for example:
 
 * Request Daemon (Clerk) - in charge of handling requests
+* Workflow Daemon (Marshaller) -- in charge of handling workflows.
 * Transform daemon (Transformer) - in charge of handling transforms
-* Collection daemon (Transporter) - in charge of input and output collection handling
 * Processing daemon (Carrier) - in charge of handling processings which do the real data transformation.
 * Message daemon (Conductor) - in charge of delivering messages to ActiveMQ, which will be consumed by following workflow.
 
