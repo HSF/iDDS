@@ -188,7 +188,7 @@ class ATLASStageinWork(Work):
         else:
             return None
 
-    def create_processing(self, input_out_maps):
+    def create_processing(self, input_output_maps):
         proc = {'processing_metadata': {'internal_id': str(uuid.uuid1()),
                                         'src_rse': self.src_rse,
                                         'dest_rse': self.dest_rse,

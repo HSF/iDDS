@@ -325,7 +325,7 @@ class Work(Base):
     def set_processing_id(self, processing, processing_id):
         self.processings[processing['processing_metadata']['internal_id']]['processing_id'] = processing_id
 
-    def create_processing(self, input_out_maps):
+    def create_processing(self, input_output_maps):
         proc = {'processing_metadata': {'internal_id': str(uuid.uuid1())}}
         self.add_processing_to_processings(proc)
         self.active_processings.append(proc['processing_metadata']['internal_id'])
