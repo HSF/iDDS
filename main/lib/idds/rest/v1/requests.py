@@ -9,7 +9,6 @@
 # - Wen Guan, <wen.guan@cern.ch>, 2019
 
 
-import json
 from traceback import format_exc
 
 from flask import Blueprint
@@ -17,6 +16,7 @@ from flask import Blueprint
 from idds.common import exceptions
 from idds.common.constants import HTTP_STATUS_CODE
 from idds.common.constants import RequestStatus
+from idds.common.utils import json_loads
 from idds.core.requests import add_request, get_requests, update_request
 from idds.rest.v1.controller import IDDSController
 
@@ -43,7 +43,8 @@ class Requests(IDDSController):
                 self.generate_http_response(HTTP_STATUS_CODE.BadRequest,
                                             exc_cls=exceptions.BadRequest.__name__,
                                             exc_msg="request_id and workload_id are both None. One should not be None")
-            reqs = get_requests(request_id=request_id, workload_id=workload_id, to_json=True)
+            # reqs = get_requests(request_id=request_id, workload_id=workload_id, to_json=True)
+            reqs = get_requests(request_id=request_id, workload_id=workload_id)
         except exceptions.NoObject as error:
             return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
         except exceptions.IDDSException as error:
@@ -66,7 +67,7 @@ class Request(IDDSController):
             500 Internal Error
         """
         try:
-            parameters = self.get_request().data and json.loads(self.get_request().data)
+            parameters = self.get_request().data and json_loads(self.get_request().data)
             if 'status' not in parameters:
                 parameters['status'] = RequestStatus.New
             if 'priority' not in parameters:
@@ -100,7 +101,7 @@ class Request(IDDSController):
         """
         try:
             request = self.get_request()
-            parameters = request.data and json.loads(request.data)
+            parameters = request.data and json_loads(request.data)
             # parameters['status'] = RequestStatus.Extend
         except ValueError:
             return self.generate_http_response(HTTP_STATUS_CODE.BadRequest, exc_cls=exceptions.BadRequest.__name__, exc_msg='Cannot decode json parameter dictionary')
@@ -134,7 +135,8 @@ class Request(IDDSController):
             if workload_id == 'null':
                 workload_id = None
 
-            reqs = get_requests(request_id=request_id, workload_id=workload_id, to_json=True)
+            # reqs = get_requests(request_id=request_id, workload_id=workload_id, to_json=True)
+            reqs = get_requests(request_id=request_id, workload_id=workload_id)
         except exceptions.NoObject as error:
             return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
         except exceptions.IDDSException as error:
