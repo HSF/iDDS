@@ -24,7 +24,7 @@ working_dir = os.path.dirname(os.path.realpath(__file__))
 os.chdir(working_dir)
 
 
-with io.open('lib/idds/dag/version.py', "rt", encoding="utf8") as f:
+with io.open('lib/idds/workflow/version.py', "rt", encoding="utf8") as f:
     version = re.search(r'release_version = "(.*?)"', f.read()).group(1)
 
 

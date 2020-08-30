@@ -9,15 +9,20 @@
 # - Wen Guan, <wen.guan@cern.ch>, 2020
 
 import pickle
+import urllib
+# from enum import Enum
+
+from idds.common.dict_class import DictClass
 
 
-class Base(object):
+class Base(DictClass):
     def __init__(self):
         pass
 
     def serialize(self):
-        return pickle.dumps(self)
+        return urllib.parse.quote_from_bytes(pickle.dumps(self))
 
     @staticmethod
     def deserialize(obj):
-        return pickle.loads(obj)
+        # return urllib.parse.unquote_to_bytes(pickle.loads(obj))
+        return pickle.loads(urllib.parse.unquote_to_bytes(obj))
