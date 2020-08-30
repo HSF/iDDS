@@ -13,25 +13,21 @@
 operations related to Transform.
 """
 
-import datetime
-from idds.common import exceptions
+# from idds.common import exceptions
 
 from idds.common.constants import (TransformStatus,
-                                   TransformLocking,
-                                   CollectionStatus,
-                                   ContentStatus,
-                                   ProcessingStatus)
+                                   TransformLocking)
 from idds.orm.base.session import read_session, transactional_session
 from idds.orm import (transforms as orm_transforms,
                       collections as orm_collections,
                       contents as orm_contents,
-                      messages as orm_messages,
+                      # messages as orm_messages,
                       processings as orm_processings)
 
 
 @transactional_session
 def add_transform(transform_type, transform_tag=None, priority=0, status=TransformStatus.New, locking=TransformLocking.Idle,
-                  retries=0, expired_at=None, transform_metadata=None, request_id=None, collections=None, session=None):
+                  retries=0, expired_at=None, transform_metadata=None, workprogress_id=None, session=None):
     """
     Add a transform.
 
@@ -49,16 +45,11 @@ def add_transform(transform_type, transform_tag=None, priority=0, status=Transfo
 
     :returns: transform id.
     """
-    if collections is None or len(collections) == 0:
-        msg = "Transform must have collections, such as input collection, output collection and log collection"
-        raise exceptions.WrongParameterException(msg)
     transform_id = orm_transforms.add_transform(transform_type=transform_type, transform_tag=transform_tag,
                                                 priority=priority, status=status, locking=locking, retries=retries,
                                                 expired_at=expired_at, transform_metadata=transform_metadata,
-                                                request_id=request_id, session=session)
-    for collection in collections:
-        collection['transform_id'] = transform_id
-        orm_collections.add_collection(**collection, session=session)
+                                                workprogress_id=workprogress_id, session=session)
+    return transform_id
 
 
 @read_session
@@ -98,26 +89,26 @@ def get_transforms_with_input_collection(transform_type, transform_tag, coll_sco
 
 
 @read_session
-def get_transform_ids(request_id, session=None):
+def get_transform_ids(workprogress_id, session=None):
     """
     Get transform ids or raise a NoObject exception.
 
-    :param request_id: Request id.
+    :param workprogress_id: Workprogress id.
     :param session: The database session in use.
 
     :raises NoObject: If no transform is founded.
 
     :returns: list of transform ids.
     """
-    return orm_transforms.get_transform_ids(request_id=request_id, session=session)
+    return orm_transforms.get_transform_ids(workprogress_id=workprogress_id, session=session)
 
 
 @read_session
-def get_transforms(request_id, to_json=False, session=None):
+def get_transforms(workprogress_id, to_json=False, session=None):
     """
     Get transforms or raise a NoObject exception.
 
-    :param request_id: Request id.
+    :param workprogress_id: Workprogress id.
     :param to_json: return json format.
     :param session: The database session in use.
 
@@ -125,7 +116,7 @@ def get_transforms(request_id, to_json=False, session=None):
 
     :returns: list of transform.
     """
-    return orm_transforms.get_transforms(request_id=request_id, to_json=to_json, session=session)
+    return orm_transforms.get_transforms(workprogress_id=workprogress_id, to_json=to_json, session=session)
 
 
 @read_session
@@ -168,19 +159,60 @@ def update_transform(transform_id, parameters, session=None):
 
 
 @transactional_session
-def add_transform_outputs(transform, input_collection, output_collection, input_contents, output_contents,
-                          processing, to_cancel_processing=None, messages=None, message_bulk_size=1000, session=None):
+def add_transform_outputs(transform, input_collections=None, output_collections=None, log_collections=None,
+                          update_input_collections=None, update_output_collections=None, update_log_collections=None,
+                          new_contents=None, update_contents=None,
+                          new_processing=None, messages=None, message_bulk_size=1000, session=None):
     """
     For input contents, add corresponding output contents.
 
     :param transform: the transform.
-    :param input_collection: The input collection.
-    :param output_collection: The output collection.
-    :param input_contents: The input contents.
-    :param output_contents: The corresponding output contents.
+    :param input_collections: The new input collections.
+    :param output_collections: The new output collections.
+    :param log_collections: The new log collections.
+    :param update_input_collections: The updated input collections.
+    :param update_output_collections: The updated output collections.
+    :param update_log_collections: The updated log collections.
+    :param new_contents: The new contents.
+    :param update_contents: The updated contents.
+    :param new_processing: The new processing.
+    :param messages: Messages.
+    :param message_bulk_size: The message bulk size.
     :param session: The database session in use.
 
     :raises DatabaseException: If there is a database error.
+    """
+    work = transform['transform_metadata']['work']
+
+    if input_collections:
+        for coll in input_collections:
+            coll_id = orm_collections.add_collection(**coll, session=session)
+            work.set_collection_id(coll, coll_id)
+    if output_collections:
+        for coll in output_collections:
+            coll_id = orm_collections.add_collection(**coll, session=session)
+            work.set_collection_id(coll, coll_id)
+    if log_collections:
+        for coll in log_collections:
+            coll_id = orm_collections.add_collection(**coll, session=session)
+            work.set_collection_id(coll, coll_id)
+
+    if update_input_collections:
+        orm_collections.update_collections(update_input_collections, session=session)
+    if update_output_collections:
+        orm_collections.update_collections(update_output_collections, session=session)
+    if update_log_collections:
+        orm_collections.update_collections(update_log_collections, session=session)
+
+    if new_contents:
+        orm_contents.add_contents(new_contents, session=session)
+    if update_contents:
+        orm_contents.add_contents(update_contents, session=session)
+
+    processing_id = None
+    if new_processing:
+        processing_id = orm_processings.add_processing(**new_processing, session=session)
+
     """
     if output_contents:
         orm_contents.add_contents(output_contents, session=session)
@@ -198,26 +230,6 @@ def add_transform_outputs(transform, input_collection, output_collection, input_
                                      bulk_size=message_bulk_size,
                                      session=session)
 
-    if input_contents:
-        update_input_contents = []
-        for input_content in input_contents:
-            update_input_content = {'content_id': input_content['content_id'],
-                                    'status': ContentStatus.Mapped,
-                                    'path': None}
-            update_input_contents.append(update_input_content)
-        if update_input_contents:
-            orm_contents.update_contents(update_input_contents, session=session)
-            # update inut collection next_poll_at to trigger transporter to update its status
-            orm_collections.update_collection(input_collection['coll_id'],
-                                              {'next_poll_at': datetime.datetime.utcnow()},
-                                              session=session)
-
-    if output_collection:
-        # TODO, the status and new_files should be updated
-        orm_collections.update_collection(output_collection['coll_id'],
-                                          {'status': CollectionStatus.Processing},
-                                          session=session)
-
     if to_cancel_processing:
         to_cancel_params = {'status': ProcessingStatus.Cancel}
         for to_cancel_id in to_cancel_processing:
@@ -225,14 +237,18 @@ def add_transform_outputs(transform, input_collection, output_collection, input_
     processing_id = None
     if processing:
         processing_id = orm_processings.add_processing(**processing, session=session)
+    """
 
     if transform:
+        """
         if processing_id is not None:
             if not transform['transform_metadata']:
                 transform['transform_metadata'] = {'processing_id': processing_id}
             else:
                 transform['transform_metadata']['processing_id'] = processing_id
-
+        """
+        if processing_id:
+            work.set_processing_id(new_processing, processing_id)
         parameters = {'status': transform['status'],
                       'locking': transform['locking'],
                       'transform_metadata': transform['transform_metadata']}
@@ -273,3 +289,28 @@ def clean_next_poll_at(status, session=None):
     :param status: status of the transform
     """
     orm_transforms.clean_next_poll_at(status=status, session=session)
+
+
+@read_session
+def get_transform_input_output_maps(transform_id, input_coll_ids, output_coll_ids, log_coll_ids=[], session=None):
+    """
+    Get transform input output maps.
+
+    :param transform_id: transform id.
+    """
+    contents = orm_contents.get_contents_by_transform(transform_id=transform_id, session=session)
+    ret = {}
+    for content in contents:
+        map_id = content['map_id']
+        if map_id not in ret:
+            ret[map_id] = {'inputs': [], 'outputs': [], 'logs': [], 'others': []}
+
+        if content['coll_id'] in input_coll_ids:
+            ret[map_id]['inputs'].append(content)
+        elif content['coll_id'] in output_coll_ids:
+            ret[map_id]['outputs'].append(content)
+        elif content['coll_id'] in log_coll_ids:
+            ret[map_id]['logs'].append(content)
+        else:
+            ret[map_id]['others'].append(content)
+    return ret

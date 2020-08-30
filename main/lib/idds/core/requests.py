@@ -20,6 +20,8 @@ from idds.orm.base.session import read_session, transactional_session
 from idds.orm import requests as orm_requests
 from idds.orm import transforms as orm_transforms
 from idds.orm import collections as orm_collections
+from idds.orm import workprogress as orm_workprogresses
+# from idds.atlas.worflow.utils import convert_request_metadata_to_workflow
 
 
 def create_request(scope=None, name=None, requester=None, request_type=None, transform_tag=None,
@@ -44,12 +46,14 @@ def create_request(scope=None, name=None, requester=None, request_type=None, tra
 
     :returns: request id.
     """
+    if workload_id is None and request_metadata and 'workload_id' in request_metadata:
+        workload_id = int(request_metadata['workload_id'])
+
+    # request_metadata = convert_request_metadata_to_workflow(scope, name, workload_id, request_type, request_metadata)
     kwargs = {'scope': scope, 'name': name, 'requester': requester, 'request_type': request_type,
               'transform_tag': transform_tag, 'status': status, 'locking': locking,
               'priority': priority, 'lifetime': lifetime, 'workload_id': workload_id,
               'request_metadata': request_metadata, 'processing_metadata': processing_metadata}
-    if workload_id is None and request_metadata and 'workload_id' in request_metadata:
-        kwargs['workload_id'] = int(request_metadata['workload_id'])
     return orm_requests.create_request(**kwargs)
 
 
@@ -76,13 +80,15 @@ def add_request(scope=None, name=None, requester=None, request_type=None, transf
 
     :returns: request id.
     """
+    if workload_id is None and request_metadata and 'workload_id' in request_metadata:
+        workload_id = int(request_metadata['workload_id'])
+    # request_metadata = convert_request_metadata_to_workflow(scope, name, workload_id, request_type, request_metadata)
+
     kwargs = {'scope': scope, 'name': name, 'requester': requester, 'request_type': request_type,
               'transform_tag': transform_tag, 'status': status, 'locking': locking,
               'priority': priority, 'lifetime': lifetime, 'workload_id': workload_id,
               'request_metadata': request_metadata, 'processing_metadata': processing_metadata,
               'session': session}
-    if workload_id is None and request_metadata and 'workload_id' in request_metadata:
-        kwargs['workload_id'] = int(request_metadata['workload_id'])
     return orm_requests.add_request(**kwargs)
 
 
@@ -196,6 +202,20 @@ def update_request_with_transforms(request_id, parameters, transforms_to_add, tr
         del transform['transform_id']
         # orm_transforms.add_req2transform(request_id, transform_id, session=session)
         orm_transforms.update_transform(transform_id, parameters=transform, session=session)
+    return orm_requests.update_request(request_id, parameters, session=session)
+
+
+@transactional_session
+def update_request_with_workprogresses(request_id, parameters, new_workprogresses, session=None):
+    """
+    update an request.
+
+    :param request_id: the request id.
+    :param parameters: A dictionary of parameters.
+    :param new_workprogresses: list of new workprogresses.
+    """
+    if new_workprogresses:
+        orm_workprogresses.add_workprogresses(new_workprogresses, session=session)
     return orm_requests.update_request(request_id, parameters, session=session)
 
 

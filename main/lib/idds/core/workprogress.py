@@ -6,20 +6,21 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2020
+# - Wen Guan, <wen.guan@cern.ch>, 2020
 
 
 """
 core operations related to workflow model.
 """
 
-from idds.common import exceptions
-from idds.common.constants import RequestStatus, RequestLocking
+# from idds.common import exceptions
+from idds.common.constants import WorkprogressStatus, WorkprogressLocking
 from idds.orm.base.session import read_session, transactional_session
-from idds.orm import workprogress as orm_workprogress
+from idds.orm import workprogress as orm_workprogress, transforms as orm_transforms
+from idds.workflow.work import WorkStatus
 
 
-def create_workprogress(request_id, scope, name, priority=0, status=WorkProgressStatus.New, locking=WorkProgressLocking.Idle,
+def create_workprogress(request_id, scope, name, priority=0, status=WorkprogressStatus.New, locking=WorkprogressLocking.Idle,
                         expired_at=None, errors=None, workprogress_metadata=None, processing_metadata=None):
     """
     Create a workprogress.
@@ -44,7 +45,7 @@ def create_workprogress(request_id, scope, name, priority=0, status=WorkProgress
 
 
 @transactional_session
-def add_workprogress(request_id, scope, name, priority=0, status=WorkProgressStatus.New, locking=WorkProgressLocking.Idle,
+def add_workprogress(request_id, scope, name, priority=0, status=WorkprogressStatus.New, locking=WorkprogressLocking.Idle,
                      expired_at=None, errors=None, workprogress_metadata=None, processing_metadata=None,
                      session=None):
     """
@@ -125,7 +126,7 @@ def get_workprogress(workprogress_id, to_json=False, session=None):
 
 
 @read_session
-def get_workprogresses_by_status(status, time_period=None, locking=False, bulk_size=None, to_json=False, session=None):
+def get_workprogresses_by_status(status, period=None, locking=False, bulk_size=None, to_json=False, session=None):
     """
     Get workprogresses.
 
@@ -139,12 +140,12 @@ def get_workprogresses_by_status(status, time_period=None, locking=False, bulk_s
     :returns: list of Workprogress.
     """
 
-    return orm_workprogress.get_workprogresses_by_status(status=status, time_period=time_period, locking=locking,
+    return orm_workprogress.get_workprogresses_by_status(status=status, period=period, locking=locking,
                                                          bulk_size=bulk_size, to_json=to_json, session=session)
 
 
 @transactional_session
-def update_workprogress(workprogress_id, parameters, session=None):
+def update_workprogress(workprogress_id, parameters, new_transforms=None, session=None):
     """
     update a workprogress.
 
@@ -157,6 +158,12 @@ def update_workprogress(workprogress_id, parameters, session=None):
 
     """
 
+    if new_transforms:
+        for tf in new_transforms:
+            tf_id = orm_transforms.add_transform(**tf, session=session)
+            work = tf['transform_metadata']['work']
+            work.set_work_id(tf_id, transforming=True)
+            work.set_status(WorkStatus.New)
     return orm_workprogress.update_workprogress(workprogress_id=workprogress_id, parameters=parameters, session=session)
 
 
