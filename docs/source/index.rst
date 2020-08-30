@@ -28,8 +28,10 @@ For documentation specific to any of these three, please see the subsequent sect
    :maxdepth: 1
 
    general/requirements_functions
-   general/schematic_view
-   general/architecture
+   general/v2/schematic_view
+   general/v2/architecture
+   general/v2/workflow
+   general/v1/index
 
 Use Cases
 =========

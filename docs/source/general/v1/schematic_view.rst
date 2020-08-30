@@ -1,7 +1,7 @@
 Schematic View
 ==============
 
-.. image:: ../images/schematic_view.png
+.. image:: ../../images/v1/schematic_view.png
       :alt: iDDS Schematic View
 
 The iDDS is designed as a standalone experiment agnostic service. It consists of
