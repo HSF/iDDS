@@ -15,7 +15,7 @@ import sys
 
 def setup(argv):
     current_dir = os.path.dirname(os.path.realpath(__file__))
-    packages = ['common', 'main', 'client', 'atlas']
+    packages = ['common', 'main', 'client', 'atlas', 'workflow']
     for package in packages:
         path = os.path.join(current_dir, '%s/setup.py' % package)
 
