@@ -101,7 +101,7 @@ class MessagingSender(PluginBase, threading.Thread):
             # conn.start()
             conn.connect(self.username, self.password, wait=True)
 
-        self.logger.debug("Sending message to message broker: %s" % msg['msg_id'])
+        self.logger.info("Sending message to message broker: %s" % msg['msg_id'])
         conn.send(body=json.dumps(msg['msg_content']),
                   destination=self.destination,
                   id='atlas-idds-messaging',

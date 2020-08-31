@@ -12,6 +12,7 @@
 common funcs for tests
 """
 
+import random
 import time
 import datetime
 from uuid import uuid4 as uuid
@@ -30,10 +31,11 @@ def get_request_properties():
         'requester': 'panda',
         'request_type': RequestType.EventStreaming,
         'transform_tag': 's3218',
+        'workload_id': int(time.time()) + random.randint(0, 1000000),
         'status': RequestStatus.New,
         'priority': 0,
         'lifetime': 30,
-        'request_metadata': {'workload_id': int(time.time())}
+        'request_metadata': {'workload_id1': int(time.time())}
     }
     return req_properties
 
@@ -58,10 +60,9 @@ def get_collection_properties():
         'scope': 'test_scope',
         'name': 'test_name_%s' % str(uuid()),
         'coll_type': CollectionType.Dataset,
-        'request_id': None,
         'transform_id': None,
         'relation_type': CollectionRelationType.Input,
-        'coll_size': 0,
+        'bytes': 0,
         'status': CollectionStatus.New,
         'total_files': 0,
         'retries': 0,
@@ -88,7 +89,7 @@ def get_content_properties():
         'retries': 0,
         'path': None,
         'expired_at': datetime.datetime.utcnow().replace(microsecond=0),
-        'collcontent_metadata': {'id': 123}
+        'content_metadata': {'id': 123}
     }
     return content_properties
 
@@ -228,21 +229,46 @@ def get_example_derivation_request():
     return req_properties
 
 
-def is_same_req_trans_colls(req_trans_colls1, req_trans_colls2):
+def merge_dicts(list_dicts):
+    ret = {}
+    for a_dict in list_dicts:
+        ret.update(a_dict)
+    return ret
+
+
+def is_same_req_trans_colls(req_trans_colls1, req_trans_colls2, allow_request_id_None=False):
     req_ids1 = list(req_trans_colls1.keys())
     req_ids2 = list(req_trans_colls2.keys())
-    if not req_ids1 == req_ids2:
+    if not allow_request_id_None and not (req_ids1 == req_ids2):
         return False
 
-    for req_id in req_ids1:
-        tran_ids1 = list(req_trans_colls1[req_id].keys())
-        tran_ids2 = list(req_trans_colls2[req_id].keys())
+    if not allow_request_id_None:
+        for req_id in req_ids1:
+            tran_ids1 = list(req_trans_colls1[req_id].keys())
+            tran_ids2 = list(req_trans_colls2[req_id].keys())
+            if not tran_ids1 == tran_ids2:
+                return False
+
+            for tran_id in tran_ids1:
+                colls1 = req_trans_colls1[req_id][tran_id]
+                colls2 = req_trans_colls2[req_id][tran_id]
+                coll_ids1 = [coll['coll_id'] for coll in colls1]
+                coll_ids2 = [coll['coll_id'] for coll in colls2]
+                coll_ids1.sort()
+                coll_ids2.sort()
+                if not coll_ids1 == coll_ids2:
+                    return False
+    else:
+        trans1 = merge_dicts(req_trans_colls1.values())
+        trans2 = merge_dicts(req_trans_colls2.values())
+        tran_ids1 = list(trans1.keys())
+        tran_ids2 = list(trans2.keys())
         if not tran_ids1 == tran_ids2:
             return False
 
         for tran_id in tran_ids1:
-            colls1 = req_trans_colls1[req_id][tran_id]
-            colls2 = req_trans_colls2[req_id][tran_id]
+            colls1 = trans1[tran_id]
+            colls2 = trans2[tran_id]
             coll_ids1 = [coll['coll_id'] for coll in colls1]
             coll_ids2 = [coll['coll_id'] for coll in colls2]
             coll_ids1.sort()
@@ -252,33 +278,60 @@ def is_same_req_trans_colls(req_trans_colls1, req_trans_colls2):
     return True
 
 
-def is_same_req_trans_coll_contents(req_trans_colls1, req_trans_colls2):
+def is_same_req_trans_coll_contents(req_trans_colls1, req_trans_colls2, allow_request_id_None=True):
     req_ids1 = list(req_trans_colls1.keys())
     req_ids2 = list(req_trans_colls2.keys())
-    if not req_ids1 == req_ids2:
+    if not allow_request_id_None and not (req_ids1 == req_ids2):
         return False
 
-    for req_id in req_ids1:
-        tran_ids1 = list(req_trans_colls1[req_id].keys())
-        tran_ids2 = list(req_trans_colls2[req_id].keys())
-        if not tran_ids1 == tran_ids2:
-            return False
-
-        for tran_id in tran_ids1:
-            coll_contents1 = req_trans_colls1[req_id][tran_id]
-            coll_contents2 = req_trans_colls2[req_id][tran_id]
-            coll_scope_names1 = [scope_name for scope_name in coll_contents1]
-            coll_scope_names2 = [scope_name for scope_name in coll_contents2]
-            coll_scope_names1.sort()
-            coll_scope_names2.sort()
-            if not coll_scope_names1 == coll_scope_names1:
+    if not allow_request_id_None:
+        for req_id in req_ids1:
+            tran_ids1 = list(req_trans_colls1[req_id].keys())
+            tran_ids2 = list(req_trans_colls2[req_id].keys())
+            if not tran_ids1 == tran_ids2:
                 return False
 
-            for scope_name in coll_scope_names1:
-                contents1 = req_trans_colls1[req_id][tran_id][scope_name]['contents']
-                contents2 = req_trans_colls2[req_id][tran_id][scope_name]['contents']
-                content_ids1 = [content['content_id'] for content in contents1]
-                content_ids2 = [content['content_id'] for content in contents2]
-                if not content_ids1 == content_ids2:
+            for tran_id in tran_ids1:
+                coll_contents1 = req_trans_colls1[req_id][tran_id]
+                coll_contents2 = req_trans_colls2[req_id][tran_id]
+                coll_scope_names1 = [scope_name for scope_name in coll_contents1]
+                coll_scope_names2 = [scope_name for scope_name in coll_contents2]
+                coll_scope_names1.sort()
+                coll_scope_names2.sort()
+                if not coll_scope_names1 == coll_scope_names1:
                     return False
+
+                for scope_name in coll_scope_names1:
+                    contents1 = req_trans_colls1[req_id][tran_id][scope_name]['contents']
+                    contents2 = req_trans_colls2[req_id][tran_id][scope_name]['contents']
+                    content_ids1 = [content['content_id'] for content in contents1]
+                    content_ids2 = [content['content_id'] for content in contents2]
+                    if not content_ids1 == content_ids2:
+                        return False
+    else:
+        if True:
+            trans1 = merge_dicts(req_trans_colls1.values())
+            trans2 = merge_dicts(req_trans_colls2.values())
+            tran_ids1 = list(trans1.keys())
+            tran_ids2 = list(trans2.keys())
+            if not tran_ids1 == tran_ids2:
+                return False
+
+            for tran_id in tran_ids1:
+                coll_contents1 = trans1[tran_id]
+                coll_contents2 = trans2[tran_id]
+                coll_scope_names1 = [scope_name for scope_name in coll_contents1]
+                coll_scope_names2 = [scope_name for scope_name in coll_contents2]
+                coll_scope_names1.sort()
+                coll_scope_names2.sort()
+                if not coll_scope_names1 == coll_scope_names1:
+                    return False
+
+                for scope_name in coll_scope_names1:
+                    contents1 = trans1[tran_id][scope_name]['contents']
+                    contents2 = trans2[tran_id][scope_name]['contents']
+                    content_ids1 = [content['content_id'] for content in contents1]
+                    content_ids2 = [content['content_id'] for content in contents2]
+                    if not content_ids1 == content_ids2:
+                        return False
     return True

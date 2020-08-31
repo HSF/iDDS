@@ -9,8 +9,6 @@
 # - Wen Guan, <wen.guan@cern.ch>, 2019
 
 
-import datetime
-import json
 from traceback import format_exc
 
 from flask import Blueprint
@@ -18,13 +16,13 @@ from flask import Blueprint
 from idds.common import exceptions
 from idds.common.constants import HTTP_STATUS_CODE
 from idds.common.constants import RequestStatus
-from idds.common.utils import date_to_str
-from idds.api.requests import add_request, get_request, update_request
+from idds.common.utils import json_loads
+from idds.core.requests import add_request, get_requests, update_request
 from idds.rest.v1.controller import IDDSController
 
 
 class Requests(IDDSController):
-    """ Create request """
+    """ Get request """
 
     def get(self):
         """
@@ -45,7 +43,8 @@ class Requests(IDDSController):
                 self.generate_http_response(HTTP_STATUS_CODE.BadRequest,
                                             exc_cls=exceptions.BadRequest.__name__,
                                             exc_msg="request_id and workload_id are both None. One should not be None")
-            reqs = get_request(request_id=request_id, workload_id=workload_id)
+            # reqs = get_requests(request_id=request_id, workload_id=workload_id, to_json=True)
+            reqs = get_requests(request_id=request_id, workload_id=workload_id)
         except exceptions.NoObject as error:
             return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
         except exceptions.IDDSException as error:
@@ -67,19 +66,19 @@ class Request(IDDSController):
             400 Bad request
             500 Internal Error
         """
-        kwargs = {'scope': None, 'name': None, 'requester': None, 'request_type': None, 'transform_tag': None,
-                  'status': RequestStatus.New, 'priority': 0, 'lifetime': 30, 'request_metadata': None}
         try:
-            parameters = self.get_request().data and json.loads(self.get_request().data)
-            if parameters:
-                for key in kwargs:
-                    if key in parameters:
-                        kwargs[key] = parameters[key]
+            parameters = self.get_request().data and json_loads(self.get_request().data)
+            if 'status' not in parameters:
+                parameters['status'] = RequestStatus.New
+            if 'priority' not in parameters:
+                parameters['priority'] = 0
+            if 'lifetime' not in parameters:
+                parameters['lifetime'] = 30
         except ValueError:
             return self.generate_http_response(HTTP_STATUS_CODE.BadRequest, exc_cls=exceptions.BadRequest.__name__, exc_msg='Cannot decode json parameter dictionary')
 
         try:
-            request_id = add_request(**kwargs)
+            request_id = add_request(**parameters)
         except exceptions.DuplicatedObject as error:
             return self.generate_http_response(HTTP_STATUS_CODE.Conflict, exc_cls=error.__class__.__name__, exc_msg=error)
         except exceptions.IDDSException as error:
@@ -100,21 +99,15 @@ class Request(IDDSController):
             404 Not Found
             500 Internal Error
         """
-        kwargs = {'request_type': None, 'transform_tag': None, 'status': RequestStatus.New, 'priority': 0, 'lifetime': 30, 'request_metadata': None}
-        data = {}
         try:
             request = self.get_request()
-            parameters = request.data and json.loads(request.data)
-            if parameters:
-                for key in kwargs:
-                    if key in parameters:
-                        data[key] = parameters[key]
-            # data['status'] = RequestStatus.Extend
+            parameters = request.data and json_loads(request.data)
+            # parameters['status'] = RequestStatus.Extend
         except ValueError:
             return self.generate_http_response(HTTP_STATUS_CODE.BadRequest, exc_cls=exceptions.BadRequest.__name__, exc_msg='Cannot decode json parameter dictionary')
 
         try:
-            update_request(request_id, data)
+            update_request(request_id, parameters)
         except exceptions.NoObject as error:
             return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
         except exceptions.IDDSException as error:
@@ -142,17 +135,8 @@ class Request(IDDSController):
             if workload_id == 'null':
                 workload_id = None
 
-            req = get_request(request_id=request_id, workload_id=workload_id)
-            if req['request_type'] is not None:
-                req['request_type'] = req['request_type'].value
-            if req['status'] is not None:
-                req['status'] = req['status'].value
-            if req['locking'] is not None:
-                req['locking'] = req['locking'].value
-
-            for key in req:
-                if req[key] and isinstance(req[key], datetime.datetime):
-                    req[key] = date_to_str(req[key])
+            # reqs = get_requests(request_id=request_id, workload_id=workload_id, to_json=True)
+            reqs = get_requests(request_id=request_id, workload_id=workload_id)
         except exceptions.NoObject as error:
             return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
         except exceptions.IDDSException as error:
@@ -162,7 +146,7 @@ class Request(IDDSController):
             print(format_exc())
             return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
 
-        return self.generate_http_response(HTTP_STATUS_CODE.OK, data=req)
+        return self.generate_http_response(HTTP_STATUS_CODE.OK, data=reqs)
 
     def post_test(self):
         import pprint

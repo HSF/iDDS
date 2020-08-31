@@ -12,6 +12,7 @@
 """
 Class of activelearning condor plubin
 """
+import datetime
 import traceback
 
 
@@ -83,6 +84,7 @@ class ActiveLearningCondorPoller(CondorPoller):
                                         'content_metadata': content_metadata}
                         updated_files.append(updated_file)
                 processing_updates = {'status': processing_status,
+                                      'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period),
                                       'processing_metadata': processing_metadata}
                 if output_metadata:
                     processing_updates['output_metadata'] = output_metadata

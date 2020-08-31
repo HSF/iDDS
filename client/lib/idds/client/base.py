@@ -15,7 +15,6 @@ Base rest client to access IDDS system.
 
 
 import logging
-import json
 import requests
 try:
     # Python 2
@@ -26,6 +25,7 @@ except ImportError:
 
 from idds.common import exceptions
 from idds.common.constants import HTTP_STATUS_CODE
+from idds.common.utils import json_dumps, json_loads
 
 
 class BaseRestClient(object):
@@ -88,11 +88,11 @@ class BaseRestClient(object):
                 if type == 'GET':
                     result = self.session.get(url, timeout=self.timeout, headers=headers, verify=False)
                 elif type == 'PUT':
-                    result = self.session.put(url, data=json.dumps(data), timeout=self.timeout, headers=headers, verify=False)
+                    result = self.session.put(url, data=json_dumps(data), timeout=self.timeout, headers=headers, verify=False)
                 elif type == 'POST':
-                    result = self.session.post(url, data=json.dumps(data), timeout=self.timeout, headers=headers, verify=False)
+                    result = self.session.post(url, data=json_dumps(data), timeout=self.timeout, headers=headers, verify=False)
                 elif type == 'DEL':
-                    result = self.session.delete(url, data=json.dumps(data), timeout=self.timeout, headers=headers, verify=False)
+                    result = self.session.delete(url, data=json_dumps(data), timeout=self.timeout, headers=headers, verify=False)
                 else:
                     return
             except requests.exceptions.ConnectionError as error:
@@ -102,8 +102,9 @@ class BaseRestClient(object):
 
             if result is not None:
                 if result.status_code == HTTP_STATUS_CODE.OK:
+                    # print(result.text)
                     if result.text:
-                        return json.loads(result.text)
+                        return json_loads(result.text)
                     else:
                         return None
                 else:
@@ -114,7 +115,7 @@ class BaseRestClient(object):
                             raise cls(msg)
                         else:
                             if result.text:
-                                data = json.loads(result.text)
+                                data = json_loads(result.text)
                                 raise exceptions.IDDSException(**data)
                             else:
                                 raise exceptions.IDDSException('Unknown errors: no results returned')

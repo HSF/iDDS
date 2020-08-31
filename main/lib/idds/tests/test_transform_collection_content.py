@@ -16,9 +16,8 @@ Test Request.
 import copy
 
 import unittest2 as unittest
-from nose.tools import assert_equal, assert_raises, assert_in
+from nose.tools import assert_equal, assert_in
 
-from idds.common import exceptions
 from idds.common.constants import (TransformStatus, CollectionStatus, ContentStatus, ContentType)
 from idds.common.utils import check_database, has_config, setup_logging
 from idds.orm.requests import add_request
@@ -27,11 +26,9 @@ from idds.orm.transforms import (add_transform, delete_transform,
 from idds.orm.collections import (add_collection, get_collection_id,
                                   get_collection, update_collection,
                                   delete_collection, get_collections,
-                                  get_collections_by_request_transform_id,
-                                  get_collection_ids_by_request_transform_id,
-                                  get_collection_id_by_scope_name)
+                                  get_collection_ids_by_transform_id)
 from idds.orm.contents import (add_content, get_content, update_content,
-                               get_content_id, delete_content, get_contents,
+                               delete_content, get_contents,
                                get_match_contents, update_contents)
 from idds.tests.common import (get_request_properties, get_transform_properties,
                                get_collection_properties, get_content_properties)
@@ -58,8 +55,8 @@ class TestTransformCollectionContent(unittest.TestCase):
 
         delete_transform(trans_id)
 
-        with assert_raises(exceptions.NoObject):
-            get_transform(transform_id=trans_id)
+        t = get_transform(transform_id=trans_id)
+        assert_equal(t, None)
 
     def test_create_and_check_for_transform_collection_content_orm(self):
         """ Transform/Collection/Content (ORM): Test the creation, query, and cancel of a Transform/Collection/Content """
@@ -84,10 +81,11 @@ class TestTransformCollectionContent(unittest.TestCase):
         assert_equal(coll['status'], CollectionStatus.Closed)
 
         content_properties['coll_id'] = coll_id
-        content_id = add_content(returning_id=True, **content_properties)
-        content_id_1 = get_content_id(coll_id=coll_id, scope=content_properties['scope'],
-                                      name=content_properties['name'],
-                                      content_type=ContentType.File)
+        content_id = add_content(**content_properties)
+        content_1 = get_content(coll_id=coll_id, scope=content_properties['scope'],
+                                name=content_properties['name'],
+                                content_type=ContentType.File)
+        content_id_1 = content_1['content_id']
         assert_equal(content_id, content_id_1)
 
         content = get_content(content_id=content_id)
@@ -96,16 +94,16 @@ class TestTransformCollectionContent(unittest.TestCase):
         assert_equal(content['status'], ContentStatus.Lost)
 
         delete_content(content_id=content_id)
-        with assert_raises(exceptions.NoObject):
-            get_content(content_id=content_id)
+        c = get_content(content_id=content_id)
+        assert_equal(c, None)
 
         delete_collection(coll_id=coll_id)
-        with assert_raises(exceptions.NoObject):
-            get_collection(coll_id=coll_id)
+        coll = get_collection(coll_id=coll_id)
+        assert_equal(coll, None)
 
         delete_transform(transform_id=trans_id)
-        with assert_raises(exceptions.NoObject):
-            get_transform(transform_id=trans_id)
+        t = get_transform(transform_id=trans_id)
+        assert_equal(t, None)
 
     def test_get_collections_orm(self):
         """ Collections (ORM): Test get collections """
@@ -120,14 +118,13 @@ class TestTransformCollectionContent(unittest.TestCase):
         trans_id = add_transform(**trans_properties)
 
         coll_properties['transform_id'] = trans_id
-        coll_properties['request_id'] = request_id
         origin_coll_id = add_collection(**coll_properties)
         coll_properties1 = copy.deepcopy(coll_properties)
         coll_properties1['name'] = coll_properties['name'] + '_1'
         origin_coll_id1 = add_collection(**coll_properties1)
         origin_coll_id_list = [origin_coll_id, origin_coll_id1]
 
-        colls = get_collections_by_request_transform_id(transform_id=trans_id)
+        colls = get_collections(transform_id=trans_id)
         assert_equal(len(colls), 2)
         for coll in colls:
             assert_in(coll['coll_id'], origin_coll_id_list)
@@ -136,26 +133,21 @@ class TestTransformCollectionContent(unittest.TestCase):
                     continue
                 assert_equal(coll[key], coll_properties[key])
 
-        coll_ids = get_collection_ids_by_request_transform_id(transform_id=trans_id)
+        coll_ids = get_collection_ids_by_transform_id(transform_id=trans_id)
         assert_equal(len(coll_ids), 2)
         for coll_id in coll_ids:
             assert_in(coll_id, origin_coll_id_list)
 
         colls = get_collections(scope=coll_properties['scope'],
                                 name=coll_properties['name'],
-                                request_id=request_id)
-        assert_equal(len(colls), 2)
+                                transform_id=[trans_id])
+        assert_equal(len(colls), 1)
         for coll in colls:
             assert_in(coll['coll_id'], origin_coll_id_list)
             for key in coll_properties:
                 if key == 'name':
                     continue
                 assert_equal(coll[key], coll_properties[key])
-
-        coll_id = get_collection_id_by_scope_name(scope=coll_properties['scope'],
-                                                  name=coll_properties['name'],
-                                                  request_id=request_id)
-        assert_equal(coll_id, origin_coll_id)
 
     def test_contents_orm(self):
         """ Contents (ORM): Test contents """
@@ -174,18 +166,18 @@ class TestTransformCollectionContent(unittest.TestCase):
         coll_id = add_collection(**coll_properties)
 
         content_properties['coll_id'] = coll_id
-        origin_content_id = add_content(returning_id=True, **content_properties)
+        origin_content_id = add_content(**content_properties)
         content_properties1 = copy.deepcopy(content_properties)
         content_properties1['min_id'] = 101
         content_properties1['max_id'] = 200
-        origin_content_id1 = add_content(returning_id=True, **content_properties1)
+        origin_content_id1 = add_content(**content_properties1)
         content_properties2 = copy.deepcopy(content_properties)
         content_properties2['min_id'] = 0
         content_properties2['max_id'] = 200
-        origin_content_id2 = add_content(returning_id=True, **content_properties2)
+        origin_content_id2 = add_content(**content_properties2)
         content_properties3 = copy.deepcopy(content_properties)
         content_properties3['name'] = content_properties3['name'] + '_1'
-        origin_content_id3 = add_content(returning_id=True, **content_properties3)
+        origin_content_id3 = add_content(**content_properties3)
         origin_content_ids = [origin_content_id, origin_content_id1,
                               origin_content_id2, origin_content_id3]
 
@@ -197,7 +189,7 @@ class TestTransformCollectionContent(unittest.TestCase):
         contents = get_contents(scope=content_properties['scope'],
                                 name=content_properties['name'],
                                 coll_id=coll_id)
-        assert_equal(len(contents), 4)
+        assert_equal(len(contents), 3)
         for content in contents:
             assert_in(content['content_id'], origin_content_ids)
 
@@ -216,12 +208,8 @@ class TestTransformCollectionContent(unittest.TestCase):
         for content in contents:
             assert_in(content['content_id'], [origin_content_id, origin_content_id2])
 
-        to_updates = [{'path': 'test_path1', 'status': ContentStatus.Processing, 'coll_id': coll_id,
-                       'scope': content_properties['scope'], 'name': content_properties['name'],
-                       'min_id': content_properties['min_id'], 'max_id': content_properties['max_id']},
-                      {'path': 'test_path2', 'status': ContentStatus.Processing, 'coll_id': coll_id,
-                       'scope': content_properties1['scope'], 'name': content_properties1['name'],
-                       'min_id': content_properties1['min_id'], 'max_id': content_properties1['max_id']}]
+        to_updates = [{'path': 'test_path1', 'status': ContentStatus.Processing, 'content_id': origin_content_id},
+                      {'path': 'test_path2', 'status': ContentStatus.Processing, 'content_id': origin_content_id1}]
         update_contents(to_updates)
         content = get_content(content_id=origin_content_id)
         assert_equal(content['status'], ContentStatus.Processing)

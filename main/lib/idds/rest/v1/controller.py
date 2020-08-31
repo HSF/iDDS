@@ -6,14 +6,14 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2020
 
 
-import json
 from flask import Response, request
 from flask.views import MethodView
 
 from idds.common.constants import HTTP_STATUS_CODE
+from idds.common.utils import json_dumps
 
 
 class IDDSController(MethodView):
@@ -47,10 +47,10 @@ class IDDSController(MethodView):
             #     message['ExceptionClass'] = exc_cls
             if exc_msg is not None:
                 message['msg'] = str(exc_msg)
-            return json.dumps(message)
+            return json_dumps(message)
 
     def generate_http_response(self, status_code, data=None, exc_cls=None, exc_msg=None):
-        resp = Response(response=json.dumps(data) if data else data, status=status_code, content_type='application/json')
+        resp = Response(response=json_dumps(data) if data is not None else data, status=status_code, content_type='application/json')
         if exc_cls:
             resp.headers['ExceptionClass'] = exc_cls
             resp.headers['ExceptionMessage'] = self.generate_message(exc_cls, exc_msg)

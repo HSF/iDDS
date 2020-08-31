@@ -60,21 +60,21 @@ class CondorPoller(ProcessingPluginBase):
         # 4 Completed      C
         # 5 Held           H
         # 6 Submission_err E
-        cmd = "condor_q -format '%s' ClusterId  -format ' %s' Processing_id -format ' %s' JobStatus " + str(job_id)
+        cmd = "condor_q -format '%s' ClusterId  -format ' %s' Processing_id -format ' %s' JobStatus -format ' %s' Out -format ' %s' Err " + str(job_id)
         status, output, error = run_command(cmd)
-        self.logger.debug("poll job status: %s" % cmd)
-        self.logger.debug("status: %s, output: %s, error: %s" % (status, output, error))
+        self.logger.info("poll job status: %s" % cmd)
+        self.logger.info("status: %s, output: %s, error: %s" % (status, output, error))
         if status == 0 and len(output) == 0:
-            cmd = "condor_history -format '%s' ClusterId  -format ' %s' Processing_id -format ' %s' JobStatus " + str(job_id)
+            cmd = "condor_history -format '%s' ClusterId  -format ' %s' Processing_id -format ' %s' JobStatus -format ' %s' Out -format ' %s' Err " + str(job_id)
             status, output, error = run_command(cmd)
-            self.logger.debug("poll job status: %s" % cmd)
-            self.logger.debug("status: %s, output: %s, error: %s" % (status, output, error))
+            self.logger.info("poll job status: %s" % cmd)
+            self.logger.info("status: %s, output: %s, error: %s" % (status, output, error))
 
         ret_err = None
         if status == 0:
             lines = output.split('\n')
             for line in lines:
-                c_job_id, c_processing_id, c_job_status = line.split(' ')
+                c_job_id, c_processing_id, c_job_status, c_job_out_file, c_job_err_file = line.split(' ')
                 if str(c_job_id) != str(job_id):
                     continue
 
@@ -97,7 +97,16 @@ class CondorPoller(ProcessingPluginBase):
                         final_job_status = ProcessingStatus.Failed
         else:
             final_job_status = ProcessingStatus.Submitted
-        return final_job_status, ret_err
+
+        out_msg, err_msg = None, None
+        if final_job_status in [ProcessingStatus.Cancel, ProcessingStatus.Finished, ProcessingStatus.Failed]:
+            if os.path.exists(c_job_out_file):
+                with open(c_job_out_file) as f:
+                    out_msg = f.read()
+            if os.path.exists(c_job_err_file):
+                with open(c_job_err_file) as f:
+                    err_msg = f.read()
+        return final_job_status, ret_err, out_msg, err_msg
 
     def parse_job_outputs(self, processing_id, output_json):
         if not output_json:

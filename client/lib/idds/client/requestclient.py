@@ -16,7 +16,7 @@ Request Rest client to access IDDS system.
 import os
 
 from idds.client.base import BaseRestClient
-from idds.common.constants import RequestType, RequestStatus
+# from idds.common.constants import RequestType, RequestStatus
 
 
 class RequestClient(BaseRestClient):
@@ -48,10 +48,10 @@ class RequestClient(BaseRestClient):
         url = self.build_url(self.host, path=path)
 
         data = kwargs
-        if 'request_type' in data and data['request_type'] and isinstance(data['request_type'], RequestType):
-            data['request_type'] = data['request_type'].value
-        if 'status' in data and data['status'] and isinstance(data['status'], RequestStatus):
-            data['status'] = data['status'].value
+        # if 'request_type' in data and data['request_type'] and isinstance(data['request_type'], RequestType):
+        #     data['request_type'] = data['request_type'].value
+        # if 'status' in data and data['status'] and isinstance(data['status'], RequestStatus):
+        #     data['status'] = data['status'].value
 
         r = self.get_request_response(url, type='POST', data=data)
         return r['request_id']
@@ -70,16 +70,16 @@ class RequestClient(BaseRestClient):
 
         data = parameters
         data['request_id'] = request_id
-        if 'request_type' in data and data['request_type'] is not None and isinstance(data['request_type'], RequestType):
-            data['request_type'] = data['request_type'].value
-        if 'status' in data and data['status'] is not None and isinstance(data['status'], RequestStatus):
-            data['status'] = data['status'].value
+        # if 'request_type' in data and data['request_type'] is not None and isinstance(data['request_type'], RequestType):
+        #     data['request_type'] = data['request_type'].value
+        # if 'status' in data and data['status'] is not None and isinstance(data['status'], RequestStatus):
+        #     data['status'] = data['status'].value
 
-        print('data: %s' % str(data))
+        # print('data: %s' % str(data))
         r = self.get_request_response(url, type='PUT', data=data)
         return r
 
-    def get_request(self, request_id=None, workload_id=None):
+    def get_requests(self, request_id=None, workload_id=None):
         """
         Get request from the Head service.
 
@@ -95,11 +95,12 @@ class RequestClient(BaseRestClient):
             workload_id = 'null'
         url = self.build_url(self.host, path=os.path.join(path, str(request_id), str(workload_id)))
 
-        request = self.get_request_response(url, type='GET')
+        requests = self.get_request_response(url, type='GET')
 
-        if request['request_type'] is not None:
-            request['request_type'] = RequestType(request['request_type'])
-        if request['status'] is not None:
-            request['status'] = RequestStatus(request['status'])
+        # for request in requests:
+        #     if request['request_type'] is not None:
+        #         request['request_type'] = RequestType(request['request_type'])
+        #     if request['status'] is not None:
+        #         request['status'] = RequestStatus(request['status'])
 
-        return request
+        return requests

@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2020
 
 """
 Constants.
@@ -23,6 +23,7 @@ class Sections:
     Main = 'main'
     Common = 'common'
     Clerk = 'clerk'
+    Marshaller = 'marshaller'
     Transformer = 'transformer'
     Transporter = 'transporter'
     Carrier = 'carrier'
@@ -46,7 +47,51 @@ class HTTP_STATUS_CODE:
     InternalError = 500
 
 
-class RequestStatus(Enum):
+class IDDSEnum(Enum):
+    def to_dict(self):
+        ret = {'class': self.__class__.__name__,
+               'module': self.__class__.__module__,
+               'attributes': {}}
+        for key, value in self.__dict__.items():
+            if not key.startswith('__'):
+                if key == 'logger':
+                    value = None
+                if value and hasattr(value, 'to_dict'):
+                    value = value.to_dict()
+                ret['attributes'][key] = value
+        return ret
+
+    @staticmethod
+    def is_class(d):
+        if d and isinstance(d, dict) and 'class' in d and 'module' in d and 'attributes' in d:
+            return True
+        return False
+
+    @staticmethod
+    def load_instance(d):
+        module = __import__(d['module'], fromlist=[None])
+        cls = getattr(module, d['class'])
+        if issubclass(cls, Enum):
+            impl = cls(d['attributes']['_value_'])
+        else:
+            impl = cls()
+        return impl
+
+    @staticmethod
+    def from_dict(d):
+        if IDDSEnum.is_class(d):
+            impl = IDDSEnum.load_instance(d)
+            for key, value in d['attributes'].items():
+                if key == 'logger':
+                    continue
+                if IDDSEnum.is_class(value):
+                    value = IDDSEnum.from_dict(value)
+                setattr(impl, key, value)
+            return impl
+        return d
+
+
+class WorkStatus(IDDSEnum):
     New = 0
     Ready = 1
     Transforming = 2
@@ -59,30 +104,7 @@ class RequestStatus(Enum):
     Cancelled = 9
 
 
-class RequestLocking(Enum):
-    Idle = 0
-    Locking = 1
-
-
-class RequestType(Enum):
-    Derivation = 0
-    EventStreaming = 1
-    StageIn = 2
-    ActiveLearning = 3
-    HyperParameterOpt = 4
-    Other = 99
-
-
-class TransformType(Enum):
-    Derivation = 0
-    EventStreaming = 1
-    StageIn = 2
-    ActiveLearning = 3
-    HyperParameterOpt = 4
-    Other = 99
-
-
-class TransformStatus(Enum):
+class RequestStatus(IDDSEnum):
     New = 0
     Ready = 1
     Transforming = 2
@@ -95,25 +117,81 @@ class TransformStatus(Enum):
     Cancelled = 9
 
 
-class TransformLocking(Enum):
+class RequestLocking(IDDSEnum):
     Idle = 0
     Locking = 1
 
 
-class CollectionType(Enum):
+class WorkprogressStatus(IDDSEnum):
+    New = 0
+    Ready = 1
+    Transforming = 2
+    Finished = 3
+    SubFinished = 4
+    Failed = 5
+    Extend = 6
+    ToCancel = 7
+    Cancelling = 8
+    Cancelled = 9
+
+
+class WorkprogressLocking(IDDSEnum):
+    Idle = 0
+    Locking = 1
+
+
+class RequestType(IDDSEnum):
+    Workflow = 0
+    EventStreaming = 1
+    StageIn = 2
+    ActiveLearning = 3
+    HyperParameterOpt = 4
+    Derivation = 5
+    Other = 99
+
+
+class TransformType(IDDSEnum):
+    Workflow = 0
+    EventStreaming = 1
+    StageIn = 2
+    ActiveLearning = 3
+    HyperParameterOpt = 4
+    Derivation = 5
+    Other = 99
+
+
+class TransformStatus(IDDSEnum):
+    New = 0
+    Ready = 1
+    Transforming = 2
+    Finished = 3
+    SubFinished = 4
+    Failed = 5
+    Extend = 6
+    ToCancel = 7
+    Cancelling = 8
+    Cancelled = 9
+
+
+class TransformLocking(IDDSEnum):
+    Idle = 0
+    Locking = 1
+
+
+class CollectionType(IDDSEnum):
     Container = 0
     Dataset = 1
     File = 2
     PseudoDataset = 3
 
 
-class CollectionRelationType(Enum):
+class CollectionRelationType(IDDSEnum):
     Input = 0
     Output = 1
     Log = 2
 
 
-class CollectionStatus(Enum):
+class CollectionStatus(IDDSEnum):
     New = 0
     Updated = 1
     Processing = 2
@@ -124,18 +202,18 @@ class CollectionStatus(Enum):
     Deleted = 7
 
 
-class CollectionLocking(Enum):
+class CollectionLocking(IDDSEnum):
     Idle = 0
     Locking = 1
 
 
-class ContentType(Enum):
+class ContentType(IDDSEnum):
     File = 0
     Event = 1
     PseudoContent = 2
 
 
-class ContentStatus(Enum):
+class ContentStatus(IDDSEnum):
     New = 0
     Processing = 1
     Available = 2
@@ -146,12 +224,17 @@ class ContentStatus(Enum):
     Mapped = 7
 
 
-class GranularityType(Enum):
+class ContentLocking(IDDSEnum):
+    Idle = 0
+    Locking = 1
+
+
+class GranularityType(IDDSEnum):
     File = 0
     Event = 1
 
 
-class ProcessingStatus(Enum):
+class ProcessingStatus(IDDSEnum):
     New = 0
     Submitting = 1
     Submitted = 2
@@ -162,14 +245,16 @@ class ProcessingStatus(Enum):
     Cancel = 7
     FinishedOnStep = 8
     FinishedOnExec = 9
+    TimeOut = 10
+    FinishedTerm = 11
 
 
-class ProcessingLocking(Enum):
+class ProcessingLocking(IDDSEnum):
     Idle = 0
     Locking = 1
 
 
-class MessageType(Enum):
+class MessageType(IDDSEnum):
     StageInFile = 0
     StageInCollection = 1
     ActiveLearningFile = 2
@@ -180,18 +265,18 @@ class MessageType(Enum):
     UnknownCollection = 99
 
 
-class MessageStatus(Enum):
+class MessageStatus(IDDSEnum):
     New = 0
     Fetched = 1
     Delivered = 2
 
 
-class MessageLocking(Enum):
+class MessageLocking(IDDSEnum):
     Idle = 0
     Locking = 1
 
 
-class MessageSource(Enum):
+class MessageSource(IDDSEnum):
     Clerk = 0
     Transformer = 1
     Transporter = 2

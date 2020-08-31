@@ -9,6 +9,7 @@
 # - Wen Guan, <wen.guan@cern.ch>, 2019
 
 import copy
+import datetime
 import traceback
 try:
     # python 3
@@ -34,9 +35,18 @@ class Transporter(BaseAgent):
     Transporter works to list collections from DDM and register contents to DDM.
     """
 
-    def __init__(self, num_threads=1, poll_time_period=1800, retrieve_bulk_size=None, **kwargs):
+    def __init__(self, num_threads=1, poll_time_period=10, retrieve_bulk_size=None, poll_input_time_period=None, poll_output_time_period=None, **kwargs):
         super(Transporter, self).__init__(num_threads=num_threads, **kwargs)
         self.poll_time_period = int(poll_time_period)
+        if poll_input_time_period is None:
+            self.poll_input_time_period = self.poll_time_period
+        else:
+            self.poll_input_time_period = int(poll_input_time_period)
+        if poll_output_time_period is None:
+            self.poll_output_time_period = self.poll_time_period
+        else:
+            self.poll_output_time_period = int(poll_output_time_period)
+
         self.retrieve_bulk_size = int(retrieve_bulk_size)
         self.config_section = Sections.Transporter
 
@@ -45,6 +55,11 @@ class Transporter(BaseAgent):
         self.new_output_queue = Queue()
         self.processed_output_queue = Queue()
 
+    def init(self):
+        status = [CollectionStatus.New, CollectionStatus.Open,
+                  CollectionStatus.Updated, CollectionStatus.Processing]
+        core_catalog.clean_next_poll_at(status)
+
     def get_new_input_collections(self):
         """
         Get new input collections
@@ -52,20 +67,28 @@ class Transporter(BaseAgent):
         coll_status = [CollectionStatus.Open]
         colls_open = core_catalog.get_collections_by_status(status=coll_status,
                                                             relation_type=CollectionRelationType.Input,
-                                                            time_period=self.poll_time_period,
+                                                            # time_period=self.poll_input_time_period,
                                                             locking=True,
                                                             bulk_size=self.retrieve_bulk_size)
-        self.logger.info("Main thread get %s [open] input collections to process" % len(colls_open))
+
+        self.logger.debug("Main thread get %s [open] input collections to process" % len(colls_open))
+        if colls_open:
+            self.logger.info("Main thread get %s [open] input collections to process" % len(colls_open))
 
         coll_status = [CollectionStatus.New]
         colls_new = core_catalog.get_collections_by_status(status=coll_status,
                                                            relation_type=CollectionRelationType.Input,
                                                            locking=True,
                                                            bulk_size=self.retrieve_bulk_size)
-        self.logger.info("Main thread get %s [new] input collections to process" % len(colls_new))
+
+        self.logger.debug("Main thread get %s [new] input collections to process" % len(colls_new))
+        if colls_new:
+            self.logger.info("Main thread get %s [new] input collections to process" % len(colls_new))
 
         colls = colls_open + colls_new
-        self.logger.info("Main thread get totally %s [open + new] collections to process" % len(colls))
+        self.logger.debug("Main thread get totally %s [open + new] collections to process" % len(colls))
+        if colls:
+            self.logger.info("Main thread get totally %s [open + new] collections to process" % len(colls))
 
         return colls
 
@@ -160,18 +183,16 @@ class Transporter(BaseAgent):
             coll = self.processed_input_queue.get()
             self.logger.info("Main thread finished processing intput collection(%s) with number of contents: %s" % (coll['coll']['coll_id'], len(coll['contents'])))
             parameters = copy.deepcopy(coll)
+            if parameters['coll']['coll_type'] in [CollectionType.PseudoDataset, CollectionType.PseudoDataset.value]:
+                pass
+            else:
+                parameters['next_poll_at'] = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_input_time_period)
             del parameters['contents']
             del parameters['coll']
             parameters['locking'] = CollectionLocking.Idle
             core_catalog.update_input_collection_with_contents(coll=coll['coll'],
                                                                parameters=parameters,
                                                                contents=coll['contents'])
-
-            # new_contents = core_catalog.update_input_collection_with_contents(coll_id=coll['coll_id'],
-            #                                                                   parameters=parameters,
-            #                                                                   contents=coll['contents'])
-            # if new_contents:
-            #     core_transforms.trigger_update_transform_status(coll['transform_id'], input_collection_changed=True)
 
     def get_new_output_collections(self):
         """
@@ -180,10 +201,12 @@ class Transporter(BaseAgent):
         coll_status = [CollectionStatus.Updated, CollectionStatus.Processing]
         colls = core_catalog.get_collections_by_status(status=coll_status,
                                                        relation_type=CollectionRelationType.Output,
-                                                       time_period=self.poll_time_period,
+                                                       # time_period=self.poll_output_time_period,
                                                        locking=True,
                                                        bulk_size=self.retrieve_bulk_size)
-        self.logger.info("Main thread get %s [Updated + Processing] output collections to process" % len(colls))
+        self.logger.debug("Main thread get %s [Updated + Processing] output collections to process" % len(colls))
+        if colls:
+            self.logger.info("Main thread get %s [Updated + Processing] output collections to process" % len(colls))
         return colls
 
     def register_contents(self, scope, name, contents):
@@ -201,14 +224,22 @@ class Transporter(BaseAgent):
         return is_all_processed
 
     def is_all_processings_finished(self, transform_id):
+        last_processing = None
         processings = core_processings.get_processings_by_transform_id(transform_id=transform_id)
+        if processings:
+            last_processing = processings[-1]
+
         for processing in processings:
             if not processing['status'] in [ProcessingStatus.Finished, ProcessingStatus.Failed, ProcessingStatus.Lost,
-                                            ProcessingStatus.Cancel, ProcessingStatus.FinishedOnStep, ProcessingStatus.FinishedOnExec,
+                                            # ProcessingStatus.Cancel, ProcessingStatus.FinishedOnStep, ProcessingStatus.FinishedOnExec,
+                                            ProcessingStatus.Cancel, ProcessingStatus.FinishedOnStep,
+                                            ProcessingStatus.TimeOut,
                                             ProcessingStatus.Finished.value, ProcessingStatus.Failed.value, ProcessingStatus.Lost.value,
-                                            ProcessingStatus.Cancel.value, ProcessingStatus.FinishedOnStep.value, ProcessingStatus.FinishedOnExec.value]:
-                return False
-        return True
+                                            # ProcessingStatus.Cancel.value, ProcessingStatus.FinishedOnStep.value, ProcessingStatus.FinishedOnExec.value,
+                                            ProcessingStatus.Cancel.value, ProcessingStatus.FinishedOnStep.value,
+                                            ProcessingStatus.TimeOut.value]:
+                return False, last_processing
+        return True, last_processing
 
     def process_output_collection(self, coll):
         """
@@ -225,7 +256,7 @@ class Transporter(BaseAgent):
             if new_contents:
                 self.register_contents(coll['scope'], coll['name'], new_contents)
 
-        is_all_processings_finished = self.is_all_processings_finished(coll['transform_id'])
+        is_all_processings_finished, last_processing = self.is_all_processings_finished(coll['transform_id'])
 
         is_input_collection_all_processed = False
         if coll['coll_metadata'] and 'input_collections' in coll['coll_metadata'] and coll['coll_metadata']['input_collections']:
@@ -241,7 +272,7 @@ class Transporter(BaseAgent):
         total_files = sum(contents_statistics.values())
         new_files = 0
         processed_files = 0
-        output_metadata = None
+        # output_metadata = None
         if ContentStatus.Available in contents_statistics:
             processed_files += contents_statistics[ContentStatus.Available]
         if ContentStatus.Available.value in contents_statistics:
@@ -258,10 +289,13 @@ class Transporter(BaseAgent):
             coll_status = CollectionStatus.Closed
 
             transform = core_transforms.get_transform(coll['coll_metadata']['transform_id'])
-            if 'processing_id' in transform['transform_metadata']:
-                processing = core_processings.get_processing(transform['transform_metadata']['processing_id'])
-                output_metadata = processing['output_metadata']
-
+            # if 'processing_id' in transform['transform_metadata']:
+            #    processing = core_processings.get_processing(transform['transform_metadata']['processing_id'])
+            #    output_metadata = processing['output_metadata']
+            output_ret = {}
+            if last_processing:
+                output_ret = {'status': last_processing['status'].name,
+                              'msg': last_processing['processing_metadata']['final_errors'] if 'final_errors' in last_processing['processing_metadata'] else None}
             if transform['transform_type'] in [TransformType.StageIn, TransformType.StageIn.value]:
                 msg_type = 'collection_stagein'
                 msg_type_c = MessageType.StageInCollection
@@ -280,7 +314,7 @@ class Transporter(BaseAgent):
                            'collections': [{'scope': coll['scope'],
                                             'name': coll['name'],
                                             'status': 'Available'}],
-                           'output': output_metadata}
+                           'output': output_ret}
             coll_msg = {'msg_type': msg_type_c,
                         'status': MessageStatus.New,
                         'source': MessageSource.Transporter,
@@ -296,15 +330,17 @@ class Transporter(BaseAgent):
             coll_status = CollectionStatus.SubClosed
         elif (ContentStatus.New in content_status_keys or ContentStatus.New.value in content_status_keys            # noqa: W503
             or ContentStatus.Failed in content_status_keys or ContentStatus.Failed.value in content_status_keys):   # noqa: W503
-            coll_status = CollectionStatus.Processing
+            # coll_status = CollectionStatus.Processing
+            coll_status = CollectionStatus.Failed
         else:
-            coll_status = CollectionStatus.Processing
+            # coll_status = CollectionStatus.Processing
+            coll_status = CollectionStatus.Failed
 
         coll_metadata = coll['coll_metadata']
         if not coll_metadata:
             coll_metadata = {}
         coll_metadata['status_statistics'] = contents_statistics_with_name
-        coll_metadata['output_metadata'] = output_metadata
+        # coll_metadata['output_metadata'] = output_metadata
         ret_coll = {'coll_id': coll['coll_id'],
                     'total_files': total_files,
                     'status': coll_status,
@@ -313,6 +349,12 @@ class Transporter(BaseAgent):
                     'processed_files': processed_files,
                     'coll_metadata': coll_metadata,
                     'coll_msg': coll_msg}
+
+        if coll['coll_type'] in [CollectionType.PseudoDataset, CollectionType.PseudoDataset.value]:
+            pass
+        else:
+            ret_coll['next_poll_at'] = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_output_time_period)
+
         return ret_coll
 
     def process_output_collections(self):
@@ -340,7 +382,7 @@ class Transporter(BaseAgent):
             del parameters['coll_id']
             del coll['coll_msg']
             parameters['locking'] = CollectionLocking.Idle
-            core_catalog.update_collection_with_msg(coll_id=coll_id, parameters=parameters, msg=coll_msg)
+            core_catalog.update_collection(coll_id=coll_id, parameters=parameters, msg=coll_msg)
 
     def clean_locks(self):
         self.logger.info("clean locking")
@@ -354,19 +396,20 @@ class Transporter(BaseAgent):
             self.logger.info("Starting main thread")
 
             self.load_plugins()
+            self.init()
 
-            task = self.create_task(task_func=self.get_new_input_collections, task_output_queue=self.new_input_queue, task_args=tuple(), task_kwargs={}, delay_time=5, priority=1)
+            task = self.create_task(task_func=self.get_new_input_collections, task_output_queue=self.new_input_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
             self.add_task(task)
-            task = self.create_task(task_func=self.process_input_collections, task_output_queue=self.processed_input_queue, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
+            task = self.create_task(task_func=self.process_input_collections, task_output_queue=self.processed_input_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
             self.add_task(task)
-            task = self.create_task(task_func=self.finish_processing_input_collections, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
+            task = self.create_task(task_func=self.finish_processing_input_collections, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
             self.add_task(task)
 
-            task = self.create_task(task_func=self.get_new_output_collections, task_output_queue=self.new_output_queue, task_args=tuple(), task_kwargs={}, delay_time=5, priority=1)
+            task = self.create_task(task_func=self.get_new_output_collections, task_output_queue=self.new_output_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
             self.add_task(task)
-            task = self.create_task(task_func=self.process_output_collections, task_output_queue=self.processed_output_queue, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
+            task = self.create_task(task_func=self.process_output_collections, task_output_queue=self.processed_output_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
             self.add_task(task)
-            task = self.create_task(task_func=self.finish_processing_output_collections, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
+            task = self.create_task(task_func=self.finish_processing_output_collections, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
             self.add_task(task)
 
             task = self.create_task(task_func=self.clean_locks, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1800, priority=1)

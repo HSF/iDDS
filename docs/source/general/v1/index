@@ -1,0 +1,10 @@
+iDDS (V1)
+========
+
+Here is the iDDS (V1) architecture and schema view.
+
+.. toctree::
+   :maxdepth: 1
+
+   ../../general/v1/schematic_view
+   ../../general/v1/architecture

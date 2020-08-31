@@ -4,6 +4,7 @@
 yum install -y httpd.x86_64 conda gridsite mod_ssl.x86_64 httpd-devel.x86_64 gcc.x86_64 supervisor.noarch
 mkdir /opt/idds
 mkdir /opt/idds_source
+mkdir /opt/idds
 mkdir /var/log/idds
 mkdir /var/log/idds/wsgisocks
 chown atlpilo1 -R /opt/idds
@@ -11,8 +12,11 @@ chown atlpilo1 -R /opt/idds_source
 chown atlpilo1 /var/log/idds
 chown apache -R /var/log/idds/wsgisocks
 
+cd /opt/idds_source
+#  rm -fr *; cp -r /afs/cern.ch/user/w/wguan/workdisk/iDDS/* .;python setup.py install --old-and-unmanageable
 git clone @github_idds@ /opt/idds_source
 conda env create --prefix=/opt/idds -f main/tools/env/environment.yml
+# source /etc/profile.d/conda.sh
 conda activate /opt/idds
 pip install rucio-clients-atlas rucio-clients
 # root ca.crt to  /opt/idds/etc/ca.crt
@@ -33,6 +37,7 @@ systemctl enable httpd.service
 
 
 cp /opt/idds/etc/idds/supervisord.d/idds.ini /etc/supervisord.d/idds.ini
+cp /opt/idds_source/main/etc/idds/supervisord.d/idds.ini /etc/supervisord.d/idds.ini
 
 systemctl start supervisord
 systemctl status supervisord
@@ -48,6 +53,10 @@ yum install -y condor.x86_64 condor-python.x86_64
 firewall-cmd --zone=public --add-port=9618/udp --permanent
 firewall-cmd --zone=public --add-port=9600-9700/tcp --permanent
 firewall-cmd --reload
+cp /opt/idds_source/main/etc/condor/submitter/00personal_condor.config /etc/condor/config.d/
+systemctl enable condor
+systemctl start condor
+systemctl status condor
 
 
 #docker

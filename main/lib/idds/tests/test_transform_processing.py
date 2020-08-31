@@ -14,9 +14,8 @@ Test Request.
 """
 
 import unittest2 as unittest
-from nose.tools import assert_equal, assert_raises
+from nose.tools import assert_equal
 
-from idds.common import exceptions
 from idds.common.utils import check_database, has_config, setup_logging
 from idds.common.constants import ProcessingStatus
 from idds.orm.transforms import add_transform, delete_transform
@@ -51,7 +50,7 @@ class TestTransformProcessing(unittest.TestCase):
 
         delete_processing(processing_id)
 
-        with assert_raises(exceptions.NoObject):
-            get_processing(processing_id=processing_id)
+        processing = get_processing(processing_id=processing_id)
+        assert_equal(processing, None)
 
         delete_transform(trans_id)

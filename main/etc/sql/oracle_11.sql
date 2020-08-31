@@ -1,5 +1,6 @@
 DROP SEQUENCE MESSAGE_ID_SEQ;
 DROP SEQUENCE REQUEST_ID_SEQ;
+DROP SEQUENCE WORKPROGRESS_ID_SEQ;
 DROP SEQUENCE TRANSFORM_ID_SEQ;
 DROP SEQUENCE PROCESSING_ID_SEQ;
 DROP SEQUENCE COLLECTION_ID_SEQ;
@@ -10,10 +11,13 @@ DROP table MESSAGES purge;
 DROP table CONTENTS purge;
 DROP table REQ2WORKLOAD purge;
 DROP table REQ2TRANSFORMS purge;
+DROP table WP2TRANSFORMS purge;
+DROP table WORKPROGRESSES purge;
 DROP table PROCESSINGS purge;
 DROP table COLLECTIONS purge;
 DROP table TRANSFORMS purge;
 DROP table REQUESTS purge;
+
 
 --- requests
 CREATE SEQUENCE REQUEST_ID_SEQ MINVALUE 1 INCREMENT BY 1 ORDER NOCACHE;
@@ -32,6 +36,7 @@ CREATE TABLE REQUESTS
         locking NUMBER(2),
         created_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)) constraint REQ_CREATED_NN NOT NULL,
         updated_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)) constraint REQ_UPDATED_NN NOT NULL,
+        next_poll_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)) constraint REQ_NEXT_POLL_NN NOT NULL,
         accessed_at DATE,
         expired_at DATE,
         errors VARCHAR2(1024),
@@ -56,7 +61,50 @@ CREATE OR REPLACE TRIGGER TRIG_REQUEST_ID
 
 CREATE INDEX REQUESTS_SCOPE_NAME_IDX ON REQUESTS (name, scope, workload_id) LOCAL;
 --- drop index REQUESTS_STATUS_PRIORITY_IDX
-CREATE INDEX REQUESTS_STATUS_PRIORITY_IDX ON REQUESTS (status, priority, request_id, locking, updated_at, created_at) LOCAL COMPRESS 1;
+CREATE INDEX REQUESTS_STATUS_PRIORITY_IDX ON REQUESTS (status, priority, request_id, locking, updated_at, next_poll_at, created_at) LOCAL COMPRESS 1;
+
+
+--- workprogress
+CREATE SEQUENCE WORKPROGRESS_ID_SEQ MINVALUE 1 INCREMENT BY 1 ORDER NOCACHE;
+CREATE TABLE WORKPROGRESSES
+(
+        workprogress_id NUMBER(12),
+        request_id NUMBER(12) constraint WORKPROGRESS__REQ_ID_NN NOT NULL,
+        scope VARCHAR2(25) constraint WORKPROGRESS_SCOPE_NN NOT NULL,
+        name VARCHAR2(255) constraint WORKPROGRESS_NAME_NN NOT NULL,
+        priority NUMBER(7),
+        status NUMBER(2) constraint WORKPROGRESS_STATUS_ID_NN NOT NULL,
+        substatus NUMBER(2),
+        locking NUMBER(2),
+        created_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)) constraint WORKPROGRESS_CREATED_NN NOT NULL,
+        updated_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)) constraint WORKPROGRESS_UPDATED_NN NOT NULL,
+        next_poll_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)) constraint WORKPROGRESS_NEXT_POLL_NN NOT NULL,
+        accessed_at DATE,
+        expired_at DATE,
+        errors VARCHAR2(1024),
+        workprogress_metadata CLOB constraint WORKPROGRESS_REQUEST_METADATA_ENSURE_JSON CHECK(workprogress_metadata IS JSON(LAX)),
+        processing_metadata CLOB constraint WORKPROGRESS_PROCESSING_METADATA_ENSURE_JSON CHECK(processing_metadata IS JSON(LAX)),
+        CONSTRAINT WORKPROGRESS_PK PRIMARY KEY (workprogress_id) USING INDEX LOCAL,
+        CONSTRAINT WORKPROGRESS_REQ_ID_FK FOREIGN KEY(request_id) REFERENCES REQUESTS(request_id),
+        --- CONSTRAINT REQUESTS_NAME_SCOPE_UQ UNIQUE (name, scope, requester, request_type, transform_tag, workload_id) -- USING INDEX LOCAL,
+)
+PCTFREE 3
+PARTITION BY RANGE(REQUEST_ID)
+INTERVAL ( 100000 )
+( PARTITION initial_part VALUES LESS THAN (1) );
+
+CREATE OR REPLACE TRIGGER TRIG_WORKPROGRESS_ID
+    BEFORE INSERT
+    ON WORKPROGRESSES
+    FOR EACH ROW
+    BEGIN
+        :NEW.workprogress_id := WORKPROGRESS_ID_SEQ.NEXTVAL ;
+    END;
+ /
+
+CREATE INDEX WORKPROGRESS_SCOPE_NAME_IDX ON WORKPROGRESSES (name, scope, workprogress_id) LOCAL;
+--- drop index REQUESTS_STATUS_PRIORITY_IDX
+CREATE INDEX WORKPROGRESS_STATUS_PRIORITY_IDX ON WORKPROGRESSES (status, priority, workprogress_id, locking, updated_at, next_poll_at, created_at) LOCAL COMPRESS 1;
 
 
 --- transforms
@@ -75,6 +123,7 @@ CREATE TABLE TRANSFORMS
         retries NUMBER(5) DEFAULT 0,
         created_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)) constraint TRANSFORM_CREATED_NN NOT NULL,
         updated_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)) constraint TRANSFORM_UPDATED_NN NOT NULL,
+        next_poll_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)) constraint TRANSFORM_NEXT_POLL_NN NOT NULL,
         started_at DATE,
         finished_at DATE,
         expired_at DATE,
@@ -97,7 +146,7 @@ CREATE OR REPLACE TRIGGER TRIG_TRANSFORM_ID
 
 
 CREATE INDEX TRANSFORMS_TYPE_TAG_IDX ON TRANSFORMS (transform_type, transform_tag, transform_id) LOCAL;
-CREATE INDEX TRANSFORMS_STATUS_UPDATED_IDX ON TRANSFORMS (status, locking, updated_at, created_at) LOCAL;
+CREATE INDEX TRANSFORMS_STATUS_UPDATED_IDX ON TRANSFORMS (status, locking, updated_at, next_poll_at, created_at) LOCAL;
 
 --- req2transforms
 CREATE TABLE REQ2TRANSFORMS
@@ -129,6 +178,22 @@ INTERVAL ( 100000 )
 -- COMPRESS FOR OLTP
 -- PARTITION BY REFERENCE(REQ2WORKLOAD_REQ_ID_FK);
 
+
+--- workprogress2transform
+CREATE TABLE WP2TRANSFORMS
+(
+        workprogress_id NUMBER(12) constraint WP2TRANSFORM_WP_ID_NN NOT NULL,
+        transform_id NUMBER(12) constraint WP2TRANSFORM_TRANS_ID_NN NOT NULL,
+        CONSTRAINT WP2TRANSFORM_PK PRIMARY KEY (workprogress_id, transform_id),
+        CONSTRAINT WP2TRANSFORM_WORK_ID_FK FOREIGN KEY(workprogress_id) REFERENCES WORKPROGRESSES(workprogress_id),
+        CONSTRAINT WP2TRANSFORM_TRANS_ID_FK FOREIGN KEY(transform_id) REFERENCES TRANSFORMS(transform_id)
+)
+PCTFREE 3
+PARTITION BY RANGE(workprogress_id)
+INTERVAL ( 100000 )
+( PARTITION initial_part VALUES LESS THAN (1) );
+
+
 ---- processings
 -- CREATE SEQUENCE PROCESSING_ID_SEQ MINVALUE 1 INCREMENT BY 1 NOORDER CACHE 3 NOCYCLE;
 CREATE SEQUENCE PROCESSING_ID_SEQ MINVALUE 1 INCREMENT BY 1  NOCACHE;
@@ -145,6 +210,7 @@ CREATE TABLE PROCESSINGS
         granularity_type NUMBER(2),
         created_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)) constraint PROCESSING_CREATED_NN NOT NULL,
         updated_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)) constraint PROCESSING_UPDATED_NN NOT NULL,
+        next_poll_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)) constraint PROCESSING_NEXT_POLL_NN NOT NULL,
         submitted_at DATE,
         finished_at DATE,
         expired_at DATE,
@@ -171,7 +237,7 @@ CREATE OR REPLACE TRIGGER TRIG_PROCESSING_ID
     END;
  /
 
-CREATE INDEX PROCESSINGS_STATUS_UPDATED_IDX ON PROCESSINGS (status, locking, updated_at, created_at) LOCAL;
+CREATE INDEX PROCESSINGS_STATUS_UPDATED_IDX ON PROCESSINGS (status, locking, updated_at, next_poll_at, created_at) LOCAL;
 
 
 --- collections
@@ -198,6 +264,7 @@ CREATE TABLE COLLECTIONS
     retries NUMBER(5) DEFAULT 0,
     created_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)) constraint COLLECTION_CREATED_NN NOT NULL,
     updated_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)) constraint COLLECTION_UPDATED_NN NOT NULL,
+    next_poll_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)) constraint COLLECTION_NEXT_POLL_NN NOT NULL,
     accessed_at DATE,
     expired_at DATE,
     coll_metadata CLOB,
@@ -225,7 +292,7 @@ CREATE OR REPLACE TRIGGER TRIG_COLLECTION_ID
 
 CREATE INDEX COLLECTIONS_STATUS_RELAT_IDX ON COLLECTIONS(status, relation_type);
 CREATE INDEX COLLECTIONS_TRANSFORM_IDX ON COLLECTIONS(transform_id, coll_id);
-CREATE INDEX COLLECTIONS_STATUS_UPDATED_IDX ON COLLECTIONS (status, locking, updated_at, created_at) LOCAL;
+CREATE INDEX COLLECTIONS_STATUS_UPDATED_IDX ON COLLECTIONS (status, locking, updated_at, next_poll_at, created_at) LOCAL;
 
 
 --- contents
@@ -233,7 +300,9 @@ CREATE SEQUENCE CONTENT_ID_SEQ MINVALUE 1 INCREMENT BY 1 NOORDER CACHE 10 NOCYCL
 CREATE TABLE CONTENTS
 (
         content_id NUMBER(12),    
-        coll_id NUMBER(14) constraint CONTENT_COLL_ID_NN NOT NULL,  
+        transform_id NUMBER(12) constraint CONTENT_TRANSFORM_ID_NN NOT NULL,
+        coll_id NUMBER(14) constraint CONTENT_COLL_ID_NN NOT NULL,
+        map_id NUMBER(12) DEFAULT 0,
         scope VARCHAR2(25) constraint CONTENT_SCOPE_NN NOT NULL,
         name VARCHAR2(255) constraint CONTENT_NAME_NN NOT NULL,
         min_id NUMBER(7) constraint CONTENT_MIN_ID_NN NOT NULL,
@@ -254,12 +323,16 @@ CREATE TABLE CONTENTS
         accessed_at DATE,
         expired_at DATE,
         content_metadata CLOB,
-        CONSTRAINT CONTENT_PK PRIMARY KEY (name, scope, coll_id, content_type, min_id, max_id) USING INDEX LOCAL,
-        CONSTRAINT CONTENT_UQ UNIQUE (content_id, coll_id) USING INDEX LOCAL,  
+        ---- CONSTRAINT CONTENT_PK PRIMARY KEY (name, scope, coll_id, content_type, min_id, max_id) USING INDEX LOCAL,
+        CONSTRAINT CONTENT_PK PRIMARY KEY (content_id),
+        --- CONSTRAINT CONTENT_SCOPE_NAME_UQ UNIQUE (name, scope, coll_id, content_type, min_id, max_id) USING INDEX LOCAL,
+        --- CONSTRAINT CONTENT_SCOPE_NAME_UQ UNIQUE (name, scope, coll_id, min_id, max_id) USING INDEX LOCAL,
+        CONSTRAINT CONTENT_ID_UQ UNIQUE (transform_id, coll_id, map_id) USING INDEX LOCAL,
+        CONSTRAINT CONTENT_TRANSFORM_ID_FK FOREIGN KEY(transform_id) REFERENCES TRANSFORMS(transform_id),
         CONSTRAINT CONTENT_COLL_ID_FK FOREIGN KEY(coll_id) REFERENCES COLLECTIONS(coll_id)
 )
 PCTFREE 3
-PARTITION BY RANGE(COLL_ID)
+PARTITION BY RANGE(TRANSFORM_ID)
 INTERVAL ( 10000 )
 ( PARTITION initial_part VALUES LESS THAN (1) );
 

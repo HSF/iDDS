@@ -12,8 +12,10 @@
 # logdir = /var/log/idds
 loglevel = DEBUG
 
+# iddsserver.cern.ch: aipanda181, aipanda182
 # aipanda182 prod
-# aipanda181 dev
+# aipanda181 prod
+# aipanda160 dev
 # aipanda180 condor
 # aipanda187 monitor(can be reused)
 # aipanda160, 161, 162 (new vms)
@@ -48,14 +50,14 @@ agents = clerk, transporter, transformer, carrier, conductor
 
 [clerk]
 num_threads = 1
-poll_time_period = 120
+poll_time_period = 5
 retrieve_bulk_size = 10
 #plugin_sequence = collection_lister
 plugin.collection_lister = idds.atlas.rucio.collection_lister.CollectionLister
 
 [transformer]
 num_threads = 1
-poll_time_period = 120
+poll_time_period = 5
 retrieve_bulk_size = 10
 plugin.stagein_transformer = idds.atlas.transformer.stagein_transformer.StageInTransformer
 plugin.activelearning_transformer = idds.atlas.transformer.activelearning_transformer.ActiveLearningTransformer
@@ -63,7 +65,10 @@ plugin.hyperparameteropt_transformer = idds.atlas.transformer.hyperparameteropt_
 
 [transporter]
 num_threads = 1
-poll_time_period = 600
+poll_time_period = 5
+# time period for polling input open collections
+poll_input_time_period = 600
+poll_output_time_period = 5
 retrieve_bulk_size = 10
 plugin.collection_metadata_reader = idds.atlas.rucio.collection_metadata_reader.CollectionMetadataReader
 plugin.contents_lister = idds.atlas.rucio.contents_lister.ContentsLister
@@ -71,15 +76,24 @@ plugin.contents_register = idds.atlas.rucio.contents_register.ContentsRegister
 
 [carrier]
 num_threads = 1
-poll_time_period = 600
+poll_time_period = 5
 retrieve_bulk_size = 10
 message_bulk_size = 2000
 plugin.stagein_submitter = idds.atlas.processing.stagein_submitter.StageInSubmitter
+plugin.stagein_submitter.poll_time_period = 5
 plugin.stagein_submitter.plugin.rule_submitter = idds.atlas.rucio.rule_submitter.RuleSubmitter
 #7 * 24 * 3600
 plugin.stagein_submitter.plugin.rule_submitter.lifetime = 604800
 plugin.stagein_poller = idds.atlas.processing.stagein_poller.StageInPoller
+plugin.stagein_poller.poll_time_period = 1800
 plugin.stagein_poller.plugin.rule_poller = idds.atlas.rucio.rule_poller.RulePoller
+# 4 * 24 * 3600
+plugin.stagein_poller.plugin.rule_poller.default_max_waiting_time = 345600
+plugin.stagein_poller.plugin.rule_poller.check_all_rules_for_new_rule = True
+plugin.stagein_poller.plugin.rule_poller.new_rule_lifetime = 604800
+plugin.stagein_poller.plugin.rule_creator = idds.atlas.rucio.rule_creator.RuleCreator
+# new_rule_lifetime will overwrite this one
+plugin.stagein_poller.plugin.rule_creator.lifetime = 604800
 
 plugin.activelearning_submitter = idds.atlas.processing.activelearning_condor_submitter.ActiveLearningCondorSubmitter
 plugin.activelearning_submitter.workdir = /data/idds_processing
@@ -105,7 +119,7 @@ plugin.hyperparameteropt_poller = idds.atlas.processing.hyperparameteropt_condor
 plugin.hyperparameteropt_poller.workdir = /data/idds_processing
 plugin.hyperparameteropt_poller.max_unevaluated_points = 20
 plugin.hyperparameteropt_poller.min_unevaluated_points = 2
-
+plugin.hyperparameteropt_poller.max_life_time = 1209600
 
 [conductor]
 retrieve_bulk_size = 10

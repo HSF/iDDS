@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2020
 
 
 """
@@ -15,7 +15,7 @@ operations related to Processings.
 
 
 from idds.orm.base.session import read_session, transactional_session
-from idds.common.constants import ProcessingLocking
+from idds.common.constants import ProcessingLocking, GranularityType
 from idds.orm import (processings as orm_processings,
                       collections as orm_collections,
                       contents as orm_contents,
@@ -24,7 +24,7 @@ from idds.orm import (processings as orm_processings,
 
 
 @transactional_session
-def add_processing(transform_id, status, submitter=None, granularity=None, granularity_type=None,
+def add_processing(transform_id, status, submitter=None, granularity=None, granularity_type=GranularityType.File,
                    expired_at=None, processing_metadata=None, session=None):
     """
     Add a processing.
@@ -49,43 +49,46 @@ def add_processing(transform_id, status, submitter=None, granularity=None, granu
 
 
 @read_session
-def get_processing(processing_id=None, session=None):
+def get_processing(processing_id=None, to_json=False, session=None):
     """
     Get processing or raise a NoObject exception.
 
     :param processing_id: Processing id.
+    :param to_json: return json format.
     :param session: The database session in use.
 
     :raises NoObject: If no processing is founded.
 
     :returns: Processing.
     """
-    return orm_processings.get_processing(processing_id=processing_id, session=session)
+    return orm_processings.get_processing(processing_id=processing_id, to_json=to_json, session=session)
 
 
 @read_session
-def get_processings_by_transform_id(transform_id=None, session=None):
+def get_processings_by_transform_id(transform_id=None, to_json=False, session=None):
     """
     Get processings or raise a NoObject exception.
 
     :param tranform_id: Transform id.
+    :param to_json: return json format.
     :param session: The database session in use.
 
     :raises NoObject: If no processing is founded.
 
     :returns: Processings.
     """
-    return orm_processings.get_processings_by_transform_id(transform_id=transform_id, session=session)
+    return orm_processings.get_processings_by_transform_id(transform_id=transform_id, to_json=to_json, session=session)
 
 
 @transactional_session
-def get_processings_by_status(status, time_period=None, locking=False, bulk_size=None, session=None):
+def get_processings_by_status(status, time_period=None, locking=False, bulk_size=None, to_json=False, session=None):
     """
     Get processing or raise a NoObject exception.
 
     :param status: Processing status of list of processing status.
     :param time_period: Time period in seconds.
     :param locking: Whether to retrieve only unlocked items and lock them.
+    :param to_json: return json format.
     :param session: The database session in use.
 
     :raises NoObject: If no processing is founded.
@@ -93,7 +96,7 @@ def get_processings_by_status(status, time_period=None, locking=False, bulk_size
     :returns: Processings.
     """
     processings = orm_processings.get_processings_by_status(status=status, period=time_period, locking=locking,
-                                                            bulk_size=bulk_size, session=session)
+                                                            bulk_size=bulk_size, to_json=to_json, session=session)
     if locking:
         parameters = {'locking': ProcessingLocking.Locking}
         for processing in processings:
@@ -146,9 +149,9 @@ def update_processing_with_collection_contents(updated_processing, new_processin
     :param file_msg_content: message with files info.
     """
     if updated_files:
-        orm_contents.update_contents(updated_files, with_content_id=True, session=session)
+        orm_contents.update_contents(updated_files, session=session)
     if new_files:
-        orm_contents.add_contents(contents=new_files, returning_id=False, session=session)
+        orm_contents.add_contents(contents=new_files, session=session)
     if file_msg_content:
         if not type(file_msg_content) in [list, tuple]:
             file_msg_content = [file_msg_content]
@@ -186,6 +189,22 @@ def update_processing_with_collection_contents(updated_processing, new_processin
 
 
 @transactional_session
+def update_processing_contents(processing_update, content_updates, session=None):
+    """
+    Update processing with contents.
+
+    :param processing_update: dict with processing id and parameters.
+    :param content_updates: list of content files.
+    """
+    if content_updates:
+        orm_contents.update_contents(content_updates, session=session)
+    if processing_update:
+        orm_processings.update_processing(processing_id=processing_update['processing_id'],
+                                          parameters=processing_update['parameters'],
+                                          session=session)
+
+
+@transactional_session
 def clean_locking(time_period=3600, session=None):
     """
     Clearn locking which is older than time period.
@@ -193,3 +212,13 @@ def clean_locking(time_period=3600, session=None):
     :param time_period in seconds
     """
     orm_processings.clean_locking(time_period=time_period, session=session)
+
+
+@transactional_session
+def clean_next_poll_at(status, session=None):
+    """
+    Clearn next_poll_at.
+
+    :param status: status of the processing
+    """
+    orm_processings.clean_next_poll_at(status=status, session=session)
