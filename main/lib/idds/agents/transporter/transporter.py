@@ -224,14 +224,22 @@ class Transporter(BaseAgent):
         return is_all_processed
 
     def is_all_processings_finished(self, transform_id):
+        last_processing = None
         processings = core_processings.get_processings_by_transform_id(transform_id=transform_id)
+        if processings:
+            last_processing = processings[-1]
+
         for processing in processings:
             if not processing['status'] in [ProcessingStatus.Finished, ProcessingStatus.Failed, ProcessingStatus.Lost,
-                                            ProcessingStatus.Cancel, ProcessingStatus.FinishedOnStep, ProcessingStatus.FinishedOnExec,
+                                            # ProcessingStatus.Cancel, ProcessingStatus.FinishedOnStep, ProcessingStatus.FinishedOnExec,
+                                            ProcessingStatus.Cancel, ProcessingStatus.FinishedOnStep,
+                                            ProcessingStatus.TimeOut,
                                             ProcessingStatus.Finished.value, ProcessingStatus.Failed.value, ProcessingStatus.Lost.value,
-                                            ProcessingStatus.Cancel.value, ProcessingStatus.FinishedOnStep.value, ProcessingStatus.FinishedOnExec.value]:
-                return False
-        return True
+                                            # ProcessingStatus.Cancel.value, ProcessingStatus.FinishedOnStep.value, ProcessingStatus.FinishedOnExec.value,
+                                            ProcessingStatus.Cancel.value, ProcessingStatus.FinishedOnStep.value,
+                                            ProcessingStatus.TimeOut.value]:
+                return False, last_processing
+        return True, last_processing
 
     def process_output_collection(self, coll):
         """
@@ -248,7 +256,7 @@ class Transporter(BaseAgent):
             if new_contents:
                 self.register_contents(coll['scope'], coll['name'], new_contents)
 
-        is_all_processings_finished = self.is_all_processings_finished(coll['transform_id'])
+        is_all_processings_finished, last_processing = self.is_all_processings_finished(coll['transform_id'])
 
         is_input_collection_all_processed = False
         if coll['coll_metadata'] and 'input_collections' in coll['coll_metadata'] and coll['coll_metadata']['input_collections']:
@@ -264,7 +272,7 @@ class Transporter(BaseAgent):
         total_files = sum(contents_statistics.values())
         new_files = 0
         processed_files = 0
-        output_metadata = None
+        # output_metadata = None
         if ContentStatus.Available in contents_statistics:
             processed_files += contents_statistics[ContentStatus.Available]
         if ContentStatus.Available.value in contents_statistics:
@@ -281,10 +289,13 @@ class Transporter(BaseAgent):
             coll_status = CollectionStatus.Closed
 
             transform = core_transforms.get_transform(coll['coll_metadata']['transform_id'])
-            if 'processing_id' in transform['transform_metadata']:
-                processing = core_processings.get_processing(transform['transform_metadata']['processing_id'])
-                output_metadata = processing['output_metadata']
-
+            # if 'processing_id' in transform['transform_metadata']:
+            #    processing = core_processings.get_processing(transform['transform_metadata']['processing_id'])
+            #    output_metadata = processing['output_metadata']
+            output_ret = {}
+            if last_processing:
+                output_ret = {'status': last_processing['status'].name,
+                              'msg': last_processing['processing_metadata']['final_errors'] if 'final_errors' in last_processing['processing_metadata'] else None}
             if transform['transform_type'] in [TransformType.StageIn, TransformType.StageIn.value]:
                 msg_type = 'collection_stagein'
                 msg_type_c = MessageType.StageInCollection
@@ -303,7 +314,7 @@ class Transporter(BaseAgent):
                            'collections': [{'scope': coll['scope'],
                                             'name': coll['name'],
                                             'status': 'Available'}],
-                           'output': output_metadata}
+                           'output': output_ret}
             coll_msg = {'msg_type': msg_type_c,
                         'status': MessageStatus.New,
                         'source': MessageSource.Transporter,
@@ -319,15 +330,17 @@ class Transporter(BaseAgent):
             coll_status = CollectionStatus.SubClosed
         elif (ContentStatus.New in content_status_keys or ContentStatus.New.value in content_status_keys            # noqa: W503
             or ContentStatus.Failed in content_status_keys or ContentStatus.Failed.value in content_status_keys):   # noqa: W503
-            coll_status = CollectionStatus.Processing
+            # coll_status = CollectionStatus.Processing
+            coll_status = CollectionStatus.Failed
         else:
-            coll_status = CollectionStatus.Processing
+            # coll_status = CollectionStatus.Processing
+            coll_status = CollectionStatus.Failed
 
         coll_metadata = coll['coll_metadata']
         if not coll_metadata:
             coll_metadata = {}
         coll_metadata['status_statistics'] = contents_statistics_with_name
-        coll_metadata['output_metadata'] = output_metadata
+        # coll_metadata['output_metadata'] = output_metadata
         ret_coll = {'coll_id': coll['coll_id'],
                     'total_files': total_files,
                     'status': coll_status,

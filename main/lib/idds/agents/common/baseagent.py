@@ -75,7 +75,7 @@ class BaseAgent(TimerScheduler, PluginBase):
 
     def generate_file_message(self, transform, files):
         if not files:
-            return None
+            return []
 
         updated_files_message = []
         for file in files:

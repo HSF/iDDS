@@ -321,6 +321,27 @@ def update_collection(coll_id, parameters, session=None):
 
 
 @transactional_session
+def update_collections(parameters, session=None):
+    """
+    update collections.
+
+    :param parameters: list of dictionary of parameters.
+    :param session: The database session in use.
+
+    :raises NoObject: If no content is founded.
+    :raises DatabaseException: If there is a database error.
+
+    """
+    try:
+        for parameter in parameters:
+            parameter['updated_at'] = datetime.datetime.utcnow()
+
+        session.bulk_update_mappings(models.Collection, parameters)
+    except sqlalchemy.orm.exc.NoResultFound as error:
+        raise exceptions.NoObject('Collection cannot be found: %s' % (error))
+
+
+@transactional_session
 def delete_collection(coll_id=None, session=None):
     """
     delete a collection.

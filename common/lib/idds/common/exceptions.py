@@ -184,6 +184,16 @@ class ConnectionException(RestException):
         self.error_code = 402
 
 
+class ProcessNotFound(IDDSException):
+    """
+    ProcessNotFound
+    """
+    def __init__(self, *args, **kwargs):
+        super(ProcessNotFound, self).__init__(*args, **kwargs)
+        self._message = "Process not found."
+        self.error_code = 403
+
+
 class AgentException(IDDSException):
     """
     BrokerException

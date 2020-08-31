@@ -189,6 +189,22 @@ def update_processing_with_collection_contents(updated_processing, new_processin
 
 
 @transactional_session
+def update_processing_contents(processing_update, content_updates, session=None):
+    """
+    Update processing with contents.
+
+    :param processing_update: dict with processing id and parameters.
+    :param content_updates: list of content files.
+    """
+    if content_updates:
+        orm_contents.update_contents(content_updates, session=session)
+    if processing_update:
+        orm_processings.update_processing(processing_id=processing_update['processing_id'],
+                                          parameters=processing_update['parameters'],
+                                          session=session)
+
+
+@transactional_session
 def clean_locking(time_period=3600, session=None):
     """
     Clearn locking which is older than time period.

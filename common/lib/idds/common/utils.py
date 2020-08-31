@@ -11,6 +11,7 @@
 
 import datetime
 import logging
+import json
 import os
 import re
 import requests
@@ -22,11 +23,12 @@ from enum import Enum
 
 from idds.common.config import (config_has_section, config_has_option,
                                 config_get, config_get_bool)
-from idds.common.constants import (RequestType, RequestStatus,
+from idds.common.constants import (IDDSEnum, RequestType, RequestStatus,
                                    TransformType, TransformStatus,
                                    CollectionType, CollectionRelationType, CollectionStatus,
                                    ContentType, ContentStatus,
                                    GranularityType, ProcessingStatus)
+from idds.common.dict_class import DictClass
 
 
 # RFC 1123
@@ -328,6 +330,35 @@ def convert_request_type_to_transform_type(request_type):
     if isinstance(request_type, RequestType):
         request_type = request_type.value
     return TransformType(request_type)
+
+
+class DictClassEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, IDDSEnum) or isinstance(obj, DictClass):
+            return obj.to_dict()
+        # elif isinstance(obj, datetime.datetime):
+        #     return date_to_str(obj)
+        # elif isinstance(obj, (datetime.time, datetime.date)):
+        #     return obj.isoformat()
+        # elif isinstance(obj, datetime.timedelta):
+        #     return obj.days * 24 * 60 * 60 + obj.seconds
+
+        # Let the base class default method raise the TypeError
+        return json.JSONEncoder.default(self, obj)
+
+
+def as_has_dict(dct):
+    if DictClass.is_class(dct):
+        return DictClass.from_dict(dct)
+    return dct
+
+
+def json_dumps(obj):
+    return json.dumps(obj, cls=DictClassEncoder)
+
+
+def json_loads(obj):
+    return json.loads(obj, object_hook=as_has_dict)
 
 
 def get_parameters_from_string(text):

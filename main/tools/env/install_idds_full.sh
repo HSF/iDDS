@@ -16,6 +16,7 @@ cd /opt/idds_source
 #  rm -fr *; cp -r /afs/cern.ch/user/w/wguan/workdisk/iDDS/* .;python setup.py install --old-and-unmanageable
 git clone @github_idds@ /opt/idds_source
 conda env create --prefix=/opt/idds -f main/tools/env/environment.yml
+# source /etc/profile.d/conda.sh
 conda activate /opt/idds
 pip install rucio-clients-atlas rucio-clients
 # root ca.crt to  /opt/idds/etc/ca.crt

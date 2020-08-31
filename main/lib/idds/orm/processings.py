@@ -132,6 +132,8 @@ def get_processings_by_transform_id(transform_id=None, to_json=False, session=No
     try:
         query = session.query(models.Processing)\
                        .filter_by(transform_id=transform_id)
+        query = query.order_by(asc(models.Processing.processing_id))
+
         ret = query.all()
         if not ret:
             return []
