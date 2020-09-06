@@ -146,17 +146,6 @@ class Transformer(BaseAgent):
                     updated_contents.append(updated_content)
         return updated_contents
 
-    """
-    def get_processing(self, transform, input_colls, output_colls, log_colls, input_output_maps):
-        work = transform['transform_metadata']['work']
-        processing = work.get_processing(input_output_maps)
-        if process:
-            processing = {'transform_id': transform['transform_id'],
-                          'status': ProcessingStatus.New,
-                          'processing_metadata': {'work': work}}
-        return processing
-    """
-
     def process_new_transform(self, transform):
         """
         Process new transform
@@ -249,33 +238,6 @@ class Transformer(BaseAgent):
         if transforms:
             self.logger.info("Main thread get %s transforming transforms to process" % len(transforms))
         return transforms
-
-    def process_transform_outputs(self, transform, output_collection):
-        transform_metadata = transform['transform_metadata']
-        if not transform_metadata:
-            transform_metadata = {}
-        transform_metadata['output_collection_meta'] = output_collection['coll_metadata']
-        if output_collection['status'] == CollectionStatus.Closed:
-            ret = {'transform_id': transform['transform_id'],
-                   'status': TransformStatus.Finished,
-                   'transform_metadata': transform_metadata}
-        elif output_collection['status'] == CollectionStatus.SubClosed:
-            ret = {'transform_id': transform['transform_id'],
-                   'status': TransformStatus.SubFinished,
-                   'transform_metadata': transform_metadata}
-        elif output_collection['status'] == CollectionStatus.Failed:
-            ret = {'transform_id': transform['transform_id'],
-                   'status': TransformStatus.Failed,
-                   'transform_metadata': transform_metadata}
-        elif output_collection['status'] == CollectionStatus.Deleted:
-            ret = {'transform_id': transform['transform_id'],
-                   'status': TransformStatus.Deleted,
-                   'transform_metadata': transform_metadata}
-        else:
-            ret = {'transform_id': transform['transform_id'],
-                   'status': TransformStatus.Transforming,
-                   'transform_metadata': transform_metadata}
-        return ret
 
     def process_running_transform(self, transform):
         """
