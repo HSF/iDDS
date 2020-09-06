@@ -13,6 +13,7 @@ import logging
 import re
 import uuid
 
+from idds.common import exceptions
 from idds.common.constants import WorkStatus
 from idds.common.utils import setup_logging
 
@@ -118,22 +119,35 @@ class Work(Base):
         self.logger = logging.getLogger(self.get_class_name())
 
     def set_work_id(self, work_id, transforming=True):
+        """
+        *** Function called by Marshaller agent.
+        *** It's the transform_id set by core_workprogresses
+        """
         self.work_id = work_id
         self.transforming = transforming
 
     def get_work_id(self):
+        """
+        *** Function called by Marshaller agent.
+        """
         return self.work_id
 
     # def set_workflow(self, workflow):
     #     self.workflow = workflow
 
     def set_status(self, status):
+        """
+        *** Function called by Marshaller agent.
+        """
         assert(isinstance(status, WorkStatus))
         self.status = status
         # if self.workflow:
         #     self.workflow.work_status_update_trigger(self, status)
 
     def set_terminated_msg(self, msg):
+        """
+        *** Function called by Marshaller agent.
+        """
         self.terminated_msg = msg
 
     def get_terminated_msg(self):
@@ -160,9 +174,15 @@ class Work(Base):
         return str(self.to_dict())
 
     def get_work_type(self):
+        """
+        *** Function called by Marshaller agent.
+        """
         return self.work_type
 
     def get_work_tag(self):
+        """
+        *** Function called by Marshaller agent.
+        """
         return self.work_tag
 
     def set_parameters(self, parameters):
@@ -172,21 +192,33 @@ class Work(Base):
         pass
 
     def is_terminated(self):
+        """
+        *** Function called by Transformer agent.
+        """
         if self.status in [WorkStatus.Finished, WorkStatus.SubFinished, WorkStatus.Failed, WorkStatus.Cancelled]:
             return True
         return False
 
     def is_finished(self):
+        """
+        *** Function called by Transformer agent.
+        """
         if self.status in [WorkStatus.Finished]:
             return True
         return False
 
     def is_subfinished(self):
+        """
+        *** Function called by Transformer agent.
+        """
         if self.status in [WorkStatus.SubFinished]:
             return True
         return False
 
     def is_failed(self):
+        """
+        *** Function called by Transformer agent.
+        """
         if self.status in [WorkStatus.Failed, WorkStatus.Cancelled]:
             return True
         return False
@@ -213,6 +245,9 @@ class Work(Base):
         self.primary_input_collection = coll['coll_metadata']['internal_id']
 
     def get_primary_input_collection(self):
+        """
+        *** Function called by Marshaller agent.
+        """
         return self.collections[self.primary_input_collection]
 
     def add_other_input_collections(self, colls):
@@ -227,6 +262,9 @@ class Work(Base):
         return [self.collections[k] for k in self.other_input_collections]
 
     def get_input_collections(self):
+        """
+        *** Function called by Transformer agent.
+        """
         keys = [self.primary_input_collection] + self.other_input_collections
         return [self.collections[k] for k in keys]
 
@@ -276,10 +314,14 @@ class Work(Base):
         self._has_new_inputs = yes
 
     def has_new_inputs(self):
+        """
+        *** Function called by Transformer agent.
+        """
         return self._has_new_inputs
 
     def get_new_input_output_maps(self, mapped_input_output_maps={}):
         """
+        *** Function called by Transformer agent.
         New inputs which are not yet mapped to outputs.
 
         :param mapped_input_output_maps: Inputs that are already mapped.
@@ -326,11 +368,17 @@ class Work(Base):
         self.processings[processing['processing_metadata']['internal_id']]['processing_id'] = processing_id
 
     def create_processing(self, input_output_maps):
+        """
+        *** Function called by Transformer agent.
+        """
         proc = {'processing_metadata': {'internal_id': str(uuid.uuid1())}}
         self.add_processing_to_processings(proc)
         self.active_processings.append(proc['processing_metadata']['internal_id'])
 
     def get_processing(self, input_output_maps):
+        """
+        *** Function called by Transformer agent.
+        """
         if self.active_processings:
             return self.processings[self.active_processings[0]]
         else:
@@ -339,7 +387,13 @@ class Work(Base):
             # return process
 
     def submit_processing(self):
-        pass
+        """
+        *** Function called by Carrier agent.
+        """
+        raise exceptions.NotImplementedException
 
-    def poll_processing(self):
-        pass
+    def poll_processing_updates(self, input_output_maps):
+        """
+        *** Function called by Carrier agent.
+        """
+        raise exceptions.NotImplementedException
