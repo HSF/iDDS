@@ -112,8 +112,23 @@ class Carrier(BaseAgent):
 
     def process_running_processing(self, processing):
         transform_id = processing['transform_id']
-        input_output_maps = core_transforms.get_transform_input_output_maps(transform_id)
+        # transform = core_transforms.get_transform(transform_id=transform_id)
+        # work = transform['transform_metadata']['work']
         work = processing['processing_metadata']['work']
+
+        input_collections = work.get_input_collections()
+        output_collections = work.get_output_collections()
+        log_collections = work.get_log_collections()
+
+        input_coll_ids = self.get_collection_ids(input_collections)
+        output_coll_ids = self.get_collection_ids(output_collections)
+        log_coll_ids = self.get_collection_ids(log_collections)
+
+        input_output_maps = core_transforms.get_transform_input_output_maps(transform_id,
+                                                                            input_coll_ids=input_coll_ids,
+                                                                            output_coll_ids=output_coll_ids,
+                                                                            log_coll_ids=log_coll_ids)
+        # work = processing['processing_metadata']['work']
         # outputs = work.poll_processing()
         processing_update, content_updates = work.poll_processing_updates(input_output_maps)
 

@@ -60,7 +60,7 @@ class Transformer(BaseAgent):
             self.logger.info("Main thread get %s New+Ready+Extend transforms to process" % len(transforms_new))
         return transforms_new
 
-    def generate_collection_model(transform, collection, relation_type=CollectionRelationType.Input):
+    def generate_collection_model(self, transform, collection, relation_type=CollectionRelationType.Input):
         if 'coll_metadata' in collection:
             coll_metadata = collection['coll_metadata']
         else:
@@ -183,7 +183,7 @@ class Transformer(BaseAgent):
         #        'log_collections': log_colls, 'new_input_output_maps': input_output_maps, 'messages': file_msgs,
         #        'new_processing': processing}
         ret = {'transform': transform, 'input_collections': input_colls, 'output_collections': output_colls,
-               'log_collections': log_coll}
+               'log_collections': log_colls}
         return ret
 
     def process_new_transforms(self):
@@ -239,6 +239,12 @@ class Transformer(BaseAgent):
             self.logger.info("Main thread get %s transforming transforms to process" % len(transforms))
         return transforms
 
+    def get_collection_ids(self, collections):
+        coll_ids = []
+        for coll in collections:
+            coll_ids.append(coll['coll_id'])
+        return coll_ids
+
     def process_running_transform(self, transform):
         """
         process running transforms
@@ -250,7 +256,14 @@ class Transformer(BaseAgent):
         output_collections = work.get_output_collections()
         log_collections = work.get_log_collections()
 
-        registered_input_output_maps = core_transforms.get_transform_input_output_maps(transform['transform_id'])
+        input_coll_ids = self.get_collection_ids(input_collections)
+        output_coll_ids = self.get_collection_ids(output_collections)
+        log_coll_ids = self.get_collection_ids(log_collections)
+
+        registered_input_output_maps = core_transforms.get_transform_input_output_maps(transform['transform_id'],
+                                                                                       input_coll_ids=input_coll_ids,
+                                                                                       output_coll_ids=output_coll_ids,
+                                                                                       log_coll_ids=log_coll_ids)
         # update_input_output_maps = self.get_update_input_output_maps(registered_input_output_maps)
         update_contents = self.get_updated_contents(transform, registered_input_output_maps)
         if work.has_new_inputs():
