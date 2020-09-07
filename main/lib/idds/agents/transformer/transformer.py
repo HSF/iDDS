@@ -99,8 +99,8 @@ class Transformer(BaseAgent):
     def get_new_contents(self, transform, new_input_output_maps):
         new_contents = []
         for map_id in new_input_output_maps:
-            inputs = new_input_output_maps['map_id']['inputs']
-            outputs = new_input_output_maps['map_id']['outputs']
+            inputs = new_input_output_maps[map_id]['inputs']
+            outputs = new_input_output_maps[map_id]['outputs']
 
             for input_content in inputs:
                 content = {'transform_id': transform['transform_id'],
@@ -137,7 +137,7 @@ class Transformer(BaseAgent):
     def get_updated_contents(self, transform, registered_input_output_maps):
         updated_contents = []
         for map_id in registered_input_output_maps:
-            outputs = registered_input_output_maps['map_id']['outputs']
+            outputs = registered_input_output_maps[map_id]['outputs']
 
             for content in outputs:
                 if content['status'] != content['substatus']:
