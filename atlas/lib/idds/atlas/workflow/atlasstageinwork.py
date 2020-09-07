@@ -196,6 +196,7 @@ class ATLASStageinWork(Work):
                                         'rule_id': self.rule_id}}
         self.add_processing_to_processings(proc)
         self.active_processings.append(proc['processing_metadata']['internal_id'])
+        return proc
 
     def create_rule(self):
         try:
