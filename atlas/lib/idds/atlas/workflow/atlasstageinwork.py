@@ -80,7 +80,8 @@ class ATLASStageinWork(Work):
                 return coll
             else:
                 meta = {}
-                did_meta = self.client.get_metadata(scope=coll['scope'], name=coll['name'])
+                client = self.get_rucio_client()
+                did_meta = client.get_metadata(scope=coll['scope'], name=coll['name'])
                 meta = {'scope': coll['scope'],
                         'name': coll['name'],
                         'coll_metadata': {

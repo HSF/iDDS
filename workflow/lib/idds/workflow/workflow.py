@@ -178,6 +178,7 @@ class Workflow(Base):
 
         new works to be ready to start
         """
+        self.sync_works()
         return [self.works[k] for k in self.new_works]
 
     def get_current_works(self):
