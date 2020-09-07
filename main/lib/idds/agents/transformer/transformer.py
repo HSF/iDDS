@@ -290,8 +290,10 @@ class Transformer(BaseAgent):
         new_processing = None
         if not processing:
             new_processing = work.create_processing(new_input_output_maps)
-            new_processing = {'transform_id': transform['transform_id'],
-                              'status': ProcessingStatus.New}
+            new_processing['transform_id'] = transform['transform_id']
+            new_processing['status'] = ProcessingStatus.New
+            if 'processing_metadata' not in new_processing:
+                new_processing['processing_metadata'] = {}
             new_processing['processing_metadata']['work'] = work
 
         transform['locking'] = TransformLocking.Idle
