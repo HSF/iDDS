@@ -76,15 +76,15 @@ CREATE TABLE WORKPROGRESSES
         status NUMBER(2) constraint WORKPROGRESS_STATUS_ID_NN NOT NULL,
         substatus NUMBER(2),
         locking NUMBER(2),
-        created_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)) constraint WORKPROGRESS_CREATED_NN NOT NULL,
-        updated_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)) constraint WORKPROGRESS_UPDATED_NN NOT NULL,
-        next_poll_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)) constraint WORKPROGRESS_NEXT_POLL_NN NOT NULL,
+        created_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)) constraint WORKPROGRESS_CREATED_NN NOT NULL,
+        updated_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)) constraint WORKPROGRESS_UPDATED_NN NOT NULL,
+        next_poll_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)) constraint WORKPROGRESS_NEXT_POLL_NN NOT NULL,
         accessed_at DATE,
         expired_at DATE,
         errors VARCHAR2(1024),
-        workprogress_metadata CLOB constraint WORKPROGRESS_REQUEST_METADATA_ENSURE_JSON CHECK(workprogress_metadata IS JSON(LAX)),
-        processing_metadata CLOB constraint WORKPROGRESS_PROCESSING_METADATA_ENSURE_JSON CHECK(processing_metadata IS JSON(LAX)),
-        CONSTRAINT WORKPROGRESS_PK PRIMARY KEY (workprogress_id) USING INDEX LOCAL,
+        workprogress_metadata CLOB,
+        processing_metadata CLOB,
+        CONSTRAINT WORKPROGRESS_PK PRIMARY KEY (workprogress_id), --- USING INDEX LOCAL,
         CONSTRAINT WORKPROGRESS_REQ_ID_FK FOREIGN KEY(request_id) REFERENCES REQUESTS(request_id),
         --- CONSTRAINT REQUESTS_NAME_SCOPE_UQ UNIQUE (name, scope, requester, request_type, transform_tag, workload_id) -- USING INDEX LOCAL,
 )
@@ -104,7 +104,7 @@ CREATE OR REPLACE TRIGGER TRIG_WORKPROGRESS_ID
 
 CREATE INDEX WORKPROGRESS_SCOPE_NAME_IDX ON WORKPROGRESSES (name, scope, workprogress_id) LOCAL;
 --- drop index REQUESTS_STATUS_PRIORITY_IDX
-CREATE INDEX WORKPROGRESS_STATUS_PRIORITY_IDX ON WORKPROGRESSES (status, priority, workprogress_id, locking, updated_at, next_poll_at, created_at) LOCAL COMPRESS 1;
+CREATE INDEX WORKPROGRESS_STATUS_PRI_IDX ON WORKPROGRESSES (status, priority, workprogress_id, locking, updated_at, next_poll_at, created_at) LOCAL COMPRESS 1;
 
 
 --- transforms
