@@ -99,7 +99,8 @@ def get_collections(scope=None, name=None, request_id=None, workload_id=None, tr
 @transactional_session
 def add_collection(scope, name, coll_type=CollectionType.Dataset, transform_id=None,
                    relation_type=CollectionRelationType.Input, coll_size=0, status=CollectionStatus.New,
-                   total_files=0, retries=0, expired_at=None, coll_metadata=None, session=None):
+                   total_files=0, new_files=0, processing_files=0, processed_files=0, retries=0,
+                   expired_at=None, coll_metadata=None, session=None):
     """
     Add a collection.
 
@@ -124,8 +125,9 @@ def add_collection(scope, name, coll_type=CollectionType.Dataset, transform_id=N
     orm_collections.add_collection(scope=scope, name=name, coll_type=coll_type,
                                    transform_id=transform_id, relation_type=relation_type,
                                    coll_size=coll_size, status=status, total_files=total_files,
-                                   retries=retries, expired_at=expired_at, coll_metadata=coll_metadata,
-                                   session=session)
+                                   new_files=new_files, processing_files=processing_files,
+                                   processed_files=processed_files, retries=retries, expired_at=expired_at,
+                                   coll_metadata=coll_metadata, session=session)
 
 
 @transactional_session
