@@ -101,6 +101,7 @@ class BaseRestClient(object):
                     raise exceptions.ConnectionException('ConnectionError: ' + str(error))
 
             if result is not None:
+                # print(result.text)
                 if result.status_code == HTTP_STATUS_CODE.OK:
                     # print(result.text)
                     if result.text:

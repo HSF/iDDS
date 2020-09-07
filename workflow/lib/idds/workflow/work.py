@@ -91,8 +91,14 @@ class Work(Base):
         # self.primary_input_collection = primary_input_collection
         self.set_primary_input_collection(primary_input_collection)
         # self.other_input_collections = other_input_collections
+        if other_input_collections and type(other_input_collections) not in [list, tuple]:
+            other_input_collections = [other_input_collections]
         self.add_other_input_collections(other_input_collections)
+        if output_collections and type(output_collections) not in [list, tuple]:
+            output_collections = [output_collections]
         self.add_output_collections(output_collections)
+        if log_collections and type(log_collections) not in [list, tuple]:
+            log_collections = [log_collections]
         self.add_log_collections(log_collections)
 
         self._has_new_inputs = True
@@ -241,8 +247,9 @@ class Work(Base):
         self.collections[coll['coll_metadata']['internal_id']] = coll
 
     def set_primary_input_collection(self, coll):
-        self.add_collection_to_collections(coll)
-        self.primary_input_collection = coll['coll_metadata']['internal_id']
+        if coll:
+            self.add_collection_to_collections(coll)
+            self.primary_input_collection = coll['coll_metadata']['internal_id']
 
     def get_primary_input_collection(self):
         """
