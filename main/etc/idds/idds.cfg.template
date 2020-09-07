@@ -19,7 +19,8 @@ loglevel = DEBUG
 # aipanda180 condor
 # aipanda187 monitor(can be reused)
 # aipanda160, 161, 162 (new vms)
-
+# doma aipanda015, aipanda016, and aipanda017
+#
 [database]
 #default = mysql://idds:idds@pcuwvirt5.cern.ch/idds
 #default = mysql://idds:idds_passwd@aipanda182.cern.ch/idds
@@ -46,7 +47,7 @@ cacher_dir = /data/idds
 #plugin.<plugin_name>.<attr2> = <value2>
 
 [main]
-agents = clerk, transporter, transformer, carrier, conductor
+agents = clerk, marshaller, transformer, carrier, conductor
 
 [clerk]
 num_threads = 1
@@ -54,6 +55,11 @@ poll_time_period = 5
 retrieve_bulk_size = 10
 #plugin_sequence = collection_lister
 plugin.collection_lister = idds.atlas.rucio.collection_lister.CollectionLister
+
+[marshaller]
+num_threads = 1
+poll_time_period = 5
+retrieve_bulk_size = 10
 
 [transformer]
 num_threads = 1
