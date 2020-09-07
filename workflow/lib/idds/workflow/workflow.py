@@ -109,14 +109,14 @@ class Workflow(Base):
         self.user_defined_conditions[condition.__name__] = cond_src
 
     def load_user_defined_condition(self):
-        try:
-            Condition()
-        except NameError:
-            global Condition
-            import Condition
+        # try:
+        #     Condition()
+        # except NameError:
+        #     global Condition
+        #     import Condition
 
         for cond_src_name in self.user_defined_conditions:
-            global cond_src_name
+            # global cond_src_name
             exec(self.user_defined_conditions[cond_src_name])
 
     def set_workload_id(self, workload_id):

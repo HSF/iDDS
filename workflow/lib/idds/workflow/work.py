@@ -276,15 +276,6 @@ class Work(Base):
 
     def add_output_collections(self, colls):
         """
-        if scope is None:
-            self.output_collection_scope = self.input_collection_scope
-        else:
-            self.output_collection_scope = scope
-
-        if name is None:
-            self.output_collection_name = self.input_collection_name + "." + self.work_type + "." + str(self.work_id)
-        else:
-            self.output_collection_name = name
         """
         if not colls:
             return
@@ -374,6 +365,7 @@ class Work(Base):
         proc = {'processing_metadata': {'internal_id': str(uuid.uuid1())}}
         self.add_processing_to_processings(proc)
         self.active_processings.append(proc['processing_metadata']['internal_id'])
+        return proc
 
     def get_processing(self, input_output_maps):
         """
