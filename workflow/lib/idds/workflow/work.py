@@ -347,6 +347,8 @@ class Work(Base):
         return new_input_maps
 
     def set_collection_id(self, collection, coll_id):
+        # print(collection)
+        # print(coll_id)
         self.collections[collection['coll_metadata']['internal_id']]['coll_id'] = coll_id
 
     def add_processing_to_processings(self, processing):

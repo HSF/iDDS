@@ -79,22 +79,19 @@ class ATLASStageinWork(Work):
             if 'coll_metadata' in coll and 'is_open' in coll['coll_metadata'] and not coll['coll_metadata']['is_open']:
                 return coll
             else:
-                meta = {}
                 client = self.get_rucio_client()
                 did_meta = client.get_metadata(scope=coll['scope'], name=coll['name'])
-                meta = {'scope': coll['scope'],
-                        'name': coll['name'],
-                        'coll_metadata': {
-                            'bytes': did_meta['bytes'],
-                            'total_files': did_meta['length'],
-                            'availability': did_meta['availability'],
-                            'events': did_meta['events'],
-                            'is_open': did_meta['is_open'],
-                            'run_number': did_meta['run_number'],
-                            'did_type': did_meta['did_type'],
-                            'list_all_files': False}
-                        }
-                return meta
+                if 'coll_metadata' not in coll:
+                    coll['coll_metadata'] = {}
+                coll['coll_metadata']['bytes'] = did_meta['bytes']
+                coll['coll_metadata']['total_files'] = did_meta['length']
+                coll['coll_metadata']['availability'] = did_meta['availability']
+                coll['coll_metadata']['events'] = did_meta['events']
+                coll['coll_metadata']['is_open'] = did_meta['is_open']
+                coll['coll_metadata']['run_number'] = did_meta['run_number']
+                coll['coll_metadata']['did_type'] = did_meta['did_type']
+                coll['coll_metadata']['list_all_files'] = False
+                return coll
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
@@ -107,7 +104,7 @@ class ATLASStageinWork(Work):
             coll = self.collections[coll_int_id]
             coll = self.poll_external_collection(coll)
             self.collections[coll_int_id] = coll
-        return super(self).get_input_collections()
+        return super(ATLASStageinWork, self).get_input_collections()
 
     def get_input_contents(self):
         """
