@@ -398,3 +398,9 @@ class Work(Base):
         *** Function called by Carrier agent.
         """
         raise exceptions.NotImplementedException
+
+    def syn_work_status(self, input_output_maps):
+        """
+        *** Function called by Transformer agent.
+        """
+        raise exceptions.NotImplementedException

@@ -309,10 +309,22 @@ class Transformer(BaseAgent):
         work.syn_work_status(registered_input_output_maps)
         if work.is_finished():
             transform['status'] = TransformStatus.Finished
+            for coll in output_collections:
+                coll['status'] = CollectionStatus.Closed
+            for coll in log_collections:
+                coll['status'] = CollectionStatus.Closed
         elif work.is_subfinished():
             transform['status'] = TransformStatus.SubFinished
+            for coll in output_collections:
+                coll['status'] = CollectionStatus.SubClosed
+            for coll in log_collections:
+                coll['status'] = CollectionStatus.SubClosed
         elif work.is_failed():
             transform['status'] = TransformStatus.Failed
+            for coll in output_collections:
+                coll['status'] = CollectionStatus.Failed
+            for coll in log_collections:
+                coll['status'] = CollectionStatus.Failed
         else:
             transform['status'] = TransformStatus.Transforming
 
