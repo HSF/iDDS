@@ -387,13 +387,13 @@ class Work(Base):
             # self.process = process
             # return process
 
-    def submit_processing(self):
+    def submit_processing(self, processing):
         """
         *** Function called by Carrier agent.
         """
         raise exceptions.NotImplementedException
 
-    def poll_processing_updates(self, input_output_maps):
+    def poll_processing_updates(self, processing, input_output_maps):
         """
         *** Function called by Carrier agent.
         """

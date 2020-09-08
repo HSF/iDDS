@@ -62,8 +62,11 @@ class Carrier(BaseAgent):
         return processings
 
     def process_new_processing(self, processing):
+        # transform_id = processing['transform_id']
+        # transform = core_transforms.get_transform(transform_id=transform_id)
+        # work = transform['transform_metadata']['work']
         work = processing['processing_metadata']['work']
-        work.submit_processing()
+        work.submit_processing(processing)
         return {'processing_id': processing['processing_id'],
                 'status': ProcessingStatus.Submitted,
                 'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period),
@@ -130,7 +133,7 @@ class Carrier(BaseAgent):
                                                                             log_coll_ids=log_coll_ids)
         # work = processing['processing_metadata']['work']
         # outputs = work.poll_processing()
-        processing_update, content_updates = work.poll_processing_updates(input_output_maps)
+        processing_update, content_updates = work.poll_processing_updates(processing, input_output_maps)
 
         if processing_update:
             processing_update['parameters']['locking'] = ProcessingLocking.Idle

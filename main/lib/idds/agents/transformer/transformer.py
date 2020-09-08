@@ -8,6 +8,7 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2019 - 2020
 
+import copy
 import traceback
 try:
     # python 3
@@ -290,11 +291,14 @@ class Transformer(BaseAgent):
         new_processing = None
         if not processing:
             new_processing = work.create_processing(new_input_output_maps)
-            new_processing['transform_id'] = transform['transform_id']
-            new_processing['status'] = ProcessingStatus.New
+            new_processing_model = copy.deepcopy(new_processing)
+            new_processing_model['transform_id'] = transform['transform_id']
+            new_processing_model['status'] = ProcessingStatus.New
             if 'processing_metadata' not in new_processing:
                 new_processing['processing_metadata'] = {}
-            new_processing['processing_metadata']['work'] = work
+            if 'processing_metadata' not in new_processing_model:
+                new_processing_model['processing_metadata'] = {}
+            new_processing_model['processing_metadata']['work'] = work
 
         transform['locking'] = TransformLocking.Idle
         # status_statistics = work.get_status_statistics(registered_input_output_maps)
@@ -315,7 +319,7 @@ class Transformer(BaseAgent):
                'new_contents': new_contents,
                'update_contents': update_contents,
                'messages': file_msgs,
-               'new_processing': new_processing}
+               'new_processing': new_processing_model}
         return ret
 
     def process_running_transforms(self):
@@ -335,35 +339,24 @@ class Transformer(BaseAgent):
 
     def finish_running_transforms(self):
         while not self.running_output_queue.empty():
-            ret = self.running_output_queue.get()
-            core_transforms.add_transform_outputs(transform=ret['transform'],
-                                                  input_collections=ret.get('input_collections', None),
-                                                  output_collections=ret.get('output_collections', None),
-                                                  log_collections=ret.get('log_collections', None),
-                                                  new_contents=ret.get('new_contents', None),
-                                                  update_input_collections=ret.get('update_input_collections', None),
-                                                  update_output_collections=ret.get('update_output_collections', None),
-                                                  update_log_collections=ret.get('update_log_collections', None),
-                                                  update_contents=ret.get('update_contents', None),
-                                                  messages=ret.get('messages', None),
-                                                  new_processing=ret.get('new_processing', None),
-                                                  message_bulk_size=self.message_bulk_size)
-
-        while not self.running_output_queue.empty():
             try:
-                ret = self.new_output_queue.get()
-                self.logger.info("Main thread finishing processing transform: %s" % ret['transform'])
+                ret = self.running_output_queue.get()
+                self.logger.info("Main thread finishing running transform: %s" % ret['transform'])
                 if ret:
                     # self.logger.debug("wen: %s" % str(ret['output_contents']))
                     core_transforms.add_transform_outputs(transform=ret['transform'],
-                                                          update_input_collections=ret['update_input_collections'],
-                                                          update_output_collections=ret['update_output_collections'],
-                                                          update_log_collections=ret['update_log_collections'],
-                                                          new_input_output_maps=ret['new_input_output_maps'],
-                                                          update_input_output_maps=ret['update_input_output_maps'],
-                                                          processing=ret['processing'],
-                                                          messages=ret['messages'],
+                                                          input_collections=ret.get('input_collections', None),
+                                                          output_collections=ret.get('output_collections', None),
+                                                          log_collections=ret.get('log_collections', None),
+                                                          new_contents=ret.get('new_contents', None),
+                                                          update_input_collections=ret.get('update_input_collections', None),
+                                                          update_output_collections=ret.get('update_output_collections', None),
+                                                          update_log_collections=ret.get('update_log_collections', None),
+                                                          update_contents=ret.get('update_contents', None),
+                                                          messages=ret.get('messages', None),
+                                                          new_processing=ret.get('new_processing', None),
                                                           message_bulk_size=self.message_bulk_size)
+
             except Exception as ex:
                 self.logger.error(ex)
                 self.logger.error(traceback.format_exc())

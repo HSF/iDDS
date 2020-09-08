@@ -161,8 +161,8 @@ def update_transform(transform_id, parameters, session=None):
 @transactional_session
 def add_transform_outputs(transform, input_collections=None, output_collections=None, log_collections=None,
                           update_input_collections=None, update_output_collections=None, update_log_collections=None,
-                          new_contents=None, update_contents=None,
-                          new_processing=None, messages=None, message_bulk_size=1000, session=None):
+                          new_contents=None, update_contents=None, new_processing=None,
+                          messages=None, message_bulk_size=1000, session=None):
     """
     For input contents, add corresponding output contents.
 

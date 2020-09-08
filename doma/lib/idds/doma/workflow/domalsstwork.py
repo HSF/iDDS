@@ -280,18 +280,15 @@ class DomaLSSTWork(Work):
             # raise exceptions.AgentPluginError('%s: %s' % (str(ex), traceback.format_exc()))
         return None
 
-    def submit_processing(self):
+    def submit_processing(self, processing):
         """
         *** Function called by Carrier agent.
         """
-        if self.active_processings:
-            # assume one work has only one active processing.
-            p = self.processings[self.active_processings[0]]
-            if 'panda_id' in p['processing_metadata'] and p['processing_metadata']['panda_id']:
-                pass
-            else:
-                panda_id = self.submit_panda_task(p)
-                p['processing_metadata']['panda_id'] = panda_id
+        if 'panda_id' in processing['processing_metadata'] and processing['processing_metadata']['panda_id']:
+            pass
+        else:
+            panda_id = self.submit_panda_task(processing)
+            processing['processing_metadata']['panda_id'] = panda_id
 
     def download_payload_json(self, task_url):
         response = None
@@ -318,19 +315,16 @@ class DomaLSSTWork(Work):
             msg = "Failed to check the panda task(%s) status: %s" % (str(panda_id), str(ex))
             raise exceptions.IDDSException(msg)
 
-    def poll_processing(self):
-        if self.active_processings:
-            p = self.processings[self.active_processings[0]]
-            task_status, outputs_status = self.poll_panda_task(p)
-            return p, task_status, outputs_status
-        return None, 'Running', []
+    def poll_processing(self, processing):
+        task_status, outputs_status = self.poll_panda_task(processing)
+        return processing, task_status, outputs_status
 
-    def poll_processing_updates(self, input_output_maps):
+    def poll_processing_updates(self, processing, input_output_maps):
         """
         *** Function called by Carrier agent.
         """
 
-        processing, task_status, outputs_status = self.poll_processing()
+        processing, task_status, outputs_status = self.poll_processing(processing)
 
         updated_contents = []
         update_processing = {}

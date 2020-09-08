@@ -196,7 +196,7 @@ class ATLASStageinWork(Work):
         self.active_processings.append(proc['processing_metadata']['internal_id'])
         return proc
 
-    def create_rule(self):
+    def create_rule(self, processing):
         try:
             rucio_client = self.get_rucio_client()
             ds_did = {'scope': self.collections[self.primary_input_collection]['scope'],
@@ -224,18 +224,16 @@ class ATLASStageinWork(Work):
             # raise exceptions.AgentPluginError('%s: %s' % (str(ex), traceback.format_exc()))
         return None
 
-    def submit_processing(self):
-        if self.active_processings:
-            p = self.processings[self.active_processings[0]]
-            if 'rule_id' in p['processing_metadata']:
-                pass
-            else:
-                rule_id = self.create_rule()
-                p['processing_metadata']['rule_id'] = rule_id
+    def submit_processing(self, processing):
+        if 'rule_id' in processing['processing_metadata']:
+            pass
+        else:
+            rule_id = self.create_rule(processing)
+            processing['processing_metadata']['rule_id'] = rule_id
 
-    def poll_rule(self):
+    def poll_rule(self, processing):
         try:
-            p = self.processings[self.active_processings[0]]
+            p = processing
             rule_id = p['processing_metadata']['rule_id']
 
             rucio_client = self.get_rucio_client()
@@ -254,11 +252,11 @@ class ATLASStageinWork(Work):
             msg = "rule(%s) not found: %s" % (str(rule_id), str(ex))
             raise exceptions.ProcessNotFound(msg)
 
-    def poll_processing(self):
-        return self.poll_rule()
+    def poll_processing(self, processing):
+        return self.poll_rule(processing)
 
-    def poll_processing_updates(self, input_output_maps):
-        processing, rule_state, rep_status = self.poll_processing()
+    def poll_processing_updates(self, processing, input_output_maps):
+        processing, rule_state, rep_status = self.poll_processing(processing)
 
         updated_contents = []
         content_substatus = {'finished': 0, 'unfinished': 0}
