@@ -82,6 +82,8 @@ class Transformer(BaseAgent):
         else:
             coll_status = CollectionStatus.Open
 
+        collection['status'] = coll_status
+
         coll = {'transform_id': transform['transform_id'],
                 'coll_type': coll_type,
                 'scope': collection['scope'],
@@ -290,7 +292,7 @@ class Transformer(BaseAgent):
 
         # processing = self.get_processing(transform, input_colls, output_colls, log_colls, new_input_output_maps)
         processing = work.get_processing(new_input_output_maps)
-        new_processing = None
+        new_processing, new_processing_model = None, None
         if not processing:
             new_processing = work.create_processing(new_input_output_maps)
             new_processing_model = copy.deepcopy(new_processing)

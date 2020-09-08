@@ -113,6 +113,12 @@ class Carrier(BaseAgent):
             self.logger.info("Main thread get %s [submitting + submitted + running] processings to process: %s" % (len(processings), str([processing['processing_id'] for processing in processings])))
         return processings
 
+    def get_collection_ids(self, collections):
+        coll_ids = []
+        for coll in collections:
+            coll_ids.append(coll['coll_id'])
+        return coll_ids
+
     def process_running_processing(self, processing):
         transform_id = processing['transform_id']
         # transform = core_transforms.get_transform(transform_id=transform_id)

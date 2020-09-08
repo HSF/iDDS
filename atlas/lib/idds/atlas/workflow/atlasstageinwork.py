@@ -163,7 +163,8 @@ class ATLASStageinWork(Work):
                 new_inputs.append(ip)
 
         # to avoid cheking new inputs if there are no new inputs anymore
-        if not new_inputs and self.collections[self.primary_input_collection]['status'] in [CollectionStatus.Closed]:
+        if (not new_inputs and 'status' in self.collections[self.primary_input_collection]
+           and self.collections[self.primary_input_collection]['status'] in [CollectionStatus.Closed]):  # noqa: W503
             self.set_has_new_inputs(False)
         else:
             mapped_keys = mapped_input_output_maps.keys()
@@ -265,11 +266,11 @@ class ATLASStageinWork(Work):
             for content in outputs:
                 key = '%s:%s' % (content['scope'], content['name'])
                 if key in rep_status:
-                    if content['substatus'] != rep_status[key]['substatus']:
+                    if content['substatus'] != rep_status[key]:
                         updated_content = {'content_id': content['content_id'],
-                                           'substatus': rep_status[key]['substatus']}
+                                           'substatus': rep_status[key]}
                         updated_contents.append(updated_content)
-                        content['substatus'] = rep_status[key]['substatus']
+                        content['substatus'] = rep_status[key]
                 if content['substatus'] == ContentStatus.Available:
                     content_substatus['finished'] += 1
                 else:
@@ -284,7 +285,7 @@ class ATLASStageinWork(Work):
     def get_status_statistics(self, registered_input_output_maps):
         status_statistics = {}
         for map_id in registered_input_output_maps:
-            outputs = registered_input_output_maps['map_id']['outputs']
+            outputs = registered_input_output_maps[map_id]['outputs']
 
             for content in outputs:
                 if content['status'].name not in status_statistics:
