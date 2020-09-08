@@ -29,7 +29,7 @@ class ATLASStageinWork(Work):
                  work_tag='stagein', exec_type='local', sandbox=None, work_id=None,
                  primary_input_collection=None, other_input_collections=None,
                  output_collections=None, log_collections=None,
-                 workflow=None, logger=None,
+                 logger=None,
                  max_waiting_time=3600 * 7 * 24, src_rse=None, dest_rse=None, rule_id=None):
         """
         Init a work/task/transformation.
@@ -45,7 +45,7 @@ class ATLASStageinWork(Work):
         :param primary_input_collection: The primary input collection.
         :param other_input_collections: List of the input collections.
         :param output_collections: List of the output collections.
-        :param workflow: The workflow the current work belongs to.
+        # :param workflow: The workflow the current work belongs to.
         :param max_waiting_time: The max waiting time to terminate the work.
         :param src_rse: The source rse.
         :param dest_rse: The destination rse.
@@ -58,7 +58,6 @@ class ATLASStageinWork(Work):
                                                other_input_collections=other_input_collections,
                                                output_collections=output_collections,
                                                log_collections=log_collections,
-                                               workflow=workflow,
                                                logger=logger)
         self.max_waiting_time = max_waiting_time
         self.src_rse = src_rse

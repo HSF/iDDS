@@ -40,8 +40,7 @@ class DomaLSSTWork(Work):
                  work_tag='lsst', exec_type='panda', sandbox=None, work_id=None,
                  primary_input_collection=None, other_input_collections=None,
                  output_collections=None, log_collections=None,
-                 workflow=None, logger=None,
-                 max_waiting_time=3600 * 7 * 24, src_rse=None, dest_rse=None, rule_id=None):
+                 logger=None):
         """
         Init a work/task/transformation.
 
@@ -56,24 +55,24 @@ class DomaLSSTWork(Work):
         :param primary_input_collection: The primary input collection.
         :param other_input_collections: List of the input collections.
         :param output_collections: List of the output collections.
-        :param workflow: The workflow the current work belongs to.
-        :param max_waiting_time: The max waiting time to terminate the work.
-        :param src_rse: The source rse.
-        :param dest_rse: The destination rse.
-        :param rule_id: The rule id.
+        # :param workflow: The workflow the current work belongs to.
         """
         super(DomaLSSTWork, self).__init__(executable=executable, arguments=arguments,
                                            parameters=parameters, setup=setup, work_type=TransformType.Workflow,
-                                           exec_type=exec_type, sandbox=sandbox, work_id=work_id,
+                                           work_tag=work_tag, exec_type=exec_type, sandbox=sandbox, work_id=work_id,
                                            primary_input_collection=primary_input_collection,
                                            other_input_collections=other_input_collections,
                                            output_collections=output_collections,
                                            log_collections=log_collections,
-                                           workflow=workflow,
                                            logger=logger)
 
         self.panda_config = self.load_panda_config()
         self.pandaserver = self.load_panda_server()
+
+    def my_condition(self):
+        if self.is_finished():
+            return True
+        return False
 
     def load_pand_config(self):
         panda_config = ConfigParser.SafeConfigParser()

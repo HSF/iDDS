@@ -47,7 +47,7 @@ class Work(Base):
                  work_tag=None, exec_type='local', sandbox=None, work_id=None,
                  primary_input_collection=None, other_input_collections=None,
                  output_collections=None, log_collections=None,
-                 workflow=None, logger=None):
+                 logger=None):
         """
         Init a work/task/transformation.
 
@@ -62,7 +62,7 @@ class Work(Base):
         :param primary_input_collection: The primary input collection.
         :param other_input_collections: List of the input collections.
         :param output_collections: List of the output collections.
-        :param workflow: The workflow the current work belongs to.
+        # :param workflow: The workflow the current work belongs to.
         """
         self.internal_id = str(uuid.uuid1())
 
@@ -80,7 +80,7 @@ class Work(Base):
         self.exec_type = exec_type
         self.sandbox = sandbox
         self.work_id = work_id
-        self.workflow = workflow
+        # self.workflow = workflow
         self.transforming = False
 
         self.collections = {}

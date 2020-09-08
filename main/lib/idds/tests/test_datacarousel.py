@@ -102,7 +102,7 @@ def get_workflow():
                             other_input_collections=None,
                             output_collections={'scope': scope, 'name': name + '.idds.stagein'},
                             log_collections=None,
-                            workflow=None, logger=None,
+                            logger=None,
                             max_waiting_time=3600 * 7 * 24, src_rse=src_rse, dest_rse=dest_rse, rule_id=rule_id)
     wf = Workflow()
     wf.add_work(work)

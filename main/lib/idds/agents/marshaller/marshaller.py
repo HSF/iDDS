@@ -162,7 +162,9 @@ class Marshaller(BaseAgent):
 
         # current works
         works = wf.get_current_works()
+        # print(works)
         for work in works:
+            # print(work.get_work_id())
             tf = core_transforms.get_transform(transform_id=work.get_work_id())
             work_status = WorkStatus(tf['status'].value)
             work.set_status(work_status)
