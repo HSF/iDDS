@@ -112,6 +112,7 @@ class Transformer(BaseAgent):
                            'min_id': input_content['min_id'] if 'min_id' in input_content else 0,
                            'max_id': input_content['max_id'] if 'max_id' in input_content else 0,
                            'status': ContentStatus.New,
+                           'substatus': ContentStatus.New,
                            'path': None,
                            'content_type': input_content['content_type'] if 'content_type' in input_content else ContentType.File,
                            'bytes': input_content['bytes'],
@@ -127,6 +128,7 @@ class Transformer(BaseAgent):
                            'min_id': output_content['min_id'] if 'min_id' in output_content else 0,
                            'max_id': output_content['max_id'] if 'max_id' in output_content else 0,
                            'status': ContentStatus.New,
+                           'substatus': ContentStatus.New,
                            'path': None,
                            'content_type': output_content['content_type'] if 'content_type' in output_content else ContentType.File,
                            'bytes': output_content['bytes'],
@@ -313,9 +315,9 @@ class Transformer(BaseAgent):
             transform['status'] = TransformStatus.Transforming
 
         ret = {'transform': transform,
-               'update_input_collections': input_collections,
-               'update_output_collections': output_collections,
-               'update_log_collections': log_collections,
+               'update_input_collections': copy.deepcopy(input_collections) if input_collections else input_collections,
+               'update_output_collections': copy.deepcopy(output_collections) if output_collections else output_collections,
+               'update_log_collections': copy.deepcopy(log_collections) if log_collections else log_collections,
                'new_contents': new_contents,
                'update_contents': update_contents,
                'messages': file_msgs,

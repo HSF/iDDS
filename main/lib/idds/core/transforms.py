@@ -211,6 +211,7 @@ def add_transform_outputs(transform, input_collections=None, output_collections=
 
     processing_id = None
     if new_processing:
+        # print(new_processing)
         processing_id = orm_processings.add_processing(**new_processing, session=session)
 
     """
