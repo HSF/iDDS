@@ -207,7 +207,7 @@ def add_transform_outputs(transform, input_collections=None, output_collections=
     if new_contents:
         orm_contents.add_contents(new_contents, session=session)
     if update_contents:
-        orm_contents.add_contents(update_contents, session=session)
+        orm_contents.update_contents(update_contents, session=session)
 
     processing_id = None
     if new_processing:

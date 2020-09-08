@@ -173,7 +173,7 @@ class Carrier(BaseAgent):
                 self.logger.info("Main thread processing(processing_id: %s) updates: %s" % (processing['processing_update']['processing_id'],
                                                                                             processing['processing_update']['parameters']))
 
-                self.logger.info("Main thread finishing running processing %s" % str(processing))
+                # self.logger.info("Main thread finishing running processing %s" % str(processing))
                 core_processings.update_processing_contents(processing_update=processing['processing_update'],
                                                             content_updates=processing['content_updates'])
 
