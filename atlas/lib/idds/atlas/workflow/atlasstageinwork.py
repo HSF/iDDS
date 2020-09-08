@@ -297,7 +297,7 @@ class ATLASStageinWork(Work):
     def syn_work_status(self, registered_input_output_maps):
         self.get_status_statistics(registered_input_output_maps)
 
-        if not self.active_processings and not self.has_new_inputs():
+        if self.is_processings_terminated() and not self.has_new_inputs():
             keys = self.status_statistics.keys()
             if ContentStatus.New.name in keys or ContentStatus.Processing.name in keys:
                 pass

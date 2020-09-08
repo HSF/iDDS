@@ -23,8 +23,7 @@ from idds.common.constants import (Sections, TransformStatus, TransformLocking,
                                    CollectionType, ContentType, ContentStatus,
                                    ProcessingStatus)
 from idds.common.utils import setup_logging
-# from idds.core import (transforms as core_transforms, processings as core_processings)
-from idds.core import (transforms as core_transforms)
+from idds.core import (transforms as core_transforms, processings as core_processings)
 from idds.agents.common.baseagent import BaseAgent
 
 setup_logging(__name__)
@@ -303,6 +302,9 @@ class Transformer(BaseAgent):
             if 'processing_metadata' not in new_processing_model:
                 new_processing_model['processing_metadata'] = {}
             new_processing_model['processing_metadata']['work'] = work
+        else:
+            processing_model = core_processings.get_processing(processing_id=processing['processing_id'])
+            work.set_processing_status(processing, processing_model['status'])
 
         transform['locking'] = TransformLocking.Idle
         # status_statistics = work.get_status_statistics(registered_input_output_maps)

@@ -14,7 +14,7 @@ import re
 import uuid
 
 from idds.common import exceptions
-from idds.common.constants import WorkStatus
+from idds.common.constants import WorkStatus, ProcessingStatus
 from idds.common.utils import setup_logging
 
 from .base import Base
@@ -194,9 +194,6 @@ class Work(Base):
     def set_parameters(self, parameters):
         self.parameters = parameters
 
-    def syn_work_status(self):
-        pass
-
     def is_terminated(self):
         """
         *** Function called by Transformer agent.
@@ -365,7 +362,31 @@ class Work(Base):
     #     self.processing = processing
 
     def set_processing_id(self, processing, processing_id):
+        """
+        *** Function called by Transformer agent.
+        """
         self.processings[processing['processing_metadata']['internal_id']]['processing_id'] = processing_id
+
+    def set_processing_status(self, processing, status):
+        """
+        *** Function called by Transformer agent.
+        """
+        self.processings[processing['processing_metadata']['internal_id']]['status'] = status
+
+    def is_processings_terminated(self):
+        """
+        *** Function called by Transformer agent.
+        """
+        for p_id in self.active_processings:
+            p = self.processings[p_id]
+            if 'status' in p and p['status'] not in [ProcessingStatus.New,
+                                                     ProcessingStatus.Submitting,
+                                                     ProcessingStatus.Submitted,
+                                                     ProcessingStatus.Running]:
+                pass
+            else:
+                return False
+        return True
 
     def create_processing(self, input_output_maps):
         """
