@@ -170,8 +170,8 @@ class Carrier(BaseAgent):
         while not self.running_output_queue.empty():
             processing = self.running_output_queue.get()
             if processing:
-                self.logger.info("Main thread processing(processing_id: %s) status changed to %s" % (processing['processing_updates']['processing_id'],
-                                                                                                     processing['processing_updates']['parameters']['status']))
+                self.logger.info("Main thread processing(processing_id: %s) updates: %s" % (processing['processing_update']['processing_id'],
+                                                                                            processing['processing_update']['parameters']))
 
                 self.logger.info("Main thread finishing running processing %s" % str(processing))
                 core_processings.update_processing_contents(processing_update=processing['processing_update'],
