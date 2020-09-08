@@ -77,7 +77,8 @@ class ATLASStageinWork(Work):
 
     def poll_external_collection(self, coll):
         try:
-            if 'coll_metadata' in coll and 'is_open' in coll['coll_metadata'] and not coll['coll_metadata']['is_open']:
+            # if 'coll_metadata' in coll and 'is_open' in coll['coll_metadata'] and not coll['coll_metadata']['is_open']:
+            if 'status' in coll and coll['status'] in [CollectionStatus.Closed]:
                 return coll
             else:
                 client = self.get_rucio_client()

@@ -325,6 +325,7 @@ class Transformer(BaseAgent):
         else:
             transform['status'] = TransformStatus.Transforming
 
+        # print(input_collections)
         ret = {'transform': transform,
                'update_input_collections': copy.deepcopy(input_collections) if input_collections else input_collections,
                'update_output_collections': copy.deepcopy(output_collections) if output_collections else output_collections,
