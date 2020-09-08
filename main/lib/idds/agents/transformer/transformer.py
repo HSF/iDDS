@@ -66,22 +66,17 @@ class Transformer(BaseAgent):
         else:
             coll_metadata = {}
 
-        if 'did_type' in coll_metadata:
-            if coll_metadata['did_type'] == 'DATASET':
-                coll_type = CollectionType.Dataset
-            elif coll_metadata['did_type'] == 'CONTAINER':
-                coll_type = CollectionType.Container
-            else:
-                coll_type = CollectionType.File
+        if 'coll_type' in collection:
+            coll_type = collection['coll_type']
         else:
             coll_type = CollectionType.Dataset
 
-        if 'is_open' in coll_metadata and not coll_metadata['is_open']:
-            coll_status = CollectionStatus.Closed
+        if 'status' in collection:
+            coll_status = collection['status']
         else:
             coll_status = CollectionStatus.Open
 
-        collection['status'] = coll_status
+        # collection['status'] = coll_status
 
         coll = {'transform_id': transform['transform_id'],
                 'coll_type': coll_type,

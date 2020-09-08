@@ -18,7 +18,8 @@ from rucio.common.exception import (CannotAuthenticate as RucioCannotAuthenticat
                                     RuleNotFound as RucioRuleNotFound)
 
 from idds.common import exceptions
-from idds.common.constants import (TransformType, CollectionStatus, ContentStatus, ContentType,
+from idds.common.constants import (TransformType, CollectionType, CollectionStatus,
+                                   ContentStatus, ContentType,
                                    ProcessingStatus, WorkStatus)
 from idds.workflow.work import Work
 
@@ -91,6 +92,24 @@ class ATLASStageinWork(Work):
                 coll['coll_metadata']['run_number'] = did_meta['run_number']
                 coll['coll_metadata']['did_type'] = did_meta['did_type']
                 coll['coll_metadata']['list_all_files'] = False
+
+                if 'is_open' in coll['coll_metadata'] and not coll['coll_metadata']['is_open']:
+                    coll_status = CollectionStatus.Closed
+                else:
+                    coll_status = CollectionStatus.Open
+                coll['status'] = coll_status
+
+                if 'did_type' in coll['coll_metadata']:
+                    if coll['coll_metadata']['did_type'] == 'DATASET':
+                        coll_type = CollectionType.Dataset
+                    elif coll['coll_metadata']['did_type'] == 'CONTAINER':
+                        coll_type = CollectionType.Container
+                    else:
+                        coll_type = CollectionType.File
+                else:
+                    coll_type = CollectionType.Dataset
+                coll['coll_type'] = coll_type
+
                 return coll
         except Exception as ex:
             self.logger.error(ex)
