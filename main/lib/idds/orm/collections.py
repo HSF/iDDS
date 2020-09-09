@@ -27,7 +27,8 @@ from idds.orm.base import models
 
 def create_collection(scope, name, coll_type=CollectionType.Dataset, transform_id=None,
                       relation_type=CollectionRelationType.Input, bytes=0, status=CollectionStatus.New,
-                      locking=CollectionLocking.Idle, total_files=0, retries=0, expired_at=None,
+                      locking=CollectionLocking.Idle, total_files=0, new_files=0, processing_files=0,
+                      processed_files=0, retries=0, expired_at=None,
                       coll_metadata=None):
     """
     Create a collection.
@@ -50,15 +51,17 @@ def create_collection(scope, name, coll_type=CollectionType.Dataset, transform_i
     """
     new_coll = models.Collection(scope=scope, name=name, coll_type=coll_type, transform_id=transform_id,
                                  relation_type=relation_type, bytes=bytes, status=status, locking=locking,
-                                 total_files=total_files, retries=retries, expired_at=expired_at,
-                                 coll_metadata=coll_metadata)
+                                 total_files=total_files, new_files=new_files, processing_files=processing_files,
+                                 processed_files=processed_files, retries=retries,
+                                 expired_at=expired_at, coll_metadata=coll_metadata)
     return new_coll
 
 
 @transactional_session
 def add_collection(scope, name, coll_type=CollectionType.Dataset, transform_id=None,
                    relation_type=CollectionRelationType.Input, bytes=0, status=CollectionStatus.New,
-                   locking=CollectionLocking.Idle, total_files=0, retries=0, expired_at=None,
+                   locking=CollectionLocking.Idle, total_files=0, new_files=0, processing_files=0,
+                   processed_files=0, retries=0, expired_at=None,
                    coll_metadata=None, session=None):
     """
     Add a collection.
@@ -85,8 +88,9 @@ def add_collection(scope, name, coll_type=CollectionType.Dataset, transform_id=N
     try:
         new_coll = create_collection(scope=scope, name=name, coll_type=coll_type, transform_id=transform_id,
                                      relation_type=relation_type, bytes=bytes, status=status, locking=locking,
-                                     total_files=total_files, retries=retries, expired_at=expired_at,
-                                     coll_metadata=coll_metadata)
+                                     total_files=total_files, new_files=new_files, retries=retries,
+                                     processing_files=processing_files, processed_files=processed_files,
+                                     expired_at=expired_at, coll_metadata=coll_metadata)
         new_coll.save(session=session)
         coll_id = new_coll.coll_id
         return coll_id

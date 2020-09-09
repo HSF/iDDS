@@ -334,6 +334,7 @@ def convert_request_type_to_transform_type(request_type):
 
 class DictClassEncoder(json.JSONEncoder):
     def default(self, obj):
+        # print(obj)
         if isinstance(obj, IDDSEnum) or isinstance(obj, DictClass):
             return obj.to_dict()
         # elif isinstance(obj, datetime.datetime):

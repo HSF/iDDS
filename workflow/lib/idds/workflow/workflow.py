@@ -9,6 +9,7 @@
 # - Wen Guan, <wen.guan@cern.ch>, 2020
 
 import datetime
+import inspect
 import random
 import time
 
@@ -17,32 +18,40 @@ from .base import Base
 
 
 class Condition(object):
-    def __init__(self, cond, prework, true_work, false_work=None):
+    def __init__(self, cond, current_work, true_work, false_work=None):
         """
         Condition.
         if cond() is true, return true_work, else return false_work.
 
         :param cond: executable return true or false.
-        :param prework: Work instance.
+        :param work: The current Work instance.
         :param true_work: Work instance.
         :param false_work: Work instance.
         """
         self.cond = cond
-        self.prework = prework
-        self.true_work = true_work
-        self.false_work = false_work
+        self.current_work = None
+        if current_work:
+            self.current_work = current_work.get_internal_id()
+        self.true_work = None
+        if true_work:
+            self.true_work = true_work.get_internal_id()
+        self.false_work = None
+        if false_work:
+            self.false_work = false_work.get_internal_id()
 
     def all_works(self):
         works = []
-        works.append(self.prework)
-        works.append(self.true_work)
+        works.append(self.current_work)
+        if self.true_work:
+            works.append(self.true_work)
         if self.false_work:
             works.append(self.false_work)
         return works
 
     def all_next_works(self):
         works = []
-        works.append(self.true_work)
+        if self.true_work:
+            works.append(self.true_work)
         if self.false_work:
             works.append(self.false_work)
         return works
@@ -89,8 +98,26 @@ class Workflow(Base):
 
         self.last_work = None
 
+        # user defined Condition class
+        self.user_defined_conditions = {}
+
     def get_name(self):
         return self.name
+
+    def register_user_defined_condition(self, condition):
+        cond_src = inspect.getsource(condition)
+        self.user_defined_conditions[condition.__name__] = cond_src
+
+    def load_user_defined_condition(self):
+        # try:
+        #     Condition()
+        # except NameError:
+        #     global Condition
+        #     import Condition
+
+        for cond_src_name in self.user_defined_conditions:
+            # global cond_src_name
+            exec(self.user_defined_conditions[cond_src_name])
 
     def set_workload_id(self, workload_id):
         self.workload_id = workload_id
@@ -110,6 +137,11 @@ class Workflow(Base):
             self.primary_initial_work = work.get_internal_id()
         self.new_works.append(work.get_internal_id())
 
+    def enable_work(self, work):
+        assert(work.get_internal_id() in self.works)
+        if work.get_internal_id() not in self.new_works:
+            self.new_works.append(work.get_internal_id())
+
     def add_condition(self, cond):
         cond_works = cond.all_works()
         for cond_work in cond_works:
@@ -118,9 +150,18 @@ class Workflow(Base):
         #     if next_work in self.current_works:
         #         del self.current_works[next_work]
 
-        if cond.prework not in self.work_conds:
-            self.work_conds[cond.prework.get_internal_id()] = []
-        self.work_conds[cond.prework.get_internal_id()].append(cond)
+        if cond.current_work not in self.work_conds:
+            self.work_conds[cond.current_work] = []
+        self.work_conds[cond.current_work].append(cond)
+
+        # if a work is a true_work or false_work of a condition,
+        # should remove it from new_works
+        cond_next_works = cond.all_next_works()
+        for next_work in cond_next_works:
+            if next_work in self.new_works:
+                self.new_works.remove(next_work)
+        if self.primary_initial_work not in self.new_works:
+            self.primary_initial_work = self.new_works[0]
 
     def __eq__(self, wf):
         if self.name == wf.name:
@@ -133,18 +174,27 @@ class Workflow(Base):
 
     def get_new_works(self):
         """
+        *** Function called by Marshaller agent.
+
         new works to be ready to start
         """
+        self.sync_works()
         return [self.works[k] for k in self.new_works]
 
     def get_current_works(self):
         """
+        *** Function called by Marshaller agent.
+
         Current running works
         """
         self.sync_works()
         return [self.works[k] for k in self.current_works]
 
     def get_primary_initial_collection(self):
+        """
+        *** Function called by Clerk agent.
+        """
+
         if self.primary_initial_work:
             return self.works[self.primary_initial_work].get_primary_input_collection()
         return None
@@ -207,7 +257,7 @@ class Workflow(Base):
 
         for work in [self.works[k] for k in self.current_works]:
             if work.is_terminated():
-                if work not in self.work_conds:
+                if work.get_internal_id() not in self.work_conds:
                     # has no next work
                     self.terminated_works.append(work.get_internal_id())
                     self.current_works.remove(work.get_internal_id())
@@ -218,13 +268,17 @@ class Workflow(Base):
                             next_work.initialize_work()
                             # self.current_works.append(next_work)
                             # self.new_works.append(next_work.get_internal_id())
-                            self.add_work(next_work)
+                            self.enable_work(next_work)
                             work.add_next_work(next_work.get_internal_id())
                     self.terminated_works.append(work.get_internal_id())
                     self.current_works.remove(work.get_internal_id())
+                if work.is_finished():
+                    self.num_finished_works += 1
 
     def get_exact_workflows(self):
         """
+        *** Function called by Clerk agent.
+
         TODO: The primary dataset for the initial work is a dataset with '*'.
         workflow.primary_initial_collection = 'some datasets with *'
         collections = get_collection(workflow.primary_initial_collection)
@@ -239,21 +293,36 @@ class Workflow(Base):
         return [self]
 
     def is_terminated(self):
+        """
+        *** Function called by Marshaller agent.
+        """
         self.sync_works()
         if len(self.new_works) == 0 and len(self.current_works) == 0:
             return True
         return False
 
     def is_finished(self):
+        """
+        *** Function called by Marshaller agent.
+        """
         return self.is_terminated() and self.num_finished_works == self.num_total_works
 
     def is_subfinished(self):
+        """
+        *** Function called by Marshaller agent.
+        """
         return self.is_terminated() and (self.num_finished_works < self.num_total_works) and (self.num_finished_works > 0)
 
     def is_failed(self):
+        """
+        *** Function called by Marshaller agent.
+        """
         return self.is_terminated() and (self.num_finished_works == 0)
 
     def get_terminated_msg(self):
+        """
+        *** Function called by Marshaller agent.
+        """
         if self.last_work:
             return self.last_work.get_terminated_msg()
         return None

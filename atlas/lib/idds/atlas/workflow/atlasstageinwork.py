@@ -18,7 +18,8 @@ from rucio.common.exception import (CannotAuthenticate as RucioCannotAuthenticat
                                     RuleNotFound as RucioRuleNotFound)
 
 from idds.common import exceptions
-from idds.common.constants import (TransformType, CollectionStatus, ContentStatus, ContentType,
+from idds.common.constants import (TransformType, CollectionType, CollectionStatus,
+                                   ContentStatus, ContentType,
                                    ProcessingStatus, WorkStatus)
 from idds.workflow.work import Work
 
@@ -28,7 +29,7 @@ class ATLASStageinWork(Work):
                  work_tag='stagein', exec_type='local', sandbox=None, work_id=None,
                  primary_input_collection=None, other_input_collections=None,
                  output_collections=None, log_collections=None,
-                 workflow=None, logger=None,
+                 logger=None,
                  max_waiting_time=3600 * 7 * 24, src_rse=None, dest_rse=None, rule_id=None):
         """
         Init a work/task/transformation.
@@ -44,7 +45,7 @@ class ATLASStageinWork(Work):
         :param primary_input_collection: The primary input collection.
         :param other_input_collections: List of the input collections.
         :param output_collections: List of the output collections.
-        :param workflow: The workflow the current work belongs to.
+        # :param workflow: The workflow the current work belongs to.
         :param max_waiting_time: The max waiting time to terminate the work.
         :param src_rse: The source rse.
         :param dest_rse: The destination rse.
@@ -57,7 +58,6 @@ class ATLASStageinWork(Work):
                                                other_input_collections=other_input_collections,
                                                output_collections=output_collections,
                                                log_collections=log_collections,
-                                               workflow=workflow,
                                                logger=logger)
         self.max_waiting_time = max_waiting_time
         self.src_rse = src_rse
@@ -76,24 +76,41 @@ class ATLASStageinWork(Work):
 
     def poll_external_collection(self, coll):
         try:
-            if 'coll_metadata' in coll and 'is_open' in coll['coll_metadata'] and not coll['coll_metadata']['is_open']:
+            # if 'coll_metadata' in coll and 'is_open' in coll['coll_metadata'] and not coll['coll_metadata']['is_open']:
+            if 'status' in coll and coll['status'] in [CollectionStatus.Closed]:
                 return coll
             else:
-                meta = {}
-                did_meta = self.client.get_metadata(scope=coll['scope'], name=coll['name'])
-                meta = {'scope': coll['scope'],
-                        'name': coll['name'],
-                        'coll_metadata': {
-                            'bytes': did_meta['bytes'],
-                            'total_files': did_meta['length'],
-                            'availability': did_meta['availability'],
-                            'events': did_meta['events'],
-                            'is_open': did_meta['is_open'],
-                            'run_number': did_meta['run_number'],
-                            'did_type': did_meta['did_type'],
-                            'list_all_files': False}
-                        }
-                return meta
+                client = self.get_rucio_client()
+                did_meta = client.get_metadata(scope=coll['scope'], name=coll['name'])
+                if 'coll_metadata' not in coll:
+                    coll['coll_metadata'] = {}
+                coll['coll_metadata']['bytes'] = did_meta['bytes']
+                coll['coll_metadata']['total_files'] = did_meta['length']
+                coll['coll_metadata']['availability'] = did_meta['availability']
+                coll['coll_metadata']['events'] = did_meta['events']
+                coll['coll_metadata']['is_open'] = did_meta['is_open']
+                coll['coll_metadata']['run_number'] = did_meta['run_number']
+                coll['coll_metadata']['did_type'] = did_meta['did_type']
+                coll['coll_metadata']['list_all_files'] = False
+
+                if 'is_open' in coll['coll_metadata'] and not coll['coll_metadata']['is_open']:
+                    coll_status = CollectionStatus.Closed
+                else:
+                    coll_status = CollectionStatus.Open
+                coll['status'] = coll_status
+
+                if 'did_type' in coll['coll_metadata']:
+                    if coll['coll_metadata']['did_type'] == 'DATASET':
+                        coll_type = CollectionType.Dataset
+                    elif coll['coll_metadata']['did_type'] == 'CONTAINER':
+                        coll_type = CollectionType.Container
+                    else:
+                        coll_type = CollectionType.File
+                else:
+                    coll_type = CollectionType.Dataset
+                coll['coll_type'] = coll_type
+
+                return coll
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
@@ -106,7 +123,7 @@ class ATLASStageinWork(Work):
             coll = self.collections[coll_int_id]
             coll = self.poll_external_collection(coll)
             self.collections[coll_int_id] = coll
-        return super(self).get_input_collections()
+        return super(ATLASStageinWork, self).get_input_collections()
 
     def get_input_contents(self):
         """
@@ -165,7 +182,8 @@ class ATLASStageinWork(Work):
                 new_inputs.append(ip)
 
         # to avoid cheking new inputs if there are no new inputs anymore
-        if not new_inputs and self.collections[self.primary_input_collection]['status'] in [CollectionStatus.Closed]:
+        if (not new_inputs and 'status' in self.collections[self.primary_input_collection]
+           and self.collections[self.primary_input_collection]['status'] in [CollectionStatus.Closed]):  # noqa: W503
             self.set_has_new_inputs(False)
         else:
             mapped_keys = mapped_input_output_maps.keys()
@@ -196,8 +214,9 @@ class ATLASStageinWork(Work):
                                         'rule_id': self.rule_id}}
         self.add_processing_to_processings(proc)
         self.active_processings.append(proc['processing_metadata']['internal_id'])
+        return proc
 
-    def create_rule(self):
+    def create_rule(self, processing):
         try:
             rucio_client = self.get_rucio_client()
             ds_did = {'scope': self.collections[self.primary_input_collection]['scope'],
@@ -225,18 +244,16 @@ class ATLASStageinWork(Work):
             # raise exceptions.AgentPluginError('%s: %s' % (str(ex), traceback.format_exc()))
         return None
 
-    def submit_processing(self):
-        if self.active_processings:
-            p = self.processings[self.active_processings[0]]
-            if 'rule_id' in p['processing_metadata']:
-                pass
-            else:
-                rule_id = self.create_rule()
-                p['processing_metadata']['rule_id'] = rule_id
+    def submit_processing(self, processing):
+        if 'rule_id' in processing['processing_metadata']:
+            pass
+        else:
+            rule_id = self.create_rule(processing)
+            processing['processing_metadata']['rule_id'] = rule_id
 
-    def poll_rule(self):
+    def poll_rule(self, processing):
         try:
-            p = self.processings[self.active_processings[0]]
+            p = processing
             rule_id = p['processing_metadata']['rule_id']
 
             rucio_client = self.get_rucio_client()
@@ -255,11 +272,11 @@ class ATLASStageinWork(Work):
             msg = "rule(%s) not found: %s" % (str(rule_id), str(ex))
             raise exceptions.ProcessNotFound(msg)
 
-    def poll_processing(self):
-        return self.poll_rule()
+    def poll_processing(self, processing):
+        return self.poll_rule(processing)
 
-    def poll_processing_updates(self, input_output_maps):
-        processing, rule_state, rep_status = self.poll_processing()
+    def poll_processing_updates(self, processing, input_output_maps):
+        processing, rule_state, rep_status = self.poll_processing(processing)
 
         updated_contents = []
         content_substatus = {'finished': 0, 'unfinished': 0}
@@ -268,11 +285,11 @@ class ATLASStageinWork(Work):
             for content in outputs:
                 key = '%s:%s' % (content['scope'], content['name'])
                 if key in rep_status:
-                    if content['substatus'] != rep_status[key]['substatus']:
+                    if content['substatus'] != rep_status[key]:
                         updated_content = {'content_id': content['content_id'],
-                                           'substatus': rep_status[key]['substatus']}
+                                           'substatus': rep_status[key]}
                         updated_contents.append(updated_content)
-                        content['substatus'] = rep_status[key]['substatus']
+                        content['substatus'] = rep_status[key]
                 if content['substatus'] == ContentStatus.Available:
                     content_substatus['finished'] += 1
                 else:
@@ -287,7 +304,7 @@ class ATLASStageinWork(Work):
     def get_status_statistics(self, registered_input_output_maps):
         status_statistics = {}
         for map_id in registered_input_output_maps:
-            outputs = registered_input_output_maps['map_id']['outputs']
+            outputs = registered_input_output_maps[map_id]['outputs']
 
             for content in outputs:
                 if content['status'].name not in status_statistics:
@@ -299,7 +316,7 @@ class ATLASStageinWork(Work):
     def syn_work_status(self, registered_input_output_maps):
         self.get_status_statistics(registered_input_output_maps)
 
-        if not self.active_processings and not self.has_new_inputs():
+        if self.is_processings_terminated() and not self.has_new_inputs():
             keys = self.status_statistics.keys()
             if ContentStatus.New.name in keys or ContentStatus.Processing.name in keys:
                 pass

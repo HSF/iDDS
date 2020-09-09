@@ -78,8 +78,8 @@ class Marshaller(BaseAgent):
                          }
             transforms.append(transform)
 
-        self.logger.info("Processing workprogress(%s): transforms: %s" % (workprogress['workprogress_id'],
-                                                                          transforms))
+        self.logger.info("Processing workprogress(%s): new transforms: %s" % (workprogress['workprogress_id'],
+                                                                              transforms))
 
         workprogress['locking'] = WorkprogressLocking.Idle
         workprogress['status'] = WorkprogressStatus.Transforming
@@ -109,7 +109,9 @@ class Marshaller(BaseAgent):
                 if ret:
                     wp = ret['workprogress']
                     tfs = ret['new_transforms']
-                    wp_parameters = {'status': wp['status'], 'locking': wp['locking'], 'workprogress_metadata': wp['workprogress_metadata']}
+                    wp_parameters = {'status': wp['status'],
+                                     'locking': wp['locking'],
+                                     'workprogress_metadata': wp['workprogress_metadata']}
                     core_workprogress.update_workprogress(workprogress_id=wp['workprogress_id'],
                                                           parameters=wp_parameters,
                                                           new_transforms=tfs)
@@ -139,8 +141,30 @@ class Marshaller(BaseAgent):
         self.logger.info("process_running_workprogress: workprogress_id: %s" % workprogress['workprogress_id'])
         workprogress_metadata = workprogress['workprogress_metadata']
         wf = workprogress_metadata['workflow']
-        works = wf.get_current_works()
+
+        # new works
+        works = wf.get_new_works()
+        new_transforms = []
         for work in works:
+            new_transform = {'workprogress_id': workprogress['workprogress_id'],
+                             'transform_type': work.get_work_type(),
+                             'transform_tag': work.get_work_tag(),
+                             'priority': workprogress['priority'],
+                             'status': TransformStatus.New,
+                             'retries': 0,
+                             'expired_at': workprogress['expired_at'],
+                             'transform_metadata': {'work': work}
+                             # 'collections': related_collections
+                             }
+            new_transforms.append(new_transform)
+        self.logger.info("Processing workprogress(%s): new transforms: %s" % (workprogress['workprogress_id'],
+                                                                              new_transforms))
+
+        # current works
+        works = wf.get_current_works()
+        # print(works)
+        for work in works:
+            # print(work.get_work_id())
             tf = core_transforms.get_transform(transform_id=work.get_work_id())
             work_status = WorkStatus(tf['status'].value)
             work.set_status(work_status)
@@ -159,8 +183,13 @@ class Marshaller(BaseAgent):
         else:
             wp_status = WorkprogressStatus.Transforming
             wp_msg = None
-        parameters = {'status': wp_status, 'locking': WorkprogressLocking.Idle, 'errors': {'msg': wp_msg}}
-        ret = {'workprogress_id': workprogress['workprogress_id'], 'parameters': parameters}
+        parameters = {'status': wp_status,
+                      'locking': WorkprogressLocking.Idle,
+                      'workprogress_metadata': workprogress_metadata,
+                      'errors': {'msg': wp_msg}}
+        ret = {'workprogress_id': workprogress['workprogress_id'],
+               'parameters': parameters,
+               'new_transforms': new_transforms}
         return ret
 
     def process_running_workprogresses(self):
@@ -183,7 +212,10 @@ class Marshaller(BaseAgent):
             ret = self.running_output_queue.get()
             wp_id = ret['workprogress_id']
             parameters = ret['parameters']
-            core_workprogress.update_workprogress(workprogress_id=wp_id, parameters=parameters)
+            new_transforms = ret['new_transforms']
+            core_workprogress.update_workprogress(workprogress_id=wp_id,
+                                                  parameters=parameters,
+                                                  new_transforms=new_transforms)
 
     def clean_locks(self):
         self.logger.info("clean locking")

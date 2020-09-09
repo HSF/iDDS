@@ -8,6 +8,7 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2019 - 2020
 
+import copy
 import traceback
 try:
     # python 3
@@ -22,8 +23,7 @@ from idds.common.constants import (Sections, TransformStatus, TransformLocking,
                                    CollectionType, ContentType, ContentStatus,
                                    ProcessingStatus)
 from idds.common.utils import setup_logging
-# from idds.core import (transforms as core_transforms, processings as core_processings)
-from idds.core import (transforms as core_transforms)
+from idds.core import (transforms as core_transforms, processings as core_processings)
 from idds.agents.common.baseagent import BaseAgent
 
 setup_logging(__name__)
@@ -60,26 +60,23 @@ class Transformer(BaseAgent):
             self.logger.info("Main thread get %s New+Ready+Extend transforms to process" % len(transforms_new))
         return transforms_new
 
-    def generate_collection_model(transform, collection, relation_type=CollectionRelationType.Input):
+    def generate_collection_model(self, transform, collection, relation_type=CollectionRelationType.Input):
         if 'coll_metadata' in collection:
             coll_metadata = collection['coll_metadata']
         else:
             coll_metadata = {}
 
-        if 'did_type' in coll_metadata:
-            if coll_metadata['did_type'] == 'DATASET':
-                coll_type = CollectionType.Dataset
-            elif coll_metadata['did_type'] == 'CONTAINER':
-                coll_type = CollectionType.Container
-            else:
-                coll_type = CollectionType.File
+        if 'coll_type' in collection:
+            coll_type = collection['coll_type']
         else:
             coll_type = CollectionType.Dataset
 
-        if 'is_open' in coll_metadata and not coll_metadata['is_open']:
-            coll_status = CollectionStatus.Closed
+        if 'status' in collection:
+            coll_status = collection['status']
         else:
             coll_status = CollectionStatus.Open
+
+        # collection['status'] = coll_status
 
         coll = {'transform_id': transform['transform_id'],
                 'coll_type': coll_type,
@@ -99,8 +96,8 @@ class Transformer(BaseAgent):
     def get_new_contents(self, transform, new_input_output_maps):
         new_contents = []
         for map_id in new_input_output_maps:
-            inputs = new_input_output_maps['map_id']['inputs']
-            outputs = new_input_output_maps['map_id']['outputs']
+            inputs = new_input_output_maps[map_id]['inputs']
+            outputs = new_input_output_maps[map_id]['outputs']
 
             for input_content in inputs:
                 content = {'transform_id': transform['transform_id'],
@@ -111,6 +108,7 @@ class Transformer(BaseAgent):
                            'min_id': input_content['min_id'] if 'min_id' in input_content else 0,
                            'max_id': input_content['max_id'] if 'max_id' in input_content else 0,
                            'status': ContentStatus.New,
+                           'substatus': ContentStatus.New,
                            'path': None,
                            'content_type': input_content['content_type'] if 'content_type' in input_content else ContentType.File,
                            'bytes': input_content['bytes'],
@@ -126,6 +124,7 @@ class Transformer(BaseAgent):
                            'min_id': output_content['min_id'] if 'min_id' in output_content else 0,
                            'max_id': output_content['max_id'] if 'max_id' in output_content else 0,
                            'status': ContentStatus.New,
+                           'substatus': ContentStatus.New,
                            'path': None,
                            'content_type': output_content['content_type'] if 'content_type' in output_content else ContentType.File,
                            'bytes': output_content['bytes'],
@@ -137,7 +136,7 @@ class Transformer(BaseAgent):
     def get_updated_contents(self, transform, registered_input_output_maps):
         updated_contents = []
         for map_id in registered_input_output_maps:
-            outputs = registered_input_output_maps['map_id']['outputs']
+            outputs = registered_input_output_maps[map_id]['outputs']
 
             for content in outputs:
                 if content['status'] != content['substatus']:
@@ -145,17 +144,6 @@ class Transformer(BaseAgent):
                                        'status': content['substatus']}
                     updated_contents.append(updated_content)
         return updated_contents
-
-    """
-    def get_processing(self, transform, input_colls, output_colls, log_colls, input_output_maps):
-        work = transform['transform_metadata']['work']
-        processing = work.get_processing(input_output_maps)
-        if process:
-            processing = {'transform_id': transform['transform_id'],
-                          'status': ProcessingStatus.New,
-                          'processing_metadata': {'work': work}}
-        return processing
-    """
 
     def process_new_transform(self, transform):
         """
@@ -194,7 +182,7 @@ class Transformer(BaseAgent):
         #        'log_collections': log_colls, 'new_input_output_maps': input_output_maps, 'messages': file_msgs,
         #        'new_processing': processing}
         ret = {'transform': transform, 'input_collections': input_colls, 'output_collections': output_colls,
-               'log_collections': log_coll}
+               'log_collections': log_colls}
         return ret
 
     def process_new_transforms(self):
@@ -250,32 +238,11 @@ class Transformer(BaseAgent):
             self.logger.info("Main thread get %s transforming transforms to process" % len(transforms))
         return transforms
 
-    def process_transform_outputs(self, transform, output_collection):
-        transform_metadata = transform['transform_metadata']
-        if not transform_metadata:
-            transform_metadata = {}
-        transform_metadata['output_collection_meta'] = output_collection['coll_metadata']
-        if output_collection['status'] == CollectionStatus.Closed:
-            ret = {'transform_id': transform['transform_id'],
-                   'status': TransformStatus.Finished,
-                   'transform_metadata': transform_metadata}
-        elif output_collection['status'] == CollectionStatus.SubClosed:
-            ret = {'transform_id': transform['transform_id'],
-                   'status': TransformStatus.SubFinished,
-                   'transform_metadata': transform_metadata}
-        elif output_collection['status'] == CollectionStatus.Failed:
-            ret = {'transform_id': transform['transform_id'],
-                   'status': TransformStatus.Failed,
-                   'transform_metadata': transform_metadata}
-        elif output_collection['status'] == CollectionStatus.Deleted:
-            ret = {'transform_id': transform['transform_id'],
-                   'status': TransformStatus.Deleted,
-                   'transform_metadata': transform_metadata}
-        else:
-            ret = {'transform_id': transform['transform_id'],
-                   'status': TransformStatus.Transforming,
-                   'transform_metadata': transform_metadata}
-        return ret
+    def get_collection_ids(self, collections):
+        coll_ids = []
+        for coll in collections:
+            coll_ids.append(coll['coll_id'])
+        return coll_ids
 
     def process_running_transform(self, transform):
         """
@@ -288,7 +255,14 @@ class Transformer(BaseAgent):
         output_collections = work.get_output_collections()
         log_collections = work.get_log_collections()
 
-        registered_input_output_maps = core_transforms.get_transform_input_output_maps(transform['transform_id'])
+        input_coll_ids = self.get_collection_ids(input_collections)
+        output_coll_ids = self.get_collection_ids(output_collections)
+        log_coll_ids = self.get_collection_ids(log_collections)
+
+        registered_input_output_maps = core_transforms.get_transform_input_output_maps(transform['transform_id'],
+                                                                                       input_coll_ids=input_coll_ids,
+                                                                                       output_coll_ids=output_coll_ids,
+                                                                                       log_coll_ids=log_coll_ids)
         # update_input_output_maps = self.get_update_input_output_maps(registered_input_output_maps)
         update_contents = self.get_updated_contents(transform, registered_input_output_maps)
         if work.has_new_inputs():
@@ -312,33 +286,54 @@ class Transformer(BaseAgent):
 
         # processing = self.get_processing(transform, input_colls, output_colls, log_colls, new_input_output_maps)
         processing = work.get_processing(new_input_output_maps)
-        new_processing = None
+        new_processing, new_processing_model = None, None
         if not processing:
             new_processing = work.create_processing(new_input_output_maps)
-            new_processing = {'transform_id': transform['transform_id'],
-                              'status': ProcessingStatus.New}
-            new_processing['processing_metadata']['work'] = work
+            new_processing_model = copy.deepcopy(new_processing)
+            new_processing_model['transform_id'] = transform['transform_id']
+            new_processing_model['status'] = ProcessingStatus.New
+            if 'processing_metadata' not in new_processing:
+                new_processing['processing_metadata'] = {}
+            if 'processing_metadata' not in new_processing_model:
+                new_processing_model['processing_metadata'] = {}
+            new_processing_model['processing_metadata']['work'] = work
+        else:
+            processing_model = core_processings.get_processing(processing_id=processing['processing_id'])
+            work.set_processing_status(processing, processing_model['status'])
 
         transform['locking'] = TransformLocking.Idle
         # status_statistics = work.get_status_statistics(registered_input_output_maps)
         work.syn_work_status(registered_input_output_maps)
         if work.is_finished():
             transform['status'] = TransformStatus.Finished
+            for coll in output_collections:
+                coll['status'] = CollectionStatus.Closed
+            for coll in log_collections:
+                coll['status'] = CollectionStatus.Closed
         elif work.is_subfinished():
             transform['status'] = TransformStatus.SubFinished
+            for coll in output_collections:
+                coll['status'] = CollectionStatus.SubClosed
+            for coll in log_collections:
+                coll['status'] = CollectionStatus.SubClosed
         elif work.is_failed():
             transform['status'] = TransformStatus.Failed
+            for coll in output_collections:
+                coll['status'] = CollectionStatus.Failed
+            for coll in log_collections:
+                coll['status'] = CollectionStatus.Failed
         else:
             transform['status'] = TransformStatus.Transforming
 
+        # print(input_collections)
         ret = {'transform': transform,
-               'update_input_collections': input_collections,
-               'update_output_collections': output_collections,
-               'update_log_collections': log_collections,
+               'update_input_collections': copy.deepcopy(input_collections) if input_collections else input_collections,
+               'update_output_collections': copy.deepcopy(output_collections) if output_collections else output_collections,
+               'update_log_collections': copy.deepcopy(log_collections) if log_collections else log_collections,
                'new_contents': new_contents,
                'update_contents': update_contents,
                'messages': file_msgs,
-               'new_processing': new_processing}
+               'new_processing': new_processing_model}
         return ret
 
     def process_running_transforms(self):
@@ -358,35 +353,24 @@ class Transformer(BaseAgent):
 
     def finish_running_transforms(self):
         while not self.running_output_queue.empty():
-            ret = self.running_output_queue.get()
-            core_transforms.add_transform_outputs(transform=ret['transform'],
-                                                  input_collections=ret.get('input_collections', None),
-                                                  output_collections=ret.get('output_collections', None),
-                                                  log_collections=ret.get('log_collections', None),
-                                                  new_contents=ret.get('new_contents', None),
-                                                  update_input_collections=ret.get('update_input_collections', None),
-                                                  update_output_collections=ret.get('update_output_collections', None),
-                                                  update_log_collections=ret.get('update_log_collections', None),
-                                                  update_contents=ret.get('update_contents', None),
-                                                  messages=ret.get('messages', None),
-                                                  new_processing=ret.get('new_processing', None),
-                                                  message_bulk_size=self.message_bulk_size)
-
-        while not self.running_output_queue.empty():
             try:
-                ret = self.new_output_queue.get()
-                self.logger.info("Main thread finishing processing transform: %s" % ret['transform'])
+                ret = self.running_output_queue.get()
+                self.logger.info("Main thread finishing running transform: %s" % ret['transform'])
                 if ret:
                     # self.logger.debug("wen: %s" % str(ret['output_contents']))
                     core_transforms.add_transform_outputs(transform=ret['transform'],
-                                                          update_input_collections=ret['update_input_collections'],
-                                                          update_output_collections=ret['update_output_collections'],
-                                                          update_log_collections=ret['update_log_collections'],
-                                                          new_input_output_maps=ret['new_input_output_maps'],
-                                                          update_input_output_maps=ret['update_input_output_maps'],
-                                                          processing=ret['processing'],
-                                                          messages=ret['messages'],
+                                                          input_collections=ret.get('input_collections', None),
+                                                          output_collections=ret.get('output_collections', None),
+                                                          log_collections=ret.get('log_collections', None),
+                                                          new_contents=ret.get('new_contents', None),
+                                                          update_input_collections=ret.get('update_input_collections', None),
+                                                          update_output_collections=ret.get('update_output_collections', None),
+                                                          update_log_collections=ret.get('update_log_collections', None),
+                                                          update_contents=ret.get('update_contents', None),
+                                                          messages=ret.get('messages', None),
+                                                          new_processing=ret.get('new_processing', None),
                                                           message_bulk_size=self.message_bulk_size)
+
             except Exception as ex:
                 self.logger.error(ex)
                 self.logger.error(traceback.format_exc())
