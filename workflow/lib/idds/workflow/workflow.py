@@ -17,7 +17,7 @@ from idds.common.utils import json_dumps
 from .base import Base
 
 
-class Condition(object):
+class Condition(Base):
     def __init__(self, cond, current_work, true_work, false_work=None):
         """
         Condition.
@@ -28,6 +28,9 @@ class Condition(object):
         :param true_work: Work instance.
         :param false_work: Work instance.
         """
+        if callable(cond):
+            assert(inspect.ismethod(cond))
+            assert(cond.__self__ == current_work)
         self.cond = cond
         self.current_work = None
         if current_work:
@@ -263,6 +266,10 @@ class Workflow(Base):
                     self.current_works.remove(work.get_internal_id())
                 else:
                     for cond in self.work_conds[work.get_internal_id()]:
+                        # if cond is not loaded, load it.
+                        if self.is_class_method(cond.cond):
+                            cond_work = self.works[cond.cond['idds_method_class_id']]
+                            cond.cond = getattr(cond_work, cond.cond['idds_method'])
                         next_work = cond.get_next_work()
                         if next_work is not None:
                             next_work.initialize_work()
