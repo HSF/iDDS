@@ -30,7 +30,7 @@ from idds.workflow.workflow import Condition
 
 
 class DomaCondition(Condition):
-    def __init__(self, cond, current_work, true_work, false_work=None):
+    def __init__(self, cond=None, current_work=None, true_work=None, false_work=None):
         super(DomaCondition, self).__init__(cond=cond, current_work=current_work,
                                             true_work=true_work, false_work=false_work)
 

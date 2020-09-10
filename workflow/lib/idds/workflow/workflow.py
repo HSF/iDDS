@@ -18,7 +18,7 @@ from .base import Base
 
 
 class Condition(Base):
-    def __init__(self, cond, current_work, true_work, false_work=None):
+    def __init__(self, cond=None, current_work=None, true_work=None, false_work=None):
         """
         Condition.
         if cond() is true, return true_work, else return false_work.
@@ -28,7 +28,7 @@ class Condition(Base):
         :param true_work: Work instance.
         :param false_work: Work instance.
         """
-        if callable(cond):
+        if cond and callable(cond):
             assert(inspect.ismethod(cond))
             assert(cond.__self__ == current_work)
         self.cond = cond
