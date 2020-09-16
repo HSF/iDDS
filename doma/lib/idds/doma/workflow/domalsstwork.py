@@ -30,7 +30,7 @@ from idds.workflow.workflow import Condition
 
 
 class DomaCondition(Condition):
-    def __init__(self, cond, current_work, true_work, false_work=None):
+    def __init__(self, cond=None, current_work=None, true_work=None, false_work=None):
         super(DomaCondition, self).__init__(cond=cond, current_work=current_work,
                                             true_work=true_work, false_work=false_work)
 
@@ -66,15 +66,12 @@ class DomaLSSTWork(Work):
                                            log_collections=log_collections,
                                            logger=logger)
 
-        self.panda_config = self.load_panda_config()
-        self.pandaserver = self.load_panda_server()
-
     def my_condition(self):
         if self.is_finished():
             return True
         return False
 
-    def load_pand_config(self):
+    def load_panda_config(self):
         panda_config = ConfigParser.SafeConfigParser()
         if os.environ.get('IDDS_PANDA_CONFIG', None):
             configfile = os.environ['IDDS_PANDA_CONFIG']
@@ -90,11 +87,11 @@ class DomaLSSTWork(Work):
         return panda_config
 
     def load_panda_server(self):
-        if self.panda_config:
-            if self.panda_config.has_section('panda'):
-                if self.panda_config.has_option('panda', 'pandaserver'):
-                    pandaserver = self.panda_config.get('panda', 'pandaserver')
-                    return pandaserver
+        panda_config = self.load_panda_config()
+        if panda_config.has_section('panda'):
+            if panda_config.has_option('panda', 'pandaserver'):
+                pandaserver = panda_config.get('panda', 'pandaserver')
+                return pandaserver
         return None
 
     def poll_external_collection(self, coll):
