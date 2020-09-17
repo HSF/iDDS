@@ -23,7 +23,8 @@ import urllib
 from pandatools import Client
 
 from idds.common import exceptions
-from idds.common.constants import (TransformType, CollectionStatus, ContentStatus, ContentType,
+from idds.common.constants import (TransformType, CollectionType, CollectionStatus,
+                                   ContentStatus, ContentType,
                                    ProcessingStatus, WorkStatus)
 from idds.workflow.work import Work
 from idds.workflow.workflow import Condition
@@ -65,6 +66,7 @@ class DomaLSSTWork(Work):
                                            output_collections=output_collections,
                                            log_collections=log_collections,
                                            logger=logger)
+        self.pandaserver = None
 
     def my_condition(self):
         if self.is_finished():
@@ -78,9 +80,9 @@ class DomaLSSTWork(Work):
             if panda_config.read(configfile) == [configfile]:
                 return panda_config
 
-        configfiles = ['%s/etc/idds/panda.cfg' % os.environ.get('IDDS_HOME', ''),
-                       '/etc/idds/panda.cfg',
-                       '%s/etc/idds/panda.cfg' % os.environ.get('VIRTUAL_ENV', '')]
+        configfiles = ['%s/etc/panda/panda.cfg' % os.environ.get('IDDS_HOME', ''),
+                       '/etc/panda/panda.cfg', '/opt/idds/etc/panda/panda.cfg',
+                       '%s/etc/panda/panda.cfg' % os.environ.get('VIRTUAL_ENV', '')]
         for configfile in configfiles:
             if panda_config.read(configfile) == [configfile]:
                 return panda_config
@@ -88,6 +90,7 @@ class DomaLSSTWork(Work):
 
     def load_panda_server(self):
         panda_config = self.load_panda_config()
+        self.logger.info("panda config: %s" % panda_config)
         if panda_config.has_section('panda'):
             if panda_config.has_option('panda', 'pandaserver'):
                 pandaserver = panda_config.get('panda', 'pandaserver')
@@ -96,23 +99,41 @@ class DomaLSSTWork(Work):
 
     def poll_external_collection(self, coll):
         try:
-            if 'coll_metadata' in coll and 'is_open' in coll['coll_metadata'] and not coll['coll_metadata']['is_open']:
+            # if 'coll_metadata' in coll and 'is_open' in coll['coll_metadata'] and not coll['coll_metadata']['is_open']:
+            if 'status' in coll and coll['status'] in [CollectionStatus.Closed]:
                 return coll
             else:
-                new_coll = {}
-                new_coll = {'scope': coll['scope'],
-                            'name': coll['name'],
-                            'coll_metadata': {
-                                'bytes': 1,
-                                'total_files': 1,
-                                'availability': 1,
-                                'events': 1,
-                                'is_open': False,
-                                'run_number': 1,
-                                'did_type': 'DATASET',   # DATASET, CONTAINER or FILE (rucio did types)
-                                'list_all_files': True}
-                            }
-                return new_coll
+                # client = self.get_rucio_client()
+                # did_meta = client.get_metadata(scope=coll['scope'], name=coll['name'])
+                if 'coll_metadata' not in coll:
+                    coll['coll_metadata'] = {}
+                coll['coll_metadata']['bytes'] = 1
+                coll['coll_metadata']['total_files'] = 1
+                coll['coll_metadata']['availability'] = 1
+                coll['coll_metadata']['events'] = 1
+                coll['coll_metadata']['is_open'] = False
+                coll['coll_metadata']['run_number'] = 1
+                coll['coll_metadata']['did_type'] = 'DATASET'
+                coll['coll_metadata']['list_all_files'] = False
+
+                if 'is_open' in coll['coll_metadata'] and not coll['coll_metadata']['is_open']:
+                    coll_status = CollectionStatus.Closed
+                else:
+                    coll_status = CollectionStatus.Open
+                coll['status'] = coll_status
+
+                if 'did_type' in coll['coll_metadata']:
+                    if coll['coll_metadata']['did_type'] == 'DATASET':
+                        coll_type = CollectionType.Dataset
+                    elif coll['coll_metadata']['did_type'] == 'CONTAINER':
+                        coll_type = CollectionType.Container
+                    else:
+                        coll_type = CollectionType.File
+                else:
+                    coll_type = CollectionType.Dataset
+                coll['coll_type'] = coll_type
+
+                return coll
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
@@ -127,7 +148,7 @@ class DomaLSSTWork(Work):
             coll = self.collections[coll_int_id]
             coll = self.poll_external_collection(coll)
             self.collections[coll_int_id] = coll
-        return super(self).get_input_collections()
+        return super(DomaLSSTWork, self).get_input_collections()
 
     def get_input_contents(self):
         """
@@ -224,8 +245,8 @@ class DomaLSSTWork(Work):
         in_files = []
         for map_id in input_output_maps:
             # one map is a job which transform the inputs to outputs.
-            inputs = input_output_maps['map_id']['inputs']
-            # outputs = input_output_maps['map_id']['outputs']
+            inputs = input_output_maps[map_id]['inputs']
+            # outputs = input_output_maps[map_id]['outputs']
             for ip in inputs:
                 in_files.append(ip['scope'] + ":" + ip['name'])
 
@@ -296,8 +317,11 @@ class DomaLSSTWork(Work):
             raise e
         return response
 
-    def poll_panda_tasks(self, processing):
+    def poll_panda_task(self, processing):
         try:
+            if not self.pandaserver:
+                self.pandaserver = self.load_panda_server()
+                self.logger.info("panda server: %s" % self.pandaserver)
             panda_id = processing['processing_metadata']['panda_id']
             task_url = self.pandaserver + '|'.join(map(str, [panda_id]))
             jobs_list = self.download_payload_json(task_url)
@@ -350,7 +374,7 @@ class DomaLSSTWork(Work):
     def get_status_statistics(self, registered_input_output_maps):
         status_statistics = {}
         for map_id in registered_input_output_maps:
-            outputs = registered_input_output_maps['map_id']['outputs']
+            outputs = registered_input_output_maps[map_id]['outputs']
 
             for content in outputs:
                 if content['status'].name not in status_statistics:
