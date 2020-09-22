@@ -19,6 +19,7 @@ import os
 import traceback
 import uuid
 import urllib
+import ssl
 
 from pandatools import Client
 
@@ -28,7 +29,7 @@ from idds.common.constants import (TransformType, CollectionType, CollectionStat
                                    ProcessingStatus, WorkStatus)
 from idds.workflow.work import Work
 from idds.workflow.workflow import Condition
-
+import logging
 
 
 class DomaCondition(Condition):
@@ -72,6 +73,9 @@ class DomaLSSTWork(Work):
         self.pandamonitor = None
         self.dependency_map = self.parameters["quantum_map"]
         self.inputstatus = [{"input_file": file[0], "status":"unprocessed"} for file in self.dependency_map]
+        self.logger.setLevel(logging.DEBUG)
+
+
 
 
 
@@ -104,9 +108,9 @@ class DomaLSSTWork(Work):
         panda_config = self.load_panda_config()
         self.logger.info("panda config: %s" % panda_config)
         if panda_config.has_section('panda'):
-            if panda_config.has_option('panda', 'pandaserver'):
-                pandaserver = panda_config.get('panda', 'pandaserver')
-                return pandaserver
+            if panda_config.has_option('panda', 'pandamonitor'):
+                pandamonitor = panda_config.get('panda', 'pandamonitor')
+                return pandamonitor
         return None
 
     def poll_external_collection(self, coll):
@@ -166,7 +170,7 @@ class DomaLSSTWork(Work):
             ret_files = []
             coll = self.collections[self.primary_input_collection]
             for file in files:
-                ret_file = {'coll_id': self.primary_input_collection,
+                ret_file = {'coll_id': coll['coll_id'],
                             'scope': coll['scope'],
                             'name': file['name'],  # or a different file name from the dataset name
                             'bytes': 1,
@@ -230,6 +234,7 @@ class DomaLSSTWork(Work):
                 new_input_output_maps[next_key] = {'inputs': [ip],
                                                    'outputs': [out_ip]}
                 next_key += 1
+        self.logger.debug("get_new_input_output_maps, new_input_output_maps: %s" % str(new_input_output_maps))
         return new_input_output_maps
 
     def get_processing(self, input_output_maps):
@@ -318,8 +323,11 @@ class DomaLSSTWork(Work):
     def download_payload_json(self, task_url):
         response = None
         try:
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
             req = urllib.request.Request(task_url)
-            response = urllib.request.urlopen(req, timeout=180).read()
+            response = urllib.request.urlopen(req, timeout=180, context=ctx).read()
             response = json.loads(response)
         except Exception or urllib.request.error as e:
             raise e
@@ -344,7 +352,9 @@ class DomaLSSTWork(Work):
 
             task_url = self.pandamonitor + '/task/?json&jeditaskid=' + str(task_id)
             task_info = self.download_payload_json(task_url)
-            if "task" in task_info:
+            task_status = None
+            self.logger.debug("poll_panda_task, task_info: %s" % str(task_info))
+            if task_info.get("task", None) is not None:
                 task_status = task_info["task"]["status"]
             return task_status, outputs_status
         except Exception as ex:
@@ -358,9 +368,14 @@ class DomaLSSTWork(Work):
         """
         updated_contents = []
         update_processing = {}
+        self.logger.debug("poll_processing_updates, input_output_maps: %s" % str(input_output_maps))
 
         if processing:
             task_status, outputs_status = self.poll_panda_task(processing)
+
+            self.logger.debug("poll_processing_updates, outputs_status: %s" % str(outputs_status))
+            self.logger.debug("poll_processing_updates, task_status: %s" % str(task_status))
+
             content_substatus = {'finished': 0, 'unfinished': 0}
             for map_id in input_output_maps:
                 outputs = input_output_maps[map_id]['outputs']
@@ -368,9 +383,6 @@ class DomaLSSTWork(Work):
                     key = content['name']
                     if key in outputs_status:
                         if content.get('substatus', ContentStatus.New) != outputs_status[key]:
-
-                            content['content_id'] = 123
-
                             updated_content = {'content_id': content['content_id'],
                                                'substatus': outputs_status[key]}
                             updated_contents.append(updated_content)
@@ -380,9 +392,12 @@ class DomaLSSTWork(Work):
                     else:
                         content_substatus['unfinished'] += 1
 
-            if task_status == 'done' and content_substatus['finished'] > 0 and content_substatus['unfinished'] == 0:
+            if task_status and task_status == 'done' and content_substatus['finished'] > 0 and content_substatus['unfinished'] == 0:
                 update_processing = {'processing_id': processing['processing_id'],
                                      'parameters': {'status': ProcessingStatus.Finished}}
+
+        self.logger.debug("poll_processing_updates, update_processing: %s" % str(update_processing))
+        self.logger.debug("poll_processing_updates, updated_contents: %s" % str(updated_contents))
         return update_processing, updated_contents
 
 
@@ -396,10 +411,13 @@ class DomaLSSTWork(Work):
                     status_statistics[content['status'].name] = 0
                 status_statistics[content['status'].name] += 1
         self.status_statistics = status_statistics
+        self.logger.debug("registered_input_output_maps, status_statistics: %s" % str(status_statistics))
         return status_statistics
 
     def syn_work_status(self, registered_input_output_maps):
         self.get_status_statistics(registered_input_output_maps)
+        self.logger.debug("registered_input_output_maps, self.active_processings: %s" % str(self.active_processings))
+        self.logger.debug("registered_input_output_maps, self.has_new_inputs(): %s" % str(self.has_new_inputs()))
 
         if not self.active_processings and not self.has_new_inputs():
             keys = self.status_statistics.keys()
