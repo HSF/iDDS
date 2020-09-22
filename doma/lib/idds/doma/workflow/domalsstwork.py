@@ -30,6 +30,7 @@ from idds.workflow.work import Work
 from idds.workflow.workflow import Condition
 
 
+
 class DomaCondition(Condition):
     def __init__(self, cond=None, current_work=None, true_work=None, false_work=None):
         super(DomaCondition, self).__init__(cond=cond, current_work=current_work,
@@ -58,6 +59,7 @@ class DomaLSSTWork(Work):
         :param output_collections: List of the output collections.
         # :param workflow: The workflow the current work belongs to.
         """
+
         super(DomaLSSTWork, self).__init__(executable=executable, arguments=arguments,
                                            parameters=parameters, setup=setup, work_type=TransformType.Workflow,
                                            work_tag=work_tag, exec_type=exec_type, sandbox=sandbox, work_id=work_id,
@@ -66,12 +68,22 @@ class DomaLSSTWork(Work):
                                            output_collections=output_collections,
                                            log_collections=log_collections,
                                            logger=logger)
-        self.pandaserver = None
+        self.arguments = {"taskname": "init_"+"fswe33cz", "quantum_map":[("999999",[]),]}
+        self.pandamonitor = None
+        self.dependency_map = self.arguments["quantum_map"]
+        self.inputstatus = [{"input_file": file[0], "status":"unprocessed"} for file in self.dependency_map]
+
+
 
     def my_condition(self):
         if self.is_finished():
             return True
         return False
+
+    def jobs_to_idd_ds_status(self, jobstatus):
+        if jobstatus == 'finished': return ContentStatus.Available
+        elif jobstatus == 'failed ': return ContentStatus.Failed
+        else: return ContentStatus.Processing
 
     def load_panda_config(self):
         panda_config = ConfigParser.SafeConfigParser()
@@ -88,7 +100,7 @@ class DomaLSSTWork(Work):
                 return panda_config
         return panda_config
 
-    def load_panda_server(self):
+    def load_panda_monitor(self):
         panda_config = self.load_panda_config()
         self.logger.info("panda config: %s" % panda_config)
         if panda_config.has_section('panda'):
@@ -108,7 +120,7 @@ class DomaLSSTWork(Work):
                 if 'coll_metadata' not in coll:
                     coll['coll_metadata'] = {}
                 coll['coll_metadata']['bytes'] = 1
-                coll['coll_metadata']['total_files'] = 1
+                #coll['coll_metadata']['total_files'] = 1
                 coll['coll_metadata']['availability'] = 1
                 coll['coll_metadata']['events'] = 1
                 coll['coll_metadata']['is_open'] = False
@@ -121,17 +133,7 @@ class DomaLSSTWork(Work):
                 else:
                     coll_status = CollectionStatus.Open
                 coll['status'] = coll_status
-
-                if 'did_type' in coll['coll_metadata']:
-                    if coll['coll_metadata']['did_type'] == 'DATASET':
-                        coll_type = CollectionType.Dataset
-                    elif coll['coll_metadata']['did_type'] == 'CONTAINER':
-                        coll_type = CollectionType.Container
-                    else:
-                        coll_type = CollectionType.File
-                else:
-                    coll_type = CollectionType.Dataset
-                coll['coll_type'] = coll_type
+                coll['coll_type'] = CollectionType.Dataset
 
                 return coll
         except Exception as ex:
@@ -150,18 +152,23 @@ class DomaLSSTWork(Work):
             self.collections[coll_int_id] = coll
         return super(DomaLSSTWork, self).get_input_collections()
 
+    def check_dependencies(self):
+        inputs_to_submit = [{"name": "00000"+str(k)} for k in range(3)]
+        return inputs_to_submit
+
+
     def get_input_contents(self):
         """
         Get all input contents from DDM.
         """
         try:
+            files = self.check_dependencies()
             ret_files = []
             coll = self.collections[self.primary_input_collection]
-            files = ['fake']
             for file in files:
-                ret_file = {'coll_id': coll['coll_id'],
+                ret_file = {'coll_id': self.primary_input_collection,
                             'scope': coll['scope'],
-                            'name': coll['name'],  # or a different file name from the dataset name
+                            'name': file['name'],  # or a different file name from the dataset name
                             'bytes': 1,
                             'adler32': '12345678',
                             'min_id': 0,
@@ -174,6 +181,7 @@ class DomaLSSTWork(Work):
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
             raise exceptions.IDDSException('%s: %s' % (str(ex), traceback.format_exc()))
+
 
     def get_mapped_inputs(self, mapped_input_output_maps):
         ret = []
@@ -188,6 +196,7 @@ class DomaLSSTWork(Work):
             ret.append(primary_input)
         return ret
 
+
     def get_new_input_output_maps(self, mapped_input_output_maps={}):
         """
         *** Function called by Transformer agent.
@@ -197,12 +206,12 @@ class DomaLSSTWork(Work):
         """
         inputs = self.get_input_contents()
         mapped_inputs = self.get_mapped_inputs(mapped_input_output_maps)
-        mapped_inputs_scope_name = [ip['scope'] + ":" + ip['name'] for ip in mapped_inputs]
+        mapped_inputs_scope_name = [ip['name'] for ip in mapped_inputs]
 
         new_inputs = []
         new_input_output_maps = {}
         for ip in inputs:
-            ip_scope_name = ip['scope'] + ":" + ip['name']
+            ip_scope_name = ip['name']
             if ip_scope_name not in mapped_inputs_scope_name:
                 new_inputs.append(ip)
 
@@ -221,7 +230,6 @@ class DomaLSSTWork(Work):
                 new_input_output_maps[next_key] = {'inputs': [ip],
                                                    'outputs': [out_ip]}
                 next_key += 1
-
         return new_input_output_maps
 
     def get_processing(self, input_output_maps):
@@ -248,7 +256,7 @@ class DomaLSSTWork(Work):
             inputs = input_output_maps[map_id]['inputs']
             # outputs = input_output_maps[map_id]['outputs']
             for ip in inputs:
-                in_files.append(ip['scope'] + ":" + ip['name'])
+                in_files.append(ip['name'])
 
         taskParamMap = {}
         taskParamMap['vo'] = 'wlcg'
@@ -258,28 +266,27 @@ class DomaLSSTWork(Work):
         taskParamMap['nFiles'] = len(in_files)
         taskParamMap['noInput'] = True
         taskParamMap['pfnList'] = in_files
-        taskParamMap['taskName'] = "user.taskname"
+        taskParamMap['taskName'] = self.arguments["taskname"]
         taskParamMap['userName'] = 'Siarhei Padolski'
         taskParamMap['taskPriority'] = 900
         taskParamMap['architecture'] = ''
         taskParamMap['transUses'] = ''
         taskParamMap['transHome'] = None
         taskParamMap['transPath'] = 'https://atlpan.web.cern.ch/atlpan/bash-c'
-        taskParamMap['processingType'] = 'workflow'
+        taskParamMap['processingType'] = 'testidds'
         taskParamMap['prodSourceLabel'] = 'test'
         taskParamMap['taskType'] = 'test'
         taskParamMap['coreCount'] = 1
-        taskParamMap['ramCount'] = 4000
         taskParamMap['skipScout'] = True
         taskParamMap['cloud'] = 'US'
         taskParamMap['jobParameters'] = [
             {'type': 'constant',
-             'value': "singularity exec --no-home --cleanenv -w docker://spodolsky/lsst.w.2020.23:6 /opt/lsst/lsst_runner ${IN/L} testrun_s/output4 calib/hsc,raw/hsc,masks/hsc,ref_cats,skymaps,shared/ci_hsc https://storage.googleapis.com GOOG2KTG3NTEB2HDFQFIU3O2 0IkpSF0nGFYYTdH/5msrTpzMB7mEslz9fWK9spUs s3://testbutl_w_2020_23",  # noqa: E501
+             'value': "echo ${IN/L}",  # noqa: E501
              },
         ]
 
         proc = {'processing_metadata': {'internal_id': str(uuid.uuid1()),
-                                        'panda_id': None,
+                                        'task_id': None,
                                         'task_param': taskParamMap}}
         self.add_processing_to_processings(proc)
         self.active_processings.append(proc['processing_metadata']['internal_id'])
@@ -301,11 +308,12 @@ class DomaLSSTWork(Work):
         """
         *** Function called by Carrier agent.
         """
-        if 'panda_id' in processing['processing_metadata'] and processing['processing_metadata']['panda_id']:
+        if 'task_id' in processing['processing_metadata'] and processing['processing_metadata']['task_id']:
             pass
         else:
-            panda_id = self.submit_panda_task(processing)
-            processing['processing_metadata']['panda_id'] = panda_id
+            task_id = self.submit_panda_task(processing)
+            processing['processing_metadata']['task_id'] = task_id
+
 
     def download_payload_json(self, task_url):
         response = None
@@ -319,57 +327,64 @@ class DomaLSSTWork(Work):
 
     def poll_panda_task(self, processing):
         try:
-            if not self.pandaserver:
-                self.pandaserver = self.load_panda_server()
-                self.logger.info("panda server: %s" % self.pandaserver)
-            panda_id = processing['processing_metadata']['panda_id']
-            task_url = self.pandaserver + '|'.join(map(str, [panda_id]))
-            jobs_list = self.download_payload_json(task_url)
+            if not self.pandamonitor:
+                self.pandamonitor = self.load_panda_monitor()
+                self.logger.info("panda server: %s" % self.pandamonitor)
+
+            #task_id = processing['processing_metadata']['task_id']
+            task_id = 199
+            jobs_url = self.pandamonitor + '/jobs/?json&datasets=yes&jeditaskid=' + str(task_id)
+            jobs_list = self.download_payload_json(jobs_url)
+            outputs_status = {}
             for job_info in jobs_list['jobs']:
-                # if one job is one output, just need to check the job status
-                pass
-            task_status = 'Running'
-            outputs_status = []
-            return processing, task_status, outputs_status
+                if 'jobstatus' in job_info and 'datasets' in job_info and len(job_info['datasets']) > 0:
+                    output_index = job_info['datasets'][0]['lfn'].split(':')[1]
+                    status = self.jobs_to_idd_ds_status(job_info['jobstatus'])
+                    outputs_status[output_index] = status
+
+            task_url = self.pandamonitor + '/task/?json&jeditaskid=' + str(task_id)
+            task_info = self.download_payload_json(task_url)
+            if "task" in task_info:
+                task_status = task_info["task"]["status"]
+            return task_status, outputs_status
         except Exception as ex:
-            msg = "Failed to check the panda task(%s) status: %s" % (str(panda_id), str(ex))
+            msg = "Failed to check the panda task(%s) status: %s" % (str(task_id), str(ex))
             raise exceptions.IDDSException(msg)
 
-    def poll_processing(self, processing):
-        task_status, outputs_status = self.poll_panda_task(processing)
-        return processing, task_status, outputs_status
 
     def poll_processing_updates(self, processing, input_output_maps):
         """
         *** Function called by Carrier agent.
         """
-
-        processing, task_status, outputs_status = self.poll_processing(processing)
-
         updated_contents = []
         update_processing = {}
 
         if processing:
+            task_status, outputs_status = self.poll_panda_task(processing)
             content_substatus = {'finished': 0, 'unfinished': 0}
             for map_id in input_output_maps:
                 outputs = input_output_maps[map_id]['outputs']
                 for content in outputs:
-                    key = '%s:%s' % (content['scope'], content['name'])
+                    key = content['name']
                     if key in outputs_status:
-                        if content['substatus'] != outputs_status[key]['substatus']:
+                        if content.get('substatus', ContentStatus.New) != outputs_status[key]:
+
+                            content['content_id'] = 123
+
                             updated_content = {'content_id': content['content_id'],
-                                               'substatus': outputs_status[key]['substatus']}
+                                               'substatus': outputs_status[key]}
                             updated_contents.append(updated_content)
-                            content['substatus'] = outputs_status[key]['substatus']
+                            content['substatus'] = outputs_status[key]
                     if content['substatus'] == ContentStatus.Available:
                         content_substatus['finished'] += 1
                     else:
                         content_substatus['unfinished'] += 1
 
-            if task_status == 'Finished' and content_substatus['finished'] > 0 and content_substatus['unfinished'] == 0:
+            if task_status == 'done' and content_substatus['finished'] > 0 and content_substatus['unfinished'] == 0:
                 update_processing = {'processing_id': processing['processing_id'],
                                      'parameters': {'status': ProcessingStatus.Finished}}
         return update_processing, updated_contents
+
 
     def get_status_statistics(self, registered_input_output_maps):
         status_statistics = {}

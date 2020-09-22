@@ -30,26 +30,60 @@ from idds.common.utils import get_rest_host
 from idds.workflow.workflow import Condition, Workflow
 # from idds.atlas.workflow.atlasstageinwork import ATLASStageinWork
 from idds.doma.workflow.domalsstwork import DomaLSSTWork
+import string, random
+
+def randStr(chars=string.ascii_lowercase + string.digits, N=10):
+    return ''.join(random.choice(chars) for _ in range(N))
 
 
 def setup_workflow():
+
+    task1genid = randStr()
+    task2genid = randStr()
+    task3genid = randStr()
+
+    dependencymap1 = {"taskname": "init_"+task1genid, "quantum_map":[("999999",None)]}
+    dependencymap2 = {"taskname": "step1_"+task2genid, "quantum_map": [("000000",[task1genid + "/" + "999999"]),("000001", [task1genid + "/" + "999999"]),("000002", [task1genid + "/" + "999999"])]}
+
     work1 = DomaLSSTWork(executable='echo',
-                         arguments=None,
-                         primary_input_collection={'scope': 'user.wguan', 'name': 'user.wguan.test_domalsst.1'},
-                         output_collections=[{'scope': 'user.wguan', 'name': 'user.wguan.test_domalsst.output.1'}],
-                         log_collections=[{'scope': 'user.wguan', 'name': 'user.wguan.test_domalsst.log.1'}])
-    work2 = DomaLSSTWork(executable='echo',
-                         arguments=None,
-                         primary_input_collection={'scope': 'user.wguan', 'name': 'user.wguan.test_domalsst.1'},
-                         output_collections=[{'scope': 'user.wguan', 'name': 'user.wguan.test_domalsst.output.1'}],
-                         log_collections=[{'scope': 'user.wguan', 'name': 'user.wguan.test_domalsst.log.1'}])
+                         parameters=dependencymap1,
+                         primary_input_collection={'scope': 'pseudo_dataset', 'name': 'pseudo_input_collection#1'},
+                         output_collections=[{'scope': 'pseudo_dataset', 'name': 'pseudo_output_collection#1'}],
+                         log_collections=[])
+    # work2 = DomaLSSTWork(executable='echo',
+    #                      arguments=dependencymap2,
+    #                      primary_input_collection={'scope': 'lsst.test', 'name': 'pseudo_input_collection#2'},
+    #                      output_collections=[{'scope': 'lsst.test', 'name': 'pseudo_output_collection#2'}],
+    #                      log_collections=[])
+
+    # work3 = DomaLSSTWork(executable='echo',
+    #                      arguments=None,
+    #                      primary_input_collection={'scope': 'lsst.test', 'name': 'pseudo_input_collection#2'},
+    #                      output_collections=[{'scope': 'lsst.test', 'name': 'pseudo_output_collection#2'}],
+    #                      log_collections=[])
+
 
     workflow = Workflow()
     workflow.add_work(work1)
-    workflow.add_work(work2)
+    #workflow.add_work(work2)
 
-    cond = Condition(cond=work1.my_condition, current_work=work1, true_work=work2)
-    workflow.add_condition(cond)
+    #cond = Condition(cond=work1.my_condition, current_work=work1, true_work=work2)
+    #workflow.add_condition(cond)
+
+
+    #Unit tests
+
+    """
+    *** Function called by Transformer agent.
+    """
+    # ret1 = work1.get_input_collections()
+    # ret2 = work1.get_new_input_output_maps()
+    # ret3 = work1.get_processing(None)
+    # ret4 = work1.create_processing(ret2)
+    # work1.submit_processing(ret4)
+    # ret6 = work1.poll_processing_updates(ret4, ret2)
+
+
     return workflow
 
 
