@@ -68,9 +68,9 @@ class DomaLSSTWork(Work):
                                            output_collections=output_collections,
                                            log_collections=log_collections,
                                            logger=logger)
-        self.arguments = {"taskname": "init_"+"fswe33cz", "quantum_map":[("999999",[]),]}
+        self.parameters = {"taskname": "init_"+"fswe33cz", "quantum_map":[("999999",[]),]}
         self.pandamonitor = None
-        self.dependency_map = self.arguments["quantum_map"]
+        self.dependency_map = self.parameters["quantum_map"]
         self.inputstatus = [{"input_file": file[0], "status":"unprocessed"} for file in self.dependency_map]
 
 
@@ -266,7 +266,7 @@ class DomaLSSTWork(Work):
         taskParamMap['nFiles'] = len(in_files)
         taskParamMap['noInput'] = True
         taskParamMap['pfnList'] = in_files
-        taskParamMap['taskName'] = self.arguments["taskname"]
+        taskParamMap['taskName'] = self.parameters["taskname"]
         taskParamMap['userName'] = 'Siarhei Padolski'
         taskParamMap['taskPriority'] = 900
         taskParamMap['architecture'] = ''
@@ -331,8 +331,8 @@ class DomaLSSTWork(Work):
                 self.pandamonitor = self.load_panda_monitor()
                 self.logger.info("panda server: %s" % self.pandamonitor)
 
-            #task_id = processing['processing_metadata']['task_id']
-            task_id = 199
+            task_id = processing['processing_metadata']['task_id']
+            #task_id = 199
             jobs_url = self.pandamonitor + '/jobs/?json&datasets=yes&jeditaskid=' + str(task_id)
             jobs_list = self.download_payload_json(jobs_url)
             outputs_status = {}

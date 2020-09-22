@@ -39,11 +39,11 @@ def randStr(chars=string.ascii_lowercase + string.digits, N=10):
 def setup_workflow():
 
     task1genid = randStr()
-    task2genid = randStr()
-    task3genid = randStr()
+    #task2genid = randStr()
+    #task3genid = randStr()
 
     dependencymap1 = {"taskname": "init_"+task1genid, "quantum_map":[("999999",None)]}
-    dependencymap2 = {"taskname": "step1_"+task2genid, "quantum_map": [("000000",[task1genid + "/" + "999999"]),("000001", [task1genid + "/" + "999999"]),("000002", [task1genid + "/" + "999999"])]}
+    #dependencymap2 = {"taskname": "step1_"+task2genid, "quantum_map": [("000000",[task1genid + "/" + "999999"]),("000001", [task1genid + "/" + "999999"]),("000002", [task1genid + "/" + "999999"])]}
 
     work1 = DomaLSSTWork(executable='echo',
                          parameters=dependencymap1,
