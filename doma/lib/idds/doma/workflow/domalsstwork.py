@@ -43,7 +43,7 @@ class DomaLSSTWork(Work):
                  work_tag='lsst', exec_type='panda', sandbox=None, work_id=None,
                  primary_input_collection=None, other_input_collections=None,
                  output_collections=None, log_collections=None,
-                 logger=None):
+                 logger=None, dependency_map = None, task_name=""):
         """
         Init a work/task/transformation.
 
@@ -69,14 +69,10 @@ class DomaLSSTWork(Work):
                                            output_collections=output_collections,
                                            log_collections=log_collections,
                                            logger=logger)
-        self.parameters = {"taskname": "init_"+"fswe33cz", "quantum_map":[("999999",[]),]}
         self.pandamonitor = None
-        self.dependency_map = self.parameters["quantum_map"]
-        self.inputstatus = [{"input_file": file[0], "status":"unprocessed"} for file in self.dependency_map]
+        self.dependency_map = dependency_map
         self.logger.setLevel(logging.DEBUG)
-
-
-
+        self.task_name =task_name
 
 
     def my_condition(self):
@@ -127,7 +123,7 @@ class DomaLSSTWork(Work):
                 #coll['coll_metadata']['total_files'] = 1
                 coll['coll_metadata']['availability'] = 1
                 coll['coll_metadata']['events'] = 1
-                coll['coll_metadata']['is_open'] = False
+                coll['coll_metadata']['is_open'] = True
                 coll['coll_metadata']['run_number'] = 1
                 coll['coll_metadata']['did_type'] = 'DATASET'
                 coll['coll_metadata']['list_all_files'] = False
@@ -156,9 +152,50 @@ class DomaLSSTWork(Work):
             self.collections[coll_int_id] = coll
         return super(DomaLSSTWork, self).get_input_collections()
 
+
+    def get_unsubmitted_inputs(self):
+        not_submitted_inputs = filter(lambda t: not t["submitted"], self.dependency_map)
+        tasks_to_check = []
+        for job in not_submitted_inputs:
+            tasks_to_check.extend([(input["task"],input["inputname"]) for input in job["dependencies"] if not input["available"]])
+        tasks_to_check_compact = {}
+        for task in tasks_to_check:
+            tasks_to_check_compact.setdefault(task[0], set()).add(task[1])
+        return tasks_to_check_compact
+
+    def set_dependency_input_available(self, taskname, inputname):
+        for job in self.dependency_map:
+            for dependency in job["dependencies"]:
+                if dependency["task"] == taskname and dependency["inputname"] == inputname:
+                    dependency["available"] = True
+
+    def update_dependencies(self):
+        tasks_to_check = self.get_unsubmitted_inputs()
+        for task, inputs in tasks_to_check.items():
+            _, outputs = self.poll_panda_task(task_name=task)
+            for input in inputs:
+                if outputs.get(input, ContentStatus.Processing) == ContentStatus.Available:
+                    self.set_dependency_input_available(task, input)
+
+    def get_ready_inputs(self):
+        not_submitted_inputs = filter(lambda j: not j["submitted"], self.dependency_map)
+        files_to_submit = []
+        for job in not_submitted_inputs:
+            unresolved_deps = [input for input in job["dependencies"] if not input["available"]]
+            if len(unresolved_deps) == 0:
+                files_to_submit.append(job["name"])
+        return files_to_submit
+
     def check_dependencies(self):
-        inputs_to_submit = [{"name": "00000"+str(k)} for k in range(3)]
-        return inputs_to_submit
+        self.update_dependencies()
+        return self.get_ready_inputs()
+
+    def can_close(self):
+        not_submitted_inputs = list(filter(lambda t: not t["submitted"], self.dependency_map))
+        if len(not_submitted_inputs) == 0:
+            return True
+        else:
+            return False
 
 
     def get_input_contents(self):
@@ -172,7 +209,7 @@ class DomaLSSTWork(Work):
             for file in files:
                 ret_file = {'coll_id': coll['coll_id'],
                             'scope': coll['scope'],
-                            'name': file['name'],  # or a different file name from the dataset name
+                            'name': file,  # or a different file name from the dataset name
                             'bytes': 1,
                             'adler32': '12345678',
                             'min_id': 0,
@@ -235,6 +272,16 @@ class DomaLSSTWork(Work):
                                                    'outputs': [out_ip]}
                 next_key += 1
         self.logger.debug("get_new_input_output_maps, new_input_output_maps: %s" % str(new_input_output_maps))
+
+        for index, _inputs in new_input_output_maps.items():
+            if len(_inputs['inputs']) > 0:
+                for item in self.dependency_map:
+                    if item["name"] == _inputs['inputs'][0]["name"]: item["submitted"] = True  #0 is used due to a single file pseudo input
+
+        if self.can_close():
+            self.collections[self.primary_input_collection]['coll_metadata']['is_open'] = False
+            self.collections[self.primary_input_collection]['status'] = CollectionStatus.Closed
+
         return new_input_output_maps
 
     def get_processing(self, input_output_maps):
@@ -271,7 +318,7 @@ class DomaLSSTWork(Work):
         taskParamMap['nFiles'] = len(in_files)
         taskParamMap['noInput'] = True
         taskParamMap['pfnList'] = in_files
-        taskParamMap['taskName'] = self.parameters["taskname"]
+        taskParamMap['taskName'] = self.task_name
         taskParamMap['userName'] = 'Siarhei Padolski'
         taskParamMap['taskPriority'] = 900
         taskParamMap['architecture'] = ''
@@ -333,14 +380,32 @@ class DomaLSSTWork(Work):
             raise e
         return response
 
-    def poll_panda_task(self, processing):
+
+    def poll_panda_task(self, processing=None, task_name=None):
         try:
             if not self.pandamonitor:
                 self.pandamonitor = self.load_panda_monitor()
                 self.logger.info("panda server: %s" % self.pandamonitor)
 
-            task_id = processing['processing_metadata']['task_id']
-            #task_id = 199
+            task_id = None
+            task_info = None
+            if processing:
+                task_id = processing['processing_metadata']['task_id']
+                task_url = self.pandamonitor + '/task/?json&jeditaskid=' + str(task_id)
+                task_info = self.download_payload_json(task_url)
+            elif task_name:
+                task_url = self.pandamonitor + '/tasks/?taskname=' + str(task_name) + "&json"
+                self.logger.debug("poll_panda_task, task_url: %s" % str(task_url))
+                self.logger.debug("poll_panda_task, task_url: %s" % str(self.download_payload_json(task_url)))
+                task_json = self.download_payload_json(task_url)
+                if len(task_json) > 0:
+                    task_info = task_json[0]
+                else:
+                    return "No status", {}
+            if not task_id:
+                task_id = task_info.get('jeditaskid', None)
+                if not task_id: return "No status", {}
+
             jobs_url = self.pandamonitor + '/jobs/?json&datasets=yes&jeditaskid=' + str(task_id)
             jobs_list = self.download_payload_json(jobs_url)
             outputs_status = {}
@@ -350,8 +415,6 @@ class DomaLSSTWork(Work):
                     status = self.jobs_to_idd_ds_status(job_info['jobstatus'])
                     outputs_status[output_index] = status
 
-            task_url = self.pandamonitor + '/task/?json&jeditaskid=' + str(task_id)
-            task_info = self.download_payload_json(task_url)
             task_status = None
             self.logger.debug("poll_panda_task, task_info: %s" % str(task_info))
             if task_info.get("task", None) is not None:
@@ -371,7 +434,7 @@ class DomaLSSTWork(Work):
         self.logger.debug("poll_processing_updates, input_output_maps: %s" % str(input_output_maps))
 
         if processing:
-            task_status, outputs_status = self.poll_panda_task(processing)
+            task_status, outputs_status = self.poll_panda_task(processing=processing)
 
             self.logger.debug("poll_processing_updates, outputs_status: %s" % str(outputs_status))
             self.logger.debug("poll_processing_updates, task_status: %s" % str(task_status))
@@ -416,10 +479,13 @@ class DomaLSSTWork(Work):
 
     def syn_work_status(self, registered_input_output_maps):
         self.get_status_statistics(registered_input_output_maps)
-        self.logger.debug("registered_input_output_maps, self.active_processings: %s" % str(self.active_processings))
-        self.logger.debug("registered_input_output_maps, self.has_new_inputs(): %s" % str(self.has_new_inputs()))
+        self.logger.debug("syn_work_status, self.active_processings: %s" % str(self.active_processings))
+        self.logger.debug("syn_work_status, self.has_new_inputs(): %s" % str(self.has_new_inputs()))
+        self.logger.debug("syn_work_status, coll_metadata_is_open: %s" % str(self.collections[self.primary_input_collection]['coll_metadata']['is_open']))
+        self.logger.debug("syn_work_status, primary_input_collection_status: %s" % str(self.collections[self.primary_input_collection]['status']))
 
-        if not self.active_processings and not self.has_new_inputs():
+
+        if self.is_processings_terminated() and not self.has_new_inputs():
             keys = self.status_statistics.keys()
             if ContentStatus.New.name in keys or ContentStatus.Processing.name in keys:
                 pass

@@ -35,55 +35,91 @@ import string, random
 def randStr(chars=string.ascii_lowercase + string.digits, N=10):
     return ''.join(random.choice(chars) for _ in range(N))
 
+class LSSTTask(object):
+    name = None
+    step = None
+    dependencies = []
 
 def setup_workflow():
 
-    task1genid = randStr()
-    #task2genid = randStr()
-    #task3genid = randStr()
+    taskN1 = LSSTTask()
+    taskN1.step = "step1"
+    taskN1.name = taskN1.step + "_" + randStr()
+    taskN1.dependencies = [
+        {"name": "00000"+str(k),
+         "dependencies":[],
+         "submitted": False} for k in range(3)
+    ]
 
-    dependencymap1 = {"taskname": "init_"+task1genid, "quantum_map":[("999999",None)]}
-    #dependencymap2 = {"taskname": "step1_"+task2genid, "quantum_map": [("000000",[task1genid + "/" + "999999"]),("000001", [task1genid + "/" + "999999"]),("000002", [task1genid + "/" + "999999"])]}
+    taskN2 = LSSTTask()
+    taskN2.step = "step2"
+    taskN2.name = taskN2.step + "_" + randStr()
+    taskN2.dependencies = [
+        {
+            "name": "000010",
+            "dependencies":[{"task":taskN1.name, "inputname": "000001", "available": False},{"task":taskN1.name, "inputname": "000002", "available": False}],
+            "submitted": False
+        },
+        {
+            "name": "000011",
+            "dependencies": [{"task": taskN1.name, "inputname": "000001", "available": False}, {"task": taskN1.name, "inputname": "000002", "available": False}],
+            "submitted": False
+        },
+        {
+            "name": "000012",
+            "dependencies": [{"task": taskN1.name, "inputname": "000001", "available": False}, {"task": taskN1.name, "inputname": "000002", "available": False}],
+            "submitted": False
+        }
+    ]
+
+    taskN3 = LSSTTask()
+    taskN3.step = "step3"
+    taskN3.name = taskN3.step + "_" + randStr()
+    taskN3.dependencies = [
+        {
+            "name": "000020",
+            "dependencies":[],
+            "submitted": False
+        },
+        {
+            "name": "000021",
+            "dependencies": [{"task": taskN2.name, "inputname": "000010", "available": False}, {"task": taskN2.name, "inputname": "000011", "available": False}],
+            "submitted": False
+        },
+        {
+            "name": "000022",
+            "dependencies": [{"task": taskN2.name, "inputname": "000011", "available": False}, {"task": taskN2.name, "inputname": "000012", "available": False}],
+            "submitted": False
+        },
+        {
+            "name": "000023",
+            "dependencies":[],
+            "submitted": False
+        },
+        {
+            "name": "000024",
+            "dependencies": [{"task": taskN3.name, "inputname": "000021", "available": False}, {"task": taskN3.name, "inputname": "000023", "available": False}],
+            "submitted": False
+        },
+    ]
 
     work1 = DomaLSSTWork(executable='echo',
-                         parameters=dependencymap1,
                          primary_input_collection={'scope': 'pseudo_dataset', 'name': 'pseudo_input_collection#1'},
                          output_collections=[{'scope': 'pseudo_dataset', 'name': 'pseudo_output_collection#1'}],
-                         log_collections=[])
-    # work2 = DomaLSSTWork(executable='echo',
-    #                      arguments=dependencymap2,
-    #                      primary_input_collection={'scope': 'lsst.test', 'name': 'pseudo_input_collection#2'},
-    #                      output_collections=[{'scope': 'lsst.test', 'name': 'pseudo_output_collection#2'}],
-    #                      log_collections=[])
-
-    # work3 = DomaLSSTWork(executable='echo',
-    #                      arguments=None,
-    #                      primary_input_collection={'scope': 'lsst.test', 'name': 'pseudo_input_collection#2'},
-    #                      output_collections=[{'scope': 'lsst.test', 'name': 'pseudo_output_collection#2'}],
-    #                      log_collections=[])
-
+                         log_collections=[], dependency_map=taskN1.dependencies, task_name=taskN1.name)
+    work2 = DomaLSSTWork(executable='echo',
+                         primary_input_collection={'scope': 'pseudo_dataset', 'name': 'pseudo_input_collection#2'},
+                         output_collections=[{'scope': 'pseudo_dataset', 'name': 'pseudo_output_collection#2'}],
+                         log_collections=[], dependency_map=taskN2.dependencies, task_name=taskN2.name)
+    work3 = DomaLSSTWork(executable='echo',
+                         primary_input_collection={'scope': 'pseudo_dataset', 'name': 'pseudo_input_collection#3'},
+                         output_collections=[{'scope': 'pseudo_dataset', 'name': 'pseudo_output_collection#3'}],
+                         log_collections=[], dependency_map=taskN3.dependencies, task_name=taskN3.name)
 
     workflow = Workflow()
-    workflow.add_work(work1)
-    #workflow.add_work(work2)
-
-    #cond = Condition(cond=work1.my_condition, current_work=work1, true_work=work2)
-    #workflow.add_condition(cond)
-
-
-    #Unit tests
-
-    """
-    *** Function called by Transformer agent.
-    """
-    # ret1 = work1.get_input_collections()
-    # ret2 = work1.get_new_input_output_maps()
-    # ret3 = work1.get_processing(None)
-    # ret4 = work1.create_processing(ret2)
-    # work1.submit_processing(ret4)
-    # ret6 = work1.poll_processing_updates(ret4, ret2)
-
-
+    #workflow.add_work(work1)
+    workflow.add_work(work2)
+    #workflow.add_work(work3)
     return workflow
 
 
