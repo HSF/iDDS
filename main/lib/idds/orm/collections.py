@@ -25,7 +25,7 @@ from idds.orm.base.session import read_session, transactional_session
 from idds.orm.base import models
 
 
-def create_collection(scope, name, coll_type=CollectionType.Dataset, transform_id=None,
+def create_collection(request_id, workload_id, scope, name, coll_type=CollectionType.Dataset, transform_id=None,
                       relation_type=CollectionRelationType.Input, bytes=0, status=CollectionStatus.New,
                       locking=CollectionLocking.Idle, total_files=0, new_files=0, processing_files=0,
                       processed_files=0, retries=0, expired_at=None,
@@ -36,6 +36,8 @@ def create_collection(scope, name, coll_type=CollectionType.Dataset, transform_i
     :param scope: The scope of the request data.
     :param name: The name of the request data.
     :param coll_type: The type of dataset as dataset or container.
+    :param request_id: The request id.
+    :param workload_id: The workload id.
     :param transform_id: The transform id related to this collection.
     :param relation_type: The relation between this collection and its transform,
                           such as Input, Output, Log and so on.
@@ -49,7 +51,8 @@ def create_collection(scope, name, coll_type=CollectionType.Dataset, transform_i
 
     :returns: collection.
     """
-    new_coll = models.Collection(scope=scope, name=name, coll_type=coll_type, transform_id=transform_id,
+    new_coll = models.Collection(request_id=request_id, workload_id=workload_id, scope=scope, name=name,
+                                 coll_type=coll_type, transform_id=transform_id,
                                  relation_type=relation_type, bytes=bytes, status=status, locking=locking,
                                  total_files=total_files, new_files=new_files, processing_files=processing_files,
                                  processed_files=processed_files, retries=retries,
@@ -58,7 +61,7 @@ def create_collection(scope, name, coll_type=CollectionType.Dataset, transform_i
 
 
 @transactional_session
-def add_collection(scope, name, coll_type=CollectionType.Dataset, transform_id=None,
+def add_collection(request_id, workload_id, scope, name, coll_type=CollectionType.Dataset, transform_id=None,
                    relation_type=CollectionRelationType.Input, bytes=0, status=CollectionStatus.New,
                    locking=CollectionLocking.Idle, total_files=0, new_files=0, processing_files=0,
                    processed_files=0, retries=0, expired_at=None,
@@ -69,6 +72,8 @@ def add_collection(scope, name, coll_type=CollectionType.Dataset, transform_id=N
     :param scope: The scope of the request data.
     :param name: The name of the request data.
     :param coll_type: The type of dataset as dataset or container.
+    :param request_id: The request id.
+    :param workload_id: The workload id.
     :param transform_id: The transform id related to this collection.
     :param relation_type: The relation between this collection and its transform,
                           such as Input, Output, Log and so on.
@@ -86,7 +91,8 @@ def add_collection(scope, name, coll_type=CollectionType.Dataset, transform_id=N
     :returns: collection id.
     """
     try:
-        new_coll = create_collection(scope=scope, name=name, coll_type=coll_type, transform_id=transform_id,
+        new_coll = create_collection(request_id=request_id, workload_id=workload_id, scope=scope, name=name,
+                                     coll_type=coll_type, transform_id=transform_id,
                                      relation_type=relation_type, bytes=bytes, status=status, locking=locking,
                                      total_files=total_files, new_files=new_files, retries=retries,
                                      processing_files=processing_files, processed_files=processed_files,
