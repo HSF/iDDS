@@ -48,7 +48,7 @@ class Collections(IDDSController):
             if relation_type in ['null', 'None']:
                 relation_type = None
             else:
-                relation_type = int(workload_id)
+                relation_type = int(relation_type)
 
             rets = get_collections(scope=scope, name=name, request_id=request_id, workload_id=workload_id,
                                    relation_type=relation_type, to_json=False)

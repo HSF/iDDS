@@ -295,7 +295,7 @@ def get_collections(scope=None, name=None, request_id=None, workload_id=None, tr
             query = query.filter(models.Collection.workload_id == workload_id)
         if transform_id:
             query = query.filter(models.Collection.transform_id.in_(transform_id))
-        if relation_type:
+        if relation_type is not None:
             query = query.filter(models.Collection.relation_type == relation_type)
 
         query = query.order_by(asc(models.Collection.updated_at))

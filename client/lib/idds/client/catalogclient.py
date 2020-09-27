@@ -61,7 +61,7 @@ class CatalogClient(BaseRestClient):
             relation_type = relation_type.value
 
         url = self.build_url(self.host, path=os.path.join(path, scope, name, str(request_id), str(workload_id),
-                                                          relation_type=str(relation_type)))
+                                                          str(relation_type)))
 
         collections = self.get_request_response(url, type='GET')
         return collections
@@ -99,7 +99,7 @@ class CatalogClient(BaseRestClient):
             status = status.value
 
         url = self.build_url(self.host, path=os.path.join(path, coll_scope, coll_name, str(request_id),
-                                                          str(workload_id), str(relation_type), status=str(status)))
+                                                          str(workload_id), str(relation_type), str(status)))
 
         contents = self.get_request_response(url, type='GET')
         return contents

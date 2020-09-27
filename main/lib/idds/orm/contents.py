@@ -304,7 +304,7 @@ def get_contents(scope=None, name=None, coll_id=None, status=None, to_json=False
             query = query.filter(models.Content.scope == scope)
         if name:
             query = query.filter(models.Content.name.like(name.replace('*', '%')))
-        if status:
+        if status is not None:
             query = query.filter(models.Content.status.in_(status))
 
         tmp = query.all()

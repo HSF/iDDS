@@ -337,8 +337,8 @@ class DictClassEncoder(json.JSONEncoder):
         # print(obj)
         if isinstance(obj, IDDSEnum) or isinstance(obj, DictClass):
             return obj.to_dict()
-        # elif isinstance(obj, datetime.datetime):
-        #     return date_to_str(obj)
+        elif isinstance(obj, datetime.datetime):
+            return date_to_str(obj)
         # elif isinstance(obj, (datetime.time, datetime.date)):
         #     return obj.isoformat()
         # elif isinstance(obj, datetime.timedelta):
