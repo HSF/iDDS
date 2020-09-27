@@ -275,7 +275,7 @@ def get_contents(scope=None, name=None, coll_id=None, status=None, to_json=False
 
     :param scope: The scope of the content data.
     :param name: The name of the content data.
-    :param coll_id: Collection id.
+    :param coll_id: list of Collection ids.
     :param to_json: return json format.
 
     :param session: The database session in use.
@@ -291,10 +291,15 @@ def get_contents(scope=None, name=None, coll_id=None, status=None, to_json=False
                 status = [status]
             if len(status) == 1:
                 status = [status[0], status[0]]
+        if coll_id is not None:
+            if not isinstance(coll_id, (tuple, list)):
+                coll_id = [coll_id]
+            if len(coll_id) == 1:
+                coll_id = [coll_id[0], coll_id[0]]
 
         query = session.query(models.Content)
         if coll_id:
-            query = query.filter(models.Content.coll_id == coll_id)
+            query = query.filter(models.Content.coll_id.in_(coll_id))
         if scope:
             query = query.filter(models.Content.scope == scope)
         if name:

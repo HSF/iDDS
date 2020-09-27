@@ -71,29 +71,11 @@ def get_collections(scope=None, name=None, request_id=None, workload_id=None, tr
 
     :returns: dict of collections
     """
-    if request_id or workload_id or transform_id:
-        transform_ids = orm_transforms.get_transform_ids(request_id=request_id,
-                                                         workload_id=workload_id,
-                                                         transform_id=transform_id, session=session)
-
-        if transform_ids:
-            collections = orm_collections.get_collections(scope=scope, name=name, transform_id=transform_ids,
-                                                          relation_type=relation_type, to_json=to_json,
-                                                          session=session)
-        else:
-            collections = []
-    else:
-        collections = orm_collections.get_collections(scope=scope, name=name, to_json=to_json,
-                                                      relation_type=relation_type, session=session)
-    rets = {}
-    for collection in collections:
-        if request_id not in rets:
-            rets[request_id] = {}
-        transform_id = collection['transform_id']
-        if transform_id not in rets[request_id]:
-            rets[request_id][transform_id] = []
-        rets[request_id][transform_id].append(collection)
-    return rets
+    collections = orm_collections.get_collections(scope=scope, name=name, request_id=request_id,
+                                                  workload_id=workload_id, transform_id=transform_id,
+                                                  to_json=to_json,
+                                                  relation_type=relation_type, session=session)
+    return collections
 
 
 @transactional_session
@@ -299,7 +281,7 @@ def update_content(content_id, parameters, session=None):
 
 @read_session
 def get_contents(coll_scope=None, coll_name=None, request_id=None, workload_id=None, transform_id=None,
-                 relation_type=None, to_json=False, session=None):
+                 relation_type=None, status=None, to_json=False, session=None):
     """
     Get contents with collection scope, collection name, request id, workload id and relation type.
 
@@ -314,25 +296,12 @@ def get_contents(coll_scope=None, coll_name=None, request_id=None, workload_id=N
 
     :returns: dict of contents
     """
-    req_transfomr_collections = get_collections(scope=coll_scope, name=coll_name, request_id=request_id,
-                                                workload_id=workload_id, transform_id=transform_id,
-                                                relation_type=relation_type, to_json=to_json, session=session)
+    collections = get_collections(scope=coll_scope, name=coll_name, request_id=request_id,
+                                  workload_id=workload_id, transform_id=transform_id,
+                                  relation_type=relation_type, to_json=to_json, session=session)
 
-    rets = {}
-    for request_id in req_transfomr_collections:
-        rets[request_id] = {}
-        for transform_id in req_transfomr_collections[request_id]:
-            rets[request_id][transform_id] = {}
-            for collection in req_transfomr_collections[request_id][transform_id]:
-                scope = collection['scope']
-                name = collection['name']
-                coll_id = collection['coll_id']
-                coll_relation_type = collection['relation_type']
-                scope_name = '%s:%s' % (scope, name)
-                contents = orm_contents.get_contents(coll_id=coll_id, to_json=to_json, session=session)
-                rets[request_id][transform_id][scope_name] = {'collection': collection,
-                                                              'relation_type': coll_relation_type,
-                                                              'contents': contents}
+    coll_ids = [coll['coll_id'] for coll in collections]
+    rets = orm_contents.get_contents(coll_id=coll_ids, status=status, to_json=to_json, session=session)
     return rets
 
 

@@ -262,12 +262,15 @@ def get_collections_by_status(status, relation_type=CollectionRelationType.Input
 
 
 @read_session
-def get_collections(scope=None, name=None, transform_id=None, relation_type=None, to_json=False, session=None):
+def get_collections(scope=None, name=None, request_id=None, workload_id=None, transform_id=None,
+                    relation_type=None, to_json=False, session=None):
     """
     Get collections by request id or raise a NoObject exception.
 
     :param scope: collection scope.
     :param name: collection name, can be wildcard.
+    :param request_id: The request id.
+    :param workload_id: The workload id.
     :param transform_id: list of transform id related to this collection.
     :param relation_type: The relation type between this collection and the transform: Input, Ouput and Log.
     :param to_json: return json format.
@@ -286,6 +289,10 @@ def get_collections(scope=None, name=None, transform_id=None, relation_type=None
             query = query.filter(models.Collection.scope == scope)
         if name:
             query = query.filter(models.Collection.name.like(name.replace('*', '%')))
+        if request_id:
+            query = query.filter(models.Collection.request_id == request_id)
+        if workload_id:
+            query = query.filter(models.Collection.workload_id == workload_id)
         if transform_id:
             query = query.filter(models.Collection.transform_id.in_(transform_id))
         if relation_type:

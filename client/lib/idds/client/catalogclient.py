@@ -6,11 +6,11 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2020
 
 
 """
-Request Rest client to access IDDS system.
+Request Rest client to access IDDS catalog system.
 """
 
 import os
@@ -35,7 +35,7 @@ class CatalogClient(BaseRestClient):
         """
         super(CatalogClient, self).__init__(host=host, client_proxy=client_proxy, timeout=timeout)
 
-    def get_collections(self, scope=None, name=None, request_id=None, workload_id=None):
+    def get_collections(self, scope=None, name=None, request_id=None, workload_id=None, relation_type=None):
         """
         Get collections from the Head service.
 
@@ -43,7 +43,7 @@ class CatalogClient(BaseRestClient):
         :param name: the collection name, can be wildcard.
         :param request_id: the request id.
         :param workload_id: the workload id.
-
+        :param relation_type: The relation_type of the request (input/output/log).
         :raise exceptions if it's not got successfully.
         """
         path = os.path.join(self.CATALOG_BASEURL, 'collections')
@@ -55,27 +55,19 @@ class CatalogClient(BaseRestClient):
             request_id = 'null'
         if workload_id is None:
             workload_id = 'null'
-        url = self.build_url(self.host, path=os.path.join(path, scope, name, str(request_id), str(workload_id)))
+        if relation_type is None:
+            relation_type = 'null'
+        elif isinstance(relation_type, Enum):
+            relation_type = relation_type.value
+
+        url = self.build_url(self.host, path=os.path.join(path, scope, name, str(request_id), str(workload_id),
+                                                          relation_type=str(relation_type)))
 
         collections = self.get_request_response(url, type='GET')
+        return collections
 
-        # print(collections)
-        # json dumps will change integer key to string and json.loads will not change it back. fix it.
-        new_collections = {}
-        for req_id in collections:
-            if req_id is not None:
-                if req_id == 'null':
-                    new_req_id = None
-                else:
-                    new_req_id = int(req_id)
-            else:
-                new_req_id = req_id
-            new_collections[new_req_id] = {}
-            for trans_id in collections[req_id]:
-                new_collections[new_req_id][int(trans_id)] = collections[req_id][trans_id]
-        return new_collections
-
-    def get_contents(self, coll_scope=None, coll_name=None, request_id=None, workload_id=None, relation_type=None):
+    def get_contents(self, coll_scope=None, coll_name=None, request_id=None, workload_id=None,
+                     relation_type=None, status=None):
         """
         Get contents from the Head service.
 
@@ -84,6 +76,7 @@ class CatalogClient(BaseRestClient):
         :param request_id: the request id.
         :param workload_id: the workload id.
         :param relation_type: the relation between the collection and the transform(input, output, log)
+        :param status: The content status.
 
         :raise exceptions if it's not got successfully.
         """
@@ -100,24 +93,16 @@ class CatalogClient(BaseRestClient):
             relation_type = 'null'
         elif isinstance(relation_type, Enum):
             relation_type = relation_type.value
+        if status is None:
+            status = 'null'
+        elif isinstance(status, Enum):
+            status = status.value
 
-        url = self.build_url(self.host, path=os.path.join(path, coll_scope, coll_name, str(request_id), str(workload_id), str(relation_type)))
+        url = self.build_url(self.host, path=os.path.join(path, coll_scope, coll_name, str(request_id),
+                                                          str(workload_id), str(relation_type), status=str(status)))
 
         contents = self.get_request_response(url, type='GET')
-        new_contents = {}
-        for req_id in contents:
-            if req_id is not None:
-                if req_id == 'null':
-                    new_req_id = None
-                else:
-                    new_req_id = int(req_id)
-            else:
-                new_req_id = req_id
-            new_contents[new_req_id] = {}
-            for trans_id in contents[req_id]:
-                new_contents[new_req_id][int(trans_id)] = contents[req_id][trans_id]
-
-        return new_contents
+        return contents
 
     def get_match_contents(self, coll_scope=None, coll_name=None, scope=None, name=None, min_id=None, max_id=None, request_id=None, workload_id=None, only_return_best_match=None):
         """

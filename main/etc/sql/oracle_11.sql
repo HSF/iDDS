@@ -70,6 +70,7 @@ CREATE TABLE WORKPROGRESSES
 (
         workprogress_id NUMBER(12),
         request_id NUMBER(12) constraint WORKPROGRESS__REQ_ID_NN NOT NULL,
+        workload_id NUMBER(10),
         scope VARCHAR2(25) constraint WORKPROGRESS_SCOPE_NN NOT NULL,
         name VARCHAR2(255) constraint WORKPROGRESS_NAME_NN NOT NULL,
         priority NUMBER(7),
@@ -113,6 +114,8 @@ CREATE SEQUENCE TRANSFORM_ID_SEQ MINVALUE 1 INCREMENT BY 1 NOCACHE;
 CREATE TABLE TRANSFORMS
 (
         transform_id NUMBER(12),
+        request_id NUMBER(12),
+        workload_id NUMBER(10),
         transform_type NUMBER(2) constraint TRANSFORM_TYPE_NN NOT NULL,
         transform_tag VARCHAR2(20),
         priority NUMBER(7),
@@ -201,6 +204,8 @@ CREATE TABLE PROCESSINGS
 (
         processing_id NUMBER(12),
         transform_id NUMBER(12) constraint PROCESSINGS_TRANSFORM_ID_NN NOT NULL,
+        request_id NUMBER(12),
+        workload_id NUMBER(10),
         status NUMBER(2) constraint PROCESSINGS_STATUS_ID_NN NOT NULL,
         substatus NUMBER(2),
         locking NUMBER(2),
@@ -248,6 +253,8 @@ CREATE TABLE COLLECTIONS
     coll_id NUMBER(14),
     coll_type NUMBER(2),
     transform_id NUMBER(12) constraint COLLECTION_TRANSFORM_ID_NN NOT NULL,
+    request_id NUMBER(12),
+    workload_id NUMBER(10),
     relation_type NUMBER(2), -- input, output or log of the transform,    
     scope VARCHAR2(25) constraint COLLECTION_SCOPE_NN NOT NULL,
     name VARCHAR2(255) constraint COLLECTION_NAME_NN NOT NULL,
@@ -302,6 +309,8 @@ CREATE TABLE CONTENTS
         content_id NUMBER(12),    
         transform_id NUMBER(12) constraint CONTENT_TRANSFORM_ID_NN NOT NULL,
         coll_id NUMBER(14) constraint CONTENT_COLL_ID_NN NOT NULL,
+        request_id NUMBER(12),
+        workload_id NUMBER(10),
         map_id NUMBER(12) DEFAULT 0,
         scope VARCHAR2(25) constraint CONTENT_SCOPE_NN NOT NULL,
         name VARCHAR2(255) constraint CONTENT_NAME_NN NOT NULL,
