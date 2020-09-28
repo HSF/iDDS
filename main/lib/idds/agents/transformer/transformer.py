@@ -18,10 +18,11 @@ except ImportError:
     from Queue import Queue
 
 
-from idds.common.constants import (Sections, TransformStatus, TransformLocking,
+from idds.common.constants import (Sections, TransformStatus, TransformLocking, TransformType,
                                    CollectionRelationType, CollectionStatus,
                                    CollectionType, ContentType, ContentStatus,
-                                   ProcessingStatus)
+                                   ProcessingStatus, MessageType, MessageTypeStr,
+                                   MessageStatus, MessageSource)
 from idds.common.utils import setup_logging
 from idds.core import (transforms as core_transforms, processings as core_processings)
 from idds.agents.common.baseagent import BaseAgent
@@ -140,7 +141,7 @@ class Transformer(BaseAgent):
         return new_contents
 
     def get_updated_contents(self, transform, registered_input_output_maps):
-        updated_contents = []
+        updated_contents, updated_contents_full = [], []
         for map_id in registered_input_output_maps:
             outputs = registered_input_output_maps[map_id]['outputs']
 
@@ -149,7 +150,8 @@ class Transformer(BaseAgent):
                     updated_content = {'content_id': content['content_id'],
                                        'status': content['substatus']}
                     updated_contents.append(updated_content)
-        return updated_contents
+                    updated_contents_full.append(updated_contents_full)
+        return updated_contents, updated_contents_full
 
     def process_new_transform(self, transform):
         """
@@ -250,6 +252,74 @@ class Transformer(BaseAgent):
             coll_ids.append(coll['coll_id'])
         return coll_ids
 
+    def get_message_type(self, transform_type, input_type='file'):
+        if transform_type in [TransformType.StageIn, TransformType.StageIn.value]:
+            if input_type == 'collection':
+                msg_type_str = MessageTypeStr.StageInCollection
+                msg_type = MessageType.StageInCollection
+            else:
+                msg_type_str = MessageTypeStr.StageInFile
+                msg_type = MessageType.StageInFile
+        elif transform_type in [TransformType.ActiveLearning, TransformType.ActiveLearning.value]:
+            if input_type == 'collection':
+                msg_type_str = MessageTypeStr.ActiveLearningCollection
+                msg_type = MessageType.ActiveLearningCollection
+            else:
+                msg_type_str = MessageTypeStr.ActiveLearningFile
+                msg_type = MessageType.ActiveLearningFile
+        elif transform_type in [TransformType.HyperParameterOpt, TransformType.HyperParameterOpt.value]:
+            if input_type == 'collection':
+                msg_type_str = MessageTypeStr.HyperParameterOptCollection
+                msg_type = MessageType.HyperParameterOptCollection
+            else:
+                msg_type_str = MessageTypeStr.HyperParameterOptFile
+                msg_type = MessageType.HyperParameterOptFile
+        elif transform_type in [TransformType.Processing, TransformType.Processing.value]:
+            if input_type == 'collection':
+                msg_type_str = MessageTypeStr.ProcessingCollection
+                msg_type = MessageType.ProcessingCollection
+            else:
+                msg_type_str = MessageTypeStr.ProcessingFile
+                msg_type = MessageType.ProcessingFile
+        else:
+            if input_type == 'collection':
+                msg_type_str = MessageTypeStr.UnknownCollection
+                msg_type = MessageType.UnknownCollection
+            else:
+                msg_type_str = MessageTypeStr.UnknownFile
+                msg_type = MessageType.UnknownFile
+        return msg_type, msg_type_str
+
+    def generate_file_message(self, transform, files):
+        if not files:
+            return []
+
+        files_message = []
+        for file in files:
+            file_message = {'scope': file['scope'],
+                            'name': file['name'],
+                            'path': file['path'],
+                            'status': file['status'].name}
+            files_message.append(file_message)
+
+        request_id = transform['request_id']
+        workload_id = transform['workload_id']
+        msg_type, msg_type_str = self.get_message_type(transform['transform_type'], input_type='file')
+
+        msg_content = {'msg_type': msg_type_str,
+                       'request_id': request_id,
+                       'workload_id': workload_id,
+                       'files': files_message}
+        file_msg_content = {'msg_type': msg_type,
+                            'status': MessageStatus.New,
+                            'source': MessageSource.Transformer,
+                            'request_id': request_id,
+                            'workload_id': workload_id,
+                            'transform_id': transform['transform_id'],
+                            'num_contents': len(files_message),
+                            'msg_content': msg_content}
+        return file_msg_content
+
     def process_running_transform(self, transform):
         """
         process running transforms
@@ -270,7 +340,7 @@ class Transformer(BaseAgent):
                                                                                        output_coll_ids=output_coll_ids,
                                                                                        log_coll_ids=log_coll_ids)
         # update_input_output_maps = self.get_update_input_output_maps(registered_input_output_maps)
-        update_contents = self.get_updated_contents(transform, registered_input_output_maps)
+        update_contents, updated_contents_full = self.get_updated_contents(transform, registered_input_output_maps)
         if work.has_new_inputs():
             new_input_output_maps = work.get_new_input_output_maps(registered_input_output_maps)
         else:
@@ -281,14 +351,12 @@ class Transformer(BaseAgent):
         # new_contents = self.get_new_contents(new_input_output_maps)
 
         file_msgs = []
-        """
         if new_contents:
             file_msg = self.generate_file_message(transform, new_contents)
             file_msgs.append(file_msg)
-        if updated_contents:
-            file_msg = self.generate_file_message(transform, updated_contents)
+        if updated_contents_full:
+            file_msg = self.generate_file_message(transform, updated_contents_full)
             file_msgs.append(file_msg)
-        """
 
         # processing = self.get_processing(transform, input_colls, output_colls, log_colls, new_input_output_maps)
         processing = work.get_processing(new_input_output_maps)
