@@ -218,10 +218,6 @@ def add_transform_outputs(transform, input_collections=None, output_collections=
         # print(new_processing)
         processing_id = orm_processings.add_processing(**new_processing, session=session)
 
-    """
-    if output_contents:
-        orm_contents.add_contents(output_contents, session=session)
-
     if messages:
         if not type(messages) in [list, tuple]:
             messages = [messages]
@@ -229,12 +225,15 @@ def add_transform_outputs(transform, input_collections=None, output_collections=
             orm_messages.add_message(msg_type=message['msg_type'],
                                      status=message['status'],
                                      source=message['source'],
+                                     request_id=message['request_id'],
+                                     workload_id=message['workload_id'],
                                      transform_id=message['transform_id'],
                                      num_contents=message['num_contents'],
                                      msg_content=message['msg_content'],
                                      bulk_size=message_bulk_size,
                                      session=session)
 
+    """
     if to_cancel_processing:
         to_cancel_params = {'status': ProcessingStatus.Cancel}
         for to_cancel_id in to_cancel_processing:
