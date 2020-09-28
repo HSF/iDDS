@@ -150,7 +150,7 @@ class Transformer(BaseAgent):
                     updated_content = {'content_id': content['content_id'],
                                        'status': content['substatus']}
                     updated_contents.append(updated_content)
-                    updated_contents_full.append(updated_contents_full)
+                    updated_contents_full.append(content)
         return updated_contents, updated_contents_full
 
     def process_new_transform(self, transform):
@@ -303,7 +303,7 @@ class Transformer(BaseAgent):
             else:
                 msg_type_str = MessageTypeStr.UnknownFile
                 msg_type = MessageType.UnknownFile
-        return msg_type, msg_type_str
+        return msg_type, msg_type_str.value
 
     def generate_message(self, transform, work=None, collection=None, files=None, msg_type='file'):
         if msg_type == 'work':
