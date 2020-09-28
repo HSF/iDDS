@@ -97,7 +97,7 @@ class Transformer(BaseAgent):
         return coll
 
     def get_new_contents(self, transform, new_input_output_maps):
-        new_contents = []
+        new_input_contents, new_output_contents = [], []
         for map_id in new_input_output_maps:
             inputs = new_input_output_maps[map_id]['inputs']
             outputs = new_input_output_maps[map_id]['outputs']
@@ -119,7 +119,7 @@ class Transformer(BaseAgent):
                            'bytes': input_content['bytes'],
                            'adler32': input_content['adler32'],
                            'content_metadata': input_content['content_metadata']}
-                new_contents.append(content)
+                new_input_contents.append(content)
             for output_content in outputs:
                 content = {'transform_id': transform['transform_id'],
                            'coll_id': output_content['coll_id'],
@@ -137,21 +137,31 @@ class Transformer(BaseAgent):
                            'bytes': output_content['bytes'],
                            'adler32': output_content['adler32'],
                            'content_metadata': input_content['content_metadata']}
-                new_contents.append(content)
-        return new_contents
+                new_output_contents.append(content)
+        return new_input_contents, new_output_contents
 
     def get_updated_contents(self, transform, registered_input_output_maps):
-        updated_contents, updated_contents_full = [], []
+        updated_contents = []
+        updated_input_contents_full, updated_output_contents_full = [], []
+
         for map_id in registered_input_output_maps:
+            inputs = registered_input_output_maps[map_id]['inputs']
             outputs = registered_input_output_maps[map_id]['outputs']
+
+            for content in inputs:
+                if content['status'] != content['substatus']:
+                    updated_content = {'content_id': content['content_id'],
+                                       'status': content['substatus']}
+                    updated_contents.append(updated_content)
+                    updated_input_contents_full.append(content)
 
             for content in outputs:
                 if content['status'] != content['substatus']:
                     updated_content = {'content_id': content['content_id'],
                                        'status': content['substatus']}
                     updated_contents.append(updated_content)
-                    updated_contents_full.append(content)
-        return updated_contents, updated_contents_full
+                    updated_output_contents_full.append(content)
+        return updated_contents, updated_input_contents_full, updated_output_contents_full
 
     def process_new_transform(self, transform):
         """
@@ -305,7 +315,7 @@ class Transformer(BaseAgent):
                 msg_type = MessageType.UnknownFile
         return msg_type, msg_type_str.value
 
-    def generate_message(self, transform, work=None, collection=None, files=None, msg_type='file'):
+    def generate_message(self, transform, work=None, collection=None, files=None, msg_type='file', relation_type='input'):
         if msg_type == 'work':
             if not work:
                 return None
@@ -354,6 +364,7 @@ class Transformer(BaseAgent):
             msg_content = {'msg_type': msg_type_str,
                            'request_id': request_id,
                            'workload_id': workload_id,
+                           'relation_type': relation_type,
                            'files': files_message}
             num_msg_content = len(files_message)
 
@@ -387,22 +398,35 @@ class Transformer(BaseAgent):
                                                                                        output_coll_ids=output_coll_ids,
                                                                                        log_coll_ids=log_coll_ids)
         # update_input_output_maps = self.get_update_input_output_maps(registered_input_output_maps)
-        update_contents, updated_contents_full = self.get_updated_contents(transform, registered_input_output_maps)
+        # update_contents, updated_contents_full = self.get_updated_contents(transform, registered_input_output_maps)
+        updated_contents, updated_input_contents_full, updated_output_contents_full = self.get_updated_contents(transform, registered_input_output_maps)
+
         if work.has_new_inputs():
             new_input_output_maps = work.get_new_input_output_maps(registered_input_output_maps)
         else:
             new_input_output_maps = {}
-        new_contents = self.get_new_contents(transform, new_input_output_maps)
+        new_input_contents, new_output_contents = self.get_new_contents(transform, new_input_output_maps)
+        new_contents = []
+        if new_input_contents:
+            new_contents = new_contents + new_input_contents
+        if new_output_contents:
+            new_contents = new_contents + new_output_contents
 
         # new_input_output_maps = work.get_new_input_output_maps()
         # new_contents = self.get_new_contents(new_input_output_maps)
 
         msgs = []
-        if new_contents:
-            msg = self.generate_message(transform, files=new_contents, msg_type='file')
+        if new_input_contents:
+            msg = self.generate_message(transform, files=new_input_contents, msg_type='file', relation_type='input')
             msgs.append(msg)
-        if updated_contents_full:
-            msg = self.generate_message(transform, files=updated_contents_full, msg_type='file')
+        if new_output_contents:
+            msg = self.generate_message(transform, files=new_output_contents, msg_type='file', relation_type='output')
+            msgs.append(msg)
+        if updated_input_contents_full:
+            msg = self.generate_message(transform, files=updated_input_contents_full, msg_type='file', relation_type='input')
+            msgs.append(msg)
+        if updated_output_contents_full:
+            msg = self.generate_message(transform, files=updated_output_contents_full, msg_type='file', relation_type='output')
             msgs.append(msg)
 
         # processing = self.get_processing(transform, input_colls, output_colls, log_colls, new_input_output_maps)
@@ -472,7 +496,7 @@ class Transformer(BaseAgent):
                'update_output_collections': copy.deepcopy(output_collections) if output_collections else output_collections,
                'update_log_collections': copy.deepcopy(log_collections) if log_collections else log_collections,
                'new_contents': new_contents,
-               'update_contents': update_contents,
+               'update_contents': updated_contents,
                'messages': msgs,
                'new_processing': new_processing_model}
         return ret
