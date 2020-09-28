@@ -59,7 +59,7 @@ class DomaLSSTWork(Work):
         # :param workflow: The workflow the current work belongs to.
         """
         super(DomaLSSTWork, self).__init__(executable=executable, arguments=arguments,
-                                           parameters=parameters, setup=setup, work_type=TransformType.Workflow,
+                                           parameters=parameters, setup=setup, work_type=TransformType.Processing,
                                            work_tag=work_tag, exec_type=exec_type, sandbox=sandbox, work_id=work_id,
                                            primary_input_collection=primary_input_collection,
                                            other_input_collections=other_input_collections,
