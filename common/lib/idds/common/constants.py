@@ -157,6 +157,7 @@ class TransformType(IDDSEnum):
     ActiveLearning = 3
     HyperParameterOpt = 4
     Derivation = 5
+    Processing = 6
     Other = 99
 
 
@@ -261,8 +262,23 @@ class MessageType(IDDSEnum):
     ActiveLearningCollection = 3
     HyperParameterOptFile = 4
     HyperParameterOptCollection = 5
+    ProcessingFile = 6
+    ProcessingCollection = 7
     UnknownFile = 98
     UnknownCollection = 99
+
+
+class MessageTypeStr(IDDSEnum):
+    StageInFile = 'file_stagein'
+    StageInCollection = 'collection_stagein'
+    ActiveLearningFile = 'file_activelearning'
+    ActiveLearningCollection = 'collection_activelearning'
+    HyperParameterOptFile = 'file_hyperparameteropt'
+    HyperParameterOptCollection = 'collection_activelearning'
+    ProcessingFile = 'file_processing'
+    ProcessingCollection = 'collection_processing'
+    UnknownFile = 'file_unknown'
+    UnknownCollection = 'collection_unknown'
 
 
 class MessageStatus(IDDSEnum):
