@@ -21,7 +21,7 @@ from idds.orm.base.session import read_session, transactional_session
 from idds.orm import (transforms as orm_transforms,
                       collections as orm_collections,
                       contents as orm_contents,
-                      # messages as orm_messages,
+                      messages as orm_messages,
                       processings as orm_processings)
 
 

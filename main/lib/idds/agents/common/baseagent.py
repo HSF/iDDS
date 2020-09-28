@@ -9,8 +9,7 @@
 # - Wen Guan, <wen.guan@cern.ch>, 2019
 
 
-from idds.common.constants import (Sections, TransformType,
-                                   MessageType, MessageStatus, MessageSource)
+from idds.common.constants import Sections
 from idds.common.plugin.plugin_base import PluginBase
 from idds.common.plugin.plugin_utils import load_plugins, load_plugin_sequence
 from idds.common.utils import setup_logging
