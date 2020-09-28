@@ -79,6 +79,8 @@ class Transformer(BaseAgent):
         # collection['status'] = coll_status
 
         coll = {'transform_id': transform['transform_id'],
+                'request_id': transform['request_id'],
+                'workload_id': transform['workload_id'],
                 'coll_type': coll_type,
                 'scope': collection['scope'],
                 'name': collection['name'],
@@ -102,6 +104,8 @@ class Transformer(BaseAgent):
             for input_content in inputs:
                 content = {'transform_id': transform['transform_id'],
                            'coll_id': input_content['coll_id'],
+                           'request_id': transform['request_id'],
+                           'workload_id': transform['workload_id'],
                            'map_id': map_id,
                            'scope': input_content['scope'],
                            'name': input_content['name'],
@@ -118,6 +122,8 @@ class Transformer(BaseAgent):
             for output_content in outputs:
                 content = {'transform_id': transform['transform_id'],
                            'coll_id': output_content['coll_id'],
+                           'request_id': transform['request_id'],
+                           'workload_id': transform['workload_id'],
                            'map_id': map_id,
                            'scope': output_content['scope'],
                            'name': output_content['name'],
@@ -291,6 +297,8 @@ class Transformer(BaseAgent):
             new_processing = work.create_processing(new_input_output_maps)
             new_processing_model = copy.deepcopy(new_processing)
             new_processing_model['transform_id'] = transform['transform_id']
+            new_processing_model['request_id'] = transform['request_id']
+            new_processing_model['workload_id'] = transform['workload_id']
             new_processing_model['status'] = ProcessingStatus.New
             if 'processing_metadata' not in new_processing:
                 new_processing['processing_metadata'] = {}

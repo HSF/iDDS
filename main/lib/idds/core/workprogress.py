@@ -20,12 +20,14 @@ from idds.orm import workprogress as orm_workprogress, transforms as orm_transfo
 from idds.workflow.work import WorkStatus
 
 
-def create_workprogress(request_id, scope, name, priority=0, status=WorkprogressStatus.New, locking=WorkprogressLocking.Idle,
+def create_workprogress(request_id, workload_id, scope, name, priority=0, status=WorkprogressStatus.New,
+                        locking=WorkprogressLocking.Idle,
                         expired_at=None, errors=None, workprogress_metadata=None, processing_metadata=None):
     """
     Create a workprogress.
 
     :param request_id: The request id.
+    :param workload_id: The workload id.
     :param scope: The scope.
     :param name: The name.
     :param status: The status as integer.
@@ -38,20 +40,23 @@ def create_workprogress(request_id, scope, name, priority=0, status=Workprogress
 
     :returns: workprogress.
     """
-    return orm_workprogress.create_workprogress(request_id=request_id, scope=scope, name=name, priority=priority, status=status,
+    return orm_workprogress.create_workprogress(request_id=request_id, workload_id=workload_id, scope=scope, name=name,
+                                                priority=priority, status=status,
                                                 locking=locking, expired_at=expired_at,
                                                 workprogress_metadata=workprogress_metadata,
                                                 processing_metadata=processing_metadata)
 
 
 @transactional_session
-def add_workprogress(request_id, scope, name, priority=0, status=WorkprogressStatus.New, locking=WorkprogressLocking.Idle,
+def add_workprogress(request_id, workload_id, scope, name, priority=0, status=WorkprogressStatus.New,
+                     locking=WorkprogressLocking.Idle,
                      expired_at=None, errors=None, workprogress_metadata=None, processing_metadata=None,
                      session=None):
     """
     Add a workprogress.
 
     :param request_id: The request id.
+    :param workload_id: The workload id.
     :param scope: The scope.
     :param name: The name.
     :param status: The status as integer.
@@ -68,7 +73,8 @@ def add_workprogress(request_id, scope, name, priority=0, status=WorkprogressSta
     :returns: workprogress id.
     """
 
-    return orm_workprogress.add_workprogress(request_id=request_id, scope=scope, name=name, priority=priority, status=status,
+    return orm_workprogress.add_workprogress(request_id=request_id, workload_id=workload_id,
+                                             scope=scope, name=name, priority=priority, status=status,
                                              locking=locking, expired_at=expired_at,
                                              workprogress_metadata=workprogress_metadata,
                                              processing_metadata=processing_metadata,

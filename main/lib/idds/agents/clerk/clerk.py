@@ -63,7 +63,7 @@ class Clerk(BaseAgent):
     def process_new_request(self, req):
         try:
             req_id = req['request_id']
-            # workload_id = req['workload_id']
+            workload_id = req['workload_id']
             workflow = req['request_metadata']['workflow']
             workflows = workflow.get_exact_workflows()
             existed_wps = core_workprogress.get_workprogresses(req_id)
@@ -77,6 +77,7 @@ class Clerk(BaseAgent):
             for wf in new_workflows:
                 primary_init_collection = wf.get_primary_initial_collection()
                 workprogress = {'request_id': req_id,
+                                'workload_id': workload_id,
                                 'scope': primary_init_collection['scope'],
                                 'name': primary_init_collection['name'],
                                 'priority': req['priority'],

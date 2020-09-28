@@ -256,17 +256,22 @@ class ATLASStageinWork(Work):
             p = processing
             rule_id = p['processing_metadata']['rule_id']
 
-            rucio_client = self.get_rucio_client()
-            rule = rucio_client.get_replication_rule(rule_id=rule_id)
-            # rule['state']
-
             replicases_status = {}
-            if rule['locks_ok_cnt'] > 0:
-                locks = rucio_client.list_replica_locks(rule_id=rule_id)
-                for lock in locks:
-                    scope_name = '%s:%s' % (lock['scope'], lock['name'])
-                    if lock['state'] == 'OK':
-                        replicases_status[scope_name] = ContentStatus.Available   # 'OK'
+            if rule_id:
+                if not isinstance(rule_id, (tuple, list)):
+                    rule_id = [rule_id]
+
+                rucio_client = self.get_rucio_client()
+                for rule_id_item in rule_id:
+                    rule = rucio_client.get_replication_rule(rule_id=rule_id_item)
+                    # rule['state']
+
+                    if rule['locks_ok_cnt'] > 0:
+                        locks = rucio_client.list_replica_locks(rule_id=rule_id_item)
+                        for lock in locks:
+                            scope_name = '%s:%s' % (lock['scope'], lock['name'])
+                            if lock['state'] == 'OK':
+                                replicases_status[scope_name] = ContentStatus.Available   # 'OK'
             return p, rule['state'], replicases_status
         except RucioRuleNotFound as ex:
             msg = "rule(%s) not found: %s" % (str(rule_id), str(ex))

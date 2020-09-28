@@ -155,6 +155,7 @@ class Workprogress(BASE, ModelBase):
     __tablename__ = 'workprogresses'
     workprogress_id = Column(BigInteger().with_variant(Integer, "sqlite"), Sequence('WORKPROGRESS_ID_SEQ', schema=DEFAULT_SCHEMA_NAME), primary_key=True)
     request_id = Column(BigInteger().with_variant(Integer, "sqlite"))
+    workload_id = Column(Integer())
     scope = Column(String(SCOPE_LENGTH))
     name = Column(String(NAME_LENGTH))
     # requester = Column(String(20))
@@ -186,6 +187,8 @@ class Transform(BASE, ModelBase):
     """Represents a transform"""
     __tablename__ = 'transforms'
     transform_id = Column(BigInteger().with_variant(Integer, "sqlite"), Sequence('TRANSFORM_ID_SEQ', schema=DEFAULT_SCHEMA_NAME), primary_key=True)
+    request_id = Column(BigInteger().with_variant(Integer, "sqlite"))
+    workload_id = Column(Integer())
     transform_type = Column(EnumWithValue(TransformType))
     transform_tag = Column(String(20))
     priority = Column(Integer())
@@ -224,6 +227,8 @@ class Processing(BASE, ModelBase):
     __tablename__ = 'processings'
     processing_id = Column(BigInteger().with_variant(Integer, "sqlite"), Sequence('PROCESSING_ID_SEQ', schema=DEFAULT_SCHEMA_NAME), primary_key=True)
     transform_id = Column(BigInteger().with_variant(Integer, "sqlite"))
+    request_id = Column(BigInteger().with_variant(Integer, "sqlite"))
+    workload_id = Column(Integer())
     status = Column(EnumWithValue(ProcessingStatus))
     substatus = Column(EnumWithValue(ProcessingStatus))
     locking = Column(EnumWithValue(ProcessingLocking))
@@ -251,6 +256,9 @@ class Collection(BASE, ModelBase):
     """Represents a collection"""
     __tablename__ = 'collections'
     coll_id = Column(BigInteger().with_variant(Integer, "sqlite"), Sequence('COLLECTION_ID_SEQ', schema=DEFAULT_SCHEMA_NAME), primary_key=True)
+    request_id = Column(BigInteger().with_variant(Integer, "sqlite"))
+    workload_id = Column(Integer())
+    transform_id = Column(BigInteger().with_variant(Integer, "sqlite"))
     coll_type = Column(EnumWithValue(CollectionType))
     transform_id = Column(BigInteger().with_variant(Integer, "sqlite"))
     relation_type = Column(EnumWithValue(CollectionRelationType))
@@ -290,6 +298,9 @@ class Content(BASE, ModelBase):
     content_id = Column(BigInteger().with_variant(Integer, "sqlite"), Sequence('CONTENT_ID_SEQ', schema=DEFAULT_SCHEMA_NAME), primary_key=True)
     transform_id = Column(BigInteger().with_variant(Integer, "sqlite"))
     coll_id = Column(BigInteger().with_variant(Integer, "sqlite"))
+    request_id = Column(BigInteger().with_variant(Integer, "sqlite"))
+    workload_id = Column(Integer())
+    transform_id = Column(BigInteger().with_variant(Integer, "sqlite"))
     map_id = Column(BigInteger().with_variant(Integer, "sqlite"), default=0)
     scope = Column(String(SCOPE_LENGTH))
     name = Column(String(NAME_LENGTH))

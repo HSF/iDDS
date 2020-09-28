@@ -67,6 +67,8 @@ class Marshaller(BaseAgent):
         transforms = []
         for work in works:
             transform = {'workprogress_id': workprogress['workprogress_id'],
+                         'request_id': workprogress['request_id'],
+                         'workload_id': workprogress['workload_id'],
                          'transform_type': work.get_work_type(),
                          'transform_tag': work.get_work_tag(),
                          'priority': workprogress['priority'],
@@ -147,6 +149,8 @@ class Marshaller(BaseAgent):
         new_transforms = []
         for work in works:
             new_transform = {'workprogress_id': workprogress['workprogress_id'],
+                             'request_id': workprogress['request_id'],
+                             'workload_id': workprogress['workload_id'],
                              'transform_type': work.get_work_type(),
                              'transform_tag': work.get_work_tag(),
                              'priority': workprogress['priority'],

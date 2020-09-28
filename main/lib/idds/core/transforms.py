@@ -26,11 +26,14 @@ from idds.orm import (transforms as orm_transforms,
 
 
 @transactional_session
-def add_transform(transform_type, transform_tag=None, priority=0, status=TransformStatus.New, locking=TransformLocking.Idle,
+def add_transform(request_id, workload_id, transform_type, transform_tag=None, priority=0,
+                  status=TransformStatus.New, locking=TransformLocking.Idle,
                   retries=0, expired_at=None, transform_metadata=None, workprogress_id=None, session=None):
     """
     Add a transform.
 
+    :param request_id: The request id.
+    :param workload_id: The workload id.
     :param transform_type: Transform type.
     :param transform_tag: Transform tag.
     :param priority: priority.
@@ -45,7 +48,8 @@ def add_transform(transform_type, transform_tag=None, priority=0, status=Transfo
 
     :returns: transform id.
     """
-    transform_id = orm_transforms.add_transform(transform_type=transform_type, transform_tag=transform_tag,
+    transform_id = orm_transforms.add_transform(request_id=request_id, workload_id=workload_id,
+                                                transform_type=transform_type, transform_tag=transform_tag,
                                                 priority=priority, status=status, locking=locking, retries=retries,
                                                 expired_at=expired_at, transform_metadata=transform_metadata,
                                                 workprogress_id=workprogress_id, session=session)
