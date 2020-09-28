@@ -254,35 +254,50 @@ class Transformer(BaseAgent):
 
     def get_message_type(self, transform_type, input_type='file'):
         if transform_type in [TransformType.StageIn, TransformType.StageIn.value]:
-            if input_type == 'collection':
+            if input_type == 'work':
+                msg_type_str = MessageTypeStr.StageInWork
+                msg_type = MessageType.StageInWork
+            elif input_type == 'collection':
                 msg_type_str = MessageTypeStr.StageInCollection
                 msg_type = MessageType.StageInCollection
             else:
                 msg_type_str = MessageTypeStr.StageInFile
                 msg_type = MessageType.StageInFile
         elif transform_type in [TransformType.ActiveLearning, TransformType.ActiveLearning.value]:
-            if input_type == 'collection':
+            if input_type == 'work':
+                msg_type_str = MessageTypeStr.ActiveLearningWork
+                msg_type = MessageType.ActiveLearningWork
+            elif input_type == 'collection':
                 msg_type_str = MessageTypeStr.ActiveLearningCollection
                 msg_type = MessageType.ActiveLearningCollection
             else:
                 msg_type_str = MessageTypeStr.ActiveLearningFile
                 msg_type = MessageType.ActiveLearningFile
         elif transform_type in [TransformType.HyperParameterOpt, TransformType.HyperParameterOpt.value]:
-            if input_type == 'collection':
+            if input_type == 'work':
+                msg_type_str = MessageTypeStr.HyperParameterOptWork
+                msg_type = MessageType.HyperParameterOptWork
+            elif input_type == 'collection':
                 msg_type_str = MessageTypeStr.HyperParameterOptCollection
                 msg_type = MessageType.HyperParameterOptCollection
             else:
                 msg_type_str = MessageTypeStr.HyperParameterOptFile
                 msg_type = MessageType.HyperParameterOptFile
         elif transform_type in [TransformType.Processing, TransformType.Processing.value]:
-            if input_type == 'collection':
+            if input_type == 'work':
+                msg_type_str = MessageTypeStr.ProcessingWork
+                msg_type = MessageType.ProcessingWork
+            elif input_type == 'collection':
                 msg_type_str = MessageTypeStr.ProcessingCollection
                 msg_type = MessageType.ProcessingCollection
             else:
                 msg_type_str = MessageTypeStr.ProcessingFile
                 msg_type = MessageType.ProcessingFile
         else:
-            if input_type == 'collection':
+            if input_type == 'work':
+                msg_type_str = MessageTypeStr.UnknownWork
+                msg_type = MessageType.UnknownWork
+            elif input_type == 'collection':
                 msg_type_str = MessageTypeStr.UnknownCollection
                 msg_type = MessageType.UnknownCollection
             else:
@@ -290,35 +305,67 @@ class Transformer(BaseAgent):
                 msg_type = MessageType.UnknownFile
         return msg_type, msg_type_str
 
-    def generate_file_message(self, transform, files):
-        if not files:
-            return []
-
-        files_message = []
-        for file in files:
-            file_message = {'scope': file['scope'],
-                            'name': file['name'],
-                            'path': file['path'],
-                            'status': file['status'].name}
-            files_message.append(file_message)
+    def generate_message(self, transform, work=None, collection=None, files=None, msg_type='file'):
+        if msg_type == 'work':
+            if not work:
+                return None
+        elif msg_type == 'collection':
+            if not collection:
+                return None
+            if not work:
+                work = transform['transform_metadata']['work']
+        else:
+            if not files:
+                return None
 
         request_id = transform['request_id']
         workload_id = transform['workload_id']
-        msg_type, msg_type_str = self.get_message_type(transform['transform_type'], input_type='file')
+        msg_type, msg_type_str = None, None
 
-        msg_content = {'msg_type': msg_type_str,
-                       'request_id': request_id,
-                       'workload_id': workload_id,
-                       'files': files_message}
-        file_msg_content = {'msg_type': msg_type,
-                            'status': MessageStatus.New,
-                            'source': MessageSource.Transformer,
-                            'request_id': request_id,
-                            'workload_id': workload_id,
-                            'transform_id': transform['transform_id'],
-                            'num_contents': len(files_message),
-                            'msg_content': msg_content}
-        return file_msg_content
+        if msg_type == 'work':
+            msg_type, msg_type_str = self.get_message_type(transform['transform_type'], input_type='work')
+            msg_content = {'msg_type': msg_type_str,
+                           'request_id': request_id,
+                           'workload_id': workload_id,
+                           'status': transform['status'],
+                           'output': work.get_output_data(),
+                           'error': work.get_terminated_msg()}
+            num_msg_content = 1
+        elif msg_type == 'collection':
+            msg_type, msg_type_str = self.get_message_type(transform['transform_type'], input_type='collection')
+            msg_content = {'msg_type': msg_type_str,
+                           'request_id': request_id,
+                           'workload_id': workload_id,
+                           'collections': [{'scope': collection['scope'],
+                                            'name': collection['name'],
+                                            'status': collection['status']}],
+                           'output': work.get_output_data(),
+                           'error': work.get_terminated_msg()}
+            num_msg_content = 1
+        else:
+            msg_type, msg_type_str = self.get_message_type(transform['transform_type'], input_type='file')
+            files_message = []
+            for file in files:
+                file_message = {'scope': file['scope'],
+                                'name': file['name'],
+                                'path': file['path'],
+                                'status': file['status'].name}
+                files_message.append(file_message)
+            msg_content = {'msg_type': msg_type_str,
+                           'request_id': request_id,
+                           'workload_id': workload_id,
+                           'files': files_message}
+            num_msg_content = len(files_message)
+
+        msg = {'msg_type': msg_type,
+               'status': MessageStatus.New,
+               'source': MessageSource.Transformer,
+               'request_id': request_id,
+               'workload_id': workload_id,
+               'transform_id': transform['transform_id'],
+               'num_contents': num_msg_content,
+               'msg_content': msg_content}
+        return msg
 
     def process_running_transform(self, transform):
         """
@@ -350,13 +397,13 @@ class Transformer(BaseAgent):
         # new_input_output_maps = work.get_new_input_output_maps()
         # new_contents = self.get_new_contents(new_input_output_maps)
 
-        file_msgs = []
+        msgs = []
         if new_contents:
-            file_msg = self.generate_file_message(transform, new_contents)
-            file_msgs.append(file_msg)
+            msg = self.generate_message(transform, files=new_contents, msg_type='file')
+            msgs.append(msg)
         if updated_contents_full:
-            file_msg = self.generate_file_message(transform, updated_contents_full)
-            file_msgs.append(file_msg)
+            msg = self.generate_message(transform, files=updated_contents_full, msg_type='file')
+            msgs.append(msg)
 
         # processing = self.get_processing(transform, input_colls, output_colls, log_colls, new_input_output_maps)
         processing = work.get_processing(new_input_output_maps)
@@ -382,22 +429,40 @@ class Transformer(BaseAgent):
         work.syn_work_status(registered_input_output_maps)
         if work.is_finished():
             transform['status'] = TransformStatus.Finished
+            msg = self.generate_message(transform, work=work, msg_type='work')
+            msgs.append(msg)
             for coll in output_collections:
                 coll['status'] = CollectionStatus.Closed
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msgs.append(msg)
             for coll in log_collections:
                 coll['status'] = CollectionStatus.Closed
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msgs.append(msg)
         elif work.is_subfinished():
             transform['status'] = TransformStatus.SubFinished
+            msg = self.generate_message(transform, work=work, msg_type='work')
+            msgs.append(msg)
             for coll in output_collections:
                 coll['status'] = CollectionStatus.SubClosed
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msgs.append(msg)
             for coll in log_collections:
                 coll['status'] = CollectionStatus.SubClosed
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msgs.append(msg)
         elif work.is_failed():
             transform['status'] = TransformStatus.Failed
+            msg = self.generate_message(transform, work=work, msg_type='work')
+            msgs.append(msg)
             for coll in output_collections:
                 coll['status'] = CollectionStatus.Failed
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msgs.append(msg)
             for coll in log_collections:
                 coll['status'] = CollectionStatus.Failed
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msgs.append(msg)
         else:
             transform['status'] = TransformStatus.Transforming
 
@@ -408,7 +473,7 @@ class Transformer(BaseAgent):
                'update_log_collections': copy.deepcopy(log_collections) if log_collections else log_collections,
                'new_contents': new_contents,
                'update_contents': update_contents,
-               'messages': file_msgs,
+               'messages': msgs,
                'new_processing': new_processing_model}
         return ret
 
