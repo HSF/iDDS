@@ -415,20 +415,6 @@ class Transformer(BaseAgent):
         # new_input_output_maps = work.get_new_input_output_maps()
         # new_contents = self.get_new_contents(new_input_output_maps)
 
-        msgs = []
-        if new_input_contents:
-            msg = self.generate_message(transform, files=new_input_contents, msg_type='file', relation_type='input')
-            msgs.append(msg)
-        if new_output_contents:
-            msg = self.generate_message(transform, files=new_output_contents, msg_type='file', relation_type='output')
-            msgs.append(msg)
-        if updated_input_contents_full:
-            msg = self.generate_message(transform, files=updated_input_contents_full, msg_type='file', relation_type='input')
-            msgs.append(msg)
-        if updated_output_contents_full:
-            msg = self.generate_message(transform, files=updated_output_contents_full, msg_type='file', relation_type='output')
-            msgs.append(msg)
-
         # processing = self.get_processing(transform, input_colls, output_colls, log_colls, new_input_output_maps)
         processing = work.get_processing(new_input_output_maps)
         new_processing, new_processing_model = None, None
@@ -447,6 +433,21 @@ class Transformer(BaseAgent):
         else:
             processing_model = core_processings.get_processing(processing_id=processing['processing_id'])
             work.set_processing_status(processing, processing_model['status'])
+            transform['workload_id'] = processing_model['workload_id']
+
+        msgs = []
+        if new_input_contents:
+            msg = self.generate_message(transform, files=new_input_contents, msg_type='file', relation_type='input')
+            msgs.append(msg)
+        if new_output_contents:
+            msg = self.generate_message(transform, files=new_output_contents, msg_type='file', relation_type='output')
+            msgs.append(msg)
+        if updated_input_contents_full:
+            msg = self.generate_message(transform, files=updated_input_contents_full, msg_type='file', relation_type='input')
+            msgs.append(msg)
+        if updated_output_contents_full:
+            msg = self.generate_message(transform, files=updated_output_contents_full, msg_type='file', relation_type='output')
+            msgs.append(msg)
 
         transform['locking'] = TransformLocking.Idle
         # status_statistics = work.get_status_statistics(registered_input_output_maps)

@@ -67,10 +67,13 @@ class Carrier(BaseAgent):
         # work = transform['transform_metadata']['work']
         work = processing['processing_metadata']['work']
         work.submit_processing(processing)
-        return {'processing_id': processing['processing_id'],
-                'status': ProcessingStatus.Submitted,
-                'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period),
-                'processing_metadata': processing['processing_metadata']}
+        ret = {'processing_id': processing['processing_id'],
+               'status': ProcessingStatus.Submitted,
+               'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period),
+               'processing_metadata': processing['processing_metadata']}
+        if processing['processing_metadata'] and 'workload_id' in processing['processing_metadata']:
+            ret['workload_id'] = processing['processing_metadata']['workload_id']
+        return ret
 
     def process_new_processings(self):
         ret = []

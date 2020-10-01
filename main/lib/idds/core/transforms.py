@@ -255,6 +255,7 @@ def add_transform_outputs(transform, input_collections=None, output_collections=
             work.set_processing_id(new_processing, processing_id)
         parameters = {'status': transform['status'],
                       'locking': transform['locking'],
+                      'workload_id': transform['workload_id'],
                       'transform_metadata': transform['transform_metadata']}
         orm_transforms.update_transform(transform_id=transform['transform_id'],
                                         parameters=parameters,
