@@ -20,6 +20,7 @@ import traceback
 import uuid
 import urllib
 import ssl
+import random
 
 from pandatools import Client
 
@@ -74,6 +75,10 @@ class DomaLSSTWork(Work):
         self.logger.setLevel(logging.DEBUG)
         self.task_name =task_name
 
+        #for test purpose
+        self.sequence = [0,2,4,1,3,5]
+        self.sequenceIndex = 0
+
 
     def my_condition(self):
         if self.is_finished():
@@ -123,7 +128,7 @@ class DomaLSSTWork(Work):
                 #coll['coll_metadata']['total_files'] = 1
                 coll['coll_metadata']['availability'] = 1
                 coll['coll_metadata']['events'] = 1
-                coll['coll_metadata']['is_open'] = True
+                coll['coll_metadata']['is_open'] = False
                 coll['coll_metadata']['run_number'] = 1
                 coll['coll_metadata']['did_type'] = 'DATASET'
                 coll['coll_metadata']['list_all_files'] = False
@@ -203,13 +208,12 @@ class DomaLSSTWork(Work):
         Get all input contents from DDM.
         """
         try:
-            files = self.check_dependencies()
             ret_files = []
             coll = self.collections[self.primary_input_collection]
-            for file in files:
+            for file in self.dependency_map:
                 ret_file = {'coll_id': coll['coll_id'],
                             'scope': coll['scope'],
-                            'name': file,  # or a different file name from the dataset name
+                            'name': file['name'],  # or a different file name from the dataset name
                             'bytes': 1,
                             'adler32': '12345678',
                             'min_id': 0,
@@ -273,14 +277,18 @@ class DomaLSSTWork(Work):
                 next_key += 1
         self.logger.debug("get_new_input_output_maps, new_input_output_maps: %s" % str(new_input_output_maps))
 
-        for index, _inputs in new_input_output_maps.items():
-            if len(_inputs['inputs']) > 0:
-                for item in self.dependency_map:
-                    if item["name"] == _inputs['inputs'][0]["name"]: item["submitted"] = True  #0 is used due to a single file pseudo input
+        # for index, _inputs in new_input_output_maps.items():
+        #     if len(_inputs['inputs']) > 0:
+        #         for item in self.dependency_map:
+        #             if item["name"] == _inputs['inputs'][0]["name"]: item["submitted"] = True  #0 is used due to a single file pseudo input
+        #
+        # if self.can_close():
+        #     self.collections[self.primary_input_collection]['coll_metadata']['is_open'] = False
+        #     self.collections[self.primary_input_collection]['status'] = CollectionStatus.Closed
 
-        if self.can_close():
-            self.collections[self.primary_input_collection]['coll_metadata']['is_open'] = False
-            self.collections[self.primary_input_collection]['status'] = CollectionStatus.Closed
+        self.collections[self.primary_input_collection]['coll_metadata']['is_open'] = False
+        self.collections[self.primary_input_collection]['status'] = CollectionStatus.Closed
+
 
         return new_input_output_maps
 
@@ -331,6 +339,9 @@ class DomaLSSTWork(Work):
         taskParamMap['coreCount'] = 1
         taskParamMap['skipScout'] = True
         taskParamMap['cloud'] = 'US'
+        taskParamMap['inputPreStaging'] = True
+        taskParamMap['prestagingRuleID'] = 123
+
         taskParamMap['jobParameters'] = [
             {'type': 'constant',
              'value': "echo ${IN/L}",  # noqa: E501
@@ -435,6 +446,15 @@ class DomaLSSTWork(Work):
 
         if processing:
             task_status, outputs_status = self.poll_panda_task(processing=processing)
+            #files = self.check_dependencies()
+            # for index, _inputs in new_input_output_maps.items():
+            #     if len(_inputs['inputs']) > 0:
+            #         for item in self.dependency_map:
+            #             if item["name"] == _inputs['inputs'][0]["name"]: item["submitted"] = True  #0 is used due to a single file pseudo input
+            #
+            # if self.can_close():
+            #     self.collections[self.primary_input_collection]['coll_metadata']['is_open'] = False
+            #     self.collections[self.primary_input_collection]['status'] = CollectionStatus.Closed
 
             self.logger.debug("poll_processing_updates, outputs_status: %s" % str(outputs_status))
             self.logger.debug("poll_processing_updates, task_status: %s" % str(task_status))
@@ -454,6 +474,13 @@ class DomaLSSTWork(Work):
                         content_substatus['finished'] += 1
                     else:
                         content_substatus['unfinished'] += 1
+
+                inputs = input_output_maps[map_id]['inputs']
+                if inputs[3]['substatus'] == ContentStatus.New:
+                    inputs[3]['substatus'] = ContentStatus.Available
+                    updated_content = {'content_id': inputs[3]['content_id'],
+                                       'substatus': ContentStatus.Available}
+                    updated_contents.append(updated_content)
 
             if task_status and task_status == 'done' and content_substatus['finished'] > 0 and content_substatus['unfinished'] == 0:
                 update_processing = {'processing_id': processing['processing_id'],

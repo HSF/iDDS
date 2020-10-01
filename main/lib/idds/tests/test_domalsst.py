@@ -48,7 +48,7 @@ def setup_workflow():
     taskN1.dependencies = [
         {"name": "00000"+str(k),
          "dependencies":[],
-         "submitted": False} for k in range(3)
+         "submitted": False} for k in range(6)
     ]
 
     taskN2 = LSSTTask()
@@ -117,8 +117,8 @@ def setup_workflow():
                          log_collections=[], dependency_map=taskN3.dependencies, task_name=taskN3.name)
 
     workflow = Workflow()
-    #workflow.add_work(work1)
-    workflow.add_work(work2)
+    workflow.add_work(work1)
+    #workflow.add_work(work2)
     #workflow.add_work(work3)
     return workflow
 
