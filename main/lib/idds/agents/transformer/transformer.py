@@ -330,30 +330,30 @@ class Transformer(BaseAgent):
 
         request_id = transform['request_id']
         workload_id = transform['workload_id']
-        msg_type, msg_type_str = None, None
+        i_msg_type, i_msg_type_str = None, None
 
         if msg_type == 'work':
-            msg_type, msg_type_str = self.get_message_type(transform['transform_type'], input_type='work')
-            msg_content = {'msg_type': msg_type_str,
+            i_msg_type, i_msg_type_str = self.get_message_type(transform['transform_type'], input_type='work')
+            msg_content = {'msg_type': i_msg_type_str,
                            'request_id': request_id,
                            'workload_id': workload_id,
-                           'status': transform['status'],
+                           'status': transform['status'].name,
                            'output': work.get_output_data(),
                            'error': work.get_terminated_msg()}
             num_msg_content = 1
         elif msg_type == 'collection':
-            msg_type, msg_type_str = self.get_message_type(transform['transform_type'], input_type='collection')
-            msg_content = {'msg_type': msg_type_str,
+            i_msg_type, i_msg_type_str = self.get_message_type(transform['transform_type'], input_type='collection')
+            msg_content = {'msg_type': i_msg_type_str,
                            'request_id': request_id,
                            'workload_id': workload_id,
                            'collections': [{'scope': collection['scope'],
                                             'name': collection['name'],
-                                            'status': collection['status']}],
+                                            'status': collection['status'].name}],
                            'output': work.get_output_data(),
                            'error': work.get_terminated_msg()}
             num_msg_content = 1
         else:
-            msg_type, msg_type_str = self.get_message_type(transform['transform_type'], input_type='file')
+            i_msg_type, i_msg_type_str = self.get_message_type(transform['transform_type'], input_type='file')
             files_message = []
             for file in files:
                 file_message = {'scope': file['scope'],
@@ -361,14 +361,14 @@ class Transformer(BaseAgent):
                                 'path': file['path'],
                                 'status': file['status'].name}
                 files_message.append(file_message)
-            msg_content = {'msg_type': msg_type_str,
+            msg_content = {'msg_type': i_msg_type_str,
                            'request_id': request_id,
                            'workload_id': workload_id,
                            'relation_type': relation_type,
                            'files': files_message}
             num_msg_content = len(files_message)
 
-        msg = {'msg_type': msg_type,
+        msg = {'msg_type': i_msg_type,
                'status': MessageStatus.New,
                'source': MessageSource.Transformer,
                'request_id': request_id,
