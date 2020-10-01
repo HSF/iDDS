@@ -63,7 +63,7 @@ class DomaLSSTWork(Work):
         """
 
         super(DomaLSSTWork, self).__init__(executable=executable, arguments=arguments,
-                                           parameters=parameters, setup=setup, work_type=TransformType.Workflow,
+                                           parameters=parameters, setup=setup, work_type=TransformType.StageIn,
                                            work_tag=work_tag, exec_type=exec_type, sandbox=sandbox, work_id=work_id,
                                            primary_input_collection=primary_input_collection,
                                            other_input_collections=other_input_collections,
@@ -376,7 +376,7 @@ class DomaLSSTWork(Work):
         else:
             task_id = self.submit_panda_task(processing)
             processing['processing_metadata']['task_id'] = task_id
-
+            processing['processing_metadata']['workload_id'] = task_id
 
     def download_payload_json(self, task_url):
         response = None
