@@ -152,6 +152,7 @@ class Transformer(BaseAgent):
                 if content['status'] != content['substatus']:
                     updated_content = {'content_id': content['content_id'],
                                        'status': content['substatus']}
+                    content['status'] = content['substatus']
                     updated_contents.append(updated_content)
                     updated_input_contents_full.append(content)
 
@@ -159,6 +160,7 @@ class Transformer(BaseAgent):
                 if content['status'] != content['substatus']:
                     updated_content = {'content_id': content['content_id'],
                                        'status': content['substatus']}
+                    content['status'] = content['substatus']
                     updated_contents.append(updated_content)
                     updated_output_contents_full.append(content)
         return updated_contents, updated_input_contents_full, updated_output_contents_full
