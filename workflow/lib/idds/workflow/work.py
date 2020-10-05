@@ -109,6 +109,7 @@ class Work(Base):
         self.processings = {}
         self.active_processings = []
         self.terminated_msg = ""
+        self.output_data = None
 
         self.status_statistics = {}
 
@@ -158,6 +159,12 @@ class Work(Base):
 
     def get_terminated_msg(self):
         return self.terminated_msg
+
+    def set_output_data(self, data):
+        self.output_data = data
+
+    def get_output_data(self):
+        return self.output_data
 
     def __eq__(self, obj):
         if self.work_id == obj.work_id:

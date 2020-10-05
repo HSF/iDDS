@@ -9,8 +9,7 @@
 # - Wen Guan, <wen.guan@cern.ch>, 2019
 
 
-from idds.common.constants import (Sections, TransformType,
-                                   MessageType, MessageStatus, MessageSource)
+from idds.common.constants import Sections
 from idds.common.plugin.plugin_base import PluginBase
 from idds.common.plugin.plugin_utils import load_plugins, load_plugin_sequence
 from idds.common.utils import setup_logging
@@ -72,46 +71,6 @@ class BaseAgent(TimerScheduler, PluginBase):
 
     def terminate(self):
         self.stop()
-
-    def generate_file_message(self, transform, files):
-        if not files:
-            return []
-
-        updated_files_message = []
-        for file in files:
-            updated_file_message = {'scope': file['scope'],
-                                    'name': file['name'],
-                                    'path': file['path'],
-                                    'status': file['status'].name}
-            updated_files_message.append(updated_file_message)
-
-        workload_id = None
-        if 'workload_id' in transform['transform_metadata']:
-            workload_id = transform['transform_metadata']['workload_id']
-
-        if transform['transform_type'] in [TransformType.StageIn, TransformType.StageIn.value]:
-            msg_type = 'file_stagein'
-            msg_type_c = MessageType.StageInFile
-        elif transform['transform_type'] in [TransformType.ActiveLearning, TransformType.ActiveLearning.value]:
-            msg_type = 'file_activelearning'
-            msg_type_c = MessageType.ActiveLearningFile
-        elif transform['transform_type'] in [TransformType.HyperParameterOpt, TransformType.HyperParameterOpt.value]:
-            msg_type = 'file_hyperparameteropt'
-            msg_type_c = MessageType.HyperParameterOptFile
-        else:
-            msg_type = 'file_unknown'
-            msg_type_c = MessageType.UnknownFile
-
-        msg_content = {'msg_type': msg_type,
-                       'workload_id': workload_id,
-                       'files': updated_files_message}
-        file_msg_content = {'msg_type': msg_type_c,
-                            'status': MessageStatus.New,
-                            'source': MessageSource.Carrier,
-                            'transform_id': transform['transform_id'],
-                            'num_contents': len(updated_files_message),
-                            'msg_content': msg_content}
-        return file_msg_content
 
 
 if __name__ == '__main__':

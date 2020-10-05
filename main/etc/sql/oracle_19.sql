@@ -286,6 +286,8 @@ CREATE TABLE MESSAGES
     substatus NUMBER(2),
     locking NUMBER(2),
     source NUMBER(2),
+    request_id NUMBER(12),
+    workload_id NUMBER(10),
     transform_id NUMBER(12),
     num_contents NUMBER(7),
     created_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)),

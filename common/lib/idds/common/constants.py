@@ -157,6 +157,7 @@ class TransformType(IDDSEnum):
     ActiveLearning = 3
     HyperParameterOpt = 4
     Derivation = 5
+    Processing = 6
     Other = 99
 
 
@@ -257,12 +258,37 @@ class ProcessingLocking(IDDSEnum):
 class MessageType(IDDSEnum):
     StageInFile = 0
     StageInCollection = 1
-    ActiveLearningFile = 2
-    ActiveLearningCollection = 3
-    HyperParameterOptFile = 4
-    HyperParameterOptCollection = 5
-    UnknownFile = 98
-    UnknownCollection = 99
+    StageInWork = 2
+    ActiveLearningFile = 3
+    ActiveLearningCollection = 4
+    ActiveLearningWork = 5
+    HyperParameterOptFile = 6
+    HyperParameterOptCollection = 7
+    HyperParameterOptWork = 8
+    ProcessingFile = 9
+    ProcessingCollection = 10
+    ProcessingWork = 11
+    UnknownFile = 97
+    UnknownCollection = 98
+    UnknownWork = 99
+
+
+class MessageTypeStr(IDDSEnum):
+    StageInFile = 'file_stagein'
+    StageInCollection = 'collection_stagein'
+    StageInWork = 'work_stagein'
+    ActiveLearningFile = 'file_activelearning'
+    ActiveLearningCollection = 'collection_activelearning'
+    ActiveLearningWork = 'work_activelearning'
+    HyperParameterOptFile = 'file_hyperparameteropt'
+    HyperParameterOptCollection = 'collection_hyperparameteropt'
+    HyperParameterOptWork = 'work_hyperparameteropt'
+    ProcessingFile = 'file_processing'
+    ProcessingCollection = 'collection_processing'
+    ProcessingWork = 'work_processing'
+    UnknownFile = 'file_unknown'
+    UnknownCollection = 'collection_unknown'
+    UnknownWork = 'work_unknown'
 
 
 class MessageStatus(IDDSEnum):
