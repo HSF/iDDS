@@ -401,7 +401,7 @@ class Transformer(BaseAgent):
                                                                                        log_coll_ids=log_coll_ids)
         # update_input_output_maps = self.get_update_input_output_maps(registered_input_output_maps)
         # update_contents, updated_contents_full = self.get_updated_contents(transform, registered_input_output_maps)
-        updated_contents, updated_input_contents_full, updated_output_contents_full = self.get_updated_contents(transform, registered_input_output_maps)
+        # updated_contents, updated_input_contents_full, updated_output_contents_full = self.get_updated_contents(transform, registered_input_output_maps)
 
         if work.has_new_inputs():
             new_input_output_maps = work.get_new_input_output_maps(registered_input_output_maps)
@@ -419,7 +419,7 @@ class Transformer(BaseAgent):
 
         # processing = self.get_processing(transform, input_colls, output_colls, log_colls, new_input_output_maps)
         processing = work.get_processing(new_input_output_maps)
-        new_processing, new_processing_model = None, None
+        new_processing, new_processing_model, processing_model = None, None, None
         if not processing:
             new_processing = work.create_processing(new_input_output_maps)
             new_processing_model = copy.deepcopy(new_processing)
@@ -435,7 +435,12 @@ class Transformer(BaseAgent):
         else:
             processing_model = core_processings.get_processing(processing_id=processing['processing_id'])
             work.set_processing_status(processing, processing_model['status'])
+            work.set_processing_output_metadata(processing, processing_model['output_metadata'])
             transform['workload_id'] = processing_model['workload_id']
+
+        updated_contents, updated_input_contents_full, updated_output_contents_full = [], [], []
+        if work.should_release_inputs(processing_model):
+            updated_contents, updated_input_contents_full, updated_output_contents_full = self.get_updated_contents(transform, registered_input_output_maps)
 
         msgs = []
         if new_input_contents:
