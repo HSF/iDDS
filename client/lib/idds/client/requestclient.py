@@ -17,6 +17,7 @@ import os
 
 from idds.client.base import BaseRestClient
 # from idds.common.constants import RequestType, RequestStatus
+from idds.client.utils import convert_old_req_2_workflow_req
 
 
 class RequestClient(BaseRestClient):
@@ -48,6 +49,10 @@ class RequestClient(BaseRestClient):
         url = self.build_url(self.host, path=path)
 
         data = kwargs
+
+        # to be compatible to support old requests
+        data = convert_old_req_2_workflow_req(data)
+
         # if 'request_type' in data and data['request_type'] and isinstance(data['request_type'], RequestType):
         #     data['request_type'] = data['request_type'].value
         # if 'status' in data and data['status'] and isinstance(data['status'], RequestStatus):
