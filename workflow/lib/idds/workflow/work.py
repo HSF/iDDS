@@ -47,6 +47,7 @@ class Work(Base):
                  work_tag=None, exec_type='local', sandbox=None, work_id=None,
                  primary_input_collection=None, other_input_collections=None,
                  output_collections=None, log_collections=None, release_inputs_after_submitting=False,
+                 agent_attributes=None,
                  logger=None):
         """
         Init a work/task/transformation.
@@ -115,6 +116,8 @@ class Work(Base):
 
         self.status_statistics = {}
 
+        self.agent_attributes = agent_attributes
+
     def get_class_name(self):
         return self.__class__.__name__
 
@@ -143,6 +146,9 @@ class Work(Base):
 
     # def set_workflow(self, workflow):
     #     self.workflow = workflow
+
+    def set_agent_attributes(self, attrs):
+        self.agent_attributes = attrs
 
     def set_workdir(self, workdir):
         self.workdir = workdir

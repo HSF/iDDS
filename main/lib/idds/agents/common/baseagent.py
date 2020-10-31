@@ -48,8 +48,27 @@ class BaseAgent(TimerScheduler, PluginBase):
         self.plugins = {}
         self.plugin_sequence = []
 
+        self.agent_attributes = self.load_agent_attributes(kwargs)
+
+        self.logger.info("agent_attributes: %s" % self.agent_attributes)
+
     def get_name(self):
         return self.name
+
+    def load_agent_attributes(self, kwargs):
+        rets = {}
+        for key in kwargs:
+            if '.' not in key:
+                continue
+            key_items = key.split('.')
+
+            ret_items = rets
+            for item in key_items:
+                if item not in ret_items:
+                    ret_items[item] = {}
+                ret_items = ret_items[item]
+            ret_items = kwargs[key]
+        return rets
 
     def load_plugin_sequence(self):
         self.plugin_sequence = load_plugin_sequence(self.config_section)

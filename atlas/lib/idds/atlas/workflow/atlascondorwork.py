@@ -20,6 +20,7 @@ class ATLASCondorWork(Work):
                  work_tag='hpo', exec_type='local', sandbox=None, work_id=None,
                  primary_input_collection=None, other_input_collections=None,
                  output_collections=None, log_collections=None,
+                 agent_attributes=None,
                  logger=None):
         """
         Init a work/task/transformation.
@@ -44,6 +45,7 @@ class ATLASCondorWork(Work):
                                               other_input_collections=other_input_collections,
                                               output_collections=output_collections,
                                               log_collections=log_collections,
+                                              agent_attributes=agent_attributes,
                                               logger=logger)
 
     def get_long_id(self, processing):
