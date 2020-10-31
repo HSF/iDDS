@@ -338,6 +338,9 @@ class Content(BASE, ModelBase):
 class Health(BASE, ModelBase):
     """Represents the status of the running agents"""
     __tablename__ = 'health'
+    health_id = Column(BigInteger().with_variant(Integer, "sqlite"),
+                       Sequence('HEALTH_ID_SEQ', schema=DEFAULT_SCHEMA_NAME),
+                       primary_key=True)
     agent = Column(String(30))
     hostname = Column(String(127))
     pid = Column(Integer, autoincrement=False)
@@ -346,7 +349,8 @@ class Health(BASE, ModelBase):
     payload = Column(String(255))
     created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow)
     updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
-    _table_args = (PrimaryKeyConstraint('agent', 'hostname', 'pid', 'thread_id', name='HEALTH_PK'), )
+    _table_args = (PrimaryKeyConstraint('health_id', name='HEALTH_PK'),
+                   UniqueConstraint('agent', 'hostname', 'pid', 'thread_id', name='HEALTH_UK'))
 
 
 class Message(BASE, ModelBase):
@@ -376,7 +380,7 @@ def register_models(engine):
     Creates database tables for all models with the given engine
     """
 
-    models = (Request, Workprogress, Transform, Workprogress2transform, Processing, Collection, Content, Health)
+    models = (Request, Workprogress, Transform, Workprogress2transform, Processing, Collection, Content, Health, Message)
 
     for model in models:
         model.metadata.create_all(engine)   # pylint: disable=maybe-no-member
@@ -387,7 +391,7 @@ def unregister_models(engine):
     Drops database tables for all models with the given engine
     """
 
-    models = (Request, Workprogress, Transform, Workprogress2transform, Processing, Collection, Content, Health)
+    models = (Request, Workprogress, Transform, Workprogress2transform, Processing, Collection, Content, Health, Message)
 
     for model in models:
         model.metadata.drop_all(engine)   # pylint: disable=maybe-no-member

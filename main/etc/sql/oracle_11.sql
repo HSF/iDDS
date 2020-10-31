@@ -405,8 +405,10 @@ CREATE OR REPLACE TRIGGER TRIG_MESSAGE_ID
 
 
 --- health
+CREATE SEQUENCE HEALTH_ID_SEQ MINVALUE 1 INCREMENT BY 1 START WITH 1 NOCACHE NOORDER NOCYCLE;
 CREATE TABLE HEALTH
 (
+    health_id NUMBER(12),
     agent VARCHAR2(30),
     hostname VARCHAR2(127),
     pid Number(12),
@@ -415,9 +417,27 @@ CREATE TABLE HEALTH
     payload VARCHAR2(255),
     created_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)),
     updated_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)),
-    CONSTRAINT HEALTH_PK PRIMARY KEY (agent, hostname, pid, thread_id) -- USING INDEX LOCAL,  
+    CONSTRAINT HEALTH_PK PRIMARY KEY (health_id), -- USING INDEX LOCAL,  
+    CONSTRAINT HEALTH_UQ UNIQUE (agent, hostname, pid, thread_id) -- USING INDEX LOCAL
 );
 
+CREATE OR REPLACE TRIGGER TRIG_HEALTH_ID
+    BEFORE INSERT
+    ON HEALTH
+    FOR EACH ROW
+    BEGIN
+        :NEW.health_id := HEALTH_ID_SEQ.NEXTVAL ;
+    END;
+ /
+
+
+SELECT cols.table_name, cols.column_name, cols.position, cons.status, cons.owner
+FROM all_constraints cons, all_cons_columns cols
+WHERE cols.table_name = 'HEALTH'
+AND cons.constraint_type = 'P'
+AND cons.constraint_name = cols.constraint_name
+AND cons.owner = cols.owner
+ORDER BY cols.table_name, cols.position;
 
 
 select r.request_id, r.scope, r.name, r.status, tr.transform_id, tr.transform_status, tr.in_status, tr.in_total_files, tr.in_processed_files, tr.out_status, tr.out_total_files, tr.out_processed_files
