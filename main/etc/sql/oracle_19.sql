@@ -6,6 +6,18 @@ DROP SEQUENCE PROCESSING_ID_SEQ;
 DROP SEQUENCE COLLECTION_ID_SEQ;
 DROP SEQUENCE CONTENT_ID_SEQ;
 
+delete from HEALTH;
+delete from MESSAGES;
+delete from CONTENTS;
+delete from REQ2WORKLOAD;
+delete from REQ2TRANSFORMS;
+delete from WP2TRANSFORMS;
+delete from WORKPROGRESSES;
+delete from PROCESSINGS;
+delete from COLLECTIONS;
+delete from TRANSFORMS;
+delete from REQUESTS;
+
 Drop table HEALTH purge;
 DROP table MESSAGES purge;
 DROP table CONTENTS purge;
