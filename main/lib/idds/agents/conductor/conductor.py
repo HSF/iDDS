@@ -84,7 +84,13 @@ class Conductor(BaseAgent):
             self.load_plugins()
 
             self.start_notifier()
+
+            self.add_health_message_task()
+
             while not self.graceful_stop.is_set():
+                # execute timer task
+                self.execute_once()
+
                 try:
                     messages = self.get_messages()
                     for message in messages:
