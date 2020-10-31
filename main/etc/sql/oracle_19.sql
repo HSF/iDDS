@@ -6,7 +6,7 @@ DROP SEQUENCE PROCESSING_ID_SEQ;
 DROP SEQUENCE COLLECTION_ID_SEQ;
 DROP SEQUENCE CONTENT_ID_SEQ;
 
-
+Drop table HEALTH purge;
 DROP table MESSAGES purge;
 DROP table CONTENTS purge;
 DROP table REQ2WORKLOAD purge;
@@ -294,4 +294,19 @@ CREATE TABLE MESSAGES
     updated_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)),
     msg_content CLOB constraint MSG_CONTENT_ENSURE_JSON CHECK(msg_content IS JSON(LAX)),
     CONSTRAINT MESSAGES_PK PRIMARY KEY (msg_id) -- USING INDEX LOCAL,  
+);
+
+
+--- health
+CREATE TABLE HEALTH
+(
+    agent VARCHAR2(30),
+    hostname VARCHAR2(127),
+    pid Number(12),
+    thread_id Number(12),
+    thread_name VARCHAR2(64),
+    payload VARCHAR2(255,
+    created_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)),
+    updated_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)),
+    CONSTRAINT HEALTH_PK PRIMARY KEY (agent, hostname, pid, thread_id) -- USING INDEX LOCAL,  
 );
