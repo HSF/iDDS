@@ -561,6 +561,8 @@ class Transformer(BaseAgent):
 
             self.load_plugins()
 
+            self.add_default_tasks()
+
             task = self.create_task(task_func=self.get_new_transforms, task_output_queue=self.new_task_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
             self.add_task(task)
             task = self.create_task(task_func=self.process_new_transforms, task_output_queue=self.new_output_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)

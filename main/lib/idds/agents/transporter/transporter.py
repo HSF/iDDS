@@ -398,6 +398,8 @@ class Transporter(BaseAgent):
             self.load_plugins()
             self.init()
 
+            self.add_default_tasks()
+
             task = self.create_task(task_func=self.get_new_input_collections, task_output_queue=self.new_input_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
             self.add_task(task)
             task = self.create_task(task_func=self.process_input_collections, task_output_queue=self.processed_input_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
