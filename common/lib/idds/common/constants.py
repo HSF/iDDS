@@ -268,6 +268,7 @@ class MessageType(IDDSEnum):
     ProcessingFile = 9
     ProcessingCollection = 10
     ProcessingWork = 11
+    HealthHeartbeat = 12
     UnknownFile = 97
     UnknownCollection = 98
     UnknownWork = 99
@@ -286,6 +287,7 @@ class MessageTypeStr(IDDSEnum):
     ProcessingFile = 'file_processing'
     ProcessingCollection = 'collection_processing'
     ProcessingWork = 'work_processing'
+    HealthHeartbeat = 'health_heartbeat'
     UnknownFile = 'file_unknown'
     UnknownCollection = 'collection_unknown'
     UnknownWork = 'work_unknown'
