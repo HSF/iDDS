@@ -108,7 +108,7 @@ def get_transform_ids(workprogress_id, session=None):
 
 
 @read_session
-def get_transforms(workprogress_id, to_json=False, session=None):
+def get_transforms(workprogress_id=None, to_json=False, session=None):
     """
     Get transforms or raise a NoObject exception.
 
