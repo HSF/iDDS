@@ -10,14 +10,14 @@
 
 import os
 
-from idds.common.constants import (TransformType, ProcessingStatus)
+from idds.common.constants import (ProcessingStatus)
 from idds.common.utils import run_command
 from idds.workflow.work import Work
 
 
 class ATLASCondorWork(Work):
     def __init__(self, executable=None, arguments=None, parameters=None, setup=None,
-                 work_tag='hpo', exec_type='local', sandbox=None, work_id=None,
+                 work_type=None, work_tag='hpo', exec_type='local', sandbox=None, work_id=None,
                  primary_input_collection=None, other_input_collections=None,
                  output_collections=None, log_collections=None,
                  agent_attributes=None,
@@ -39,7 +39,7 @@ class ATLASCondorWork(Work):
         # :param workflow: The workflow the current work belongs to.
         """
         super(ATLASCondorWork, self).__init__(executable=executable, arguments=arguments,
-                                              parameters=parameters, setup=setup, work_type=TransformType.HyperParameterOpt,
+                                              parameters=parameters, setup=setup, work_type=work_type,
                                               exec_type=exec_type, sandbox=sandbox, work_id=work_id,
                                               primary_input_collection=primary_input_collection,
                                               other_input_collections=other_input_collections,

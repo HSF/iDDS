@@ -172,7 +172,7 @@ class ATLASHPOWork(ATLASCondorWork):
             # call external processing to generate points
             points = self.generate_points()
 
-            for point in range(points):
+            for point in points:
                 ret_file = {'coll_id': coll['coll_id'],
                             'scope': coll['scope'],
                             'name': str(self.point_index),
