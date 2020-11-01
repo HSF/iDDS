@@ -345,7 +345,7 @@ class Health(BASE, ModelBase):
     hostname = Column(String(127))
     pid = Column(Integer, autoincrement=False)
     thread_id = Column(BigInteger, autoincrement=False)
-    thread_name = Column(String(63))
+    thread_name = Column(String(255))
     payload = Column(String(255))
     created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow)
     updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
