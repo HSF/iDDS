@@ -27,9 +27,9 @@ def convert_stagein_request_metadata_to_workflow(scope, name, workload_id, reque
     """
     # 'request_metadata': {'workload_id': '20776840', 'max_waiting_time': 3600, 'src_rse': 'NDGF-T1_DATATAPE', 'dest_rse': 'NDGF-T1_DATADISK', 'rule_id': '236e4bf87e11490291e3259b14724e30'}  # noqa: E501
 
-    from idds.atlas.workflow.atlasstageinwork import ATLASStageInWork
+    from idds.atlas.workflow.atlasstageinwork import ATLASStageinWork
 
-    work = ATLASStageInWork(executable=None, arguments=None, parameters=None, setup=None,
+    work = ATLASStageinWork(executable=None, arguments=None, parameters=None, setup=None,
                             exec_type='local', sandbox=None,
                             primary_input_collection={'scope': scope, 'name': name},
                             other_input_collections=None,
@@ -86,6 +86,7 @@ def convert_old_req_2_workflow_req(data):
     if data['request_type'] == RequestType.Workflow:
         return data
 
+    workload_id = None
     if 'workload_id' in data and data['workload_id']:
         workload_id = data['workload_id']
     elif 'workload_id' in data['request_metadata'] and data['request_metadata']['workload_id']:
@@ -102,8 +103,15 @@ def convert_old_req_2_workflow_req(data):
                                     'workflow': wf}
         return data
     if data['request_type'] == RequestType.HyperParameterOpt:
-        wf = convert_hpo_request_metadata_to_workflow(data['scope'], data['name'], workload_id,
+        wf = convert_hpo_request_metadata_to_workflow(data['scope'] if 'scope' in data else None,
+                                                      data['name'] if 'name' in data else None,
+                                                      workload_id,
                                                       data['request_metadata'])
+        primary_init_work = wf.get_primary_initial_collection()
+        if primary_init_work:
+            data['scope'] = primary_init_work['scope']
+            data['name'] = primary_init_work['name']
+
         data['request_type'] = RequestType.Workflow
         data['transform_tag'] = 'workflow'
         data['status'] = RequestStatus.New
