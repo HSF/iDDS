@@ -121,7 +121,7 @@ class BaseAgent(TimerScheduler, PluginBase):
     def generate_health_messages(self):
         core_health.clean_health(older_than=self.heartbeat_delay * 2)
         items = core_health.retrieve_health_items()
-        msg_content = {'msg_type': MessageTypeStr.HealthHeartbeat,
+        msg_content = {'msg_type': MessageTypeStr.HealthHeartbeat.value,
                        'agents': items}
         num_msg_content = len(items)
 
