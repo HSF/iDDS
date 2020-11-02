@@ -20,9 +20,11 @@ from idds.common import exceptions
 from idds.common.constants import (TransformType, CollectionType, CollectionStatus,
                                    ContentStatus, ContentType,
                                    ProcessingStatus, WorkStatus)
-# from idds.common.utils import run_command
+from idds.common.utils import run_command
+from idds.common.utils import replace_parameters_with_values
 # from idds.workflow.work import Work
 from idds.atlas.workflow.atlascondorwork import ATLASCondorWork
+from idds.core import (catalog as core_catalog)
 
 
 class ATLASHPOWork(ATLASCondorWork):
@@ -88,6 +90,7 @@ class ATLASHPOWork(ATLASCondorWork):
         self.initial_points = initial_points
         self.max_points = max_points
         self.num_points_per_iteration = num_points_per_iteration
+        self.unfinished_points = 0
 
         self.input_json = None
         self.output_json = None
@@ -100,6 +103,28 @@ class ATLASHPOWork(ATLASCondorWork):
         if not self.num_points_per_iteration or self.num_points_per_iteration < 0:
             raise exceptions.IDDSException("num_points_per_iteration must be integer bigger than 0")
         self.num_points_per_iteration = int(self.num_points_per_iteration)
+
+        if not self.method and self.executable and 'docker' in self.executable:
+            self.method = 'docker'
+
+        if self.agent_attributes and 'atlashpowork' in self.agent_attributes:
+            self.agent_attributes = self.agent_attributes['atlashpowork']
+        # self.logger.info("agent_attributes: %s" % self.agent_attributes)
+
+        if self.agent_attributes and 'workdir' in self.agent_attributes and self.agent_attributes['workdir']:
+            self.set_workdir(self.agent_attributes['workdir'])
+        # self.logger.info("workdir: %s" % self.get_workdir())
+
+    def set_agent_attributes(self, attrs):
+        self.agent_attributes = attrs
+
+        if self.agent_attributes and 'atlashpowork' in self.agent_attributes:
+            self.agent_attributes = self.agent_attributes['atlashpowork']
+        self.logger.info("agent_attributes: %s" % self.agent_attributes)
+
+        if self.agent_attributes and 'workdir' in self.agent_attributes and self.agent_attributes['workdir']:
+            self.set_workdir(self.agent_attributes['workdir'])
+        self.logger.info("workdir: %s" % self.get_workdir())
 
     ####### functions for transformer ########   # noqa E266
     ######################################       # noqa E266
@@ -163,6 +188,9 @@ class ATLASHPOWork(ATLASCondorWork):
             if self.terminated:
                 return []
 
+            if self.unfinished_points > 0:
+                return []
+
             ret_files = []
             coll = self.collections[self.primary_input_collection]
 
@@ -171,7 +199,9 @@ class ATLASHPOWork(ATLASCondorWork):
 
             # call external processing to generate points
             points = self.generate_points()
+            self.logger.info("points generated: %s" % str(points))
 
+            loss = None
             for point in points:
                 ret_file = {'coll_id': coll['coll_id'],
                             'scope': coll['scope'],
@@ -180,7 +210,7 @@ class ATLASHPOWork(ATLASCondorWork):
                             'adler32': None,
                             'min_id': 0,
                             'max_id': 0,
-                            'path': json.dumps(point),
+                            'path': json.dumps((point, loss)),
                             'content_type': ContentType.File,
                             'content_metadata': {'events': 0}}
                 ret_files.append(ret_file)
@@ -204,12 +234,23 @@ class ATLASHPOWork(ATLASCondorWork):
             ret.append(primary_input)
         return ret
 
+    def get_unfinished_points(self, mapped_input_output_maps):
+        counts = 0
+        for map_id in mapped_input_output_maps:
+            outputs = mapped_input_output_maps[map_id]['outputs']
+
+            for op in outputs:
+                if op['status'] in [ContentStatus.New]:
+                    counts += 1
+        return counts
+
     def get_new_input_output_maps(self, mapped_input_output_maps={}):
         """
         New inputs which are not yet mapped to outputs.
 
         :param mapped_input_output_maps: Inputs that are already mapped.
         """
+        self.unfinished_points = 0
         inputs = self.get_input_contents()
         mapped_inputs = self.get_mapped_inputs(mapped_input_output_maps)
         mapped_inputs_scope_name = [ip['scope'] + ":" + ip['name'] for ip in mapped_inputs]
@@ -238,6 +279,9 @@ class ATLASHPOWork(ATLASCondorWork):
                                                    'outputs': [out_ip]}
                 next_key += 1
 
+        unfinished_mapped = self.get_unfinished_points(mapped_input_output_maps)
+        self.unfinished_points = unfinished_mapped + len(new_inputs)
+
         return new_input_output_maps
 
     def generate_points(self):
@@ -245,15 +289,19 @@ class ATLASHPOWork(ATLASCondorWork):
         if not active_processing:
             if self.points_to_generate > 0:
                 active_processing = self.create_processing(None)
-                self.terminated = True
-                self.set_terminated_msg("Failed to create processing")
-                return []
+                if active_processing:
+                    return []
+                else:
+                    self.terminated = True
+                    self.set_terminated_msg("Failed to create processing")
+                    return []
             else:
                 self.terminated = True
                 self.set_terminated_msg("Number of points is enough(points_to_generate: %s)" % self.points_to_generate)
                 return []
 
         if self.is_processing_terminated(active_processing):
+            self.logger.info("processing terminated: %s" % active_processing)
             self.reap_processing(active_processing)
             output_metadata = active_processing['output_metadata']
             if output_metadata:
@@ -312,15 +360,21 @@ class ATLASHPOWork(ATLASCondorWork):
     ####### functions for carrier ########     # noqa E266
     ######################################     # noqa E266
 
-    def generate_submit_script_nevergrad(self, processing):
+    def generate_processing_script_nevergrad(self, processing):
         executable = self.agent_attributes['nevergrad']['executable']
         arguments = self.agent_attributes['nevergrad']['arguments']
+
+        param_values = {'MAX_POINTS': self.max_points,
+                        'NUM_POINTS': self.points_to_generate,
+                        'IN': self.input_json,
+                        'OUT': self.output_json}
+        arguments = replace_parameters_with_values(arguments, param_values)
 
         script = "#!/bin/bash\n\n"
         script += "executable=%s\n" % os.path.basename(executable)
         script += "arguments='%s'\n" % str(arguments)
         script += "input_json=%s\n" % str(self.input_json)
-        script += "output_json=%s\n" % str(self.agent_attributes['nevergrad']['output_json'])
+        script += "output_json=%s\n" % str(self.output_json)
         script += "\n"
 
         script += "env\n"
@@ -331,9 +385,8 @@ class ATLASHPOWork(ATLASCondorWork):
         script += "id\n"
         script += "\n"
 
-        script += 'chmod +x %s\n' % os.path.basename(executable)
         script += "echo '%s' '%s'\n" % (os.path.basename(executable), str(arguments))
-        script += './%s %s\n' % (os.path.basename(executable), str(arguments))
+        script += '%s %s\n' % (os.path.basename(executable), str(arguments))
 
         script += '\n'
 
@@ -342,14 +395,15 @@ class ATLASHPOWork(ATLASCondorWork):
         script_name = os.path.join(self.get_working_dir(processing), script_name)
         with open(script_name, 'w') as f:
             f.write(script)
+        run_command("chmod +x %s" % script_name)
         return script_name
 
-    def generate_submit_script_container(self, processing):
+    def generate_processing_script_container(self, processing):
         script = "#!/bin/bash\n\n"
         script += "executable=%s\n" % str(self.executable)
         script += "arguments=%s\n" % str(self.arguments)
         script += "input_json=%s\n" % str(self.input_json)
-        script += "output_json=%s\n" % str(self.agent_attributes['nevergrad']['output_json'])
+        script += "output_json=%s\n" % str(self.output_json)
         script += "\n"
 
         script += "env\n"
@@ -370,9 +424,10 @@ class ATLASHPOWork(ATLASCondorWork):
         script_name = os.path.join(self.get_working_dir(processing), script_name)
         with open(script_name, 'w') as f:
             f.write(script)
+        run_command("chmod +x %s" % script_name)
         return script_name
 
-    def generate_submit_script_sandbox(self, processing):
+    def generate_processing_script_sandbox(self, processing):
         script = "#!/bin/bash\n\n"
         script += "sandbox=%s\n" % str(self.sandbox)
         script += "executable=%s\n" % str(self.executable)
@@ -404,7 +459,38 @@ class ATLASHPOWork(ATLASCondorWork):
         script_name = os.path.join(self.get_working_dir(processing), script_name)
         with open(script_name, 'w') as f:
             f.write(script)
+        run_command("chmod +x %s" % script_name)
         return script_name
+
+    def generate_input_json(self, processing):
+        try:
+            output_collection = self.get_output_collections()[0]
+            contents = core_catalog.get_contents_by_coll_id_status(coll_id=output_collection['coll_id'])
+            points = []
+            for content in contents:
+                # point = content['content_metadata']['point']
+                point = json.loads(content['path'])
+                points.append(point)
+
+            job_dir = self.get_working_dir(processing)
+            if 'input_json' in self.agent_attributes and self.agent_attributes['input_json']:
+                input_json = self.agent_attributes['input_json']
+            else:
+                input_json = 'idds_input.json'
+            opt_points = {'points': points, 'opt_space': self.opt_space}
+            with open(os.path.join(job_dir, input_json), 'w') as f:
+                json.dump(opt_points, f)
+            return input_json
+        except Exception as e:
+            raise Exception("Failed to generate idds inputs for HPO: %s" % str(e))
+
+    def get_output_json(self, processing):
+        # job_dir = self.get_working_dir(processing)
+        if 'output_json' in self.agent_attributes and self.agent_attributes['output_json']:
+            output_json = self.agent_attributes['output_json']
+        else:
+            output_json = 'idds_output.json'
+        return output_json
 
     def generate_processing_script(self, processing):
         if not self.method:
@@ -418,11 +504,14 @@ class ATLASHPOWork(ATLASCondorWork):
         self.output_json = self.get_output_json(processing)
 
         if self.method == 'nevergrad':
-            return self.generate_processing_script_nevergrad(processing)
-        elif self.method == 'container':
-            return self.generate_processing_script_container(processing)
+            script_name = self.generate_processing_script_nevergrad(processing)
+            return script_name, None
+        elif self.method in ['container', 'docker']:
+            script_name = self.generate_processing_script_container(processing)
+            return script_name, None
         elif self.method == 'sandbox':
-            return self.generate_processing_script_sandbox(processing)
+            script_name = self.generate_processing_script_sandbox(processing)
+            return script_name, None
         else:
             err_msg = "Processing %s not supported HPO method: %s" % (processing['processing_id'], self.method)
             self.logger.error(err_msg)
@@ -440,20 +529,20 @@ class ATLASHPOWork(ATLASCondorWork):
         if 'job_id' in processing['processing_metadata']:
             pass
         else:
-            job_id = self.submit_condor_processing(processing)
+            job_id, errors = self.submit_condor_processing(processing)
             processing['processing_metadata']['job_id'] = job_id
+            processing['processing_metadata']['errors'] = errors
 
     def parse_processing_outputs(self, processing):
         request_id = processing['request_id']
         workload_id = processing['workload_id']
         processing_id = processing['processing_id']
-        long_id = '%s_%s_%s' % (request_id, workload_id, processing_id)
 
         if not self.output_json:
             return None, 'Request(%s)_workload(%s)_processing(%s) output_json(%s) is not defined' % (request_id, workload_id,
                                                                                                      processing_id, self.output_json)
 
-        job_dir = self.get_job_dir(long_id)
+        job_dir = self.get_working_dir(processing)
         full_output_json = os.path.join(job_dir, self.output_json)
         if not os.path.exists(full_output_json):
             return None, '%s is not created' % str(full_output_json)
@@ -467,7 +556,7 @@ class ATLASHPOWork(ATLASCondorWork):
                 return None, 'Failed to load the content of %s: %s' % (str(full_output_json), str(ex))
 
     def poll_processing(self, processing):
-        job_status, job_err_msg = self.poll_condor_job_status(processing['processing_id'], processing['processing_metadata']['job_id'])
+        job_status, job_err_msg = self.poll_condor_job_status(processing, processing['processing_metadata']['job_id'])
         processing_outputs = None
         if job_status in [ProcessingStatus.Finished]:
             job_outputs, parser_errors = self.parse_processing_outputs(processing)
