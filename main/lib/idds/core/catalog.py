@@ -301,7 +301,10 @@ def get_contents(coll_scope=None, coll_name=None, request_id=None, workload_id=N
                                   relation_type=relation_type, to_json=to_json, session=session)
 
     coll_ids = [coll['coll_id'] for coll in collections]
-    rets = orm_contents.get_contents(coll_id=coll_ids, status=status, to_json=to_json, session=session)
+    if coll_ids:
+        rets = orm_contents.get_contents(coll_id=coll_ids, status=status, to_json=to_json, session=session)
+    else:
+        rets = []
     return rets
 
 

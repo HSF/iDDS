@@ -250,7 +250,9 @@ class ATLASHPOWork(ATLASCondorWork):
 
         :param mapped_input_output_maps: Inputs that are already mapped.
         """
-        self.unfinished_points = 0
+        unfinished_mapped = self.get_unfinished_points(mapped_input_output_maps)
+        self.unfinished_points = unfinished_mapped
+
         inputs = self.get_input_contents()
         mapped_inputs = self.get_mapped_inputs(mapped_input_output_maps)
         mapped_inputs_scope_name = [ip['scope'] + ":" + ip['name'] for ip in mapped_inputs]
@@ -279,8 +281,7 @@ class ATLASHPOWork(ATLASCondorWork):
                                                    'outputs': [out_ip]}
                 next_key += 1
 
-        unfinished_mapped = self.get_unfinished_points(mapped_input_output_maps)
-        self.unfinished_points = unfinished_mapped + len(new_inputs)
+        self.unfinished_points = self.unfinished_points + len(new_inputs)
 
         return new_input_output_maps
 
