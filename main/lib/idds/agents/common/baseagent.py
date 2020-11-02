@@ -63,11 +63,11 @@ class BaseAgent(TimerScheduler, PluginBase):
             key_items = key.split('.')
 
             ret_items = rets
-            for item in key_items:
+            for item in key_items[:-1]:
                 if item not in ret_items:
                     ret_items[item] = {}
                 ret_items = ret_items[item]
-            ret_items = kwargs[key]
+            ret_items[key_items[-1]] = kwargs[key]
         return rets
 
     def load_plugin_sequence(self):
