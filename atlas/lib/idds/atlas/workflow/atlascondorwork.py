@@ -175,22 +175,22 @@ class ATLASCondorWork(Work):
         # 4 Completed      C
         # 5 Held           H
         # 6 Submission_err E
-        cmd = "condor_q -format '%s' ClusterId  -format ' %s' Processing_id -format ' %s' JobStatus -format ' %s' Iwd -format ' %s' Out -format ' %s' Err " + str(job_id)
+        cmd = "condor_q -format '%s' ClusterId  -format ' %s' Processing_id -format ' %s' JobStatus -format ' %s' Iwd -format ' %s' Cmd -format ' %s' Err " + str(job_id)
         status, output, error = run_command(cmd)
         self.logger.info("poll job status: %s" % cmd)
         self.logger.info("status: %s, output: %s, error: %s" % (status, output, error))
         if status == 0 and len(output) == 0:
-            cmd = "condor_history -format '%s' ClusterId  -format ' %s' Processing_id -format ' %s' JobStatus -format ' %s' Iwd -format ' %s' Out -format ' %s' Err " + str(job_id)
+            cmd = "condor_history -format '%s' ClusterId  -format ' %s' Processing_id -format ' %s' JobStatus -format ' %s' Iwd -format ' %s' Cmd -format ' %s' Err " + str(job_id)
             status, output, error = run_command(cmd)
             self.logger.info("poll job status: %s" % cmd)
             self.logger.info("status: %s, output: %s, error: %s" % (status, output, error))
 
         ret_err = ''
-        job_out_msg, job_err_msg = '', ''
+        job_cmd_msg, job_err_msg = '', ''
         if status == 0:
             lines = output.split('\n')
             for line in lines:
-                c_job_id, c_processing_id, c_job_status, job_workdir, job_out, job_err = line.split(' ')
+                c_job_id, c_processing_id, c_job_status, job_workdir, job_cmd, job_err = line.split(' ')
                 if str(c_job_id) != str(job_id):
                     continue
 
@@ -215,8 +215,8 @@ class ATLASCondorWork(Work):
                         final_job_status = ProcessingStatus.Failed
 
                     if final_job_status in [ProcessingStatus.Failed]:
-                        job_out_msg = self.get_job_err_message(job_workdir, job_out)
-                        job_out_msg = job_out_msg[:500]
+                        job_cmd_msg = self.get_job_err_message(job_workdir, job_cmd)
+                        job_cmd_msg = job_cmd_msg[:500]
                         job_err_msg = self.get_job_err_message(job_workdir, job_err)
         else:
             final_job_status = ProcessingStatus.Submitted
@@ -225,8 +225,8 @@ class ATLASCondorWork(Work):
             ret_err += output
         if error:
             ret_err += error
-        if job_out_msg:
-            ret_err += job_out_msg
+        if job_cmd_msg:
+            ret_err += job_cmd_msg
         if job_err_msg:
             ret_err += job_err_msg
 
