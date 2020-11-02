@@ -56,8 +56,11 @@ class ATLASCondorWork(Work):
         return long_id
 
     def get_working_dir(self, processing):
-        long_id = self.get_long_id(processing)
-        job_dir = 'processing_%s' % long_id
+        request_id = processing['request_id']
+        workload_id = processing['workload_id']
+        processing_id = processing['processing_id']
+
+        job_dir = 'request_%s_%s/processing_%s' % (request_id, workload_id, processing_id)
         job_dir = os.path.join(self.get_workdir(), job_dir)
         if not os.path.exists(job_dir):
             os.makedirs(job_dir)
@@ -147,6 +150,23 @@ class ATLASCondorWork(Work):
                         return jobid, None
         return None, output + error
 
+    def get_job_err_message(self, job_workdir, job_err):
+        try:
+            if not job_err:
+                return ''
+            if not job_err.startswith("/") and job_workdir:
+                job_err = os.path.join(job_workdir, job_err)
+            if not os.path.exists(job_err):
+                return ''
+            with open(job_err, "r") as myfile:
+                data = myfile.readlines()
+            data = str(data)
+            data = data[:1000]
+            return data
+        except Exception as e:
+            self.logger.error("Failed to read job error file(workdir: %s, error file: %s): %s" % (job_workdir, job_err, e))
+        return ''
+
     def poll_condor_job_status(self, processing, job_id):
         # 0 Unexpanded     U
         # 1 Idle           I
@@ -155,21 +175,22 @@ class ATLASCondorWork(Work):
         # 4 Completed      C
         # 5 Held           H
         # 6 Submission_err E
-        cmd = "condor_q -format '%s' ClusterId  -format ' %s' Processing_id -format ' %s' JobStatus " + str(job_id)
+        cmd = "condor_q -format '%s' ClusterId  -format ' %s' Processing_id -format ' %s' JobStatus -format ' %s' Iwd -format ' %s' Err " + str(job_id)
         status, output, error = run_command(cmd)
         self.logger.info("poll job status: %s" % cmd)
         self.logger.info("status: %s, output: %s, error: %s" % (status, output, error))
         if status == 0 and len(output) == 0:
-            cmd = "condor_history -format '%s' ClusterId  -format ' %s' Processing_id -format ' %s' JobStatus " + str(job_id)
+            cmd = "condor_history -format '%s' ClusterId  -format ' %s' Processing_id -format ' %s' JobStatus -format ' %s' Iwd -format ' %s' Err " + str(job_id)
             status, output, error = run_command(cmd)
             self.logger.info("poll job status: %s" % cmd)
             self.logger.info("status: %s, output: %s, error: %s" % (status, output, error))
 
         ret_err = ''
+        job_err_msg = ''
         if status == 0:
             lines = output.split('\n')
             for line in lines:
-                c_job_id, c_processing_id, c_job_status = line.split(' ')
+                c_job_id, c_processing_id, c_job_status, job_workdir, job_err = line.split(' ')
                 if str(c_job_id) != str(job_id):
                     continue
 
@@ -192,6 +213,9 @@ class ATLASCondorWork(Work):
                         final_job_status = ProcessingStatus.Finished
                     else:
                         final_job_status = ProcessingStatus.Failed
+
+                    if final_job_status in [ProcessingStatus.Failed]:
+                        job_err_msg = self.get_job_err_message(job_workdir, job_err)
         else:
             final_job_status = ProcessingStatus.Submitted
 
@@ -199,5 +223,7 @@ class ATLASCondorWork(Work):
             ret_err += output
         if error:
             ret_err += error
+        if job_err_msg:
+            ret_err += job_err_msg
 
         return final_job_status, ret_err
