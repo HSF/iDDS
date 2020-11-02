@@ -399,9 +399,16 @@ class ATLASHPOWork(ATLASCondorWork):
         return script_name
 
     def generate_processing_script_container(self, processing):
+        param_values = {'MAX_POINTS': self.max_points,
+                        'NUM_POINTS': self.points_to_generate,
+                        'IN': self.input_json,
+                        'OUT': self.output_json}
+        executable = replace_parameters_with_values(self.executable, param_values)
+        arguments = replace_parameters_with_values(self.arguments, param_values)
+
         script = "#!/bin/bash\n\n"
-        script += "executable=%s\n" % str(self.executable)
-        script += "arguments=%s\n" % str(self.arguments)
+        script += "executable=%s\n" % str(executable)
+        script += "arguments=%s\n" % str(arguments)
         script += "input_json=%s\n" % str(self.input_json)
         script += "output_json=%s\n" % str(self.output_json)
         script += "\n"
@@ -414,8 +421,8 @@ class ATLASHPOWork(ATLASCondorWork):
         script += "id\n"
         script += "\n"
 
-        script += "echo '%s' '%s'\n" % (str(self.executable), str(self.arguments))
-        script += '%s %s\n' % (str(self.executable), str(self.arguments))
+        script += "echo '%s' '%s'\n" % (str(executable), str(arguments))
+        script += '%s %s\n' % (str(executable), str(arguments))
 
         script += '\n'
 
@@ -428,10 +435,17 @@ class ATLASHPOWork(ATLASCondorWork):
         return script_name
 
     def generate_processing_script_sandbox(self, processing):
+        param_values = {'MAX_POINTS': self.max_points,
+                        'NUM_POINTS': self.points_to_generate,
+                        'IN': self.input_json,
+                        'OUT': self.output_json}
+        executable = replace_parameters_with_values(self.executable, param_values)
+        arguments = replace_parameters_with_values(self.arguments, param_values)
+
         script = "#!/bin/bash\n\n"
         script += "sandbox=%s\n" % str(self.sandbox)
-        script += "executable=%s\n" % str(self.executable)
-        script += "arguments=%s\n" % str(self.arguments)
+        script += "executable=%s\n" % str(executable)
+        script += "arguments=%s\n" % str(arguments)
         script += "input_json=%s\n" % str(self.input_json)
         script += "output_json=%s\n" % str(self.output_json)
         script += "\n"
@@ -448,9 +462,9 @@ class ATLASHPOWork(ATLASCondorWork):
         script += 'base_sandbox="$(basename -- $sandbox)"\n'
         script += 'tar xzf $base_sandbox\n'
 
-        script += 'chmod +x %s\n' % str(self.executable)
-        script += "echo '%s' '%s'\n" % (str(self.executable), str(self.arguments))
-        script += '%s %s\n' % (str(self.executable), str(self.arguments))
+        script += 'chmod +x %s\n' % str(executable)
+        script += "echo '%s' '%s'\n" % (str(executable), str(arguments))
+        script += '%s %s\n' % (str(executable), str(arguments))
 
         script += '\n'
 
