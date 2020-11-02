@@ -411,7 +411,7 @@ class Work(Base):
         *** Function called by Transformer agent.
         """
         processing = self.processings[processing['processing_metadata']['internal_id']]
-        processing['processing_metadata']['output_metadata'] = output_metadata
+        processing['output_metadata'] = output_metadata
 
     def is_processing_terminated(self, processing):
         if 'status' in processing and processing['status'] not in [ProcessingStatus.New,
@@ -423,7 +423,7 @@ class Work(Base):
 
     def reap_processing(self, processing):
         if self.is_processing_terminated(processing):
-            del self.active_processings[processing['processing_metadata']['internal_id']]
+            self.active_processings.remove(processing['processing_metadata']['internal_id'])
         else:
             self.logger.error("Cannot reap an unterminated processing: %s" % processing)
 
