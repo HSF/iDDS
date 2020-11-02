@@ -37,6 +37,7 @@ class ATLASHPOWork(ATLASCondorWork):
                  agent_attributes=None,
                  method=None,
                  container_workdir=None,
+                 output_json=None,
                  opt_space=None, initial_points=None,
                  max_points=None, num_points_per_iteration=10):
         """
@@ -93,7 +94,7 @@ class ATLASHPOWork(ATLASCondorWork):
         self.unfinished_points = 0
 
         self.input_json = None
-        self.output_json = None
+        self.output_json = output_json
 
         self.finished_points = 0
         self.points_to_generate = self.num_points_per_iteration
@@ -146,6 +147,11 @@ class ATLASHPOWork(ATLASCondorWork):
                 coll['coll_metadata']['list_all_files'] = False
 
                 if self.terminated:
+                    self.logger.info("Work is terminated. Closing input dataset.")
+                    coll['coll_metadata']['is_open'] = False
+
+                if self.points_to_generate <= 0:
+                    self.logger.info("points_to_generate(%s) is equal or smaller than 0. Closing input dataset." % self.points_to_generate)
                     coll['coll_metadata']['is_open'] = False
 
                 if 'is_open' in coll['coll_metadata'] and not coll['coll_metadata']['is_open']:
@@ -236,12 +242,16 @@ class ATLASHPOWork(ATLASCondorWork):
 
     def get_unfinished_points(self, mapped_input_output_maps):
         counts = 0
+        count_finished = 0
         for map_id in mapped_input_output_maps:
             outputs = mapped_input_output_maps[map_id]['outputs']
 
             for op in outputs:
                 if op['status'] in [ContentStatus.New]:
                     counts += 1
+                if op['status'] in [ContentStatus.Available]:
+                    count_finished += 1
+        self.finished_points = count_finished
         return counts
 
     def get_new_input_output_maps(self, mapped_input_output_maps={}):
@@ -290,6 +300,11 @@ class ATLASHPOWork(ATLASCondorWork):
         if not active_processing:
             if self.points_to_generate > 0:
                 active_processing = self.create_processing(None)
+                log_str = "max_points: %s, finished_points: %s, points_to_generate: %s, new processing: %s" % (self.max_points,
+                                                                                                               self.finished_points,
+                                                                                                               self.points_to_generate,
+                                                                                                               active_processing)
+                self.logger.info(log_str)
                 if active_processing:
                     return []
                 else:
@@ -501,7 +516,9 @@ class ATLASHPOWork(ATLASCondorWork):
 
     def get_output_json(self, processing):
         # job_dir = self.get_working_dir(processing)
-        if 'output_json' in self.agent_attributes and self.agent_attributes['output_json']:
+        if self.output_json:
+            return self.output_json
+        elif 'output_json' in self.agent_attributes and self.agent_attributes['output_json']:
             output_json = self.agent_attributes['output_json']
         else:
             output_json = 'idds_output.json'
@@ -566,6 +583,8 @@ class ATLASHPOWork(ATLASCondorWork):
                 with open(full_output_json, 'r') as f:
                     data = f.read()
                 outputs = json.loads(data)
+                if not outputs:
+                    return outputs, "No points generated: the outputs is empty"
                 return outputs, None
             except Exception as ex:
                 return None, 'Failed to load the content of %s: %s' % (str(full_output_json), str(ex))
