@@ -132,7 +132,7 @@ class Transformer(BaseAgent):
                            'max_id': output_content['max_id'] if 'max_id' in output_content else 0,
                            'status': ContentStatus.New,
                            'substatus': ContentStatus.New,
-                           'path': None,
+                           'path': output_content['path'] if 'path' in output_content else None,
                            'content_type': output_content['content_type'] if 'content_type' in output_content else ContentType.File,
                            'bytes': output_content['bytes'],
                            'adler32': output_content['adler32'],
