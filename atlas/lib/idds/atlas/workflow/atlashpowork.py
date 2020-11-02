@@ -437,8 +437,14 @@ class ATLASHPOWork(ATLASCondorWork):
         script += "id\n"
         script += "\n"
 
+        if self.sandbox and 'docker' in executable:
+            arguments = 'run --rm -v $(pwd):%s %s ' % (self.container_workdir, self.sandbox) + arguments
+
         script += "echo '%s' '%s'\n" % (str(executable), str(arguments))
         script += '%s %s\n' % (str(executable), str(arguments))
+
+        if self.sandbox and 'docker' in executable:
+            script += 'docker image rm -f %s\n' % self.sandbox
 
         script += '\n'
 
