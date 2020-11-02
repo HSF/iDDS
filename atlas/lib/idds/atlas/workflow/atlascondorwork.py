@@ -58,15 +58,19 @@ class ATLASCondorWork(Work):
     def get_working_dir(self, processing):
         long_id = self.get_long_id(processing)
         job_dir = 'processing_%s' % long_id
-        job_dir = os.path.join(self.workdir, job_dir)
+        job_dir = os.path.join(self.get_workdir(), job_dir)
         if not os.path.exists(job_dir):
             os.makedirs(job_dir)
         return job_dir
 
-    def generate_processing_submit_file(self, processing, input_files=None, output_files=None):
+    def generate_processing_submit_file(self, processing):
         script_name, err_msg = self.generate_processing_script(processing)
         if not script_name:
             return None, err_msg
+
+        input_files = self.get_input_files(processing)
+        output_files = self.get_output_files(processing)
+        # self.logger.info("input_files: %s, output_files: %s" % (str(input_files), str(output_files)))
 
         long_id = self.get_long_id(processing)
 
@@ -92,6 +96,8 @@ class ATLASCondorWork(Work):
             tf_inputs = tf_inputs + input_files
         tf_outputs = output_files
 
+        # self.logger.info("tf_inputs: %s, tf_outputs: %s" % (str(tf_inputs), str(tf_outputs)))
+
         if tf_inputs:
             jdl += "transfer_input_files = %s\n" % (str(','.join(tf_inputs)))
         if tf_outputs:
@@ -105,7 +111,7 @@ class ATLASCondorWork(Work):
         # jdl += '+JobFlavour = "nextweek"\n'
         jdl += '+JobType="ActiveLearning"\n'
         # jdl += '+AccountingGroup ="group_u_ATLASWISC.all"\n'
-        jdl += '+Processing_id = %s\n' % long_id
+        jdl += '+Processing_id = "%s"\n' % long_id
         jdl += "RequestCpus = 1\n"
         if 'X509_USER_PROXY' in os.environ and os.environ['X509_USER_PROXY']:
             jdl += "x509userproxy = %s\n" % str(os.environ['X509_USER_PROXY'])
@@ -124,9 +130,7 @@ class ATLASCondorWork(Work):
         return []
 
     def submit_condor_processing(self, processing):
-        input_files = self.get_input_files(processing)
-        output_files = self.get_output_files(processing)
-        jdl_file, err_msg = self.generate_processing_submit_file(processing, input_files, output_files)
+        jdl_file, err_msg = self.generate_processing_submit_file(processing)
         if not jdl_file:
             return None, err_msg
 
@@ -143,7 +147,7 @@ class ATLASCondorWork(Work):
                         return jobid, None
         return None, output + error
 
-    def poll_condor_job_status(self, processing_id, job_id):
+    def poll_condor_job_status(self, processing, job_id):
         # 0 Unexpanded     U
         # 1 Idle           I
         # 2 Running        R
@@ -158,10 +162,10 @@ class ATLASCondorWork(Work):
         if status == 0 and len(output) == 0:
             cmd = "condor_history -format '%s' ClusterId  -format ' %s' Processing_id -format ' %s' JobStatus " + str(job_id)
             status, output, error = run_command(cmd)
-            self.logger.debug("poll job status: %s" % cmd)
-            self.logger.debug("status: %s, output: %s, error: %s" % (status, output, error))
+            self.logger.info("poll job status: %s" % cmd)
+            self.logger.info("status: %s, output: %s, error: %s" % (status, output, error))
 
-        ret_err = None
+        ret_err = ''
         if status == 0:
             lines = output.split('\n')
             for line in lines:
@@ -169,7 +173,7 @@ class ATLASCondorWork(Work):
                 if str(c_job_id) != str(job_id):
                     continue
 
-                c_processing_id = int(c_processing_id)
+                processing_id = self.get_long_id(processing)
                 c_job_status = int(c_job_status)
                 if c_processing_id != processing_id:
                     final_job_status = ProcessingStatus.Failed
