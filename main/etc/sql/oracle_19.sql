@@ -6,7 +6,19 @@ DROP SEQUENCE PROCESSING_ID_SEQ;
 DROP SEQUENCE COLLECTION_ID_SEQ;
 DROP SEQUENCE CONTENT_ID_SEQ;
 
+delete from HEALTH;
+delete from MESSAGES;
+delete from CONTENTS;
+delete from REQ2WORKLOAD;
+delete from REQ2TRANSFORMS;
+delete from WP2TRANSFORMS;
+delete from WORKPROGRESSES;
+delete from PROCESSINGS;
+delete from COLLECTIONS;
+delete from TRANSFORMS;
+delete from REQUESTS;
 
+Drop table HEALTH purge;
 DROP table MESSAGES purge;
 DROP table CONTENTS purge;
 DROP table REQ2WORKLOAD purge;
@@ -294,4 +306,22 @@ CREATE TABLE MESSAGES
     updated_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)),
     msg_content CLOB constraint MSG_CONTENT_ENSURE_JSON CHECK(msg_content IS JSON(LAX)),
     CONSTRAINT MESSAGES_PK PRIMARY KEY (msg_id) -- USING INDEX LOCAL,  
+);
+
+
+--- health
+CREATE SEQUENCE HEALTH_ID_SEQ MINVALUE 1 INCREMENT BY 1 START WITH 1 NOCACHE ORDER NOCYCLE GLOBAL;
+CREATE TABLE HEALTH
+(
+    health_id NUMBER(12) DEFAULT ON NULL HEALTH_ID_SEQ.NEXTVAL constraint HEALTH_ID_NN NOT NULL,
+    agent VARCHAR2(30),
+    hostname VARCHAR2(127),
+    pid Number(12),
+    thread_id Number(20),
+    thread_name VARCHAR2(255),
+    payload VARCHAR2(255),
+    created_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)),
+    updated_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)),
+    CONSTRAINT HEALTH_PK PRIMARY KEY (health_id), -- USING INDEX LOCAL,  
+    CONSTRAINT HEALTH_UQ UNIQUE (agent, hostname, pid, thread_id)
 );

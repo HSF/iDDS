@@ -29,6 +29,7 @@ class ATLASStageinWork(Work):
                  work_tag='stagein', exec_type='local', sandbox=None, work_id=None,
                  primary_input_collection=None, other_input_collections=None,
                  output_collections=None, log_collections=None,
+                 agent_attributes=None,
                  logger=None,
                  max_waiting_time=3600 * 7 * 24, src_rse=None, dest_rse=None, rule_id=None):
         """
@@ -58,6 +59,7 @@ class ATLASStageinWork(Work):
                                                other_input_collections=other_input_collections,
                                                output_collections=output_collections,
                                                log_collections=log_collections,
+                                               agent_attributes=agent_attributes,
                                                logger=logger)
         self.max_waiting_time = max_waiting_time
         self.src_rse = src_rse
@@ -204,7 +206,7 @@ class ATLASStageinWork(Work):
         if self.active_processings:
             return self.processings[self.active_processings[0]]
         else:
-            return None
+            return self.create_processing(input_output_maps)
 
     def create_processing(self, input_output_maps):
         proc = {'processing_metadata': {'internal_id': str(uuid.uuid1()),

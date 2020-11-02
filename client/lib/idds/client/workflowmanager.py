@@ -45,6 +45,10 @@ class WorkflowManager:
             'workload_id': workflow.get_workload_id(),
             'request_metadata': {'workload_id': workflow.get_workload_id(), 'workflow': workflow}
         }
+        primary_init_work = workflow.get_primary_initial_collection()
+        if primary_init_work:
+            props['scope'] = primary_init_work['scope']
+            props['name'] = primary_init_work['name']
 
         print(props)
         client = Client(host=self.host)

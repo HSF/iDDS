@@ -20,6 +20,8 @@ from idds.common.utils import json_loads
 from idds.core.requests import add_request, get_requests, update_request
 from idds.rest.v1.controller import IDDSController
 
+from idds.rest.v1.utils import convert_old_req_2_workflow_req
+
 
 class Requests(IDDSController):
     """ Get request """
@@ -78,6 +80,7 @@ class Request(IDDSController):
             return self.generate_http_response(HTTP_STATUS_CODE.BadRequest, exc_cls=exceptions.BadRequest.__name__, exc_msg='Cannot decode json parameter dictionary')
 
         try:
+            parameters = convert_old_req_2_workflow_req(parameters)
             request_id = add_request(**parameters)
         except exceptions.DuplicatedObject as error:
             return self.generate_http_response(HTTP_STATUS_CODE.Conflict, exc_cls=error.__class__.__name__, exc_msg=error)

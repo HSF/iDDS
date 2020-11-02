@@ -114,7 +114,7 @@ class Transformer(BaseAgent):
                            'max_id': input_content['max_id'] if 'max_id' in input_content else 0,
                            'status': ContentStatus.New,
                            'substatus': ContentStatus.New,
-                           'path': None,
+                           'path': input_content['path'] if 'path' in input_content else None,
                            'content_type': input_content['content_type'] if 'content_type' in input_content else ContentType.File,
                            'bytes': input_content['bytes'],
                            'adler32': input_content['adler32'],
@@ -132,7 +132,7 @@ class Transformer(BaseAgent):
                            'max_id': output_content['max_id'] if 'max_id' in output_content else 0,
                            'status': ContentStatus.New,
                            'substatus': ContentStatus.New,
-                           'path': None,
+                           'path': output_content['path'] if 'path' in output_content else None,
                            'content_type': output_content['content_type'] if 'content_type' in output_content else ContentType.File,
                            'bytes': output_content['bytes'],
                            'adler32': output_content['adler32'],
@@ -401,7 +401,7 @@ class Transformer(BaseAgent):
                                                                                        log_coll_ids=log_coll_ids)
         # update_input_output_maps = self.get_update_input_output_maps(registered_input_output_maps)
         # update_contents, updated_contents_full = self.get_updated_contents(transform, registered_input_output_maps)
-        updated_contents, updated_input_contents_full, updated_output_contents_full = self.get_updated_contents(transform, registered_input_output_maps)
+        # updated_contents, updated_input_contents_full, updated_output_contents_full = self.get_updated_contents(transform, registered_input_output_maps)
 
         if work.has_new_inputs():
             new_input_output_maps = work.get_new_input_output_maps(registered_input_output_maps)
@@ -419,23 +419,31 @@ class Transformer(BaseAgent):
 
         # processing = self.get_processing(transform, input_colls, output_colls, log_colls, new_input_output_maps)
         processing = work.get_processing(new_input_output_maps)
-        new_processing, new_processing_model = None, None
-        if not processing:
-            new_processing = work.create_processing(new_input_output_maps)
-            new_processing_model = copy.deepcopy(new_processing)
-            new_processing_model['transform_id'] = transform['transform_id']
-            new_processing_model['request_id'] = transform['request_id']
-            new_processing_model['workload_id'] = transform['workload_id']
-            new_processing_model['status'] = ProcessingStatus.New
-            if 'processing_metadata' not in new_processing:
-                new_processing['processing_metadata'] = {}
-            if 'processing_metadata' not in new_processing_model:
-                new_processing_model['processing_metadata'] = {}
-            new_processing_model['processing_metadata']['work'] = work
-        else:
-            processing_model = core_processings.get_processing(processing_id=processing['processing_id'])
-            work.set_processing_status(processing, processing_model['status'])
-            transform['workload_id'] = processing_model['workload_id']
+        self.logger.info("work get_processing: %s" % processing)
+
+        new_processing_model, processing_model = None, None
+        if processing:
+            if 'processing_id' not in processing:
+                # new_processing = work.create_processing(new_input_output_maps)
+                new_processing_model = copy.deepcopy(processing)
+                new_processing_model['transform_id'] = transform['transform_id']
+                new_processing_model['request_id'] = transform['request_id']
+                new_processing_model['workload_id'] = transform['workload_id']
+                new_processing_model['status'] = ProcessingStatus.New
+                if 'processing_metadata' not in processing:
+                    processing['processing_metadata'] = {}
+                if 'processing_metadata' not in new_processing_model:
+                    new_processing_model['processing_metadata'] = {}
+                new_processing_model['processing_metadata']['work'] = work
+            else:
+                processing_model = core_processings.get_processing(processing_id=processing['processing_id'])
+                work.set_processing_status(processing, processing_model['status'])
+                work.set_processing_output_metadata(processing, processing_model['output_metadata'])
+                transform['workload_id'] = processing_model['workload_id']
+
+        updated_contents, updated_input_contents_full, updated_output_contents_full = [], [], []
+        if work.should_release_inputs(processing_model):
+            updated_contents, updated_input_contents_full, updated_output_contents_full = self.get_updated_contents(transform, registered_input_output_maps)
 
         msgs = []
         if new_input_contents:
@@ -555,6 +563,8 @@ class Transformer(BaseAgent):
             self.logger.info("Starting main thread")
 
             self.load_plugins()
+
+            self.add_default_tasks()
 
             task = self.create_task(task_func=self.get_new_transforms, task_output_queue=self.new_task_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
             self.add_task(task)

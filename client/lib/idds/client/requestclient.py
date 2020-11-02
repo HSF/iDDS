@@ -48,6 +48,7 @@ class RequestClient(BaseRestClient):
         url = self.build_url(self.host, path=path)
 
         data = kwargs
+
         # if 'request_type' in data and data['request_type'] and isinstance(data['request_type'], RequestType):
         #     data['request_type'] = data['request_type'].value
         # if 'status' in data and data['status'] and isinstance(data['status'], RequestStatus):

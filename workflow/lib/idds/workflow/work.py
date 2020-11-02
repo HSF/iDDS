@@ -46,7 +46,8 @@ class Work(Base):
     def __init__(self, executable=None, arguments=None, parameters=None, setup=None, work_type=None,
                  work_tag=None, exec_type='local', sandbox=None, work_id=None,
                  primary_input_collection=None, other_input_collections=None,
-                 output_collections=None, log_collections=None,
+                 output_collections=None, log_collections=None, release_inputs_after_submitting=False,
+                 agent_attributes=None,
                  logger=None):
         """
         Init a work/task/transformation.
@@ -82,6 +83,7 @@ class Work(Base):
         self.work_id = work_id
         # self.workflow = workflow
         self.transforming = False
+        self.workdir = None
 
         self.collections = {}
         self.primary_input_collection = None
@@ -101,6 +103,7 @@ class Work(Base):
             log_collections = [log_collections]
         self.add_log_collections(log_collections)
 
+        self.release_inputs_after_submitting = release_inputs_after_submitting
         self._has_new_inputs = True
 
         self.status = WorkStatus.New
@@ -112,6 +115,8 @@ class Work(Base):
         self.output_data = None
 
         self.status_statistics = {}
+
+        self.agent_attributes = agent_attributes
 
     def get_class_name(self):
         return self.__class__.__name__
@@ -141,6 +146,15 @@ class Work(Base):
 
     # def set_workflow(self, workflow):
     #     self.workflow = workflow
+
+    def set_agent_attributes(self, attrs):
+        self.agent_attributes = attrs
+
+    def set_workdir(self, workdir):
+        self.workdir = workdir
+
+    def get_workdir(self):
+        return self.workdir
 
     def set_status(self, status):
         """
@@ -355,6 +369,14 @@ class Work(Base):
         # print(coll_id)
         self.collections[collection['coll_metadata']['internal_id']]['coll_id'] = coll_id
 
+    def should_release_inputs(self, processing=None):
+        if self.release_inputs_after_submitting:
+            if (processing and 'status' in processing
+                and processing['status'] in [ProcessingStatus.Submitted, ProcessingStatus.Submitted.value]):  # noqa: W503
+                return True
+            return False
+        return True
+
     def add_processing_to_processings(self, processing):
         assert(isinstance(processing, dict))
         # assert('processing_metadata' in processing)
@@ -379,6 +401,31 @@ class Work(Base):
         *** Function called by Transformer agent.
         """
         self.processings[processing['processing_metadata']['internal_id']]['status'] = status
+        # if status not in [ProcessingStatus.New, ProcessingStatus.Submitting,
+        #                   ProcessingStatus.Submitted, ProcessingStatus.Running]:
+        #     if processing['processing_metadata']['internal_id'] in self.active_processings:
+        #         del self.active_processings[processing['processing_metadata']['internal_id']]
+
+    def set_processing_output_metadata(self, processing, output_metadata):
+        """
+        *** Function called by Transformer agent.
+        """
+        processing = self.processings[processing['processing_metadata']['internal_id']]
+        processing['output_metadata'] = output_metadata
+
+    def is_processing_terminated(self, processing):
+        if 'status' in processing and processing['status'] not in [ProcessingStatus.New,
+                                                                   ProcessingStatus.Submitting,
+                                                                   ProcessingStatus.Submitted,
+                                                                   ProcessingStatus.Running]:
+            return True
+        return False
+
+    def reap_processing(self, processing):
+        if self.is_processing_terminated(processing):
+            self.active_processings.remove(processing['processing_metadata']['internal_id'])
+        else:
+            self.logger.error("Cannot reap an unterminated processing: %s" % processing)
 
     def is_processings_terminated(self):
         """
@@ -386,10 +433,7 @@ class Work(Base):
         """
         for p_id in self.active_processings:
             p = self.processings[p_id]
-            if 'status' in p and p['status'] not in [ProcessingStatus.New,
-                                                     ProcessingStatus.Submitting,
-                                                     ProcessingStatus.Submitted,
-                                                     ProcessingStatus.Running]:
+            if self.is_processing_terminated(p):
                 pass
             else:
                 return False

@@ -215,7 +215,7 @@ def get_requests(request_id=None, workload_id=None, to_json=False, session=None)
                        .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_SCOPE_NAME_IDX)", 'oracle')
         if request_id:
             query = query.filter(models.Request.request_id == request_id)
-        else:
+        if workload_id:
             query = query.filter(models.Request.workload_id == workload_id)
 
         tmp = query.all()

@@ -222,17 +222,15 @@ def get_transform_ids(workprogress_id=None, request_id=None, workload_id=None, t
     :returns: list of transform ids.
     """
     try:
-        if workload_id:
-            query = session.query(models.Req2transform.transform_id)\
-                           .join(models.Request, and_(models.Req2transform.request_id == models.Request.request_id,
-                                                      models.Request.workload_id == workload_id))
-        else:
-            query = session.query(models.Req2transform.transform_id)
-
+        query = session.query(models.Transform.transform_id)
         if request_id:
-            query = query.filter(models.Req2transform.request_id == request_id)
+            query = query.filter(models.Transform.request_id == request_id)
+        if workload_id:
+            query = query.filter(models.Transform.workload_id == workload_id)
         if transform_id:
-            query = query.filter(models.Req2transform.transform_id == transform_id)
+            query = query.filter(models.Transform.transform_id == transform_id)
+        if workprogress_id:
+            query = query.join(models.Workprogress2transform, and_(models.Workprogress2transform.workprogress_id == workprogress_id))
 
         tmp = query.all()
         ret_ids = []
@@ -248,7 +246,8 @@ def get_transform_ids(workprogress_id=None, request_id=None, workload_id=None, t
 
 
 @read_session
-def get_transforms(request_id=None, workload_id=None, transform_id=None, to_json=False, session=None):
+def get_transforms(request_id=None, workload_id=None, transform_id=None, workprogress_id=None,
+                   to_json=False, session=None):
     """
     Get transforms or raise a NoObject exception.
 
@@ -262,21 +261,15 @@ def get_transforms(request_id=None, workload_id=None, transform_id=None, to_json
     :returns: list of transforms.
     """
     try:
-        if workload_id:
-            subquery = session.query(models.Req2transform.transform_id)\
-                              .join(models.Request, and_(models.Req2transform.request_id == models.Request.request_id,
-                                                         models.Request.workload_id == workload_id))
-        else:
-            subquery = session.query(models.Req2transform.transform_id)
-
+        query = session.query(models.Transform)
         if request_id:
-            subquery = subquery.filter(models.Req2transform.request_id == request_id)
+            query = query.filter(models.Transform.request_id == request_id)
+        if workload_id:
+            query = query.filter(models.Transform.workload_id == workload_id)
         if transform_id:
-            subquery = subquery.filter(models.Req2transform.transform_id == transform_id)
-        subquery = subquery.subquery()
-
-        query = session.query(models.Transform)\
-                       .join(subquery, and_(subquery.c.transform_id == models.Transform.transform_id))
+            query = query.filter(models.Transform.transform_id == transform_id)
+        if workprogress_id:
+            query = query.join(models.Workprogress2transform, and_(models.Workprogress2transform.workprogress_id == workprogress_id))
 
         tmp = query.all()
         rets = []
