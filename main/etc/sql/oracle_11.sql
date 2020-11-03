@@ -98,7 +98,7 @@ CREATE TABLE WORKPROGRESSES
         workprogress_metadata CLOB,
         processing_metadata CLOB,
         CONSTRAINT WORKPROGRESS_PK PRIMARY KEY (workprogress_id), --- USING INDEX LOCAL,
-        CONSTRAINT WORKPROGRESS_REQ_ID_FK FOREIGN KEY(request_id) REFERENCES REQUESTS(request_id),
+        CONSTRAINT WORKPROGRESS_REQ_ID_FK FOREIGN KEY(request_id) REFERENCES REQUESTS(request_id)
         --- CONSTRAINT REQUESTS_NAME_SCOPE_UQ UNIQUE (name, scope, requester, request_type, transform_tag, workload_id) -- USING INDEX LOCAL,
 )
 PCTFREE 3
@@ -354,7 +354,7 @@ CREATE TABLE CONTENTS
 )
 PCTFREE 3
 PARTITION BY RANGE(TRANSFORM_ID)
-INTERVAL ( 10000 )
+INTERVAL ( 1000000 )
 ( PARTITION initial_part VALUES LESS THAN (1) );
 
 ---PCTFREE 0
@@ -415,8 +415,8 @@ CREATE TABLE HEALTH
     thread_id Number(20),
     thread_name VARCHAR2(255),
     payload VARCHAR2(255),
-    created_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)),
-    updated_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)),
+    created_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)),
+    updated_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)),
     CONSTRAINT HEALTH_PK PRIMARY KEY (health_id), -- USING INDEX LOCAL,  
     CONSTRAINT HEALTH_UQ UNIQUE (agent, hostname, pid, thread_id) -- USING INDEX LOCAL
 );
