@@ -442,12 +442,15 @@ ORDER BY cols.table_name, cols.position;
 
 select r.request_id, r.scope, r.name, r.status, tr.transform_id, tr.transform_status, tr.in_status, tr.in_total_files, tr.in_processed_files, tr.out_status, tr.out_total_files, tr.out_processed_files
 from requests r
- full outer join req2transforms rt on (r.request_id=rt.request_id)
+ full outer join (
+    select request_id, workprogress_id from workprogresses
+ ) wp on (r.request_id=wp.request_id)
+ full outer join wp2transforms wt on (wp.workprogress_id=wt.workprogress_id)
  full outer join (
     select t.transform_id, t.status transform_status, in_coll.status in_status, in_coll.total_files in_total_files, in_coll.processed_files in_processed_files,
     out_coll.status out_status, out_coll.total_files out_total_files, out_coll.processed_files out_processed_files
     from transforms t
     full outer join (select coll_id , transform_id, status, total_files, processed_files from collections where relation_type = 0) in_coll on (t.transform_id = in_coll.transform_id)
     full outer join (select coll_id , transform_id, status, total_files, processed_files from collections where relation_type = 1) out_coll on (t.transform_id = out_coll.transform_id)
-    ) tr on (rt.transform_id=tr.transform_id)
-
+ ) tr on (wt.transform_id=tr.transform_id)
+order by r.request_id
