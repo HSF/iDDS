@@ -67,6 +67,11 @@ class ATLASStageinWork(Work):
         self.life_time = max_waiting_time
         self.rule_id = rule_id
 
+        self.num_mapped_inputs = 0
+        self.total_output_files = 0
+        self.processed_output_files = 0
+        self.status_statistics = {}
+
     def get_rucio_client(self):
         try:
             client = RucioClient()
@@ -194,6 +199,7 @@ class ATLASStageinWork(Work):
             else:
                 next_key = 1
             for ip in new_inputs:
+                self.num_mapped_inputs += 1
                 out_ip = copy.deepcopy(ip)
                 out_ip['coll_id'] = self.collections[self.output_collections[0]]['coll_id']
                 new_input_output_maps[next_key] = {'inputs': [ip],
@@ -310,18 +316,43 @@ class ATLASStageinWork(Work):
 
     def get_status_statistics(self, registered_input_output_maps):
         status_statistics = {}
+
+        self.total_output_files = 0
+        self.processed_output_file = 0
+
         for map_id in registered_input_output_maps:
+            # inputs = registered_input_output_maps[map_id]['inputs']
             outputs = registered_input_output_maps[map_id]['outputs']
+
+            self.total_output_files += 1
 
             for content in outputs:
                 if content['status'].name not in status_statistics:
                     status_statistics[content['status'].name] = 0
                 status_statistics[content['status'].name] += 1
+
+                if content['status'] == ContentStatus.Available:
+                    self.processed_output_file += 1
+
         self.status_statistics = status_statistics
         return status_statistics
 
+    def syn_collection_status(self):
+        input_collections = self.get_input_collections()
+        output_collections = self.get_output_collections()
+        # log_collections = self.get_log_collections()
+
+        for input_collection in input_collections:
+            input_collection['processed_files'] = self.num_mapped_inputs
+
+        for output_collection in output_collections:
+            output_collection['total_files'] = self.total_output_files
+            output_collection['processed_files'] = self.processed_output_file
+
     def syn_work_status(self, registered_input_output_maps):
         self.get_status_statistics(registered_input_output_maps)
+
+        self.syn_collection_status()
 
         if self.is_processings_terminated() and not self.has_new_inputs():
             keys = self.status_statistics.keys()
