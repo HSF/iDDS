@@ -93,7 +93,7 @@ def get_transforms_with_input_collection(transform_type, transform_tag, coll_sco
 
 
 @read_session
-def get_transform_ids(workprogress_id, session=None):
+def get_transform_ids(workprogress_id, request_id=None, workload_id=None, transform_id=None, session=None):
     """
     Get transform ids or raise a NoObject exception.
 
@@ -104,11 +104,12 @@ def get_transform_ids(workprogress_id, session=None):
 
     :returns: list of transform ids.
     """
-    return orm_transforms.get_transform_ids(workprogress_id=workprogress_id, session=session)
+    return orm_transforms.get_transform_ids(workprogress_id=workprogress_id, request_id=request_id,
+                                            workload_id=workload_id, transform_id=transform_id, session=session)
 
 
 @read_session
-def get_transforms(workprogress_id=None, to_json=False, session=None):
+def get_transforms(workprogress_id=None, to_json=False, request_id=None, workload_id=None, transform_id=None, session=None):
     """
     Get transforms or raise a NoObject exception.
 
@@ -120,7 +121,9 @@ def get_transforms(workprogress_id=None, to_json=False, session=None):
 
     :returns: list of transform.
     """
-    return orm_transforms.get_transforms(workprogress_id=workprogress_id, to_json=to_json, session=session)
+    return orm_transforms.get_transforms(workprogress_id=workprogress_id, request_id=request_id,
+                                         workload_id=workload_id, transform_id=transform_id,
+                                         to_json=to_json, session=session)
 
 
 @read_session
