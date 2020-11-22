@@ -96,7 +96,10 @@ class Workflow(Base):
         self.current_works = []
         self.work_conds = {}
 
+        self.num_subfinished_works = 0
         self.num_finished_works = 0
+        self.num_failed_works = 0
+        self.num_cancelled_works = 0
         self.num_total_works = 0
 
         self.last_work = None
@@ -208,6 +211,12 @@ class Workflow(Base):
         if work.is_terminated():
             if work.is_finished():
                 self.num_finished_works += 1
+            elif work.is_subfinished():
+                self.num_subfinished_works += 1
+            elif work.is_failed():
+                self.num_failed_works += 1
+            elif work.is_cancelled():
+                self.num_cancelled_works += 1
             else:
                 # self.num_finished_works
                 pass
@@ -281,6 +290,12 @@ class Workflow(Base):
                     self.current_works.remove(work.get_internal_id())
                 if work.is_finished():
                     self.num_finished_works += 1
+                elif work.is_subfinished():
+                    self.num_subfinished_works += 1
+                elif work.is_failed():
+                    self.num_failed_works += 1
+                elif work.is_cancelled():
+                    self.num_cancelled_works += 1
 
     def get_exact_workflows(self):
         """
@@ -318,13 +333,19 @@ class Workflow(Base):
         """
         *** Function called by Marshaller agent.
         """
-        return self.is_terminated() and (self.num_finished_works < self.num_total_works) and (self.num_finished_works > 0)
+        return self.is_terminated() and (self.num_finished_works < self.num_total_works) and (self.num_subfinished_works > 0) and (self.num_finished_works + self.num_subfinished_works == self.num_total_works)
 
     def is_failed(self):
         """
         *** Function called by Marshaller agent.
         """
-        return self.is_terminated() and (self.num_finished_works == 0)
+        return self.is_terminated() and (self.num_failed_works > 0) and (self.num_cancelled_works == 0)
+
+    def is_cancelled(self):
+        """
+        *** Function called by Marshaller agent.
+        """
+        return self.is_terminated() and (self.num_cancelled_works > 0)
 
     def get_terminated_msg(self):
         """

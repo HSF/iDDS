@@ -165,6 +165,9 @@ class Work(Base):
         # if self.workflow:
         #     self.workflow.work_status_update_trigger(self, status)
 
+    def get_status(self):
+        return self.status
+
     def set_terminated_msg(self, msg):
         """
         *** Function called by Marshaller agent.
@@ -243,7 +246,15 @@ class Work(Base):
         """
         *** Function called by Transformer agent.
         """
-        if self.status in [WorkStatus.Failed, WorkStatus.Cancelled]:
+        if self.status in [WorkStatus.Failed]:
+            return True
+        return False
+
+    def is_cancelled(self):
+        """
+        *** Function called by Transformer agent.
+        """
+        if self.status in [WorkStatus.Cancelled]:
             return True
         return False
 
