@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2020
 
 
 import datetime
@@ -407,3 +407,13 @@ def exception_handler(function):
         except Exception as ex:
             logging.error(ex)
     return new_funct
+
+
+def is_sub(a, b):
+    if not a:
+        return True
+
+    for i in a:
+        if i not in b:
+            return False
+    return True
