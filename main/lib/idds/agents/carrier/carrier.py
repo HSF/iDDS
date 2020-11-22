@@ -66,7 +66,7 @@ class Carrier(BaseAgent):
         # transform = core_transforms.get_transform(transform_id=transform_id)
         # work = transform['transform_metadata']['work']
         work = processing['processing_metadata']['work']
-        work.set_agent_attributes(self.agent_attributes)
+        # work.set_agent_attributes(self.agent_attributes)
         work.submit_processing(processing)
         ret = {'processing_id': processing['processing_id'],
                'status': ProcessingStatus.Submitted,

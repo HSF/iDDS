@@ -171,6 +171,11 @@ class Transformer(BaseAgent):
         """
         # self.logger.info("process_new_transform: transform_id: %s" % transform['transform_id'])
         work = transform['transform_metadata']['work']
+        req_attributes = {'request_id': transform['request_id'],
+                          'workload_id': transform['workload_id'],
+                          'transform_id': transform['transform_id']}
+        work.set_agent_attributes(self.agent_attributes, req_attributes)
+
         input_collections = work.get_input_collections()
         output_collections = work.get_output_collections()
         log_collections = work.get_log_collections()
