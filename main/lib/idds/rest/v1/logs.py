@@ -15,10 +15,8 @@ from flask import Blueprint, send_from_directory
 
 from idds.common import exceptions
 from idds.common.constants import HTTP_STATUS_CODE
-from idds.common.utils import tar_zip_files
-from idds.core import (requests as core_requests,
-                       transforms as core_transforms,
-                       processings as core_processings)
+from idds.common.utils import tar_zip_files, get_rest_cacher_dir
+from idds.core import (transforms as core_transforms)
 from idds.rest.v1.controller import IDDSController
 
 
@@ -48,38 +46,33 @@ class Logs(IDDSController):
             if workload_id is None and request_id is None:
                 error = "One of workload_id and request_id should not be None or empty"
                 return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
-            if not request_id:
-                request_ids = core_requests.get_request_ids_by_workload_id(workload_id)
-                if not request_ids:
-                    error = "Cannot find requests with this workloa_id: %s" % workload_id
-                    return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
-                else:
-                    if len(request_ids) > 1:
-                        error = "More than one request with the same workload_id. request_id should be provided."
-                        return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
-                    else:
-                        request_id = request_ids[0]
         except Exception as error:
             print(error)
             print(format_exc())
             return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
 
         try:
-            transform_ids = core_transforms.get_transform_ids(request_id)
-            files = []
-            for transform_id in transform_ids:
-                processings = core_processings.get_processings_by_transform_id(transform_id)
-                for processing in processings:
-                    processing_metadata = processing['processing_metadata']
-                    if processing_metadata and 'job_logs_tar' in processing_metadata and processing_metadata['job_logs_tar']:
-                        files.append(processing_metadata['job_logs_tar'])
-            if not files:
+            transforms = core_transforms.get_transforms(request_id=request_id, workload_id=workload_id)
+            workdirs = []
+            for transform in transforms:
+                work = transform['transform_metadata']['work']
+                workdir = work.get_workdir()
+                if workdir:
+                    workdirs.append(workdir)
+            if not workdirs:
                 error = "No log files founded."
                 return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
 
-            cache_dir = os.path.dirname(files[0])
-            output_filename = "%s.logs.tar.gz" % request_id
-            tar_zip_files(cache_dir, output_filename, files)
+            cache_dir = get_rest_cacher_dir()
+            if request_id and workload_id:
+                output_filename = "request_%s.workload_%s.logs.tar.gz" % (request_id, workload_id)
+            elif request_id:
+                output_filename = "request_%s.logs.tar.gz" % (request_id)
+            elif workload_id:
+                output_filename = "workload_%s.logs.tar.gz" % (workload_id)
+            else:
+                output_filename = "%s.logs.tar.gz" % (os.path.basename(cache_dir))
+            tar_zip_files(cache_dir, output_filename, workdirs)
             return send_from_directory(cache_dir, output_filename, as_attachment=True, mimetype='application/x-tgz')
         except exceptions.NoObject as error:
             return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
