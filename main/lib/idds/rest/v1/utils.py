@@ -71,6 +71,7 @@ def convert_hpo_request_metadata_to_workflow(scope, name, workload_id, request_m
                         container_workdir=request_metadata.get('workdir', None),
                         output_json=request_metadata.get('output_json', None),
                         opt_space=request_metadata.get('opt_space', None),
+                        workload_id=workload_id,
                         initial_points=request_metadata.get('initial_points', None),
                         max_points=request_metadata.get('max_points', None),
                         num_points_per_iteration=request_metadata.get('num_points_per_iteration', 10))
