@@ -151,7 +151,7 @@ def get_workprogresses_by_status(status, period=None, locking=False, bulk_size=N
 
 
 @transactional_session
-def update_workprogress(workprogress_id, parameters, new_transforms=None, session=None):
+def update_workprogress(workprogress_id, parameters, new_transforms=None, update_transforms=None, session=None):
     """
     update a workprogress.
 
@@ -170,6 +170,9 @@ def update_workprogress(workprogress_id, parameters, new_transforms=None, sessio
             work = tf['transform_metadata']['work']
             work.set_work_id(tf_id, transforming=True)
             work.set_status(WorkStatus.New)
+    if update_transforms:
+        for tr_id in update_transforms:
+            orm_transforms.update_transform(transform_id=tr_id, parameters=update_transforms[tr_id], session=session)
     return orm_workprogress.update_workprogress(workprogress_id=workprogress_id, parameters=parameters, session=session)
 
 

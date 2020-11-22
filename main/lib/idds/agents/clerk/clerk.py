@@ -186,7 +186,8 @@ class Clerk(BaseAgent):
         else:
             final_wp_status = get_workprogresses_status(wps_status_keys)
             ret_req = {'request_id': req['request_id'],
-                       'status': dict(RequestStatus.__members__)[final_wp_status.name],
+                       # 'status': dict(RequestStatus.__members__)[final_wp_status.name],
+                       'status': RequestStatus(final_wp_status.value),
                        'processing_metadata': processing_metadata
                        }
         return ret_req
