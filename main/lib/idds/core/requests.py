@@ -206,7 +206,7 @@ def update_request_with_transforms(request_id, parameters, transforms_to_add, tr
 
 
 @transactional_session
-def update_request_with_workprogresses(request_id, parameters, new_workprogresses, session=None):
+def update_request_with_workprogresses(request_id, parameters, new_workprogresses=None, update_workprogresses=None, session=None):
     """
     update an request.
 
@@ -216,6 +216,9 @@ def update_request_with_workprogresses(request_id, parameters, new_workprogresse
     """
     if new_workprogresses:
         orm_workprogresses.add_workprogresses(new_workprogresses, session=session)
+    if update_workprogresses:
+        for workprogress_id in update_workprogresses:
+            orm_workprogresses.update_workprogress(workprogress_id, update_workprogresses[workprogress_id], session=session)
     return orm_requests.update_request(request_id, parameters, session=session)
 
 
