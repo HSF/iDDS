@@ -168,7 +168,7 @@ def update_transform(transform_id, parameters, session=None):
 @transactional_session
 def add_transform_outputs(transform, input_collections=None, output_collections=None, log_collections=None,
                           update_input_collections=None, update_output_collections=None, update_log_collections=None,
-                          new_contents=None, update_contents=None, new_processing=None,
+                          new_contents=None, update_contents=None, new_processing=None, update_processing=None,
                           messages=None, message_bulk_size=1000, session=None):
     """
     For input contents, add corresponding output contents.
@@ -220,6 +220,9 @@ def add_transform_outputs(transform, input_collections=None, output_collections=
     if new_processing:
         # print(new_processing)
         processing_id = orm_processings.add_processing(**new_processing, session=session)
+    if update_processing:
+        for proc_id in update_processing:
+            orm_processings.add_processing(processing_id=proc_id, parameters=update_processing[proc_id], session=session)
 
     if messages:
         if not type(messages) in [list, tuple]:

@@ -252,7 +252,7 @@ class Transformer(BaseAgent):
         """
         Get running transforms
         """
-        transform_status = [TransformStatus.Transforming]
+        transform_status = [TransformStatus.Transforming, TransformStatus.ToCancel, TransformStatus.Cancelling]
         transforms = core_transforms.get_transforms_by_status(status=transform_status,
                                                               period=self.poll_time_period,
                                                               locking=True,
@@ -426,7 +426,7 @@ class Transformer(BaseAgent):
         processing = work.get_processing(new_input_output_maps)
         self.logger.info("work get_processing: %s" % processing)
 
-        new_processing_model, processing_model = None, None
+        new_processing_model, processing_model, update_processing_model = None, None, {}
         if processing:
             if 'processing_id' not in processing:
                 # new_processing = work.create_processing(new_input_output_maps)
@@ -445,6 +445,11 @@ class Transformer(BaseAgent):
                 work.set_processing_status(processing, processing_model['status'])
                 work.set_processing_output_metadata(processing, processing_model['output_metadata'])
                 transform['workload_id'] = processing_model['workload_id']
+
+        if transform['status'] in [TransformStatus.ToCancel]:
+            if processing_model and processing_model['status'] in [ProcessingStatus.New, ProcessingStatus.Submitting, ProcessingStatus.Submitted,
+                                                                   ProcessingStatus.Running]:
+                update_processing_model[processing_model['processing_id']] = {'status': ProcessingStatus.ToCancel}
 
         updated_contents, updated_input_contents_full, updated_output_contents_full = [], [], []
         if work.should_release_inputs(processing_model):
@@ -503,6 +508,18 @@ class Transformer(BaseAgent):
                 coll['status'] = CollectionStatus.Failed
                 msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
                 msgs.append(msg)
+        elif work.is_cancelled():
+            transform['status'] = TransformStatus.Cancelled
+            msg = self.generate_message(transform, work=work, msg_type='work')
+            msgs.append(msg)
+            for coll in output_collections:
+                coll['status'] = CollectionStatus.Cancelled
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msgs.append(msg)
+            for coll in log_collections:
+                coll['status'] = CollectionStatus.Cancelled
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msgs.append(msg)
         else:
             transform['status'] = TransformStatus.Transforming
 
@@ -514,7 +531,8 @@ class Transformer(BaseAgent):
                'new_contents': new_contents,
                'update_contents': updated_contents,
                'messages': msgs,
-               'new_processing': new_processing_model}
+               'new_processing': new_processing_model,
+               'update_processing': update_processing_model}
         return ret
 
     def process_running_transforms(self):
@@ -550,6 +568,7 @@ class Transformer(BaseAgent):
                                                           update_contents=ret.get('update_contents', None),
                                                           messages=ret.get('messages', None),
                                                           new_processing=ret.get('new_processing', None),
+                                                          updated_processing=ret.get('update_processing', None),
                                                           message_bulk_size=self.message_bulk_size)
 
             except Exception as ex:

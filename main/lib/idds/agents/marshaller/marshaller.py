@@ -164,7 +164,7 @@ class Marshaller(BaseAgent):
                                  }
                 new_transforms.append(new_transform)
             self.logger.info("Processing workprogress(%s): new transforms: %s" % (workprogress['workprogress_id'],
-                                                                              new_transforms))
+                                                                                  new_transforms))
 
         update_transforms = {}
         if workprogress['status'] in [WorkprogressStatus.ToCancel]:
