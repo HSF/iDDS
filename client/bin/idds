@@ -1,0 +1,105 @@
+#!/usr/bin/env python
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0OA
+#
+# Authors:
+# - Wen Guan, <wen.guan@cern.ch>, 2020
+
+"""
+iDDS CLI
+"""
+
+from __future__ import print_function
+
+import argparse
+import argcomplete
+import logging
+import os
+import sys
+import time
+
+from idds.client.version import release_version
+from idds.client.workflowmanager import WorkflowManager
+
+
+def get_requests_status(args):
+    wm = WorkflowManager(host=args.host)
+    wm.get_status(request_id=args.request_id, workload_id=args.workload_id, with_detail=args.with_detail)
+
+
+def abort_requests(args):
+    wm = WorkflowManager(host=args.host)
+    wm.abort(request_id=args.request_id, workload_id=args.workload_id)
+
+
+def download_logs(args):
+    wm = WorkflowManager(host=args.host)
+    wm.download_logs(request_id=args.request_id, workload_id=args.workload_id, dest_dir=args.dest_dir, filename=args.dest_filename)
+
+
+def get_parser():
+    """
+    Return the argparse parser.
+    """
+    oparser = argparse.ArgumentParser(prog=os.path.basename(sys.argv[0]), add_help=True)
+    subparsers = oparser.add_subparsers()
+
+    # common items
+    oparser.add_argument('--version', action='version', version='%(prog)s ' + release_version)
+    oparser.add_argument('--config', dest="config", help="The iDDS configuration file to use.")
+    oparser.add_argument('--verbose', '-v', default=False, action='store_true', help="Print more verbose output.")
+    oparser.add_argument('-H', '--host', dest="host", metavar="ADDRESS", help="The iDDS Rest host. For example: https://iddsserver.cern.ch:443/idds")
+
+    # get request status
+    req_status_parser = subparsers.add_parser('get_requests_status', help='Get the requests status')
+    req_status_parser.set_defaults(function=get_requests_status)
+    req_status_parser.add_argument('--request_id', dest='request_id', action='store', help='The request id')
+    req_status_parser.add_argument('--workload_id', dest='workload_id', action='store', help='The workload id')
+    req_status_parser.add_argument('--with_detail', dest='with_detail', default=False, action='store_true', help='To show detail status')
+
+    # abort requests
+    abort_parser = subparsers.add_parser('abort_requests', help='Abort requests')
+    abort_parser.set_defaults(function=abort_requests)
+    abort_parser.add_argument('--request_id', dest='request_id', action='store', help='The request id')
+    abort_parser.add_argument('--workload_id', dest='workload_id', action='store', help='The workload id')
+
+    # download logs
+    log_parser = subparsers.add_parser('download_logs', help='Download logs')
+    log_parser.set_defaults(function=download_logs)
+    log_parser.add_argument('--request_id', dest='request_id', action='store', help='The request id')
+    log_parser.add_argument('--workload_id', dest='workload_id', action='store', help='The workload id')
+    log_parser.add_argument('--dest_dir', dest='dest_dir', action='store', default='./', help='The destination directory')
+    log_parser.add_argument('--dest_filename', dest='dest_filename', action='store', default=None, help='The destination filename')
+
+
+if __name__ == '__main__':
+    arguments = sys.argv[1:]
+    # set the configuration before anything else, if the config parameter is present
+    for argi in range(len(arguments)):
+        if arguments[argi] == '--config' and (argi + 1) < len(arguments):
+            os.environ['IDDS_CONFIG'] = arguments[argi + 1]
+
+    oparser = get_parser()
+    argcomplete.autocomplete(oparser)
+
+    if len(sys.argv) == 1:
+        oparser.print_help()
+        sys.exit(-1)
+
+    args = oparser.parse_args(arguments)
+
+    try:
+        if args.verbose:
+            logging.setLevel(logging.DEBUG)
+        start_time = time.time()
+        result = args.function(args)
+        end_time = time.time()
+        if args.verbose:
+            print("Completed in %-0.4f sec." % (end_time - start_time))
+        sys.exit(0)
+    except Exception as error:
+        logging.error("Strange error: {0}".format(error))
+        sys.exit(-1)
