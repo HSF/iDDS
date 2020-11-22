@@ -12,12 +12,14 @@
 """
 Workflow manager.
 """
+import logging
+import tabulate
 
 from idds.common.utils import setup_logging
 
 from idds.client.client import Client
 from idds.common.constants import RequestType, RequestStatus
-from idds.common.utils import get_rest_host
+from idds.common.utils import get_rest_host, exception_handler
 
 # from idds.workflow.work import Work, Parameter, WorkStatus
 # from idds.workflow.workflow import Condition, Workflow
@@ -31,7 +33,9 @@ class WorkflowManager:
         self.host = host
         if self.host is None:
             self.host = get_rest_host()
+        self.client = Client(host=self.host)
 
+    @exception_handler
     def submit(self, workflow):
         props = {
             'scope': 'workflow',
@@ -50,7 +54,40 @@ class WorkflowManager:
             props['scope'] = primary_init_work['scope']
             props['name'] = primary_init_work['name']
 
-        print(props)
-        client = Client(host=self.host)
-        request_id = client.add_request(**props)
+        # print(props)
+        request_id = self.client.add_request(**props)
         return request_id
+
+    @exception_handler
+    def abort(self, request_id=None, workload_id=None):
+        if request_id is None and workload_id is None:
+            logging.error("Both request_id and workload_id are None. One of them should not be None")
+            return
+        reqs = self.client.get_requests(request_id=request_id, workload_id=workload_id)
+        for req in reqs:
+            logging.info("Aborting request: %s" % req['request_id'])
+            self.client.update_request(request_id=req['request_id'], parameters={'status': RequestStatus.ToCancel})
+
+    @exception_handler
+    def get_status(self, request_id=None, workload_id=None, with_detail=False):
+        reqs = self.client.get_requests(request_id=request_id, workload_id=workload_id, with_detail=with_detail)
+        if with_detail:
+            table = []
+            for req in reqs:
+                table.append([req['request_id'], req['workload_id'], "%s:%s" % (req['scope'], req['name']),
+                              "%s[%s/%s/%s]" % (req['status'], req['total_contents'], req['processed_contents'], req['processing_contents']),
+                              req['errors']])
+            print(tabulate.tabulate(table, tablefmt='simple', headers=['request_id', 'workload_id', 'scope:name', 'status[Total/OK/Processing]', 'errors']))
+        else:
+            table = []
+            for req in reqs:
+                table.append([req['request_id'], req['workload_id'], "%s:%s" % (req['scope'], req['name']), req['status'], req['errors']])
+            print(tabulate.tabulate(table, tablefmt='simple', headers=['request_id', 'workload_id', 'scope:name', 'status', 'errors']))
+
+    @exception_handler
+    def download_logs(self, request_id=None, workload_id=None, dest_dir='./', filename=None):
+        filename = self.client.download_logs(request_id=request_id, workload_id=workload_id, dest_dir=dest_dir, filename=filename)
+        if filename:
+            logging.info("Logs are downloaded to %s" % filename)
+        else:
+            logging.info("Failed to download logs for workload_id(%s) and request_id(%s)" % (workload_id, request_id))
