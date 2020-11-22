@@ -147,7 +147,7 @@ class Work(Base):
     # def set_workflow(self, workflow):
     #     self.workflow = workflow
 
-    def set_agent_attributes(self, attrs):
+    def set_agent_attributes(self, attrs, req_attributes=None):
         self.agent_attributes = attrs
 
     def set_workdir(self, workdir):

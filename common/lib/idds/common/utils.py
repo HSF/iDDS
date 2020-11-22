@@ -20,6 +20,7 @@ import sys
 import tarfile
 
 from enum import Enum
+from functools import wraps
 
 from idds.common.config import (config_has_section, config_has_option,
                                 config_get, config_get_bool)
@@ -29,6 +30,7 @@ from idds.common.constants import (IDDSEnum, RequestType, RequestStatus,
                                    ContentType, ContentStatus,
                                    GranularityType, ProcessingStatus)
 from idds.common.dict_class import DictClass
+from idds.common.exceptions import IDDSException
 
 
 # RFC 1123
@@ -393,3 +395,15 @@ def tar_zip_files(output_dir, output_filename, files):
     with tarfile.open(output_filename, "w:gz") as tar:
         for file in files:
             tar.add(file, arcname=os.path.basename(file))
+
+
+def exception_handler(function):
+    @wraps(function)
+    def new_funct(*args, **kwargs):
+        try:
+            return function(*args, **kwargs)
+        except IDDSException as ex:
+            logging.error(ex)
+        except Exception as ex:
+            logging.error(ex)
+    return new_funct
