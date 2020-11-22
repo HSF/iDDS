@@ -1,0 +1,54 @@
+#!/usr/bin/env python
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Wen Guan, <wen.guan@cern.ch>, 2016-2017
+
+import commands
+import sys
+import json
+import requests
+
+# requests.packages.urllib3.disable_warnings()
+
+project_url = "https://api.github.com/repos/wguanicedew/ess/pulls"
+
+def submit_merge_request(token, data):
+    r = requests.post(url='%s' % project_url,
+                      headers={"Content-Type": "application/json",
+                               "Authorization": "token %s" % token},
+                      data=json.dumps(data))
+    return r
+
+
+root_git_dir = commands.getstatusoutput('git rev-parse --show-toplevel')[1]
+
+# Load private_token
+print 'Loading private token ...',
+try:
+    with open(root_git_dir + '/.githubkey', 'r') as f:
+        private_token = f.readline().strip()
+        print 'OK'
+except:
+    print 'ERROR'
+    print 'No github keyfile found at %s' % root_git_dir + '/.githubkey'
+    sys.exit(-1)
+
+# Check if current branch is not master or next
+print 'Checking if current branch is a patch/dev branch ...',
+current_branch = commands.getstatusoutput('git rev-parse --abbrev-ref HEAD')[1]
+
+# Push the branch to origin
+print 'Pushing the dev/patch branch to origin ...',
+op = commands.getstatusoutput('git push origin %s' % current_branch)
+if op[0] == 0:
+    print 'OK'
+else:
+    print 'ERROR'
+    print op[1]
+    sys.exit(-1)
+

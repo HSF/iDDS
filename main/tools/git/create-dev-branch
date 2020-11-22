@@ -1,0 +1,29 @@
+#!/bin/bash
+
+if [[ $# -ne 1 ]] ; then
+    echo 'usage: tools/create-dev-branch <branchname>'
+    echo
+    echo 'examples: tools/create-dev-branch fancydev'
+    echo '          tools/create-dev-branch "my fancy dev"'
+    exit 1
+fi
+
+echo "Switching to dev"
+git checkout dev
+
+echo "Updating dev"
+git pull --all --prune --progress
+
+echo "Rebasing dev"
+#git rebase upstream/dev dev
+git reset --hard upstream/dev
+
+if [ $? != 0 ]; then
+    echo "Can't rebase to dev. Unstaged changes?"
+    exit 1
+fi
+
+echo "Creating dev branch"
+git checkout -b dev-${1//[^a-zA-Z0-9]/_} dev
+
+echo "Done"
