@@ -476,6 +476,12 @@ class Work(Base):
         """
         raise exceptions.NotImplementedException
 
+    def abort_processing(self, processing):
+        """
+        *** Function called by Carrier agent.
+        """
+        raise exceptions.NotImplementedException
+
     def poll_processing_updates(self, processing, input_output_maps):
         """
         *** Function called by Carrier agent.

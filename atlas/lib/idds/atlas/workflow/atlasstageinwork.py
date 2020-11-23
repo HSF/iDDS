@@ -72,6 +72,8 @@ class ATLASStageinWork(Work):
         self.processed_output_files = 0
         self.status_statistics = {}
 
+        self.tocancel = False
+
     def get_rucio_client(self):
         try:
             client = RucioClient()
@@ -259,6 +261,9 @@ class ATLASStageinWork(Work):
             rule_id = self.create_rule(processing)
             processing['processing_metadata']['rule_id'] = rule_id
 
+    def abort_processing(self, processing):
+        self.tocancel = True
+
     def poll_rule(self, processing):
         try:
             p = processing
@@ -312,6 +317,9 @@ class ATLASStageinWork(Work):
         if rule_state == 'OK' and content_substatus['finished'] > 0 and content_substatus['unfinished'] == 0:
             update_processing = {'processing_id': processing['processing_id'],
                                  'parameters': {'status': ProcessingStatus.Finished}}
+        elif self.tocancel:
+            update_processing = {'processing_id': processing['processing_id'],
+                                 'parameters': {'status': ProcessingStatus.Cancelled}}
         return update_processing, updated_contents
 
     def get_status_statistics(self, registered_input_output_maps):

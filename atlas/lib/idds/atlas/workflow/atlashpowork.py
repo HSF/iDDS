@@ -104,6 +104,7 @@ class ATLASHPOWork(ATLASCondorWork):
         self.points_to_generate = self.num_points_per_iteration
         self.point_index = 0
         self.terminated = False
+        self.tocancel = False
 
         if not self.num_points_per_iteration or self.num_points_per_iteration < 0:
             raise exceptions.IDDSException("num_points_per_iteration must be integer bigger than 0")
@@ -597,6 +598,9 @@ class ATLASHPOWork(ATLASCondorWork):
             processing['processing_metadata']['job_id'] = job_id
             processing['processing_metadata']['errors'] = errors
 
+    def abort_processing(self, processing):
+        self.tocancel = True
+
     def parse_processing_outputs(self, processing):
         request_id = processing['request_id']
         workload_id = processing['workload_id']
@@ -633,6 +637,10 @@ class ATLASHPOWork(ATLASCondorWork):
             else:
                 processing_status = ProcessingStatus.Failed
                 processing_err = parser_errors
+        elif self.tocancel:
+            processing_status = ProcessingStatus.Cancelled
+            processing_outputs = None
+            processing_err = None
         else:
             processing_status = job_status
             processing_err = job_err_msg
