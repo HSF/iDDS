@@ -119,14 +119,14 @@ class WorkflowManager:
             logging.info("Failed to download logs for workload_id(%s) and request_id(%s)" % (workload_id, request_id))
 
     @exception_handler
-    def upload2cacher(self, filename):
+    def upload_to_cacher(self, filename):
         """
         Upload file to iDDS cacher: On the cacher, the filename will be the basename of the file.
         """
         return self.client.upload(filename)
 
     @exception_handler
-    def downloadfromcacher(self, filename):
+    def download_from_cacher(self, filename):
         """
         Download file from iDDS cacher: On the cacher, the filename will be the basename of the file.
         """
