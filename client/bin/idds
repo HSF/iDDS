@@ -40,6 +40,26 @@ def download_logs(args):
     wm.download_logs(request_id=args.request_id, workload_id=args.workload_id, dest_dir=args.dest_dir, filename=args.dest_filename)
 
 
+def upload_to_cacher(args):
+    wm = WorkflowManager(host=args.host)
+    wm.upload_to_cacher(args.filename)
+
+
+def download_from_cacher(args):
+    wm = WorkflowManager(host=args.host)
+    wm.download_from_cacher(args.filename)
+
+
+def get_hyperparameters(args):
+    wm = WorkflowManager(host=args.host)
+    wm.get_hyperparameters(workload_id=args.workload_id, request_id=args.request_id, id=args.id, status=args.status, limit=args.limit)
+
+
+def update_hyperparameter(args):
+    wm = WorkflowManager(host=args.host)
+    wm.update_hyperparameter(workload_id=args.workload_id, request_id=args.request_id, id=args.id, loss=args.loss)
+
+
 def get_parser():
     """
     Return the argparse parser.
@@ -56,23 +76,50 @@ def get_parser():
     # get request status
     req_status_parser = subparsers.add_parser('get_requests_status', help='Get the requests status')
     req_status_parser.set_defaults(function=get_requests_status)
-    req_status_parser.add_argument('--request_id', dest='request_id', action='store', help='The request id')
-    req_status_parser.add_argument('--workload_id', dest='workload_id', action='store', help='The workload id')
+    req_status_parser.add_argument('--request_id', dest='request_id', action='store', type=int, help='The request id')
+    req_status_parser.add_argument('--workload_id', dest='workload_id', action='store', type=int, help='The workload id')
     req_status_parser.add_argument('--with_detail', dest='with_detail', default=False, action='store_true', help='To show detail status')
 
     # abort requests
     abort_parser = subparsers.add_parser('abort_requests', help='Abort requests')
     abort_parser.set_defaults(function=abort_requests)
-    abort_parser.add_argument('--request_id', dest='request_id', action='store', help='The request id')
-    abort_parser.add_argument('--workload_id', dest='workload_id', action='store', help='The workload id')
+    abort_parser.add_argument('--request_id', dest='request_id', action='store', type=int, help='The request id')
+    abort_parser.add_argument('--workload_id', dest='workload_id', action='store', type=int, help='The workload id')
 
     # download logs
     log_parser = subparsers.add_parser('download_logs', help='Download logs')
     log_parser.set_defaults(function=download_logs)
-    log_parser.add_argument('--request_id', dest='request_id', action='store', help='The request id')
-    log_parser.add_argument('--workload_id', dest='workload_id', action='store', help='The workload id')
+    log_parser.add_argument('--request_id', dest='request_id', action='store', type=int, help='The request id')
+    log_parser.add_argument('--workload_id', dest='workload_id', action='store', type=int, help='The workload id')
     log_parser.add_argument('--dest_dir', dest='dest_dir', action='store', default='./', help='The destination directory')
     log_parser.add_argument('--dest_filename', dest='dest_filename', action='store', default=None, help='The destination filename')
+
+    # upload a file to the cacher
+    upload_parser = subparsers.add_parser('upload_to_cacher', help='Upload a file to the iDDS cacher on the server')
+    upload_parser.set_defaults(function=upload_to_cacher)
+    upload_parser.add_argument('--filename', dest='filename', action='store', default=None, help='The source filename. The destination filename on the server will be the base name of the file')
+
+    # download a file from the cacher
+    download_parser = subparsers.add_parser('download_from_cacher', help='Download a file from the iDDS cacher on the server')
+    download_parser.set_defaults(function=download_from_cacher)
+    download_parser.add_argument('--filename', dest='filename', action='store', default=None, help='The destination filename. The source filename on the server will be the base name of the file')
+
+    # get hyperparameters
+    hp_get_parser = subparsers.add_parser('get_hyperparameters', help='Get hyperparameters')
+    hp_get_parser.set_defaults(function=get_hyperparameters)
+    hp_get_parser.add_argument('--request_id', dest='request_id', action='store', type=int, help='The request id')
+    hp_get_parser.add_argument('--workload_id', dest='workload_id', action='store', type=int, help='The workload id')
+    hp_get_parser.add_argument('--id', dest='id', action='store', type=int, help='The id of the hyperparameter')
+    hp_get_parser.add_argument('--status', dest='status', action='store', help='Retrieve hyperparameters with defined status')
+    hp_get_parser.add_argument('--limit', dest='limit', action='store', type=int, help='Limit number of hyperparameters')
+
+    # update hyperparameter
+    hp_update_parser = subparsers.add_parser('update_hyperparameter', help='Update the hyperparameter result')
+    hp_update_parser.set_defaults(function=update_hyperparameter)
+    hp_update_parser.add_argument('--request_id', dest='request_id', action='store', type=int, help='The request id')
+    hp_update_parser.add_argument('--workload_id', dest='workload_id', action='store', type=int, help='The workload id')
+    hp_update_parser.add_argument('--id', dest='id', action='store', type=int, help='The id of the hyperparameter')
+    hp_update_parser.add_argument('--loss', dest='loss', action='store', type=float, help='The loss result to be updated')
 
 
 if __name__ == '__main__':
