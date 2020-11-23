@@ -39,13 +39,12 @@ Below is an example for data carousel
         dest_rse = 'NDGF-T1_DATADISK'
         rule_id = '*****'
         workload_id = <panda task id for example>
-        work = ATLASStageinWork(
-                            primary_input_collection={'scope': scope, 'name': name},
-                            output_collections={'scope': scope, 'name': name + '.idds.stagein'},
-                            max_waiting_time=max_waiting_time,
-                            src_rse=src_rse,
-                            dest_rse=dest_rse,
-                            rule_id=rule_id)
+        work = ATLASStageinWork(primary_input_collection={'scope': scope, 'name': name},
+                                output_collections={'scope': scope, 'name': name + '.idds.stagein'},
+                                max_waiting_time=max_waiting_time,
+                                src_rse=src_rse,
+                                dest_rse=dest_rse,
+                                rule_id=rule_id)
         wf = Workflow()
         wf.set_workload_id(workload_id)
         wf.add_work(work)
