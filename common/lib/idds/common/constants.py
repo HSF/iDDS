@@ -201,6 +201,7 @@ class CollectionStatus(IDDSEnum):
     SubClosed = 5
     Failed = 6
     Deleted = 7
+    Cancelled = 8
 
 
 class CollectionLocking(IDDSEnum):
@@ -248,6 +249,9 @@ class ProcessingStatus(IDDSEnum):
     FinishedOnExec = 9
     TimeOut = 10
     FinishedTerm = 11
+    ToCancel = 12
+    Cancelling = 13
+    Cancelled = 14
 
 
 class ProcessingLocking(IDDSEnum):
