@@ -56,11 +56,11 @@ class ATLASCondorWork(Work):
         return long_id
 
     def get_working_dir(self, processing):
-        request_id = processing['request_id']
-        workload_id = processing['workload_id']
+        # request_id = processing['request_id']
+        # workload_id = processing['workload_id']
         processing_id = processing['processing_id']
 
-        job_dir = 'request_%s_%s/processing_%s' % (request_id, workload_id, processing_id)
+        job_dir = 'processing_%s' % (processing_id)
         job_dir = os.path.join(self.get_workdir(), job_dir)
         if not os.path.exists(job_dir):
             os.makedirs(job_dir)

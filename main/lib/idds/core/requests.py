@@ -108,7 +108,7 @@ def get_request_ids_by_workload_id(workload_id, session=None):
 
 
 @read_session
-def get_requests(request_id=None, workload_id=None, to_json=False, session=None):
+def get_requests(request_id=None, workload_id=None, with_detail=False, to_json=False, session=None):
     """
     Get a request or raise a NoObject exception.
 
@@ -121,7 +121,7 @@ def get_requests(request_id=None, workload_id=None, to_json=False, session=None)
     :returns: Request.
     """
     return orm_requests.get_requests(request_id=request_id, workload_id=workload_id,
-                                     to_json=to_json, session=session)
+                                     with_detail=with_detail, to_json=to_json, session=session)
 
 
 @transactional_session
@@ -206,7 +206,7 @@ def update_request_with_transforms(request_id, parameters, transforms_to_add, tr
 
 
 @transactional_session
-def update_request_with_workprogresses(request_id, parameters, new_workprogresses, session=None):
+def update_request_with_workprogresses(request_id, parameters, new_workprogresses=None, update_workprogresses=None, session=None):
     """
     update an request.
 
@@ -216,6 +216,9 @@ def update_request_with_workprogresses(request_id, parameters, new_workprogresse
     """
     if new_workprogresses:
         orm_workprogresses.add_workprogresses(new_workprogresses, session=session)
+    if update_workprogresses:
+        for workprogress_id in update_workprogresses:
+            orm_workprogresses.update_workprogress(workprogress_id, update_workprogresses[workprogress_id], session=session)
     return orm_requests.update_request(request_id, parameters, session=session)
 
 

@@ -1,0 +1,105 @@
+#!/usr/bin/env python
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Wen Guan, <wen.guan@cern.ch>, 2019
+
+import commands
+import sys
+import json
+import requests
+
+# requests.packages.urllib3.disable_warnings()
+
+project_url = "https://api.github.com/repos/wguanicedew/ess/pulls"
+
+def submit_merge_request(token, data):
+    r = requests.post(url='%s' % project_url,
+                      headers={"Content-Type": "application/json",
+                               "Authorization": "token %s" % token},
+                      data=json.dumps(data))
+    return r
+
+
+root_git_dir = commands.getstatusoutput('git rev-parse --show-toplevel')[1]
+
+# Load private_token
+print 'Loading private token ...',
+try:
+    with open(root_git_dir + '/.githubkey', 'r') as f:
+        private_token = f.readline().strip()
+        print 'OK'
+except:
+    print 'ERROR'
+    print 'No github keyfile found at %s' % root_git_dir + '/.githubkey'
+    sys.exit(-1)
+
+# Check if current branch is not master or next
+print 'Checking if current branch is a patch/feature branch ...',
+current_branch = commands.getstatusoutput('git rev-parse --abbrev-ref HEAD')[1]
+commit_msg = current_branch
+for line in commands.getstatusoutput('git show')[1].splitlines():
+    if line.strip().startswith('[PILOT-'):
+        commit_msg = line.strip()
+if current_branch == 'master' or current_branch == 'dev':
+    print 'ERROR'
+    print 'You are currently on branch \'%s\'. Please change to a dev/patch branch.' % current_branch
+    sys.exit(-1)
+if not current_branch.startswith('patch') and not current_branch.startswith('dev'):
+    print 'ERROR'
+    print 'You are currently on branch \'%s\'. This is not a dev/patch branch.' % current_branch
+    sys.exit(-1)
+print 'OK'
+
+# Push the branch to origin
+print 'Pushing the dev/patch branch to origin ...',
+op = commands.getstatusoutput('git push origin %s' % current_branch)
+if op[0] == 0:
+    print 'OK'
+else:
+    print 'ERROR'
+    print op[1]
+    sys.exit(-1)
+
+# Check if there is already a merge request for this:
+print 'Checking if there already exists a merge request for this dev/patch ...',
+resp = requests.get(url='%s' % project_url,
+                    params={'state': 'open'})
+mr_list = json.loads(resp.text)
+for mr in mr_list:
+    if current_branch in mr['head']['ref'] and mr['state'] == 'open':
+        print 'ERROR'
+        print 'There is already an open Merge Request for this branch.'
+        sys.exit(-1)
+print 'OK'
+
+# Create the Merge-requests
+if current_branch.startswith('patch'):
+    print 'Submitting merge request against patch ...',
+    result = submit_merge_request(token=private_token,
+                                  data={'head': current_branch,
+                                        'base': 'master',
+                                        'title': commit_msg,
+                                        'body': commit_msg})
+    if result.status_code == 200 or result.status_code == 201:
+        print 'OK'
+    else:
+        print 'ERROR'
+        print result.content
+
+# Submit against dev
+print 'Submitting merge request against dev ...',
+result = submit_merge_request(token=private_token,
+                              data={'head': current_branch,
+                                    'base': 'dev',
+                                    'title': commit_msg,
+                                    'body': commit_msg})
+if result.status_code == 200 or result.status_code == 201:
+    print 'OK'
+else:
+    print 'ERROR'
+    print result.content

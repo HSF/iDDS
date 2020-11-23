@@ -147,7 +147,7 @@ class Work(Base):
     # def set_workflow(self, workflow):
     #     self.workflow = workflow
 
-    def set_agent_attributes(self, attrs):
+    def set_agent_attributes(self, attrs, req_attributes=None):
         self.agent_attributes = attrs
 
     def set_workdir(self, workdir):
@@ -164,6 +164,9 @@ class Work(Base):
         self.status = status
         # if self.workflow:
         #     self.workflow.work_status_update_trigger(self, status)
+
+    def get_status(self):
+        return self.status
 
     def set_terminated_msg(self, msg):
         """
@@ -243,7 +246,15 @@ class Work(Base):
         """
         *** Function called by Transformer agent.
         """
-        if self.status in [WorkStatus.Failed, WorkStatus.Cancelled]:
+        if self.status in [WorkStatus.Failed]:
+            return True
+        return False
+
+    def is_cancelled(self):
+        """
+        *** Function called by Transformer agent.
+        """
+        if self.status in [WorkStatus.Cancelled]:
             return True
         return False
 
@@ -460,6 +471,12 @@ class Work(Base):
             # return process
 
     def submit_processing(self, processing):
+        """
+        *** Function called by Carrier agent.
+        """
+        raise exceptions.NotImplementedException
+
+    def abort_processing(self, processing):
         """
         *** Function called by Carrier agent.
         """

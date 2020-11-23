@@ -98,7 +98,7 @@ CREATE TABLE WORKPROGRESSES
         workprogress_metadata CLOB,
         processing_metadata CLOB,
         CONSTRAINT WORKPROGRESS_PK PRIMARY KEY (workprogress_id), --- USING INDEX LOCAL,
-        CONSTRAINT WORKPROGRESS_REQ_ID_FK FOREIGN KEY(request_id) REFERENCES REQUESTS(request_id),
+        CONSTRAINT WORKPROGRESS_REQ_ID_FK FOREIGN KEY(request_id) REFERENCES REQUESTS(request_id)
         --- CONSTRAINT REQUESTS_NAME_SCOPE_UQ UNIQUE (name, scope, requester, request_type, transform_tag, workload_id) -- USING INDEX LOCAL,
 )
 PCTFREE 3
@@ -354,7 +354,7 @@ CREATE TABLE CONTENTS
 )
 PCTFREE 3
 PARTITION BY RANGE(TRANSFORM_ID)
-INTERVAL ( 10000 )
+INTERVAL ( 1000000 )
 ( PARTITION initial_part VALUES LESS THAN (1) );
 
 ---PCTFREE 0
@@ -415,8 +415,8 @@ CREATE TABLE HEALTH
     thread_id Number(20),
     thread_name VARCHAR2(255),
     payload VARCHAR2(255),
-    created_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)),
-    updated_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)),
+    created_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)),
+    updated_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)),
     CONSTRAINT HEALTH_PK PRIMARY KEY (health_id), -- USING INDEX LOCAL,  
     CONSTRAINT HEALTH_UQ UNIQUE (agent, hostname, pid, thread_id) -- USING INDEX LOCAL
 );
@@ -442,12 +442,15 @@ ORDER BY cols.table_name, cols.position;
 
 select r.request_id, r.scope, r.name, r.status, tr.transform_id, tr.transform_status, tr.in_status, tr.in_total_files, tr.in_processed_files, tr.out_status, tr.out_total_files, tr.out_processed_files
 from requests r
- full outer join req2transforms rt on (r.request_id=rt.request_id)
+ full outer join (
+    select request_id, workprogress_id from workprogresses
+ ) wp on (r.request_id=wp.request_id)
+ full outer join wp2transforms wt on (wp.workprogress_id=wt.workprogress_id)
  full outer join (
     select t.transform_id, t.status transform_status, in_coll.status in_status, in_coll.total_files in_total_files, in_coll.processed_files in_processed_files,
     out_coll.status out_status, out_coll.total_files out_total_files, out_coll.processed_files out_processed_files
     from transforms t
     full outer join (select coll_id , transform_id, status, total_files, processed_files from collections where relation_type = 0) in_coll on (t.transform_id = in_coll.transform_id)
     full outer join (select coll_id , transform_id, status, total_files, processed_files from collections where relation_type = 1) out_coll on (t.transform_id = out_coll.transform_id)
-    ) tr on (rt.transform_id=tr.transform_id)
-
+ ) tr on (wt.transform_id=tr.transform_id)
+order by r.request_id

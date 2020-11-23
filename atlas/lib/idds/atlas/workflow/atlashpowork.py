@@ -34,6 +34,7 @@ class ATLASHPOWork(ATLASCondorWork):
                  # primary_input_collection=None, other_input_collections=None,
                  # output_collections=None, log_collections=None,
                  logger=None,
+                 workload_id=None,
                  agent_attributes=None,
                  method=None,
                  container_workdir=None,
@@ -66,7 +67,10 @@ class ATLASHPOWork(ATLASCondorWork):
         :param number_points_per_iteration: The number of points to be generated per iteration.
         """
         if not name:
-            name = 'hpo.' + datetime.datetime.utcnow().strftime("%Y_%m_%d_%H_%M_%S_%f") + str(random.randint(1, 1000))
+            if workload_id:
+                name = 'hpo.' + str(workload_id) + "." + datetime.datetime.utcnow().strftime("%Y_%m_%d_%H_%M_%S_%f") + str(random.randint(1, 1000))
+            else:
+                name = 'hpo.' + datetime.datetime.utcnow().strftime("%Y_%m_%d_%H_%M_%S_%f") + str(random.randint(1, 1000))
 
         primary_input_collection = {'scope': 'HPO', 'name': name}
         other_input_collections = None
@@ -100,6 +104,7 @@ class ATLASHPOWork(ATLASCondorWork):
         self.points_to_generate = self.num_points_per_iteration
         self.point_index = 0
         self.terminated = False
+        self.tocancel = False
 
         if not self.num_points_per_iteration or self.num_points_per_iteration < 0:
             raise exceptions.IDDSException("num_points_per_iteration must be integer bigger than 0")
@@ -108,15 +113,18 @@ class ATLASHPOWork(ATLASCondorWork):
         if not self.method and self.executable and 'docker' in self.executable:
             self.method = 'docker'
 
-        if self.agent_attributes and 'atlashpowork' in self.agent_attributes:
-            self.agent_attributes = self.agent_attributes['atlashpowork']
+        # if self.agent_attributes and 'atlashpowork' in self.agent_attributes:
+        #    self.agent_attributes = self.agent_attributes['atlashpowork']
         # self.logger.info("agent_attributes: %s" % self.agent_attributes)
 
-        if self.agent_attributes and 'workdir' in self.agent_attributes and self.agent_attributes['workdir']:
-            self.set_workdir(self.agent_attributes['workdir'])
+        # if self.agent_attributes and 'workdir' in self.agent_attributes and self.agent_attributes['workdir']:
+        #     self.set_workdir(self.agent_attributes['workdir'])
         # self.logger.info("workdir: %s" % self.get_workdir())
 
-    def set_agent_attributes(self, attrs):
+        if agent_attributes:
+            self.set_agent_attributes(agent_attributes)
+
+    def set_agent_attributes(self, attrs, req_attributes=None):
         self.agent_attributes = attrs
 
         if self.agent_attributes and 'atlashpowork' in self.agent_attributes:
@@ -124,7 +132,11 @@ class ATLASHPOWork(ATLASCondorWork):
         self.logger.info("agent_attributes: %s" % self.agent_attributes)
 
         if self.agent_attributes and 'workdir' in self.agent_attributes and self.agent_attributes['workdir']:
-            self.set_workdir(self.agent_attributes['workdir'])
+            if req_attributes and 'request_id' in req_attributes and 'workload_id' in req_attributes and 'transform_id' in req_attributes:
+                req_dir = 'request_%s_%s/transform_%s' % (req_attributes['request_id'],
+                                                          req_attributes['workload_id'],
+                                                          req_attributes['transform_id'])
+                self.set_workdir(os.path.join(self.agent_attributes['workdir'], req_dir))
         self.logger.info("workdir: %s" % self.get_workdir())
 
     ####### functions for transformer ########   # noqa E266
@@ -357,8 +369,23 @@ class ATLASHPOWork(ATLASCondorWork):
         self.status_statistics = status_statistics
         return status_statistics
 
+    def syn_collection_status(self):
+        input_collections = self.get_input_collections()
+        output_collections = self.get_output_collections()
+        # log_collections = self.get_log_collections()
+
+        for input_collection in input_collections:
+            input_collection['total_files'] = self.finished_points + self.unfinished_points
+            input_collection['processed_files'] = self.finished_points + self.unfinished_points
+
+        for output_collection in output_collections:
+            output_collection['total_files'] = self.finished_points + self.unfinished_points
+            output_collection['processed_files'] = self.finished_points
+
     def syn_work_status(self, registered_input_output_maps):
         self.get_status_statistics(registered_input_output_maps)
+
+        self.syn_collection_status()
 
         if self.is_processings_terminated() and not self.has_new_inputs():
             keys = self.status_statistics.keys()
@@ -571,6 +598,9 @@ class ATLASHPOWork(ATLASCondorWork):
             processing['processing_metadata']['job_id'] = job_id
             processing['processing_metadata']['errors'] = errors
 
+    def abort_processing(self, processing):
+        self.tocancel = True
+
     def parse_processing_outputs(self, processing):
         request_id = processing['request_id']
         workload_id = processing['workload_id']
@@ -607,6 +637,10 @@ class ATLASHPOWork(ATLASCondorWork):
             else:
                 processing_status = ProcessingStatus.Failed
                 processing_err = parser_errors
+        elif self.tocancel:
+            processing_status = ProcessingStatus.Cancelled
+            processing_outputs = None
+            processing_err = None
         else:
             processing_status = job_status
             processing_err = job_err_msg

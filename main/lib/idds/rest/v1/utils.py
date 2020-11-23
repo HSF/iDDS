@@ -71,6 +71,7 @@ def convert_hpo_request_metadata_to_workflow(scope, name, workload_id, request_m
                         container_workdir=request_metadata.get('workdir', None),
                         output_json=request_metadata.get('output_json', None),
                         opt_space=request_metadata.get('opt_space', None),
+                        workload_id=workload_id,
                         initial_points=request_metadata.get('initial_points', None),
                         max_points=request_metadata.get('max_points', None),
                         num_points_per_iteration=request_metadata.get('num_points_per_iteration', 10))
@@ -93,7 +94,7 @@ def convert_old_req_2_workflow_req(data):
     elif 'workload_id' in data['request_metadata'] and data['request_metadata']['workload_id']:
         workload_id = data['request_metadata']['workload_id']
 
-    if data['request_type'] == RequestType.StageIn:
+    if data['request_type'] in [RequestType.StageIn, RequestType.StageIn.value]:
         wf = convert_stagein_request_metadata_to_workflow(data['scope'], data['name'], workload_id,
                                                           data['request_metadata'])
         data['request_type'] = RequestType.Workflow
@@ -103,7 +104,7 @@ def convert_old_req_2_workflow_req(data):
         data['request_metadata'] = {'workload_id': wf.get_workload_id(),
                                     'workflow': wf}
         return data
-    if data['request_type'] == RequestType.HyperParameterOpt:
+    if data['request_type'] in [RequestType.HyperParameterOpt, RequestType.HyperParameterOpt.value]:
         wf = convert_hpo_request_metadata_to_workflow(data['scope'] if 'scope' in data else None,
                                                       data['name'] if 'name' in data else None,
                                                       workload_id,

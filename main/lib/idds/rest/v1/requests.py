@@ -122,7 +122,7 @@ class Request(IDDSController):
 
         return self.generate_http_response(HTTP_STATUS_CODE.OK, data={'status': 0, 'message': 'update successfully'})
 
-    def get(self, request_id, workload_id):
+    def get(self, request_id, workload_id, with_detail):
         """ Get details about a specific Request with given id.
         HTTP Success:
             200 OK
@@ -137,9 +137,13 @@ class Request(IDDSController):
                 request_id = None
             if workload_id == 'null':
                 workload_id = None
+            if with_detail and with_detail.lower in ['true']:
+                with_detail = True
+            else:
+                with_detail = False
 
             # reqs = get_requests(request_id=request_id, workload_id=workload_id, to_json=True)
-            reqs = get_requests(request_id=request_id, workload_id=workload_id)
+            reqs = get_requests(request_id=request_id, workload_id=workload_id, with_detail=with_detail)
         except exceptions.NoObject as error:
             return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
         except exceptions.IDDSException as error:
@@ -169,5 +173,5 @@ def get_blueprint():
     request_view = Request.as_view('request')
     bp.add_url_rule('/request', view_func=request_view, methods=['post', ])
     bp.add_url_rule('/request/<request_id>', view_func=request_view, methods=['put', ])
-    bp.add_url_rule('/request/<request_id>/<workload_id>', view_func=request_view, methods=['get', ])
+    bp.add_url_rule('/request/<request_id>/<workload_id>/<with_detail>', view_func=request_view, methods=['get', ])
     return bp
