@@ -37,6 +37,11 @@ class WorkflowManager:
 
     @exception_handler
     def submit(self, workflow):
+        """
+        Submit the workflow as a request to iDDS server.
+
+        :param workflow: The workflow to be submitted.
+        """
         props = {
             'scope': 'workflow',
             'name': workflow.get_name(),
@@ -60,6 +65,12 @@ class WorkflowManager:
 
     @exception_handler
     def abort(self, request_id=None, workload_id=None):
+        """
+        Abort requests.
+
+        :param workload_id: the workload id.
+        :param request_id: the request.
+        """
         if request_id is None and workload_id is None:
             logging.error("Both request_id and workload_id are None. One of them should not be None")
             return
@@ -70,6 +81,13 @@ class WorkflowManager:
 
     @exception_handler
     def get_status(self, request_id=None, workload_id=None, with_detail=False):
+        """
+        Get the status progress report of requests.
+
+        :param workload_id: the workload id.
+        :param request_id: the request.
+        :param with_detail: Whether to show detail info.
+        """
         reqs = self.client.get_requests(request_id=request_id, workload_id=workload_id, with_detail=with_detail)
         if with_detail:
             table = []
@@ -86,8 +104,58 @@ class WorkflowManager:
 
     @exception_handler
     def download_logs(self, request_id=None, workload_id=None, dest_dir='./', filename=None):
+        """
+        Download logs for a request.
+
+        :param workload_id: the workload id.
+        :param request_id: the request.
+        :param dest_dir: The destination directory.
+        :param filename: The destination filename to be saved. If it's None, default filename will be saved.
+        """
         filename = self.client.download_logs(request_id=request_id, workload_id=workload_id, dest_dir=dest_dir, filename=filename)
         if filename:
             logging.info("Logs are downloaded to %s" % filename)
         else:
             logging.info("Failed to download logs for workload_id(%s) and request_id(%s)" % (workload_id, request_id))
+
+    @exception_handler
+    def upload2cacher(self, filename):
+        """
+        Upload file to iDDS cacher: On the cacher, the filename will be the basename of the file.
+        """
+        return self.client.upload(filename)
+
+    @exception_handler
+    def downloadfromcacher(self, filename):
+        """
+        Download file from iDDS cacher: On the cacher, the filename will be the basename of the file.
+        """
+        return self.client.download(filename)
+
+    @exception_handler
+    def get_hyperparameters(self, workload_id, request_id, id=None, status=None, limit=None):
+        """
+        Get hyperparameters from the Head service.
+
+        :param workload_id: the workload id.
+        :param request_id: the request id.
+        :param status: the status of the hyperparameters.
+        :param limit: limit number of hyperparameters
+
+        :raise exceptions if it's not got successfully.
+        """
+        return self.client.get_hyperparameters(workload_id=workload_id, request_id=request_id, id=id, status=status, limit=limit)
+
+    @exception_handler
+    def update_hyperparameter(self, workload_id, request_id, id, loss):
+        """
+        Update hyperparameter to the Head service.
+
+        :param workload_id: the workload id.
+        :param request_id: the request.
+        :param id: id of the hyper parameter.
+        :param loss: the loss.
+
+        :raise exceptions if it's not updated successfully.
+        """
+        return self.client.update_hyperparameter(workload_id=workload_id, request_id=request_id, id=id, loss=loss)
