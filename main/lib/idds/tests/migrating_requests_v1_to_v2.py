@@ -14,7 +14,7 @@ from idds.workflow.workflow import Workflow
 
 from idds.atlas.workflow.atlasstageinwork import ATLASStageinWork
 
-from idds.client.workflowmanager import WorkflowManager
+from idds.client.clientmanager import ClientManager
 
 
 def convert_req2reqv2(req):
@@ -42,7 +42,7 @@ def convert_req2reqv2(req):
     wf.add_work(work)
 
     host = get_rest_host()
-    wm = WorkflowManager(host=host)
+    wm = ClientManager(host=host)
     request_id = wm.submit(wf)
     # print(request_id)
     return request_id

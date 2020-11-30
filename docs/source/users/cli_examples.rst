@@ -12,7 +12,7 @@ Below is one example for submitting a workflow.
 
 .. code-block:: python
 
-    from idds.client.workflowmanager import WorkflowManager
+    from idds.client.clientmanager import ClientManager
     from idds.common.utils import get_rest_host
 
     # get the host from the client cfg
@@ -22,7 +22,7 @@ Below is one example for submitting a workflow.
     # get a workflow
     workflow = get_workflow()
 
-    wm = WorkflowManager(host=host)
+    cm = ClientManager(host=host)
     request_id = wm.submit(workflow)
 
 Below is an example for data carousel
@@ -86,21 +86,21 @@ Below is an example for hyperparameter optimization
 .. code-block:: python
 
     # One of workload_id or request_id can be None
-    workflowmanager.abort(request_id=<request_id>, workload_id=<workload_id>)
+    clientmanager.abort(request_id=<request_id>, workload_id=<workload_id>)
 
 3. Get progress report
 
 .. code-block:: python
        
     # One of workload_id or request_id can be None
-    workflowmanager.get_status(request_id=<request_id>, workload_id=<workload_id>, with_detail=False/True)
+    clientmanager.get_status(request_id=<request_id>, workload_id=<workload_id>, with_detail=False/True)
 
 4. Download logs for a request
 
 .. code-block:: python
        
     # One of workload_id or request_id can be None
-    workflowmanager.download_logs(request_id=<request_id>, workload_id=<workload_id>, dest_dir='./', filename=None)
+    clientmanager.download_logs(request_id=<request_id>, workload_id=<workload_id>, dest_dir='./', filename=None)
 
 5. Upload a file to the iDDS cacher
 
@@ -108,7 +108,7 @@ Below is an example for hyperparameter optimization
 
     # filename is the source filename or full path of the source file.
     # Upload file to iDDS cacher: On the cacher, the filename will be the basename of the file.
-    workflowmanager.upload_to_cacher(filename)
+    clientmanager.upload_to_cacher(filename)
 
 6. Download a file from the iDDS cacher
 
@@ -116,24 +116,24 @@ Below is an example for hyperparameter optimization
        
     # filename is the destination filename or full path of the destination file.
     # Download file from iDDS cacher: On the cacher, the filename will be the basename of the file.
-    workflowmanager.download_from_cacher(filename)
+    clientmanager.download_from_cacher(filename)
 
 7. Get hyperparameters
 
 .. code-block:: python
        
-    workflowmanager.get_hyperparameters(request_id=<request_id>, workload_id=<workload_id>,
+    clientmanager.get_hyperparameters(request_id=<request_id>, workload_id=<workload_id>,
                                         id=<id>, status=<status>, limit=<limit>)
 
-    workflowmanager.get_hyperparameters(workload_id=123, request_id=None)
-    workflowmanager.get_hyperparameters(workload_id=None, request_id=456)
-    workflowmanager.get_hyperparameters(workload_id=None, request_id=456, id=0)
+    clientmanager.get_hyperparameters(workload_id=123, request_id=None)
+    clientmanager.get_hyperparameters(workload_id=None, request_id=456)
+    clientmanager.get_hyperparameters(workload_id=None, request_id=456, id=0)
 
 8. Update hyperparameter
 
 .. code-block:: python
 
-    workflowmanager.update_hyperparameter(request_id=<request_id>, workload_id=<workload_id>,
+    clientmanager.update_hyperparameter(request_id=<request_id>, workload_id=<workload_id>,
                                           id=<id>, loss=<loss>)
 
 iDDS Command Line Interface (CLI)

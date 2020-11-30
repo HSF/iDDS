@@ -28,7 +28,7 @@ from idds.common.utils import get_rest_host, exception_handler
 setup_logging(__name__)
 
 
-class WorkflowManager:
+class ClientManager:
     def __init__(self, host=None):
         self.host = host
         if self.host is None:
