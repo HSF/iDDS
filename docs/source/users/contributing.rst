@@ -66,8 +66,9 @@ Contributing
 **Step 3**: Commit your change. The commit command must include a specific message format::
 
     $ git commit -m "...."
+    $ git push origin dev
 
-**Step 4**: Push the commit to your forked repository and create the pull request to the **dev** branch of HSF/iDDS repository.
+**Step 4**: Create the pull request to the **dev** branch of HSF/iDDS repository.
 
 While using the `github interface <https://help.github.com/articles/creating-a-pull-request/>`_ is the default interface to create pull requests, you could also use GitHub's command-line wrapper `hub <https://hub.github.com>`_ or the `GitHub CLI <https://cli.github.com/>`_.
 
