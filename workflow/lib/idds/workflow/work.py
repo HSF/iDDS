@@ -66,6 +66,7 @@ class Work(Base):
         # :param workflow: The workflow the current work belongs to.
         """
         self.internal_id = str(uuid.uuid1())
+        self.initialized = False
 
         self.logger = logger
         if self.logger is None:
@@ -123,6 +124,16 @@ class Work(Base):
 
     def get_internal_id(self):
         return self.internal_id
+
+    def init(self):
+        if self.is_initialized():
+            self.set_initialized()
+
+    def set_initialized(self):
+        self.initialized = True
+
+    def is_initialized(self):
+        return self.initialized
 
     def setup_logger(self):
         """

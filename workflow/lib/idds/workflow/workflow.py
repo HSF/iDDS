@@ -132,6 +132,7 @@ class Workflow(Base):
         return self.workload_id
 
     def add_work(self, work, initial=False, primary=False):
+        work.init()
         self.num_total_works += 1
         self.works[work.get_internal_id()] = work
         if initial:
