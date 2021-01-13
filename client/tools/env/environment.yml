@@ -13,4 +13,4 @@ dependencies:
   - flake8           # Wrapper around PyFlakes&pep8
   - pytest           # python testing tool
   - nose             # nose test tools
-
+  - tabulate
