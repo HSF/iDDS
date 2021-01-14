@@ -185,6 +185,9 @@ class Work(Base):
     def get_output_data(self):
         return self.output_data
 
+    def set_parameters_for_next_task(self, params):
+        self.parameters_for_next_task = params
+
     def get_parameters_for_next_task(self):
         return self.parameters_for_next_task
 
@@ -447,6 +450,7 @@ class Work(Base):
         """
         processing = self.processings[processing['processing_metadata']['internal_id']]
         processing['output_metadata'] = output_metadata
+        self.set_output_data(output_metadata)
 
     def is_processing_terminated(self, processing):
         if 'status' in processing and processing['status'] not in [ProcessingStatus.New,
