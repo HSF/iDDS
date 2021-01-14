@@ -76,10 +76,10 @@ class ATLASPandaWork(Work):
         # Client.getTaskParamsMap(23752996)
         # (0, '{"buildSpec": {"jobParameters": "-i ${IN} -o ${OUT} --sourceURL ${SURL} -r . ", "archiveName": "sources.0ca6a2fb-4ad0-42d0-979d-aa7c284f1ff7.tar.gz", "prodSourceLabel": "panda"}, "sourceURL": "https://aipanda048.cern.ch:25443", "cliParams": "prun --exec \\"python simplescript.py 0.5 0.5 200 output.json\\" --outDS user.wguan.altest1234 --outputs output.json --nJobs=10", "site": null, "vo": "atlas", "respectSplitRule": true, "osInfo": "Linux-3.10.0-1127.19.1.el7.x86_64-x86_64-with-centos-7.9.2009-Core", "log": {"type": "template", "param_type": "log", "container": "user.wguan.altest1234.log/", "value": "user.wguan.altest1234.log.$JEDITASKID.${SN}.log.tgz", "dataset": "user.wguan.altest1234.log/"}, "transUses": "", "excludedSite": [], "nMaxFilesPerJob": 200, "uniqueTaskName": true, "noInput": true, "taskName": "user.wguan.altest1234/", "transHome": null, "includedSite": null, "nEvents": 10, "nEventsPerJob": 1, "jobParameters": [{"type": "constant", "value": "-j \\"\\" --sourceURL ${SURL}"}, {"type": "constant", "value": "-r ."}, {"padding": false, "type": "constant", "value": "-p \\""}, {"padding": false, "type": "constant", "value": "python%20simplescript.py%200.5%200.5%20200%20output.json"}, {"type": "constant", "value": "\\""}, {"type": "constant", "value": "-l ${LIB}"}, {"container": "user.wguan.altest1234_output.json/", "value": "user.wguan.$JEDITASKID._${SN/P}.output.json", "dataset": "user.wguan.altest1234_output.json/", "param_type": "output", "hidden": true, "type": "template"}, {"type": "constant", "value": "-o \\"{\'output.json\': \'user.wguan.$JEDITASKID._${SN/P}.output.json\'}\\""}], "prodSourceLabel": "user", "processingType": "panda-client-1.4.47-jedi-run", "architecture": "@centos7", "userName": "Wen Guan", "taskType": "anal", "taskPriority": 1000, "countryGroup": "us"}')  # noqa E501
 
-    def init(self):
-        if self.is_initialized():
-            self.set_initialized()
+    def initialize_work(self):
+        if not self.is_initialized():
             self.init_panda_task_info()
+            super(ATLASPandaWork, self).initialize_work()
 
     def get_scope_name(self, dataset):
         if dataset.startswith("user"):
@@ -91,9 +91,10 @@ class ATLASPandaWork(Work):
         return scope
 
     def init_panda_task_info(self):
-        status, task_param_map = Client.getTaskParamsMap(23752996)
+        status, task_param_map = Client.getTaskParamsMap(self.panda_task_id)
         if status == 0:
             self.panda_task_paramsmap = task_param_map
+            self.sandbox = os.path.join(task_param_map['sourceURL'], task_param_map['buildSpec']['archiveName'])
             for p in task_param_map["jobParameters"]:
                 if 'param_type' in p and p['param_type'] == 'output':
                     output_dataset = p['dataset']

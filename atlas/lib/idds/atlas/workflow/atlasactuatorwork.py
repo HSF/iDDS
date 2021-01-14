@@ -28,7 +28,7 @@ from idds.atlas.workflow.atlascondorwork import ATLASCondorWork
 
 class ATLASActuatorWork(ATLASCondorWork):
     def __init__(self, executable=None, arguments=None, parameters=None, setup=None,
-                 work_tag='hpo', exec_type='local', sandbox=None, work_id=None,
+                 work_tag='condor', exec_type='local', sandbox=None, work_id=None,
                  name=None,
                  primary_input_collection=None, other_input_collections=None,
                  output_collections=None, log_collections=None,
@@ -102,6 +102,11 @@ class ATLASActuatorWork(ATLASCondorWork):
 
     ####### functions for transformer ########   # noqa E266
     ######################################       # noqa E266
+
+    def set_output_data(self, data):
+        # overwrite to transfer the output of current task to next task
+        super(ATLASActuatorWork, self).set_output_data(data)
+        super(ATLASActuatorWork, self).set_parameters_for_next_task(data)
 
     def get_rucio_client(self):
         try:
