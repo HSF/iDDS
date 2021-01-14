@@ -114,6 +114,7 @@ class Work(Base):
         self.active_processings = []
         self.terminated_msg = ""
         self.output_data = None
+        self.parameters_for_next_task = None
 
         self.status_statistics = {}
 
@@ -183,6 +184,9 @@ class Work(Base):
 
     def get_output_data(self):
         return self.output_data
+
+    def get_parameters_for_next_task(self):
+        return self.parameters_for_next_task
 
     def __eq__(self, obj):
         if self.work_id == obj.work_id:

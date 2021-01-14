@@ -193,6 +193,9 @@ class Workflow(Base):
         next_work = cond.get_next_work()
         if next_work is not None:
             next_work = self.get_new_work_from_template(next_work)
+            new_parameters = work.get_parameters_for_next_task()
+            if new_parameters:
+                next_work.set_parameters(new_parameters)
             work.add_next_work(next_work.get_internal_id())
             return next_work
 
