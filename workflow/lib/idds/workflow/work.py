@@ -125,16 +125,6 @@ class Work(Base):
     def get_internal_id(self):
         return self.internal_id
 
-    def init(self):
-        if self.is_initialized():
-            self.set_initialized()
-
-    def set_initialized(self):
-        self.initialized = True
-
-    def is_initialized(self):
-        return self.initialized
-
     def setup_logger(self):
         """
         Setup logger
@@ -272,10 +262,24 @@ class Work(Base):
     def add_next_work(self, work):
         self.next_works.append(work)
 
+    def set_initialized(self):
+        self.initialized = True
+
+    def is_initialized(self):
+        return self.initialized
+
     def initialize_work(self):
         if self.parameters:
             for key in self.parameters.get_param_names():
                 self.arguments = re.sub(key, str(self.parameters.get_param_value(key)), self.arguments)
+        if not self.is_initialized():
+            self.set_initialized()
+
+    def generate_work_from_template(self):
+        new_work = copy.deepcopy(self)
+        new_work.template_work_id = self.get_internal_id()
+        new_work.internal_id = str(uuid.uuid1())
+        return new_work
 
     def add_collection_to_collections(self, coll):
         assert(isinstance(coll, dict))
