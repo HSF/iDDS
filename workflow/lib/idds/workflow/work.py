@@ -10,7 +10,6 @@
 
 import copy
 import logging
-import re
 import uuid
 
 from idds.common import exceptions
@@ -66,6 +65,7 @@ class Work(Base):
         # :param workflow: The workflow the current work belongs to.
         """
         self.internal_id = str(uuid.uuid1())
+        self.template_work_id = self.internal_id
         self.initialized = False
 
         self.logger = logger
@@ -269,17 +269,22 @@ class Work(Base):
         return self.initialized
 
     def initialize_work(self):
-        if self.parameters:
-            for key in self.parameters.get_param_names():
-                self.arguments = re.sub(key, str(self.parameters.get_param_value(key)), self.arguments)
+        if self.parameters and self.arguments:
+            # for key in self.parameters.get_param_names():
+            #    self.arguments = re.sub(key, str(self.parameters.get_param_value(key)), self.arguments)
+            # self.arguments = self.arguments.format(**self.parameters)
+            pass
         if not self.is_initialized():
             self.set_initialized()
 
     def generate_work_from_template(self):
         new_work = copy.deepcopy(self)
-        new_work.template_work_id = self.get_internal_id()
+        # new_work.template_work_id = self.get_internal_id()
         new_work.internal_id = str(uuid.uuid1())
         return new_work
+
+    def get_template_id(self):
+        return self.template_work_id
 
     def add_collection_to_collections(self, coll):
         assert(isinstance(coll, dict))

@@ -34,13 +34,13 @@ class Condition(Base):
         self.cond = cond
         self.current_work = None
         if current_work:
-            self.current_work = current_work.get_internal_id()
+            self.current_work = current_work.get_template_id()
         self.true_work = None
         if true_work:
-            self.true_work = true_work.get_internal_id()
+            self.true_work = true_work.get_template_id()
         self.false_work = None
         if false_work:
-            self.false_work = false_work.get_internal_id()
+            self.false_work = false_work.get_template_id()
 
     def all_works(self):
         works = []
@@ -74,7 +74,7 @@ class Condition(Base):
 
 class Workflow(Base):
 
-    def __init__(self, name=None, workload_id=None, as_template=False):
+    def __init__(self, name=None, workload_id=None):
         """
         Init a workflow.
         """
@@ -87,9 +87,9 @@ class Workflow(Base):
         if self.workload_id is None:
             self.workload_id = time.time()
 
-        self.as_template = as_template
         self.works_template = {}
         self.works = {}
+
         self.terminated_works = []
         self.initial_works = []
         # if the primary initial_work is not set, it's the first initial work.
@@ -116,26 +116,21 @@ class Workflow(Base):
         return self.name
 
     def get_works_template(self):
-        if self.as_template:
-            return self.wokrs_template
-        else:
-            return self.works
+        return self.wokrs_template
 
     def add_work_template(self, work):
-        if self.as_template:
-            self.works_template[work.get_internal_id()] = work
-        else:
-            self.works[work.get_internal_id()] = work
+        self.works_template[work.get_template_id()] = work
 
-    def get_new_init_work(self, work):
-        work_id = work.get_internal_id()
-        if self.as_template:
-            work = self.works_template[work_id]
-            new_work = work.generate_work_from_template()
-            self.works[new_work.get_internal_id()] = new_work
-            return new_work
-        else:
-            return self.works[work_id]
+    def get_new_work_from_template(self, work):
+        template_id = work.get_template_id()
+        work = self.works_template[template_id]
+        new_work = work.generate_work_from_template()
+        new_work.initialize_work()
+        self.works[new_work.get_internal_id()] = new_work
+        self.num_total_works += 1
+        self.new_to_run_works.append(new_work.get_internal_id())
+        self.last_work = new_work
+        return new_work
 
     def register_user_defined_condition(self, condition):
         cond_src = inspect.getsource(condition)
@@ -160,32 +155,19 @@ class Workflow(Base):
 
     def add_work(self, work, initial=False, primary=False):
         self.first_initial = False
-        self.num_total_works += 1
-        self.add_works_template(work)
+        self.add_work_template(work)
         if initial:
             if primary:
-                self.primary_initial_work = work.get_internal_id()
-            self.add_initial_works(work.get_internal_id())
+                self.primary_initial_work = work.get_template_id()
+            self.add_initial_works(work.get_template_id())
 
-        self.independent_works.append(work.get_interal_id())
-        # if self.primary_initial_work is None:
-        #     self.primary_initial_work = work.get_internal_id()
-        # self.new_works.append(work.get_internal_id())
-
-    def enable_work(self, work):
-        assert(work.get_internal_id() in self.get_works_template())
-        work = self.get_new_init_work(work)
-        if work.get_internal_id() not in self.new_to_run_works:
-            self.new_to_run_works.append(work.get_internal_id())
-        return work
+        self.independent_works.append(work.get_template_id())
 
     def add_condition(self, cond):
+        self.first_initial = False
         cond_works = cond.all_works()
         for cond_work in cond_works:
             assert(cond_work in self.get_works_template())
-        # for next_work in cond.all_next_works():
-        #     if next_work in self.current_works:
-        #         del self.current_works[next_work]
 
         if cond.current_work not in self.work_conds:
             self.work_conds[cond.current_work] = []
@@ -197,18 +179,22 @@ class Workflow(Base):
         for next_work in cond_next_works:
             if next_work in self.independent_works:
                 self.independent_works.remove(next_work)
-        # if self.primary_initial_work not in self.new_works:
-        #     self.primary_initial_work = self.new_works[0]
-        #     return True
-        # else:
-        #     return False
 
     def add_initial_works(self, work):
-        assert(work.get_internal_id() in self.get_works_template())
-        self.initial_works.append(work.get_internal_id())
-        # self.new_works.append(work.get_internal_id())
+        assert(work.get_template_id() in self.get_works_template())
+        self.initial_works.append(work.get_template_id())
         if self.primary_initial_work is None:
-            self.primary_initial_work = work.get_internal_id()
+            self.primary_initial_work = work.get_template_id()
+
+    def enable_next_work(self, work, cond):
+        if cond and self.is_class_method(cond.cond):
+            # cond_work_id = self.works[cond.cond['idds_method_class_id']]
+            cond.cond = getattr(work, cond.cond['idds_method'])
+        next_work = cond.get_next_work()
+        if next_work is not None:
+            next_work = self.get_new_work_from_template(next_work)
+            work.add_next_work(next_work.get_internal_id())
+            return next_work
 
     def __str__(self):
         return str(json_dumps(self))
@@ -247,7 +233,8 @@ class Workflow(Base):
             return self.get_works_template()[keys[0]].get_primary_input_collection()
         return None
 
-    def sync_works(self):
+    def first_initialize(self):
+        # set new_to_run works
         if not self.first_initial:
             self.first_initial = True
             if self.initial_works:
@@ -259,16 +246,17 @@ class Workflow(Base):
                 tostart_works = [tostart_works[0]]
 
             for work_id in tostart_works:
-                new_work = self.get_new_init_work(self.get_works_template()[work_id])
-                new_work.initialize_work()
-                self.new_to_run_works.append(new_work.get_internal_id())
+                self.get_new_work_from_template(self.works_template[work_id])
+
+    def sync_works(self):
+        self.first_initialize()
 
         for work in [self.works[k] for k in self.new_to_run_works]:
             if work.transforming:
                 self.new_to_run_works.remove(work.get_internal_id())
-                self.current_works.append(work.get_internal_id())
+                self.current_running_works.append(work.get_internal_id())
 
-        for work in [self.works[k] for k in self.current_works]:
+        for work in [self.works[k] for k in self.current_running_works]:
             if work.is_terminated():
                 if work.get_internal_id() not in self.work_conds:
                     # has no next work
@@ -276,19 +264,10 @@ class Workflow(Base):
                     self.current_running_works.remove(work.get_internal_id())
                 else:
                     for cond in self.work_conds[work.get_internal_id()]:
-                        # if cond is not loaded, load it.
-                        if self.is_class_method(cond.cond):
-                            cond_work = self.works[cond.cond['idds_method_class_id']]
-                            cond.cond = getattr(cond_work, cond.cond['idds_method'])
-                        next_work = cond.get_next_work()
-                        if next_work is not None:
-                            next_work = self.enable_work(next_work)
-                            next_work.initialize_work()
-                            # self.current_works.append(next_work)
-                            # self.new_works.append(next_work.get_internal_id())
-                            work.add_next_work(next_work.get_internal_id())
+                        self.enable_next_work(work, cond)
                     self.terminated_works.append(work.get_internal_id())
-                    self.current_works.remove(work.get_internal_id())
+                    self.current_running_works.remove(work.get_internal_id())
+
                 if work.is_finished():
                     self.num_finished_works += 1
                 elif work.is_subfinished():
@@ -320,7 +299,7 @@ class Workflow(Base):
         *** Function called by Marshaller agent.
         """
         self.sync_works()
-        if len(self.new_works) == 0 and len(self.current_works) == 0:
+        if len(self.new_to_run_works) == 0 and len(self.current_running_works) == 0:
             return True
         return False
 
