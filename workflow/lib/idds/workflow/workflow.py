@@ -12,6 +12,7 @@ import datetime
 import inspect
 import random
 import time
+import uuid
 
 from idds.common.utils import json_dumps
 from .base import Base
@@ -78,6 +79,9 @@ class Workflow(Base):
         """
         Init a workflow.
         """
+        self.internal_id = str(uuid.uuid1())
+        self.template_work_id = self.internal_id
+
         if name:
             self.name = name + "." + datetime.datetime.utcnow().strftime("%Y_%m_%d_%H_%M_%S_%f") + str(random.randint(1, 1000))
         else:
@@ -115,8 +119,11 @@ class Workflow(Base):
     def get_name(self):
         return self.name
 
+    def get_internal_id(self):
+        return self.internal_id
+
     def get_works_template(self):
-        return self.wokrs_template
+        return self.works_template
 
     def add_work_template(self, work):
         self.works_template[work.get_template_id()] = work

@@ -68,10 +68,10 @@ class Clerk(BaseAgent):
             workflow = req['request_metadata']['workflow']
             workflows = workflow.get_exact_workflows()
             existed_wps = core_workprogress.get_workprogresses(req_id)
-            existed_workflows = [wp['workprogress_metadata']['workflow'] for wp in existed_wps]
+            existed_workflows = [wp['workprogress_metadata']['workflow'].get_internal_id() for wp in existed_wps]
             new_workflows = []
             for wf in workflows:
-                if wf not in existed_workflows:
+                if wf.get_internal_id() not in existed_workflows:
                     new_workflows.append(wf)
 
             wps = []
@@ -82,8 +82,8 @@ class Clerk(BaseAgent):
                                 'scope': primary_init_collection['scope'],
                                 'name': primary_init_collection['name'],
                                 'priority': req['priority'],
-                                'status': req['status'],
-                                'locking': req['locking'],
+                                'status': WorkprogressStatus.New,
+                                'locking': 0,
                                 'expired_at': req['expired_at'],
                                 'errors': None,
                                 'workprogress_metadata': {'workflow': wf},
@@ -174,7 +174,7 @@ class Clerk(BaseAgent):
                 wps_status[status_name] += 1
         processing_metadata = req['processing_metadata']
 
-        processing_metadata['workprogresses_status'] = wps_status
+        processing_metadata['workprogresses_status'] = {k.name: wps_status[k] for k in wps_status}
 
         wps_status_keys = list(wps_status.keys())
         if len(wps_status_keys) == 0:
@@ -185,9 +185,14 @@ class Clerk(BaseAgent):
                        }
         else:
             final_wp_status = get_workprogresses_status(wps_status_keys)
+            if final_wp_status.value > req['status'].value:
+                # not new status
+                req_status = RequestStatus(final_wp_status.value)
+            else:
+                req_status = req['status']
             ret_req = {'request_id': req['request_id'],
                        # 'status': dict(RequestStatus.__members__)[final_wp_status.name],
-                       'status': RequestStatus(final_wp_status.value),
+                       'status': req_status,
                        'processing_metadata': processing_metadata
                        }
         return ret_req
