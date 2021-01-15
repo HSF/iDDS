@@ -100,6 +100,13 @@ class ATLASActuatorWork(ATLASCondorWork):
                 self.set_workdir(os.path.join(self.agent_attributes['workdir'], req_dir))
         self.logger.info("workdir: %s" % self.get_workdir())
 
+    ##########################################   # noqa E266
+    def generate_new_task(self):
+        if self.get_parameters_for_next_task():
+            return True
+        else:
+            return False
+
     ####### functions for transformer ########   # noqa E266
     ######################################       # noqa E266
 
