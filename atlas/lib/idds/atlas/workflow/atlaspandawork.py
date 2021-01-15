@@ -14,6 +14,7 @@ except ImportError:
     import configparser as ConfigParser
 
 import copy
+import json
 import os
 import traceback
 import uuid
@@ -93,8 +94,9 @@ class ATLASPandaWork(Work):
     def init_panda_task_info(self):
         status, task_param_map = Client.getTaskParamsMap(self.panda_task_id)
         if status == 0:
+            task_param_map = json.loads(task_param_map)
             self.panda_task_paramsmap = task_param_map
-            self.sandbox = os.path.join(task_param_map['sourceURL'], task_param_map['buildSpec']['archiveName'])
+            self.sandbox = os.path.join(task_param_map['sourceURL'], 'cache/' + task_param_map['buildSpec']['archiveName'])
             for p in task_param_map["jobParameters"]:
                 if 'param_type' in p and p['param_type'] == 'output':
                     output_dataset = p['dataset']
