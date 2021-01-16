@@ -109,6 +109,7 @@ class Work(Base):
         self._has_new_inputs = True
 
         self.status = WorkStatus.New
+        self.errors = []
         self.next_works = []
 
         self.processings = {}
@@ -132,6 +133,12 @@ class Work(Base):
         Setup logger
         """
         self.logger = logging.getLogger(self.get_class_name())
+
+    def add_errors(self, error):
+        self.errors.append(error)
+
+    def get_errors(self):
+        return self.errors
 
     def set_work_id(self, work_id, transforming=True):
         """
@@ -271,6 +278,12 @@ class Work(Base):
 
     def add_next_work(self, work):
         self.next_works.append(work)
+
+    def parse_arguments(self, arguments, parameters):
+        try:
+            arguments = arguments.format(**parameters)
+        except Exception as ex:
+            self.add_errors(str(ex))
 
     def set_initialized(self):
         self.initialized = True
