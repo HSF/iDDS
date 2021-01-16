@@ -159,6 +159,7 @@ class TransformType(IDDSEnum):
     HyperParameterOpt = 4
     Derivation = 5
     Processing = 6
+    Actuating = 7
     Other = 99
 
 
