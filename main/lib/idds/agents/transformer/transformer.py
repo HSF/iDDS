@@ -571,7 +571,7 @@ class Transformer(BaseAgent):
                                                           update_contents=ret.get('update_contents', None),
                                                           messages=ret.get('messages', None),
                                                           new_processing=ret.get('new_processing', None),
-                                                          updated_processing=ret.get('update_processing', None),
+                                                          update_processing=ret.get('update_processing', None),
                                                           message_bulk_size=self.message_bulk_size)
 
             except Exception as ex:
