@@ -500,6 +500,7 @@ class Work(Base):
         *** Function called by Transformer agent.
         """
         has_finished = False
+        has_failed = False
         for p_id in self.active_processings:
             p = self.processings[p_id]
             if not self.is_processing_terminated(p):

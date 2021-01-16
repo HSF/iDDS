@@ -311,12 +311,12 @@ class ATLASPandaWork(Work):
             if task_status:
                 if task_status in ['registered', 'defined']:
                     processing_status = ProcessingStatus.Submitted
-                if task_status in ['assigning', 'ready', 'pending', 'scouting', 'scouted', 'running', 'prepared']:
+                elif task_status in ['assigning', 'ready', 'pending', 'scouting', 'scouted', 'running', 'prepared']:
                     processing_status = ProcessingStatus.Running
-                if task_status in ['done']:
+                elif task_status in ['done']:
                     # finished, finishing, waiting it to be done
                     processing_status = ProcessingStatus.Finished
-                if task_status in ['failed', 'aborted', 'broken', 'exhausted']:
+                elif task_status in ['failed', 'aborted', 'broken', 'exhausted']:
                     processing_status = ProcessingStatus.Failed
                 else:
                     # finished, finishing, aborting, topreprocess, preprocessing, tobroken
