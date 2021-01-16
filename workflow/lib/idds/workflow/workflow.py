@@ -9,13 +9,17 @@
 # - Wen Guan, <wen.guan@cern.ch>, 2020
 
 import datetime
+import logging
 import inspect
 import random
 import time
 import uuid
 
-from idds.common.utils import json_dumps
+from idds.common.utils import json_dumps, setup_logging
 from .base import Base
+
+
+setup_logging(__name__)
 
 
 class Condition(Base):
@@ -75,7 +79,7 @@ class Condition(Base):
 
 class Workflow(Base):
 
-    def __init__(self, name=None, workload_id=None):
+    def __init__(self, name=None, workload_id=None, logger=None):
         """
         Init a workflow.
         """
@@ -89,7 +93,11 @@ class Workflow(Base):
 
         self.workload_id = workload_id
         if self.workload_id is None:
-            self.workload_id = time.time()
+            self.workload_id = int(time.time())
+
+        self.logger = logger
+        if self.logger is None:
+            self.setup_logger()
 
         self.works_template = {}
         self.works = {}
@@ -119,6 +127,25 @@ class Workflow(Base):
     def get_name(self):
         return self.name
 
+    def get_class_name(self):
+        return self.__class__.__name__
+
+    def setup_logger(self):
+        """
+        Setup logger
+        """
+        self.logger = logging.getLogger(self.get_class_name())
+
+    def log_info(self, info):
+        if self.logger is None:
+            self.setup_logger()
+        self.logger.info(info)
+
+    def log_debug(self, info):
+        if self.logger is None:
+            self.setup_logger()
+        self.logger.debug(info)
+
     def get_internal_id(self):
         return self.internal_id
 
@@ -136,7 +163,7 @@ class Workflow(Base):
         self.works[new_work.get_internal_id()] = new_work
         self.num_total_works += 1
         self.new_to_run_works.append(new_work.get_internal_id())
-        self.last_work = new_work
+        self.last_work = new_work.get_internal_id()
         return new_work
 
     def register_user_defined_condition(self, condition):
@@ -194,10 +221,13 @@ class Workflow(Base):
             self.primary_initial_work = work.get_template_id()
 
     def enable_next_work(self, work, cond):
+        self.log_info("Checking Work %s condition: %s" % (work.get_internal_id(),
+                                                          json_dumps(cond, sort_keys=True, indent=4)))
         if cond and self.is_class_method(cond.cond):
             # cond_work_id = self.works[cond.cond['idds_method_class_id']]
             cond.cond = getattr(work, cond.cond['idds_method'])
         next_work = cond.get_next_work()
+        self.log_info("Work %s next work %s" % (work.get_internal_id(), next_work))
         if next_work is not None:
             next_work = self.get_new_work_from_template(next_work)
             new_parameters = work.get_parameters_for_next_task()
@@ -268,11 +298,15 @@ class Workflow(Base):
 
         for work in [self.works[k] for k in self.current_running_works]:
             if work.is_terminated():
+                self.log_info("Work %s is terminated" % work.get_internal_id())
+                self.log_deub("Work conditions: %s" % json_dumps(self.work_conds, sort_keys=True, indent=4))
                 if work.get_internal_id() not in self.work_conds:
                     # has no next work
+                    self.log_info("Work %s has no condition dependencies" % work.get_internal_id())
                     self.terminated_works.append(work.get_internal_id())
                     self.current_running_works.remove(work.get_internal_id())
                 else:
+                    self.log_info("Work %s has condition dependencies %s" % json_dumps(self.work_conds[work.get_internal_id()], sort_keys=True, indent=4))
                     for cond in self.work_conds[work.get_internal_id()]:
                         self.enable_next_work(work, cond)
                     self.terminated_works.append(work.get_internal_id())
