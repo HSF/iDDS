@@ -28,7 +28,7 @@ from idds.atlas.workflow.atlascondorwork import ATLASCondorWork
 
 class ATLASActuatorWork(ATLASCondorWork):
     def __init__(self, executable=None, arguments=None, parameters=None, setup=None,
-                 work_tag='condor', exec_type='local', sandbox=None, work_id=None,
+                 work_tag='actuating', exec_type='local', sandbox=None, work_id=None,
                  name=None,
                  primary_input_collection=None, other_input_collections=None,
                  output_collections=None, log_collections=None,
@@ -56,7 +56,7 @@ class ATLASActuatorWork(ATLASCondorWork):
         :param arguments: The arguments for the executable.
         """
 
-        super(ATLASActuatorWork, self).__init__(executable=executable, arguments=arguments,
+        super(ATLASActuatorWork, self).__init__(executable=executable, arguments=arguments, work_tag=work_tag,
                                                 parameters=parameters, setup=setup, work_type=TransformType.Actuating,
                                                 exec_type=exec_type, sandbox=sandbox, work_id=work_id,
                                                 primary_input_collection=primary_input_collection,
@@ -138,7 +138,8 @@ class ATLASActuatorWork(ATLASCondorWork):
                 coll['coll_metadata']['did_type'] = did_meta['did_type']
                 coll['coll_metadata']['list_all_files'] = False
 
-                if 'is_open' in coll['coll_metadata'] and not coll['coll_metadata']['is_open']:
+                if (('is_open' in coll['coll_metadata'] and not coll['coll_metadata']['is_open'])
+                   or ('force_close' in coll['coll_metadata'] and coll['coll_metadata']['force_close'])):  # noqa: W503
                     coll_status = CollectionStatus.Closed
                 else:
                     coll_status = CollectionStatus.Open
@@ -299,17 +300,12 @@ class ATLASActuatorWork(ATLASCondorWork):
         self.syn_collection_status()
 
         if self.is_processings_terminated() and not self.has_new_inputs():
-            keys = self.status_statistics.keys()
-            if ContentStatus.New.name in keys or ContentStatus.Processing.name in keys:
-                pass
-            else:
-                if len(keys) == 1:
-                    if ContentStatus.Available.name in keys:
-                        self.status = WorkStatus.Finished
-                    else:
-                        self.status = WorkStatus.Failed
-                else:
-                    self.status = WorkStatus.SubFinished
+            if self.is_processings_finished():
+                self.status = WorkStatus.Finished
+            elif self.is_processings_failed():
+                self.status = WorkStatus.Failed
+            elif self.is_processings_subfinished():
+                self.status = WorkStatus.SubFinished
 
     ####### functions for carrier ########     # noqa E266
     ######################################     # noqa E266
@@ -317,10 +313,12 @@ class ATLASActuatorWork(ATLASCondorWork):
     def get_rucio_setup_env(self):
         script = "export ATLAS_LOCAL_ROOT_BASE=/cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase\n"
         script += "source ${ATLAS_LOCAL_ROOT_BASE}/user/atlasLocalSetup.sh\n"
+        script += "export RUCIO_ACCOUNT=pilot\n"
         script += "localSetupRucioClients\n"
         return script
 
     def generate_processing_script_sandbox(self, processing):
+        arguments = self.parse_arguments(self.arguments, self.parameters)
 
         script = "#!/bin/bash\n\n"
         script += self.get_rucio_setup_env()
@@ -328,7 +326,7 @@ class ATLASActuatorWork(ATLASCondorWork):
 
         script += "sandbox=%s\n" % str(self.sandbox)
         script += "executable=%s\n" % str(self.executable)
-        script += "arguments=%s\n" % str(self.arguments)
+        script += "arguments=%s\n" % str(arguments)
         script += "output_json=%s\n" % str(self.output_json)
         script += "\n"
 
@@ -345,10 +343,10 @@ class ATLASActuatorWork(ATLASCondorWork):
         script += 'tar xzf $base_sandbox\n'
 
         dataset = self.collections[self.primary_input_collection]
-        script += 'rucio download %s:%s\n' % (dataset['name'], dataset['name'])
+        script += 'rucio download %s:%s\n' % (dataset['scope'], dataset['name'])
         script += 'chmod +x %s\n' % str(self.executable)
-        script += "echo '%s' '%s'\n" % (str(self.executable), str(self.arguments))
-        script += '%s %s\n' % (str(self.executable), str(self.arguments))
+        script += "echo '%s' '%s'\n" % (str(self.executable), str(arguments))
+        script += '%s %s\n' % (str(self.executable), str(arguments))
 
         script += '\n'
 
@@ -441,7 +439,7 @@ class ATLASActuatorWork(ATLASCondorWork):
         processing_metadata = processing['processing_metadata']
         if not processing_metadata:
             processing_metadata = {}
-        processing_metadata['errors'] = processing_err
+        processing_metadata['errors'] = str(self.get_errors())
 
         update_processing = {'processing_id': processing['processing_id'],
                              'parameters': {'status': processing_status,
