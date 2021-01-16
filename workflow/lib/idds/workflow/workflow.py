@@ -222,8 +222,8 @@ class Workflow(Base):
             self.primary_initial_work = work.get_template_id()
 
     def enable_next_work(self, work, cond):
-        self.log_info("Checking Work %s condition: %s" % (work.get_internal_id(),
-                                                          json_dumps(cond, sort_keys=True, indent=4)))
+        self.log_debug("Checking Work %s condition: %s" % (work.get_internal_id(),
+                                                           json_dumps(cond, sort_keys=True, indent=4)))
         if cond and self.is_class_method(cond.cond):
             # cond_work_id = self.works[cond.cond['idds_method_class_id']]
             cond.cond = getattr(work, cond.cond['idds_method'])
@@ -300,14 +300,15 @@ class Workflow(Base):
         for work in [self.works[k] for k in self.current_running_works]:
             if work.is_terminated():
                 self.log_info("Work %s is terminated" % work.get_internal_id())
-                self.log_deub("Work conditions: %s" % json_dumps(self.work_conds, sort_keys=True, indent=4))
+                self.log_debug("Work conditions: %s" % json_dumps(self.work_conds, sort_keys=True, indent=4))
                 if work.get_template_id() not in self.work_conds:
                     # has no next work
                     self.log_info("Work %s has no condition dependencies" % work.get_internal_id())
                     self.terminated_works.append(work.get_internal_id())
                     self.current_running_works.remove(work.get_internal_id())
                 else:
-                    self.log_info("Work %s has condition dependencies %s" % json_dumps(self.work_conds[work.get_template_id()], sort_keys=True, indent=4))
+                    self.log_debug("Work %s has condition dependencies %s" % (work.get_internal_id(),
+                                                                              json_dumps(self.work_conds[work.get_template_id()], sort_keys=True, indent=4)))
                     for cond in self.work_conds[work.get_template_id()]:
                         self.enable_next_work(work, cond)
                     self.terminated_works.append(work.get_internal_id())
