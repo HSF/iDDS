@@ -309,11 +309,20 @@ class ATLASPandaWork(Work):
         if processing:
             task_status = self.poll_panda_task(processing)
             if task_status:
-                if task_status == 'done':
+                if task_status in ['registered', 'defined']:
+                    processing_status = ProcessingStatus.Submitted
+                if task_status in ['assigning', 'ready', 'pending', 'scouting', 'scouted', 'running', 'prepared']:
+                    processing_status = ProcessingStatus.Running
+                if task_status in ['done']:
+                    # finished, finishing, waiting it to be done
                     processing_status = ProcessingStatus.Finished
+                if task_status in ['failed', 'aborted', 'broken', 'exhausted']:
+                    processing_status = ProcessingStatus.Failed
                 else:
-                    pass
-                    # TODO other processing status
+                    # finished, finishing, aborting, topreprocess, preprocessing, tobroken
+                    # toretry, toincexec, rerefine, paused, throttled, passed
+                    processing_status = ProcessingStatus.Running
+
                 update_processing = {'processing_id': processing['processing_id'],
                                      'parameters': {'status': processing_status}}
         return update_processing, updated_contents
@@ -334,9 +343,9 @@ class ATLASPandaWork(Work):
         self.syn_collection_status()
 
         if self.is_processings_terminated() and not self.has_new_inputs():
-            self.status = WorkStatus.Finished
-        else:
-            pass
-            # TODO
-            # self.status = WorkStatus.SubFinished
-            # self.status = WorkStatus.Failed
+            if self.is_processings_finished():
+                self.status = WorkStatus.Finished
+            elif self.is_processings_failed():
+                self.status = WorkStatus.Failed
+            elif self.is_processings_subfinished():
+                self.status = WorkStatus.SubFinished
