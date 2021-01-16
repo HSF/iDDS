@@ -356,8 +356,8 @@ def as_has_dict(dct):
     return dct
 
 
-def json_dumps(obj):
-    return json.dumps(obj, cls=DictClassEncoder)
+def json_dumps(obj, indent=None, sort_keys=False):
+    return json.dumps(obj, indent=indent, sort_keys=sort_keys, cls=DictClassEncoder)
 
 
 def json_loads(obj):

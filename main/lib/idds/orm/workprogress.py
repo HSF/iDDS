@@ -121,7 +121,7 @@ def add_workprogresses(workprogresses, bulk_size=1000, session=None):
 
 
 @read_session
-def get_workprogresses(request_id, to_json=False, session=None):
+def get_workprogresses(request_id=None, to_json=False, session=None):
     """
     Get workprogresses with request_id.
 
@@ -136,8 +136,9 @@ def get_workprogresses(request_id, to_json=False, session=None):
 
     try:
         query = session.query(models.Workprogress)\
-                       .with_hint(models.Workprogress, "INDEX(WORKPROGRESSES WORKPROGRESS_PK)", 'oracle')\
-                       .filter(models.Workprogress.request_id == request_id)
+                       .with_hint(models.Workprogress, "INDEX(WORKPROGRESSES WORKPROGRESS_PK)", 'oracle')
+        if request_id is not None:
+            query = query.filter(models.Workprogress.request_id == request_id)
         tmp = query.all()
         rets = []
         if tmp:
