@@ -57,7 +57,7 @@ class ATLASActuatorWork(ATLASCondorWork):
         """
 
         super(ATLASActuatorWork, self).__init__(executable=executable, arguments=arguments,
-                                                parameters=parameters, setup=setup, work_type=TransformType.HyperParameterOpt,
+                                                parameters=parameters, setup=setup, work_type=TransformType.Actuating,
                                                 exec_type=exec_type, sandbox=sandbox, work_id=work_id,
                                                 primary_input_collection=primary_input_collection,
                                                 other_input_collections=other_input_collections,
@@ -86,11 +86,7 @@ class ATLASActuatorWork(ATLASCondorWork):
             self.set_agent_attributes(agent_attributes)
 
     def set_agent_attributes(self, attrs, req_attributes=None):
-        self.agent_attributes = attrs
-
-        if self.agent_attributes and 'atlashpowork' in self.agent_attributes:
-            self.agent_attributes = self.agent_attributes['atlashpowork']
-        self.logger.info("agent_attributes: %s" % self.agent_attributes)
+        super(ATLASActuatorWork, self).set_agent_attributes(attrs)
 
         if self.agent_attributes and 'workdir' in self.agent_attributes and self.agent_attributes['workdir']:
             if req_attributes and 'request_id' in req_attributes and 'workload_id' in req_attributes and 'transform_id' in req_attributes:
@@ -348,7 +344,8 @@ class ATLASActuatorWork(ATLASCondorWork):
         script += 'base_sandbox="$(basename -- $sandbox)"\n'
         script += 'tar xzf $base_sandbox\n'
 
-        script += 'rucio download %s\n' % self.primary_input_collection
+        dataset = self.collections[self.primary_input_collection]
+        script += 'rucio download %s:%s\n' % (dataset['name'], dataset['name'])
         script += 'chmod +x %s\n' % str(self.executable)
         script += "echo '%s' '%s'\n" % (str(self.executable), str(self.arguments))
         script += '%s %s\n' % (str(self.executable), str(self.arguments))

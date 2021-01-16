@@ -161,7 +161,7 @@ class ATLASCondorWork(Work):
             with open(job_err, "r") as myfile:
                 data = myfile.readlines()
             data = str(data)
-            data = data[:1000]
+            data = data[-1000:]
             return data
         except Exception as e:
             self.logger.error("Failed to read job error file(workdir: %s, error file: %s): %s" % (job_workdir, job_err, e))
@@ -216,7 +216,7 @@ class ATLASCondorWork(Work):
 
                     if final_job_status in [ProcessingStatus.Failed]:
                         job_cmd_msg = self.get_job_err_message(job_workdir, job_cmd)
-                        job_cmd_msg = job_cmd_msg[:500]
+                        job_cmd_msg = job_cmd_msg[-500:]
                         job_err_msg = self.get_job_err_message(job_workdir, job_err)
         else:
             final_job_status = ProcessingStatus.Submitted
@@ -226,8 +226,8 @@ class ATLASCondorWork(Work):
         if error:
             ret_err += error
         if job_cmd_msg:
-            ret_err += job_cmd_msg
+            ret_err += "Command output: " + job_cmd_msg
         if job_err_msg:
-            ret_err += job_err_msg
+            ret_err += "Stderr: " + job_err_msg
 
         return final_job_status, ret_err
