@@ -155,8 +155,9 @@ class Workflow(Base):
     def add_work_template(self, work):
         self.works_template[work.get_template_id()] = work
 
-    def get_new_work_from_template(self, work):
-        template_id = work.get_template_id()
+    def get_new_work_from_template(self, work_id):
+        # template_id = work.get_template_id()
+        template_id = work_id
         work = self.works_template[template_id]
         new_work = work.generate_work_from_template()
         new_work.initialize_work()
@@ -286,7 +287,7 @@ class Workflow(Base):
                 tostart_works = [tostart_works[0]]
 
             for work_id in tostart_works:
-                self.get_new_work_from_template(self.works_template[work_id])
+                self.get_new_work_from_template(work_id)
 
     def sync_works(self):
         self.first_initialize()
@@ -300,14 +301,14 @@ class Workflow(Base):
             if work.is_terminated():
                 self.log_info("Work %s is terminated" % work.get_internal_id())
                 self.log_deub("Work conditions: %s" % json_dumps(self.work_conds, sort_keys=True, indent=4))
-                if work.get_internal_id() not in self.work_conds:
+                if work.get_template_id() not in self.work_conds:
                     # has no next work
                     self.log_info("Work %s has no condition dependencies" % work.get_internal_id())
                     self.terminated_works.append(work.get_internal_id())
                     self.current_running_works.remove(work.get_internal_id())
                 else:
-                    self.log_info("Work %s has condition dependencies %s" % json_dumps(self.work_conds[work.get_internal_id()], sort_keys=True, indent=4))
-                    for cond in self.work_conds[work.get_internal_id()]:
+                    self.log_info("Work %s has condition dependencies %s" % json_dumps(self.work_conds[work.get_template_id()], sort_keys=True, indent=4))
+                    for cond in self.work_conds[work.get_template_id()]:
                         self.enable_next_work(work, cond)
                     self.terminated_works.append(work.get_internal_id())
                     self.current_running_works.remove(work.get_internal_id())
@@ -376,5 +377,5 @@ class Workflow(Base):
         *** Function called by Marshaller agent.
         """
         if self.last_work:
-            return self.last_work.get_terminated_msg()
+            return self.works[self.last_work].get_terminated_msg()
         return None
