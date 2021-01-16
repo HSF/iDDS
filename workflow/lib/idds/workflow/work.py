@@ -66,6 +66,7 @@ class Work(Base):
         """
         self.internal_id = str(uuid.uuid1())
         self.template_work_id = self.internal_id
+        self.class_name = self.__class__.__name__.lower()
         self.initialized = False
 
         self.logger = logger
@@ -150,7 +151,9 @@ class Work(Base):
     #     self.workflow = workflow
 
     def set_agent_attributes(self, attrs, req_attributes=None):
-        self.agent_attributes = attrs
+        if attrs and self.class_name in attrs:
+            self.agent_attributes = attrs[self.class_name]
+        self.logger.info("agent_attributes: %s" % self.agent_attributes)
 
     def set_workdir(self, workdir):
         self.workdir = workdir
@@ -285,7 +288,11 @@ class Work(Base):
             self.set_initialized()
 
     def generate_work_from_template(self):
+        logger = self.logger
+        self.logger = None
         new_work = copy.deepcopy(self)
+        self.logger = logger
+        new_work.logger = logger
         # new_work.template_work_id = self.get_internal_id()
         new_work.internal_id = str(uuid.uuid1())
         return new_work
@@ -475,6 +482,44 @@ class Work(Base):
             if self.is_processing_terminated(p):
                 pass
             else:
+                return False
+        return True
+
+    def is_processings_finished(self):
+        """
+        *** Function called by Transformer agent.
+        """
+        for p_id in self.active_processings:
+            p = self.processings[p_id]
+            if not self.is_processing_terminated(p) or p['status'] not in [ProcessingStatus.Finished]:
+                return False
+        return True
+
+    def is_processings_subfinished(self):
+        """
+        *** Function called by Transformer agent.
+        """
+        has_finished = False
+        for p_id in self.active_processings:
+            p = self.processings[p_id]
+            if not self.is_processing_terminated(p):
+                return False
+            else:
+                if p['status'] in [ProcessingStatus.Finished]:
+                    has_finished = True
+                if p['status'] in [ProcessingStatus.Failed]:
+                    has_failed = True
+        if has_finished and has_failed:
+            return True
+        return False
+
+    def is_processings_failed(self):
+        """
+        *** Function called by Transformer agent.
+        """
+        for p_id in self.active_processings:
+            p = self.processings[p_id]
+            if not self.is_processing_terminated(p) or p['status'] not in [ProcessingStatus.Failed]:
                 return False
         return True
 
