@@ -161,11 +161,13 @@ class Workflow(Base):
     def add_work_template(self, work):
         self.works_template[work.get_template_id()] = work
 
-    def get_new_work_from_template(self, work_id):
+    def get_new_work_from_template(self, work_id, new_parameters=None):
         # template_id = work.get_template_id()
         template_id = work_id
         work = self.works_template[template_id]
         new_work = work.generate_work_from_template()
+        if new_parameters:
+            new_work.set_parameters(new_parameters)
         new_work.set_sequence_id(self.num_total_works)
         new_work.initialize_work()
         self.works[new_work.get_internal_id()] = new_work
@@ -239,10 +241,8 @@ class Workflow(Base):
         self.log_info("Work %s condition status %s" % (work.get_internal_id(), cond.get_cond_status()))
         self.log_info("Work %s next work %s" % (work.get_internal_id(), next_work))
         if next_work is not None:
-            next_work = self.get_new_work_from_template(next_work)
             new_parameters = work.get_parameters_for_next_task()
-            if new_parameters:
-                next_work.set_parameters(new_parameters)
+            next_work = self.get_new_work_from_template(next_work, new_parameters)
             work.add_next_work(next_work.get_internal_id())
             return next_work
 

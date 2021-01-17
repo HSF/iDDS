@@ -13,6 +13,11 @@ try:
 except ImportError:
     import configparser as ConfigParser
 
+try:
+    from urllib import quote
+except ImportError:
+    from urllib.parse import quote
+
 import copy
 import json
 import os
@@ -129,8 +134,11 @@ class ATLASPandaWork(Work):
             coll = self.collections[coll_id]
             coll['name'] = coll['name'].replace(self.cmd_to_arguments['outDS'], new_dataset_name)
 
-        self.panda_task_paramsmap['scliParams'] = \
-            self.panda_task_paramsmap['scliParams'].replace(self.cmd_to_arguments['outDS'], new_dataset_name)
+        self.panda_task_paramsmap['cliParams'] = \
+            self.panda_task_paramsmap['cliParams'].replace(self.cmd_to_arguments['outDS'], new_dataset_name)
+
+        self.panda_task_paramsmap['taskName'] = \
+           self.panda_task_paramsmap['taskName'].replace(self.cmd_to_arguments['outDS'], new_dataset_name)
 
         jobParameters = self.panda_task_paramsmap['jobParameters']
         for p in jobParameters:
@@ -158,14 +166,14 @@ class ATLASPandaWork(Work):
             if parameters and new_parameters:
                 new_arguments = parameters.format(**new_parameters)
 
-            scliParams = self.panda_task_paramsmap['scliParams']
-            scliParams = scliParams.replace(arguments, new_arguments)
-            self.panda_task_paramsmap['scliParams'] = scliParams
+            cliParams = self.panda_task_paramsmap['cliParams']
+            cliParams = cliParams.replace(arguments, new_arguments)
+            self.panda_task_paramsmap['cliParams'] = cliParams
 
             jobParameters = self.panda_task_paramsmap['jobParameters']
             for p in jobParameters:
                 if 'value' in p:
-                    p['value'] = p['value'].replace(arguments, new_arguments)
+                    p['value'] = p['value'].replace(quote(arguments), quote(new_arguments))
 
             return new_arguments
         except Exception as ex:
@@ -173,9 +181,15 @@ class ATLASPandaWork(Work):
 
     def generate_work_from_template(self):
         new_work = super(ATLASPandaWork, self).generate_work_from_template()
-        new_work.unset_initialized()
-        new_work.panda_task_id = None
+        # new_work.unset_initialized()
+        # new_work.panda_task_id = None
         return new_work
+
+    def set_parameters(self, parameters):
+        self.parameters = parameters
+        # trigger to submit new tasks
+        self.unset_initialized()
+        self.panda_task_id = None
 
     def my_condition(self):
         if self.is_finished():
