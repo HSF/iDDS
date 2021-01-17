@@ -16,6 +16,7 @@ except ImportError:
 import copy
 import json
 import os
+import re
 import traceback
 import uuid
 
@@ -352,7 +353,7 @@ class ATLASPandaWork(Work):
         try:
             status, tmpOut = Client.insertTaskParams(self.panda_task_paramsmap, False, True)
             if status == 0:
-                m = re.search('jediTaskID=(\d+)', tmpOut)
+                m = re.search("jediTaskID=(\d+)", tmpOut)  # noqa W605
                 task_id = int(m.group(1))
                 processing['processing_metadata']['panda_task_id'] = task_id
             else:
