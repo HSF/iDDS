@@ -221,8 +221,8 @@ class ATLASCondorWork(Work):
         else:
             final_job_status = ProcessingStatus.Submitted
 
-        if output:
-            ret_err += output
+        # if output:
+        #     ret_err += output
         if error:
             ret_err += error
         if job_cmd_msg:
