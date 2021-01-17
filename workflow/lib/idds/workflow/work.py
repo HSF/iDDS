@@ -307,6 +307,9 @@ class Work(Base):
     def set_initialized(self):
         self.initialized = True
 
+    def unset_initialized(self):
+        self.initialized = False
+
     def is_initialized(self):
         return self.initialized
 
