@@ -23,7 +23,7 @@ setup_logging(__name__)
 
 
 class Condition(Base):
-    def __init__(self, cond=None, current_work=None, true_work=None, false_work=None):
+    def __init__(self, cond=None, current_work=None, true_work=None, false_work=None, logger=None):
         """
         Condition.
         if cond() is true, return true_work, else return false_work.
@@ -64,17 +64,23 @@ class Condition(Base):
             works.append(self.false_work)
         return works
 
-    def get_next_work(self):
+    def get_cond_status(self):
         if callable(self.cond):
             if self.cond():
-                return self.true_work
+                return True
             else:
-                return self.false_work
+                return False
         else:
             if self.cond:
-                return self.true_work
+                return True
             else:
-                return self.false_work
+                return False
+
+    def get_next_work(self):
+        if self.get_cond_status():
+            return self.true_work
+        else:
+            return self.false_work
 
 
 class Workflow(Base):
@@ -227,7 +233,9 @@ class Workflow(Base):
         if cond and self.is_class_method(cond.cond):
             # cond_work_id = self.works[cond.cond['idds_method_class_id']]
             cond.cond = getattr(work, cond.cond['idds_method'])
+        self.log_info("Work %s condition: %s" % (work.get_internal_id(), cond.cond))
         next_work = cond.get_next_work()
+        self.log_info("Work %s condition status %s" % (work.get_internal_id(), cond.get_cond_status()))
         self.log_info("Work %s next work %s" % (work.get_internal_id(), next_work))
         if next_work is not None:
             next_work = self.get_new_work_from_template(next_work)
@@ -359,7 +367,7 @@ class Workflow(Base):
         """
         *** Function called by Marshaller agent.
         """
-        return self.is_terminated() and (self.num_finished_works < self.num_total_works) and (self.num_subfinished_works > 0) and (self.num_finished_works + self.num_subfinished_works == self.num_total_works)
+        return self.is_terminated() and (self.num_finished_works > 0 and self.num_finished_works < self.num_total_works)
 
     def is_failed(self):
         """

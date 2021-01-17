@@ -236,6 +236,15 @@ class Work(Base):
     def set_parameters(self, parameters):
         self.parameters = parameters
 
+    def get_parameters(self):
+        return self.parameters
+
+    def set_arguments(self, arguments):
+        self.arguments = arguments
+
+    def get_arguments(self):
+        return self.arguments
+
     def is_terminated(self):
         """
         *** Function called by Transformer agent.
@@ -279,9 +288,12 @@ class Work(Base):
     def add_next_work(self, work):
         self.next_works.append(work)
 
-    def parse_arguments(self, arguments, parameters):
+    def parse_arguments(self):
         try:
+            arguments = self.get_arguments()
+            parameters = self.get_parameters()
             arguments = arguments.format(**parameters)
+            return arguments
         except Exception as ex:
             self.add_errors(str(ex))
 
