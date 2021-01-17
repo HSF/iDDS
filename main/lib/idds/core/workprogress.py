@@ -167,9 +167,11 @@ def update_workprogress(workprogress_id, parameters, new_transforms=None, update
     if new_transforms:
         for tf in new_transforms:
             tf_id = orm_transforms.add_transform(**tf, session=session)
-            work = tf['transform_metadata']['work']
-            work.set_work_id(tf_id, transforming=True)
-            work.set_status(WorkStatus.New)
+            orginal_work = tf['transform_metadata']['orginal_work']
+            del tf['transform_metadata']['orginal_work']
+            # work = tf['transform_metadata']['work']
+            orginal_work.set_work_id(tf_id, transforming=True)
+            orginal_work.set_status(WorkStatus.New)
     if update_transforms:
         for tr_id in update_transforms:
             orm_transforms.update_transform(transform_id=tr_id, parameters=update_transforms[tr_id], session=session)

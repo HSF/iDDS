@@ -77,7 +77,7 @@ class Marshaller(BaseAgent):
                          'status': TransformStatus.New,
                          'retries': 0,
                          'expired_at': workprogress['expired_at'],
-                         'transform_metadata': {'work': new_work}
+                         'transform_metadata': {'orginal_work': work, 'work': new_work}
                          # 'collections': related_collections
                          }
             transforms.append(transform)
@@ -163,7 +163,7 @@ class Marshaller(BaseAgent):
                                  'status': TransformStatus.New,
                                  'retries': 0,
                                  'expired_at': workprogress['expired_at'],
-                                 'transform_metadata': {'work': new_work}
+                                 'transform_metadata': {'orginal_work': work, 'work': new_work}
                                  # 'collections': related_collections
                                  }
                 new_transforms.append(new_transform)
