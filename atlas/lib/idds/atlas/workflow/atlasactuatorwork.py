@@ -65,9 +65,6 @@ class ATLASActuatorWork(ATLASCondorWork):
                                                 log_collections=log_collections,
                                                 logger=logger,
                                                 agent_attributes=agent_attributes)
-        self.sandbox = sandbox
-        self.executable = executable
-        self.arguments = arguments
 
         self.output_json = output_json
 
@@ -98,6 +95,7 @@ class ATLASActuatorWork(ATLASCondorWork):
 
     ##########################################   # noqa E266
     def generate_new_task(self):
+        self.logger.info("Work %s parameters for next task: %s" % (self.get_internal_id(), str(self.get_parameters_for_next_task())))
         if self.get_parameters_for_next_task():
             return True
         else:
@@ -318,7 +316,7 @@ class ATLASActuatorWork(ATLASCondorWork):
         return script
 
     def generate_processing_script_sandbox(self, processing):
-        arguments = self.parse_arguments(self.arguments, self.parameters)
+        arguments = self.parse_arguments()
 
         script = "#!/bin/bash\n\n"
         script += self.get_rucio_setup_env()
@@ -348,7 +346,7 @@ class ATLASActuatorWork(ATLASCondorWork):
         script += "echo '%s' '%s'\n" % (str(self.executable), str(arguments))
         script += '%s %s\n' % (str(self.executable), str(arguments))
 
-        script += '\n'
+        script += 'ls\n\n'
 
         long_id = self.get_long_id(processing)
         script_name = 'processing_%s.sh' % long_id
@@ -382,8 +380,10 @@ class ATLASActuatorWork(ATLASCondorWork):
             pass
         else:
             job_id, errors = self.submit_condor_processing(processing)
+            if errors:
+                self.add_errors(errors)
             processing['processing_metadata']['job_id'] = job_id
-            processing['processing_metadata']['errors'] = errors
+            processing['processing_metadata']['errors'] = str(self.get_errors())
 
     def abort_processing(self, processing):
         self.tocancel = True
