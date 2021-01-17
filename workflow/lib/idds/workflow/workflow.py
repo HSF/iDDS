@@ -15,7 +15,7 @@ import random
 import time
 import uuid
 
-from idds.common.utils import json_dumps, setup_logging
+from idds.common.utils import json_dumps, setup_logging, get_proxy
 from .base import Base
 
 
@@ -129,6 +129,8 @@ class Workflow(Base):
 
         # user defined Condition class
         self.user_defined_conditions = {}
+
+        self.proxy = None
 
     def get_name(self):
         return self.name
@@ -389,3 +391,11 @@ class Workflow(Base):
         if self.last_work:
             return self.works[self.last_work].get_terminated_msg()
         return None
+
+    def add_proxy(self):
+        self.proxy = get_proxy()
+        if not self.proxy:
+            raise Exception("Cannot get local proxy")
+
+    def get_proxy(self):
+        return self.proxy

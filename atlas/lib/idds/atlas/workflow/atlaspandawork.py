@@ -138,7 +138,7 @@ class ATLASPandaWork(Work):
             self.panda_task_paramsmap['cliParams'].replace(self.cmd_to_arguments['outDS'], new_dataset_name)
 
         self.panda_task_paramsmap['taskName'] = \
-           self.panda_task_paramsmap['taskName'].replace(self.cmd_to_arguments['outDS'], new_dataset_name)
+            self.panda_task_paramsmap['taskName'].replace(self.cmd_to_arguments['outDS'], new_dataset_name)
 
         jobParameters = self.panda_task_paramsmap['jobParameters']
         for p in jobParameters:
@@ -385,7 +385,9 @@ class ATLASPandaWork(Work):
         if 'panda_task_id' in processing['processing_metadata'] and processing['processing_metadata']['panda_task_id']:
             pass
         else:
+            self.set_user_proxy()
             self.submit_panda_task(processing)
+            self.unset_user_proxy()
 
     def poll_panda_task(self, processing):
         if 'panda_task_id' in processing['processing_metadata']:

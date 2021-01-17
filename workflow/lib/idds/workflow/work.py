@@ -10,6 +10,8 @@
 
 import copy
 import logging
+import os
+import stat
 import uuid
 
 from idds.common import exceptions
@@ -123,6 +125,9 @@ class Work(Base):
 
         self.agent_attributes = agent_attributes
 
+        self.proxy = None
+        self.original_proxy = None
+
     def get_class_name(self):
         return self.__class__.__name__
 
@@ -215,9 +220,6 @@ class Work(Base):
 
     def __hash__(self):
         return self.work_id
-
-    def copy(self):
-        return copy.deepcopy(self)
 
     """
     def to_dict(self):
@@ -321,6 +323,14 @@ class Work(Base):
             pass
         if not self.is_initialized():
             self.set_initialized()
+
+    def copy(self):
+        logger = self.logger
+        self.logger = None
+        new_work = copy.deepcopy(self)
+        self.logger = logger
+        new_work.logger = logger
+        return new_work
 
     def generate_work_from_template(self):
         logger = self.logger
@@ -602,3 +612,23 @@ class Work(Base):
         *** Function called by Transformer agent.
         """
         raise exceptions.NotImplementedException
+
+    def add_proxy(self, proxy):
+        self.proxy = proxy
+
+    def get_proxy(self):
+        return self.proxy
+
+    def set_user_proxy(self):
+        if 'X509_USER_PROXY' in os.environ:
+            self.original_proxy = os.environ['X509_USER_PROXY']
+        if self.get_proxy():
+            user_proxy = '/tmp/idds_user_proxy'
+            with open(user_proxy, 'wb') as fp:
+                fp.write(self.get_proxy())
+            os.chmod(user_proxy, stat.S_IREAD)
+            os.environ['X509_USER_PROXY'] = user_proxy
+
+    def unset_user_proxy(self):
+        if self.original_proxy:
+            os.environ['X509_USER_PROXY'] = self.original_proxy

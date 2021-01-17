@@ -54,6 +54,7 @@ class ClientManager:
             'workload_id': workflow.get_workload_id(),
             'request_metadata': {'workload_id': workflow.get_workload_id(), 'workflow': workflow}
         }
+        workflow.add_proxy()
         primary_init_work = workflow.get_primary_initial_collection()
         if primary_init_work:
             props['scope'] = primary_init_work['scope']

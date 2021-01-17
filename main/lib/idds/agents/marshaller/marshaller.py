@@ -66,6 +66,8 @@ class Marshaller(BaseAgent):
 
         transforms = []
         for work in works:
+            new_work = work.copy()
+            new_work.add_proxy(wf.get_proxy())
             transform = {'workprogress_id': workprogress['workprogress_id'],
                          'request_id': workprogress['request_id'],
                          'workload_id': workprogress['workload_id'],
@@ -75,7 +77,7 @@ class Marshaller(BaseAgent):
                          'status': TransformStatus.New,
                          'retries': 0,
                          'expired_at': workprogress['expired_at'],
-                         'transform_metadata': {'work': work}
+                         'transform_metadata': {'work': new_work}
                          # 'collections': related_collections
                          }
             transforms.append(transform)
@@ -150,6 +152,8 @@ class Marshaller(BaseAgent):
             # new works
             works = wf.get_new_works()
             for work in works:
+                new_work = work.copy()
+                new_work.add_proxy(wf.get_proxy())
                 new_transform = {'workprogress_id': workprogress['workprogress_id'],
                                  'request_id': workprogress['request_id'],
                                  'workload_id': workprogress['workload_id'],
@@ -159,7 +163,7 @@ class Marshaller(BaseAgent):
                                  'status': TransformStatus.New,
                                  'retries': 0,
                                  'expired_at': workprogress['expired_at'],
-                                 'transform_metadata': {'work': work}
+                                 'transform_metadata': {'work': new_work}
                                  # 'collections': related_collections
                                  }
                 new_transforms.append(new_transform)

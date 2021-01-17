@@ -417,3 +417,11 @@ def is_sub(a, b):
         if i not in b:
             return False
     return True
+
+
+def get_proxy():
+    if 'X509_USER_PROXY' in os.environ:
+        with open(os.environ['X509_USER_PROXY'], 'rb') as fp:
+            proxy = fp.read()
+        return proxy
+    return None
