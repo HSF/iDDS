@@ -439,6 +439,8 @@ class ATLASActuatorWork(ATLASCondorWork):
         processing_metadata = processing['processing_metadata']
         if not processing_metadata:
             processing_metadata = {}
+        if processing_err:
+            self.add_errors(processing_err)
         processing_metadata['errors'] = str(self.get_errors())
 
         update_processing = {'processing_id': processing['processing_id'],
