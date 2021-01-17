@@ -166,6 +166,7 @@ class Workflow(Base):
         template_id = work_id
         work = self.works_template[template_id]
         new_work = work.generate_work_from_template()
+        new_work.set_sequence_id(self.num_total_works)
         new_work.initialize_work()
         self.works[new_work.get_internal_id()] = new_work
         self.num_total_works += 1

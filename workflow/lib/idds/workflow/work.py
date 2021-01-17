@@ -68,6 +68,7 @@ class Work(Base):
         self.template_work_id = self.internal_id
         self.class_name = self.__class__.__name__.lower()
         self.initialized = False
+        self.sequence_id = 0
 
         self.logger = logger
         if self.logger is None:
@@ -127,6 +128,12 @@ class Work(Base):
 
     def get_internal_id(self):
         return self.internal_id
+
+    def set_sequence_id(self, seq_id):
+        self.sequence_id = seq_id
+
+    def get_sequence_id(self):
+        return self.sequence_id
 
     def setup_logger(self):
         """

@@ -124,7 +124,7 @@ class ATLASPandaWork(Work):
 
         # generate new dataset name
         # self.padding = self.sequence_in_workflow
-        new_dataset_name = self.cmd_to_arguments['outDS'] + "_" + str(self.sequence_in_workflow)
+        new_dataset_name = self.cmd_to_arguments['outDS'] + "_" + str(self.get_sequence_id())
         for coll_id in self.collections:
             coll = self.collections[coll_id]
             coll['name'] = coll['name'].replace(self.cmd_to_arguments['outDS'], new_dataset_name)
