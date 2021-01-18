@@ -6,18 +6,13 @@ Active Learning is an usecase of iDDS. The purpose of iDDS AL is to use iDDS to 
 iDDS AL  workflow
 ^^^^^^^^^^^^^^^^^
 
-1. User creates an AL request with executable 'AL' process.
-2. iDDS runs the 'AL' process which should generates an output json file.
-3. iDDS parses the output json file and sends the output content to consumers.
+1. User creates a panda processing task, say task1.
+2. User defines a learning task and submitted it to iDDS (run in iDDS local cluster), say task2.
+3. User defines the contion between task1 -> task2: When task1 is terminated, the condition function will be called. If it returns True, the next task task2 will be started.
+4. User defines the contion between task2 -> task1: When task2 is terminated, this condition function will be called.
+5. To trigger next task, if the current task returns parameters, these parameters will be used as inputs to trigger the next task.
 
-
-The AL process
+The AL example
 --------------
 
-1. The AL process is an executable which runs in iDDS. It can be some executable shipped in a sandbox(through https) or some other extensions with new plugins.
-2. The AL process should create an output json file. The json file name is defined in the 'output_json' in the request_metadata. Below is one example of the request.
-
-    main/lib/idds/tests/activelearning_test.py
-
-3. iDDS parses the output json file and sends the output content to consumers through ActiveMQ.
-4. The consumers can define how to parse the outputs. For example, the consumer can stop further processing when the output contents is None or [].
+See examples in "User Documents" -> "iDDS RESTful client: Examples"
