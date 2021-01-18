@@ -125,7 +125,7 @@ class Clerk(BaseAgent):
             try:
                 req = self.new_output_queue.get()
                 self.logger.info("Main thread finished processing requst: %s" % req)
-                req['parameter']['locking'] = RequestLocking.Idle
+                req['parameters']['locking'] = RequestLocking.Idle
 
                 if 'new_transforms' in req:
                     new_transforms = req['new_transforms']
@@ -137,7 +137,7 @@ class Clerk(BaseAgent):
                 else:
                     update_transforms = []
 
-                core_requests.update_request_with_transforms(req['request_id'], req['parameter'],
+                core_requests.update_request_with_transforms(req['request_id'], req['parameters'],
                                                              new_transforms=new_transforms,
                                                              update_transforms=update_transforms)
             except Exception as ex:
@@ -281,7 +281,7 @@ class Clerk(BaseAgent):
         while not self.running_output_queue.empty():
             req = self.running_output_queue.get()
             self.logger.info("finish_running_requests: req: %s" % req)
-            req['parameter']['locking'] = RequestLocking.Idle
+            req['parameters']['locking'] = RequestLocking.Idle
 
             if 'new_transforms' in req:
                 new_transforms = req['new_transforms']
@@ -293,7 +293,7 @@ class Clerk(BaseAgent):
             else:
                 update_transforms = []
 
-            core_requests.update_request_with_transforms(req['request_id'], req['parameter'],
+            core_requests.update_request_with_transforms(req['request_id'], req['parameters'],
                                                          new_transforms=new_transforms,
                                                          update_transforms=update_transforms)
 

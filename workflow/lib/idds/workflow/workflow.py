@@ -160,12 +160,25 @@ class Workflow(Base):
         return self.internal_id
 
     def copy(self):
+        new_wf = copy.deepcopy(self)
+        return new_wf
+
+    def __deepcopy__(self, memo):
         logger = self.logger
         self.logger = None
-        new_wf = copy.deepcopy(self)
+
+        cls = self.__class__
+        result = cls.__new__(cls)
+
+        memo[id(self)] = result
+
+        # Deep copy all other attributes
+        for k, v in self.__dict__.items():
+            setattr(result, k, copy.deepcopy(v, memo))
+
         self.logger = logger
-        new_wf.logger = logger
-        return new_wf
+        result.logger = logger
+        return result
 
     def get_works_template(self):
         return self.works_template
@@ -184,7 +197,7 @@ class Workflow(Base):
         new_work.initialize_work()
         self.works[new_work.get_internal_id()] = new_work
         # self.work_sequence.append(new_work.get_internal_id())
-        self.work_sequence[self.num_total_works] = new_work.get_internal_id()
+        self.work_sequence[str(self.num_total_works)] = new_work.get_internal_id()
         self.num_total_works += 1
         self.new_to_run_works.append(new_work.get_internal_id())
         self.last_work = new_work.get_internal_id()

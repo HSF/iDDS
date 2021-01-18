@@ -325,12 +325,25 @@ class Work(Base):
             self.set_initialized()
 
     def copy(self):
+        new_work = copy.deepcopy(self)
+        return new_work
+
+    def __deepcopy__(self, memo):
         logger = self.logger
         self.logger = None
-        new_work = copy.deepcopy(self)
+
+        cls = self.__class__
+        result = cls.__new__(cls)
+
+        memo[id(self)] = result
+
+        # Deep copy all other attributes
+        for k, v in self.__dict__.items():
+            setattr(result, k, copy.deepcopy(v, memo))
+
         self.logger = logger
-        new_work.logger = logger
-        return new_work
+        result.logger = logger
+        return result
 
     def generate_work_from_template(self):
         logger = self.logger
@@ -640,7 +653,7 @@ class Work(Base):
             self.original_proxy = os.environ['X509_USER_PROXY']
         if self.get_proxy():
             user_proxy = '/tmp/idds_user_proxy'
-            with open(user_proxy, 'wb') as fp:
+            with open(user_proxy, 'w') as fp:
                 fp.write(self.get_proxy())
             os.chmod(user_proxy, stat.S_IREAD)
             os.environ['X509_USER_PROXY'] = user_proxy
@@ -648,3 +661,5 @@ class Work(Base):
     def unset_user_proxy(self):
         if self.original_proxy:
             os.environ['X509_USER_PROXY'] = self.original_proxy
+        else:
+            del os.environ['X509_USER_PROXY']
