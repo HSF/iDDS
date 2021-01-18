@@ -23,7 +23,7 @@ Below is one example for submitting a workflow.
     workflow = get_workflow()
 
     cm = ClientManager(host=host)
-    request_id = wm.submit(workflow)
+    request_id = cm.submit(workflow)
 
 Below is an example for data carousel
 
@@ -56,7 +56,7 @@ Below is an example for hyperparameter optimization
 
     def get_workflow():
         from idds.workflow.workflow import Workflow
-        from idds.atlas.workflow.atlasstageinwork import ATLASStageinWork
+        from idds.atlas.workflow.atlashpowork import ATLASHPOWork
 
         # request_metadata for predefined method 'nevergrad'
         request_metadata = {'workload_id': '20525135', 'sandbox': None, 'method': 'nevergrad', 'opt_space': {"A": {"type": "Choice", "params": {"choices": [1, 4]}}, "B": {"type": "Scalar", "bounds": [0, 5]}}, 'initial_points': [({'A': 1, 'B': 2}, 0.3), ({'A': 1, 'B': 3}, None)], 'max_points': 20, 'num_points_per_generation': 10}
@@ -265,7 +265,7 @@ iDDS Command Line Interface (CLI)
                              --id=<id> --status=<status> --limit=<limit>)
 
     idds get_hyperparameters --workload_id=123
-    idds get_hyperparameters --request_id=456)
+    idds get_hyperparameters --request_id=456
     idds get_hyperparameters --request_id=456 --id=0
 
 7. Update hyperparameter

@@ -655,7 +655,7 @@ class Work(Base):
             user_proxy = '/tmp/idds_user_proxy'
             with open(user_proxy, 'w') as fp:
                 fp.write(self.get_proxy())
-            os.chmod(user_proxy, stat.S_IRUSR|stat.S_IWUSR)
+            os.chmod(user_proxy, stat.S_IRUSR | stat.S_IWUSR)
             os.environ['X509_USER_PROXY'] = user_proxy
 
     def unset_user_proxy(self):
