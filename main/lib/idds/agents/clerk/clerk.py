@@ -85,8 +85,7 @@ class Clerk(BaseAgent):
             self.logger.info("Processing request(%s): new transforms: %s" % (req['request_id'],
                                                                              str(transforms)))
             processing_metadata = req['processing_metadata']
-            processing_metadata = {'workflow': wf,
-                                   'total_works': wf.num_total_works}
+            processing_metadata = {'workflow': wf}
 
             ret_req = {'request_id': req['request_id'],
                        'parameters': {'status': RequestStatus.Transforming,
