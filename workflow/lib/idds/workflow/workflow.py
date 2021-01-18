@@ -107,6 +107,7 @@ class Workflow(Base):
 
         self.works_template = {}
         self.works = {}
+        self.work_sequence = []  # order list
 
         self.terminated_works = []
         self.initial_works = []
@@ -173,6 +174,7 @@ class Workflow(Base):
         new_work.set_sequence_id(self.num_total_works)
         new_work.initialize_work()
         self.works[new_work.get_internal_id()] = new_work
+        self.work_sequence.append(new_work.get_internal_id())
         self.num_total_works += 1
         self.new_to_run_works.append(new_work.get_internal_id())
         self.last_work = new_work.get_internal_id()
