@@ -26,13 +26,16 @@ from idds.orm.base.session import read_session, transactional_session
 from idds.orm.base import models
 
 
-def create_content(transform_id, coll_id, map_id, scope, name, min_id, max_id, content_type=ContentType.File,
+def create_content(request_id, workload_id, transform_id, coll_id, map_id, scope, name,
+                   min_id, max_id, content_type=ContentType.File,
                    status=ContentStatus.New,
                    bytes=0, md5=None, adler32=None, processing_id=None, storage_id=None, retries=0,
                    locking=ContentLocking.Idle, path=None, expired_at=None, content_metadata=None):
     """
     Create a content.
 
+    :param request_id: The request id.
+    :param workload_id: The workload id.
     :param transform_id: transform id.
     :param coll_id: collection id.
     :param map_id: The id to map inputs to outputs.
@@ -55,7 +58,8 @@ def create_content(transform_id, coll_id, map_id, scope, name, min_id, max_id, c
     :returns: content.
     """
 
-    new_content = models.Content(transform_id=transform_id, coll_id=coll_id, map_id=map_id,
+    new_content = models.Content(request_id=request_id, workload_id=workload_id,
+                                 transform_id=transform_id, coll_id=coll_id, map_id=map_id,
                                  scope=scope, name=name, min_id=min_id, max_id=max_id,
                                  content_type=content_type, status=status, bytes=bytes, md5=md5,
                                  adler32=adler32, processing_id=processing_id, storage_id=storage_id,
@@ -65,12 +69,15 @@ def create_content(transform_id, coll_id, map_id, scope, name, min_id, max_id, c
 
 
 @transactional_session
-def add_content(transform_id, coll_id, map_id, scope, name, min_id=0, max_id=0, content_type=ContentType.File, status=ContentStatus.New,
+def add_content(request_id, workload_id, transform_id, coll_id, map_id, scope, name, min_id=0, max_id=0,
+                content_type=ContentType.File, status=ContentStatus.New,
                 bytes=0, md5=None, adler32=None, processing_id=None, storage_id=None, retries=0,
                 locking=ContentLocking.Idle, path=None, expired_at=None, content_metadata=None, session=None):
     """
     Add a content.
 
+    :param request_id: The request id.
+    :param workload_id: The workload id.
     :param transform_id: transform id.
     :param coll_id: collection id.
     :param map_id: The id to map inputs to outputs.
@@ -97,7 +104,8 @@ def add_content(transform_id, coll_id, map_id, scope, name, min_id=0, max_id=0, 
     """
 
     try:
-        new_content = create_content(transform_id=transform_id, coll_id=coll_id, map_id=map_id,
+        new_content = create_content(request_id=request_id, workload_id=workload_id, transform_id=transform_id,
+                                     coll_id=coll_id, map_id=map_id,
                                      scope=scope, name=name, min_id=min_id, max_id=max_id,
                                      content_type=content_type, status=status, bytes=bytes, md5=md5,
                                      adler32=adler32, processing_id=processing_id, storage_id=storage_id,
@@ -126,7 +134,8 @@ def add_contents(contents, bulk_size=1000, session=None):
 
     :returns: content id.
     """
-    default_params = {'transform_id': None, 'coll_id': None, 'map_id': None,
+    default_params = {'request_id': None, 'workload_id': None,
+                      'transform_id': None, 'coll_id': None, 'map_id': None,
                       'scope': None, 'name': None, 'min_id': 0, 'max_id': 0,
                       'content_type': ContentType.File, 'status': ContentStatus.New,
                       'locking': ContentLocking.Idle,
@@ -266,7 +275,7 @@ def get_contents(scope=None, name=None, coll_id=None, status=None, to_json=False
 
     :param scope: The scope of the content data.
     :param name: The name of the content data.
-    :param coll_id: Collection id.
+    :param coll_id: list of Collection ids.
     :param to_json: return json format.
 
     :param session: The database session in use.
@@ -282,15 +291,20 @@ def get_contents(scope=None, name=None, coll_id=None, status=None, to_json=False
                 status = [status]
             if len(status) == 1:
                 status = [status[0], status[0]]
+        if coll_id is not None:
+            if not isinstance(coll_id, (tuple, list)):
+                coll_id = [coll_id]
+            if len(coll_id) == 1:
+                coll_id = [coll_id[0], coll_id[0]]
 
         query = session.query(models.Content)
         if coll_id:
-            query = query.filter(models.Content.coll_id == coll_id)
+            query = query.filter(models.Content.coll_id.in_(coll_id))
         if scope:
             query = query.filter(models.Content.scope == scope)
         if name:
             query = query.filter(models.Content.name.like(name.replace('*', '%')))
-        if status:
+        if status is not None:
             query = query.filter(models.Content.status.in_(status))
 
         tmp = query.all()

@@ -19,6 +19,7 @@ except ImportError:
 from idds.common.constants import (Sections, RequestStatus, RequestLocking,
                                    WorkprogressStatus)
 from idds.common.utils import setup_logging
+from idds.common.status_utils import get_workprogresses_status
 from idds.core import (requests as core_requests,
                        workprogress as core_workprogress)
 from idds.agents.common.baseagent import BaseAgent
@@ -63,7 +64,7 @@ class Clerk(BaseAgent):
     def process_new_request(self, req):
         try:
             req_id = req['request_id']
-            # workload_id = req['workload_id']
+            workload_id = req['workload_id']
             workflow = req['request_metadata']['workflow']
             workflows = workflow.get_exact_workflows()
             existed_wps = core_workprogress.get_workprogresses(req_id)
@@ -77,6 +78,7 @@ class Clerk(BaseAgent):
             for wf in new_workflows:
                 primary_init_collection = wf.get_primary_initial_collection()
                 workprogress = {'request_id': req_id,
+                                'workload_id': workload_id,
                                 'scope': primary_init_collection['scope'],
                                 'name': primary_init_collection['name'],
                                 'priority': req['priority'],
@@ -149,7 +151,7 @@ class Clerk(BaseAgent):
         """
         Get running requests
         """
-        req_status = [RequestStatus.Transforming]
+        req_status = [RequestStatus.Transforming, RequestStatus.ToCancel, RequestStatus.Cancelling]
         reqs = core_requests.get_requests_by_status_type(status=req_status, time_period=self.poll_time_period,
                                                          locking=True, bulk_size=self.retrieve_bulk_size)
 
@@ -165,7 +167,7 @@ class Clerk(BaseAgent):
         wps = core_workprogress.get_workprogresses(request_id=req['request_id'])
         wps_status = {}
         for wp in wps:
-            status_name = wp['status'].name
+            status_name = wp['status']
             if status_name not in wps_status:
                 wps_status[status_name] = 1
             else:
@@ -181,24 +183,31 @@ class Clerk(BaseAgent):
                        'processing_metadata': processing_metadata,
                        'errors': {'msg': 'No transforms founded(no collections founded)'}
                        }
-        elif len(wps_status_keys) == 1:
-            if wps_status_keys[0] in [WorkprogressStatus.New, WorkprogressStatus.New.name,
-                                      WorkprogressStatus.Transforming, WorkprogressStatus.Transforming.name,
-                                      WorkprogressStatus.Extend, WorkprogressStatus.Extend.name]:
-                ret_req = {'request_id': req['request_id'],
-                           'status': RequestStatus.Transforming,
-                           'processing_metadata': processing_metadata
-                           }
-            else:
-                ret_req = {'request_id': req['request_id'],
-                           'status': dict(RequestStatus.__members__)[wps_status_keys[0]],
-                           'processing_metadata': processing_metadata
-                           }
         else:
+            final_wp_status = get_workprogresses_status(wps_status_keys)
             ret_req = {'request_id': req['request_id'],
-                       'status': RequestStatus.Transforming,
+                       # 'status': dict(RequestStatus.__members__)[final_wp_status.name],
+                       'status': RequestStatus(final_wp_status.value),
                        'processing_metadata': processing_metadata
                        }
+        return ret_req
+
+    def process_tocancel_request(self, req):
+        """
+        process ToCancel request
+        """
+        wps = core_workprogress.get_workprogresses(request_id=req['request_id'])
+        wps_status = {}
+        for wp in wps:
+            if wp['status'] not in [WorkprogressStatus.Finished, WorkprogressStatus.SubFinished,
+                                    WorkprogressStatus.Failed, WorkprogressStatus.Cancelling,
+                                    WorkprogressStatus.Cancelled]:
+                wps_status[wp['workprogress_id']] = {'status': WorkprogressStatus.ToCancel}
+
+        ret_req = {'request_id': req['request_id'],
+                   'status': RequestStatus.Cancelling,
+                   'workprogress_updates': wps_status
+                   }
         return ret_req
 
     def process_running_requests(self):
@@ -210,8 +219,13 @@ class Clerk(BaseAgent):
             try:
                 req = self.running_task_queue.get()
                 if req:
-                    self.logger.info("Main thread processing running requst: %s" % req)
-                    ret_req = self.process_running_request(req)
+                    if req['status'] in [RequestStatus.Transforming, RequestStatus.Cancelling]:
+                        self.logger.info("Main thread processing running requst: %s" % req)
+                        ret_req = self.process_running_request(req)
+                    elif req['status'] in [RequestStatus.ToCancel]:
+                        self.logger.info("Main thread processing ToCancelrequst: %s" % req)
+                        ret_req = self.process_tocancel_request(req)
+
                     if ret_req:
                         ret.append(ret_req)
             except Exception as ex:
@@ -227,7 +241,11 @@ class Clerk(BaseAgent):
             for key in ['status', 'errors', 'request_metadata', 'processing_metadata']:
                 if key in req:
                     parameter[key] = req[key]
-            core_requests.update_request(req['request_id'], parameter)
+
+            update_workprogresses = None
+            if 'workprogress_updates' in req:
+                update_workprogresses = req['workprogress_updates']
+            core_requests.update_request_with_workprogresses(req['request_id'], parameter, update_workprogresses=update_workprogresses)
 
     def clean_locks(self):
         self.logger.info("clean locking")
@@ -241,6 +259,8 @@ class Clerk(BaseAgent):
             self.logger.info("Starting main thread")
 
             self.load_plugins()
+
+            self.add_default_tasks()
 
             task = self.create_task(task_func=self.get_new_requests, task_output_queue=self.new_task_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
             self.add_task(task)

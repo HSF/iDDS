@@ -71,33 +71,15 @@ def get_collections(scope=None, name=None, request_id=None, workload_id=None, tr
 
     :returns: dict of collections
     """
-    if request_id or workload_id or transform_id:
-        transform_ids = orm_transforms.get_transform_ids(request_id=request_id,
-                                                         workload_id=workload_id,
-                                                         transform_id=transform_id, session=session)
-
-        if transform_ids:
-            collections = orm_collections.get_collections(scope=scope, name=name, transform_id=transform_ids,
-                                                          relation_type=relation_type, to_json=to_json,
-                                                          session=session)
-        else:
-            collections = []
-    else:
-        collections = orm_collections.get_collections(scope=scope, name=name, to_json=to_json,
-                                                      relation_type=relation_type, session=session)
-    rets = {}
-    for collection in collections:
-        if request_id not in rets:
-            rets[request_id] = {}
-        transform_id = collection['transform_id']
-        if transform_id not in rets[request_id]:
-            rets[request_id][transform_id] = []
-        rets[request_id][transform_id].append(collection)
-    return rets
+    collections = orm_collections.get_collections(scope=scope, name=name, request_id=request_id,
+                                                  workload_id=workload_id, transform_id=transform_id,
+                                                  to_json=to_json,
+                                                  relation_type=relation_type, session=session)
+    return collections
 
 
 @transactional_session
-def add_collection(scope, name, coll_type=CollectionType.Dataset, transform_id=None,
+def add_collection(request_id, workload_id, scope, name, coll_type=CollectionType.Dataset, transform_id=None,
                    relation_type=CollectionRelationType.Input, coll_size=0, status=CollectionStatus.New,
                    total_files=0, new_files=0, processing_files=0, processed_files=0, retries=0,
                    expired_at=None, coll_metadata=None, session=None):
@@ -107,6 +89,8 @@ def add_collection(scope, name, coll_type=CollectionType.Dataset, transform_id=N
     :param scope: The scope of the request data.
     :param name: The name of the request data.
     :param coll_type: The type of dataset as dataset or container.
+    :param request_id: The request id.
+    :param workload_id: The workload id.
     :param transform_id: The transform id related to this collection.
     :param relation_type: The relation between this collection and its transform,
                           such as Input, Output, Log and so on.
@@ -122,7 +106,8 @@ def add_collection(scope, name, coll_type=CollectionType.Dataset, transform_id=N
 
     :returns: collection id.
     """
-    orm_collections.add_collection(scope=scope, name=name, coll_type=coll_type,
+    orm_collections.add_collection(request_id=request_id, workload_id=workload_id,
+                                   scope=scope, name=name, coll_type=coll_type,
                                    transform_id=transform_id, relation_type=relation_type,
                                    coll_size=coll_size, status=status, total_files=total_files,
                                    new_files=new_files, processing_files=processing_files,
@@ -296,7 +281,7 @@ def update_content(content_id, parameters, session=None):
 
 @read_session
 def get_contents(coll_scope=None, coll_name=None, request_id=None, workload_id=None, transform_id=None,
-                 relation_type=None, to_json=False, session=None):
+                 relation_type=None, status=None, to_json=False, session=None):
     """
     Get contents with collection scope, collection name, request id, workload id and relation type.
 
@@ -311,25 +296,15 @@ def get_contents(coll_scope=None, coll_name=None, request_id=None, workload_id=N
 
     :returns: dict of contents
     """
-    req_transfomr_collections = get_collections(scope=coll_scope, name=coll_name, request_id=request_id,
-                                                workload_id=workload_id, transform_id=transform_id,
-                                                relation_type=relation_type, to_json=to_json, session=session)
+    collections = get_collections(scope=coll_scope, name=coll_name, request_id=request_id,
+                                  workload_id=workload_id, transform_id=transform_id,
+                                  relation_type=relation_type, to_json=to_json, session=session)
 
-    rets = {}
-    for request_id in req_transfomr_collections:
-        rets[request_id] = {}
-        for transform_id in req_transfomr_collections[request_id]:
-            rets[request_id][transform_id] = {}
-            for collection in req_transfomr_collections[request_id][transform_id]:
-                scope = collection['scope']
-                name = collection['name']
-                coll_id = collection['coll_id']
-                coll_relation_type = collection['relation_type']
-                scope_name = '%s:%s' % (scope, name)
-                contents = orm_contents.get_contents(coll_id=coll_id, to_json=to_json, session=session)
-                rets[request_id][transform_id][scope_name] = {'collection': collection,
-                                                              'relation_type': coll_relation_type,
-                                                              'contents': contents}
+    coll_ids = [coll['coll_id'] for coll in collections]
+    if coll_ids:
+        rets = orm_contents.get_contents(coll_id=coll_ids, status=status, to_json=to_json, session=session)
+    else:
+        rets = []
     return rets
 
 

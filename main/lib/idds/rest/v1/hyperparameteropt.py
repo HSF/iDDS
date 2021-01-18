@@ -15,8 +15,8 @@ from flask import Blueprint
 
 from idds.common import exceptions
 from idds.common.constants import HTTP_STATUS_CODE
-from idds.common.constants import ContentType
-from idds.core import catalog, requests as core_requests
+from idds.common.constants import CollectionRelationType, ContentStatus
+from idds.core import catalog
 from idds.rest.v1.controller import IDDSController
 
 
@@ -42,29 +42,28 @@ class HyperParameterOpt(IDDSController):
             if workload_id is None and request_id is None:
                 error = "One of workload_id and request_id should not be None or empty"
                 return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
-            if not request_id:
-                request_ids = core_requests.get_request_ids_by_workload_id(workload_id)
-                if not request_ids:
-                    error = "Cannot find requests with this workloa_id: %s" % workload_id
-                    return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
-                else:
-                    if len(request_ids) > 1:
-                        error = "More than one request with the same workload_id. request_id should be provided."
-                        return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
-                    else:
-                        request_id = request_ids[0]
         except Exception as error:
             print(error)
             print(format_exc())
             return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
 
         try:
+            contents = catalog.get_contents(request_id=request_id, workload_id=workload_id,
+                                            relation_type=CollectionRelationType.Output)
+
+            if id:
+                new_contents = []
+                for content in contents:
+                    if str(content['name']) == str(id):
+                        new_contents.append(content)
+                contents = new_contents
+            content = contents[0]
+
             loss = float(loss)
-            content = catalog.get_output_content_by_request_id_content_name(request_id, content_scope='hpo', content_name=str(id), content_type=ContentType.PseudoContent, min_id=0, max_id=0)
             content_id = content['content_id']
             point = content['path']
             param, origin_loss = json.loads(point)
-            params = {'path': json.dumps((param, loss))}
+            params = {'path': json.dumps((param, loss)), 'substatus': ContentStatus.Available}
             catalog.update_content(content_id, params)
         except exceptions.NoObject as error:
             return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
@@ -90,34 +89,13 @@ class HyperParameterOpt(IDDSController):
             500 InternalError
         :returns: list of hyper parameters.
         """
+
         try:
             if workload_id == 'null':
                 workload_id = None
             if request_id == 'null':
                 request_id = None
-            if id == 'null':
-                id = None
 
-            if workload_id is None and request_id is None:
-                error = "One of workload_id and request_id should not be None or empty"
-                return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
-            if not request_id:
-                request_ids = core_requests.get_request_ids_by_workload_id(workload_id)
-                if not request_ids:
-                    error = "Cannot find requests with this workloa_id: %s" % workload_id
-                    return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
-                else:
-                    if len(request_ids) > 1:
-                        error = "More than one request with the same workload_id. request_id should be provided."
-                        return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
-                    else:
-                        request_id = request_ids[0]
-        except Exception as error:
-            print(error)
-            print(format_exc())
-            return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
-
-        try:
             if status == 'null':
                 status = None
             if limit == 'null':
@@ -125,7 +103,19 @@ class HyperParameterOpt(IDDSController):
             if id == 'null':
                 id = None
 
-            contents = catalog.get_output_contents_by_request_id_status(request_id, id, status, limit)
+            contents = catalog.get_contents(request_id=request_id, workload_id=workload_id,
+                                            status=status, relation_type=CollectionRelationType.Output)
+
+            if id:
+                new_contents = []
+                for content in contents:
+                    if str(content['name']) == str(id):
+                        new_contents.append(content)
+                contents = new_contents
+
+            if contents and limit and len(contents) > limit:
+                contents = contents[:limit]
+
             hyperparameters = []
             for content in contents:
                 point = content['path']

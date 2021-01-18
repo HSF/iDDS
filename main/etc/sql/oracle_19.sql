@@ -6,7 +6,19 @@ DROP SEQUENCE PROCESSING_ID_SEQ;
 DROP SEQUENCE COLLECTION_ID_SEQ;
 DROP SEQUENCE CONTENT_ID_SEQ;
 
+delete from HEALTH;
+delete from MESSAGES;
+delete from CONTENTS;
+delete from REQ2WORKLOAD;
+delete from REQ2TRANSFORMS;
+delete from WP2TRANSFORMS;
+delete from WORKPROGRESSES;
+delete from PROCESSINGS;
+delete from COLLECTIONS;
+delete from TRANSFORMS;
+delete from REQUESTS;
 
+Drop table HEALTH purge;
 DROP table MESSAGES purge;
 DROP table CONTENTS purge;
 DROP table REQ2WORKLOAD purge;
@@ -60,6 +72,7 @@ CREATE TABLE WORKPROGRESSES
 (
         workprogress_id NUMBER(12) DEFAULT ON NULL WORKPROGRESS_ID_SEQ.NEXTVAL constraint WORKPROGRESS_ID_NN NOT NULL,
         request_id NUMBER(12) constraint WORKPROGRESS__REQ_ID_NN NOT NULL,
+        workload_id NUMBER(10),
         scope VARCHAR2(25) constraint WORKPROGRESS_SCOPE_NN NOT NULL,
         name VARCHAR2(255) constraint WORKPROGRESS_NAME_NN NOT NULL,
         priority NUMBER(7),
@@ -93,6 +106,8 @@ CREATE SEQUENCE TRANSFORM_ID_SEQ MINVALUE 1 INCREMENT BY 1 ORDER NOCACHE NOCYCLE
 CREATE TABLE TRANSFORMS
 (
         transform_id NUMBER(12) DEFAULT ON NULL TRANSFORM_ID_SEQ.NEXTVAL constraint TRANSFORM_ID_NN NOT NULL,
+        request_id NUMBER(12),        
+        workload_id NUMBER(10),
         transform_type NUMBER(2) constraint TRANSFORM_TYPE_NN NOT NULL,
         transform_tag VARCHAR2(20),
         priority NUMBER(7),
@@ -162,6 +177,8 @@ CREATE TABLE PROCESSINGS
 (
         processing_id NUMBER(12) DEFAULT ON NULL PROCESSING_ID_SEQ.NEXTVAL constraint PROCESSING_ID_NN NOT NULL,
         transform_id NUMBER(12) constraint PROCESSINGS_TRANSFORM_ID_NN NOT NULL,
+        request_id NUMBER(12),
+        workload_id NUMBER(10),
         status NUMBER(2) constraint PROCESSINGS_STATUS_ID_NN NOT NULL,
         substatus NUMBER(2),
         locking NUMBER(2),
@@ -193,6 +210,8 @@ CREATE TABLE COLLECTIONS
     coll_id NUMBER(14) DEFAULT ON NULL COLLECTION_ID_SEQ.NEXTVAL constraint COLLECTIONS_ID_NN NOT NULL,
     coll_type NUMBER(2),
     transform_id NUMBER(12) constraint COLLECTION_TRANSFORM_ID_NN NOT NULL,
+    request_id NUMBER(12),
+    workload_id NUMBER(10),
     relation_type NUMBER(2), -- input, output or log of the transform,    
     scope VARCHAR2(25) constraint COLLECTION_SCOPE_NN NOT NULL,
     name VARCHAR2(255) constraint COLLECTION_NAME_NN NOT NULL,
@@ -232,6 +251,8 @@ CREATE TABLE CONTENTS
         content_id NUMBER(12) DEFAULT ON NULL CONTENT_ID_SEQ.NEXTVAL constraint CONTENT_ID_NN NOT NULL,
         transform_id NUMBER(12) constraint CONTENT_TRANSFORM_ID_NN NOT NULL,
         coll_id NUMBER(14) constraint CONTENT_COLL_ID_NN NOT NULL,
+        request_id NUMBER(12),
+        workload_id NUMBER(10),
         map_id NUMBER(12) DEFAULT 0,
         scope VARCHAR2(25) constraint CONTENT_SCOPE_NN NOT NULL,
         name VARCHAR2(255) constraint CONTENT_NAME_NN NOT NULL,
@@ -277,10 +298,30 @@ CREATE TABLE MESSAGES
     substatus NUMBER(2),
     locking NUMBER(2),
     source NUMBER(2),
+    request_id NUMBER(12),
+    workload_id NUMBER(10),
     transform_id NUMBER(12),
     num_contents NUMBER(7),
     created_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)),
     updated_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)),
     msg_content CLOB constraint MSG_CONTENT_ENSURE_JSON CHECK(msg_content IS JSON(LAX)),
     CONSTRAINT MESSAGES_PK PRIMARY KEY (msg_id) -- USING INDEX LOCAL,  
+);
+
+
+--- health
+CREATE SEQUENCE HEALTH_ID_SEQ MINVALUE 1 INCREMENT BY 1 START WITH 1 NOCACHE ORDER NOCYCLE GLOBAL;
+CREATE TABLE HEALTH
+(
+    health_id NUMBER(12) DEFAULT ON NULL HEALTH_ID_SEQ.NEXTVAL constraint HEALTH_ID_NN NOT NULL,
+    agent VARCHAR2(30),
+    hostname VARCHAR2(127),
+    pid Number(12),
+    thread_id Number(20),
+    thread_name VARCHAR2(255),
+    payload VARCHAR2(255),
+    created_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)),
+    updated_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)),
+    CONSTRAINT HEALTH_PK PRIMARY KEY (health_id), -- USING INDEX LOCAL,  
+    CONSTRAINT HEALTH_UQ UNIQUE (agent, hostname, pid, thread_id)
 );

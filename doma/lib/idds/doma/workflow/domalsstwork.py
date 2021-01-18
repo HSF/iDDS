@@ -53,7 +53,7 @@ class DomaLSSTWork(Work):
                  maxwalltime=90000, maxattempt=5, core_count=1):
 
         super(DomaLSSTWork, self).__init__(executable=executable, arguments=arguments,
-                                           parameters=parameters, setup=setup, work_type=TransformType.StageIn,
+                                           parameters=parameters, setup=setup, work_type=TransformType.Processing,
                                            work_tag=work_tag, exec_type=exec_type, sandbox=sandbox, work_id=work_id,
                                            primary_input_collection=primary_input_collection,
                                            other_input_collections=other_input_collections,

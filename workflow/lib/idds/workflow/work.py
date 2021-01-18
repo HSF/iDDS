@@ -46,7 +46,8 @@ class Work(Base):
     def __init__(self, executable=None, arguments=None, parameters=None, setup=None, work_type=None,
                  work_tag=None, exec_type='local', sandbox=None, work_id=None,
                  primary_input_collection=None, other_input_collections=None,
-                 output_collections=None, log_collections=None,
+                 output_collections=None, log_collections=None, release_inputs_after_submitting=False,
+                 agent_attributes=None,
                  logger=None):
         """
         Init a work/task/transformation.
@@ -82,6 +83,7 @@ class Work(Base):
         self.work_id = work_id
         # self.workflow = workflow
         self.transforming = False
+        self.workdir = None
 
         self.collections = {}
         self.primary_input_collection = None
@@ -101,6 +103,7 @@ class Work(Base):
             log_collections = [log_collections]
         self.add_log_collections(log_collections)
 
+        self.release_inputs_after_submitting = release_inputs_after_submitting
         self._has_new_inputs = True
 
         self.status = WorkStatus.New
@@ -109,8 +112,11 @@ class Work(Base):
         self.processings = {}
         self.active_processings = []
         self.terminated_msg = ""
+        self.output_data = None
 
         self.status_statistics = {}
+
+        self.agent_attributes = agent_attributes
 
     def get_class_name(self):
         return self.__class__.__name__
@@ -141,6 +147,15 @@ class Work(Base):
     # def set_workflow(self, workflow):
     #     self.workflow = workflow
 
+    def set_agent_attributes(self, attrs, req_attributes=None):
+        self.agent_attributes = attrs
+
+    def set_workdir(self, workdir):
+        self.workdir = workdir
+
+    def get_workdir(self):
+        return self.workdir
+
     def set_status(self, status):
         """
         *** Function called by Marshaller agent.
@@ -150,6 +165,9 @@ class Work(Base):
         # if self.workflow:
         #     self.workflow.work_status_update_trigger(self, status)
 
+    def get_status(self):
+        return self.status
+
     def set_terminated_msg(self, msg):
         """
         *** Function called by Marshaller agent.
@@ -158,6 +176,12 @@ class Work(Base):
 
     def get_terminated_msg(self):
         return self.terminated_msg
+
+    def set_output_data(self, data):
+        self.output_data = data
+
+    def get_output_data(self):
+        return self.output_data
 
     def __eq__(self, obj):
         if self.work_id == obj.work_id:
@@ -222,7 +246,15 @@ class Work(Base):
         """
         *** Function called by Transformer agent.
         """
-        if self.status in [WorkStatus.Failed, WorkStatus.Cancelled]:
+        if self.status in [WorkStatus.Failed]:
+            return True
+        return False
+
+    def is_cancelled(self):
+        """
+        *** Function called by Transformer agent.
+        """
+        if self.status in [WorkStatus.Cancelled]:
             return True
         return False
 
@@ -348,6 +380,14 @@ class Work(Base):
         # print(coll_id)
         self.collections[collection['coll_metadata']['internal_id']]['coll_id'] = coll_id
 
+    def should_release_inputs(self, processing=None):
+        if self.release_inputs_after_submitting:
+            if (processing and 'status' in processing
+                and processing['status'] in [ProcessingStatus.Submitted, ProcessingStatus.Submitted.value]):  # noqa: W503
+                return True
+            return False
+        return True
+
     def add_processing_to_processings(self, processing):
         assert(isinstance(processing, dict))
         # assert('processing_metadata' in processing)
@@ -372,6 +412,31 @@ class Work(Base):
         *** Function called by Transformer agent.
         """
         self.processings[processing['processing_metadata']['internal_id']]['status'] = status
+        # if status not in [ProcessingStatus.New, ProcessingStatus.Submitting,
+        #                   ProcessingStatus.Submitted, ProcessingStatus.Running]:
+        #     if processing['processing_metadata']['internal_id'] in self.active_processings:
+        #         del self.active_processings[processing['processing_metadata']['internal_id']]
+
+    def set_processing_output_metadata(self, processing, output_metadata):
+        """
+        *** Function called by Transformer agent.
+        """
+        processing = self.processings[processing['processing_metadata']['internal_id']]
+        processing['output_metadata'] = output_metadata
+
+    def is_processing_terminated(self, processing):
+        if 'status' in processing and processing['status'] not in [ProcessingStatus.New,
+                                                                   ProcessingStatus.Submitting,
+                                                                   ProcessingStatus.Submitted,
+                                                                   ProcessingStatus.Running]:
+            return True
+        return False
+
+    def reap_processing(self, processing):
+        if self.is_processing_terminated(processing):
+            self.active_processings.remove(processing['processing_metadata']['internal_id'])
+        else:
+            self.logger.error("Cannot reap an unterminated processing: %s" % processing)
 
     def is_processings_terminated(self):
         """
@@ -379,10 +444,7 @@ class Work(Base):
         """
         for p_id in self.active_processings:
             p = self.processings[p_id]
-            if 'status' in p and p['status'] not in [ProcessingStatus.New,
-                                                     ProcessingStatus.Submitting,
-                                                     ProcessingStatus.Submitted,
-                                                     ProcessingStatus.Running]:
+            if self.is_processing_terminated(p):
                 pass
             else:
                 return False
@@ -409,6 +471,12 @@ class Work(Base):
             # return process
 
     def submit_processing(self, processing):
+        """
+        *** Function called by Carrier agent.
+        """
+        raise exceptions.NotImplementedException
+
+    def abort_processing(self, processing):
         """
         *** Function called by Carrier agent.
         """

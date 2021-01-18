@@ -48,6 +48,7 @@ class RequestClient(BaseRestClient):
         url = self.build_url(self.host, path=path)
 
         data = kwargs
+
         # if 'request_type' in data and data['request_type'] and isinstance(data['request_type'], RequestType):
         #     data['request_type'] = data['request_type'].value
         # if 'status' in data and data['status'] and isinstance(data['status'], RequestStatus):
@@ -79,7 +80,7 @@ class RequestClient(BaseRestClient):
         r = self.get_request_response(url, type='PUT', data=data)
         return r
 
-    def get_requests(self, request_id=None, workload_id=None):
+    def get_requests(self, request_id=None, workload_id=None, with_detail=False):
         """
         Get request from the Head service.
 
@@ -93,7 +94,7 @@ class RequestClient(BaseRestClient):
             request_id = 'null'
         if workload_id is None:
             workload_id = 'null'
-        url = self.build_url(self.host, path=os.path.join(path, str(request_id), str(workload_id)))
+        url = self.build_url(self.host, path=os.path.join(path, str(request_id), str(workload_id), str(with_detail)))
 
         requests = self.get_request_response(url, type='GET')
 

@@ -26,11 +26,14 @@ from idds.orm.base.session import read_session, transactional_session
 from idds.orm.base import models
 
 
-def create_transform(transform_type, transform_tag=None, priority=0, status=TransformStatus.New, locking=TransformLocking.Idle,
+def create_transform(request_id, workload_id, transform_type, transform_tag=None,
+                     priority=0, status=TransformStatus.New, locking=TransformLocking.Idle,
                      retries=0, expired_at=None, transform_metadata=None):
     """
     Create a transform.
 
+    :param request_id: The request id.
+    :param workload_id: The workload id.
     :param transform_type: Transform type.
     :param transform_tag: Transform tag.
     :param priority: priority.
@@ -42,18 +45,22 @@ def create_transform(transform_type, transform_tag=None, priority=0, status=Tran
 
     :returns: transform.
     """
-    new_transform = models.Transform(transform_type=transform_type, transform_tag=transform_tag, priority=priority,
+    new_transform = models.Transform(request_id=request_id, workload_id=workload_id, transform_type=transform_type,
+                                     transform_tag=transform_tag, priority=priority,
                                      status=status, locking=locking, retries=retries, expired_at=expired_at,
                                      transform_metadata=transform_metadata)
     return new_transform
 
 
 @transactional_session
-def add_transform(transform_type, transform_tag=None, priority=0, status=TransformStatus.New, locking=TransformLocking.Idle,
+def add_transform(request_id, workload_id, transform_type, transform_tag=None, priority=0,
+                  status=TransformStatus.New, locking=TransformLocking.Idle,
                   retries=0, expired_at=None, transform_metadata=None, workprogress_id=None, session=None):
     """
     Add a transform.
 
+    :param request_id: The request id.
+    :param workload_id: The workload id.
     :param transform_type: Transform type.
     :param transform_tag: Transform tag.
     :param priority: priority.
@@ -69,7 +76,8 @@ def add_transform(transform_type, transform_tag=None, priority=0, status=Transfo
     :returns: transform id.
     """
     try:
-        new_transform = create_transform(transform_type=transform_type, transform_tag=transform_tag, priority=priority,
+        new_transform = create_transform(request_id=request_id, workload_id=workload_id, transform_type=transform_type,
+                                         transform_tag=transform_tag, priority=priority,
                                          status=status, locking=locking, retries=retries, expired_at=expired_at,
                                          transform_metadata=transform_metadata)
         new_transform.save(session=session)
@@ -214,17 +222,15 @@ def get_transform_ids(workprogress_id=None, request_id=None, workload_id=None, t
     :returns: list of transform ids.
     """
     try:
-        if workload_id:
-            query = session.query(models.Req2transform.transform_id)\
-                           .join(models.Request, and_(models.Req2transform.request_id == models.Request.request_id,
-                                                      models.Request.workload_id == workload_id))
-        else:
-            query = session.query(models.Req2transform.transform_id)
-
+        query = session.query(models.Transform.transform_id)
         if request_id:
-            query = query.filter(models.Req2transform.request_id == request_id)
+            query = query.filter(models.Transform.request_id == request_id)
+        if workload_id:
+            query = query.filter(models.Transform.workload_id == workload_id)
         if transform_id:
-            query = query.filter(models.Req2transform.transform_id == transform_id)
+            query = query.filter(models.Transform.transform_id == transform_id)
+        if workprogress_id:
+            query = query.join(models.Workprogress2transform, and_(models.Workprogress2transform.workprogress_id == workprogress_id))
 
         tmp = query.all()
         ret_ids = []
@@ -240,7 +246,8 @@ def get_transform_ids(workprogress_id=None, request_id=None, workload_id=None, t
 
 
 @read_session
-def get_transforms(request_id=None, workload_id=None, transform_id=None, to_json=False, session=None):
+def get_transforms(request_id=None, workload_id=None, transform_id=None, workprogress_id=None,
+                   to_json=False, session=None):
     """
     Get transforms or raise a NoObject exception.
 
@@ -254,21 +261,15 @@ def get_transforms(request_id=None, workload_id=None, transform_id=None, to_json
     :returns: list of transforms.
     """
     try:
-        if workload_id:
-            subquery = session.query(models.Req2transform.transform_id)\
-                              .join(models.Request, and_(models.Req2transform.request_id == models.Request.request_id,
-                                                         models.Request.workload_id == workload_id))
-        else:
-            subquery = session.query(models.Req2transform.transform_id)
-
+        query = session.query(models.Transform)
         if request_id:
-            subquery = subquery.filter(models.Req2transform.request_id == request_id)
+            query = query.filter(models.Transform.request_id == request_id)
+        if workload_id:
+            query = query.filter(models.Transform.workload_id == workload_id)
         if transform_id:
-            subquery = subquery.filter(models.Req2transform.transform_id == transform_id)
-        subquery = subquery.subquery()
-
-        query = session.query(models.Transform)\
-                       .join(subquery, and_(subquery.c.transform_id == models.Transform.transform_id))
+            query = query.filter(models.Transform.transform_id == transform_id)
+        if workprogress_id:
+            query = query.join(models.Workprogress2transform, and_(models.Workprogress2transform.workprogress_id == workprogress_id))
 
         tmp = query.all()
         rets = []

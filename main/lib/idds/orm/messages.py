@@ -25,13 +25,16 @@ from idds.orm.base.session import read_session, transactional_session
 
 
 @transactional_session
-def add_message(msg_type, status, source, transform_id, num_contents, msg_content, bulk_size=None, session=None):
+def add_message(msg_type, status, source, request_id, workload_id, transform_id,
+                num_contents, msg_content, bulk_size=None, session=None):
     """
     Add a message to be submitted asynchronously to a message broker.
 
     :param msg_type: The type of the msg as a number, e.g., finished_stagein.
     :param status: The status about the message
     :param source: The source where the message is from.
+    :param request_id: The request id.
+    :param workload_id: The workload id.
     :param transform_id: The transform id.
     :param num_contents: Number of items in msg_content.
     :param msg_content: The message msg_content as JSON.
@@ -56,7 +59,8 @@ def add_message(msg_type, status, source, transform_id, num_contents, msg_conten
             msg_content_list.append(msg_content)
 
         for msg_content, num_contents in zip(msg_content_list, num_contents_list):
-            new_message = models.Message(msg_type=msg_type, status=status, transform_id=transform_id,
+            new_message = models.Message(msg_type=msg_type, status=status, request_id=request_id,
+                                         workload_id=workload_id, transform_id=transform_id,
                                          source=source, num_contents=num_contents,
                                          locking=0, msg_content=msg_content)
             new_message.save(session=session)

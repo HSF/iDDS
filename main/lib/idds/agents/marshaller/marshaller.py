@@ -67,6 +67,8 @@ class Marshaller(BaseAgent):
         transforms = []
         for work in works:
             transform = {'workprogress_id': workprogress['workprogress_id'],
+                         'request_id': workprogress['request_id'],
+                         'workload_id': workprogress['workload_id'],
                          'transform_type': work.get_work_type(),
                          'transform_tag': work.get_work_tag(),
                          'priority': workprogress['priority'],
@@ -123,7 +125,8 @@ class Marshaller(BaseAgent):
         """
         Get workprogresses to running
         """
-        workprogress_status = [WorkprogressStatus.Transforming]
+        workprogress_status = [WorkprogressStatus.Transforming, WorkprogressStatus.ToCancel,
+                               WorkprogressStatus.Cancelling]
         workprogresses = core_workprogress.get_workprogresses_by_status(status=workprogress_status,
                                                                         period=self.poll_time_period,
                                                                         locking=True,
@@ -142,23 +145,37 @@ class Marshaller(BaseAgent):
         workprogress_metadata = workprogress['workprogress_metadata']
         wf = workprogress_metadata['workflow']
 
-        # new works
-        works = wf.get_new_works()
         new_transforms = []
-        for work in works:
-            new_transform = {'workprogress_id': workprogress['workprogress_id'],
-                             'transform_type': work.get_work_type(),
-                             'transform_tag': work.get_work_tag(),
-                             'priority': workprogress['priority'],
-                             'status': TransformStatus.New,
-                             'retries': 0,
-                             'expired_at': workprogress['expired_at'],
-                             'transform_metadata': {'work': work}
-                             # 'collections': related_collections
-                             }
-            new_transforms.append(new_transform)
-        self.logger.info("Processing workprogress(%s): new transforms: %s" % (workprogress['workprogress_id'],
-                                                                              new_transforms))
+        if workprogress['status'] in [WorkprogressStatus.Transforming]:
+            # new works
+            works = wf.get_new_works()
+            for work in works:
+                new_transform = {'workprogress_id': workprogress['workprogress_id'],
+                                 'request_id': workprogress['request_id'],
+                                 'workload_id': workprogress['workload_id'],
+                                 'transform_type': work.get_work_type(),
+                                 'transform_tag': work.get_work_tag(),
+                                 'priority': workprogress['priority'],
+                                 'status': TransformStatus.New,
+                                 'retries': 0,
+                                 'expired_at': workprogress['expired_at'],
+                                 'transform_metadata': {'work': work}
+                                 # 'collections': related_collections
+                                 }
+                new_transforms.append(new_transform)
+            self.logger.info("Processing workprogress(%s): new transforms: %s" % (workprogress['workprogress_id'],
+                                                                                  new_transforms))
+
+        update_transforms = {}
+        if workprogress['status'] in [WorkprogressStatus.ToCancel]:
+            # current works
+            works = wf.get_current_works()
+            # print(works)
+            for work in works:
+                if work.get_status() not in [WorkStatus.Finished, WorkStatus.SubFinished,
+                                             WorkStatus.Failed, WorkStatus.Cancelling,
+                                             WorkStatus.Cancelled]:
+                    update_transforms[work.get_work_id()] = {'status': TransformStatus.ToCancel}
 
         # current works
         works = wf.get_current_works()
@@ -177,6 +194,8 @@ class Marshaller(BaseAgent):
                 wp_status = WorkprogressStatus.SubFinished
             elif wf.is_failed():
                 wp_status = WorkprogressStatus.Failed
+            elif wf.is_cancelled():
+                wp_status = WorkprogressStatus.Cancelled
             else:
                 wp_status = WorkprogressStatus.Failed
             wp_msg = wf.get_terminated_msg()
@@ -189,7 +208,8 @@ class Marshaller(BaseAgent):
                       'errors': {'msg': wp_msg}}
         ret = {'workprogress_id': workprogress['workprogress_id'],
                'parameters': parameters,
-               'new_transforms': new_transforms}
+               'new_transforms': new_transforms,
+               'update_transforms': update_transforms}
         return ret
 
     def process_running_workprogresses(self):
@@ -213,9 +233,11 @@ class Marshaller(BaseAgent):
             wp_id = ret['workprogress_id']
             parameters = ret['parameters']
             new_transforms = ret['new_transforms']
+            update_transforms = ret['update_transforms']
             core_workprogress.update_workprogress(workprogress_id=wp_id,
                                                   parameters=parameters,
-                                                  new_transforms=new_transforms)
+                                                  new_transforms=new_transforms,
+                                                  update_transforms=update_transforms)
 
     def clean_locks(self):
         self.logger.info("clean locking")
@@ -229,6 +251,8 @@ class Marshaller(BaseAgent):
             self.logger.info("Starting main thread")
 
             self.load_plugins()
+
+            self.add_default_tasks()
 
             task = self.create_task(task_func=self.get_new_workprogresses, task_output_queue=self.new_task_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
             self.add_task(task)

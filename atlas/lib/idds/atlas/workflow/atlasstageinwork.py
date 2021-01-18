@@ -29,6 +29,7 @@ class ATLASStageinWork(Work):
                  work_tag='stagein', exec_type='local', sandbox=None, work_id=None,
                  primary_input_collection=None, other_input_collections=None,
                  output_collections=None, log_collections=None,
+                 agent_attributes=None,
                  logger=None,
                  max_waiting_time=3600 * 7 * 24, src_rse=None, dest_rse=None, rule_id=None):
         """
@@ -58,12 +59,20 @@ class ATLASStageinWork(Work):
                                                other_input_collections=other_input_collections,
                                                output_collections=output_collections,
                                                log_collections=log_collections,
+                                               agent_attributes=agent_attributes,
                                                logger=logger)
         self.max_waiting_time = max_waiting_time
         self.src_rse = src_rse
         self.dest_rse = dest_rse
         self.life_time = max_waiting_time
         self.rule_id = rule_id
+
+        self.num_mapped_inputs = 0
+        self.total_output_files = 0
+        self.processed_output_files = 0
+        self.status_statistics = {}
+
+        self.tocancel = False
 
     def get_rucio_client(self):
         try:
@@ -192,6 +201,7 @@ class ATLASStageinWork(Work):
             else:
                 next_key = 1
             for ip in new_inputs:
+                self.num_mapped_inputs += 1
                 out_ip = copy.deepcopy(ip)
                 out_ip['coll_id'] = self.collections[self.output_collections[0]]['coll_id']
                 new_input_output_maps[next_key] = {'inputs': [ip],
@@ -204,7 +214,7 @@ class ATLASStageinWork(Work):
         if self.active_processings:
             return self.processings[self.active_processings[0]]
         else:
-            return None
+            return self.create_processing(input_output_maps)
 
     def create_processing(self, input_output_maps):
         proc = {'processing_metadata': {'internal_id': str(uuid.uuid1()),
@@ -251,22 +261,30 @@ class ATLASStageinWork(Work):
             rule_id = self.create_rule(processing)
             processing['processing_metadata']['rule_id'] = rule_id
 
+    def abort_processing(self, processing):
+        self.tocancel = True
+
     def poll_rule(self, processing):
         try:
             p = processing
             rule_id = p['processing_metadata']['rule_id']
 
-            rucio_client = self.get_rucio_client()
-            rule = rucio_client.get_replication_rule(rule_id=rule_id)
-            # rule['state']
-
             replicases_status = {}
-            if rule['locks_ok_cnt'] > 0:
-                locks = rucio_client.list_replica_locks(rule_id=rule_id)
-                for lock in locks:
-                    scope_name = '%s:%s' % (lock['scope'], lock['name'])
-                    if lock['state'] == 'OK':
-                        replicases_status[scope_name] = ContentStatus.Available   # 'OK'
+            if rule_id:
+                if not isinstance(rule_id, (tuple, list)):
+                    rule_id = [rule_id]
+
+                rucio_client = self.get_rucio_client()
+                for rule_id_item in rule_id:
+                    rule = rucio_client.get_replication_rule(rule_id=rule_id_item)
+                    # rule['state']
+
+                    if rule['locks_ok_cnt'] > 0:
+                        locks = rucio_client.list_replica_locks(rule_id=rule_id_item)
+                        for lock in locks:
+                            scope_name = '%s:%s' % (lock['scope'], lock['name'])
+                            if lock['state'] == 'OK':
+                                replicases_status[scope_name] = ContentStatus.Available   # 'OK'
             return p, rule['state'], replicases_status
         except RucioRuleNotFound as ex:
             msg = "rule(%s) not found: %s" % (str(rule_id), str(ex))
@@ -299,22 +317,50 @@ class ATLASStageinWork(Work):
         if rule_state == 'OK' and content_substatus['finished'] > 0 and content_substatus['unfinished'] == 0:
             update_processing = {'processing_id': processing['processing_id'],
                                  'parameters': {'status': ProcessingStatus.Finished}}
+        elif self.tocancel:
+            update_processing = {'processing_id': processing['processing_id'],
+                                 'parameters': {'status': ProcessingStatus.Cancelled}}
         return update_processing, updated_contents
 
     def get_status_statistics(self, registered_input_output_maps):
         status_statistics = {}
+
+        self.total_output_files = 0
+        self.processed_output_file = 0
+
         for map_id in registered_input_output_maps:
+            # inputs = registered_input_output_maps[map_id]['inputs']
             outputs = registered_input_output_maps[map_id]['outputs']
+
+            self.total_output_files += 1
 
             for content in outputs:
                 if content['status'].name not in status_statistics:
                     status_statistics[content['status'].name] = 0
                 status_statistics[content['status'].name] += 1
+
+                if content['status'] == ContentStatus.Available:
+                    self.processed_output_file += 1
+
         self.status_statistics = status_statistics
         return status_statistics
 
+    def syn_collection_status(self):
+        input_collections = self.get_input_collections()
+        output_collections = self.get_output_collections()
+        # log_collections = self.get_log_collections()
+
+        for input_collection in input_collections:
+            input_collection['processed_files'] = self.num_mapped_inputs
+
+        for output_collection in output_collections:
+            output_collection['total_files'] = self.total_output_files
+            output_collection['processed_files'] = self.processed_output_file
+
     def syn_work_status(self, registered_input_output_maps):
         self.get_status_statistics(registered_input_output_maps)
+
+        self.syn_collection_status()
 
         if self.is_processings_terminated() and not self.has_new_inputs():
             keys = self.status_statistics.keys()
