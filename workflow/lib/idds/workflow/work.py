@@ -613,6 +613,19 @@ class Work(Base):
         """
         raise exceptions.NotImplementedException
 
+    def sync_work_data(self, work):
+        self.status = work.status
+        self.workdir = work.workdir
+        self._has_new_inputs = work._has_new_inputs
+        self.errors = work.errors
+        self.next_works = work.next_works
+
+        self.terminated_msg = work.terminated_msg
+        self.output_data = work.output_data
+        self.parameters_for_next_task = work.parameters_for_next_task
+
+        self.status_statistics = work.status_statistics
+
     def add_proxy(self, proxy):
         self.proxy = proxy
 

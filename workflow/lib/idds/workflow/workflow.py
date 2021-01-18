@@ -8,6 +8,7 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2020
 
+import copy
 import datetime
 import logging
 import inspect
@@ -157,6 +158,14 @@ class Workflow(Base):
 
     def get_internal_id(self):
         return self.internal_id
+
+    def copy(self):
+        logger = self.logger
+        self.logger = None
+        new_wf = copy.deepcopy(self)
+        self.logger = logger
+        new_wf.logger = logger
+        return new_wf
 
     def get_works_template(self):
         return self.works_template
