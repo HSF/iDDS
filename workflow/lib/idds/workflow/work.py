@@ -626,6 +626,9 @@ class Work(Base):
 
         self.status_statistics = work.status_statistics
 
+        self.processings = work.processings
+        self.active_processings = work.active_processings
+
     def add_proxy(self, proxy):
         self.proxy = proxy
 
