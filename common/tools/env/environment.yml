@@ -1,4 +1,4 @@
-name: iDDS
+name: idds-common
 dependencies:
 - python==3.6
 - pip
@@ -8,4 +8,3 @@ dependencies:
   - flake8           # Wrapper around PyFlakes&pep8
   - pytest           # python testing tool
   - nose             # nose test tools
-

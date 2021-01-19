@@ -1,4 +1,4 @@
-name: iDDS
+name: idds-client
 dependencies:
 - python==3.6
 - pip
@@ -14,3 +14,5 @@ dependencies:
   - pytest           # python testing tool
   - nose             # nose test tools
   - tabulate
+  - idds-common
+  - idds-workflow
