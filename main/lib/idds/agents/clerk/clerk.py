@@ -17,11 +17,10 @@ except ImportError:
     from Queue import Queue
 
 from idds.common.constants import (Sections, RequestStatus, RequestLocking,
-                                   WorkprogressStatus)
+                                   TransformStatus, WorkStatus)
 from idds.common.utils import setup_logging
-from idds.common.status_utils import get_workprogresses_status
 from idds.core import (requests as core_requests,
-                       workprogress as core_workprogress)
+                       transforms as core_transforms)
 from idds.agents.common.baseagent import BaseAgent
 
 setup_logging(__name__)
@@ -63,44 +62,43 @@ class Clerk(BaseAgent):
 
     def process_new_request(self, req):
         try:
-            req_id = req['request_id']
-            workload_id = req['workload_id']
             workflow = req['request_metadata']['workflow']
-            workflows = workflow.get_exact_workflows()
-            existed_wps = core_workprogress.get_workprogresses(req_id)
-            existed_workflows = [wp['workprogress_metadata']['workflow'] for wp in existed_wps]
-            new_workflows = []
-            for wf in workflows:
-                if wf not in existed_workflows:
-                    new_workflows.append(wf)
 
-            wps = []
-            for wf in new_workflows:
-                primary_init_collection = wf.get_primary_initial_collection()
-                workprogress = {'request_id': req_id,
-                                'workload_id': workload_id,
-                                'scope': primary_init_collection['scope'],
-                                'name': primary_init_collection['name'],
-                                'priority': req['priority'],
-                                'status': req['status'],
-                                'locking': req['locking'],
-                                'expired_at': req['expired_at'],
-                                'errors': None,
-                                'workprogress_metadata': {'workflow': wf},
-                                'processing_metadata': None}
-                wps.append(workprogress)
+            wf = workflow.copy()
+            works = wf.get_new_works()
+            transforms = []
+            for work in works:
+                new_work = work.copy()
+                new_work.add_proxy(wf.get_proxy())
+                transform = {'request_id': req['request_id'],
+                             'workload_id': req['workload_id'],
+                             'transform_type': work.get_work_type(),
+                             'transform_tag': work.get_work_tag(),
+                             'priority': req['priority'],
+                             'status': TransformStatus.New,
+                             'retries': 0,
+                             'expired_at': req['expired_at'],
+                             'transform_metadata': {'orginal_work': work, 'work': new_work}
+                             # 'collections': related_collections
+                             }
+                transforms.append(transform)
+            self.logger.info("Processing request(%s): new transforms: %s" % (req['request_id'],
+                                                                             str(transforms)))
+            processing_metadata = req['processing_metadata']
+            processing_metadata = {'workflow': wf}
 
             ret_req = {'request_id': req['request_id'],
-                       'status': RequestStatus.Transforming,
-                       'processing_metadata': {'total_workprogresses': len(workflows),
-                                               'new_workprogresses': len(new_workflows)},
-                       'new_workprogresses': wps}
+                       'parameters': {'status': RequestStatus.Transforming,
+                                      'locking': RequestLocking.Idle,
+                                      'processing_metadata': processing_metadata},
+                       'new_transforms': transforms}
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
             ret_req = {'request_id': req['request_id'],
-                       'status': RequestStatus.Failed,
-                       'errors': {'msg': '%s: %s' % (ex, traceback.format_exc())}}
+                       'parameters': {'status': RequestStatus.Failed,
+                                      'locking': RequestLocking.Idle,
+                                      'errors': {'msg': '%s: %s' % (ex, traceback.format_exc())}}}
         return ret_req
 
     def process_new_requests(self):
@@ -126,23 +124,21 @@ class Clerk(BaseAgent):
             try:
                 req = self.new_output_queue.get()
                 self.logger.info("Main thread finished processing requst: %s" % req)
-                parameter = {'status': req['status'], 'locking': RequestLocking.Idle}
+                req['parameters']['locking'] = RequestLocking.Idle
 
-                if 'processing_metadata' not in req or not req['processing_metadata']:
-                    processing_metadata = {}
+                if 'new_transforms' in req:
+                    new_transforms = req['new_transforms']
                 else:
-                    processing_metadata = req['processing_metadata']
+                    new_transforms = []
 
-                parameter['processing_metadata'] = processing_metadata
-
-                if 'errors' in req:
-                    parameter['errors'] = req['errors']
-
-                if 'new_workprogresses' in req:
-                    new_workprogresses = req['new_workprogresses']
+                if 'update_transforms' in req:
+                    update_transforms = req['update_transforms']
                 else:
-                    new_workprogresses = []
-                core_requests.update_request_with_workprogresses(req['request_id'], parameter, new_workprogresses)
+                    update_transforms = []
+
+                core_requests.update_request_with_transforms(req['request_id'], req['parameters'],
+                                                             new_transforms=new_transforms,
+                                                             update_transforms=update_transforms)
             except Exception as ex:
                 self.logger.error(ex)
                 self.logger.error(traceback.format_exc())
@@ -164,49 +160,96 @@ class Clerk(BaseAgent):
         """
         process running request
         """
-        wps = core_workprogress.get_workprogresses(request_id=req['request_id'])
-        wps_status = {}
-        for wp in wps:
-            status_name = wp['status']
-            if status_name not in wps_status:
-                wps_status[status_name] = 1
-            else:
-                wps_status[status_name] += 1
+        self.logger.info("process_running_request: request_id: %s" % req['request_id'])
         processing_metadata = req['processing_metadata']
+        wf = processing_metadata['workflow']
 
-        processing_metadata['workprogresses_status'] = wps_status
+        new_transforms = []
+        if req['status'] in [RequestStatus.Transforming]:
+            # new works
+            works = wf.get_new_works()
+            for work in works:
+                new_work = work.copy()
+                new_work.add_proxy(wf.get_proxy())
+                new_transform = {'request_id': req['request_id'],
+                                 'workload_id': req['workload_id'],
+                                 'transform_type': work.get_work_type(),
+                                 'transform_tag': work.get_work_tag(),
+                                 'priority': req['priority'],
+                                 'status': TransformStatus.New,
+                                 'retries': 0,
+                                 'expired_at': req['expired_at'],
+                                 'transform_metadata': {'orginal_work': work, 'work': new_work}
+                                 # 'collections': related_collections
+                                 }
+                new_transforms.append(new_transform)
+            self.logger.info("Processing request(%s): new transforms: %s" % (req['request_id'],
+                                                                             str(new_transforms)))
 
-        wps_status_keys = list(wps_status.keys())
-        if len(wps_status_keys) == 0:
-            ret_req = {'request_id': req['request_id'],
-                       'status': RequestStatus.Failed,
-                       'processing_metadata': processing_metadata,
-                       'errors': {'msg': 'No transforms founded(no collections founded)'}
-                       }
+        update_transforms = {}
+        if req['status'] in [RequestStatus.ToCancel]:
+            # current works
+            works = wf.get_current_works()
+            # print(works)
+            for work in works:
+                if work.get_status() not in [WorkStatus.Finished, WorkStatus.SubFinished,
+                                             WorkStatus.Failed, WorkStatus.Cancelling,
+                                             WorkStatus.Cancelled]:
+                    update_transforms[work.get_work_id()] = {'status': TransformStatus.ToCancel}
+
+        # current works
+        works = wf.get_current_works()
+        # print(works)
+        for work in works:
+            # print(work.get_work_id())
+            tf = core_transforms.get_transform(transform_id=work.get_work_id())
+            transform_work = tf['transform_metadata']['work']
+            # work_status = WorkStatus(tf['status'].value)
+            # work.set_status(work_status)
+            work.sync_work_data(transform_work)
+
+        if wf.is_terminated():
+            if wf.is_finished():
+                req_status = RequestStatus.Finished
+            elif wf.is_subfinished():
+                req_status = RequestStatus.SubFinished
+            elif wf.is_failed():
+                req_status = RequestStatus.Failed
+            elif wf.is_cancelled():
+                req_status = RequestStatus.Cancelled
+            else:
+                req_status = RequestStatus.Failed
+            req_msg = wf.get_terminated_msg()
         else:
-            final_wp_status = get_workprogresses_status(wps_status_keys)
-            ret_req = {'request_id': req['request_id'],
-                       # 'status': dict(RequestStatus.__members__)[final_wp_status.name],
-                       'status': RequestStatus(final_wp_status.value),
-                       'processing_metadata': processing_metadata
-                       }
-        return ret_req
+            req_status = RequestStatus.Transforming
+            req_msg = None
+
+        parameters = {'status': req_status,
+                      'locking': RequestLocking.Idle,
+                      'processing_metadata': processing_metadata,
+                      'errors': {'msg': req_msg}}
+        ret = {'request_id': req['request_id'],
+               'parameters': parameters,
+               'new_transforms': new_transforms,
+               'update_transforms': update_transforms}
+        return ret
 
     def process_tocancel_request(self, req):
         """
         process ToCancel request
         """
-        wps = core_workprogress.get_workprogresses(request_id=req['request_id'])
-        wps_status = {}
-        for wp in wps:
-            if wp['status'] not in [WorkprogressStatus.Finished, WorkprogressStatus.SubFinished,
-                                    WorkprogressStatus.Failed, WorkprogressStatus.Cancelling,
-                                    WorkprogressStatus.Cancelled]:
-                wps_status[wp['workprogress_id']] = {'status': WorkprogressStatus.ToCancel}
+        tfs = core_transforms.get_transforms(request_id=req['request_id'])
+        tfs_status = {}
+        for tf in tfs:
+            if tf['status'] not in [RequestStatus.Finished, RequestStatus.SubFinished,
+                                    RequestStatus.Failed, RequestStatus.Cancelling,
+                                    RequestStatus.Cancelled]:
+                tfs_status[tf['request_id']] = {'status': RequestStatus.ToCancel}
 
         ret_req = {'request_id': req['request_id'],
-                   'status': RequestStatus.Cancelling,
-                   'workprogress_updates': wps_status
+                   'parameters': {'status': RequestStatus.Cancelling,
+                                  'locking': RequestLocking.Idle},
+                   'update_transforms': tfs_status
                    }
         return ret_req
 
@@ -223,7 +266,7 @@ class Clerk(BaseAgent):
                         self.logger.info("Main thread processing running requst: %s" % req)
                         ret_req = self.process_running_request(req)
                     elif req['status'] in [RequestStatus.ToCancel]:
-                        self.logger.info("Main thread processing ToCancelrequst: %s" % req)
+                        self.logger.info("Main thread processing ToCancel requst: %s" % req)
                         ret_req = self.process_tocancel_request(req)
 
                     if ret_req:
@@ -237,15 +280,21 @@ class Clerk(BaseAgent):
         while not self.running_output_queue.empty():
             req = self.running_output_queue.get()
             self.logger.info("finish_running_requests: req: %s" % req)
-            parameter = {'locking': RequestLocking.Idle}
-            for key in ['status', 'errors', 'request_metadata', 'processing_metadata']:
-                if key in req:
-                    parameter[key] = req[key]
+            req['parameters']['locking'] = RequestLocking.Idle
 
-            update_workprogresses = None
-            if 'workprogress_updates' in req:
-                update_workprogresses = req['workprogress_updates']
-            core_requests.update_request_with_workprogresses(req['request_id'], parameter, update_workprogresses=update_workprogresses)
+            if 'new_transforms' in req:
+                new_transforms = req['new_transforms']
+            else:
+                new_transforms = []
+
+            if 'update_transforms' in req:
+                update_transforms = req['update_transforms']
+            else:
+                update_transforms = []
+
+            core_requests.update_request_with_transforms(req['request_id'], req['parameters'],
+                                                         new_transforms=new_transforms,
+                                                         update_transforms=update_transforms)
 
     def clean_locks(self):
         self.logger.info("clean locking")

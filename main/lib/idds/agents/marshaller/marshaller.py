@@ -66,6 +66,8 @@ class Marshaller(BaseAgent):
 
         transforms = []
         for work in works:
+            new_work = work.copy()
+            new_work.add_proxy(wf.get_proxy())
             transform = {'workprogress_id': workprogress['workprogress_id'],
                          'request_id': workprogress['request_id'],
                          'workload_id': workprogress['workload_id'],
@@ -75,7 +77,7 @@ class Marshaller(BaseAgent):
                          'status': TransformStatus.New,
                          'retries': 0,
                          'expired_at': workprogress['expired_at'],
-                         'transform_metadata': {'work': work}
+                         'transform_metadata': {'orginal_work': work, 'work': new_work}
                          # 'collections': related_collections
                          }
             transforms.append(transform)
@@ -107,7 +109,7 @@ class Marshaller(BaseAgent):
         while not self.new_output_queue.empty():
             try:
                 ret = self.new_output_queue.get()
-                self.logger.info("Main thread finishing processing workprogress: %s" % ret['workprogress'])
+                self.logger.info("Main thread finishing new workprogress: %s" % ret['workprogress'])
                 if ret:
                     wp = ret['workprogress']
                     tfs = ret['new_transforms']
@@ -132,9 +134,9 @@ class Marshaller(BaseAgent):
                                                                         locking=True,
                                                                         bulk_size=self.retrieve_bulk_size)
 
-        self.logger.debug("Main thread get %s workprogressing workprogresses to process" % len(workprogresses))
+        self.logger.debug("Main thread get %s progressing workprogresses to process" % len(workprogresses))
         if workprogresses:
-            self.logger.info("Main thread get %s workprogressing workprogresses to process" % len(workprogresses))
+            self.logger.info("Main thread get %s progressing workprogresses to process" % len(workprogresses))
         return workprogresses
 
     def process_running_workprogress(self, workprogress):
@@ -150,6 +152,8 @@ class Marshaller(BaseAgent):
             # new works
             works = wf.get_new_works()
             for work in works:
+                new_work = work.copy()
+                new_work.add_proxy(wf.get_proxy())
                 new_transform = {'workprogress_id': workprogress['workprogress_id'],
                                  'request_id': workprogress['request_id'],
                                  'workload_id': workprogress['workload_id'],
@@ -159,7 +163,7 @@ class Marshaller(BaseAgent):
                                  'status': TransformStatus.New,
                                  'retries': 0,
                                  'expired_at': workprogress['expired_at'],
-                                 'transform_metadata': {'work': work}
+                                 'transform_metadata': {'orginal_work': work, 'work': new_work}
                                  # 'collections': related_collections
                                  }
                 new_transforms.append(new_transform)
@@ -229,15 +233,21 @@ class Marshaller(BaseAgent):
 
     def finish_running_workprogresses(self):
         while not self.running_output_queue.empty():
-            ret = self.running_output_queue.get()
-            wp_id = ret['workprogress_id']
-            parameters = ret['parameters']
-            new_transforms = ret['new_transforms']
-            update_transforms = ret['update_transforms']
-            core_workprogress.update_workprogress(workprogress_id=wp_id,
-                                                  parameters=parameters,
-                                                  new_transforms=new_transforms,
-                                                  update_transforms=update_transforms)
+            try:
+                ret = self.running_output_queue.get()
+                self.logger.info("Main thread finishing processing workprogress: %s" % ret)
+
+                wp_id = ret['workprogress_id']
+                parameters = ret['parameters']
+                new_transforms = ret['new_transforms']
+                update_transforms = ret['update_transforms']
+                core_workprogress.update_workprogress(workprogress_id=wp_id,
+                                                      parameters=parameters,
+                                                      new_transforms=new_transforms,
+                                                      update_transforms=update_transforms)
+            except Exception as ex:
+                self.logger.error(ex)
+                self.logger.error(traceback.format_exc())
 
     def clean_locks(self):
         self.logger.info("clean locking")

@@ -33,8 +33,10 @@ AGENTS = {
     'transformer': ['idds.agents.transformer.transformer.Transformer', Sections.Transformer],
     'transporter': ['idds.agents.transporter.transporter.Transporter', Sections.Transporter],
     'carrier': ['idds.agents.carrier.carrier.Carrier', Sections.Carrier],
-    'conductor': ['idds.agents.conductor.conductor.Conductor', Sections.Conductor]
+    'conductor': ['idds.agents.conductor.conductor.Conductor', Sections.Conductor],
+    'consumer': ['idds.agents.conductor.consumer.Consumer', Sections.Consumer]
 }
+
 RUNNING_AGENTS = []
 
 

@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2020
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2021
 
 import copy
 import traceback
@@ -443,6 +443,9 @@ class Transformer(BaseAgent):
             else:
                 processing_model = core_processings.get_processing(processing_id=processing['processing_id'])
                 work.set_processing_status(processing, processing_model['status'])
+                processing_metadata = processing_model['processing_metadata']
+                if 'errors' in processing_metadata:
+                    work.set_terminated_msg(processing_metadata['errors'])
                 work.set_processing_output_metadata(processing, processing_model['output_metadata'])
                 transform['workload_id'] = processing_model['workload_id']
 
@@ -568,7 +571,7 @@ class Transformer(BaseAgent):
                                                           update_contents=ret.get('update_contents', None),
                                                           messages=ret.get('messages', None),
                                                           new_processing=ret.get('new_processing', None),
-                                                          updated_processing=ret.get('update_processing', None),
+                                                          update_processing=ret.get('update_processing', None),
                                                           message_bulk_size=self.message_bulk_size)
 
             except Exception as ex:

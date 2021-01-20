@@ -19,7 +19,7 @@ Test client.
 # from rucio.common.exception import CannotAuthenticate
 
 # from idds.client.client import Client
-from idds.client.workflowmanager import WorkflowManager
+from idds.client.clientmanager import ClientManager
 # from idds.common.constants import RequestType, RequestStatus
 from idds.common.utils import get_rest_host
 # from idds.tests.common import get_example_real_tape_stagein_request
@@ -127,6 +127,6 @@ if __name__ == '__main__':
     host = get_rest_host()
     workflow = setup_workflow()
 
-    wm = WorkflowManager(host=host)
+    wm = ClientManager(host=host)
     request_id = wm.submit(workflow)
     print(request_id)

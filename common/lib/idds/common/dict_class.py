@@ -61,7 +61,7 @@ class DictClass(object):
 
     @staticmethod
     def is_class_method(d):
-        if d and isinstance(d, dict) and 'idds_method' in d and 'idds_method_class' in d:
+        if d and isinstance(d, dict) and 'idds_method' in d and 'idds_method_class_id' in d:
             return True
         return False
 

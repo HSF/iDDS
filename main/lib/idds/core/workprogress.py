@@ -98,7 +98,7 @@ def add_workprogresses(workprogresses, bulk_size=1000, session=None):
 
 
 @read_session
-def get_workprogresses(request_id, to_json=False, session=None):
+def get_workprogresses(request_id=None, to_json=False, session=None):
     """
     Get workprogresses with request_id.
 
@@ -166,10 +166,12 @@ def update_workprogress(workprogress_id, parameters, new_transforms=None, update
 
     if new_transforms:
         for tf in new_transforms:
+            orginal_work = tf['transform_metadata']['orginal_work']
+            del tf['transform_metadata']['orginal_work']
             tf_id = orm_transforms.add_transform(**tf, session=session)
-            work = tf['transform_metadata']['work']
-            work.set_work_id(tf_id, transforming=True)
-            work.set_status(WorkStatus.New)
+            # work = tf['transform_metadata']['work']
+            orginal_work.set_work_id(tf_id, transforming=True)
+            orginal_work.set_status(WorkStatus.New)
     if update_transforms:
         for tr_id in update_transforms:
             orm_transforms.update_transform(transform_id=tr_id, parameters=update_transforms[tr_id], session=session)

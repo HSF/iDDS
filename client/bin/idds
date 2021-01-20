@@ -16,49 +16,52 @@ from __future__ import print_function
 
 import argparse
 import argcomplete
+# import json
 import logging
 import os
 import sys
 import time
 
 from idds.client.version import release_version
-from idds.client.workflowmanager import WorkflowManager
+from idds.client.clientmanager import ClientManager
 
 
 def get_requests_status(args):
-    wm = WorkflowManager(host=args.host)
+    wm = ClientManager(host=args.host)
     wm.get_status(request_id=args.request_id, workload_id=args.workload_id, with_detail=args.with_detail)
 
 
 def abort_requests(args):
-    wm = WorkflowManager(host=args.host)
+    wm = ClientManager(host=args.host)
     wm.abort(request_id=args.request_id, workload_id=args.workload_id)
 
 
 def download_logs(args):
-    wm = WorkflowManager(host=args.host)
+    wm = ClientManager(host=args.host)
     wm.download_logs(request_id=args.request_id, workload_id=args.workload_id, dest_dir=args.dest_dir, filename=args.dest_filename)
 
 
 def upload_to_cacher(args):
-    wm = WorkflowManager(host=args.host)
+    wm = ClientManager(host=args.host)
     wm.upload_to_cacher(args.filename)
 
 
 def download_from_cacher(args):
-    wm = WorkflowManager(host=args.host)
+    wm = ClientManager(host=args.host)
     wm.download_from_cacher(args.filename)
 
 
 def get_hyperparameters(args):
-    wm = WorkflowManager(host=args.host)
-    wm.get_hyperparameters(workload_id=args.workload_id, request_id=args.request_id, id=args.id, status=args.status, limit=args.limit)
-
+    wm = ClientManager(host=args.host)
+    ret = wm.get_hyperparameters(workload_id=args.workload_id, request_id=args.request_id, id=args.id, status=args.status, limit=args.limit)
+    # print(json.dumps(ret, sort_keys=True, indent=4))
+    for k in ret:
+        print(k)
 
 def update_hyperparameter(args):
-    wm = WorkflowManager(host=args.host)
-    wm.update_hyperparameter(workload_id=args.workload_id, request_id=args.request_id, id=args.id, loss=args.loss)
-
+    wm = ClientManager(host=args.host)
+    ret = wm.update_hyperparameter(workload_id=args.workload_id, request_id=args.request_id, id=args.id, loss=args.loss)
+    print(ret)
 
 def get_parser():
     """
@@ -120,6 +123,8 @@ def get_parser():
     hp_update_parser.add_argument('--workload_id', dest='workload_id', action='store', type=int, help='The workload id')
     hp_update_parser.add_argument('--id', dest='id', action='store', type=int, help='The id of the hyperparameter')
     hp_update_parser.add_argument('--loss', dest='loss', action='store', type=float, help='The loss result to be updated')
+
+    return oparser
 
 
 if __name__ == '__main__':

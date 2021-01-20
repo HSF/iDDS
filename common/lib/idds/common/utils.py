@@ -356,8 +356,8 @@ def as_has_dict(dct):
     return dct
 
 
-def json_dumps(obj):
-    return json.dumps(obj, cls=DictClassEncoder)
+def json_dumps(obj, indent=None, sort_keys=False):
+    return json.dumps(obj, indent=indent, sort_keys=sort_keys, cls=DictClassEncoder)
 
 
 def json_loads(obj):
@@ -417,3 +417,11 @@ def is_sub(a, b):
         if i not in b:
             return False
     return True
+
+
+def get_proxy():
+    if 'X509_USER_PROXY' in os.environ:
+        with open(os.environ['X509_USER_PROXY'], 'r') as fp:
+            proxy = fp.read()
+        return proxy
+    return None

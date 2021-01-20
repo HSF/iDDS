@@ -53,6 +53,7 @@ User Documentation
 
    users/installing_client
    users/cli_examples
+   users/contributing
 
 Source Codes
 =============

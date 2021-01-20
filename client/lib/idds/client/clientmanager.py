@@ -28,7 +28,7 @@ from idds.common.utils import get_rest_host, exception_handler
 setup_logging(__name__)
 
 
-class WorkflowManager:
+class ClientManager:
     def __init__(self, host=None):
         self.host = host
         if self.host is None:
@@ -54,6 +54,7 @@ class WorkflowManager:
             'workload_id': workflow.get_workload_id(),
             'request_metadata': {'workload_id': workflow.get_workload_id(), 'workflow': workflow}
         }
+        workflow.add_proxy()
         primary_init_work = workflow.get_primary_initial_collection()
         if primary_init_work:
             props['scope'] = primary_init_work['scope']

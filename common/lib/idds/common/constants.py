@@ -28,6 +28,7 @@ class Sections:
     Transporter = 'transporter'
     Carrier = 'carrier'
     Conductor = 'conductor'
+    Consumer = 'consumer'
 
 
 class HTTP_STATUS_CODE:
@@ -158,6 +159,7 @@ class TransformType(IDDSEnum):
     HyperParameterOpt = 4
     Derivation = 5
     Processing = 6
+    Actuating = 7
     Other = 99
 
 

@@ -10,7 +10,8 @@
 
 import copy
 import logging
-import re
+import os
+import stat
 import uuid
 
 from idds.common import exceptions
@@ -66,6 +67,10 @@ class Work(Base):
         # :param workflow: The workflow the current work belongs to.
         """
         self.internal_id = str(uuid.uuid1())
+        self.template_work_id = self.internal_id
+        self.class_name = self.__class__.__name__.lower()
+        self.initialized = False
+        self.sequence_id = 0
 
         self.logger = logger
         if self.logger is None:
@@ -107,16 +112,21 @@ class Work(Base):
         self._has_new_inputs = True
 
         self.status = WorkStatus.New
+        self.errors = []
         self.next_works = []
 
         self.processings = {}
         self.active_processings = []
         self.terminated_msg = ""
         self.output_data = None
+        self.parameters_for_next_task = None
 
         self.status_statistics = {}
 
         self.agent_attributes = agent_attributes
+
+        self.proxy = None
+        self.original_proxy = None
 
     def get_class_name(self):
         return self.__class__.__name__
@@ -124,11 +134,23 @@ class Work(Base):
     def get_internal_id(self):
         return self.internal_id
 
+    def set_sequence_id(self, seq_id):
+        self.sequence_id = seq_id
+
+    def get_sequence_id(self):
+        return self.sequence_id
+
     def setup_logger(self):
         """
         Setup logger
         """
         self.logger = logging.getLogger(self.get_class_name())
+
+    def add_errors(self, error):
+        self.errors.append(error)
+
+    def get_errors(self):
+        return self.errors
 
     def set_work_id(self, work_id, transforming=True):
         """
@@ -148,7 +170,9 @@ class Work(Base):
     #     self.workflow = workflow
 
     def set_agent_attributes(self, attrs, req_attributes=None):
-        self.agent_attributes = attrs
+        if attrs and self.class_name in attrs:
+            self.agent_attributes = attrs[self.class_name]
+        self.logger.info("agent_attributes: %s" % self.agent_attributes)
 
     def set_workdir(self, workdir):
         self.workdir = workdir
@@ -183,6 +207,12 @@ class Work(Base):
     def get_output_data(self):
         return self.output_data
 
+    def set_parameters_for_next_task(self, params):
+        self.parameters_for_next_task = params
+
+    def get_parameters_for_next_task(self):
+        return self.parameters_for_next_task
+
     def __eq__(self, obj):
         if self.work_id == obj.work_id:
             return True
@@ -190,9 +220,6 @@ class Work(Base):
 
     def __hash__(self):
         return self.work_id
-
-    def copy(self):
-        return copy.deepcopy(self)
 
     """
     def to_dict(self):
@@ -217,6 +244,15 @@ class Work(Base):
 
     def set_parameters(self, parameters):
         self.parameters = parameters
+
+    def get_parameters(self):
+        return self.parameters
+
+    def set_arguments(self, arguments):
+        self.arguments = arguments
+
+    def get_arguments(self):
+        return self.arguments
 
     def is_terminated(self):
         """
@@ -261,10 +297,66 @@ class Work(Base):
     def add_next_work(self, work):
         self.next_works.append(work)
 
+    def parse_arguments(self):
+        try:
+            arguments = self.get_arguments()
+            parameters = self.get_parameters()
+            arguments = arguments.format(**parameters)
+            return arguments
+        except Exception as ex:
+            self.add_errors(str(ex))
+
+    def set_initialized(self):
+        self.initialized = True
+
+    def unset_initialized(self):
+        self.initialized = False
+
+    def is_initialized(self):
+        return self.initialized
+
     def initialize_work(self):
-        if self.parameters:
-            for key in self.parameters.get_param_names():
-                self.arguments = re.sub(key, str(self.parameters.get_param_value(key)), self.arguments)
+        if self.parameters and self.arguments:
+            # for key in self.parameters.get_param_names():
+            #    self.arguments = re.sub(key, str(self.parameters.get_param_value(key)), self.arguments)
+            # self.arguments = self.arguments.format(**self.parameters)
+            pass
+        if not self.is_initialized():
+            self.set_initialized()
+
+    def copy(self):
+        new_work = copy.deepcopy(self)
+        return new_work
+
+    def __deepcopy__(self, memo):
+        logger = self.logger
+        self.logger = None
+
+        cls = self.__class__
+        result = cls.__new__(cls)
+
+        memo[id(self)] = result
+
+        # Deep copy all other attributes
+        for k, v in self.__dict__.items():
+            setattr(result, k, copy.deepcopy(v, memo))
+
+        self.logger = logger
+        result.logger = logger
+        return result
+
+    def generate_work_from_template(self):
+        logger = self.logger
+        self.logger = None
+        new_work = copy.deepcopy(self)
+        self.logger = logger
+        new_work.logger = logger
+        # new_work.template_work_id = self.get_internal_id()
+        new_work.internal_id = str(uuid.uuid1())
+        return new_work
+
+    def get_template_id(self):
+        return self.template_work_id
 
     def add_collection_to_collections(self, coll):
         assert(isinstance(coll, dict))
@@ -423,6 +515,7 @@ class Work(Base):
         """
         processing = self.processings[processing['processing_metadata']['internal_id']]
         processing['output_metadata'] = output_metadata
+        self.set_output_data(output_metadata)
 
     def is_processing_terminated(self, processing):
         if 'status' in processing and processing['status'] not in [ProcessingStatus.New,
@@ -447,6 +540,45 @@ class Work(Base):
             if self.is_processing_terminated(p):
                 pass
             else:
+                return False
+        return True
+
+    def is_processings_finished(self):
+        """
+        *** Function called by Transformer agent.
+        """
+        for p_id in self.active_processings:
+            p = self.processings[p_id]
+            if not self.is_processing_terminated(p) or p['status'] not in [ProcessingStatus.Finished]:
+                return False
+        return True
+
+    def is_processings_subfinished(self):
+        """
+        *** Function called by Transformer agent.
+        """
+        has_finished = False
+        has_failed = False
+        for p_id in self.active_processings:
+            p = self.processings[p_id]
+            if not self.is_processing_terminated(p):
+                return False
+            else:
+                if p['status'] in [ProcessingStatus.Finished]:
+                    has_finished = True
+                if p['status'] in [ProcessingStatus.Failed]:
+                    has_failed = True
+        if has_finished and has_failed:
+            return True
+        return False
+
+    def is_processings_failed(self):
+        """
+        *** Function called by Transformer agent.
+        """
+        for p_id in self.active_processings:
+            p = self.processings[p_id]
+            if not self.is_processing_terminated(p) or p['status'] not in [ProcessingStatus.Failed]:
                 return False
         return True
 
@@ -493,3 +625,41 @@ class Work(Base):
         *** Function called by Transformer agent.
         """
         raise exceptions.NotImplementedException
+
+    def sync_work_data(self, work):
+        self.status = work.status
+        self.workdir = work.workdir
+        self._has_new_inputs = work._has_new_inputs
+        self.errors = work.errors
+        self.next_works = work.next_works
+
+        self.terminated_msg = work.terminated_msg
+        self.output_data = work.output_data
+        self.parameters_for_next_task = work.parameters_for_next_task
+
+        self.status_statistics = work.status_statistics
+
+        self.processings = work.processings
+        self.active_processings = work.active_processings
+
+    def add_proxy(self, proxy):
+        self.proxy = proxy
+
+    def get_proxy(self):
+        return self.proxy
+
+    def set_user_proxy(self):
+        if 'X509_USER_PROXY' in os.environ:
+            self.original_proxy = os.environ['X509_USER_PROXY']
+        if self.get_proxy():
+            user_proxy = '/tmp/idds_user_proxy'
+            with open(user_proxy, 'w') as fp:
+                fp.write(self.get_proxy())
+            os.chmod(user_proxy, stat.S_IRUSR | stat.S_IWUSR)
+            os.environ['X509_USER_PROXY'] = user_proxy
+
+    def unset_user_proxy(self):
+        if self.original_proxy:
+            os.environ['X509_USER_PROXY'] = self.original_proxy
+        else:
+            del os.environ['X509_USER_PROXY']
