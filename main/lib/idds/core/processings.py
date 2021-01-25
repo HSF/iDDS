@@ -24,11 +24,14 @@ from idds.orm import (processings as orm_processings,
 
 
 @transactional_session
-def add_processing(transform_id, status, submitter=None, granularity=None, granularity_type=GranularityType.File,
+def add_processing(request_id, workload_id, transform_id, status, submitter=None,
+                   granularity=None, granularity_type=GranularityType.File,
                    expired_at=None, processing_metadata=None, session=None):
     """
     Add a processing.
 
+    :param request_id: The request id.
+    :param workload_id: The workload id.
     :param transform_id: Transform id.
     :param status: processing status.
     :param submitter: submitter name.
@@ -42,7 +45,8 @@ def add_processing(transform_id, status, submitter=None, granularity=None, granu
 
     :returns: processing id.
     """
-    return orm_processings.add_processing(transform_id=transform_id, status=status, submitter=submitter,
+    return orm_processings.add_processing(request_id=request_id, workload_id=workload_id, transform_id=transform_id,
+                                          status=status, submitter=submitter,
                                           granularity=granularity, granularity_type=granularity_type,
                                           expired_at=expired_at, processing_metadata=processing_metadata,
                                           session=session)

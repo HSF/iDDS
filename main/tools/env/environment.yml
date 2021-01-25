@@ -22,3 +22,6 @@ dependencies:
   - recommonmark                     # use Markdown with Sphinx
   - sphinx-rtd-theme                 # sphinx readthedoc theme
   - nevergrad                        # nevergrad hyper parameter optimization
+  - idds-common
+  - idds-workflow
+  - idds-client

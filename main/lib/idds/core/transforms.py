@@ -21,16 +21,19 @@ from idds.orm.base.session import read_session, transactional_session
 from idds.orm import (transforms as orm_transforms,
                       collections as orm_collections,
                       contents as orm_contents,
-                      # messages as orm_messages,
+                      messages as orm_messages,
                       processings as orm_processings)
 
 
 @transactional_session
-def add_transform(transform_type, transform_tag=None, priority=0, status=TransformStatus.New, locking=TransformLocking.Idle,
+def add_transform(request_id, workload_id, transform_type, transform_tag=None, priority=0,
+                  status=TransformStatus.New, locking=TransformLocking.Idle,
                   retries=0, expired_at=None, transform_metadata=None, workprogress_id=None, session=None):
     """
     Add a transform.
 
+    :param request_id: The request id.
+    :param workload_id: The workload id.
     :param transform_type: Transform type.
     :param transform_tag: Transform tag.
     :param priority: priority.
@@ -45,7 +48,8 @@ def add_transform(transform_type, transform_tag=None, priority=0, status=Transfo
 
     :returns: transform id.
     """
-    transform_id = orm_transforms.add_transform(transform_type=transform_type, transform_tag=transform_tag,
+    transform_id = orm_transforms.add_transform(request_id=request_id, workload_id=workload_id,
+                                                transform_type=transform_type, transform_tag=transform_tag,
                                                 priority=priority, status=status, locking=locking, retries=retries,
                                                 expired_at=expired_at, transform_metadata=transform_metadata,
                                                 workprogress_id=workprogress_id, session=session)
@@ -89,7 +93,7 @@ def get_transforms_with_input_collection(transform_type, transform_tag, coll_sco
 
 
 @read_session
-def get_transform_ids(workprogress_id, session=None):
+def get_transform_ids(workprogress_id, request_id=None, workload_id=None, transform_id=None, session=None):
     """
     Get transform ids or raise a NoObject exception.
 
@@ -100,11 +104,12 @@ def get_transform_ids(workprogress_id, session=None):
 
     :returns: list of transform ids.
     """
-    return orm_transforms.get_transform_ids(workprogress_id=workprogress_id, session=session)
+    return orm_transforms.get_transform_ids(workprogress_id=workprogress_id, request_id=request_id,
+                                            workload_id=workload_id, transform_id=transform_id, session=session)
 
 
 @read_session
-def get_transforms(workprogress_id, to_json=False, session=None):
+def get_transforms(workprogress_id=None, to_json=False, request_id=None, workload_id=None, transform_id=None, session=None):
     """
     Get transforms or raise a NoObject exception.
 
@@ -116,7 +121,9 @@ def get_transforms(workprogress_id, to_json=False, session=None):
 
     :returns: list of transform.
     """
-    return orm_transforms.get_transforms(workprogress_id=workprogress_id, to_json=to_json, session=session)
+    return orm_transforms.get_transforms(workprogress_id=workprogress_id, request_id=request_id,
+                                         workload_id=workload_id, transform_id=transform_id,
+                                         to_json=to_json, session=session)
 
 
 @read_session
@@ -161,8 +168,8 @@ def update_transform(transform_id, parameters, session=None):
 @transactional_session
 def add_transform_outputs(transform, input_collections=None, output_collections=None, log_collections=None,
                           update_input_collections=None, update_output_collections=None, update_log_collections=None,
-                          new_contents=None, update_contents=None,
-                          new_processing=None, messages=None, message_bulk_size=1000, session=None):
+                          new_contents=None, update_contents=None, new_processing=None, update_processing=None,
+                          messages=None, message_bulk_size=1000, session=None):
     """
     For input contents, add corresponding output contents.
 
@@ -207,15 +214,15 @@ def add_transform_outputs(transform, input_collections=None, output_collections=
     if new_contents:
         orm_contents.add_contents(new_contents, session=session)
     if update_contents:
-        orm_contents.add_contents(update_contents, session=session)
+        orm_contents.update_contents(update_contents, session=session)
 
     processing_id = None
     if new_processing:
+        # print(new_processing)
         processing_id = orm_processings.add_processing(**new_processing, session=session)
-
-    """
-    if output_contents:
-        orm_contents.add_contents(output_contents, session=session)
+    if update_processing:
+        for proc_id in update_processing:
+            orm_processings.add_processing(processing_id=proc_id, parameters=update_processing[proc_id], session=session)
 
     if messages:
         if not type(messages) in [list, tuple]:
@@ -224,12 +231,15 @@ def add_transform_outputs(transform, input_collections=None, output_collections=
             orm_messages.add_message(msg_type=message['msg_type'],
                                      status=message['status'],
                                      source=message['source'],
+                                     request_id=message['request_id'],
+                                     workload_id=message['workload_id'],
                                      transform_id=message['transform_id'],
                                      num_contents=message['num_contents'],
                                      msg_content=message['msg_content'],
                                      bulk_size=message_bulk_size,
                                      session=session)
 
+    """
     if to_cancel_processing:
         to_cancel_params = {'status': ProcessingStatus.Cancel}
         for to_cancel_id in to_cancel_processing:
@@ -251,6 +261,7 @@ def add_transform_outputs(transform, input_collections=None, output_collections=
             work.set_processing_id(new_processing, processing_id)
         parameters = {'status': transform['status'],
                       'locking': transform['locking'],
+                      'workload_id': transform['workload_id'],
                       'transform_metadata': transform['transform_metadata']}
         orm_transforms.update_transform(transform_id=transform['transform_id'],
                                         parameters=parameters,

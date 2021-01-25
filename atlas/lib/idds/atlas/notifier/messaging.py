@@ -41,6 +41,10 @@ class MessagingListener(stomp.ConnectionListener):
         '''
         self.logger.error('[broker] [%s]: %s', self.__broker, body)
 
+    def on_message(self, headers, body):
+        # self.logger.info('[broker] [%s]: %s', self.__broker, body)
+        pass
+
 
 class MessagingSender(PluginBase, threading.Thread):
     def __init__(self, **kwargs):
@@ -123,6 +127,65 @@ class MessagingSender(PluginBase, threading.Thread):
                     time.sleep(1)
             except Exception as error:
                 self.logger.error("Messaging sender throws an exception: %s, %s" % (error, traceback.format_exc()))
+
+    def __call__(self):
+        self.run()
+
+
+class MessagingReceiver(MessagingSender):
+    def __init__(self, **kwargs):
+        super(MessagingReceiver, self).__init__(**kwargs)
+
+    def subscribe(self, listener=MessagingListener):
+        self.conns = []
+
+        broker_addresses = []
+        for b in self.brokers:
+            try:
+                addrinfos = socket.getaddrinfo(b, 0, socket.AF_INET, 0, socket.IPPROTO_TCP)
+                for addrinfo in addrinfos:
+                    b_addr = addrinfo[4][0]
+                    broker_addresses.append(b_addr)
+            except socket.gaierror as error:
+                self.logger.error('Cannot resolve hostname %s: %s' % (b, str(error)))
+
+        self.logger.info("Resolved broker addresses: %s" % broker_addresses)
+
+        for broker in broker_addresses:
+            conn = stomp.Connection12(host_and_ports=[(broker, self.port)],
+                                      vhost=self.vhost,
+                                      keepalive=True)
+            conn.set_listener('message-receiver', listener(conn.transport._Transport__host_and_ports[0]))
+            conn.connect(self.username, self.password, wait=True)
+            conn.subscribe(destination=self.destination, id='atlas-idds-messaging', ack='auto')
+            self.conns.append(conn)
+
+        while not self.graceful_stop.is_set():
+            try:
+                for conn in self.conns:
+                    if not conn.is_connected():
+                        self.logger.info('connecting to %s' % conn.transport._Transport__host_and_ports[0][0])
+                        conn.set_listener('message-receiver', listener(conn.transport._Transport__host_and_ports[0]))
+                        # conn.start()
+                        conn.connect(self.username, self.password, wait=True)
+                        conn.subscribe(destination=self.destination, id='atlas-idds-messaging', ack='auto')
+                time.sleep(1)
+            except Exception as error:
+                self.logger.error("Messaging receiver throws an exception: %s, %s" % (error, traceback.format_exc()))
+
+        self.logger.info('receiver graceful stop requested')
+
+        for conn in self.conns:
+            try:
+                conn.disconnect()
+            except Exception:
+                pass
+
+    def run(self):
+        try:
+            self.subscribe()
+        except Exception as error:
+            self.logger.error("Messaging receiver throws an exception: %s, %s" % (error, traceback.format_exc()))
 
     def __call__(self):
         self.run()

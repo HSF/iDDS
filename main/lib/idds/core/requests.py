@@ -14,12 +14,10 @@ operations related to Requests.
 """
 
 
-from idds.common import exceptions
-from idds.common.constants import RequestStatus, RequestLocking
+from idds.common.constants import RequestStatus, RequestLocking, WorkStatus
 from idds.orm.base.session import read_session, transactional_session
 from idds.orm import requests as orm_requests
 from idds.orm import transforms as orm_transforms
-from idds.orm import collections as orm_collections
 from idds.orm import workprogress as orm_workprogresses
 # from idds.atlas.worflow.utils import convert_request_metadata_to_workflow
 
@@ -108,7 +106,7 @@ def get_request_ids_by_workload_id(workload_id, session=None):
 
 
 @read_session
-def get_requests(request_id=None, workload_id=None, to_json=False, session=None):
+def get_requests(request_id=None, workload_id=None, with_detail=False, to_json=False, session=None):
     """
     Get a request or raise a NoObject exception.
 
@@ -121,7 +119,7 @@ def get_requests(request_id=None, workload_id=None, to_json=False, session=None)
     :returns: Request.
     """
     return orm_requests.get_requests(request_id=request_id, workload_id=workload_id,
-                                     to_json=to_json, session=session)
+                                     with_detail=with_detail, to_json=to_json, session=session)
 
 
 @transactional_session
@@ -160,53 +158,31 @@ def update_request(request_id, parameters, session=None):
 
 
 @transactional_session
-def update_request_with_transforms(request_id, parameters, transforms_to_add, transforms_to_extend, session=None):
+def update_request_with_transforms(request_id, parameters, new_transforms=None, update_transforms=None, session=None):
     """
     update an request.
 
     :param request_id: the request id.
     :param parameters: A dictionary of parameters.
-    :param transforms_to_add: list of transforms
-    :param transforms_to_extend: list of transforms
+    :param new_transforms: list of transforms
+    :param update_transforms: list of transforms
     """
-    for transform in transforms_to_add:
-        if 'collections' not in transform or len(transform['collections']) == 0:
-            msg = "Transform must have collections, such as input collection, output collection and log collection"
-            raise exceptions.WrongParameterException(msg)
-
-        collections = transform['collections']
-        del transform['collections']
-        transform_id = orm_transforms.add_transform(**transform, session=session)
-
-        input_coll_ids = []
-        log_coll_ids = []
-        for collection in collections['input_collections']:
-            collection['transform_id'] = transform_id
-            input_coll_id = orm_collections.add_collection(**collection, session=session)
-            input_coll_ids.append(input_coll_id)
-        for collection in collections['log_collections']:
-            collection['transform_id'] = transform_id
-            log_coll_id = orm_collections.add_collection(**collection, session=session)
-            log_coll_ids.append(log_coll_id)
-        for collection in collections['output_collections']:
-            collection['transform_id'] = transform_id
-            workload_id = transform['transform_metadata']['workload_id'] if 'workload_id' in transform['transform_metadata'] else None
-            collection['coll_metadata'] = {'transform_id': transform_id,
-                                           'workload_id': workload_id,
-                                           'input_collections': input_coll_ids,
-                                           'log_collections': log_coll_ids}
-            orm_collections.add_collection(**collection, session=session)
-
-    for transform in transforms_to_extend:
-        transform_id = transform['transform_id']
-        del transform['transform_id']
-        # orm_transforms.add_req2transform(request_id, transform_id, session=session)
-        orm_transforms.update_transform(transform_id, parameters=transform, session=session)
+    if new_transforms:
+        for tf in new_transforms:
+            tf_id = orm_transforms.add_transform(**tf, session=session)
+            orginal_work = tf['transform_metadata']['orginal_work']
+            del tf['transform_metadata']['orginal_work']
+            # work = tf['transform_metadata']['work']
+            orginal_work.set_work_id(tf_id, transforming=True)
+            orginal_work.set_status(WorkStatus.New)
+    if update_transforms:
+        for tr_id in update_transforms:
+            orm_transforms.update_transform(transform_id=tr_id, parameters=update_transforms[tr_id], session=session)
     return orm_requests.update_request(request_id, parameters, session=session)
 
 
 @transactional_session
-def update_request_with_workprogresses(request_id, parameters, new_workprogresses, session=None):
+def update_request_with_workprogresses(request_id, parameters, new_workprogresses=None, update_workprogresses=None, session=None):
     """
     update an request.
 
@@ -216,6 +192,9 @@ def update_request_with_workprogresses(request_id, parameters, new_workprogresse
     """
     if new_workprogresses:
         orm_workprogresses.add_workprogresses(new_workprogresses, session=session)
+    if update_workprogresses:
+        for workprogress_id in update_workprogresses:
+            orm_workprogresses.update_workprogress(workprogress_id, update_workprogresses[workprogress_id], session=session)
     return orm_requests.update_request(request_id, parameters, session=session)
 
 

@@ -6,7 +6,19 @@ DROP SEQUENCE PROCESSING_ID_SEQ;
 DROP SEQUENCE COLLECTION_ID_SEQ;
 DROP SEQUENCE CONTENT_ID_SEQ;
 
+delete from HEALTH;
+delete from MESSAGES;
+delete from CONTENTS;
+delete from REQ2WORKLOAD;
+delete from REQ2TRANSFORMS;
+delete from WP2TRANSFORMS;
+delete from WORKPROGRESSES;
+delete from PROCESSINGS;
+delete from COLLECTIONS;
+delete from TRANSFORMS;
+delete from REQUESTS;
 
+Drop table HEALTH purge;
 DROP table MESSAGES purge;
 DROP table CONTENTS purge;
 DROP table REQ2WORKLOAD purge;
@@ -70,22 +82,23 @@ CREATE TABLE WORKPROGRESSES
 (
         workprogress_id NUMBER(12),
         request_id NUMBER(12) constraint WORKPROGRESS__REQ_ID_NN NOT NULL,
+        workload_id NUMBER(10),
         scope VARCHAR2(25) constraint WORKPROGRESS_SCOPE_NN NOT NULL,
         name VARCHAR2(255) constraint WORKPROGRESS_NAME_NN NOT NULL,
         priority NUMBER(7),
         status NUMBER(2) constraint WORKPROGRESS_STATUS_ID_NN NOT NULL,
         substatus NUMBER(2),
         locking NUMBER(2),
-        created_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)) constraint WORKPROGRESS_CREATED_NN NOT NULL,
-        updated_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)) constraint WORKPROGRESS_UPDATED_NN NOT NULL,
-        next_poll_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)) constraint WORKPROGRESS_NEXT_POLL_NN NOT NULL,
+        created_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)) constraint WORKPROGRESS_CREATED_NN NOT NULL,
+        updated_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)) constraint WORKPROGRESS_UPDATED_NN NOT NULL,
+        next_poll_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)) constraint WORKPROGRESS_NEXT_POLL_NN NOT NULL,
         accessed_at DATE,
         expired_at DATE,
         errors VARCHAR2(1024),
-        workprogress_metadata CLOB constraint WORKPROGRESS_REQUEST_METADATA_ENSURE_JSON CHECK(workprogress_metadata IS JSON(LAX)),
-        processing_metadata CLOB constraint WORKPROGRESS_PROCESSING_METADATA_ENSURE_JSON CHECK(processing_metadata IS JSON(LAX)),
-        CONSTRAINT WORKPROGRESS_PK PRIMARY KEY (workprogress_id) USING INDEX LOCAL,
-        CONSTRAINT WORKPROGRESS_REQ_ID_FK FOREIGN KEY(request_id) REFERENCES REQUESTS(request_id),
+        workprogress_metadata CLOB,
+        processing_metadata CLOB,
+        CONSTRAINT WORKPROGRESS_PK PRIMARY KEY (workprogress_id), --- USING INDEX LOCAL,
+        CONSTRAINT WORKPROGRESS_REQ_ID_FK FOREIGN KEY(request_id) REFERENCES REQUESTS(request_id)
         --- CONSTRAINT REQUESTS_NAME_SCOPE_UQ UNIQUE (name, scope, requester, request_type, transform_tag, workload_id) -- USING INDEX LOCAL,
 )
 PCTFREE 3
@@ -104,7 +117,7 @@ CREATE OR REPLACE TRIGGER TRIG_WORKPROGRESS_ID
 
 CREATE INDEX WORKPROGRESS_SCOPE_NAME_IDX ON WORKPROGRESSES (name, scope, workprogress_id) LOCAL;
 --- drop index REQUESTS_STATUS_PRIORITY_IDX
-CREATE INDEX WORKPROGRESS_STATUS_PRIORITY_IDX ON WORKPROGRESSES (status, priority, workprogress_id, locking, updated_at, next_poll_at, created_at) LOCAL COMPRESS 1;
+CREATE INDEX WORKPROGRESS_STATUS_PRI_IDX ON WORKPROGRESSES (status, priority, workprogress_id, locking, updated_at, next_poll_at, created_at) LOCAL COMPRESS 1;
 
 
 --- transforms
@@ -113,6 +126,8 @@ CREATE SEQUENCE TRANSFORM_ID_SEQ MINVALUE 1 INCREMENT BY 1 NOCACHE;
 CREATE TABLE TRANSFORMS
 (
         transform_id NUMBER(12),
+        request_id NUMBER(12),
+        workload_id NUMBER(10),
         transform_type NUMBER(2) constraint TRANSFORM_TYPE_NN NOT NULL,
         transform_tag VARCHAR2(20),
         priority NUMBER(7),
@@ -201,6 +216,8 @@ CREATE TABLE PROCESSINGS
 (
         processing_id NUMBER(12),
         transform_id NUMBER(12) constraint PROCESSINGS_TRANSFORM_ID_NN NOT NULL,
+        request_id NUMBER(12),
+        workload_id NUMBER(10),
         status NUMBER(2) constraint PROCESSINGS_STATUS_ID_NN NOT NULL,
         substatus NUMBER(2),
         locking NUMBER(2),
@@ -248,6 +265,8 @@ CREATE TABLE COLLECTIONS
     coll_id NUMBER(14),
     coll_type NUMBER(2),
     transform_id NUMBER(12) constraint COLLECTION_TRANSFORM_ID_NN NOT NULL,
+    request_id NUMBER(12),
+    workload_id NUMBER(10),
     relation_type NUMBER(2), -- input, output or log of the transform,    
     scope VARCHAR2(25) constraint COLLECTION_SCOPE_NN NOT NULL,
     name VARCHAR2(255) constraint COLLECTION_NAME_NN NOT NULL,
@@ -302,6 +321,8 @@ CREATE TABLE CONTENTS
         content_id NUMBER(12),    
         transform_id NUMBER(12) constraint CONTENT_TRANSFORM_ID_NN NOT NULL,
         coll_id NUMBER(14) constraint CONTENT_COLL_ID_NN NOT NULL,
+        request_id NUMBER(12),
+        workload_id NUMBER(10),
         map_id NUMBER(12) DEFAULT 0,
         scope VARCHAR2(25) constraint CONTENT_SCOPE_NN NOT NULL,
         name VARCHAR2(255) constraint CONTENT_NAME_NN NOT NULL,
@@ -333,7 +354,7 @@ CREATE TABLE CONTENTS
 )
 PCTFREE 3
 PARTITION BY RANGE(TRANSFORM_ID)
-INTERVAL ( 10000 )
+INTERVAL ( 1000000 )
 ( PARTITION initial_part VALUES LESS THAN (1) );
 
 ---PCTFREE 0
@@ -363,6 +384,8 @@ CREATE TABLE MESSAGES
     substatus NUMBER(2),
     locking NUMBER(2),
     source NUMBER(2),
+    request_id NUMBER(12),
+    workload_id NUMBER(10),
     transform_id NUMBER(12),
     num_contents NUMBER(7),
     created_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)),
@@ -381,16 +404,53 @@ CREATE OR REPLACE TRIGGER TRIG_MESSAGE_ID
  /
 
 
+--- health
+CREATE SEQUENCE HEALTH_ID_SEQ MINVALUE 1 INCREMENT BY 1 START WITH 1 NOCACHE NOORDER NOCYCLE;
+CREATE TABLE HEALTH
+(
+    health_id NUMBER(12),
+    agent VARCHAR2(30),
+    hostname VARCHAR2(127),
+    pid Number(12),
+    thread_id Number(20),
+    thread_name VARCHAR2(255),
+    payload VARCHAR2(255),
+    created_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)),
+    updated_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)),
+    CONSTRAINT HEALTH_PK PRIMARY KEY (health_id), -- USING INDEX LOCAL,  
+    CONSTRAINT HEALTH_UQ UNIQUE (agent, hostname, pid, thread_id) -- USING INDEX LOCAL
+);
+
+CREATE OR REPLACE TRIGGER TRIG_HEALTH_ID
+    BEFORE INSERT
+    ON HEALTH
+    FOR EACH ROW
+    BEGIN
+        :NEW.health_id := HEALTH_ID_SEQ.NEXTVAL ;
+    END;
+ /
+
+
+SELECT cols.table_name, cols.column_name, cols.position, cons.status, cons.owner
+FROM all_constraints cons, all_cons_columns cols
+WHERE cols.table_name = 'HEALTH'
+AND cons.constraint_type = 'P'
+AND cons.constraint_name = cols.constraint_name
+AND cons.owner = cols.owner
+ORDER BY cols.table_name, cols.position;
 
 
 select r.request_id, r.scope, r.name, r.status, tr.transform_id, tr.transform_status, tr.in_status, tr.in_total_files, tr.in_processed_files, tr.out_status, tr.out_total_files, tr.out_processed_files
 from requests r
- full outer join req2transforms rt on (r.request_id=rt.request_id)
+ full outer join (
+    select request_id, workprogress_id from workprogresses
+ ) wp on (r.request_id=wp.request_id)
+ full outer join wp2transforms wt on (wp.workprogress_id=wt.workprogress_id)
  full outer join (
     select t.transform_id, t.status transform_status, in_coll.status in_status, in_coll.total_files in_total_files, in_coll.processed_files in_processed_files,
     out_coll.status out_status, out_coll.total_files out_total_files, out_coll.processed_files out_processed_files
     from transforms t
     full outer join (select coll_id , transform_id, status, total_files, processed_files from collections where relation_type = 0) in_coll on (t.transform_id = in_coll.transform_id)
     full outer join (select coll_id , transform_id, status, total_files, processed_files from collections where relation_type = 1) out_coll on (t.transform_id = out_coll.transform_id)
-    ) tr on (rt.transform_id=tr.transform_id)
-
+ ) tr on (wt.transform_id=tr.transform_id)
+order by r.request_id

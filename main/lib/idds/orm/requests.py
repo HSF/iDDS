@@ -17,6 +17,7 @@ import datetime
 import random
 
 import sqlalchemy
+from sqlalchemy import and_
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.sql.expression import asc, desc
 
@@ -196,7 +197,7 @@ def get_request(request_id, to_json=False, session=None):
 
 
 @read_session
-def get_requests(request_id=None, workload_id=None, to_json=False, session=None):
+def get_requests(request_id=None, workload_id=None, with_detail=False, to_json=False, session=None):
     """
     Get a request or raise a NoObject exception.
 
@@ -209,14 +210,36 @@ def get_requests(request_id=None, workload_id=None, to_json=False, session=None)
 
     :returns: Request.
     """
-
     try:
-        query = session.query(models.Request)\
-                       .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_SCOPE_NAME_IDX)", 'oracle')
-        if request_id:
-            query = query.filter(models.Request.request_id == request_id)
+        if not with_detail:
+            query = session.query(models.Request)\
+                           .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_SCOPE_NAME_IDX)", 'oracle')
+            if request_id:
+                query = query.filter(models.Request.request_id == request_id)
+            if workload_id:
+                query = query.filter(models.Request.workload_id == workload_id)
         else:
-            query = query.filter(models.Request.workload_id == workload_id)
+            subquery1 = session.query(models.Collection.coll_id, models.Collection.transform_id,
+                                      models.Collection.status, models.Collection.total_files,
+                                      models.Collection.processed_files).filter(models.Collection.relation_type == 0)
+            subquery2 = session.query(models.Collection.coll_id, models.Collection.transform_id,
+                                      models.Collection.status, models.Collection.total_files,
+                                      models.Collection.processed_files).filter(models.Collection.relation_type == 1)
+
+            query = session.query(models.Request,
+                                  models.Transfrom.transform_id, models.Transform.status,
+                                  subquery1.c.status, subquery1.c.total_files, subquery1.c.processed_files,
+                                  subquery2.c.status, subquery2.c.total_files, subquery2.c.processed_files)
+            if request_id:
+                query = query.filter(models.Request.request_id == request_id)
+            if workload_id:
+                query = query.filter(models.Request.workload_id == workload_id)
+
+            query = query.outerjoin(models.Workprogress, and_(models.Request.request_id == models.Workprogress.request_id))
+            query = query.outerjoin(models.Workprogress2transform, and_(models.Workprogress.workprogress_id == models.Workprogress2transform.workprogress_id))
+            query = query.outerjoin(subquery1, and_(subquery1.c.transform_id == models.Workprogress2transform.transform_id))
+            query = query.outerjoin(subquery2, and_(subquery2.c.transform_id == models.Workprogress2transform.transform_id))
+            query = query.order_by(asc(models.Request.request_id))
 
         tmp = query.all()
         rets = []

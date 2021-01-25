@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2020
 
 
 import datetime
@@ -20,6 +20,7 @@ import sys
 import tarfile
 
 from enum import Enum
+from functools import wraps
 
 from idds.common.config import (config_has_section, config_has_option,
                                 config_get, config_get_bool)
@@ -29,6 +30,7 @@ from idds.common.constants import (IDDSEnum, RequestType, RequestStatus,
                                    ContentType, ContentStatus,
                                    GranularityType, ProcessingStatus)
 from idds.common.dict_class import DictClass
+from idds.common.exceptions import IDDSException
 
 
 # RFC 1123
@@ -334,10 +336,11 @@ def convert_request_type_to_transform_type(request_type):
 
 class DictClassEncoder(json.JSONEncoder):
     def default(self, obj):
+        # print(obj)
         if isinstance(obj, IDDSEnum) or isinstance(obj, DictClass):
             return obj.to_dict()
-        # elif isinstance(obj, datetime.datetime):
-        #     return date_to_str(obj)
+        elif isinstance(obj, datetime.datetime):
+            return date_to_str(obj)
         # elif isinstance(obj, (datetime.time, datetime.date)):
         #     return obj.isoformat()
         # elif isinstance(obj, datetime.timedelta):
@@ -353,8 +356,8 @@ def as_has_dict(dct):
     return dct
 
 
-def json_dumps(obj):
-    return json.dumps(obj, cls=DictClassEncoder)
+def json_dumps(obj, indent=None, sort_keys=False):
+    return json.dumps(obj, indent=indent, sort_keys=sort_keys, cls=DictClassEncoder)
 
 
 def json_loads(obj):
@@ -392,3 +395,33 @@ def tar_zip_files(output_dir, output_filename, files):
     with tarfile.open(output_filename, "w:gz") as tar:
         for file in files:
             tar.add(file, arcname=os.path.basename(file))
+
+
+def exception_handler(function):
+    @wraps(function)
+    def new_funct(*args, **kwargs):
+        try:
+            return function(*args, **kwargs)
+        except IDDSException as ex:
+            logging.error(ex)
+        except Exception as ex:
+            logging.error(ex)
+    return new_funct
+
+
+def is_sub(a, b):
+    if not a:
+        return True
+
+    for i in a:
+        if i not in b:
+            return False
+    return True
+
+
+def get_proxy():
+    if 'X509_USER_PROXY' in os.environ:
+        with open(os.environ['X509_USER_PROXY'], 'r') as fp:
+            proxy = fp.read()
+        return proxy
+    return None

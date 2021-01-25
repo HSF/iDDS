@@ -25,12 +25,14 @@ from idds.orm.base.session import read_session, transactional_session
 from idds.orm.base import models
 
 
-def create_workprogress(request_id, scope, name, priority=0, status=WorkprogressStatus.New, locking=WorkprogressLocking.Idle,
-                        expired_at=None, errors=None, workprogress_metadata=None, processing_metadata=None):
+def create_workprogress(request_id, workload_id, scope, name, priority=0, status=WorkprogressStatus.New,
+                        locking=WorkprogressLocking.Idle, expired_at=None, errors=None,
+                        workprogress_metadata=None, processing_metadata=None):
     """
     Create a workprogress.
 
     :param request_id: The request id.
+    :param workload_id: The workload id.
     :param scope: The scope.
     :param name: The name.
     :param status: The status as integer.
@@ -43,7 +45,8 @@ def create_workprogress(request_id, scope, name, priority=0, status=Workprogress
 
     :returns: workprogress.
     """
-    new_wp = models.WorkProgress(request_id=request_id, scope=scope, name=name, priority=priority, status=status,
+    new_wp = models.WorkProgress(request_id=request_id, workload_id=workload_id, scope=scope, name=name,
+                                 priority=priority, status=status,
                                  locking=locking, expired_at=expired_at,
                                  workprogress_metadata=workprogress_metadata,
                                  processing_metadata=processing_metadata)
@@ -51,13 +54,15 @@ def create_workprogress(request_id, scope, name, priority=0, status=Workprogress
 
 
 @transactional_session
-def add_workprogress(request_id, scope, name, priority=0, status=WorkprogressStatus.New, locking=WorkprogressLocking.Idle,
+def add_workprogress(request_id, workload_id, scope, name, priority=0, status=WorkprogressStatus.New,
+                     locking=WorkprogressLocking.Idle,
                      expired_at=None, errors=None, workprogress_metadata=None, processing_metadata=None,
                      session=None):
     """
     Add a workprogress.
 
     :param request_id: The request id.
+    :param workload_id: The workload id.
     :param scope: The scope.
     :param name: The name.
     :param status: The status as integer.
@@ -75,7 +80,8 @@ def add_workprogress(request_id, scope, name, priority=0, status=WorkprogressSta
     """
 
     try:
-        new_wp = create_workprogress(request_id=request_id, scope=scope, name=name, priority=priority, status=status,
+        new_wp = create_workprogress(request_id=request_id, workload_id=workload_id, scope=scope, name=name,
+                                     priority=priority, status=status,
                                      locking=locking, expired_at=expired_at,
                                      workprogress_metadata=workprogress_metadata,
                                      processing_metadata=processing_metadata)
@@ -115,7 +121,7 @@ def add_workprogresses(workprogresses, bulk_size=1000, session=None):
 
 
 @read_session
-def get_workprogresses(request_id, to_json=False, session=None):
+def get_workprogresses(request_id=None, to_json=False, session=None):
     """
     Get workprogresses with request_id.
 
@@ -130,8 +136,9 @@ def get_workprogresses(request_id, to_json=False, session=None):
 
     try:
         query = session.query(models.Workprogress)\
-                       .with_hint(models.Workprogress, "INDEX(WORKPROGRESSES WORKPROGRESS_PK)", 'oracle')\
-                       .filter(models.Workprogress.request_id == request_id)
+                       .with_hint(models.Workprogress, "INDEX(WORKPROGRESSES WORKPROGRESS_PK)", 'oracle')
+        if request_id is not None:
+            query = query.filter(models.Workprogress.request_id == request_id)
         tmp = query.all()
         rets = []
         if tmp:

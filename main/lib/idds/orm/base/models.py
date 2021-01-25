@@ -155,6 +155,7 @@ class Workprogress(BASE, ModelBase):
     __tablename__ = 'workprogresses'
     workprogress_id = Column(BigInteger().with_variant(Integer, "sqlite"), Sequence('WORKPROGRESS_ID_SEQ', schema=DEFAULT_SCHEMA_NAME), primary_key=True)
     request_id = Column(BigInteger().with_variant(Integer, "sqlite"))
+    workload_id = Column(Integer())
     scope = Column(String(SCOPE_LENGTH))
     name = Column(String(NAME_LENGTH))
     # requester = Column(String(20))
@@ -186,6 +187,8 @@ class Transform(BASE, ModelBase):
     """Represents a transform"""
     __tablename__ = 'transforms'
     transform_id = Column(BigInteger().with_variant(Integer, "sqlite"), Sequence('TRANSFORM_ID_SEQ', schema=DEFAULT_SCHEMA_NAME), primary_key=True)
+    request_id = Column(BigInteger().with_variant(Integer, "sqlite"))
+    workload_id = Column(Integer())
     transform_type = Column(EnumWithValue(TransformType))
     transform_tag = Column(String(20))
     priority = Column(Integer())
@@ -224,6 +227,8 @@ class Processing(BASE, ModelBase):
     __tablename__ = 'processings'
     processing_id = Column(BigInteger().with_variant(Integer, "sqlite"), Sequence('PROCESSING_ID_SEQ', schema=DEFAULT_SCHEMA_NAME), primary_key=True)
     transform_id = Column(BigInteger().with_variant(Integer, "sqlite"))
+    request_id = Column(BigInteger().with_variant(Integer, "sqlite"))
+    workload_id = Column(Integer())
     status = Column(EnumWithValue(ProcessingStatus))
     substatus = Column(EnumWithValue(ProcessingStatus))
     locking = Column(EnumWithValue(ProcessingLocking))
@@ -251,6 +256,9 @@ class Collection(BASE, ModelBase):
     """Represents a collection"""
     __tablename__ = 'collections'
     coll_id = Column(BigInteger().with_variant(Integer, "sqlite"), Sequence('COLLECTION_ID_SEQ', schema=DEFAULT_SCHEMA_NAME), primary_key=True)
+    request_id = Column(BigInteger().with_variant(Integer, "sqlite"))
+    workload_id = Column(Integer())
+    transform_id = Column(BigInteger().with_variant(Integer, "sqlite"))
     coll_type = Column(EnumWithValue(CollectionType))
     transform_id = Column(BigInteger().with_variant(Integer, "sqlite"))
     relation_type = Column(EnumWithValue(CollectionRelationType))
@@ -290,6 +298,9 @@ class Content(BASE, ModelBase):
     content_id = Column(BigInteger().with_variant(Integer, "sqlite"), Sequence('CONTENT_ID_SEQ', schema=DEFAULT_SCHEMA_NAME), primary_key=True)
     transform_id = Column(BigInteger().with_variant(Integer, "sqlite"))
     coll_id = Column(BigInteger().with_variant(Integer, "sqlite"))
+    request_id = Column(BigInteger().with_variant(Integer, "sqlite"))
+    workload_id = Column(Integer())
+    transform_id = Column(BigInteger().with_variant(Integer, "sqlite"))
     map_id = Column(BigInteger().with_variant(Integer, "sqlite"), default=0)
     scope = Column(String(SCOPE_LENGTH))
     name = Column(String(NAME_LENGTH))
@@ -324,6 +335,24 @@ class Content(BASE, ModelBase):
                    Index('CONTENTS_STATUS_UPDATED_IDX', 'status', 'locking', 'updated_at', 'created_at'))
 
 
+class Health(BASE, ModelBase):
+    """Represents the status of the running agents"""
+    __tablename__ = 'health'
+    health_id = Column(BigInteger().with_variant(Integer, "sqlite"),
+                       Sequence('HEALTH_ID_SEQ', schema=DEFAULT_SCHEMA_NAME),
+                       primary_key=True)
+    agent = Column(String(30))
+    hostname = Column(String(127))
+    pid = Column(Integer, autoincrement=False)
+    thread_id = Column(BigInteger, autoincrement=False)
+    thread_name = Column(String(255))
+    payload = Column(String(255))
+    created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    _table_args = (PrimaryKeyConstraint('health_id', name='HEALTH_PK'),
+                   UniqueConstraint('agent', 'hostname', 'pid', 'thread_id', name='HEALTH_UK'))
+
+
 class Message(BASE, ModelBase):
     """Represents the event messages"""
     __tablename__ = 'messages'
@@ -335,6 +364,8 @@ class Message(BASE, ModelBase):
     substatus = Column(Integer())
     locking = Column(EnumWithValue(MessageLocking))
     source = Column(EnumWithValue(MessageSource))
+    request_id = Column(BigInteger().with_variant(Integer, "sqlite"))
+    workload_id = Column(Integer())
     transform_id = Column(Integer())
     num_contents = Column(Integer())
     created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow)
@@ -349,7 +380,7 @@ def register_models(engine):
     Creates database tables for all models with the given engine
     """
 
-    models = (Request, Workprogress, Transform, Workprogress2transform, Processing, Collection, Content)
+    models = (Request, Workprogress, Transform, Workprogress2transform, Processing, Collection, Content, Health, Message)
 
     for model in models:
         model.metadata.create_all(engine)   # pylint: disable=maybe-no-member
@@ -360,7 +391,7 @@ def unregister_models(engine):
     Drops database tables for all models with the given engine
     """
 
-    models = (Request, Workprogress, Transform, Workprogress2transform, Processing, Collection, Content)
+    models = (Request, Workprogress, Transform, Workprogress2transform, Processing, Collection, Content, Health, Message)
 
     for model in models:
         model.metadata.drop_all(engine)   # pylint: disable=maybe-no-member

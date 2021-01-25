@@ -27,36 +27,25 @@ Optimization and Sampling
 --------------------------
 
 Currently iDDS support several different ways to generate hyperparameter points.
-    1. bayesian: This is a pre-defied method in iDDS.
 
-        a. The process to generate new hyperparameters: atlas/lib/idds/atlas/processing/hyperparameteropt_bayesian.py
-        b. The example code to generate requests: main/lib/idds/tests/hyperparameteropt_bayesian_test.py
-
-    2. `nevergrad <https://github.com/facebookresearch/nevergrad>`_: This is another pre-defined method in iDDS.
-
-        a. The process to generate new hyperparameters: atlas/lib/idds/atlas/processing/hyperparameteropt_nevergrad.py
-        b. The example code to generate requests: main/lib/idds/tests/hyperparameteropt_nevergrad_test.py
-
-    3. Steering container: Users can also provide their own container images to generate hyperparameter points. See `User-defined Steering Container`_ for the details.
-
-        b. Here is a docker example: main/lib/idds/tests/hyperparameteropt_docker_test.py
-
+    See examples in "User Documents" -> "iDDS RESTful client: Examples"
 
 RESTful Service
 ----------------
 
 1. To retrieve hyperparameters.
 
-    client.get_hyperparameters(workload_id, request_id, id=None, status=None, limit=None)
+    See examples in "User Documents" -> "iDDS RESTful client: Examples"
+    clientmanager.get_hyperparameters(workload_id, request_id, id=None, status=None, limit=None)
 
     examples:
-        client.get_hyperparameters(workload_id=123, request_id=None)
-        client.get_hyperparameters(workload_id=None, request_id=456)
-        client.get_hyperparameters(workload_id=None, request_id=456, id=0)
+        clientmanager.get_hyperparameters(workload_id=123, request_id=None)
+        clientmanager.get_hyperparameters(workload_id=None, request_id=456)
+        clientmanager.get_hyperparameters(workload_id=None, request_id=456, id=0)
 
 2. To register loss of a group of hyperparameters.
 
-    client.update_hyperparameter(request_id, id, loss)
+    clientmanager.update_hyperparameter(request_id, id, loss)
 
 3. Example code: main/lib/idds/tests/hyperparameteropt_client_test.py
 

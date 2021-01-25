@@ -25,9 +25,10 @@ from idds.orm.base.session import read_session, transactional_session
 from idds.orm.base import models
 
 
-def create_collection(scope, name, coll_type=CollectionType.Dataset, transform_id=None,
+def create_collection(request_id, workload_id, scope, name, coll_type=CollectionType.Dataset, transform_id=None,
                       relation_type=CollectionRelationType.Input, bytes=0, status=CollectionStatus.New,
-                      locking=CollectionLocking.Idle, total_files=0, retries=0, expired_at=None,
+                      locking=CollectionLocking.Idle, total_files=0, new_files=0, processing_files=0,
+                      processed_files=0, retries=0, expired_at=None,
                       coll_metadata=None):
     """
     Create a collection.
@@ -35,6 +36,8 @@ def create_collection(scope, name, coll_type=CollectionType.Dataset, transform_i
     :param scope: The scope of the request data.
     :param name: The name of the request data.
     :param coll_type: The type of dataset as dataset or container.
+    :param request_id: The request id.
+    :param workload_id: The workload id.
     :param transform_id: The transform id related to this collection.
     :param relation_type: The relation between this collection and its transform,
                           such as Input, Output, Log and so on.
@@ -48,17 +51,20 @@ def create_collection(scope, name, coll_type=CollectionType.Dataset, transform_i
 
     :returns: collection.
     """
-    new_coll = models.Collection(scope=scope, name=name, coll_type=coll_type, transform_id=transform_id,
+    new_coll = models.Collection(request_id=request_id, workload_id=workload_id, scope=scope, name=name,
+                                 coll_type=coll_type, transform_id=transform_id,
                                  relation_type=relation_type, bytes=bytes, status=status, locking=locking,
-                                 total_files=total_files, retries=retries, expired_at=expired_at,
-                                 coll_metadata=coll_metadata)
+                                 total_files=total_files, new_files=new_files, processing_files=processing_files,
+                                 processed_files=processed_files, retries=retries,
+                                 expired_at=expired_at, coll_metadata=coll_metadata)
     return new_coll
 
 
 @transactional_session
-def add_collection(scope, name, coll_type=CollectionType.Dataset, transform_id=None,
+def add_collection(request_id, workload_id, scope, name, coll_type=CollectionType.Dataset, transform_id=None,
                    relation_type=CollectionRelationType.Input, bytes=0, status=CollectionStatus.New,
-                   locking=CollectionLocking.Idle, total_files=0, retries=0, expired_at=None,
+                   locking=CollectionLocking.Idle, total_files=0, new_files=0, processing_files=0,
+                   processed_files=0, retries=0, expired_at=None,
                    coll_metadata=None, session=None):
     """
     Add a collection.
@@ -66,6 +72,8 @@ def add_collection(scope, name, coll_type=CollectionType.Dataset, transform_id=N
     :param scope: The scope of the request data.
     :param name: The name of the request data.
     :param coll_type: The type of dataset as dataset or container.
+    :param request_id: The request id.
+    :param workload_id: The workload id.
     :param transform_id: The transform id related to this collection.
     :param relation_type: The relation between this collection and its transform,
                           such as Input, Output, Log and so on.
@@ -83,10 +91,12 @@ def add_collection(scope, name, coll_type=CollectionType.Dataset, transform_id=N
     :returns: collection id.
     """
     try:
-        new_coll = create_collection(scope=scope, name=name, coll_type=coll_type, transform_id=transform_id,
+        new_coll = create_collection(request_id=request_id, workload_id=workload_id, scope=scope, name=name,
+                                     coll_type=coll_type, transform_id=transform_id,
                                      relation_type=relation_type, bytes=bytes, status=status, locking=locking,
-                                     total_files=total_files, retries=retries, expired_at=expired_at,
-                                     coll_metadata=coll_metadata)
+                                     total_files=total_files, new_files=new_files, retries=retries,
+                                     processing_files=processing_files, processed_files=processed_files,
+                                     expired_at=expired_at, coll_metadata=coll_metadata)
         new_coll.save(session=session)
         coll_id = new_coll.coll_id
         return coll_id
@@ -252,12 +262,15 @@ def get_collections_by_status(status, relation_type=CollectionRelationType.Input
 
 
 @read_session
-def get_collections(scope=None, name=None, transform_id=None, relation_type=None, to_json=False, session=None):
+def get_collections(scope=None, name=None, request_id=None, workload_id=None, transform_id=None,
+                    relation_type=None, to_json=False, session=None):
     """
     Get collections by request id or raise a NoObject exception.
 
     :param scope: collection scope.
     :param name: collection name, can be wildcard.
+    :param request_id: The request id.
+    :param workload_id: The workload id.
     :param transform_id: list of transform id related to this collection.
     :param relation_type: The relation type between this collection and the transform: Input, Ouput and Log.
     :param to_json: return json format.
@@ -276,9 +289,13 @@ def get_collections(scope=None, name=None, transform_id=None, relation_type=None
             query = query.filter(models.Collection.scope == scope)
         if name:
             query = query.filter(models.Collection.name.like(name.replace('*', '%')))
+        if request_id:
+            query = query.filter(models.Collection.request_id == request_id)
+        if workload_id:
+            query = query.filter(models.Collection.workload_id == workload_id)
         if transform_id:
             query = query.filter(models.Collection.transform_id.in_(transform_id))
-        if relation_type:
+        if relation_type is not None:
             query = query.filter(models.Collection.relation_type == relation_type)
 
         query = query.order_by(asc(models.Collection.updated_at))

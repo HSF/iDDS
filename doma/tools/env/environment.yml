@@ -1,0 +1,14 @@
+name: iDDS-doma
+dependencies:
+- python==3.6
+- pip
+- pip:
+  - futures                          # multiple process/threads
+  - unittest2        # unit test tool
+  - pep8             # checks for PEP8 code style compliance
+  - flake8           # Wrapper around PyFlakes&pep8
+  - pytest           # python testing tool
+  - nose             # nose test tools
+  - panda-client     # panda client
+  - idds-common
+  - idds-workflow

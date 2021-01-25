@@ -12,6 +12,7 @@
 Dict class.
 """
 
+import inspect
 from enum import Enum
 
 
@@ -32,6 +33,8 @@ class DictClass(object):
             for k in d:
                 new_d.append(self.to_dict_l(k))
             return new_d
+        elif inspect.ismethod(d):
+            return {'idds_method': d.__name__, 'idds_method_class_id': d.__self__.get_internal_id()}
         return d
 
     def to_dict(self):
@@ -57,6 +60,12 @@ class DictClass(object):
         return False
 
     @staticmethod
+    def is_class_method(d):
+        if d and isinstance(d, dict) and 'idds_method' in d and 'idds_method_class_id' in d:
+            return True
+        return False
+
+    @staticmethod
     def load_instance(d):
         module = __import__(d['module'], fromlist=[None])
         cls = getattr(module, d['class'])
@@ -65,6 +74,11 @@ class DictClass(object):
         else:
             impl = cls()
         return impl
+
+    @staticmethod
+    def load_instance_method(d):
+        # not do anything. Will load the method in Workflow class.
+        return d
 
     @staticmethod
     def from_dict(d):
@@ -79,6 +93,9 @@ class DictClass(object):
                 else:
                     value = DictClass.from_dict(value)
                 setattr(impl, key, value)
+            return impl
+        elif DictClass.is_class_method(d):
+            impl = DictClass.load_instance_method(d)
             return impl
         elif isinstance(d, dict):
             for k, v in d.items():

@@ -19,7 +19,7 @@ from rucio.client.client import Client as Rucio_Client
 from rucio.common.exception import CannotAuthenticate
 
 # from idds.client.client import Client
-from idds.client.workflowmanager import WorkflowManager
+from idds.client.clientmanager import ClientManager
 from idds.common.constants import RequestType, RequestStatus
 from idds.common.utils import get_rest_host
 # from idds.tests.common import get_example_real_tape_stagein_request
@@ -102,7 +102,7 @@ def get_workflow():
                             other_input_collections=None,
                             output_collections={'scope': scope, 'name': name + '.idds.stagein'},
                             log_collections=None,
-                            workflow=None, logger=None,
+                            logger=None,
                             max_waiting_time=3600 * 7 * 24, src_rse=src_rse, dest_rse=dest_rse, rule_id=rule_id)
     wf = Workflow()
     wf.add_work(work)
@@ -132,6 +132,6 @@ if __name__ == '__main__':
     # props = pre_check(props)
     # print(props)
 
-    wm = WorkflowManager(host=host)
+    wm = ClientManager(host=host)
     request_id = wm.submit(workflow)
     print(request_id)

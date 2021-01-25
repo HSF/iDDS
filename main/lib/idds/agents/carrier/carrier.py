@@ -62,12 +62,19 @@ class Carrier(BaseAgent):
         return processings
 
     def process_new_processing(self, processing):
+        # transform_id = processing['transform_id']
+        # transform = core_transforms.get_transform(transform_id=transform_id)
+        # work = transform['transform_metadata']['work']
         work = processing['processing_metadata']['work']
-        work.submit_processing()
-        return {'processing_id': processing['processing_id'],
-                'status': ProcessingStatus.Submitted,
-                'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period),
-                'processing_metadata': processing['processing_metadata']}
+        # work.set_agent_attributes(self.agent_attributes)
+        work.submit_processing(processing)
+        ret = {'processing_id': processing['processing_id'],
+               'status': ProcessingStatus.Submitted,
+               'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period),
+               'processing_metadata': processing['processing_metadata']}
+        if processing['processing_metadata'] and 'workload_id' in processing['processing_metadata']:
+            ret['workload_id'] = processing['processing_metadata']['workload_id']
+        return ret
 
     def process_new_processings(self):
         ret = []
@@ -100,7 +107,8 @@ class Carrier(BaseAgent):
         """
         Get running processing
         """
-        processing_status = [ProcessingStatus.Submitting, ProcessingStatus.Submitted, ProcessingStatus.Running, ProcessingStatus.FinishedOnExec]
+        processing_status = [ProcessingStatus.Submitting, ProcessingStatus.Submitted, ProcessingStatus.Running, ProcessingStatus.FinishedOnExec,
+                             ProcessingStatus.ToCancel, ProcessingStatus.Cancelling]
         processings = core_processings.get_processings_by_status(status=processing_status,
                                                                  # time_period=self.poll_time_period,
                                                                  locking=True,
@@ -110,12 +118,37 @@ class Carrier(BaseAgent):
             self.logger.info("Main thread get %s [submitting + submitted + running] processings to process: %s" % (len(processings), str([processing['processing_id'] for processing in processings])))
         return processings
 
+    def get_collection_ids(self, collections):
+        coll_ids = []
+        for coll in collections:
+            coll_ids.append(coll['coll_id'])
+        return coll_ids
+
     def process_running_processing(self, processing):
         transform_id = processing['transform_id']
-        input_output_maps = core_transforms.get_transform_input_output_maps(transform_id)
+        # transform = core_transforms.get_transform(transform_id=transform_id)
+        # work = transform['transform_metadata']['work']
         work = processing['processing_metadata']['work']
+
+        input_collections = work.get_input_collections()
+        output_collections = work.get_output_collections()
+        log_collections = work.get_log_collections()
+
+        input_coll_ids = self.get_collection_ids(input_collections)
+        output_coll_ids = self.get_collection_ids(output_collections)
+        log_coll_ids = self.get_collection_ids(log_collections)
+
+        input_output_maps = core_transforms.get_transform_input_output_maps(transform_id,
+                                                                            input_coll_ids=input_coll_ids,
+                                                                            output_coll_ids=output_coll_ids,
+                                                                            log_coll_ids=log_coll_ids)
+
+        if processing['status'] in [ProcessingStatus.ToCancel]:
+            work.abort_processing(processing)
+
+        # work = processing['processing_metadata']['work']
         # outputs = work.poll_processing()
-        processing_update, content_updates = work.poll_processing_updates(input_output_maps)
+        processing_update, content_updates = work.poll_processing_updates(processing, input_output_maps)
 
         if processing_update:
             processing_update['parameters']['locking'] = ProcessingLocking.Idle
@@ -146,10 +179,10 @@ class Carrier(BaseAgent):
         while not self.running_output_queue.empty():
             processing = self.running_output_queue.get()
             if processing:
-                self.logger.info("Main thread processing(processing_id: %s) status changed to %s" % (processing['processing_updates']['processing_id'],
-                                                                                                     processing['processing_updates']['parameters']['status']))
+                self.logger.info("Main thread processing(processing_id: %s) updates: %s" % (processing['processing_update']['processing_id'],
+                                                                                            processing['processing_update']['parameters']))
 
-                self.logger.info("Main thread finishing running processing %s" % str(processing))
+                # self.logger.info("Main thread finishing running processing %s" % str(processing))
                 core_processings.update_processing_contents(processing_update=processing['processing_update'],
                                                             content_updates=processing['content_updates'])
 
@@ -166,6 +199,8 @@ class Carrier(BaseAgent):
 
             self.load_plugins()
             self.init()
+
+            self.add_default_tasks()
 
             task = self.create_task(task_func=self.get_new_processings, task_output_queue=self.new_task_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
             self.add_task(task)
