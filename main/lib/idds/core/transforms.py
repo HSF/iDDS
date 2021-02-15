@@ -126,7 +126,7 @@ def get_transforms(workprogress_id=None, to_json=False, request_id=None, workloa
                                          to_json=to_json, session=session)
 
 
-@read_session
+@transactional_session
 def get_transforms_by_status(status, period=None, locking=False, bulk_size=None, to_json=False, session=None):
     """
     Get transforms or raise a NoObject exception.
