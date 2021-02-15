@@ -296,7 +296,8 @@ class DomaLSSTWork(Work):
         if self.active_processings:
             return self.processings[self.active_processings[0]]
         else:
-            return None
+            # return None
+            return self.create_processing(input_output_maps)
 
     def create_processing(self, input_output_maps):
         """
