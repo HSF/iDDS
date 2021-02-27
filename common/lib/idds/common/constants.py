@@ -116,6 +116,11 @@ class RequestStatus(IDDSEnum):
     ToCancel = 7
     Cancelling = 8
     Cancelled = 9
+    ToSuspend = 10
+    Suspending = 11
+    Suspended = 12
+    ToResume = 13
+    Resuming = 14
 
 
 class RequestLocking(IDDSEnum):
