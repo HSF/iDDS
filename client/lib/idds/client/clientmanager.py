@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2020
+# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2021
 
 
 """
@@ -79,6 +79,38 @@ class ClientManager:
         for req in reqs:
             logging.info("Aborting request: %s" % req['request_id'])
             self.client.update_request(request_id=req['request_id'], parameters={'status': RequestStatus.ToCancel})
+
+    @exception_handler
+    def suspend(self, request_id=None, workload_id=None):
+        """
+        Suspend requests.
+
+        :param workload_id: the workload id.
+        :param request_id: the request.
+        """
+        if request_id is None and workload_id is None:
+            logging.error("Both request_id and workload_id are None. One of them should not be None")
+            return
+        reqs = self.client.get_requests(request_id=request_id, workload_id=workload_id)
+        for req in reqs:
+            logging.info("Suspending request: %s" % req['request_id'])
+            self.client.update_request(request_id=req['request_id'], parameters={'status': RequestStatus.ToSuspend})
+
+    @exception_handler
+    def resume(self, request_id=None, workload_id=None):
+        """
+        Resume requests.
+
+        :param workload_id: the workload id.
+        :param request_id: the request.
+        """
+        if request_id is None and workload_id is None:
+            logging.error("Both request_id and workload_id are None. One of them should not be None")
+            return
+        reqs = self.client.get_requests(request_id=request_id, workload_id=workload_id)
+        for req in reqs:
+            logging.info("Resuming request: %s" % req['request_id'])
+            self.client.update_request(request_id=req['request_id'], parameters={'status': RequestStatus.ToResume})
 
     @exception_handler
     def get_status(self, request_id=None, workload_id=None, with_detail=False):

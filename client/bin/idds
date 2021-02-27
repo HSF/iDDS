@@ -36,6 +36,16 @@ def abort_requests(args):
     wm.abort(request_id=args.request_id, workload_id=args.workload_id)
 
 
+def suspend_requests(args):
+    wm = ClientManager(host=args.host)
+    wm.suspend(request_id=args.request_id, workload_id=args.workload_id)
+
+
+def resume_requests(args):
+    wm = ClientManager(host=args.host)
+    wm.resume(request_id=args.request_id, workload_id=args.workload_id)
+
+
 def download_logs(args):
     wm = ClientManager(host=args.host)
     wm.download_logs(request_id=args.request_id, workload_id=args.workload_id, dest_dir=args.dest_dir, filename=args.dest_filename)
@@ -58,10 +68,12 @@ def get_hyperparameters(args):
     for k in ret:
         print(k)
 
+
 def update_hyperparameter(args):
     wm = ClientManager(host=args.host)
     ret = wm.update_hyperparameter(workload_id=args.workload_id, request_id=args.request_id, id=args.id, loss=args.loss)
     print(ret)
+
 
 def get_parser():
     """
@@ -88,6 +100,18 @@ def get_parser():
     abort_parser.set_defaults(function=abort_requests)
     abort_parser.add_argument('--request_id', dest='request_id', action='store', type=int, help='The request id')
     abort_parser.add_argument('--workload_id', dest='workload_id', action='store', type=int, help='The workload id')
+
+    # suspend requests
+    suspend_parser = subparsers.add_parser('suspend_requests', help='Suspend requests')
+    suspend_parser.set_defaults(function=suspend_requests)
+    suspend_parser.add_argument('--request_id', dest='request_id', action='store', type=int, help='The request id')
+    suspend_parser.add_argument('--workload_id', dest='workload_id', action='store', type=int, help='The workload id')
+
+    # resume requests
+    resume_parser = subparsers.add_parser('resume_requests', help='Resume requests')
+    resume_parser.set_defaults(function=resume_requests)
+    resume_parser.add_argument('--request_id', dest='request_id', action='store', type=int, help='The request id')
+    resume_parser.add_argument('--workload_id', dest='workload_id', action='store', type=int, help='The workload id')
 
     # download logs
     log_parser = subparsers.add_parser('download_logs', help='Download logs')
