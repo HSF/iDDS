@@ -45,7 +45,7 @@ class Parameter(object):
 class Work(Base):
 
     def __init__(self, executable=None, arguments=None, parameters=None, setup=None, work_type=None,
-                 work_tag=None, exec_type='local', sandbox=None, work_id=None,
+                 work_tag=None, exec_type='local', sandbox=None, work_id=None, work_name=None,
                  primary_input_collection=None, other_input_collections=None,
                  output_collections=None, log_collections=None, release_inputs_after_submitting=False,
                  agent_attributes=None,
@@ -86,6 +86,9 @@ class Work(Base):
         self.exec_type = exec_type
         self.sandbox = sandbox
         self.work_id = work_id
+        self.work_name = work_name
+        if not self.work_name:
+            self.work_name = self.template_work_id
         # self.workflow = workflow
         self.transforming = False
         self.workdir = None
@@ -134,11 +137,20 @@ class Work(Base):
     def get_internal_id(self):
         return self.internal_id
 
+    def get_template_work_id(self):
+        return self.template_work_id
+
     def set_sequence_id(self, seq_id):
         self.sequence_id = seq_id
 
     def get_sequence_id(self):
         return self.sequence_id
+
+    def set_work_name(self, work_name):
+        self.work_name = work_name
+
+    def get_work_name(self):
+        return self.work_name
 
     def setup_logger(self):
         """
@@ -395,6 +407,75 @@ class Work(Base):
         """
         keys = [self.primary_input_collection] + self.other_input_collections
         return [self.collections[k] for k in keys]
+
+    def is_internal_collection(self, coll):
+        if ('coll_metadata' in coll and coll['coll_metadata']
+            and 'source' in coll['coll_metadata'] and coll['coll_metadata']['source']
+            and type(coll['coll_metadata']['source']) == str and coll['coll_metadata']['source'].lower() == 'idds'):
+            return True
+        return False
+
+    def get_internal_collections(self, coll):
+        if 'coll_metadata' in coll and coll['coll_metadata'] and 'request_id' in coll['coll_metadata']:
+            relation_type = coll['coll_metadata']['relation_type'] if 'relation_type' in coll['coll_metadata'] else CollectionRelationType.Output
+            colls = catalog.get_collections(scope==coll['scope'],
+                                            name=coll['name'],
+                                            request_id=coll['coll_metadata']['request_id'],
+                                            relation_type=relation_type)
+            return colls
+        return []
+
+    def poll_internal_collection(self, coll):
+        try:
+            if 'status' in coll and coll['status'] in [CollectionStatus.Closed]:
+                return coll
+            else:
+                if 'coll_metadata' not in coll:
+                    coll['coll_metadata'] = {}
+                coll['coll_metadata']['bytes'] = 0
+                coll['coll_metadata']['availability'] = 0
+                coll['coll_metadata']['events'] = 0
+                coll['coll_metadata']['is_open'] = True
+                coll['coll_metadata']['run_number'] = 1
+                coll['coll_metadata']['did_type'] = 'DATASET'
+                coll['coll_metadata']['list_all_files'] = False
+                coll['coll_metadata']['interal_colls'] = []
+
+                is_open = False
+                internal_colls = self.get_internal_collections(coll)
+                for i_coll in internal_colls:
+                    if i_coll['status'] not in [CollectionStatus.Closed]:
+                        is_open = True
+                    coll['coll_metadata']['bytes'] += i_coll['bytes']
+
+                if not is_open::
+                    coll_status = CollectionStatus.Closed
+                else:
+                    coll_status = CollectionStatus.Open
+                coll['status'] = coll_status
+                if len(internal_colls) > 1:
+                    coll['coll_type'] = CollectionType.Container
+                else:
+                    coll['coll_type'] = CollectionType.Dataset
+
+                return coll
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+            raise exceptions.IDDSException('%s: %s' % (str(ex), traceback.format_exc()))
+
+    def get_internal_input_contents(self, coll):
+        """
+        Get all input contents from iDDS collections.
+        """
+        coll = self.collections[self.primary_input_collection]
+        internal_colls = self.get_internal_collection(coll)
+        internal_coll_ids = [coll['coll_id'] for coll in internal_colls]
+        if internal_coll_ids:
+            contents = catalog.get_contents_by_coll_id_status(coll_id=coll_ids)
+        else:
+            contents = []
+        return contents
 
     def get_input_contents(self):
         """
