@@ -28,7 +28,7 @@ from idds.orm.base import models
 
 def create_content(request_id, workload_id, transform_id, coll_id, map_id, scope, name,
                    min_id, max_id, content_type=ContentType.File,
-                   status=ContentStatus.New,
+                   status=ContentStatus.New, content_relation_type=ContentRelationType.Input,
                    bytes=0, md5=None, adler32=None, processing_id=None, storage_id=None, retries=0,
                    locking=ContentLocking.Idle, path=None, expired_at=None, content_metadata=None):
     """
@@ -61,7 +61,8 @@ def create_content(request_id, workload_id, transform_id, coll_id, map_id, scope
     new_content = models.Content(request_id=request_id, workload_id=workload_id,
                                  transform_id=transform_id, coll_id=coll_id, map_id=map_id,
                                  scope=scope, name=name, min_id=min_id, max_id=max_id,
-                                 content_type=content_type, status=status, bytes=bytes, md5=md5,
+                                 content_type=content_type, content_relation_type=content_relation_type,
+                                 status=status, bytes=bytes, md5=md5,
                                  adler32=adler32, processing_id=processing_id, storage_id=storage_id,
                                  retries=retries, path=path, expired_at=expired_at, locking=locking,
                                  content_metadata=content_metadata)
@@ -70,7 +71,7 @@ def create_content(request_id, workload_id, transform_id, coll_id, map_id, scope
 
 @transactional_session
 def add_content(request_id, workload_id, transform_id, coll_id, map_id, scope, name, min_id=0, max_id=0,
-                content_type=ContentType.File, status=ContentStatus.New,
+                content_type=ContentType.File, status=ContentStatus.New, content_relation_type=ContentRelationType.Input,
                 bytes=0, md5=None, adler32=None, processing_id=None, storage_id=None, retries=0,
                 locking=ContentLocking.Idle, path=None, expired_at=None, content_metadata=None, session=None):
     """
@@ -105,7 +106,7 @@ def add_content(request_id, workload_id, transform_id, coll_id, map_id, scope, n
 
     try:
         new_content = create_content(request_id=request_id, workload_id=workload_id, transform_id=transform_id,
-                                     coll_id=coll_id, map_id=map_id,
+                                     coll_id=coll_id, map_id=map_id, content_relation_type=content_relation_type,
                                      scope=scope, name=name, min_id=min_id, max_id=max_id,
                                      content_type=content_type, status=status, bytes=bytes, md5=md5,
                                      adler32=adler32, processing_id=processing_id, storage_id=storage_id,
@@ -138,7 +139,7 @@ def add_contents(contents, bulk_size=1000, session=None):
                       'transform_id': None, 'coll_id': None, 'map_id': None,
                       'scope': None, 'name': None, 'min_id': 0, 'max_id': 0,
                       'content_type': ContentType.File, 'status': ContentStatus.New,
-                      'locking': ContentLocking.Idle,
+                      'locking': ContentLocking.Idle, 'content_relation_type': ContentRelationType.Input,
                       'bytes': 0, 'md5': None, 'adler32': None, 'processing_id': None,
                       'storage_id': None, 'retries': 0, 'path': None,
                       'expired_at': datetime.datetime.utcnow() + datetime.timedelta(days=30),

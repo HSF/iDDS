@@ -26,7 +26,7 @@ from idds.common.constants import (RequestType, RequestStatus, RequestLocking,
                                    TransformType, TransformStatus, TransformLocking,
                                    ProcessingStatus, ProcessingLocking,
                                    CollectionStatus, CollectionLocking, CollectionType,
-                                   CollectionRelationType, ContentType,
+                                   CollectionRelationType, ContentType, ContentRelationType,
                                    ContentStatus, ContentLocking, GranularityType,
                                    MessageType, MessageStatus, MessageLocking, MessageSource)
 from idds.common.utils import date_to_str
@@ -260,7 +260,6 @@ class Collection(BASE, ModelBase):
     workload_id = Column(Integer())
     transform_id = Column(BigInteger().with_variant(Integer, "sqlite"))
     coll_type = Column(EnumWithValue(CollectionType))
-    transform_id = Column(BigInteger().with_variant(Integer, "sqlite"))
     relation_type = Column(EnumWithValue(CollectionRelationType))
     scope = Column(String(SCOPE_LENGTH))
     name = Column(String(NAME_LENGTH))
@@ -307,6 +306,7 @@ class Content(BASE, ModelBase):
     min_id = Column(Integer())
     max_id = Column(Integer())
     content_type = Column(EnumWithValue(ContentType))
+    content_relation_type = Column(EnumWithValue(ContentRelationType))
     status = Column(EnumWithValue(ContentStatus))
     substatus = Column(EnumWithValue(ContentStatus))
     locking = Column(EnumWithValue(ContentLocking))
