@@ -316,11 +316,21 @@ def get_transform_input_output_maps(transform_id, input_coll_ids, output_coll_id
         if map_id not in ret:
             ret[map_id] = {'inputs': [], 'outputs': [], 'logs': [], 'others': []}
 
+        """
         if content['coll_id'] in input_coll_ids:
             ret[map_id]['inputs'].append(content)
         elif content['coll_id'] in output_coll_ids:
             ret[map_id]['outputs'].append(content)
         elif content['coll_id'] in log_coll_ids:
+            ret[map_id]['logs'].append(content)
+        else:
+            ret[map_id]['others'].append(content)
+        """
+        if content['content_relation_type'] == ContentRelationType.Input:
+            ret[map_id]['inputs'].append(content)
+        elif content['content_relation_type'] == ContentRelationType.Output:
+            ret[map_id]['outputs'].append(content)
+        elif content['content_relation_type'] == ContentRelationType.Log:
             ret[map_id]['logs'].append(content)
         else:
             ret[map_id]['others'].append(content)
