@@ -357,6 +357,10 @@ PARTITION BY RANGE(TRANSFORM_ID)
 INTERVAL ( 1000000 )
 ( PARTITION initial_part VALUES LESS THAN (1) );
 
+alter table contents modify (min_id NUMBER(7) default 0)
+alter table contents modify (max_id NUMBER(7) default 0)
+alter table contents add content_relation_type NUMBER(2) default 0
+
 ---PCTFREE 0
 ---COMPRESS FOR OLTP
 ---PARTITION BY REFERENCE(CONTENT_COLL_ID_FK);

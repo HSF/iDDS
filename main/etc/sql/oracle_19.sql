@@ -287,6 +287,9 @@ PARTITION BY REFERENCE(CONTENT_TRANSFORM_ID_FK);
 
 CREATE INDEX CONTENTS_STATUS_UPDATED_AT_IDX ON CONTENTS (status, locking, updated_at, created_at) LOCAL;
 
+alter table contents modify (min_id NUMBER(7) default 0)
+alter table contents modify (max_id NUMBER(7) default 0)
+alter table contents add content_relation_type NUMBER(2) default 0
 
 --- messages
 CREATE SEQUENCE MESSAGE_ID_SEQ MINVALUE 1 INCREMENT BY 1 START WITH 1 NOCACHE ORDER NOCYCLE GLOBAL;
