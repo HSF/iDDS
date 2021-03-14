@@ -222,6 +222,12 @@ class ContentType(IDDSEnum):
     PseudoContent = 2
 
 
+class ContentRelationType(IDDSEnum):
+    Input = 0
+    Output = 1
+    Log = 2
+
+
 class ContentStatus(IDDSEnum):
     New = 0
     Processing = 1
