@@ -47,15 +47,10 @@ cacher_dir = /data/idds
 #plugin.<plugin_name>.<attr2> = <value2>
 
 [main]
-agents = clerk, marshaller, transformer, carrier, conductor
+# agents = clerk, marshaller, transformer, carrier, conductor
+agents = clerk, transformer, carrier, conductor, consumer
 
 [clerk]
-num_threads = 1
-poll_time_period = 5
-retrieve_bulk_size = 10
-#plugin_sequence = collection_lister
-
-[marshaller]
 num_threads = 1
 poll_time_period = 5
 retrieve_bulk_size = 10
@@ -65,26 +60,20 @@ num_threads = 1
 poll_time_period = 5
 retrieve_bulk_size = 10
 
-[transporter]
-num_threads = 1
-poll_time_period = 5
-# time period for polling input open collections
-poll_input_time_period = 600
-poll_output_time_period = 5
-retrieve_bulk_size = 10
-
-[carrier]
-num_threads = 1
-poll_time_period = 5
-retrieve_bulk_size = 10
-message_bulk_size = 2000
-
 atlashpowork.workdir = /data/idds_processing
 atlashpowork.input_json = idds_input.json
 atlashpowork.output_json = idds_output.json
 
 atlashpowork.nevergrad.executable = docker
 atlashpowork.nevergrad.arguments = run -v $(pwd):/data wguanicedew/idds_hpo_nevergrad python /opt/hyperparameteropt_nevergrad.py --max_points=%%MAX_POINTS --num_points=%%NUM_POINTS --input=/data/%%IN --output=/data/%%OUT
+
+atlasactuatorwork.workdir = /data/idds_processing
+
+[carrier]
+num_threads = 1
+poll_time_period = 5
+retrieve_bulk_size = 10
+message_bulk_size = 2000
 
 [conductor]
 retrieve_bulk_size = 10
@@ -98,3 +87,13 @@ plugin.notifier.destination = /topic/atlas.idds
 plugin.notifier.username = atlasidds
 plugin.notifier.password = ******
 plugin.notifier.broker_timeout = 10
+
+[consumer]
+retrieve_bulk_size = 10
+plugin.receiver = idds.atlas.notifier.messaging.MessagingReceiver
+plugin.receiver.brokers = atlas-mb.cern.ch
+plugin.receiver.port = 61013
+plugin.receiver.destination = /queue/Consumer.monitor.atlas.idds
+plugin.receiver.username = atlasidds
+plugin.receiver.password = *****
+plugin.receiver.broker_timeout = 10
