@@ -179,7 +179,11 @@ class Clerk(BaseAgent):
                                  'status': TransformStatus.New,
                                  'retries': 0,
                                  'expired_at': req['expired_at'],
-                                 'transform_metadata': {'orginal_work': work, 'work': new_work}
+                                 'transform_metadata': {'internal_id': new_work.get_internal_id(),
+                                                        'template_work_id': new_work.get_template_work_id(),
+                                                        'sequence_id': new_work.get_sequence_id(),
+                                                        'work_name': new_work.get_work_name(),
+                                                        'work': new_work}
                                  # 'collections': related_collections
                                  }
                 new_transforms.append(new_transform)
@@ -234,20 +238,30 @@ class Clerk(BaseAgent):
                'update_transforms': update_transforms}
         return ret
 
-    def process_tocancel_request(self, req):
+    def process_operating_request(self, req):
         """
-        process ToCancel request
+        process ToCancel/ToSuspend/ToResume request
         """
+        if req['status'] == RequestStatus.ToCancel:
+            tf_status = TransformStatus.ToCancel
+            req_status = RequestStatus.Cancelling
+        if req['status'] == RequestStatus.ToSuspend:
+            tf_status = TransformStatus.ToSuspend
+            req_status = RequestStatus.Suspending
+        if req['status'] == RequestStatus.ToResume:
+            tf_status = TransformStatus.ToResume
+            req_status = RequestStatus.Resuming
+
         tfs = core_transforms.get_transforms(request_id=req['request_id'])
         tfs_status = {}
         for tf in tfs:
             if tf['status'] not in [RequestStatus.Finished, RequestStatus.SubFinished,
                                     RequestStatus.Failed, RequestStatus.Cancelling,
                                     RequestStatus.Cancelled]:
-                tfs_status[tf['request_id']] = {'status': RequestStatus.ToCancel}
+                tfs_status[tf['request_id']] = {'status': tf_status}
 
         ret_req = {'request_id': req['request_id'],
-                   'parameters': {'status': RequestStatus.Cancelling,
+                   'parameters': {'status': req_status,
                                   'locking': RequestLocking.Idle},
                    'update_transforms': tfs_status
                    }
@@ -265,9 +279,9 @@ class Clerk(BaseAgent):
                     if req['status'] in [RequestStatus.Transforming, RequestStatus.Cancelling]:
                         self.logger.info("Main thread processing running requst: %s" % req)
                         ret_req = self.process_running_request(req)
-                    elif req['status'] in [RequestStatus.ToCancel]:
-                        self.logger.info("Main thread processing ToCancel requst: %s" % req)
-                        ret_req = self.process_tocancel_request(req)
+                    elif req['status'] in [RequestStatus.ToCancel, RequestStatus.ToSuspend, RequestStatus.ToResume]:
+                        self.logger.info("Main thread processing operating requst: %s" % req)
+                        ret_req = self.process_operating_request(req)
 
                     if ret_req:
                         ret.append(ret_req)
