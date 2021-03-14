@@ -21,6 +21,7 @@ except ImportError:
 from idds.common.constants import (Sections, TransformStatus, TransformLocking, TransformType,
                                    CollectionRelationType, CollectionStatus,
                                    CollectionType, ContentType, ContentStatus,
+                                   ContentRelationType,
                                    ProcessingStatus, MessageType, MessageTypeStr,
                                    MessageStatus, MessageSource)
 from idds.common.utils import setup_logging
@@ -97,10 +98,11 @@ class Transformer(BaseAgent):
         return coll
 
     def get_new_contents(self, transform, new_input_output_maps):
-        new_input_contents, new_output_contents = [], []
+        new_input_contents, new_output_contents, new_log_contents = [], [], []
         for map_id in new_input_output_maps:
             inputs = new_input_output_maps[map_id]['inputs']
             outputs = new_input_output_maps[map_id]['outputs']
+            logs = new_input_output_maps[map_id]['logs']
 
             for input_content in inputs:
                 content = {'transform_id': transform['transform_id'],
@@ -116,6 +118,7 @@ class Transformer(BaseAgent):
                            'substatus': ContentStatus.New,
                            'path': input_content['path'] if 'path' in input_content else None,
                            'content_type': input_content['content_type'] if 'content_type' in input_content else ContentType.File,
+                           'content_relation_type': ContentRelationType.Input,
                            'bytes': input_content['bytes'],
                            'adler32': input_content['adler32'],
                            'content_metadata': input_content['content_metadata']}
@@ -134,11 +137,31 @@ class Transformer(BaseAgent):
                            'substatus': ContentStatus.New,
                            'path': output_content['path'] if 'path' in output_content else None,
                            'content_type': output_content['content_type'] if 'content_type' in output_content else ContentType.File,
+                           'content_relation_type': ContentRelationType.Output,
                            'bytes': output_content['bytes'],
                            'adler32': output_content['adler32'],
-                           'content_metadata': input_content['content_metadata']}
+                           'content_metadata': output_content['content_metadata']}
                 new_output_contents.append(content)
-        return new_input_contents, new_output_contents
+            for log_content in logs:
+                content = {'transform_id': transform['transform_id'],
+                           'coll_id': log_content['coll_id'],
+                           'request_id': transform['request_id'],
+                           'workload_id': transform['workload_id'],
+                           'map_id': map_id,
+                           'scope': log_content['scope'],
+                           'name': log_content['name'],
+                           'min_id': log_content['min_id'] if 'min_id' in log_content else 0,
+                           'max_id': log_content['max_id'] if 'max_id' in log_content else 0,
+                           'status': ContentStatus.New,
+                           'substatus': ContentStatus.New,
+                           'path': log_content['path'] if 'path' in log_content else None,
+                           'content_type': log_content['content_type'] if 'content_type' in log_content else ContentType.File,
+                           'content_relation_type': ContentRelationType.Log,
+                           'bytes': log_content['bytes'],
+                           'adler32': log_content['adler32'],
+                           'content_metadata': log_content['content_metadata']}
+                new_output_contents.append(content)
+        return new_input_contents, new_output_contents, new_log_contents
 
     def get_updated_contents(self, transform, registered_input_output_maps):
         updated_contents = []
@@ -412,12 +435,14 @@ class Transformer(BaseAgent):
             new_input_output_maps = work.get_new_input_output_maps(registered_input_output_maps)
         else:
             new_input_output_maps = {}
-        new_input_contents, new_output_contents = self.get_new_contents(transform, new_input_output_maps)
+        new_input_contents, new_output_contents, new_log_contents = self.get_new_contents(transform, new_input_output_maps)
         new_contents = []
         if new_input_contents:
             new_contents = new_contents + new_input_contents
         if new_output_contents:
             new_contents = new_contents + new_output_contents
+        if new_log_contents:
+            new_contents = new_contents + new_log_contents
 
         # new_input_output_maps = work.get_new_input_output_maps()
         # new_contents = self.get_new_contents(new_input_output_maps)
