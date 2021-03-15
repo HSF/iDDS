@@ -60,6 +60,7 @@ class DomaPanDAWork(Work):
         self.panda_monitor = None
 
         self.dependency_map = dependency_map
+        self.dependency_map_deleted = []
         self.logger.setLevel(logging.DEBUG)
         self.task_name = task_name
         self.set_work_name(task_name)
@@ -127,8 +128,6 @@ class DomaPanDAWork(Work):
 
     def poll_external_collection(self, coll):
         try:
-            raise exceptions.IDDSException("DOMA PanDA does not have external data management service")
-            """
             if 'status' in coll and coll['status'] in [CollectionStatus.Closed]:
                 return coll
             else:
@@ -137,11 +136,13 @@ class DomaPanDAWork(Work):
                 coll['coll_metadata']['bytes'] = 1
                 coll['coll_metadata']['availability'] = 1
                 coll['coll_metadata']['events'] = 1
-                coll['coll_metadata']['is_open'] = False
+                coll['coll_metadata']['is_open'] = True
                 coll['coll_metadata']['run_number'] = 1
                 coll['coll_metadata']['did_type'] = 'DATASET'
                 coll['coll_metadata']['list_all_files'] = False
 
+                if (not self.dependency_map_deleted and not self.dependency_map):
+                    coll['coll_metadata']['is_open'] = False
                 if 'is_open' in coll['coll_metadata'] and not coll['coll_metadata']['is_open']:
                     coll_status = CollectionStatus.Closed
                 else:
@@ -150,7 +151,6 @@ class DomaPanDAWork(Work):
                 coll['coll_type'] = CollectionType.Dataset
 
                 return coll
-            """
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
@@ -163,43 +163,13 @@ class DomaPanDAWork(Work):
         colls = [self.primary_input_collection] + self.other_input_collections
         for coll_int_id in colls:
             coll = self.collections[coll_int_id]
-            if self.is_internal_collection(coll):
-                coll = self.poll_internal_collection(coll)
-            else:
-                coll = self.poll_external_collection(coll)
+            # if self.is_internal_collection(coll):
+            #     coll = self.poll_internal_collection(coll)
+            # else:
+            #     coll = self.poll_external_collection(coll)
+            coll = self.poll_external_collection(coll)
             self.collections[coll_int_id] = coll
         return super(DomaPanDAWork, self).get_input_collections()
-
-    def get_input_contents(self):
-        """
-        Get all input contents from DDM.
-        """
-        try:
-            ret_files = []
-            coll = self.collections[self.primary_input_collection]
-            if self.is_internal_collection(coll):
-                contents = self.get_internal_input_contents()
-            else:
-                contents = []
-
-            # for file in self.dependency_map:
-            for file in contents:
-                ret_file = {'coll_id': coll['coll_id'],
-                            'scope': file['scope'],
-                            'name': file['name'],  # or a different file name from the dataset name
-                            'bytes': 1,
-                            'adler32': '12345678',
-                            'min_id': 0,
-                            'max_id': 1,
-                            'content_type': ContentType.File,
-                            # here events is all events for eventservice, not used here.
-                            'content_metadata': {'events': 1}}
-                ret_files.append(ret_file)
-            return ret_files
-        except Exception as ex:
-            self.logger.error(ex)
-            self.logger.error(traceback.format_exc())
-            raise exceptions.IDDSException('%s: %s' % (str(ex), traceback.format_exc()))
 
     def get_mapped_inputs(self, mapped_input_output_maps):
         ret = []
@@ -214,6 +184,33 @@ class DomaPanDAWork(Work):
             ret.append(primary_input)
         return ret
 
+    def get_mapped_outputs(self, mapped_input_output_maps):
+        ret = []
+        for map_id in mapped_input_output_maps:
+            outputs = mapped_input_output_maps[map_id]['outputs']
+
+            # if 'primary' is not set, the first one is the primary input.
+            primary_output = outputs[0]
+            for ip in outputs:
+                if 'primary' in ip['content_metadata'] and ip['content_metadata']['primary']:
+                    primary_output = ip
+            ret.append(primary_output)
+        return ret
+
+    def map_file_to_content(self, coll_id, name):
+        content = {'coll_id': coll_id,
+                   'scope': 'doma',
+                   'name': name,  # or a different file name from the dataset name
+                   'bytes': 1,
+                   'adler32': '12345678',
+                   'min_id': 0,
+                   'max_id': 1,
+                   'content_type': ContentType.File,
+                   # 'content_relation_type': content_relation_type,
+                   # here events is all events for eventservice, not used here.
+                   'content_metadata': {'events': 1}}
+        return content
+
     def get_new_input_output_maps(self, mapped_input_output_maps={}):
         """
         *** Function called by Transformer agent.
@@ -221,35 +218,59 @@ class DomaPanDAWork(Work):
 
         :param mapped_input_output_maps: Inputs that are already mapped.
         """
-        inputs = self.get_input_contents()
-        mapped_inputs = self.get_mapped_inputs(mapped_input_output_maps)
-        mapped_inputs_scope_name = [ip['name'] for ip in mapped_inputs]
-
-        new_inputs = []
         new_input_output_maps = {}
-        for ip in inputs:
-            ip_scope_name = ip['name']
-            if ip_scope_name not in mapped_inputs_scope_name:
-                new_inputs.append(ip)
 
-        # to avoid cheking new inputs if there are no new inputs anymore
-        if not new_inputs and self.collections[self.primary_input_collection]['status'] in [CollectionStatus.Closed]:
+        if (not self.dependency_map_deleted and not self.dependency_map
+            and self.collections[self.primary_input_collection]['status'] in [CollectionStatus.Closed]):
             self.set_has_new_inputs(False)
-        else:
+            return new_input_output_maps
+
+        if self.dependency_map_deleted:
+            mapped_outputs = self.get_mapped_outputs(mapped_input_output_maps)
+            mapped_outputs_name = [ip['name'] for ip in mapped_outputs]
+            for job in self.dependency_map_deleted:
+                output_name = job['name']
+                if output_name['name'] in mapped_outputs_name:
+                    # this job has successfully been added to db, it can be cleaned.
+                    del self.dependency_map_deleted[job]
+                else:
+                    # this job is not added to db in last round, will do it again.
+                    del self.dependency_map_deleted[job]
+                    self.dependency_map.append(job)
+
+        if self.dependency_map:
             mapped_keys = mapped_input_output_maps.keys()
             if mapped_keys:
                 next_key = max(mapped_keys) + 1
             else:
                 next_key = 1
-            for ip in new_inputs:
-                out_ip = copy.deepcopy(ip)
-                out_ip['coll_id'] = self.collections[self.output_collections[0]]['coll_id']
-                new_input_output_maps[next_key] = {'inputs': [ip],
-                                                   'outputs': [out_ip]}
-                next_key += 1
+            output_coll = self.get_output_collections()[0]
+            output_coll_id = output_coll['coll_id']
+
+        for job in self.dependency_map:
+            output_name = job['name']
+            inputs = job["dependencies"]
+            output_content = self.map_file_to_content(output_coll_id, output_name)
+            new_input_output_maps[next_key] = {'inputs': [],
+                                               'outputs': [output_content]}
+            for input in inputs:
+                task_name = input['task']
+                input_name = input['inputname']
+                if task_name in self.task_name_to_coll_map:
+                    input_coll_id = self.task_name_to_coll_map[task_name]['inputs'][0]
+                    input_content = self.map_file_to_content(input_coll_id, output_name)
+                    new_input_output_maps[next_key]['inputs'].append(input_content)
+                else:
+                    # some dependency task is not created yet. wait
+                    del new_input_output_maps[next_key]
+                    continue
+
+            # all inputs for this job can be parsed. move it to dependency_map_deleted
+            self.dependency_map.remove(job)
+            self.dependency_map_deleted.append(job)
+            next_key += 1
+
         self.logger.debug("get_new_input_output_maps, new_input_output_maps: %s" % str(new_input_output_maps))
-        self.collections[self.primary_input_collection]['coll_metadata']['is_open'] = False
-        self.collections[self.primary_input_collection]['status'] = CollectionStatus.Closed
         return new_input_output_maps
 
     def get_processing(self, input_output_maps):
