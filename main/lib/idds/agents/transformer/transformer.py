@@ -188,6 +188,15 @@ class Transformer(BaseAgent):
                     updated_output_contents_full.append(content)
         return updated_contents, updated_input_contents_full, updated_output_contents_full
 
+    def trigger_release_inputs(self, updated_output_contents):
+        to_release_inputs = []
+        for content in updated_output_contents:
+            to_release = {'request_id': content['request_id'],
+                          'coll_id': content['coll_id'],
+                          'name': content['name']}
+        to_release_inputs.append(to_release)
+        return to_release_inputs
+
     def process_new_transform(self, transform):
         """
         Process new transform
@@ -487,8 +496,11 @@ class Transformer(BaseAgent):
                 update_processing_model[processing_model['processing_id']] = {'status': t_processing_status}
 
         updated_contents, updated_input_contents_full, updated_output_contents_full = [], [], []
+        to_release_inputs = []
         if work.should_release_inputs(processing_model):
             updated_contents, updated_input_contents_full, updated_output_contents_full = self.get_updated_contents(transform, registered_input_output_maps)
+        if work.use_dependency_to_release_jobs() and updated_output_contents_full:
+            to_release_inputs = self.trigger_release_inputs(updated_output_contents_full)
 
         msgs = []
         if new_input_contents:
@@ -565,6 +577,7 @@ class Transformer(BaseAgent):
                'update_log_collections': copy.deepcopy(log_collections) if log_collections else log_collections,
                'new_contents': new_contents,
                'update_contents': updated_contents,
+               'to_release_inputs': to_release_inputs,
                'messages': msgs,
                'new_processing': new_processing_model,
                'update_processing': update_processing_model}

@@ -169,6 +169,7 @@ def update_transform(transform_id, parameters, session=None):
 def add_transform_outputs(transform, input_collections=None, output_collections=None, log_collections=None,
                           update_input_collections=None, update_output_collections=None, update_log_collections=None,
                           new_contents=None, update_contents=None, new_processing=None, update_processing=None,
+                          to_release_inputs=None,
                           messages=None, message_bulk_size=1000, session=None):
     """
     For input contents, add corresponding output contents.
@@ -215,6 +216,8 @@ def add_transform_outputs(transform, input_collections=None, output_collections=
         orm_contents.add_contents(new_contents, session=session)
     if update_contents:
         orm_contents.update_contents(update_contents, session=session)
+    if to_release_inputs:
+        orm_contents.release_inputs(to_release_inputs, session=session)
 
     processing_id = None
     if new_processing:
