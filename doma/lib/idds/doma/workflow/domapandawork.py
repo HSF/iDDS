@@ -62,6 +62,7 @@ class DomaPanDAWork(Work):
         self.dependency_map = dependency_map
         self.logger.setLevel(logging.DEBUG)
         self.task_name = task_name
+        self.set_work_name(task_name)
         self.queue = task_queue
         self.dep_tasks_id_names_map = {}
         self.executable = executable

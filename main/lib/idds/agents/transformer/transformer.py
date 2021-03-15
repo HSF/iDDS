@@ -474,10 +474,17 @@ class Transformer(BaseAgent):
                 work.set_processing_output_metadata(processing, processing_model['output_metadata'])
                 transform['workload_id'] = processing_model['workload_id']
 
-        if transform['status'] in [TransformStatus.ToCancel]:
+        if transform['status'] in [TransformStatus.ToCancel, TransformStatus.ToSuspend, TransformStatus.ToResume]:
+            if transform['status'] == TransformStatus.ToCancel:
+                t_processing_status = ProcessingStatus.ToCancel
+            if transform['status'] == TransformStatus.ToSuspend:
+                t_processing_status = ProcessingStatus.ToSuspend
+            if transform['status'] == TransformStatus.ToResume:
+                t_processing_status = ProcessingStatus.ToResume
+
             if processing_model and processing_model['status'] in [ProcessingStatus.New, ProcessingStatus.Submitting, ProcessingStatus.Submitted,
                                                                    ProcessingStatus.Running]:
-                update_processing_model[processing_model['processing_id']] = {'status': ProcessingStatus.ToCancel}
+                update_processing_model[processing_model['processing_id']] = {'status': t_processing_status}
 
         updated_contents, updated_input_contents_full, updated_output_contents_full = [], [], []
         if work.should_release_inputs(processing_model):

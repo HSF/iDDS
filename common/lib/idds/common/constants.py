@@ -179,6 +179,11 @@ class TransformStatus(IDDSEnum):
     ToCancel = 7
     Cancelling = 8
     Cancelled = 9
+    ToSuspend = 10
+    Suspending = 11
+    Suspended = 12
+    ToResume = 13
+    Resuming = 14
 
 
 class TransformLocking(IDDSEnum):
@@ -265,6 +270,11 @@ class ProcessingStatus(IDDSEnum):
     ToCancel = 12
     Cancelling = 13
     Cancelled = 14
+    ToSuspend = 15
+    Suspending = 16
+    Suspended = 17
+    ToResume = 18
+    Resuming = 19
 
 
 class ProcessingLocking(IDDSEnum):
