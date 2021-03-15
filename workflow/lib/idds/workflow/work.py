@@ -118,6 +118,8 @@ class Work(Base):
         self.errors = []
         self.next_works = []
 
+        self.work_name_to_coll_map = []
+
         self.processings = {}
         self.active_processings = []
         self.terminated_msg = ""
@@ -567,6 +569,12 @@ class Work(Base):
         *** Function called by Transformer agent.
         """
         return False
+
+    def set_work_name_to_coll_map(self, work_name_to_coll_map):
+        self.work_name_to_coll_map = work_name_to_coll_map
+
+    def get_work_name_to_coll_map(self):
+        return self.work_name_to_coll_map
 
     def add_processing_to_processings(self, processing):
         assert(isinstance(processing, dict))

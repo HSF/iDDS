@@ -348,3 +348,23 @@ def release_inputs(self, to_release_inputs):
                               'substatus': to_release['substatus']}
             update_contents.append(update_content)
     return update_contents
+
+
+def get_work_name_to_coll_map(request_id):
+    tfs = orm_transforms.get_transforms(request_id=request_id)
+    colls = orm_collections.get_collections(request_id=request_id)
+    work_name_to_coll_map = {}
+    for tf in tfs:
+        if ('transform_metadata' in tf and tf['transform_metadata']
+            and 'work_name' in tf['transform_metadata'] and tf['transform_metadata']['work_name']):  # noqa: W503
+            work_name = tf['transform_metadata']['work_name']
+            transform_id = tf['transform_id']
+            if work_name not in work_name_to_coll_map:
+                work_name_to_coll_map[work_name] = {'inputs': [], 'outputs': []}
+            for coll in colls:
+                if coll['transform_id'] == transform_id:
+                    if coll['relation_type'] == CollectionRelationType.Input:
+                        work_name_to_coll_map[work_name]['inputs'].append(coll)
+                    elif coll['relation_type'] == CollectionRelationType.Output:
+                        work_name_to_coll_map[work_name]['outputs'].append(coll)
+    return work_name_to_coll_map

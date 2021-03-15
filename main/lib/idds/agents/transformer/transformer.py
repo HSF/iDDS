@@ -443,6 +443,9 @@ class Transformer(BaseAgent):
         # update_contents, updated_contents_full = self.get_updated_contents(transform, registered_input_output_maps)
         # updated_contents, updated_input_contents_full, updated_output_contents_full = self.get_updated_contents(transform, registered_input_output_maps)
 
+        work_name_to_coll_map = core_transforms.get_work_name_to_coll_map(request_id=transform['request_id'])
+        work.set_work_name_to_coll_map(work_name_to_coll_map)
+
         if work.has_new_inputs():
             new_input_output_maps = work.get_new_input_output_maps(registered_input_output_maps)
         else:
