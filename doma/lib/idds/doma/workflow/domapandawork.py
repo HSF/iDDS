@@ -197,9 +197,9 @@ class DomaPanDAWork(Work):
             ret.append(primary_output)
         return ret
 
-    def map_file_to_content(self, coll_id, name):
+    def map_file_to_content(self, coll_id, scope, name):
         content = {'coll_id': coll_id,
-                   'scope': 'doma',
+                   'scope': scope,
                    'name': name,  # or a different file name from the dataset name
                    'bytes': 1,
                    'adler32': '12345678',
@@ -221,7 +221,7 @@ class DomaPanDAWork(Work):
         new_input_output_maps = {}
 
         if (not self.dependency_map_deleted and not self.dependency_map
-            and self.collections[self.primary_input_collection]['status'] in [CollectionStatus.Closed]):
+            and self.collections[self.primary_input_collection]['status'] in [CollectionStatus.Closed]):  # noqa: W503
             self.set_has_new_inputs(False)
             return new_input_output_maps
 
@@ -250,15 +250,15 @@ class DomaPanDAWork(Work):
         for job in self.dependency_map:
             output_name = job['name']
             inputs = job["dependencies"]
-            output_content = self.map_file_to_content(output_coll_id, output_name)
+            output_content = self.map_file_to_content(output_coll_id, output_coll['scope'], output_name)
             new_input_output_maps[next_key] = {'inputs': [],
                                                'outputs': [output_content]}
             for input in inputs:
                 task_name = input['task']
                 input_name = input['inputname']
                 if task_name in self.task_name_to_coll_map:
-                    input_coll_id = self.task_name_to_coll_map[task_name]['inputs'][0]
-                    input_content = self.map_file_to_content(input_coll_id, output_name)
+                    input_coll = self.task_name_to_coll_map[task_name]['inputs'][0]
+                    input_content = self.map_file_to_content(input_coll['coll_id'], input_coll['scope'], output_name)
                     new_input_output_maps[next_key]['inputs'].append(input_content)
                 else:
                     # some dependency task is not created yet. wait
@@ -272,6 +272,12 @@ class DomaPanDAWork(Work):
 
         self.logger.debug("get_new_input_output_maps, new_input_output_maps: %s" % str(new_input_output_maps))
         return new_input_output_maps
+
+    def use_dependency_to_release_jobs(self):
+        """
+        *** Function called by Transformer agent.
+        """
+        return True
 
     def get_processing(self, input_output_maps):
         """

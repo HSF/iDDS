@@ -556,10 +556,17 @@ class Work(Base):
     def should_release_inputs(self, processing=None):
         if self.release_inputs_after_submitting:
             if (processing and 'status' in processing
-                and processing['status'] in [ProcessingStatus.Submitted, ProcessingStatus.Submitted.value]):  # noqa: W503
+                and processing['status'] in [ProcessingStatus.Submitted, ProcessingStatus.Submitted.value,  # noqa: W503
+                                             ProcessingStatus.Running, ProcessingStatus.Running.value]):  # noqa: W503
                 return True
             return False
         return True
+
+    def use_dependency_to_release_jobs(self):
+        """
+        *** Function called by Transformer agent.
+        """
+        return False
 
     def add_processing_to_processings(self, processing):
         assert(isinstance(processing, dict))
