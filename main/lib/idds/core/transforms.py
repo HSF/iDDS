@@ -15,8 +15,8 @@ operations related to Transform.
 
 # from idds.common import exceptions
 
-from idds.common.constants import (TransformStatus,
-                                   TransformLocking)
+from idds.common.constants import (TransformStatus, ContentRelationType,
+                                   TransformLocking, CollectionRelationType)
 from idds.orm.base.session import read_session, transactional_session
 from idds.orm import (transforms as orm_transforms,
                       collections as orm_collections,
@@ -341,8 +341,8 @@ def release_inputs(self, to_release_inputs):
     update_contents = []
     for to_release in to_release_inputs:
         contents = orm_contents.get_input_contents(request_id=to_release['request_id'],
-                                                  coll_id=to_release['coll_id'],
-                                                  name=to_release['content'])
+                                                   coll_id=to_release['coll_id'],
+                                                   name=to_release['content'])
         for content in contents:
             update_content = {'content_id': content['content_id'],
                               'substatus': to_release['substatus']}

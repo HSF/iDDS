@@ -6,12 +6,16 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2020
+# - Sergey Padolski, <spadolski@bnl.gov>, 2021
+# - Wen Guan, <wen.guan@cern.ch>, 2021
 
 
 """
 Test client.
 """
+
+import string
+import random
 
 # import traceback
 
@@ -27,18 +31,20 @@ from idds.common.utils import get_rest_host
 
 # from idds.workflow.work import Work, Parameter, WorkStatus
 # from idds.workflow.workflow import Condition, Workflow
-from idds.workflow.workflow import Condition, Workflow
+from idds.workflow.workflow import Workflow
 # from idds.atlas.workflow.atlasstageinwork import ATLASStageinWork
 from idds.doma.workflow.domalsstwork import DomaLSSTWork
-import string, random
+
 
 def randStr(chars=string.ascii_lowercase + string.digits, N=10):
     return ''.join(random.choice(chars) for _ in range(N))
+
 
 class LSSTTask(object):
     name = None
     step = None
     dependencies = []
+
 
 def setup_workflow():
 
@@ -46,8 +52,8 @@ def setup_workflow():
     taskN1.step = "step1"
     taskN1.name = taskN1.step + "_" + randStr()
     taskN1.dependencies = [
-        {"name": "00000"+str(k),
-         "dependencies":[],
+        {"name": "00000" + str(k),
+         "dependencies": [],
          "submitted": False} for k in range(6)
     ]
 
@@ -57,17 +63,20 @@ def setup_workflow():
     taskN2.dependencies = [
         {
             "name": "000010",
-            "dependencies":[{"task":taskN1.name, "inputname": "000001", "available": False},{"task":taskN1.name, "inputname": "000002", "available": False}],
+            "dependencies": [{"task": taskN1.name, "inputname": "000001", "available": False},
+                             {"task": taskN1.name, "inputname": "000002", "available": False}],
             "submitted": False
         },
         {
             "name": "000011",
-            "dependencies": [{"task": taskN1.name, "inputname": "000001", "available": False}, {"task": taskN1.name, "inputname": "000002", "available": False}],
+            "dependencies": [{"task": taskN1.name, "inputname": "000001", "available": False},
+                             {"task": taskN1.name, "inputname": "000002", "available": False}],
             "submitted": False
         },
         {
             "name": "000012",
-            "dependencies": [{"task": taskN1.name, "inputname": "000001", "available": False}, {"task": taskN1.name, "inputname": "000002", "available": False}],
+            "dependencies": [{"task": taskN1.name, "inputname": "000001", "available": False},
+                             {"task": taskN1.name, "inputname": "000002", "available": False}],
             "submitted": False
         }
     ]
@@ -78,27 +87,30 @@ def setup_workflow():
     taskN3.dependencies = [
         {
             "name": "000020",
-            "dependencies":[],
+            "dependencies": [],
             "submitted": False
         },
         {
             "name": "000021",
-            "dependencies": [{"task": taskN2.name, "inputname": "000010", "available": False}, {"task": taskN2.name, "inputname": "000011", "available": False}],
+            "dependencies": [{"task": taskN2.name, "inputname": "000010", "available": False},
+                             {"task": taskN2.name, "inputname": "000011", "available": False}],
             "submitted": False
         },
         {
             "name": "000022",
-            "dependencies": [{"task": taskN2.name, "inputname": "000011", "available": False}, {"task": taskN2.name, "inputname": "000012", "available": False}],
+            "dependencies": [{"task": taskN2.name, "inputname": "000011", "available": False},
+                             {"task": taskN2.name, "inputname": "000012", "available": False}],
             "submitted": False
         },
         {
             "name": "000023",
-            "dependencies":[],
+            "dependencies": [],
             "submitted": False
         },
         {
             "name": "000024",
-            "dependencies": [{"task": taskN3.name, "inputname": "000021", "available": False}, {"task": taskN3.name, "inputname": "000023", "available": False}],
+            "dependencies": [{"task": taskN3.name, "inputname": "000021", "available": False},
+                             {"task": taskN3.name, "inputname": "000023", "available": False}],
             "submitted": False
         },
     ]
@@ -118,8 +130,8 @@ def setup_workflow():
 
     workflow = Workflow()
     workflow.add_work(work1)
-    #workflow.add_work(work2)
-    #workflow.add_work(work3)
+    workflow.add_work(work2)
+    workflow.add_work(work3)
     return workflow
 
 

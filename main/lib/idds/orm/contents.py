@@ -21,7 +21,8 @@ from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.sql.expression import asc
 
 from idds.common import exceptions
-from idds.common.constants import ContentType, ContentStatus, ContentLocking
+from idds.common.constants import (ContentType, ContentStatus, ContentLocking,
+                                   ContentRelationType)
 from idds.orm.base.session import read_session, transactional_session
 from idds.orm.base import models
 
@@ -380,7 +381,7 @@ def get_input_contents(request_id, coll_id, name, to_json=False, session=None):
         query = session.query(models.Content).filter(models.Content.request_id == request_id)
         query = query.filter(models.Content.coll_id == coll_id)
         query = query.filter(models.Content.name == name)
-        query = query.filter(models.Content.content_relation_type = ContentRelationType.Input)
+        query = query.filter(models.Content.content_relation_type == ContentRelationType.Input)
         query = query.order_by(asc(models.Content.map_id))
 
         tmp = query.all()
@@ -393,8 +394,8 @@ def get_input_contents(request_id, coll_id, name, to_json=False, session=None):
                     rets.append(t.to_dict())
         return rets
     except sqlalchemy.orm.exc.NoResultFound as error:
-        raise exceptions.NoObject('No record can be found with (transform_id=%s): %s' %
-                                  (transform_id, error))
+        raise exceptions.NoObject('No record can be found with (transform_id=%s, coll_id=%s, name=%s): %s' %
+                                  (request_id, coll_id, name, error))
     except Exception as error:
         raise error
 

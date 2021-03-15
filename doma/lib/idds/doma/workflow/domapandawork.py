@@ -15,7 +15,6 @@ try:
 except ImportError:
     import configparser as ConfigParser
 
-import copy
 import os
 import traceback
 import uuid
@@ -23,7 +22,7 @@ import uuid
 from pandatools import Client
 
 from idds.common import exceptions
-from idds.common.constants import (TransformType, CollectionStatus,
+from idds.common.constants import (TransformType, CollectionStatus, CollectionType,
                                    ContentStatus, ContentType,
                                    ProcessingStatus, WorkStatus)
 from idds.workflow.work import Work
@@ -260,7 +259,7 @@ class DomaPanDAWork(Work):
                     input_name = input['inputname']
                     if task_name in task_name_to_coll_map:
                         input_coll = task_name_to_coll_map[task_name]['inputs'][0]
-                        input_content = self.map_file_to_content(input_coll['coll_id'], input_coll['scope'], output_name)
+                        input_content = self.map_file_to_content(input_coll['coll_id'], input_coll['scope'], input_name)
                         new_input_output_maps[next_key]['inputs'].append(input_content)
                     else:
                         # some dependency task is not created yet. wait

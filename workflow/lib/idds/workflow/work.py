@@ -13,9 +13,11 @@ import logging
 import os
 import stat
 import uuid
+import traceback
 
 from idds.common import exceptions
-from idds.common.constants import WorkStatus, ProcessingStatus
+from idds.common.constants import (WorkStatus, ProcessingStatus,
+                                   CollectionStatus, CollectionType)
 from idds.common.utils import setup_logging
 
 from .base import Base
@@ -412,19 +414,19 @@ class Work(Base):
 
     def is_internal_collection(self, coll):
         if ('coll_metadata' in coll and coll['coll_metadata']
-            and 'source' in coll['coll_metadata'] and coll['coll_metadata']['source']
-            and type(coll['coll_metadata']['source']) == str and coll['coll_metadata']['source'].lower() == 'idds'):
+            and 'source' in coll['coll_metadata'] and coll['coll_metadata']['source']  # noqa W503
+            and type(coll['coll_metadata']['source']) == str and coll['coll_metadata']['source'].lower() == 'idds'):  # noqa W503
             return True
         return False
 
     def get_internal_collections(self, coll):
         if 'coll_metadata' in coll and coll['coll_metadata'] and 'request_id' in coll['coll_metadata']:
-            relation_type = coll['coll_metadata']['relation_type'] if 'relation_type' in coll['coll_metadata'] else CollectionRelationType.Output
-            colls = catalog.get_collections(scope==coll['scope'],
-                                            name=coll['name'],
-                                            request_id=coll['coll_metadata']['request_id'],
-                                            relation_type=relation_type)
-            return colls
+            # relation_type = coll['coll_metadata']['relation_type'] if 'relation_type' in coll['coll_metadata'] else CollectionRelationType.Output
+            # colls = core_catalog.get_collections(scope=coll['scope'],
+            #                                 name=coll['name'],
+            #                                 request_id=coll['coll_metadata']['request_id'],
+            #                                 relation_type=relation_type)
+            return []
         return []
 
     def poll_internal_collection(self, coll):
@@ -450,7 +452,7 @@ class Work(Base):
                         is_open = True
                     coll['coll_metadata']['bytes'] += i_coll['bytes']
 
-                if not is_open::
+                if not is_open:
                     coll_status = CollectionStatus.Closed
                 else:
                     coll_status = CollectionStatus.Open
@@ -474,7 +476,8 @@ class Work(Base):
         internal_colls = self.get_internal_collection(coll)
         internal_coll_ids = [coll['coll_id'] for coll in internal_colls]
         if internal_coll_ids:
-            contents = catalog.get_contents_by_coll_id_status(coll_id=coll_ids)
+            # contents = catalog.get_contents_by_coll_id_status(coll_id=coll_ids)
+            contents = []
         else:
             contents = []
         return contents
