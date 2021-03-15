@@ -360,6 +360,46 @@ def get_contents_by_transform(transform_id, to_json=False, session=None):
 
 
 @read_session
+def get_input_contents(request_id, coll_id, name, to_json=False, session=None):
+    """
+    Get content or raise a NoObject exception.
+
+    :param request_id: request id.
+    :param coll_id: collection id.
+    :param name: content name.
+    :param to_json: return json format.
+
+    :param session: The database session in use.
+
+    :raises NoObject: If no content is founded.
+
+    :returns: list of contents.
+    """
+
+    try:
+        query = session.query(models.Content).filter(models.Content.request_id == request_id)
+        query = query.filter(models.Content.coll_id == coll_id)
+        query = query.filter(models.Content.name == name)
+        query = query.filter(models.Content.content_relation_type = ContentRelationType.Input)
+        query = query.order_by(asc(models.Content.map_id))
+
+        tmp = query.all()
+        rets = []
+        if tmp:
+            for t in tmp:
+                if to_json:
+                    rets.append(t.to_dict_json())
+                else:
+                    rets.append(t.to_dict())
+        return rets
+    except sqlalchemy.orm.exc.NoResultFound as error:
+        raise exceptions.NoObject('No record can be found with (transform_id=%s): %s' %
+                                  (transform_id, error))
+    except Exception as error:
+        raise error
+
+
+@read_session
 def get_content_status_statistics(coll_id=None, session=None):
     """
     Get statistics group by status

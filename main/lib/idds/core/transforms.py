@@ -169,7 +169,6 @@ def update_transform(transform_id, parameters, session=None):
 def add_transform_outputs(transform, input_collections=None, output_collections=None, log_collections=None,
                           update_input_collections=None, update_output_collections=None, update_log_collections=None,
                           new_contents=None, update_contents=None, new_processing=None, update_processing=None,
-                          to_release_inputs=None,
                           messages=None, message_bulk_size=1000, session=None):
     """
     For input contents, add corresponding output contents.
@@ -216,8 +215,6 @@ def add_transform_outputs(transform, input_collections=None, output_collections=
         orm_contents.add_contents(new_contents, session=session)
     if update_contents:
         orm_contents.update_contents(update_contents, session=session)
-    if to_release_inputs:
-        orm_contents.release_inputs(to_release_inputs, session=session)
 
     processing_id = None
     if new_processing:
@@ -338,3 +335,16 @@ def get_transform_input_output_maps(transform_id, input_coll_ids, output_coll_id
         else:
             ret[map_id]['others'].append(content)
     return ret
+
+
+def release_inputs(self, to_release_inputs):
+    update_contents = []
+    for to_release in to_release_inputs:
+        contents = orm_contents.get_input_contents(request_id=to_release['request_id'],
+                                                  coll_id=to_release['coll_id'],
+                                                  name=to_release['content'])
+        for content in contents:
+            update_content = {'content_id': content['content_id'],
+                              'substatus': to_release['substatus']}
+            update_contents.append(update_content)
+    return update_contents

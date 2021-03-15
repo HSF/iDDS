@@ -193,9 +193,12 @@ class Transformer(BaseAgent):
         for content in updated_output_contents:
             to_release = {'request_id': content['request_id'],
                           'coll_id': content['coll_id'],
-                          'name': content['name']}
+                          'name': content['name'],
+                          'status': content['status'],
+                          'substatus': content['substatus']}
         to_release_inputs.append(to_release)
-        return to_release_inputs
+        updated_contents = core_transforms.release_inputs(to_release)
+        return updated_contents
 
     def process_new_transform(self, transform):
         """
@@ -496,11 +499,11 @@ class Transformer(BaseAgent):
                 update_processing_model[processing_model['processing_id']] = {'status': t_processing_status}
 
         updated_contents, updated_input_contents_full, updated_output_contents_full = [], [], []
-        to_release_inputs = []
+        to_release_input_contents = []
         if work.should_release_inputs(processing_model):
             updated_contents, updated_input_contents_full, updated_output_contents_full = self.get_updated_contents(transform, registered_input_output_maps)
         if work.use_dependency_to_release_jobs() and updated_output_contents_full:
-            to_release_inputs = self.trigger_release_inputs(updated_output_contents_full)
+            to_release_input_contents = self.trigger_release_inputs(updated_output_contents_full)
 
         msgs = []
         if new_input_contents:
@@ -576,8 +579,7 @@ class Transformer(BaseAgent):
                'update_output_collections': copy.deepcopy(output_collections) if output_collections else output_collections,
                'update_log_collections': copy.deepcopy(log_collections) if log_collections else log_collections,
                'new_contents': new_contents,
-               'update_contents': updated_contents,
-               'to_release_inputs': to_release_inputs,
+               'update_contents': updated_contents + to_release_input_contents,
                'messages': msgs,
                'new_processing': new_processing_model,
                'update_processing': update_processing_model}
