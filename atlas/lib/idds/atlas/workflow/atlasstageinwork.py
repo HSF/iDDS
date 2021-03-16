@@ -72,8 +72,6 @@ class ATLASStageinWork(Work):
         self.processed_output_files = 0
         self.status_statistics = {}
 
-        self.tocancel = False
-
     def get_rucio_client(self):
         try:
             client = RucioClient()
@@ -261,9 +259,6 @@ class ATLASStageinWork(Work):
             rule_id = self.create_rule(processing)
             processing['processing_metadata']['rule_id'] = rule_id
 
-    def abort_processing(self, processing):
-        self.tocancel = True
-
     def poll_rule(self, processing):
         try:
             p = processing
@@ -320,6 +315,12 @@ class ATLASStageinWork(Work):
         elif self.tocancel:
             update_processing = {'processing_id': processing['processing_id'],
                                  'parameters': {'status': ProcessingStatus.Cancelled}}
+        elif self.tosuspend:
+            update_processing = {'processing_id': processing['processing_id'],
+                                 'parameters': {'status': ProcessingStatus.Suspended}}
+        elif self.toresume:
+            update_processing = {'processing_id': processing['processing_id'],
+                                 'parameters': {'status': ProcessingStatus.Running}}
         return update_processing, updated_contents
 
     def get_status_statistics(self, registered_input_output_maps):
@@ -358,6 +359,7 @@ class ATLASStageinWork(Work):
             output_collection['processed_files'] = self.processed_output_file
 
     def syn_work_status(self, registered_input_output_maps):
+        super(ATLASStageinWork, self).syn_work_status(registered_input_output_maps)
         self.get_status_statistics(registered_input_output_maps)
 
         self.syn_collection_status()

@@ -208,7 +208,7 @@ class ATLASCondorWork(Work):
                     elif job_status == 2:
                         final_job_status = ProcessingStatus.Running
                     elif job_status == 3:
-                        final_job_status = ProcessingStatus.Cancel
+                        final_job_status = ProcessingStatus.Cancelled
                     elif job_status == 4:
                         final_job_status = ProcessingStatus.Finished
                     else:

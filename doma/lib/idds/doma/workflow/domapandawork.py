@@ -531,6 +531,26 @@ class DomaPanDAWork(Work):
             raise exceptions.IDDSException(msg)
         return None, None
 
+    def kill_processing(self, processing):
+        try:
+            if processing:
+                task_id = processing['processing_metadata']['task_id']
+                Client.killTask(task_id)
+        except Exception as ex:
+            msg = "Failed to check the processing (%s) status: %s" % (str(processing['processing_id']), str(ex))
+            raise exceptions.IDDSException(msg)
+
+    def reactivate_processing(self, processing):
+        try:
+            if processing:
+                task_id = processing['processing_metadata']['task_id']
+                Client.retryTask(task_id)
+                # Client.reactivateTask(task_id)
+                # Client.resumeTask(task_id)
+        except Exception as ex:
+            msg = "Failed to check the processing (%s) status: %s" % (str(processing['processing_id']), str(ex))
+            raise exceptions.IDDSException(msg)
+
     def poll_processing_updates(self, processing, input_output_maps):
         """
         *** Function called by Carrier agent.
@@ -540,6 +560,19 @@ class DomaPanDAWork(Work):
         # self.logger.debug("poll_processing_updates, input_output_maps: %s" % str(input_output_maps))
 
         if processing:
+            if self.tocancel:
+                self.logger.info("Cancelling processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], processing['processing_metadata']['task_id']))
+                self.kill_processing(processing)
+                self.tocancel = False
+            elif self.tosuspend:
+                self.logger.info("Suspending processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], processing['processing_metadata']['task_id']))
+                self.kill_processing(processing)
+                self.tosuspend = False
+            elif self.toresume:
+                self.logger.info("Resuming processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], processing['processing_metadata']['task_id']))
+                self.reactivate_processing(processing)
+                self.toresume = False
+
             processing_status, poll_updated_contents = self.poll_panda_task(processing=processing, input_output_maps=input_output_maps)
             self.logger.debug("poll_processing_updates, processing_status: %s" % str(processing_status))
             self.logger.debug("poll_processing_updates, update_contents: %s" % str(poll_updated_contents))
@@ -582,6 +615,7 @@ class DomaPanDAWork(Work):
         return status_statistics
 
     def syn_work_status(self, registered_input_output_maps):
+        super(DomaPanDAWork, self).syn_work_status(registered_input_output_maps)
         self.get_status_statistics(registered_input_output_maps)
         self.logger.debug("syn_work_status, self.active_processings: %s" % str(self.active_processings))
         self.logger.debug("syn_work_status, self.has_new_inputs(): %s" % str(self.has_new_inputs()))
