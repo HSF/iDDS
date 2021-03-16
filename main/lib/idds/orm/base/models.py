@@ -332,7 +332,9 @@ class Content(BASE, ModelBase):
                    ForeignKeyConstraint(['coll_id'], ['collections.coll_id'], name='CONTENTS_COLL_ID_FK'),
                    CheckConstraint('status IS NOT NULL', name='CONTENTS_STATUS_ID_NN'),
                    CheckConstraint('coll_id IS NOT NULL', name='CONTENTS_COLL_ID_NN'),
-                   Index('CONTENTS_STATUS_UPDATED_IDX', 'status', 'locking', 'updated_at', 'created_at'))
+                   Index('CONTENTS_STATUS_UPDATED_IDX', 'status', 'locking', 'updated_at', 'created_at'),
+                   Index('CONTENTS_ID_NAME_IDX', 'coll_id', 'scope', 'name', 'status'),
+                   Index('CONTENTS_REQ_TF_COLL_IDX', 'request_id', 'transform_id', 'coll_id', 'status'))
 
 
 class Health(BASE, ModelBase):

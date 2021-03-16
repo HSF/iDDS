@@ -192,12 +192,14 @@ def get_content(content_id=None, coll_id=None, scope=None, name=None, content_ty
         else:
             if content_type in [ContentType.File, ContentType.File.value]:
                 query = session.query(models.Content)\
+                               .with_hint(models.Content, "INDEX(CONTENTS CONTENTS_ID_NAME_IDX)", 'oracle')\
                                .filter(models.Content.coll_id == coll_id)\
                                .filter(models.Content.scope == scope)\
                                .filter(models.Content.name == name)\
                                .filter(models.Content.content_type == content_type)
             else:
                 query = session.query(models.Content)\
+                               .with_hint(models.Content, "INDEX(CONTENTS CONTENTS_ID_NAME_IDX)", 'oracle')\
                                .filter(models.Content.coll_id == coll_id)\
                                .filter(models.Content.scope == scope)\
                                .filter(models.Content.name == name)\
@@ -243,6 +245,7 @@ def get_match_contents(coll_id, scope, name, content_type=None, min_id=None, max
 
     try:
         query = session.query(models.Content)\
+                       .with_hint(models.Content, "INDEX(CONTENTS CONTENTS_ID_NAME_IDX)", 'oracle')\
                        .filter(models.Content.coll_id == coll_id)\
                        .filter(models.Content.scope == scope)\
                        .filter(models.Content.name.like(name.replace('*', '%')))
@@ -300,6 +303,8 @@ def get_contents(scope=None, name=None, coll_id=None, status=None, to_json=False
                 coll_id = [coll_id[0], coll_id[0]]
 
         query = session.query(models.Content)
+        query = query.with_hint(models.Content, "INDEX(CONTENTS CONTENTS_ID_NAME_IDX)", 'oracle')
+
         if coll_id:
             query = query.filter(models.Content.coll_id.in_(coll_id))
         if scope:
@@ -341,7 +346,9 @@ def get_contents_by_transform(transform_id, to_json=False, session=None):
     """
 
     try:
-        query = session.query(models.Content).filter(models.Content.transform_id == transform_id)
+        query = session.query(models.Content)
+        query = query.with_hint(models.Content, "INDEX(CONTENTS CONTENTS_REQ_TF_COLL_IDX)", 'oracle')
+        query = query.filter(models.Content.transform_id == transform_id)
         query = query.order_by(asc(models.Content.map_id))
 
         tmp = query.all()
@@ -378,7 +385,9 @@ def get_input_contents(request_id, coll_id, name, to_json=False, session=None):
     """
 
     try:
-        query = session.query(models.Content).filter(models.Content.request_id == request_id)
+        query = session.query(models.Content)
+        query = query.with_hint(models.Content, "INDEX(CONTENTS CONTENTS_REQ_TF_COLL_IDX)", 'oracle')
+        query = query.filter(models.Content.request_id == request_id)
         query = query.filter(models.Content.coll_id == coll_id)
         query = query.filter(models.Content.name == name)
         query = query.filter(models.Content.content_relation_type == ContentRelationType.Input)
@@ -412,6 +421,7 @@ def get_content_status_statistics(coll_id=None, session=None):
     """
     try:
         query = session.query(models.Content.status, func.count(models.Content.content_id))
+        query = query.with_hint(models.Content, "INDEX(CONTENTS CONTENTS_REQ_TF_COLL_IDX)", 'oracle')
         if coll_id:
             query = query.filter(models.Content.coll_id == coll_id)
         query = query.group_by(models.Content.status)

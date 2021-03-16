@@ -259,6 +259,7 @@ CREATE TABLE CONTENTS
         min_id NUMBER(7) constraint CONTENT_MIN_ID_NN NOT NULL,
         max_id NUMBER(7) constraint CONTENT_MAX_ID_NN NOT NULL,
         content_type NUMBER(2) constraint CONTENT_TYPE_NN NOT NULL,
+        content_relation_type NUMBER(2) constraint CONTENT_RTYPE_NN NOT NULL,
         status NUMBER(2) constraint CONTENT_STATUS_NN NOT NULL,
         substatus NUMBER(2),
         locking NUMBER(2),
@@ -285,7 +286,9 @@ CREATE TABLE CONTENTS
 PCTFREE 0
 PARTITION BY REFERENCE(CONTENT_TRANSFORM_ID_FK);
 
-CREATE INDEX CONTENTS_STATUS_UPDATED_AT_IDX ON CONTENTS (status, locking, updated_at, created_at) LOCAL;
+CREATE INDEX CONTENTS_STATUS_UPDATED_IDX ON CONTENTS (status, locking, updated_at, created_at) LOCAL;
+CREATE INDEX CONTENTS_ID_NAME_IDX ON CONTENTS (coll_id, scope, name, status) LOCAL;
+CREATE INDEX CONTENTS_REQ_TF_COLL_IDX ON CONTENTS (request_id, transform_id, coll_id, status) LOCAL;
 
 alter table contents modify (min_id NUMBER(7) default 0)
 alter table contents modify (max_id NUMBER(7) default 0)
