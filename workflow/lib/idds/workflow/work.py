@@ -9,6 +9,7 @@
 # - Wen Guan, <wen.guan@cern.ch>, 2020
 
 import copy
+import datetime
 import logging
 import os
 import stat
@@ -717,7 +718,7 @@ class Work(Base):
         has_expired = False
         for p_id in self.active_processings:
             p = self.processings[p_id]
-            if not self.is_processing_terminated(p)
+            if not self.is_processing_terminated(p):
                 return False
             elif p['status'] in [ProcessingStatus.Expired]:
                 has_expired = True
@@ -732,7 +733,7 @@ class Work(Base):
         has_cancelled = False
         for p_id in self.active_processings:
             p = self.processings[p_id]
-            if not self.is_processing_terminated(p)
+            if not self.is_processing_terminated(p):
                 return False
             elif p['status'] in [ProcessingStatus.Cancelled]:
                 has_cancelled = True
@@ -747,7 +748,7 @@ class Work(Base):
         has_suspended = False
         for p_id in self.active_processings:
             p = self.processings[p_id]
-            if not self.is_processing_terminated(p) 
+            if not self.is_processing_terminated(p):
                 return False
             elif p['status'] in [ProcessingStatus.Suspended]:
                 has_suspended = True
