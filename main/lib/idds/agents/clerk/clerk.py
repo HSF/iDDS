@@ -78,7 +78,11 @@ class Clerk(BaseAgent):
                              'status': TransformStatus.New,
                              'retries': 0,
                              'expired_at': req['expired_at'],
-                             'transform_metadata': {'orginal_work': work, 'work': new_work}
+                             'transform_metadata': {'internal_id': new_work.get_internal_id(),
+                                                    'template_work_id': new_work.get_template_work_id(),
+                                                    'sequence_id': new_work.get_sequence_id(),
+                                                    'work_name': new_work.get_work_name(),
+                                                    'work': new_work}
                              # 'collections': related_collections
                              }
                 transforms.append(transform)
@@ -147,7 +151,9 @@ class Clerk(BaseAgent):
         """
         Get running requests
         """
-        req_status = [RequestStatus.Transforming, RequestStatus.ToCancel, RequestStatus.Cancelling]
+        req_status = [RequestStatus.Transforming, RequestStatus.ToCancel, RequestStatus.Cancelling,
+                      RequestStatus.ToSuspend, RequestStatus.Suspending,
+                      RequestStatus.ToResume, RequestStatus.Resuming]
         reqs = core_requests.get_requests_by_status_type(status=req_status, time_period=self.poll_time_period,
                                                          locking=True, bulk_size=self.retrieve_bulk_size)
 
@@ -198,8 +204,26 @@ class Clerk(BaseAgent):
             for work in works:
                 if work.get_status() not in [WorkStatus.Finished, WorkStatus.SubFinished,
                                              WorkStatus.Failed, WorkStatus.Cancelling,
-                                             WorkStatus.Cancelled]:
+                                             WorkStatus.Cancelled, WorkStatus.Suspending,
+                                             WorkStatus.Suspended]:
                     update_transforms[work.get_work_id()] = {'status': TransformStatus.ToCancel}
+        elif req['status'] in [RequestStatus.ToSuspend]:
+            # current works
+            works = wf.get_current_works()
+            # print(works)
+            for work in works:
+                if work.get_status() not in [WorkStatus.Finished, WorkStatus.SubFinished,
+                                             WorkStatus.Failed, WorkStatus.Cancelling,
+                                             WorkStatus.Cancelled, WorkStatus.Suspending,
+                                             WorkStatus.Suspended]:
+                    update_transforms[work.get_work_id()] = {'status': TransformStatus.ToSuspend}
+        elif req['status'] in [RequestStatus.ToResume]:
+            # current works
+            works = wf.get_current_works()
+            # print(works)
+            for work in works:
+                if work.get_status() not in [WorkStatus.Finished]:
+                    update_transforms[work.get_work_id()] = {'status': TransformStatus.ToResume}
 
         # current works
         works = wf.get_current_works()
@@ -212,7 +236,9 @@ class Clerk(BaseAgent):
             # work.set_status(work_status)
             work.sync_work_data(transform_work)
 
-        if wf.is_terminated():
+        if req['status'] in [RequestStatus.ToResume]:
+            req_status = RequestStatus.Resuming
+        elif wf.is_terminated():
             if wf.is_finished():
                 req_status = RequestStatus.Finished
             elif wf.is_subfinished():
@@ -221,11 +247,18 @@ class Clerk(BaseAgent):
                 req_status = RequestStatus.Failed
             elif wf.is_cancelled():
                 req_status = RequestStatus.Cancelled
+            elif wf.is_suspended():
+                req_status = RequestStatus.Suspended
             else:
                 req_status = RequestStatus.Failed
             req_msg = wf.get_terminated_msg()
         else:
-            req_status = RequestStatus.Transforming
+            if req['status'] in [RequestStatus.ToSuspend]:
+                req_status = RequestStatus.Suspending
+            elif req['status'] in [RequestStatus.ToCancel]:
+                req_status = RequestStatus.Cancelling
+            else:
+                req_status = RequestStatus.Transforming
             req_msg = None
 
         parameters = {'status': req_status,
