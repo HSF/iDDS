@@ -108,7 +108,8 @@ class Carrier(BaseAgent):
         Get running processing
         """
         processing_status = [ProcessingStatus.Submitting, ProcessingStatus.Submitted, ProcessingStatus.Running, ProcessingStatus.FinishedOnExec,
-                             ProcessingStatus.ToCancel, ProcessingStatus.Cancelling]
+                             ProcessingStatus.ToCancel, ProcessingStatus.Cancelling, ProcessingStatus.ToSuspend, ProcessingStatus.Suspending,
+                             ProcessingStatus.ToResume, ProcessingStatus.Resuming]
         processings = core_processings.get_processings_by_status(status=processing_status,
                                                                  # time_period=self.poll_time_period,
                                                                  locking=True,
@@ -145,6 +146,10 @@ class Carrier(BaseAgent):
 
         if processing['status'] in [ProcessingStatus.ToCancel]:
             work.abort_processing(processing)
+        if processing['status'] in [ProcessingStatus.ToSuspend]:
+            work.suspend_processing(processing)
+        if processing['status'] in [ProcessingStatus.ToResume]:
+            work.resume_processing(processing)
 
         # work = processing['processing_metadata']['work']
         # outputs = work.poll_processing()
