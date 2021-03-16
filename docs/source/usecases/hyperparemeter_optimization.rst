@@ -6,6 +6,9 @@ HPO is a use-case of iDDS. The purpose of iDDS HPO is to use iDDS to generate hy
 iDDS HPO workflow
 ^^^^^^^^^^^^^^^^^
 
+.. image:: ../images/v2/hpo.png
+            :alt: iDDS ActiveLearning
+
 0. The user prepares two container images. One for optimization and sampling (Steering container), and the other for training (Evaluation container). He/she can use pre-defined methods if they meet his/her requirements.
 1. The user submit a HPO task to JEDI.
 2. JEDI submits a HPO request to iDDS.
