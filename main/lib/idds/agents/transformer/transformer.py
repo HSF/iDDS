@@ -569,6 +569,18 @@ class Transformer(BaseAgent):
                 coll['status'] = CollectionStatus.Failed
                 msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
                 msgs.append(msg)
+        elif work.is_expired():
+            transform['status'] = TransformStatus.Expired
+            msg = self.generate_message(transform, work=work, msg_type='work')
+            msgs.append(msg)
+            for coll in output_collections:
+                coll['status'] = CollectionStatus.SubClosed
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msgs.append(msg)
+            for coll in log_collections:
+                coll['status'] = CollectionStatus.SubClosed
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msgs.append(msg)
         elif work.is_cancelled():
             transform['status'] = TransformStatus.Cancelled
             msg = self.generate_message(transform, work=work, msg_type='work')

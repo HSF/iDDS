@@ -309,6 +309,14 @@ class Work(Base):
             return True
         return False
 
+    def is_expired(self):
+        """
+        *** Function called by Transformer agent.
+        """
+        if self.status in [WorkStatus.Expired]:
+            return True
+        return False
+
     def is_cancelled(self):
         """
         *** Function called by Transformer agent.
@@ -702,6 +710,21 @@ class Work(Base):
                 return False
         return True
 
+    def is_processings_expired(self):
+        """
+        *** Function called by Transformer agent.
+        """
+        has_expired = False
+        for p_id in self.active_processings:
+            p = self.processings[p_id]
+            if not self.is_processing_terminated(p)
+                return False
+            elif p['status'] in [ProcessingStatus.Expired]:
+                has_expired = True
+        if has_expired:
+            return True
+        return False
+
     def is_processings_cancelled(self):
         """
         *** Function called by Transformer agent.
@@ -779,6 +802,14 @@ class Work(Base):
         # raise exceptions.NotImplementedException
         self.toresume = True
 
+    def is_processing_expired(self, processing):
+        if (self.agent_attributes and 'life_time' in self.agent_attributes and self.agent_attributes['life_time']):
+            time_diff = datetime.datetime.utcnow() - processing['created_at']
+            time_diff = time_diff.total_seconds()
+            if time_diff > int(self.agent_attributes['life_time']):
+                return True
+        return False
+
     def poll_processing_updates(self, processing, input_output_maps):
         """
         *** Function called by Carrier agent.
@@ -797,6 +828,8 @@ class Work(Base):
                 self.status = WorkStatus.SubFinished
             elif self.is_processings_failed():
                 self.status = WorkStatus.Failed
+            elif self.is_processings_expired():
+                self.status = WorkStatus.Expired
             elif self.is_processings_cancelled():
                 self.status = WorkStatus.Cancelled
             elif self.is_processings_suspended():

@@ -245,6 +245,8 @@ class Clerk(BaseAgent):
                 req_status = RequestStatus.SubFinished
             elif wf.is_failed():
                 req_status = RequestStatus.Failed
+            elif wf.is_expired():
+                req_status = RequestStatus.Expired
             elif wf.is_cancelled():
                 req_status = RequestStatus.Cancelled
             elif wf.is_suspended():

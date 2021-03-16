@@ -637,6 +637,9 @@ class ATLASHPOWork(ATLASCondorWork):
         elif job_status in [ProcessingStatus.Failed]:
             processing_status = job_status
             processing_err = job_err_msg
+        elif self.is_processing_expired(processing):
+            processing_status = ProcessingStatus.Expired
+            processing_err = "The processing is expired"
         elif job_status in [ProcessingStatus.Cancelled]:
             processing_status = job_status
             processing_err = job_err_msg

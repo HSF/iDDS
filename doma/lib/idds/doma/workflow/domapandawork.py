@@ -572,6 +572,9 @@ class DomaPanDAWork(Work):
                 self.logger.info("Resuming processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], processing['processing_metadata']['task_id']))
                 self.reactivate_processing(processing)
                 self.toresume = False
+            elif self.is_processing_expired(processing):
+                self.logger.info("Expiring processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], processing['processing_metadata']['task_id']))
+                self.kill_processing(processing)
 
             processing_status, poll_updated_contents = self.poll_panda_task(processing=processing, input_output_maps=input_output_maps)
             self.logger.debug("poll_processing_updates, processing_status: %s" % str(processing_status))

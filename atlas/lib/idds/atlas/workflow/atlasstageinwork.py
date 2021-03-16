@@ -312,6 +312,9 @@ class ATLASStageinWork(Work):
         if rule_state == 'OK' and content_substatus['finished'] > 0 and content_substatus['unfinished'] == 0:
             update_processing = {'processing_id': processing['processing_id'],
                                  'parameters': {'status': ProcessingStatus.Finished}}
+        elif self.is_processing_expired(processing):
+            update_processing = {'processing_id': processing['processing_id'],
+                                 'parameters': {'status': ProcessingStatus.Expired}}
         elif self.tocancel:
             update_processing = {'processing_id': processing['processing_id'],
                                  'parameters': {'status': ProcessingStatus.Cancelled}}

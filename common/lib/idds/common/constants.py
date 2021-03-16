@@ -108,6 +108,7 @@ class WorkStatus(IDDSEnum):
     Suspended = 12
     ToResume = 13
     Resuming = 14
+    Expired = 15
 
 
 class RequestStatus(IDDSEnum):
@@ -126,6 +127,7 @@ class RequestStatus(IDDSEnum):
     Suspended = 12
     ToResume = 13
     Resuming = 14
+    Expired = 15
 
 
 class RequestLocking(IDDSEnum):
@@ -189,6 +191,7 @@ class TransformStatus(IDDSEnum):
     Suspended = 12
     ToResume = 13
     Resuming = 14
+    Expired = 15
 
 
 class TransformLocking(IDDSEnum):
@@ -281,6 +284,7 @@ class ProcessingStatus(IDDSEnum):
     Suspended = 17
     ToResume = 18
     Resuming = 19
+    Expired = 20
 
 
 class ProcessingLocking(IDDSEnum):
