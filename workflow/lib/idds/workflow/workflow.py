@@ -125,6 +125,7 @@ class Workflow(Base):
         self.num_finished_works = 0
         self.num_failed_works = 0
         self.num_cancelled_works = 0
+        self.num_suspended_works = 0
         self.num_total_works = 0
 
         self.last_work = None
@@ -358,6 +359,8 @@ class Workflow(Base):
                     self.num_failed_works += 1
                 elif work.is_cancelled():
                     self.num_cancelled_works += 1
+                elif work.is_suspended():
+                    self.num_suspended_works += 1
 
     def get_exact_workflows(self):
         """
@@ -401,13 +404,19 @@ class Workflow(Base):
         """
         *** Function called by Marshaller agent.
         """
-        return self.is_terminated() and (self.num_failed_works > 0) and (self.num_cancelled_works == 0)
+        return self.is_terminated() and (self.num_failed_works > 0) and (self.num_cancelled_works == 0) and (self.num_suspended_works == 0)
 
     def is_cancelled(self):
         """
         *** Function called by Marshaller agent.
         """
         return self.is_terminated() and (self.num_cancelled_works > 0)
+
+    def is_suspended(self):
+        """
+        *** Function called by Marshaller agent.
+        """
+        return self.is_terminated() and (self.num_suspended_works > 0)
 
     def get_terminated_msg(self):
         """

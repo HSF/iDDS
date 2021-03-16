@@ -103,6 +103,11 @@ class WorkStatus(IDDSEnum):
     ToCancel = 7
     Cancelling = 8
     Cancelled = 9
+    ToSuspend = 10
+    Suspending = 11
+    Suspended = 12
+    ToResume = 13
+    Resuming = 14
 
 
 class RequestStatus(IDDSEnum):
@@ -214,6 +219,7 @@ class CollectionStatus(IDDSEnum):
     Failed = 6
     Deleted = 7
     Cancelled = 8
+    Suspended = 9
 
 
 class CollectionLocking(IDDSEnum):

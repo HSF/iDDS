@@ -124,6 +124,9 @@ class Work(Base):
 
         self.processings = {}
         self.active_processings = []
+        self.cancelled_processings = []
+        self.suspended_processings = []
+        self.old_processings = []
         self.terminated_msg = ""
         self.output_data = None
         self.parameters_for_next_task = None
@@ -134,6 +137,10 @@ class Work(Base):
 
         self.proxy = None
         self.original_proxy = None
+
+        self.tocancel = False
+        self.tosuspend = False
+        self.toresume = False
 
     def get_class_name(self):
         return self.__class__.__name__
@@ -274,7 +281,7 @@ class Work(Base):
         """
         *** Function called by Transformer agent.
         """
-        if self.status in [WorkStatus.Finished, WorkStatus.SubFinished, WorkStatus.Failed, WorkStatus.Cancelled]:
+        if self.status in [WorkStatus.Finished, WorkStatus.SubFinished, WorkStatus.Failed, WorkStatus.Cancelled, WorkStatus.Suspended]:
             return True
         return False
 
@@ -307,6 +314,14 @@ class Work(Base):
         *** Function called by Transformer agent.
         """
         if self.status in [WorkStatus.Cancelled]:
+            return True
+        return False
+
+    def is_suspended(self):
+        """
+        *** Function called by Transformer agent.
+        """
+        if self.status in [WorkStatus.Suspended]:
             return True
         return False
 
@@ -620,7 +635,13 @@ class Work(Base):
         if 'status' in processing and processing['status'] not in [ProcessingStatus.New,
                                                                    ProcessingStatus.Submitting,
                                                                    ProcessingStatus.Submitted,
-                                                                   ProcessingStatus.Running]:
+                                                                   ProcessingStatus.Running,
+                                                                   ProcessingStatus.ToCancel,
+                                                                   ProcessingStatus.Cancelling,
+                                                                   ProcessingStatus.ToSuspend,
+                                                                   ProcessingStatus.Suspending,
+                                                                   ProcessingStatus.ToResume,
+                                                                   ProcessingStatus.Resuming]:
             return True
         return False
 
@@ -681,6 +702,36 @@ class Work(Base):
                 return False
         return True
 
+    def is_processings_cancelled(self):
+        """
+        *** Function called by Transformer agent.
+        """
+        has_cancelled = False
+        for p_id in self.active_processings:
+            p = self.processings[p_id]
+            if not self.is_processing_terminated(p)
+                return False
+            elif p['status'] in [ProcessingStatus.Cancelled]:
+                has_cancelled = True
+        if has_cancelled:
+            return True
+        return False
+
+    def is_processings_suspended(self):
+        """
+        *** Function called by Transformer agent.
+        """
+        has_suspended = False
+        for p_id in self.active_processings:
+            p = self.processings[p_id]
+            if not self.is_processing_terminated(p) 
+                return False
+            elif p['status'] in [ProcessingStatus.Suspended]:
+                has_suspended = True
+        if has_suspended:
+            return True
+        return False
+
     def create_processing(self, input_output_maps):
         """
         *** Function called by Transformer agent.
@@ -711,7 +762,22 @@ class Work(Base):
         """
         *** Function called by Carrier agent.
         """
-        raise exceptions.NotImplementedException
+        # raise exceptions.NotImplementedException
+        self.tocancel = True
+
+    def suspend_processing(self, processing):
+        """
+        *** Function called by Carrier agent.
+        """
+        # raise exceptions.NotImplementedException
+        self.tosuspend = True
+
+    def resume_processing(self, processing):
+        """
+        *** Function called by Carrier agent.
+        """
+        # raise exceptions.NotImplementedException
+        self.toresume = True
 
     def poll_processing_updates(self, processing, input_output_maps):
         """
@@ -723,7 +789,18 @@ class Work(Base):
         """
         *** Function called by Transformer agent.
         """
-        raise exceptions.NotImplementedException
+        # raise exceptions.NotImplementedException
+        if self.is_processings_terminated() and not self.has_new_inputs():
+            if self.is_processings_finished():
+                self.status = WorkStatus.Finished
+            elif self.is_processings_subfinished():
+                self.status = WorkStatus.SubFinished
+            elif self.is_processings_failed():
+                self.status = WorkStatus.Failed
+            elif self.is_processings_cancelled():
+                self.status = WorkStatus.Cancelled
+            elif self.is_processings_suspended():
+                self.status = WorkStatus.Suspended
 
     def sync_work_data(self, work):
         self.status = work.status
@@ -740,6 +817,8 @@ class Work(Base):
 
         self.processings = work.processings
         self.active_processings = work.active_processings
+        self.cancelled_processings = work.cancelled_processings
+        self.suspended_processings = work.suspended_processings
 
     def add_proxy(self, proxy):
         self.proxy = proxy
