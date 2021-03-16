@@ -287,7 +287,9 @@ class Transformer(BaseAgent):
         """
         Get running transforms
         """
-        transform_status = [TransformStatus.Transforming, TransformStatus.ToCancel, TransformStatus.Cancelling]
+        transform_status = [TransformStatus.Transforming, TransformStatus.ToCancel, TransformStatus.Cancelling,
+                            TransformStatus.ToSuspend, TransformStatus.Suspending,
+                            TransformStatus.ToResume, TransformStatus.Resuming]
         transforms = core_transforms.get_transforms_by_status(status=transform_status,
                                                               period=self.poll_time_period,
                                                               locking=True,
@@ -525,7 +527,13 @@ class Transformer(BaseAgent):
         transform['locking'] = TransformLocking.Idle
         # status_statistics = work.get_status_statistics(registered_input_output_maps)
         work.syn_work_status(registered_input_output_maps)
-        if work.is_finished():
+        if transform['status'] in [TransformStatus.ToCancel]:
+            transform['status'] = TransformStatus.Cancelling
+        elif transform['status'] in [TransformStatus.ToSuspend, TransformStatus.ToResume]:
+            transform['status'] = TransformStatus.Suspending
+        elif transform['status'] in [TransformStatus.ToResume]:
+            transform['status'] = TransformStatus.Resuming
+        elif work.is_finished():
             transform['status'] = TransformStatus.Finished
             msg = self.generate_message(transform, work=work, msg_type='work')
             msgs.append(msg)
@@ -571,6 +579,18 @@ class Transformer(BaseAgent):
                 msgs.append(msg)
             for coll in log_collections:
                 coll['status'] = CollectionStatus.Cancelled
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msgs.append(msg)
+        elif work.is_suspended():
+            transform['status'] = TransformStatus.Suspended
+            msg = self.generate_message(transform, work=work, msg_type='work')
+            msgs.append(msg)
+            for coll in output_collections:
+                coll['status'] = CollectionStatus.Suspended
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msgs.append(msg)
+            for coll in log_collections:
+                coll['status'] = CollectionStatus.Suspended
                 msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
                 msgs.append(msg)
         else:
