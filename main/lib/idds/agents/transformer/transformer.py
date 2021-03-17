@@ -163,6 +163,16 @@ class Transformer(BaseAgent):
                 new_output_contents.append(content)
         return new_input_contents, new_output_contents, new_log_contents
 
+    def should_wait_for_status_changes(self, inputs):
+        all_inputs_available = True
+        for content in inputs:
+            if content['substatus'] != ContentStatus.Available:
+                all_inputs_available = False
+
+        if not all_inputs_available:
+            return True
+        return False
+
     def get_updated_contents(self, transform, registered_input_output_maps):
         updated_contents = []
         updated_input_contents_full, updated_output_contents_full = [], []
@@ -171,13 +181,18 @@ class Transformer(BaseAgent):
             inputs = registered_input_output_maps[map_id]['inputs']
             outputs = registered_input_output_maps[map_id]['outputs']
 
+            should_wait = None
             for content in inputs:
                 if content['status'] != content['substatus']:
-                    updated_content = {'content_id': content['content_id'],
-                                       'status': content['substatus']}
-                    content['status'] = content['substatus']
-                    updated_contents.append(updated_content)
-                    updated_input_contents_full.append(content)
+                    if content['substatus'] == ContentStatus.Available:
+                        if should_wait is None:
+                            should_wait = self.should_wait_for_status_changes(inputs)
+                    if content['substatus'] != ContentStatus.Available or should_wait is None or not should_wait:
+                        updated_content = {'content_id': content['content_id'],
+                                           'status': content['substatus']}
+                        content['status'] = content['substatus']
+                        updated_contents.append(updated_content)
+                        updated_input_contents_full.append(content)
 
             for content in outputs:
                 if content['status'] != content['substatus']:
