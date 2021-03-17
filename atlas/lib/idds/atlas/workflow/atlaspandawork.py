@@ -73,9 +73,10 @@ class ATLASPandaWork(Work):
                                              output_collections=output_collections,
                                              log_collections=log_collections,
                                              logger=logger)
-        self.panda = None
-        self.pandassl = None
-        self.pandamonitor = None
+        self.panda_url = None
+        self.panda_url_ssl = None
+        self.panda_monitor = None
+        self.load_panda_urls()
 
         # from pandatools import Client
         # Client.getTaskParamsMap(23752996)
@@ -195,7 +196,7 @@ class ATLASPandaWork(Work):
             return True
         return False
 
-    def load_panda_configuration(self):
+    def load_panda_config(self):
         panda_config = ConfigParser.SafeConfigParser()
         if os.environ.get('IDDS_PANDA_CONFIG', None):
             configfile = os.environ['IDDS_PANDA_CONFIG']
@@ -210,19 +211,36 @@ class ATLASPandaWork(Work):
                 return panda_config
         return panda_config
 
-    def load_panda_config(self):
-        panda_config = self.load_panda_configuration()
+    def load_panda_urls(self):
+        panda_config = self.load_panda_config()
         self.logger.info("panda config: %s" % panda_config)
+        self.panda_url = None
+        self.panda_url_ssl = None
+        self.panda_monitor = None
+
         if panda_config.has_section('panda'):
-            if panda_config.has_option('panda', 'pandamonitor'):
-                pandamonitor = panda_config.get('panda', 'pandamonitor')
-                self.pandamonitor = pandamonitor
-            if panda_config.has_option('panda', 'panda'):
-                panda = panda_config.get('panda', 'panda')
-                self.panda = panda
-            if panda_config.has_option('panda', 'pandassl'):
-                pandassl = panda_config.get('panda', 'pandassl')
-                self.pandassl = pandassl
+            if panda_config.has_option('panda', 'panda_monitor_url'):
+                self.panda_monitor = panda_config.get('panda', 'panda_monitor_url')
+                os.environ['PANDA_MONITOR_URL'] = self.panda_monitor
+                self.logger.info("Panda monitor url: %s" % str(self.panda_monitor))
+            if panda_config.has_option('panda', 'panda_url'):
+                self.panda_url = panda_config.get('panda', 'panda_url')
+                os.environ['PANDA_URL'] = self.panda_url
+                self.logger.info("Panda url: %s" % str(self.panda_url))
+            if panda_config.has_option('panda', 'panda_url_ssl'):
+                self.panda_url_ssl = panda_config.get('panda', 'panda_url_ssl')
+                os.environ['PANDA_URL_SSL'] = self.panda_url_ssl
+                self.logger.info("Panda url ssl: %s" % str(self.panda_url_ssl))
+
+        if not self.panda_monitor and 'PANDA_MONITOR_URL' in os.environ and os.environ['PANDA_MONITOR_URL']:
+            self.panda_monitor = os.environ['PANDA_MONITOR_URL']
+            self.logger.info("Panda monitor url: %s" % str(self.panda_monitor))
+        if not self.panda_url and 'PANDA_URL' in os.environ and os.environ['PANDA_URL']:
+            self.panda_url = os.environ['PANDA_URL']
+            self.logger.info("Panda url: %s" % str(self.panda_url))
+        if not self.panda_url_ssl and 'PANDA_URL_SSL' in os.environ and os.environ['PANDA_URL_SSL']:
+            self.panda_url_ssl = os.environ['PANDA_URL_SSL']
+            self.logger.info("Panda url ssl: %s" % str(self.panda_url_ssl))
 
     def poll_external_collection(self, coll):
         try:
