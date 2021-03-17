@@ -85,6 +85,8 @@ Below is an example for active learning
 
 .. code-block:: python
 
+    from pandatools import Client
+
     from idds.client.clientmanager import ClientManager
     from idds.common.utils import get_rest_host, run_command
     from idds.workflow.workflow import Condition, Workflow
@@ -104,6 +106,13 @@ Below is an example for active learning
             return task_id
         else:
             raise Exception(output + error)
+
+    def get_panda_task_paramsmap(panda_task_id):
+        status, task_param_map = Client.getTaskParamsMap(self.panda_task_id)
+        if status == 0:
+            task_param_map = json.loads(task_param_map)
+            return task_param_map
+        return None
 
     def get_workflow(panda_task_id):
         #######################################

@@ -13,13 +13,12 @@ try:
 except ImportError:
     import configparser as ConfigParser
 
-try:
-    from urllib import quote
-except ImportError:
-    from urllib.parse import quote
+# try:
+#     from urllib import quote
+# except ImportError:
+#     from urllib.parse import quote
 
 import copy
-import json
 import os
 import re
 import traceback
@@ -46,7 +45,7 @@ class ATLASPandaWork(Work):
                  primary_input_collection=None, other_input_collections=None,
                  output_collections=None, log_collections=None,
                  logger=None, dependency_map=None, task_name="",
-                 panda_task_id=None, cmd_to_arguments=None):
+                 panda_task_paramsmap=None):
         """
         Init a work/task/transformation.
 
@@ -63,9 +62,9 @@ class ATLASPandaWork(Work):
         :param output_collections: List of the output collections.
         # :param workflow: The workflow the current work belongs to.
         """
-        self.panda_task_id = panda_task_id
-        self.cmd_to_arguments = cmd_to_arguments
-        self.panda_task_paramsmap = None
+        # self.cmd_to_arguments = cmd_to_arguments
+        self.panda_task_paramsmap = panda_task_paramsmap
+        self.output_dataset_name = None
         super(ATLASPandaWork, self).__init__(executable=executable, arguments=arguments,
                                              parameters=parameters, setup=setup, work_type=TransformType.Processing,
                                              work_tag=work_tag, exec_type=exec_type, sandbox=sandbox, work_id=work_id,
@@ -74,8 +73,6 @@ class ATLASPandaWork(Work):
                                              output_collections=output_collections,
                                              log_collections=log_collections,
                                              logger=logger)
-        self.panda_task_id = panda_task_id
-        self.panda_task_paramsmap = None
         self.panda = None
         self.pandassl = None
         self.pandamonitor = None
@@ -84,12 +81,12 @@ class ATLASPandaWork(Work):
         # Client.getTaskParamsMap(23752996)
         # (0, '{"buildSpec": {"jobParameters": "-i ${IN} -o ${OUT} --sourceURL ${SURL} -r . ", "archiveName": "sources.0ca6a2fb-4ad0-42d0-979d-aa7c284f1ff7.tar.gz", "prodSourceLabel": "panda"}, "sourceURL": "https://aipanda048.cern.ch:25443", "cliParams": "prun --exec \\"python simplescript.py 0.5 0.5 200 output.json\\" --outDS user.wguan.altest1234 --outputs output.json --nJobs=10", "site": null, "vo": "atlas", "respectSplitRule": true, "osInfo": "Linux-3.10.0-1127.19.1.el7.x86_64-x86_64-with-centos-7.9.2009-Core", "log": {"type": "template", "param_type": "log", "container": "user.wguan.altest1234.log/", "value": "user.wguan.altest1234.log.$JEDITASKID.${SN}.log.tgz", "dataset": "user.wguan.altest1234.log/"}, "transUses": "", "excludedSite": [], "nMaxFilesPerJob": 200, "uniqueTaskName": true, "noInput": true, "taskName": "user.wguan.altest1234/", "transHome": null, "includedSite": null, "nEvents": 10, "nEventsPerJob": 1, "jobParameters": [{"type": "constant", "value": "-j \\"\\" --sourceURL ${SURL}"}, {"type": "constant", "value": "-r ."}, {"padding": false, "type": "constant", "value": "-p \\""}, {"padding": false, "type": "constant", "value": "python%20simplescript.py%200.5%200.5%20200%20output.json"}, {"type": "constant", "value": "\\""}, {"type": "constant", "value": "-l ${LIB}"}, {"container": "user.wguan.altest1234_output.json/", "value": "user.wguan.$JEDITASKID._${SN/P}.output.json", "dataset": "user.wguan.altest1234_output.json/", "param_type": "output", "hidden": true, "type": "template"}, {"type": "constant", "value": "-o \\"{\'output.json\': \'user.wguan.$JEDITASKID._${SN/P}.output.json\'}\\""}], "prodSourceLabel": "user", "processingType": "panda-client-1.4.47-jedi-run", "architecture": "@centos7", "userName": "Wen Guan", "taskType": "anal", "taskPriority": 1000, "countryGroup": "us"}')  # noqa E501
 
+        self.panda_task_id = None
+        self.init_panda_task_info()
+
     def initialize_work(self):
         if not self.is_initialized():
-            if self.panda_task_id is not None:
-                self.init_panda_task_info()
-            else:
-                self.init_new_panda_task_info()
+            self.init_new_panda_task_info()
             super(ATLASPandaWork, self).initialize_work()
 
     def get_scope_name(self, dataset):
@@ -101,13 +98,18 @@ class ATLASPandaWork(Work):
             scope = dataset.split('.')[0]
         return scope
 
+    def get_output_dataset_name_from_task_paramsmap(self):
+        if self.panda_task_paramsmap:
+            cliParams = self.panda_task_paramsmap['cliParams']
+            output_dataset_name = cliParams.split("--outDS")[1].strip().split(" ")[0]
+            return output_dataset_name
+        return None
+
     def init_panda_task_info(self):
-        status, task_param_map = Client.getTaskParamsMap(self.panda_task_id)
-        if status == 0:
-            task_param_map = json.loads(task_param_map)
-            self.panda_task_paramsmap = task_param_map
-            self.sandbox = os.path.join(task_param_map['sourceURL'], 'cache/' + task_param_map['buildSpec']['archiveName'])
-            for p in task_param_map["jobParameters"]:
+        if self.panda_task_paramsmap:
+            self.output_dataset_name = self.get_output_dataset_name_from_task_paramsmap()
+            self.sandbox = os.path.join(self.panda_task_paramsmap['sourceURL'], 'cache/' + self.panda_task_paramsmap['buildSpec']['archiveName'])
+            for p in self.panda_task_paramsmap["jobParameters"]:
                 if 'param_type' in p and p['param_type'] == 'output':
                     output_dataset = p['dataset']
                     output_dataset = output_dataset.replace("/", "")
@@ -129,53 +131,50 @@ class ATLASPandaWork(Work):
 
         # generate new dataset name
         # self.padding = self.sequence_in_workflow
-        new_dataset_name = self.cmd_to_arguments['outDS'] + "_" + str(self.get_sequence_id())
+        new_dataset_name = self.output_dataset_name + "_" + str(self.get_sequence_id())
         for coll_id in self.collections:
             coll = self.collections[coll_id]
-            coll['name'] = coll['name'].replace(self.cmd_to_arguments['outDS'], new_dataset_name)
+            coll['name'] = coll['name'].replace(self.output_dataset_name, new_dataset_name)
 
         self.panda_task_paramsmap['cliParams'] = \
-            self.panda_task_paramsmap['cliParams'].replace(self.cmd_to_arguments['outDS'], new_dataset_name)
+            self.panda_task_paramsmap['cliParams'].replace(self.output_dataset_name, new_dataset_name)
 
         self.panda_task_paramsmap['taskName'] = \
-            self.panda_task_paramsmap['taskName'].replace(self.cmd_to_arguments['outDS'], new_dataset_name)
+            self.panda_task_paramsmap['taskName'].replace(self.output_dataset_name, new_dataset_name)
 
         jobParameters = self.panda_task_paramsmap['jobParameters']
         for p in jobParameters:
             if 'container' in p:
-                p['container'] = p['container'].replace(self.cmd_to_arguments['outDS'], new_dataset_name)
+                p['container'] = p['container'].replace(self.output_dataset_name, new_dataset_name)
             if 'dataset' in p:
-                p['dataset'] = p['dataset'].replace(self.cmd_to_arguments['outDS'], new_dataset_name)
+                p['dataset'] = p['dataset'].replace(self.output_dataset_name, new_dataset_name)
 
         log = self.panda_task_paramsmap['log']
         if 'value' in log:
-            log['value'] = log['value'].replace(self.cmd_to_arguments['outDS'], new_dataset_name)
+            log['value'] = log['value'].replace(self.output_dataset_name, new_dataset_name)
         if 'container' in log:
-            log['container'] = log['container'].replace(self.cmd_to_arguments['outDS'], new_dataset_name)
+            log['container'] = log['container'].replace(self.output_dataset_name, new_dataset_name)
         if 'dataset' in log:
-            log['dataset'] = log['dataset'].replace(self.cmd_to_arguments['outDS'], new_dataset_name)
+            log['dataset'] = log['dataset'].replace(self.output_dataset_name, new_dataset_name)
+
+        self.parse_arguments()
 
     def parse_arguments(self):
         try:
             # arguments = self.get_arguments()
             # parameters = self.get_parameters()
-            arguments = self.cmd_to_arguments['arguments'] if 'arguments' in self.cmd_to_arguments else None
-            parameters = self.cmd_to_arguments['parameters'] if 'parameters' in self.cmd_to_arguments else None
             new_parameters = self.get_parameters()
 
-            if parameters and new_parameters:
-                new_arguments = parameters.format(**new_parameters)
+            if new_parameters:
+                self.panda_task_paramsmap['cliParams'] = self.panda_task_paramsmap['cliParams'].format(**new_parameters)
 
-            cliParams = self.panda_task_paramsmap['cliParams']
-            cliParams = cliParams.replace(arguments, new_arguments)
-            self.panda_task_paramsmap['cliParams'] = cliParams
+            # todo
+            # jobParameters = self.panda_task_paramsmap['jobParameters']
+            # for p in jobParameters:
+            #     if 'value' in p:
+            #         p['value'] = p['value'].replace(quote(arguments), quote(new_arguments))
 
-            jobParameters = self.panda_task_paramsmap['jobParameters']
-            for p in jobParameters:
-                if 'value' in p:
-                    p['value'] = p['value'].replace(quote(arguments), quote(new_arguments))
-
-            return new_arguments
+            # return new_arguments
         except Exception as ex:
             self.add_errors(str(ex))
 
