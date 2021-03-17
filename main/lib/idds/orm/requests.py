@@ -220,16 +220,25 @@ def get_requests(request_id=None, workload_id=None, with_detail=False, to_json=F
                 query = query.filter(models.Request.workload_id == workload_id)
         else:
             subquery1 = session.query(models.Collection.coll_id, models.Collection.transform_id,
+                                      models.Collection.scope, models.Collection.name,
                                       models.Collection.status, models.Collection.total_files,
-                                      models.Collection.processed_files).filter(models.Collection.relation_type == 0)
+                                      models.Collection.processed_files, models.Collection.processing_files).filter(models.Collection.relation_type == 0)
             subquery2 = session.query(models.Collection.coll_id, models.Collection.transform_id,
+                                      models.Collection.scope, models.Collection.name,
                                       models.Collection.status, models.Collection.total_files,
-                                      models.Collection.processed_files).filter(models.Collection.relation_type == 1)
+                                      models.Collection.processed_files, models.Collection.processing_files).filter(models.Collection.relation_type == 1)
 
             query = session.query(models.Request,
-                                  models.Transfrom.transform_id, models.Transform.status,
-                                  subquery1.c.status, subquery1.c.total_files, subquery1.c.processed_files,
-                                  subquery2.c.status, subquery2.c.total_files, subquery2.c.processed_files)
+                                  models.Transfrom.transform_id, models.Transform.status.label("transform_status"),
+                                  subquery1.c.scope.label("input_coll_scope"), subquery1.c.name.label("input_coll_name"),
+                                  subquery1.c.status.label("input_coll_status"), subquery1.c.total_files.label("input_total_files"),
+                                  subquery1.c.processed_files.label("input_processed_files"),
+                                  subquery1.c.processing_files.label("input_processing_files"),
+                                  subquery2.c.scope.label("output_coll_scope"), subquery2.c.name.label("output_coll_name"),
+                                  subquery2.c.status.label("output_coll_status"), subquery2.c.total_files.label("output_total_files"),
+                                  subquery2.c.processed_files.label("output_processed_files"),
+                                  subquery2.c.processing_files.label("output_processing_files"))
+
             if request_id:
                 query = query.filter(models.Request.request_id == request_id)
             if workload_id:
