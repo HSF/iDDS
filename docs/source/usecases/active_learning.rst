@@ -24,6 +24,26 @@ processing task (ATLASPandaWork)
 
 .. code-block:: python
 
+    import json
+    import re
+    import time
+    # import traceback
+
+    try:
+        from urllib import quote
+    except ImportError:
+        from urllib.parse import quote
+
+    from pandatools import Client
+
+    from idds.client.clientmanager import ClientManager
+    from idds.common.utils import get_rest_host, run_command
+
+    from idds.workflow.workflow import Condition, Workflow
+    from idds.atlas.workflow.atlaspandawork import ATLASPandaWork
+    from idds.atlas.workflow.atlasactuatorwork import ATLASActuatorWork
+
+
     # Here a fake method is used.
     def get_task_id(output, error):
         m = re.search('jediTaskID=(\d+)', output + error)  # noqa W605
