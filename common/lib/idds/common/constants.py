@@ -240,6 +240,7 @@ class ContentRelationType(IDDSEnum):
     Input = 0
     Output = 1
     Log = 2
+    InputDependency = 3
 
 
 class ContentStatus(IDDSEnum):

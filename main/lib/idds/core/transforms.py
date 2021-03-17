@@ -314,7 +314,7 @@ def get_transform_input_output_maps(transform_id, input_coll_ids, output_coll_id
     for content in contents:
         map_id = content['map_id']
         if map_id not in ret:
-            ret[map_id] = {'inputs': [], 'outputs': [], 'logs': [], 'others': []}
+            ret[map_id] = {'inputs_dependency': [], 'inputs': [], 'outputs': [], 'logs': [], 'others': []}
 
         """
         if content['coll_id'] in input_coll_ids:
@@ -328,6 +328,8 @@ def get_transform_input_output_maps(transform_id, input_coll_ids, output_coll_id
         """
         if content['content_relation_type'] == ContentRelationType.Input:
             ret[map_id]['inputs'].append(content)
+        elif content['content_relation_type'] == ContentRelationType.InputDependency:
+            ret[map_id]['inputs_dependency'].append(content)
         elif content['content_relation_type'] == ContentRelationType.Output:
             ret[map_id]['outputs'].append(content)
         elif content['content_relation_type'] == ContentRelationType.Log:
@@ -344,9 +346,11 @@ def release_inputs(self, to_release_inputs):
                                                    coll_id=to_release['coll_id'],
                                                    name=to_release['content'])
         for content in contents:
-            update_content = {'content_id': content['content_id'],
-                              'substatus': to_release['substatus']}
-            update_contents.append(update_content)
+            if content['content_relation_type'] == ContentRelationType.InputDependency:
+                update_content = {'content_id': content['content_id'],
+                                  'substatus': to_release['substatus'],
+                                  'status': to_release['status']}
+                update_contents.append(update_content)
     return update_contents
 
 

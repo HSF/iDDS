@@ -229,7 +229,7 @@ class DomaPanDAWork(Work):
             mapped_outputs_name = [ip['name'] for ip in mapped_outputs]
             for job in self.dependency_map_deleted:
                 output_name = job['name']
-                if output_name['name'] in mapped_outputs_name:
+                if output_name in mapped_outputs_name:
                     # this job has successfully been added to db, it can be cleaned.
                     del self.dependency_map_deleted[job]
                 else:
@@ -243,6 +243,9 @@ class DomaPanDAWork(Work):
                 next_key = max(mapped_keys) + 1
             else:
                 next_key = 1
+
+            input_coll = self.get_input_collections()[0]
+            input_coll_id = input_coll['coll_id']
             output_coll = self.get_output_collections()[0]
             output_coll_id = output_coll['coll_id']
 
@@ -250,17 +253,19 @@ class DomaPanDAWork(Work):
 
             for job in self.dependency_map:
                 output_name = job['name']
-                inputs = job["dependencies"]
+                inputs_dependency = job["dependencies"]
+                input_content = self.map_file_to_content(input_coll_id, input_coll['scope'], output_name)
                 output_content = self.map_file_to_content(output_coll_id, output_coll['scope'], output_name)
-                new_input_output_maps[next_key] = {'inputs': [],
+                new_input_output_maps[next_key] = {'inputs_dependency': [],
+                                                   'inputs': [input_content],
                                                    'outputs': [output_content]}
-                for input in inputs:
-                    task_name = input['task']
-                    input_name = input['inputname']
+                for input_d in inputs_dependency:
+                    task_name = input_d['task']
+                    input_name = input_d['inputname']
                     if task_name in task_name_to_coll_map:
-                        input_coll = task_name_to_coll_map[task_name]['inputs'][0]
-                        input_content = self.map_file_to_content(input_coll['coll_id'], input_coll['scope'], input_name)
-                        new_input_output_maps[next_key]['inputs'].append(input_content)
+                        input_d_coll = task_name_to_coll_map[task_name]['outputs'][0]
+                        input_d_content = self.map_file_to_content(input_d_coll['coll_id'], input_d_coll['scope'], input_name)
+                        new_input_output_maps[next_key]['inputs_dependency'].append(input_d_content)
                     else:
                         # some dependency task is not created yet. wait
                         del new_input_output_maps[next_key]

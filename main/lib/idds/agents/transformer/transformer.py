@@ -99,8 +99,10 @@ class Transformer(BaseAgent):
 
     def get_new_contents(self, transform, new_input_output_maps):
         new_input_contents, new_output_contents, new_log_contents = [], [], []
+        new_input_dependency_contents = []
         for map_id in new_input_output_maps:
             inputs = new_input_output_maps[map_id]['inputs']
+            inputs_dependency = new_input_output_maps[map_id]['inputs_dependency']
             outputs = new_input_output_maps[map_id]['outputs']
             logs = new_input_output_maps[map_id]['logs']
 
@@ -127,6 +129,29 @@ class Transformer(BaseAgent):
                 if content['max_id'] is None:
                     content['max_id'] = 0
                 new_input_contents.append(content)
+            for input_content in inputs_dependency:
+                content = {'transform_id': transform['transform_id'],
+                           'coll_id': input_content['coll_id'],
+                           'request_id': transform['request_id'],
+                           'workload_id': transform['workload_id'],
+                           'map_id': map_id,
+                           'scope': input_content['scope'],
+                           'name': input_content['name'],
+                           'min_id': input_content['min_id'] if 'min_id' in input_content else 0,
+                           'max_id': input_content['max_id'] if 'max_id' in input_content else 0,
+                           'status': ContentStatus.New,
+                           'substatus': ContentStatus.New,
+                           'path': input_content['path'] if 'path' in input_content else None,
+                           'content_type': input_content['content_type'] if 'content_type' in input_content else ContentType.File,
+                           'content_relation_type': ContentRelationType.InputDependency,
+                           'bytes': input_content['bytes'],
+                           'adler32': input_content['adler32'],
+                           'content_metadata': input_content['content_metadata']}
+                if content['min_id'] is None:
+                    content['min_id'] = 0
+                if content['max_id'] is None:
+                    content['max_id'] = 0
+                new_input_dependency_contents.append(content)
             for output_content in outputs:
                 content = {'transform_id': transform['transform_id'],
                            'coll_id': output_content['coll_id'],
@@ -173,17 +198,13 @@ class Transformer(BaseAgent):
                 if content['max_id'] is None:
                     content['max_id'] = 0
                 new_output_contents.append(content)
-        return new_input_contents, new_output_contents, new_log_contents
+        return new_input_contents, new_output_contents, new_log_contents, new_input_dependency_contents
 
-    def should_wait_for_status_changes(self, inputs):
-        all_inputs_available = True
-        for content in inputs:
-            if content['substatus'] != ContentStatus.Available:
-                all_inputs_available = False
-
-        if not all_inputs_available:
-            return True
-        return False
+    def is_all_inputs_dependency_available(self, inputs_dependency):
+        for content in inputs_dependency:
+            if content['status'] != ContentStatus.Available:
+                return False
+        return True
 
     def get_updated_contents(self, transform, registered_input_output_maps):
         updated_contents = []
@@ -192,16 +213,15 @@ class Transformer(BaseAgent):
         for map_id in registered_input_output_maps:
             inputs = registered_input_output_maps[map_id]['inputs']
             outputs = registered_input_output_maps[map_id]['outputs']
+            inputs_dependency = registered_input_output_maps[map_id]['inputs_dependency']
 
-            should_wait = None
-            for content in inputs:
-                if content['status'] != content['substatus']:
-                    if content['substatus'] == ContentStatus.Available:
-                        if should_wait is None:
-                            should_wait = self.should_wait_for_status_changes(inputs)
-                    if content['substatus'] != ContentStatus.Available or should_wait is None or not should_wait:
+            if self.is_all_inputs_dependency_available(inputs_dependency):
+                for content in inputs:
+                    content['substatus'] = ContentStatus.Available
+                    if content['status'] != content['substatus']:
                         updated_content = {'content_id': content['content_id'],
-                                           'status': content['substatus']}
+                                           'status': content['substatus'],
+                                           'substatus': content['substatus']}
                         content['status'] = content['substatus']
                         updated_contents.append(updated_content)
                         updated_input_contents_full.append(content)
@@ -479,7 +499,7 @@ class Transformer(BaseAgent):
             new_input_output_maps = work.get_new_input_output_maps(registered_input_output_maps)
         else:
             new_input_output_maps = {}
-        new_input_contents, new_output_contents, new_log_contents = self.get_new_contents(transform, new_input_output_maps)
+        new_input_contents, new_output_contents, new_log_contents, new_input_dependency_contents = self.get_new_contents(transform, new_input_output_maps)
         new_contents = []
         if new_input_contents:
             new_contents = new_contents + new_input_contents
@@ -487,6 +507,8 @@ class Transformer(BaseAgent):
             new_contents = new_contents + new_output_contents
         if new_log_contents:
             new_contents = new_contents + new_log_contents
+        if new_input_dependency_contents:
+            new_contents = new_contents + new_input_dependency_contents
 
         # new_input_output_maps = work.get_new_input_output_maps()
         # new_contents = self.get_new_contents(new_input_output_maps)
