@@ -122,6 +122,10 @@ class Transformer(BaseAgent):
                            'bytes': input_content['bytes'],
                            'adler32': input_content['adler32'],
                            'content_metadata': input_content['content_metadata']}
+                if content['min_id'] is None:
+                    content['min_id'] = 0
+                if content['max_id'] is None:
+                    content['max_id'] = 0
                 new_input_contents.append(content)
             for output_content in outputs:
                 content = {'transform_id': transform['transform_id'],
@@ -141,6 +145,10 @@ class Transformer(BaseAgent):
                            'bytes': output_content['bytes'],
                            'adler32': output_content['adler32'],
                            'content_metadata': output_content['content_metadata']}
+                if content['min_id'] is None:
+                    content['min_id'] = 0
+                if content['max_id'] is None:
+                    content['max_id'] = 0
                 new_output_contents.append(content)
             for log_content in logs:
                 content = {'transform_id': transform['transform_id'],
@@ -160,6 +168,10 @@ class Transformer(BaseAgent):
                            'bytes': log_content['bytes'],
                            'adler32': log_content['adler32'],
                            'content_metadata': log_content['content_metadata']}
+                if content['min_id'] is None:
+                    content['min_id'] = 0
+                if content['max_id'] is None:
+                    content['max_id'] = 0
                 new_output_contents.append(content)
         return new_input_contents, new_output_contents, new_log_contents
 
