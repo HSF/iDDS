@@ -82,7 +82,8 @@ class Clerk(BaseAgent):
                                                     'template_work_id': new_work.get_template_work_id(),
                                                     'sequence_id': new_work.get_sequence_id(),
                                                     'work_name': new_work.get_work_name(),
-                                                    'work': new_work}
+                                                    'work': new_work,
+                                                    'original_work': work}
                              # 'collections': related_collections
                              }
                 transforms.append(transform)
