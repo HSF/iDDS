@@ -257,6 +257,7 @@ class DomaPanDAWork(Work):
                 input_content = self.map_file_to_content(input_coll_id, input_coll['scope'], output_name)
                 output_content = self.map_file_to_content(output_coll_id, output_coll['scope'], output_name)
                 new_input_output_maps[next_key] = {'inputs_dependency': [],
+                                                   'logs': [],
                                                    'inputs': [input_content],
                                                    'outputs': [output_content]}
                 for input_d in inputs_dependency:

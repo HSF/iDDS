@@ -299,7 +299,9 @@ class ATLASHPOWork(ATLASCondorWork):
                 out_ip = copy.deepcopy(ip)
                 out_ip['coll_id'] = self.collections[self.output_collections[0]]['coll_id']
                 new_input_output_maps[next_key] = {'inputs': [ip],
-                                                   'outputs': [out_ip]}
+                                                   'outputs': [out_ip],
+                                                   'inputs_dependency': [],
+                                                   'logs': []}
                 next_key += 1
 
         self.unfinished_points = self.unfinished_points + len(new_inputs)

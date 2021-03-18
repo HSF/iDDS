@@ -101,10 +101,10 @@ class Transformer(BaseAgent):
         new_input_contents, new_output_contents, new_log_contents = [], [], []
         new_input_dependency_contents = []
         for map_id in new_input_output_maps:
-            inputs = new_input_output_maps[map_id]['inputs']
-            inputs_dependency = new_input_output_maps[map_id]['inputs_dependency']
-            outputs = new_input_output_maps[map_id]['outputs']
-            logs = new_input_output_maps[map_id]['logs']
+            inputs = new_input_output_maps[map_id]['inputs'] if 'inputs' in new_input_output_maps[map_id] else []
+            inputs_dependency = new_input_output_maps[map_id]['inputs_dependency'] if 'inputs_dependency' in new_input_output_maps[map_id] else []
+            outputs = new_input_output_maps[map_id]['outputs'] if 'outputs' in new_input_output_maps[map_id] else []
+            logs = new_input_output_maps[map_id]['logs'] if 'logs' in new_input_output_maps[map_id] else []
 
             for input_content in inputs:
                 content = {'transform_id': transform['transform_id'],
@@ -211,9 +211,9 @@ class Transformer(BaseAgent):
         updated_input_contents_full, updated_output_contents_full = [], []
 
         for map_id in registered_input_output_maps:
-            inputs = registered_input_output_maps[map_id]['inputs']
-            outputs = registered_input_output_maps[map_id]['outputs']
-            inputs_dependency = registered_input_output_maps[map_id]['inputs_dependency']
+            inputs = registered_input_output_maps[map_id]['inputs'] if 'inputs' in registered_input_output_maps[map_id] else []
+            outputs = registered_input_output_maps[map_id]['outputs'] if 'outputs' in registered_input_output_maps[map_id] else []
+            inputs_dependency = registered_input_output_maps[map_id]['inputs_dependency'] if 'inputs_dependency' in registered_input_output_maps[map_id] else []
 
             if self.is_all_inputs_dependency_available(inputs_dependency):
                 for content in inputs:

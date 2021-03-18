@@ -557,7 +557,6 @@ class Work(Base):
         """
         inputs = self.get_input_contents()
         # mapped_inputs = mapped_input_output_maps.keys()
-        next_map_id = max(mapped_input_output_maps.keys()) + 1
 
         mapped_inputs = []
         for map_id in mapped_input_output_maps:
@@ -572,10 +571,24 @@ class Work(Base):
                 pass
             else:
                 new_inputs.append(ip)
-        new_input_maps = {}
-        for new_input in new_inputs:
-            new_input_maps[next_map_id] = [new_input]
-        return new_input_maps
+
+        new_input_output_maps = {}
+        mapped_keys = mapped_input_output_maps.keys()
+        if mapped_keys:
+            next_key = max(mapped_keys) + 1
+        else:
+            next_key = 1
+        for ip in new_inputs:
+            self.num_mapped_inputs += 1
+            out_ip = copy.deepcopy(ip)
+            out_ip['coll_id'] = self.collections[self.output_collections[0]]['coll_id']
+            new_input_output_maps[next_key] = {'inputs': [ip],
+                                               'outputs': [out_ip],
+                                               'inputs_dependency': [],
+                                               'logs': []}
+            next_key += 1
+
+        return new_input_output_maps
 
     def set_collection_id(self, collection, coll_id):
         # print(collection)
