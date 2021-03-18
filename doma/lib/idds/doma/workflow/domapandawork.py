@@ -71,6 +71,7 @@ class DomaPanDAWork(Work):
         self.core_count = core_count
 
         self.load_panda_urls()
+        self.in_files = [job['name'] for job in self.dependency_map]
 
     def my_condition(self):
         if self.is_finished():
@@ -208,6 +209,13 @@ class DomaPanDAWork(Work):
                    'content_metadata': {'events': 1}}
         return content
 
+    def is_all_dependency_tasks_available(self, inputs_dependency, task_name_to_coll_map):
+        for input_d in inputs_dependency:
+            task_name = input_d['task']
+            if task_name not in task_name_to_coll_map:
+                return False
+        return True
+
     def get_new_input_output_maps(self, mapped_input_output_maps={}):
         """
         *** Function called by Transformer agent.
@@ -223,16 +231,15 @@ class DomaPanDAWork(Work):
             return new_input_output_maps
 
         if self.dependency_map_deleted:
+            local_dependency_map_deleted = self.dependency_map_deleted
+            self.dependency_map_deleted = []
+
             mapped_outputs = self.get_mapped_outputs(mapped_input_output_maps)
             mapped_outputs_name = [ip['name'] for ip in mapped_outputs]
-            for job in self.dependency_map_deleted:
+            for job in local_dependency_map_deleted:
                 output_name = job['name']
-                if output_name in mapped_outputs_name:
-                    # this job has successfully been added to db, it can be cleaned.
-                    self.dependency_map_deleted.remove(job)
-                else:
+                if output_name not in mapped_outputs_name:
                     # this job is not added to db in last round, will do it again.
-                    self.dependency_map_deleted.remove(job)
                     self.dependency_map.append(job)
 
         if self.dependency_map:
@@ -249,31 +256,32 @@ class DomaPanDAWork(Work):
 
             task_name_to_coll_map = self.get_work_name_to_coll_map()
 
-            for job in self.dependency_map:
+            local_dependency_map = self.dependency_map
+            self.dependency_map = []
+            for job in local_dependency_map:
                 output_name = job['name']
                 inputs_dependency = job["dependencies"]
-                input_content = self.map_file_to_content(input_coll_id, input_coll['scope'], output_name)
-                output_content = self.map_file_to_content(output_coll_id, output_coll['scope'], output_name)
-                new_input_output_maps[next_key] = {'inputs_dependency': [],
-                                                   'logs': [],
-                                                   'inputs': [input_content],
-                                                   'outputs': [output_content]}
-                for input_d in inputs_dependency:
-                    task_name = input_d['task']
-                    input_name = input_d['inputname']
-                    if task_name in task_name_to_coll_map:
+
+                if self.is_all_dependency_tasks_available(inputs_dependency, task_name_to_coll_map):
+                    input_content = self.map_file_to_content(input_coll_id, input_coll['scope'], output_name)
+                    output_content = self.map_file_to_content(output_coll_id, output_coll['scope'], output_name)
+                    new_input_output_maps[next_key] = {'inputs_dependency': [],
+                                                       'logs': [],
+                                                       'inputs': [input_content],
+                                                       'outputs': [output_content]}
+                    for input_d in inputs_dependency:
+                        task_name = input_d['task']
+                        input_name = input_d['inputname']
                         input_d_coll = task_name_to_coll_map[task_name]['outputs'][0]
                         input_d_content = self.map_file_to_content(input_d_coll['coll_id'], input_d_coll['scope'], input_name)
                         new_input_output_maps[next_key]['inputs_dependency'].append(input_d_content)
-                    else:
-                        # some dependency task is not created yet. wait
-                        del new_input_output_maps[next_key]
-                        continue
 
-                # all inputs for this job can be parsed. move it to dependency_map_deleted
-                self.dependency_map.remove(job)
-                self.dependency_map_deleted.append(job)
-                next_key += 1
+                    # all inputs are parsed. move it to dependency_map_deleted
+                    self.dependency_map_deleted.append(job)
+                    next_key += 1
+                else:
+                    # not all inputs for this job can be parsed.
+                    self.dependency_map.append(job)
 
         self.logger.debug("get_new_input_output_maps, new_input_output_maps: %s" % str(new_input_output_maps))
         return new_input_output_maps
@@ -303,22 +311,14 @@ class DomaPanDAWork(Work):
 
         :param input_output_maps: new maps from inputs to outputs.
         """
-        in_files = []
-        for map_id in input_output_maps:
-            # one map is a job which transform the inputs to outputs.
-            inputs = input_output_maps[map_id]['inputs']
-            # outputs = input_output_maps[map_id]['outputs']
-            for ip in inputs:
-                in_files.append(ip['name'])
-
         task_param_map = {}
         task_param_map['vo'] = 'wlcg'
         task_param_map['site'] = self.queue
         task_param_map['workingGroup'] = 'lsst'
         task_param_map['nFilesPerJob'] = 1
-        task_param_map['nFiles'] = len(in_files)
+        task_param_map['nFiles'] = len(self.in_files)
         task_param_map['noInput'] = True
-        task_param_map['pfnList'] = in_files
+        task_param_map['pfnList'] = self.in_files
         task_param_map['taskName'] = self.task_name
         task_param_map['userName'] = 'Siarhei Padolski'
         task_param_map['taskPriority'] = 900
