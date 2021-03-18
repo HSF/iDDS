@@ -71,7 +71,6 @@ class DomaPanDAWork(Work):
         self.core_count = core_count
 
         self.load_panda_urls()
-        self.in_files = [job['name'] for job in self.dependency_map]
 
     def my_condition(self):
         if self.is_finished():
@@ -95,7 +94,7 @@ class DomaPanDAWork(Work):
 
     def load_panda_urls(self):
         panda_config = self.load_panda_config()
-        self.logger.info("panda config: %s" % panda_config)
+        self.logger.debug("panda config: %s" % panda_config)
         self.panda_url = None
         self.panda_url_ssl = None
         self.panda_monitor = None
@@ -104,25 +103,25 @@ class DomaPanDAWork(Work):
             if panda_config.has_option('panda', 'panda_monitor_url'):
                 self.panda_monitor = panda_config.get('panda', 'panda_monitor_url')
                 os.environ['PANDA_MONITOR_URL'] = self.panda_monitor
-                self.logger.info("Panda monitor url: %s" % str(self.panda_monitor))
+                self.logger.debug("Panda monitor url: %s" % str(self.panda_monitor))
             if panda_config.has_option('panda', 'panda_url'):
                 self.panda_url = panda_config.get('panda', 'panda_url')
                 os.environ['PANDA_URL'] = self.panda_url
-                self.logger.info("Panda url: %s" % str(self.panda_url))
+                self.logger.debug("Panda url: %s" % str(self.panda_url))
             if panda_config.has_option('panda', 'panda_url_ssl'):
                 self.panda_url_ssl = panda_config.get('panda', 'panda_url_ssl')
                 os.environ['PANDA_URL_SSL'] = self.panda_url_ssl
-                self.logger.info("Panda url ssl: %s" % str(self.panda_url_ssl))
+                self.logger.debug("Panda url ssl: %s" % str(self.panda_url_ssl))
 
         if not self.panda_monitor and 'PANDA_MONITOR_URL' in os.environ and os.environ['PANDA_MONITOR_URL']:
             self.panda_monitor = os.environ['PANDA_MONITOR_URL']
-            self.logger.info("Panda monitor url: %s" % str(self.panda_monitor))
+            self.logger.debug("Panda monitor url: %s" % str(self.panda_monitor))
         if not self.panda_url and 'PANDA_URL' in os.environ and os.environ['PANDA_URL']:
             self.panda_url = os.environ['PANDA_URL']
-            self.logger.info("Panda url: %s" % str(self.panda_url))
+            self.logger.debug("Panda url: %s" % str(self.panda_url))
         if not self.panda_url_ssl and 'PANDA_URL_SSL' in os.environ and os.environ['PANDA_URL_SSL']:
             self.panda_url_ssl = os.environ['PANDA_URL_SSL']
-            self.logger.info("Panda url ssl: %s" % str(self.panda_url_ssl))
+            self.logger.debug("Panda url ssl: %s" % str(self.panda_url_ssl))
 
     def poll_external_collection(self, coll):
         try:
@@ -311,14 +310,24 @@ class DomaPanDAWork(Work):
 
         :param input_output_maps: new maps from inputs to outputs.
         """
+        in_files = []
+        for map_id in input_output_maps:
+            # one map is a job which transform the inputs to outputs.
+            inputs = input_output_maps[map_id]['inputs']
+            # outputs = input_output_maps[map_id]['outputs']
+            for ip in inputs:
+                in_files.append(ip['name'])
+        for job in self.dependency_map:
+            in_files.append(job['name'])
+
         task_param_map = {}
         task_param_map['vo'] = 'wlcg'
         task_param_map['site'] = self.queue
         task_param_map['workingGroup'] = 'lsst'
         task_param_map['nFilesPerJob'] = 1
-        task_param_map['nFiles'] = len(self.in_files)
+        task_param_map['nFiles'] = len(in_files)
         task_param_map['noInput'] = True
-        task_param_map['pfnList'] = self.in_files
+        task_param_map['pfnList'] = in_files
         task_param_map['taskName'] = self.task_name
         task_param_map['userName'] = 'Siarhei Padolski'
         task_param_map['taskPriority'] = 900

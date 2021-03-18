@@ -211,7 +211,7 @@ class ATLASPandaWork(Work):
 
     def load_panda_urls(self):
         panda_config = self.load_panda_config()
-        self.logger.info("panda config: %s" % panda_config)
+        self.logger.debug("panda config: %s" % panda_config)
         self.panda_url = None
         self.panda_url_ssl = None
         self.panda_monitor = None
@@ -220,25 +220,25 @@ class ATLASPandaWork(Work):
             if panda_config.has_option('panda', 'panda_monitor_url'):
                 self.panda_monitor = panda_config.get('panda', 'panda_monitor_url')
                 os.environ['PANDA_MONITOR_URL'] = self.panda_monitor
-                self.logger.info("Panda monitor url: %s" % str(self.panda_monitor))
+                self.logger.debug("Panda monitor url: %s" % str(self.panda_monitor))
             if panda_config.has_option('panda', 'panda_url'):
                 self.panda_url = panda_config.get('panda', 'panda_url')
                 os.environ['PANDA_URL'] = self.panda_url
-                self.logger.info("Panda url: %s" % str(self.panda_url))
+                self.logger.debug("Panda url: %s" % str(self.panda_url))
             if panda_config.has_option('panda', 'panda_url_ssl'):
                 self.panda_url_ssl = panda_config.get('panda', 'panda_url_ssl')
                 os.environ['PANDA_URL_SSL'] = self.panda_url_ssl
-                self.logger.info("Panda url ssl: %s" % str(self.panda_url_ssl))
+                self.logger.debug("Panda url ssl: %s" % str(self.panda_url_ssl))
 
         if not self.panda_monitor and 'PANDA_MONITOR_URL' in os.environ and os.environ['PANDA_MONITOR_URL']:
             self.panda_monitor = os.environ['PANDA_MONITOR_URL']
-            self.logger.info("Panda monitor url: %s" % str(self.panda_monitor))
+            self.logger.debug("Panda monitor url: %s" % str(self.panda_monitor))
         if not self.panda_url and 'PANDA_URL' in os.environ and os.environ['PANDA_URL']:
             self.panda_url = os.environ['PANDA_URL']
-            self.logger.info("Panda url: %s" % str(self.panda_url))
+            self.logger.debug("Panda url: %s" % str(self.panda_url))
         if not self.panda_url_ssl and 'PANDA_URL_SSL' in os.environ and os.environ['PANDA_URL_SSL']:
             self.panda_url_ssl = os.environ['PANDA_URL_SSL']
-            self.logger.info("Panda url ssl: %s" % str(self.panda_url_ssl))
+            self.logger.debug("Panda url ssl: %s" % str(self.panda_url_ssl))
 
     def poll_external_collection(self, coll):
         try:

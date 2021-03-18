@@ -327,7 +327,7 @@ class Content(BASE, ModelBase):
                    # UniqueConstraint('name', 'scope', 'coll_id', 'content_type', 'min_id', 'max_id', name='CONTENT_SCOPE_NAME_UQ'),
                    # UniqueConstraint('name', 'scope', 'coll_id', 'min_id', 'max_id', name='CONTENT_SCOPE_NAME_UQ'),
                    # UniqueConstraint('content_id', 'coll_id', name='CONTENTS_UQ'),
-                   UniqueConstraint('transform_id', 'coll_id', 'map_id', name='CONTENT_ID_UQ'),
+                   UniqueConstraint('transform_id', 'coll_id', 'map_id', 'name', name='CONTENT_ID_UQ'),
                    ForeignKeyConstraint(['transform_id'], ['transforms.transform_id'], name='CONTENTS_TRANSFORM_ID_FK'),
                    ForeignKeyConstraint(['coll_id'], ['collections.coll_id'], name='CONTENTS_COLL_ID_FK'),
                    CheckConstraint('status IS NOT NULL', name='CONTENTS_STATUS_ID_NN'),
