@@ -24,8 +24,6 @@ import re
 import traceback
 import uuid
 
-from pandatools import Client
-
 from idds.common import exceptions
 from idds.common.constants import (TransformType, CollectionType, CollectionStatus,
                                    ProcessingStatus, WorkStatus)
@@ -384,6 +382,8 @@ class ATLASPandaWork(Work):
 
     def submit_panda_task(self, processing):
         try:
+            from pandatools import Client
+
             status, tmpOut = Client.insertTaskParams(self.panda_task_paramsmap, False, True)
             if status == 0:
                 tmp_status, tmp_output = tmpOut
@@ -411,6 +411,8 @@ class ATLASPandaWork(Work):
 
     def poll_panda_task(self, processing):
         if 'panda_task_id' in processing['processing_metadata']:
+            from pandatools import Client
+
             status, task_status = Client.getTaskStatus(processing['processing_metadata']['panda_task_id'])
             if status == 0:
                 return task_status

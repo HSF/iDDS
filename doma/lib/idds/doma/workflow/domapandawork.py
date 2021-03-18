@@ -19,8 +19,6 @@ import os
 import traceback
 import uuid
 
-from pandatools import Client
-
 from idds.common import exceptions
 from idds.common.constants import (TransformType, CollectionStatus, CollectionType,
                                    ContentStatus, ContentType,
@@ -231,10 +229,10 @@ class DomaPanDAWork(Work):
                 output_name = job['name']
                 if output_name in mapped_outputs_name:
                     # this job has successfully been added to db, it can be cleaned.
-                    del self.dependency_map_deleted[job]
+                    self.dependency_map_deleted.remove(job)
                 else:
                     # this job is not added to db in last round, will do it again.
-                    del self.dependency_map_deleted[job]
+                    self.dependency_map_deleted.remove(job)
                     self.dependency_map.append(job)
 
         if self.dependency_map:
@@ -356,6 +354,8 @@ class DomaPanDAWork(Work):
 
     def submit_panda_task(self, processing):
         try:
+            from pandatools import Client
+
             task_param = processing['processing_metadata']['task_param']
             return_code = Client.insertTaskParams(task_param, verbose=True)
             if return_code[0] == 0:
@@ -381,6 +381,8 @@ class DomaPanDAWork(Work):
 
     def poll_panda_task_status(self, processing):
         if 'task_id' in processing['processing_metadata']:
+            from pandatools import Client
+
             status, task_status = Client.getTaskStatus(processing['processing_metadata']['task_id'])
             if status == 0:
                 return task_status
@@ -472,6 +474,8 @@ class DomaPanDAWork(Work):
 
     def map_panda_ids(self, unregistered_job_ids, input_output_maps):
         self.logger.debug("map_panda_ids, unregistered_job_ids: %s" % str(unregistered_job_ids))
+        from pandatools import Client
+
         # updated_map_ids = []
         full_update_contents = []
         chunksize = 2000
@@ -488,6 +492,8 @@ class DomaPanDAWork(Work):
 
     def get_status_changed_contents(self, unterminated_job_ids, input_output_maps, panda_id_to_map_ids):
         self.logger.debug("get_status_changed_contents, unterminated_job_ids: %s" % str(unterminated_job_ids))
+        from pandatools import Client
+
         full_update_contents = []
         chunksize = 2000
         chunks = [unterminated_job_ids[i:i + chunksize] for i in range(0, len(unterminated_job_ids), chunksize)]
@@ -503,6 +509,8 @@ class DomaPanDAWork(Work):
     def poll_panda_task(self, processing=None, input_output_maps=None):
         task_id = None
         try:
+            from pandatools import Client
+
             jobs_ids = None
             if processing:
                 task_id = processing['processing_metadata']['task_id']
@@ -512,7 +520,8 @@ class DomaPanDAWork(Work):
                 self.logger.debug("poll_panda_task, task_info: %s" % str(task_info))
                 if task_info[0] != 0:
                     self.logger.error("poll_panda_task %s, error getting task status, task_info: %s" % (task_id, str(task_info)))
-                    return "No status", {}
+                    # return "No status", {}
+                    return ProcessingStatus.Submitting, {}
 
                 task_info = task_info[1]
 
@@ -529,7 +538,7 @@ class DomaPanDAWork(Work):
                         unregistered_job_ids.append(job_id)
 
                 map_update_contents = self.map_panda_ids(unregistered_job_ids, input_output_maps)
-                status_changed_update_contents = self.get_status_changed_contents(unterminated_job_ids)
+                status_changed_update_contents = self.get_status_changed_contents(unterminated_job_ids, input_output_maps, panda_id_to_map_ids)
 
                 return processing_status, map_update_contents + status_changed_update_contents
         except Exception as ex:
@@ -540,6 +549,7 @@ class DomaPanDAWork(Work):
     def kill_processing(self, processing):
         try:
             if processing:
+                from pandatools import Client
                 task_id = processing['processing_metadata']['task_id']
                 Client.killTask(task_id)
         except Exception as ex:
@@ -549,6 +559,7 @@ class DomaPanDAWork(Work):
     def reactivate_processing(self, processing):
         try:
             if processing:
+                from pandatools import Client
                 task_id = processing['processing_metadata']['task_id']
                 Client.retryTask(task_id)
                 # Client.reactivateTask(task_id)
