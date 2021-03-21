@@ -9,10 +9,10 @@ from idds.core.processings import get_processings
 reqs = get_requests()
 # print(len(reqs))
 for req in reqs:
-    if req['request_id'] == 208:
+    if req['request_id'] == 91:
         # print(req)
         # print(req['request_metadata']['workflow'].to_dict())
-        # print(json_dumps(req, sort_keys=True, indent=4))
+        print(json_dumps(req, sort_keys=True, indent=4))
         pass
 
 tfs = get_transforms()
@@ -43,5 +43,5 @@ for wp in wps:
 prs = get_processings()
 for pr in prs:
     if pr['request_id'] == 91:
-        print(json_dumps(pr, sort_keys=True, indent=4))
+        # print(json_dumps(pr, sort_keys=True, indent=4))
         pass

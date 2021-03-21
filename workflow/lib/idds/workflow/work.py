@@ -635,6 +635,14 @@ class Work(Base):
             processing['processing_metadata']['internal_id'] = str(uuid.uuid1())
         self.processings[processing['processing_metadata']['internal_id']] = processing
 
+    def get_processing_ids(self):
+        ids = []
+        for p_id in self.active_processings:
+            p = self.processings[p_id]
+            if 'processing_id' in p:
+                ids.append(p['processing_id'])
+        return ids
+
     # def set_processing(self, processing):
     #     self.processing = processing
 
@@ -840,6 +848,7 @@ class Work(Base):
 
     def is_processing_expired(self, processing):
         if processing['expired_at'] and processing['expired_at'] < datetime.datetime.utcnow():
+            self.logger.info("Processing %s expired" % processing['processing_id'])
             return True
         return False
 
@@ -865,7 +874,7 @@ class Work(Base):
         # raise exceptions.NotImplementedException
         if self.is_processings_terminated() and not self.has_new_inputs():
             if self.is_all_outputs_flushed(input_output_maps):
-                self.logger.warn("The work %s is terminated. but not all outputs are flushed. Wait to flush the outputs then finish the transform" % str(self.work_id))
+                self.logger.warn("The work processings %s is terminated. but not all outputs are flushed. Wait to flush the outputs then finish the transform" % str(self.get_processing_ids()))
                 return
 
             if self.is_processings_finished():

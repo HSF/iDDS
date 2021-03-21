@@ -199,6 +199,10 @@ class Clerk(BaseAgent):
 
         update_transforms = {}
         if req['status'] in [RequestStatus.ToCancel]:
+            if 'operations' not in processing_metadata
+                processing_metadata['operations'] = []
+            processing_metadata['operations'].append({'status': RequestStatus.ToCancel, 'time': datetime.datetime.utcnow()})
+
             # current works
             works = wf.get_current_works()
             # print(works)
@@ -209,6 +213,10 @@ class Clerk(BaseAgent):
                                              WorkStatus.Suspended]:
                     update_transforms[work.get_work_id()] = {'status': TransformStatus.ToCancel}
         elif req['status'] in [RequestStatus.ToSuspend]:
+            if 'operations' not in processing_metadata
+                processing_metadata['operations'] = []
+            processing_metadata['operations'].append({'status': RequestStatus.ToSuspend, 'time': datetime.datetime.utcnow()})
+
             # current works
             works = wf.get_current_works()
             # print(works)
@@ -219,6 +227,9 @@ class Clerk(BaseAgent):
                                              WorkStatus.Suspended]:
                     update_transforms[work.get_work_id()] = {'status': TransformStatus.ToSuspend}
         elif req['status'] in [RequestStatus.ToResume]:
+            if 'operations' not in processing_metadata
+                processing_metadata['operations'] = []
+            processing_metadata['operations'].append({'status': RequestStatus.ToResume, 'time': datetime.datetime.utcnow()})
             # current works
             works = wf.get_current_works()
             # print(works)
@@ -293,8 +304,9 @@ class Clerk(BaseAgent):
         for tf in tfs:
             if tf['status'] not in [RequestStatus.Finished, RequestStatus.SubFinished,
                                     RequestStatus.Failed, RequestStatus.Cancelling,
-                                    RequestStatus.Cancelled]:
-                tfs_status[tf['request_id']] = {'status': tf_status}
+                                    RequestStatus.Cancelled, RequestStatus.Suspending,
+                                    RequestStatus.Suspended]:
+                tfs_status[tf['transform_id']] = {'status': tf_status}
 
         ret_req = {'request_id': req['request_id'],
                    'parameters': {'status': req_status,
