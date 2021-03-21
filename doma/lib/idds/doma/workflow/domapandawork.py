@@ -474,7 +474,9 @@ class DomaPanDAWork(Work):
         return finished_panda_ids + failed_panda_ids, unterminated_panda_ids, map_id_without_panda_ids, panda_id_to_map_ids
 
     def get_map_id_from_input(self, input_output_maps, input_file):
-        for map_id in input_output_maps.keys().reverse():
+        map_keys = list(input_output_maps.keys())
+        map_keys.reverse()
+        for map_id in map_keys:
             inputs = input_output_maps[map_id]['inputs']
             # outputs = input_output_maps[map_id]['outputs']
             for content in inputs:
@@ -552,7 +554,7 @@ class DomaPanDAWork(Work):
 
                 # ret_ids = Client.getPandaIDsWithTaskID(task_id, verbose=False)
                 task_info = Client.getJediTaskDetails({'jediTaskID': task_id}, True, True, verbose=False)
-                self.logger.debug("poll_panda_task, task_info: %s" % str(task_info))
+                self.logger.info("poll_panda_task, task_info: %s" % str(task_info))
                 if task_info[0] != 0:
                     self.logger.error("poll_panda_task %s, error getting task status, task_info: %s" % (task_id, str(task_info)))
                     # return "No status", {}
