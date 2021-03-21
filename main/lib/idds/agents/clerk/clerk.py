@@ -8,6 +8,7 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2019
 
+import datetime
 import traceback
 try:
     # python 3
@@ -199,7 +200,7 @@ class Clerk(BaseAgent):
 
         update_transforms = {}
         if req['status'] in [RequestStatus.ToCancel]:
-            if 'operations' not in processing_metadata
+            if 'operations' not in processing_metadata:
                 processing_metadata['operations'] = []
             processing_metadata['operations'].append({'status': RequestStatus.ToCancel, 'time': datetime.datetime.utcnow()})
 
@@ -213,7 +214,7 @@ class Clerk(BaseAgent):
                                              WorkStatus.Suspended]:
                     update_transforms[work.get_work_id()] = {'status': TransformStatus.ToCancel}
         elif req['status'] in [RequestStatus.ToSuspend]:
-            if 'operations' not in processing_metadata
+            if 'operations' not in processing_metadata:
                 processing_metadata['operations'] = []
             processing_metadata['operations'].append({'status': RequestStatus.ToSuspend, 'time': datetime.datetime.utcnow()})
 
@@ -227,7 +228,7 @@ class Clerk(BaseAgent):
                                              WorkStatus.Suspended]:
                     update_transforms[work.get_work_id()] = {'status': TransformStatus.ToSuspend}
         elif req['status'] in [RequestStatus.ToResume]:
-            if 'operations' not in processing_metadata
+            if 'operations' not in processing_metadata:
                 processing_metadata['operations'] = []
             processing_metadata['operations'].append({'status': RequestStatus.ToResume, 'time': datetime.datetime.utcnow()})
             # current works
