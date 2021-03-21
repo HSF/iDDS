@@ -464,6 +464,10 @@ class ATLASPandaWork(Work):
         self.syn_collection_status()
 
         if self.is_processings_terminated() and not self.has_new_inputs():
+            if self.is_all_outputs_flushed(registered_input_output_maps):
+                self.logger.warn("The processing is terminated. but not all outputs are flushed. Wait to flush the outputs then finish the transform")
+                return
+
             if self.is_processings_finished():
                 self.status = WorkStatus.Finished
             elif self.is_processings_failed():

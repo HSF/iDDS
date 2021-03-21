@@ -682,6 +682,10 @@ class DomaPanDAWork(Work):
                           str(self.collections[self.primary_input_collection]['status']))
 
         if self.is_processings_terminated() and not self.has_new_inputs():
+            if self.is_all_outputs_flushed(registered_input_output_maps):
+                self.logger.warn("The processing is terminated. but not all outputs are flushed. Wait to flush the outputs then finish the transform")
+                return
+
             keys = self.status_statistics.keys()
             if ContentStatus.New.name in keys or ContentStatus.Processing.name in keys:
                 pass

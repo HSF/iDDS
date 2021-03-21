@@ -601,8 +601,8 @@ class Work(Base):
     def should_release_inputs(self, processing=None):
         if self.release_inputs_after_submitting:
             if (processing and 'status' in processing
-                and processing['status'] in [ProcessingStatus.Submitted, ProcessingStatus.Submitted.value,  # noqa: W503
-                                             ProcessingStatus.Running, ProcessingStatus.Running.value]):  # noqa: W503
+                and processing['status'] not in [ProcessingStatus.New, ProcessingStatus.New.value,  # noqa: W503
+                                                 ProcessingStatus.Submitting, ProcessingStatus.Submitting.value]):  # noqa: W503
                 return True
             return False
         return True
@@ -833,12 +833,25 @@ class Work(Base):
         """
         raise exceptions.NotImplementedException
 
+    def is_all_outputs_flushed(self, input_output_maps):
+        for map_id in input_output_maps:
+            outputs = input_output_maps[map_id]['outputs']
+
+            for content in outputs:
+                if content['status'] != content['substatus']:
+                    return False
+        return True
+
     def syn_work_status(self, input_output_maps):
         """
         *** Function called by Transformer agent.
         """
         # raise exceptions.NotImplementedException
         if self.is_processings_terminated() and not self.has_new_inputs():
+            if self.is_all_outputs_flushed(input_output_maps):
+                self.logger.warn("The processing is terminated. but not all outputs are flushed. Wait to flush the outputs then finish the transform")
+                return
+
             if self.is_processings_finished():
                 self.status = WorkStatus.Finished
             elif self.is_processings_subfinished():
