@@ -420,6 +420,28 @@ class ATLASPandaWork(Work):
             return 'failed'
         return None
 
+    def kill_processing(self, processing):
+        try:
+            if processing:
+                from pandatools import Client
+                task_id = processing['processing_metadata']['task_id']
+                Client.killTask(task_id)
+        except Exception as ex:
+            msg = "Failed to check the processing (%s) status: %s" % (str(processing['processing_id']), str(ex))
+            raise exceptions.IDDSException(msg)
+
+    def reactivate_processing(self, processing):
+        try:
+            if processing:
+                from pandatools import Client
+                task_id = processing['processing_metadata']['task_id']
+                Client.retryTask(task_id)
+                # Client.reactivateTask(task_id)
+                # Client.resumeTask(task_id)
+        except Exception as ex:
+            msg = "Failed to check the processing (%s) status: %s" % (str(processing['processing_id']), str(ex))
+            raise exceptions.IDDSException(msg)
+
     def poll_processing_updates(self, processing, input_output_maps):
         """
         *** Function called by Carrier agent.
@@ -428,6 +450,22 @@ class ATLASPandaWork(Work):
         update_processing = {}
 
         if processing:
+            if self.tocancel:
+                self.logger.info("Cancelling processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], processing['processing_metadata']['task_id']))
+                self.kill_processing(processing)
+                self.tocancel = False
+            elif self.tosuspend:
+                self.logger.info("Suspending processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], processing['processing_metadata']['task_id']))
+                self.kill_processing(processing)
+                self.tosuspend = False
+            elif self.toresume:
+                self.logger.info("Resuming processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], processing['processing_metadata']['task_id']))
+                self.reactivate_processing(processing)
+                self.toresume = False
+            elif self.is_processing_expired(processing):
+                self.logger.info("Expiring processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], processing['processing_metadata']['task_id']))
+                self.kill_processing(processing)
+
             task_status = self.poll_panda_task(processing)
             if task_status:
                 if task_status in ['registered', 'defined']:

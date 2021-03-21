@@ -653,17 +653,18 @@ class ATLASHPOWork(ATLASCondorWork):
             self.cancelled_processings.append(processing['processing_metadata']['internal_id'])
             processing_status = ProcessingStatus.Cancelled
             processing_outputs = None
-            processing_err = None
+            processing_err = 'Cancelled'
         elif self.tosuspend:
             self.suspended_processings.append(processing['processing_metadata']['internal_id'])
             processing_status = ProcessingStatus.Suspended
             processing_outputs = None
-            processing_err = None
+            processing_err = 'Suspend'
         elif self.toresume:
-            self.old_processings.append(processing['processing_metadata']['internal_id'])
+            # self.old_processings.append(processing['processing_metadata']['internal_id'])
             # self.active_processings.clear()
-            self.active_processings.remove(processing['processing_metadata']['internal_id'])
-            processing_status = ProcessingStatus.Resuming
+            # self.active_processings.remove(processing['processing_metadata']['internal_id'])
+            processing['processing_metadata']['resuming_at'] = datetime.datetime.utcnow()
+            processing_status = ProcessingStatus.Running
             processing_outputs = None
             processing_err = None
         else:
