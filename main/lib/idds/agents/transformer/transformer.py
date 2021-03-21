@@ -529,6 +529,7 @@ class Transformer(BaseAgent):
                 new_processing_model['request_id'] = transform['request_id']
                 new_processing_model['workload_id'] = transform['workload_id']
                 new_processing_model['status'] = ProcessingStatus.New
+                new_processing_model['expired_at'] = work.get_expired_at(None)
                 if 'processing_metadata' not in processing:
                     processing['processing_metadata'] = {}
                 if 'processing_metadata' not in new_processing_model:

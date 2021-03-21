@@ -198,8 +198,14 @@ class Work(Base):
 
     def set_agent_attributes(self, attrs, req_attributes=None):
         if attrs and self.class_name in attrs:
-            self.agent_attributes = attrs[self.class_name]
+            if self.agent_attributes is None:
+                self.agent_attributes = {}
+            for key, value in attrs[self.class_name].items():
+                self.agent_attributes[key] = value
         self.logger.info("agent_attributes: %s" % self.agent_attributes)
+
+    def get_agent_attributes(self):
+        return self.agent_attributes
 
     def set_workdir(self, workdir):
         self.workdir = workdir
@@ -819,12 +825,22 @@ class Work(Base):
         # raise exceptions.NotImplementedException
         self.toresume = True
 
-    def is_processing_expired(self, processing):
+    def get_expired_at(self, processing=None):
+        if processing and 'created_at' in processing and processing['created_at']:
+            return processing['created_at'] + datetime.timedelta(seconds=int(self.agent_attributes['life_time']))
+        return datetime.datetime.utcnow() + datetime.timedelta(seconds=int(self.agent_attributes['life_time']))
+
+    def is_processing_expired_old(self, processing):
         if (self.agent_attributes and 'life_time' in self.agent_attributes and self.agent_attributes['life_time']):
             time_diff = datetime.datetime.utcnow() - processing['created_at']
             time_diff = time_diff.total_seconds()
             if time_diff > int(self.agent_attributes['life_time']):
                 return True
+        return False
+
+    def is_processing_expired(self, processing):
+        if processing['expired_at'] and processing['expired_at'] < datetime.datetime.utcnow():
+            return True
         return False
 
     def poll_processing_updates(self, processing, input_output_maps):
@@ -849,7 +865,7 @@ class Work(Base):
         # raise exceptions.NotImplementedException
         if self.is_processings_terminated() and not self.has_new_inputs():
             if self.is_all_outputs_flushed(input_output_maps):
-                self.logger.warn("The processing is terminated. but not all outputs are flushed. Wait to flush the outputs then finish the transform")
+                self.logger.warn("The processing %s is terminated. but not all outputs are flushed. Wait to flush the outputs then finish the transform" % str(processing['processing_id']))
                 return
 
             if self.is_processings_finished():

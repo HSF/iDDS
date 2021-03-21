@@ -66,11 +66,13 @@ class Carrier(BaseAgent):
         # transform = core_transforms.get_transform(transform_id=transform_id)
         # work = transform['transform_metadata']['work']
         work = processing['processing_metadata']['work']
-        # work.set_agent_attributes(self.agent_attributes)
+        work.set_agent_attributes(self.agent_attributes)
+
         work.submit_processing(processing)
         ret = {'processing_id': processing['processing_id'],
                'status': ProcessingStatus.Submitting,
                'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period),
+               'expired_at': work.get_expired_at(processing),
                'processing_metadata': processing['processing_metadata']}
         if processing['processing_metadata'] and 'workload_id' in processing['processing_metadata']:
             ret['workload_id'] = processing['processing_metadata']['workload_id']
@@ -130,6 +132,7 @@ class Carrier(BaseAgent):
         # transform = core_transforms.get_transform(transform_id=transform_id)
         # work = transform['transform_metadata']['work']
         work = processing['processing_metadata']['work']
+        work.set_agent_attributes(self.agent_attributes)
 
         input_collections = work.get_input_collections()
         output_collections = work.get_output_collections()
@@ -160,6 +163,8 @@ class Carrier(BaseAgent):
         else:
             processing_update = {'processing_id': processing['processing_id'],
                                  'parameters': {'locking': ProcessingLocking.Idle}}
+
+        processing_update['parameters']['expired_at'] = work.get_expired_at(processing)
 
         ret = {'processing_update': processing_update,
                'content_updates': content_updates}
