@@ -339,12 +339,12 @@ def get_transform_input_output_maps(transform_id, input_coll_ids, output_coll_id
     return ret
 
 
-def release_inputs(self, to_release_inputs):
+def release_inputs(to_release_inputs):
     update_contents = []
     for to_release in to_release_inputs:
         contents = orm_contents.get_input_contents(request_id=to_release['request_id'],
                                                    coll_id=to_release['coll_id'],
-                                                   name=to_release['content'])
+                                                   name=to_release['name'])
         for content in contents:
             if content['content_relation_type'] == ContentRelationType.InputDependency:
                 update_content = {'content_id': content['content_id'],

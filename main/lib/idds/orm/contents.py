@@ -390,7 +390,7 @@ def get_input_contents(request_id, coll_id, name, to_json=False, session=None):
         query = query.filter(models.Content.request_id == request_id)
         query = query.filter(models.Content.coll_id == coll_id)
         query = query.filter(models.Content.name == name)
-        query = query.filter(models.Content.content_relation_type == ContentRelationType.Input)
+        # query = query.filter(models.Content.content_relation_type == ContentRelationType.Input)
         query = query.order_by(asc(models.Content.map_id))
 
         tmp = query.all()

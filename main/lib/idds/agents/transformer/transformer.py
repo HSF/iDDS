@@ -243,8 +243,11 @@ class Transformer(BaseAgent):
                           'name': content['name'],
                           'status': content['status'],
                           'substatus': content['substatus']}
-        to_release_inputs.append(to_release)
-        updated_contents = core_transforms.release_inputs(to_release)
+            to_release_inputs.append(to_release)
+        # updated_contents = core_transforms.release_inputs(to_release_inputs)
+        self.logger.debug("trigger_release_inputs, to_release_inputs: %s" % str(to_release_inputs))
+        updated_contents = core_transforms.release_inputs(to_release_inputs)
+        self.logger.debug("trigger_release_inputs, updated_contents: %s" % str(updated_contents))
         return updated_contents
 
     def process_new_transform(self, transform):
