@@ -78,7 +78,7 @@ class ClientManager:
         reqs = self.client.get_requests(request_id=request_id, workload_id=workload_id)
         for req in reqs:
             logging.info("Aborting request: %s" % req['request_id'])
-            self.client.update_request(request_id=req['request_id'], parameters={'status': RequestStatus.ToCancel})
+            self.client.update_request(request_id=req['request_id'], parameters={'substatus': RequestStatus.ToCancel})
 
     @exception_handler
     def suspend(self, request_id=None, workload_id=None):
@@ -94,7 +94,7 @@ class ClientManager:
         reqs = self.client.get_requests(request_id=request_id, workload_id=workload_id)
         for req in reqs:
             logging.info("Suspending request: %s" % req['request_id'])
-            self.client.update_request(request_id=req['request_id'], parameters={'status': RequestStatus.ToSuspend})
+            self.client.update_request(request_id=req['request_id'], parameters={'substatus': RequestStatus.ToSuspend})
 
     @exception_handler
     def resume(self, request_id=None, workload_id=None):
@@ -110,7 +110,7 @@ class ClientManager:
         reqs = self.client.get_requests(request_id=request_id, workload_id=workload_id)
         for req in reqs:
             logging.info("Resuming request: %s" % req['request_id'])
-            self.client.update_request(request_id=req['request_id'], parameters={'status': RequestStatus.ToResume})
+            self.client.update_request(request_id=req['request_id'], parameters={'substatus': RequestStatus.ToResume})
 
     @exception_handler
     def get_status(self, request_id=None, workload_id=None, with_detail=False):
