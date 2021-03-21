@@ -124,6 +124,47 @@ def get_processing(processing_id, to_json=False, session=None):
 
 
 @read_session
+def get_processings(request_id=None, workload_id=None, transform_id=None, to_json=False, session=None):
+    """
+    Get processing or raise a NoObject exception.
+
+    :param processing_id: Processing id.
+    :param to_json: return json format.
+
+    :param session: The database session in use.
+
+    :raises NoObject: If no processing is founded.
+
+    :returns: Processing.
+    """
+
+    try:
+        query = session.query(models.Processing)
+
+        if request_id:
+            query = query.filter(models.Processing.request_id == request_id)
+        if workload_id:
+            query = query.filter(models.Processing.workload_id == workload_id)
+        if transform_id:
+            query = query.filter(models.Processing.transform_id == transform_id)
+
+        tmp = query.all()
+        rets = []
+        if tmp:
+            for t in tmp:
+                if to_json:
+                    rets.append(t.to_dict_json())
+                else:
+                    rets.append(t.to_dict())
+        return rets
+    except sqlalchemy.orm.exc.NoResultFound as error:
+        raise exceptions.NoObject('Processing(request_id: %s, workload_id: %s, transform_id: %s) cannot be found: %s' %
+                                  (request_id, workload_id, transform_id, error))
+    except Exception as error:
+        raise error
+
+
+@read_session
 def get_processings_by_transform_id(transform_id=None, to_json=False, session=None):
     """
     Get processings or raise a NoObject exception.
