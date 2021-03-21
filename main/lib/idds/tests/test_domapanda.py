@@ -36,6 +36,9 @@ from idds.workflow.workflow import Workflow
 from idds.doma.workflow.domapandawork import DomaPanDAWork
 
 
+task_queue = 'DOMA_LSST_GOOGLE_TEST'
+
+
 def randStr(chars=string.ascii_lowercase + string.digits, N=10):
     return ''.join(random.choice(chars) for _ in range(N))
 
@@ -118,15 +121,15 @@ def setup_workflow():
     work1 = DomaPanDAWork(executable='echo',
                           primary_input_collection={'scope': 'pseudo_dataset', 'name': 'pseudo_input_collection#1'},
                           output_collections=[{'scope': 'pseudo_dataset', 'name': 'pseudo_output_collection#1'}],
-                          log_collections=[], dependency_map=taskN1.dependencies, task_name=taskN1.name)
+                          log_collections=[], dependency_map=taskN1.dependencies, task_name=taskN1.name, task_queue=task_queue)
     work2 = DomaPanDAWork(executable='echo',
                           primary_input_collection={'scope': 'pseudo_dataset', 'name': 'pseudo_input_collection#2'},
                           output_collections=[{'scope': 'pseudo_dataset', 'name': 'pseudo_output_collection#2'}],
-                          log_collections=[], dependency_map=taskN2.dependencies, task_name=taskN2.name)
+                          log_collections=[], dependency_map=taskN2.dependencies, task_name=taskN2.name, task_queue=task_queue)
     work3 = DomaPanDAWork(executable='echo',
                           primary_input_collection={'scope': 'pseudo_dataset', 'name': 'pseudo_input_collection#3'},
                           output_collections=[{'scope': 'pseudo_dataset', 'name': 'pseudo_output_collection#3'}],
-                          log_collections=[], dependency_map=taskN3.dependencies, task_name=taskN3.name)
+                          log_collections=[], dependency_map=taskN3.dependencies, task_name=taskN3.name, task_queue=task_queue)
 
     workflow = Workflow()
     workflow.add_work(work1)
