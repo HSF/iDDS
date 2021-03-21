@@ -530,7 +530,9 @@ class Transformer(BaseAgent):
                     processing['processing_metadata'] = {}
                 if 'processing_metadata' not in new_processing_model:
                     new_processing_model['processing_metadata'] = {}
-                new_processing_model['processing_metadata']['work'] = work
+                proc_work = copy.deepcopy(work)
+                proc_work.clean_work()
+                new_processing_model['processing_metadata']['work'] = proc_work
             else:
                 processing_model = core_processings.get_processing(processing_id=processing['processing_id'])
                 work.set_processing_status(processing, processing_model['status'])

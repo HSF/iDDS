@@ -15,6 +15,7 @@ try:
 except ImportError:
     import configparser as ConfigParser
 
+import datetime
 import os
 import traceback
 import uuid
@@ -25,7 +26,6 @@ from idds.common.constants import (TransformType, CollectionStatus, CollectionTy
                                    ProcessingStatus, WorkStatus)
 from idds.workflow.work import Work
 from idds.workflow.workflow import Condition
-import logging
 
 
 class DomaCondition(Condition):
@@ -58,7 +58,8 @@ class DomaPanDAWork(Work):
 
         self.dependency_map = dependency_map
         self.dependency_map_deleted = []
-        self.logger.setLevel(logging.DEBUG)
+        # self.logger.setLevel(logging.DEBUG)
+
         self.task_name = task_name
         self.set_work_name(task_name)
         self.queue = task_queue
@@ -122,6 +123,10 @@ class DomaPanDAWork(Work):
         if not self.panda_url_ssl and 'PANDA_URL_SSL' in os.environ and os.environ['PANDA_URL_SSL']:
             self.panda_url_ssl = os.environ['PANDA_URL_SSL']
             self.logger.debug("Panda url ssl: %s" % str(self.panda_url_ssl))
+
+    def clean_work(self):
+        self.dependency_map_deleted = []
+        self.dependency_map = []
 
     def poll_external_collection(self, coll):
         try:
@@ -388,6 +393,22 @@ class DomaPanDAWork(Work):
             processing['processing_metadata']['task_id'] = task_id
             processing['processing_metadata']['workload_id'] = task_id
 
+    def poll_latest_tasks(self, processing):
+        from pandatools import Client
+
+        start_time = datetime.datetime.utcnow() - datetime.timedelta(hours=10)
+        start_time = start_time.strftime('%Y-%m-%d %H:%M:%S')
+        status, results = Client.getJobIDsJediTasksInTimeRange(start_time, verbose=False)
+        if status != 0:
+            self.logger.error("Error to poll latest tasks in last ten hours: %s, %s" % (status, results))
+            return None
+        for req_id in results:
+            task_name = results[req_id]['taskName']
+            if task_name == self.task_name:
+                task_id = results[req_id]['jediTaskID']
+                processing['processing_metadata']['task_id'] = task_id
+                processing['processing_metadata']['workload_id'] = task_id
+
     def poll_panda_task_status(self, processing):
         if 'task_id' in processing['processing_metadata']:
             from pandatools import Client
@@ -400,19 +421,24 @@ class DomaPanDAWork(Work):
         return None
 
     def get_processing_status_from_panda_status(self, task_status):
-        if task_status in ['registered', 'defined']:
+        if task_status in ['registered']:
+            processing_status = ProcessingStatus.Submitting
+        elif task_status in ['defined', 'assigning', 'ready', 'pending', 'scouting', 'scouted', 'prepared', 'topreprocess', 'preprocessing']:
             processing_status = ProcessingStatus.Submitted
-        elif task_status in ['assigning', 'ready', 'pending', 'scouting', 'scouted', 'running', 'prepared']:
+        elif task_status in ['running', 'toretry', 'toincexec', 'throttled']:
             processing_status = ProcessingStatus.Running
         elif task_status in ['done']:
-            # finished, finishing, waiting it to be done
             processing_status = ProcessingStatus.Finished
+        elif task_status in ['finished', 'paused']:
+            # finished, finishing, waiting it to be done
+            processing_status = ProcessingStatus.SubFinished
         elif task_status in ['failed', 'aborted', 'broken', 'exhausted']:
+            # aborting, tobroken
             processing_status = ProcessingStatus.Failed
         else:
             # finished, finishing, aborting, topreprocess, preprocessing, tobroken
             # toretry, toincexec, rerefine, paused, throttled, passed
-            processing_status = ProcessingStatus.Running
+            processing_status = ProcessingStatus.Submitted
         return processing_status
 
     def sort_panda_jobids(self, input_output_maps):

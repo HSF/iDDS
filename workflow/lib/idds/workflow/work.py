@@ -193,6 +193,9 @@ class Work(Base):
     # def set_workflow(self, workflow):
     #     self.workflow = workflow
 
+    def clean_work(self):
+        pass
+
     def set_agent_attributes(self, attrs, req_attributes=None):
         if attrs and self.class_name in attrs:
             self.agent_attributes = attrs[self.class_name]
