@@ -286,12 +286,16 @@ class Transformer(BaseAgent):
 
         # processing = self.get_processing(transform, input_colls, output_colls, log_colls, input_output_maps)
 
-        transform['locking'] = TransformLocking.Idle
-        transform['status'] = TransformStatus.Transforming
+        transform_parameters = {'status': TransformStatus.Transforming,
+                                'locking': TransformLocking.Idle,
+                                'workload_id': transform['workload_id'],
+                                'transform_metadata': transform['transform_metadata']}
+
         # ret = {'transform': transform, 'input_collections': input_colls, 'output_collections': output_colls,
         #        'log_collections': log_colls, 'new_input_output_maps': input_output_maps, 'messages': file_msgs,
         #        'new_processing': processing}
-        ret = {'transform': transform, 'input_collections': input_colls, 'output_collections': output_colls,
+        ret = {'transform': transform, 'transform_parameters': transform_parameters,
+               'input_collections': input_colls, 'output_collections': output_colls,
                'log_collections': log_colls}
         return ret
 
@@ -318,6 +322,7 @@ class Transformer(BaseAgent):
                 if ret:
                     # self.logger.debug("wen: %s" % str(ret['output_contents']))
                     core_transforms.add_transform_outputs(transform=ret['transform'],
+                                                          transform_parameters=ret['transform_parameters'],
                                                           input_collections=ret.get('input_collections', None),
                                                           output_collections=ret.get('output_collections', None),
                                                           log_collections=ret.get('log_collections', None),
@@ -546,17 +551,21 @@ class Transformer(BaseAgent):
                 work.set_processing_output_metadata(processing, processing_model['output_metadata'])
                 transform['workload_id'] = processing_model['workload_id']
 
-        if transform['status'] in [TransformStatus.ToCancel, TransformStatus.ToSuspend, TransformStatus.ToResume]:
+        transform_substatus = None
+        if transform['substatus'] in [TransformStatus.ToCancel, TransformStatus.ToSuspend, TransformStatus.ToResume]:
             if transform['status'] == TransformStatus.ToCancel:
                 t_processing_status = ProcessingStatus.ToCancel
+                transform_substatus = TransformStatus.Cancelling
             if transform['status'] == TransformStatus.ToSuspend:
                 t_processing_status = ProcessingStatus.ToSuspend
+                transform_substatus = TransformStatus.Suspending
             if transform['status'] == TransformStatus.ToResume:
                 t_processing_status = ProcessingStatus.ToResume
+                transform_substatus = TransformStatus.Resuming
 
             if processing_model and processing_model['status'] in [ProcessingStatus.New, ProcessingStatus.Submitting, ProcessingStatus.Submitted,
                                                                    ProcessingStatus.Running]:
-                update_processing_model[processing_model['processing_id']] = {'status': t_processing_status}
+                update_processing_model[processing_model['processing_id']] = {'substatus': t_processing_status}
 
         updated_contents, updated_input_contents_full, updated_output_contents_full = [], [], []
         to_release_input_contents = []
@@ -579,14 +588,14 @@ class Transformer(BaseAgent):
             msg = self.generate_message(transform, files=updated_output_contents_full, msg_type='file', relation_type='output')
             msgs.append(msg)
 
-        transform['locking'] = TransformLocking.Idle
+        # transform['locking'] = TransformLocking.Idle
         # status_statistics = work.get_status_statistics(registered_input_output_maps)
         work.syn_work_status(registered_input_output_maps)
-        if transform['status'] in [TransformStatus.ToCancel]:
+        if transform['substatus'] in [TransformStatus.ToCancel]:
             transform['status'] = TransformStatus.Cancelling
-        elif transform['status'] in [TransformStatus.ToSuspend, TransformStatus.ToResume]:
+        elif transform['substatus'] in [TransformStatus.ToSuspend]:
             transform['status'] = TransformStatus.Suspending
-        elif transform['status'] in [TransformStatus.ToResume]:
+        elif transform['substatus'] in [TransformStatus.ToResume]:
             transform['status'] = TransformStatus.Resuming
         elif work.is_finished():
             transform['status'] = TransformStatus.Finished
@@ -663,8 +672,16 @@ class Transformer(BaseAgent):
         else:
             transform['status'] = TransformStatus.Transforming
 
+        transform_parameters = {'status': transform['status'],
+                                'locking': TransformLocking.Idle,
+                                'workload_id': transform['workload_id'],
+                                'transform_metadata': transform['transform_metadata']}
+        if transform_substatus:
+            transform_parameters['substatus'] = transform_substatus
+
         # print(input_collections)
         ret = {'transform': transform,
+               'transform_parameters': transform_parameters,
                'update_input_collections': copy.deepcopy(input_collections) if input_collections else input_collections,
                'update_output_collections': copy.deepcopy(output_collections) if output_collections else output_collections,
                'update_log_collections': copy.deepcopy(log_collections) if log_collections else log_collections,
@@ -698,6 +715,7 @@ class Transformer(BaseAgent):
                 if ret:
                     # self.logger.debug("wen: %s" % str(ret['output_contents']))
                     core_transforms.add_transform_outputs(transform=ret['transform'],
+                                                          transform_parameters=ret['transform_parameters'],
                                                           input_collections=ret.get('input_collections', None),
                                                           output_collections=ret.get('output_collections', None),
                                                           log_collections=ret.get('log_collections', None),

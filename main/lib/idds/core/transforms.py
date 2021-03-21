@@ -166,7 +166,7 @@ def update_transform(transform_id, parameters, session=None):
 
 
 @transactional_session
-def add_transform_outputs(transform, input_collections=None, output_collections=None, log_collections=None,
+def add_transform_outputs(transform, transform_parameters, input_collections=None, output_collections=None, log_collections=None,
                           update_input_collections=None, update_output_collections=None, update_log_collections=None,
                           new_contents=None, update_contents=None, new_processing=None, update_processing=None,
                           messages=None, message_bulk_size=1000, session=None):
@@ -259,12 +259,8 @@ def add_transform_outputs(transform, input_collections=None, output_collections=
         """
         if processing_id:
             work.set_processing_id(new_processing, processing_id)
-        parameters = {'status': transform['status'],
-                      'locking': transform['locking'],
-                      'workload_id': transform['workload_id'],
-                      'transform_metadata': transform['transform_metadata']}
         orm_transforms.update_transform(transform_id=transform['transform_id'],
-                                        parameters=parameters,
+                                        parameters=transform_parameters,
                                         session=session)
 
 

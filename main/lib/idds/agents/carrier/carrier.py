@@ -147,12 +147,16 @@ class Carrier(BaseAgent):
                                                                             output_coll_ids=output_coll_ids,
                                                                             log_coll_ids=log_coll_ids)
 
-        if processing['status'] in [ProcessingStatus.ToCancel]:
+        processing_substatus = None
+        if processing['substatus'] in [ProcessingStatus.ToCancel]:
             work.abort_processing(processing)
-        if processing['status'] in [ProcessingStatus.ToSuspend]:
+            processing_substatus = ProcessingStatus.Cancelling
+        if processing['substatus'] in [ProcessingStatus.ToSuspend]:
             work.suspend_processing(processing)
-        if processing['status'] in [ProcessingStatus.ToResume]:
+            processing_substatus = ProcessingStatus.Suspending
+        if processing['substatus'] in [ProcessingStatus.ToResume]:
             work.resume_processing(processing)
+            processing_substatus = ProcessingStatus.Resuming
 
         # work = processing['processing_metadata']['work']
         # outputs = work.poll_processing()
@@ -163,6 +167,9 @@ class Carrier(BaseAgent):
         else:
             processing_update = {'processing_id': processing['processing_id'],
                                  'parameters': {'locking': ProcessingLocking.Idle}}
+
+        if processing_substatus:
+            processing_update['parameters']['substatus'] = processing_substatus
 
         processing_update['parameters']['expired_at'] = work.get_expired_at(processing)
 
