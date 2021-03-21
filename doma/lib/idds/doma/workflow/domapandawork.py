@@ -683,7 +683,7 @@ class DomaPanDAWork(Work):
 
         if self.is_processings_terminated() and not self.has_new_inputs():
             if self.is_all_outputs_flushed(registered_input_output_maps):
-                self.logger.warn("The processing %s is terminated. but not all outputs are flushed. Wait to flush the outputs then finish the transform" % str(processing['processing_id']))
+                self.logger.warn("The work %s is terminated. but not all outputs are flushed. Wait to flush the outputs then finish the transform" % str(self.work_id))
                 return
 
             keys = self.status_statistics.keys()
