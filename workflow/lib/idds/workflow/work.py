@@ -873,7 +873,7 @@ class Work(Base):
         """
         # raise exceptions.NotImplementedException
         if self.is_processings_terminated() and not self.has_new_inputs():
-            if self.is_all_outputs_flushed(input_output_maps):
+            if not self.is_all_outputs_flushed(input_output_maps):
                 self.logger.warn("The work processings %s is terminated. but not all outputs are flushed. Wait to flush the outputs then finish the transform" % str(self.get_processing_ids()))
                 return
 
