@@ -535,6 +535,7 @@ class Transformer(BaseAgent):
         """
         self.logger.info("process_running_transform: transform_id: %s" % transform['transform_id'])
         work = transform['transform_metadata']['work']
+        work.set_work_id(transform['transform_id'])
 
         input_collections = work.get_input_collections()
         output_collections = work.get_output_collections()

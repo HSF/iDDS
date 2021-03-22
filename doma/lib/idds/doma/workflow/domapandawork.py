@@ -40,7 +40,7 @@ class DomaPanDAWork(Work):
                  primary_input_collection=None, other_input_collections=None,
                  output_collections=None, log_collections=None,
                  logger=None, dependency_map=None, task_name="", task_queue=None, processing_type=None,
-                 maxwalltime=90000, maxattempt=5, core_count=1):
+                 prodSourceLabel='test', task_type='test', maxwalltime=90000, maxattempt=5, core_count=1):
 
         super(DomaPanDAWork, self).__init__(executable=executable, arguments=arguments,
                                             parameters=parameters, setup=setup, work_type=TransformType.Processing,
@@ -65,8 +65,9 @@ class DomaPanDAWork(Work):
         self.queue = task_queue
         self.dep_tasks_id_names_map = {}
         self.executable = executable
-        self.jobs_cache = {}
         self.processingType = processing_type
+        self.prodSourceLabel = prodSourceLabel
+        self.task_type = task_type
         self.maxWalltime = maxwalltime
         self.maxAttempt = maxattempt
         self.core_count = core_count
@@ -315,6 +316,9 @@ class DomaPanDAWork(Work):
 
         :param input_output_maps: new maps from inputs to outputs.
         """
+        # avoid duplicated task name
+        self.task_name = self.task_name + "_" + str(self.get_work_id())
+
         in_files = []
         for map_id in input_output_maps:
             # one map is a job which transform the inputs to outputs.
@@ -334,15 +338,15 @@ class DomaPanDAWork(Work):
         task_param_map['noInput'] = True
         task_param_map['pfnList'] = in_files
         task_param_map['taskName'] = self.task_name
-        task_param_map['userName'] = 'Siarhei Padolski'
+        task_param_map['userName'] = 'iDDS'
         task_param_map['taskPriority'] = 900
         task_param_map['architecture'] = ''
         task_param_map['transUses'] = ''
         task_param_map['transHome'] = None
         task_param_map['transPath'] = 'https://atlpan.web.cern.ch/atlpan/bash-c'
         task_param_map['processingType'] = self.processingType
-        task_param_map['prodSourceLabel'] = 'test'
-        task_param_map['taskType'] = 'test'
+        task_param_map['prodSourceLabel'] = self.prodSourceLabel
+        task_param_map['taskType'] = self.task_type
         task_param_map['coreCount'] = self.core_count
         task_param_map['skipScout'] = True
         task_param_map['cloud'] = 'US'
@@ -393,21 +397,24 @@ class DomaPanDAWork(Work):
             processing['processing_metadata']['task_id'] = task_id
             processing['processing_metadata']['workload_id'] = task_id
 
-    def poll_latest_tasks(self, processing):
+    def get_panda_task_id(self, processing):
         from pandatools import Client
 
         start_time = datetime.datetime.utcnow() - datetime.timedelta(hours=10)
         start_time = start_time.strftime('%Y-%m-%d %H:%M:%S')
-        status, results = Client.getJobIDsJediTasksInTimeRange(start_time, verbose=False)
+        status, results = Client.getJobIDsJediTasksInTimeRange(start_time, task_type=self.task_type, verbose=False)
         if status != 0:
             self.logger.error("Error to poll latest tasks in last ten hours: %s, %s" % (status, results))
             return None
+
+        task_id = None
         for req_id in results:
             task_name = results[req_id]['taskName']
-            if task_name == self.task_name:
+            if processing['processing_metadata']['task_id'] is None and task_name == self.task_name:
                 task_id = results[req_id]['jediTaskID']
                 processing['processing_metadata']['task_id'] = task_id
                 processing['processing_metadata']['workload_id'] = task_id
+        return task_id
 
     def poll_panda_task_status(self, processing):
         if 'task_id' in processing['processing_metadata']:
@@ -551,6 +558,8 @@ class DomaPanDAWork(Work):
             jobs_ids = None
             if processing:
                 task_id = processing['processing_metadata']['task_id']
+                if task_id is None:
+                    self.get_panda_task_id(processing)
 
                 # ret_ids = Client.getPandaIDsWithTaskID(task_id, verbose=False)
                 task_info = Client.getJediTaskDetails({'jediTaskID': task_id}, True, True, verbose=False)
@@ -581,7 +590,7 @@ class DomaPanDAWork(Work):
         except Exception as ex:
             msg = "Failed to check the processing (%s) status: %s" % (str(processing['processing_id']), str(ex))
             raise exceptions.IDDSException(msg)
-        return None, None
+        return ProcessingStatus.Submitting, []
 
     def kill_processing(self, processing):
         try:
