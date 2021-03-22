@@ -483,7 +483,7 @@ class Transformer(BaseAgent):
         return msg
 
     def syn_collection_status(self, input_collections, output_collections, log_collections, registered_input_output_maps):
-        input_status, output_status, log_status = {}
+        input_status, output_status, log_status = {}, {}, {}
         for map_id in registered_input_output_maps:
             inputs = registered_input_output_maps[map_id]['inputs'] if 'inputs' in registered_input_output_maps[map_id] else []
             outputs = registered_input_output_maps[map_id]['outputs'] if 'outputs' in registered_input_output_maps[map_id] else []

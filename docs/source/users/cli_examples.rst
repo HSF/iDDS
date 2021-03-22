@@ -151,7 +151,19 @@ iDDS Command Line Interface (CLI)
 .. code-block:: python
 
     # One of workload_id or request_id can be None
-    idds get_requests_status --request_id=<request_id> --workload_id=<workload_id> --with_detail=False/True
+    idds get_requests_status --request_id=<request_id> --workload_id=<workload_id> --with_detail
+
+    # idds get_requests_status --request_id 94
+    request_id    request_workload_id    scope:name                                status    errors
+    ------------  ---------------------  ----------------------------------------  --------  -----------
+              94             1616422511  pseudo_dataset:pseudo_input_collection#1  Finished  {'msg': ''}
+
+    # idds get_requests_status --request_id 94 --with_detail
+    request_id    transform_id    request_workload_id    transform_workload_id    scope:name                                 status[Total/OK/Processing]    errors
+    ------------  --------------  ---------------------  -----------------------  -----------------------------------------  -----------------------------  -----------
+              94             151             1616422511                     1003  pseudo_dataset:pseudo_output_collection#1  Finished[6/6/0]                {'msg': ''}
+              94             152             1616422511                     1002  pseudo_dataset:pseudo_output_collection#2  Finished[3/3/0]                {'msg': ''}
+              94             153             1616422511                     1001  pseudo_dataset:pseudo_output_collection#3  Finished[5/5/0]                {'msg': ''}
 
 3. Download logs for a request
 
