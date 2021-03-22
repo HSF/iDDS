@@ -6,13 +6,19 @@ from idds.core.workprogress import get_workprogresses
 from idds.core.processings import get_processings
 
 
+rets = get_requests(request_id=91, with_detail=True)
+for req in rets:
+    # print(rets)
+    print(json_dumps(req, sort_keys=True, indent=4))
+    pass
+
 reqs = get_requests()
 # print(len(reqs))
 for req in reqs:
     if req['request_id'] == 91:
         # print(req)
         # print(req['request_metadata']['workflow'].to_dict())
-        print(json_dumps(req, sort_keys=True, indent=4))
+        # print(json_dumps(req, sort_keys=True, indent=4))
         pass
 
 tfs = get_transforms()
