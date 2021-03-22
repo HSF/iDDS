@@ -116,8 +116,8 @@ class Transformer(BaseAgent):
                            'name': input_content['name'],
                            'min_id': input_content['min_id'] if 'min_id' in input_content else 0,
                            'max_id': input_content['max_id'] if 'max_id' in input_content else 0,
-                           'status': ContentStatus.New,
-                           'substatus': ContentStatus.New,
+                           'status': input_content['status'] if 'status' in input_content and input_content['status'] is not None else ContentStatus.New,
+                           'substatus': input_content['substatus'] if 'substatus' in input_content and input_content['substatus'] is not None else ContentStatus.New,
                            'path': input_content['path'] if 'path' in input_content else None,
                            'content_type': input_content['content_type'] if 'content_type' in input_content else ContentType.File,
                            'content_relation_type': ContentRelationType.Input,
@@ -139,8 +139,8 @@ class Transformer(BaseAgent):
                            'name': input_content['name'],
                            'min_id': input_content['min_id'] if 'min_id' in input_content else 0,
                            'max_id': input_content['max_id'] if 'max_id' in input_content else 0,
-                           'status': ContentStatus.New,
-                           'substatus': ContentStatus.New,
+                           'status': input_content['status'] if 'status' in input_content and input_content['status'] is not None else ContentStatus.New,
+                           'substatus': input_content['substatus'] if 'substatus' in input_content and input_content['substatus'] is not None else ContentStatus.New,
                            'path': input_content['path'] if 'path' in input_content else None,
                            'content_type': input_content['content_type'] if 'content_type' in input_content else ContentType.File,
                            'content_relation_type': ContentRelationType.InputDependency,
@@ -477,6 +477,58 @@ class Transformer(BaseAgent):
                'msg_content': msg_content}
         return msg
 
+    def syn_collection_status(self, input_collections, output_collections, log_collections, registered_input_output_maps):
+        input_status, output_status, log_status = {}
+        for map_id in registered_input_output_maps:
+            inputs = registered_input_output_maps[map_id]['inputs'] if 'inputs' in registered_input_output_maps[map_id] else []
+            outputs = registered_input_output_maps[map_id]['outputs'] if 'outputs' in registered_input_output_maps[map_id] else []
+            logs = registered_input_output_maps[map_id]['logs'] if 'logs' in registered_input_output_maps[map_id] else []
+
+            for content in inputs:
+                if content['coll_id'] not in input_status:
+                    input_status[content['coll_id']] = {'total_files': 0, 'processed_files': 0, 'processing_files': 0}
+                input_status[content['coll_id']]['total_files'] += 1
+                if content['status'] in [ContentStatus.Available, ContentStatus.Mapped, ContentStatus.Available.value, ContentStatus.Mapped.value]:
+                    input_status[content['coll_id']]['processed_files'] += 1
+                else:
+                    input_status[content['coll_id']]['processing_files'] += 1
+
+            for content in outputs:
+                if content['coll_id'] not in output_status:
+                    output_status[content['coll_id']] = {'total_files': 0, 'processed_files': 0, 'processing_files': 0}
+                output_status[content['coll_id']]['total_files'] += 1
+                if content['status'] in [ContentStatus.Available, ContentStatus.Available.value]:
+                    output_status[content['coll_id']]['processed_files'] += 1
+                else:
+                    output_status[content['coll_id']]['processing_files'] += 1
+
+            for content in logs:
+                if content['coll_id'] not in log_status:
+                    log_status[content['coll_id']] = {'total_files': 0, 'processed_files': 0, 'processing_files': 0}
+                log_status[content['coll_id']]['total_files'] += 1
+                if content['status'] in [ContentStatus.Available, ContentStatus.Available.value]:
+                    log_status[content['coll_id']]['processed_files'] += 1
+                else:
+                    log_status[content['coll_id']]['processing_files'] += 1
+
+        for coll in input_collections:
+            if coll['coll_id'] in input_status:
+                coll['total_files'] = input_status[coll['coll_id']]['total_files']
+                coll['processed_files'] = input_status[coll['coll_id']]['processed_files']
+                coll['processing_files'] = input_status[coll['coll_id']]['processing_files']
+
+        for coll in output_collections:
+            if coll['coll_id'] in output_status:
+                coll['total_files'] = output_status[coll['coll_id']]['total_files']
+                coll['processed_files'] = output_status[coll['coll_id']]['processed_files']
+                coll['processing_files'] = output_status[coll['coll_id']]['processing_files']
+
+        for coll in log_collections:
+            if coll['coll_id'] in log_status:
+                coll['total_files'] = log_status[coll['coll_id']]['total_files']
+                coll['processed_files'] = log_status[coll['coll_id']]['processed_files']
+                coll['processing_files'] = log_status[coll['coll_id']]['processing_files']
+
     def process_running_transform(self, transform):
         """
         process running transforms
@@ -591,6 +643,7 @@ class Transformer(BaseAgent):
         # transform['locking'] = TransformLocking.Idle
         # status_statistics = work.get_status_statistics(registered_input_output_maps)
         work.syn_work_status(registered_input_output_maps)
+        self.syn_collection_status(input_collections, output_collections, log_collections, registered_input_output_maps)
         if transform['substatus'] in [TransformStatus.ToCancel]:
             transform['status'] = TransformStatus.Cancelling
         elif transform['substatus'] in [TransformStatus.ToSuspend]:

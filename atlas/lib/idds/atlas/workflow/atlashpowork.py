@@ -297,6 +297,8 @@ class ATLASHPOWork(ATLASCondorWork):
                 next_key = 1
             for ip in new_inputs:
                 out_ip = copy.deepcopy(ip)
+                ip['status'] = ContentStatus.Available
+                ip['substatus'] = ContentStatus.Available
                 out_ip['coll_id'] = self.collections[self.output_collections[0]]['coll_id']
                 new_input_output_maps[next_key] = {'inputs': [ip],
                                                    'outputs': [out_ip],
@@ -370,6 +372,7 @@ class ATLASHPOWork(ATLASCondorWork):
         self.status_statistics = status_statistics
         return status_statistics
 
+    """
     def syn_collection_status(self):
         input_collections = self.get_input_collections()
         output_collections = self.get_output_collections()
@@ -382,12 +385,13 @@ class ATLASHPOWork(ATLASCondorWork):
         for output_collection in output_collections:
             output_collection['total_files'] = self.finished_points + self.unfinished_points
             output_collection['processed_files'] = self.finished_points
+    """
 
     def syn_work_status(self, registered_input_output_maps):
         super(ATLASHPOWork, self).syn_work_status(registered_input_output_maps)
         self.get_status_statistics(registered_input_output_maps)
 
-        self.syn_collection_status()
+        # self.syn_collection_status()
 
         if self.is_processings_terminated() and not self.has_new_inputs():
             if not self.is_all_outputs_flushed(registered_input_output_maps):
