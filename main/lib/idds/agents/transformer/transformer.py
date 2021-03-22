@@ -611,13 +611,13 @@ class Transformer(BaseAgent):
 
         transform_substatus = None
         if transform['substatus'] in [TransformStatus.ToCancel, TransformStatus.ToSuspend, TransformStatus.ToResume]:
-            if transform['status'] == TransformStatus.ToCancel:
+            if transform['substatus'] == TransformStatus.ToCancel:
                 t_processing_status = ProcessingStatus.ToCancel
                 transform_substatus = TransformStatus.Cancelling
-            if transform['status'] == TransformStatus.ToSuspend:
+            if transform['substatus'] == TransformStatus.ToSuspend:
                 t_processing_status = ProcessingStatus.ToSuspend
                 transform_substatus = TransformStatus.Suspending
-            if transform['status'] == TransformStatus.ToResume:
+            if transform['substatus'] == TransformStatus.ToResume:
                 t_processing_status = ProcessingStatus.ToResume
                 transform_substatus = TransformStatus.Resuming
 

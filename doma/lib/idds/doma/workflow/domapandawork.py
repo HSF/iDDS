@@ -379,7 +379,7 @@ class DomaPanDAWork(Work):
             if return_code[0] == 0:
                 return return_code[1][1]
             else:
-                self.logger.error("submit_panda_task, return_code: %s" % str(return_code))
+                self.logger.warn("submit_panda_task, return_code: %s" % str(return_code))
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
@@ -404,7 +404,7 @@ class DomaPanDAWork(Work):
         start_time = start_time.strftime('%Y-%m-%d %H:%M:%S')
         status, results = Client.getJobIDsJediTasksInTimeRange(start_time, task_type=self.task_type, verbose=False)
         if status != 0:
-            self.logger.error("Error to poll latest tasks in last ten hours: %s, %s" % (status, results))
+            self.logger.warn("Error to poll latest tasks in last ten hours: %s, %s" % (status, results))
             return None
 
         task_id = None
@@ -565,7 +565,7 @@ class DomaPanDAWork(Work):
                 task_info = Client.getJediTaskDetails({'jediTaskID': task_id}, True, True, verbose=False)
                 self.logger.info("poll_panda_task, task_info: %s" % str(task_info))
                 if task_info[0] != 0:
-                    self.logger.error("poll_panda_task %s, error getting task status, task_info: %s" % (task_id, str(task_info)))
+                    self.logger.warn("poll_panda_task %s, error getting task status, task_info: %s" % (task_id, str(task_info)))
                     # return "No status", {}
                     return ProcessingStatus.Submitting, {}
 

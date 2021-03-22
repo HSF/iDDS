@@ -70,7 +70,7 @@ class RequestClient(BaseRestClient):
         url = self.build_url(self.host, path=os.path.join(path, str(request_id)))
 
         data = parameters
-        data['request_id'] = request_id
+        # data['request_id'] = request_id
         # if 'request_type' in data and data['request_type'] is not None and isinstance(data['request_type'], RequestType):
         #     data['request_type'] = data['request_type'].value
         # if 'status' in data and data['status'] is not None and isinstance(data['status'], RequestStatus):

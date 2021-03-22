@@ -222,7 +222,7 @@ def add_transform_outputs(transform, transform_parameters, input_collections=Non
         processing_id = orm_processings.add_processing(**new_processing, session=session)
     if update_processing:
         for proc_id in update_processing:
-            orm_processings.add_processing(processing_id=proc_id, parameters=update_processing[proc_id], session=session)
+            orm_processings.update_processing(processing_id=proc_id, parameters=update_processing[proc_id], session=session)
 
     if messages:
         if not type(messages) in [list, tuple]:
