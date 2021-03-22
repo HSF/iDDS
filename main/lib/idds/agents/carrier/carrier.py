@@ -53,6 +53,9 @@ class Carrier(BaseAgent):
         """
         Get new processing
         """
+        if self.new_task_queue.qsize() >= self.num_threads:
+            return []
+
         processing_status = [ProcessingStatus.New]
         processings = core_processings.get_processings_by_status(status=processing_status, locking=True, bulk_size=self.retrieve_bulk_size)
 
@@ -109,6 +112,9 @@ class Carrier(BaseAgent):
         """
         Get running processing
         """
+        if self.running_task_queue.qsize() >= self.num_threads:
+            return []
+
         processing_status = [ProcessingStatus.Submitting, ProcessingStatus.Submitted, ProcessingStatus.Running, ProcessingStatus.FinishedOnExec,
                              ProcessingStatus.ToCancel, ProcessingStatus.Cancelling, ProcessingStatus.ToSuspend, ProcessingStatus.Suspending,
                              ProcessingStatus.ToResume, ProcessingStatus.Resuming]

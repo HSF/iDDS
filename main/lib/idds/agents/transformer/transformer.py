@@ -53,6 +53,8 @@ class Transformer(BaseAgent):
         """
         Get new transforms to process
         """
+        if self.new_task_queue.qsize() >= self.num_threads:
+            return []
 
         transform_status = [TransformStatus.New, TransformStatus.Ready, TransformStatus.Extend]
         transforms_new = core_transforms.get_transforms_by_status(status=transform_status, locking=True, bulk_size=self.retrieve_bulk_size)
@@ -342,6 +344,9 @@ class Transformer(BaseAgent):
         """
         Get running transforms
         """
+        if self.running_task_queue.qsize() >= self.num_threads:
+            return []
+
         transform_status = [TransformStatus.Transforming, TransformStatus.ToCancel, TransformStatus.Cancelling,
                             TransformStatus.ToSuspend, TransformStatus.Suspending,
                             TransformStatus.ToResume, TransformStatus.Resuming]
