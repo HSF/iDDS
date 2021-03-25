@@ -325,6 +325,10 @@ def transactional_session(function):
     With that decorator it's possible to use the session variable like if a global variable session is declared.
     session is a sqlalchemy session, and you can get one calling get_session().
     '''
+    @retry(retry_on_exception=retry_if_db_connection_error,
+           wait_fixed=0.5,
+           stop_max_attempt_number=2,
+           wrap_exception=False)
     @wraps(function)
     def new_funct(*args, **kwargs):
         if not kwargs.get('session'):

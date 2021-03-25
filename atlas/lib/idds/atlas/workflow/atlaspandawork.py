@@ -13,23 +13,20 @@ try:
 except ImportError:
     import configparser as ConfigParser
 
-try:
-    from urllib import quote
-except ImportError:
-    from urllib.parse import quote
+# try:
+#     from urllib import quote
+# except ImportError:
+#     from urllib.parse import quote
 
 import copy
-import json
 import os
 import re
 import traceback
 import uuid
 
-from pandatools import Client
-
 from idds.common import exceptions
 from idds.common.constants import (TransformType, CollectionType, CollectionStatus,
-                                   ProcessingStatus, WorkStatus)
+                                   ProcessingStatus, WorkStatus, ContentStatus)
 from idds.workflow.work import Work
 from idds.workflow.workflow import Condition
 
@@ -46,7 +43,7 @@ class ATLASPandaWork(Work):
                  primary_input_collection=None, other_input_collections=None,
                  output_collections=None, log_collections=None,
                  logger=None, dependency_map=None, task_name="",
-                 panda_task_id=None, cmd_to_arguments=None):
+                 panda_task_paramsmap=None):
         """
         Init a work/task/transformation.
 
@@ -63,9 +60,9 @@ class ATLASPandaWork(Work):
         :param output_collections: List of the output collections.
         # :param workflow: The workflow the current work belongs to.
         """
-        self.panda_task_id = panda_task_id
-        self.cmd_to_arguments = cmd_to_arguments
-        self.panda_task_paramsmap = None
+        # self.cmd_to_arguments = cmd_to_arguments
+        self.panda_task_paramsmap = panda_task_paramsmap
+        self.output_dataset_name = None
         super(ATLASPandaWork, self).__init__(executable=executable, arguments=arguments,
                                              parameters=parameters, setup=setup, work_type=TransformType.Processing,
                                              work_tag=work_tag, exec_type=exec_type, sandbox=sandbox, work_id=work_id,
@@ -74,22 +71,21 @@ class ATLASPandaWork(Work):
                                              output_collections=output_collections,
                                              log_collections=log_collections,
                                              logger=logger)
-        self.panda_task_id = panda_task_id
-        self.panda_task_paramsmap = None
-        self.panda = None
-        self.pandassl = None
-        self.pandamonitor = None
+        self.panda_url = None
+        self.panda_url_ssl = None
+        self.panda_monitor = None
+        self.load_panda_urls()
 
         # from pandatools import Client
         # Client.getTaskParamsMap(23752996)
         # (0, '{"buildSpec": {"jobParameters": "-i ${IN} -o ${OUT} --sourceURL ${SURL} -r . ", "archiveName": "sources.0ca6a2fb-4ad0-42d0-979d-aa7c284f1ff7.tar.gz", "prodSourceLabel": "panda"}, "sourceURL": "https://aipanda048.cern.ch:25443", "cliParams": "prun --exec \\"python simplescript.py 0.5 0.5 200 output.json\\" --outDS user.wguan.altest1234 --outputs output.json --nJobs=10", "site": null, "vo": "atlas", "respectSplitRule": true, "osInfo": "Linux-3.10.0-1127.19.1.el7.x86_64-x86_64-with-centos-7.9.2009-Core", "log": {"type": "template", "param_type": "log", "container": "user.wguan.altest1234.log/", "value": "user.wguan.altest1234.log.$JEDITASKID.${SN}.log.tgz", "dataset": "user.wguan.altest1234.log/"}, "transUses": "", "excludedSite": [], "nMaxFilesPerJob": 200, "uniqueTaskName": true, "noInput": true, "taskName": "user.wguan.altest1234/", "transHome": null, "includedSite": null, "nEvents": 10, "nEventsPerJob": 1, "jobParameters": [{"type": "constant", "value": "-j \\"\\" --sourceURL ${SURL}"}, {"type": "constant", "value": "-r ."}, {"padding": false, "type": "constant", "value": "-p \\""}, {"padding": false, "type": "constant", "value": "python%20simplescript.py%200.5%200.5%20200%20output.json"}, {"type": "constant", "value": "\\""}, {"type": "constant", "value": "-l ${LIB}"}, {"container": "user.wguan.altest1234_output.json/", "value": "user.wguan.$JEDITASKID._${SN/P}.output.json", "dataset": "user.wguan.altest1234_output.json/", "param_type": "output", "hidden": true, "type": "template"}, {"type": "constant", "value": "-o \\"{\'output.json\': \'user.wguan.$JEDITASKID._${SN/P}.output.json\'}\\""}], "prodSourceLabel": "user", "processingType": "panda-client-1.4.47-jedi-run", "architecture": "@centos7", "userName": "Wen Guan", "taskType": "anal", "taskPriority": 1000, "countryGroup": "us"}')  # noqa E501
 
+        self.panda_task_id = None
+        self.init_panda_task_info()
+
     def initialize_work(self):
         if not self.is_initialized():
-            if self.panda_task_id is not None:
-                self.init_panda_task_info()
-            else:
-                self.init_new_panda_task_info()
+            self.init_new_panda_task_info()
             super(ATLASPandaWork, self).initialize_work()
 
     def get_scope_name(self, dataset):
@@ -101,13 +97,18 @@ class ATLASPandaWork(Work):
             scope = dataset.split('.')[0]
         return scope
 
+    def get_output_dataset_name_from_task_paramsmap(self):
+        if self.panda_task_paramsmap:
+            cliParams = self.panda_task_paramsmap['cliParams']
+            output_dataset_name = cliParams.split("--outDS")[1].strip().split(" ")[0]
+            return output_dataset_name
+        return None
+
     def init_panda_task_info(self):
-        status, task_param_map = Client.getTaskParamsMap(self.panda_task_id)
-        if status == 0:
-            task_param_map = json.loads(task_param_map)
-            self.panda_task_paramsmap = task_param_map
-            self.sandbox = os.path.join(task_param_map['sourceURL'], 'cache/' + task_param_map['buildSpec']['archiveName'])
-            for p in task_param_map["jobParameters"]:
+        if self.panda_task_paramsmap:
+            self.output_dataset_name = self.get_output_dataset_name_from_task_paramsmap()
+            self.sandbox = os.path.join(self.panda_task_paramsmap['sourceURL'], 'cache/' + self.panda_task_paramsmap['buildSpec']['archiveName'])
+            for p in self.panda_task_paramsmap["jobParameters"]:
                 if 'param_type' in p and p['param_type'] == 'output':
                     output_dataset = p['dataset']
                     output_dataset = output_dataset.replace("/", "")
@@ -129,53 +130,50 @@ class ATLASPandaWork(Work):
 
         # generate new dataset name
         # self.padding = self.sequence_in_workflow
-        new_dataset_name = self.cmd_to_arguments['outDS'] + "_" + str(self.get_sequence_id())
+        new_dataset_name = self.output_dataset_name + "_" + str(self.get_sequence_id())
         for coll_id in self.collections:
             coll = self.collections[coll_id]
-            coll['name'] = coll['name'].replace(self.cmd_to_arguments['outDS'], new_dataset_name)
+            coll['name'] = coll['name'].replace(self.output_dataset_name, new_dataset_name)
 
         self.panda_task_paramsmap['cliParams'] = \
-            self.panda_task_paramsmap['cliParams'].replace(self.cmd_to_arguments['outDS'], new_dataset_name)
+            self.panda_task_paramsmap['cliParams'].replace(self.output_dataset_name, new_dataset_name)
 
         self.panda_task_paramsmap['taskName'] = \
-            self.panda_task_paramsmap['taskName'].replace(self.cmd_to_arguments['outDS'], new_dataset_name)
+            self.panda_task_paramsmap['taskName'].replace(self.output_dataset_name, new_dataset_name)
 
         jobParameters = self.panda_task_paramsmap['jobParameters']
         for p in jobParameters:
             if 'container' in p:
-                p['container'] = p['container'].replace(self.cmd_to_arguments['outDS'], new_dataset_name)
+                p['container'] = p['container'].replace(self.output_dataset_name, new_dataset_name)
             if 'dataset' in p:
-                p['dataset'] = p['dataset'].replace(self.cmd_to_arguments['outDS'], new_dataset_name)
+                p['dataset'] = p['dataset'].replace(self.output_dataset_name, new_dataset_name)
 
         log = self.panda_task_paramsmap['log']
         if 'value' in log:
-            log['value'] = log['value'].replace(self.cmd_to_arguments['outDS'], new_dataset_name)
+            log['value'] = log['value'].replace(self.output_dataset_name, new_dataset_name)
         if 'container' in log:
-            log['container'] = log['container'].replace(self.cmd_to_arguments['outDS'], new_dataset_name)
+            log['container'] = log['container'].replace(self.output_dataset_name, new_dataset_name)
         if 'dataset' in log:
-            log['dataset'] = log['dataset'].replace(self.cmd_to_arguments['outDS'], new_dataset_name)
+            log['dataset'] = log['dataset'].replace(self.output_dataset_name, new_dataset_name)
+
+        self.parse_arguments()
 
     def parse_arguments(self):
         try:
             # arguments = self.get_arguments()
             # parameters = self.get_parameters()
-            arguments = self.cmd_to_arguments['arguments'] if 'arguments' in self.cmd_to_arguments else None
-            parameters = self.cmd_to_arguments['parameters'] if 'parameters' in self.cmd_to_arguments else None
             new_parameters = self.get_parameters()
 
-            if parameters and new_parameters:
-                new_arguments = parameters.format(**new_parameters)
+            if new_parameters:
+                self.panda_task_paramsmap['cliParams'] = self.panda_task_paramsmap['cliParams'].format(**new_parameters)
 
-            cliParams = self.panda_task_paramsmap['cliParams']
-            cliParams = cliParams.replace(arguments, new_arguments)
-            self.panda_task_paramsmap['cliParams'] = cliParams
+            # todo
+            # jobParameters = self.panda_task_paramsmap['jobParameters']
+            # for p in jobParameters:
+            #     if 'value' in p:
+            #         p['value'] = p['value'].replace(quote(arguments), quote(new_arguments))
 
-            jobParameters = self.panda_task_paramsmap['jobParameters']
-            for p in jobParameters:
-                if 'value' in p:
-                    p['value'] = p['value'].replace(quote(arguments), quote(new_arguments))
-
-            return new_arguments
+            # return new_arguments
         except Exception as ex:
             self.add_errors(str(ex))
 
@@ -196,7 +194,7 @@ class ATLASPandaWork(Work):
             return True
         return False
 
-    def load_panda_configuration(self):
+    def load_panda_config(self):
         panda_config = ConfigParser.SafeConfigParser()
         if os.environ.get('IDDS_PANDA_CONFIG', None):
             configfile = os.environ['IDDS_PANDA_CONFIG']
@@ -211,19 +209,36 @@ class ATLASPandaWork(Work):
                 return panda_config
         return panda_config
 
-    def load_panda_config(self):
-        panda_config = self.load_panda_configuration()
-        self.logger.info("panda config: %s" % panda_config)
+    def load_panda_urls(self):
+        panda_config = self.load_panda_config()
+        self.logger.debug("panda config: %s" % panda_config)
+        self.panda_url = None
+        self.panda_url_ssl = None
+        self.panda_monitor = None
+
         if panda_config.has_section('panda'):
-            if panda_config.has_option('panda', 'pandamonitor'):
-                pandamonitor = panda_config.get('panda', 'pandamonitor')
-                self.pandamonitor = pandamonitor
-            if panda_config.has_option('panda', 'panda'):
-                panda = panda_config.get('panda', 'panda')
-                self.panda = panda
-            if panda_config.has_option('panda', 'pandassl'):
-                pandassl = panda_config.get('panda', 'pandassl')
-                self.pandassl = pandassl
+            if panda_config.has_option('panda', 'panda_monitor_url'):
+                self.panda_monitor = panda_config.get('panda', 'panda_monitor_url')
+                os.environ['PANDA_MONITOR_URL'] = self.panda_monitor
+                self.logger.debug("Panda monitor url: %s" % str(self.panda_monitor))
+            if panda_config.has_option('panda', 'panda_url'):
+                self.panda_url = panda_config.get('panda', 'panda_url')
+                os.environ['PANDA_URL'] = self.panda_url
+                self.logger.debug("Panda url: %s" % str(self.panda_url))
+            if panda_config.has_option('panda', 'panda_url_ssl'):
+                self.panda_url_ssl = panda_config.get('panda', 'panda_url_ssl')
+                os.environ['PANDA_URL_SSL'] = self.panda_url_ssl
+                self.logger.debug("Panda url ssl: %s" % str(self.panda_url_ssl))
+
+        if not self.panda_monitor and 'PANDA_MONITOR_URL' in os.environ and os.environ['PANDA_MONITOR_URL']:
+            self.panda_monitor = os.environ['PANDA_MONITOR_URL']
+            self.logger.debug("Panda monitor url: %s" % str(self.panda_monitor))
+        if not self.panda_url and 'PANDA_URL' in os.environ and os.environ['PANDA_URL']:
+            self.panda_url = os.environ['PANDA_URL']
+            self.logger.debug("Panda url: %s" % str(self.panda_url))
+        if not self.panda_url_ssl and 'PANDA_URL_SSL' in os.environ and os.environ['PANDA_URL_SSL']:
+            self.panda_url_ssl = os.environ['PANDA_URL_SSL']
+            self.logger.debug("Panda url ssl: %s" % str(self.panda_url_ssl))
 
     def poll_external_collection(self, coll):
         try:
@@ -332,9 +347,13 @@ class ATLASPandaWork(Work):
                 next_key = 1
             for ip in new_inputs:
                 out_ip = copy.deepcopy(ip)
+                ip['status'] = ContentStatus.Available
+                ip['substatus'] = ContentStatus.Available
                 out_ip['coll_id'] = self.collections[self.output_collections[0]]['coll_id']
                 new_input_output_maps[next_key] = {'inputs': [ip],
-                                                   'outputs': [out_ip]}
+                                                   'outputs': [out_ip],
+                                                   'inputs_dependency': [],
+                                                   'logs': []}
                 next_key += 1
 
         return new_input_output_maps
@@ -365,6 +384,8 @@ class ATLASPandaWork(Work):
 
     def submit_panda_task(self, processing):
         try:
+            from pandatools import Client
+
             status, tmpOut = Client.insertTaskParams(self.panda_task_paramsmap, False, True)
             if status == 0:
                 tmp_status, tmp_output = tmpOut
@@ -392,12 +413,36 @@ class ATLASPandaWork(Work):
 
     def poll_panda_task(self, processing):
         if 'panda_task_id' in processing['processing_metadata']:
+            from pandatools import Client
+
             status, task_status = Client.getTaskStatus(processing['processing_metadata']['panda_task_id'])
             if status == 0:
                 return task_status
         else:
             return 'failed'
         return None
+
+    def kill_processing(self, processing):
+        try:
+            if processing:
+                from pandatools import Client
+                task_id = processing['processing_metadata']['task_id']
+                Client.killTask(task_id)
+        except Exception as ex:
+            msg = "Failed to check the processing (%s) status: %s" % (str(processing['processing_id']), str(ex))
+            raise exceptions.IDDSException(msg)
+
+    def reactivate_processing(self, processing):
+        try:
+            if processing:
+                from pandatools import Client
+                task_id = processing['processing_metadata']['task_id']
+                Client.retryTask(task_id)
+                # Client.reactivateTask(task_id)
+                # Client.resumeTask(task_id)
+        except Exception as ex:
+            msg = "Failed to check the processing (%s) status: %s" % (str(processing['processing_id']), str(ex))
+            raise exceptions.IDDSException(msg)
 
     def poll_processing_updates(self, processing, input_output_maps):
         """
@@ -407,6 +452,22 @@ class ATLASPandaWork(Work):
         update_processing = {}
 
         if processing:
+            if self.tocancel:
+                self.logger.info("Cancelling processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], processing['processing_metadata']['task_id']))
+                self.kill_processing(processing)
+                self.tocancel = False
+            elif self.tosuspend:
+                self.logger.info("Suspending processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], processing['processing_metadata']['task_id']))
+                self.kill_processing(processing)
+                self.tosuspend = False
+            elif self.toresume:
+                self.logger.info("Resuming processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], processing['processing_metadata']['task_id']))
+                self.reactivate_processing(processing)
+                self.toresume = False
+            elif self.is_processing_expired(processing):
+                self.logger.info("Expiring processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], processing['processing_metadata']['task_id']))
+                self.kill_processing(processing)
+
             task_status = self.poll_panda_task(processing)
             if task_status:
                 if task_status in ['registered', 'defined']:
@@ -427,6 +488,7 @@ class ATLASPandaWork(Work):
                                      'parameters': {'status': processing_status}}
         return update_processing, updated_contents
 
+    """
     def syn_collection_status(self):
         input_collections = self.get_input_collections()
         output_collections = self.get_output_collections()
@@ -438,11 +500,16 @@ class ATLASPandaWork(Work):
         for output_collection in output_collections:
             output_collection['total_files'] = 0
             output_collection['processed_files'] = 0
+    """
 
     def syn_work_status(self, registered_input_output_maps):
-        self.syn_collection_status()
+        # self.syn_collection_status()
 
         if self.is_processings_terminated() and not self.has_new_inputs():
+            if not self.is_all_outputs_flushed(registered_input_output_maps):
+                self.logger.warn("The processing is terminated. but not all outputs are flushed. Wait to flush the outputs then finish the transform")
+                return
+
             if self.is_processings_finished():
                 self.status = WorkStatus.Finished
             elif self.is_processings_failed():

@@ -69,6 +69,23 @@ def get_processing(processing_id=None, to_json=False, session=None):
 
 
 @read_session
+def get_processings(request_id=None, workload_id=None, transform_id=None, to_json=False, session=None):
+    """
+    Get processing or raise a NoObject exception.
+
+    :param processing_id: Processing id.
+    :param to_json: return json format.
+    :param session: The database session in use.
+
+    :raises NoObject: If no processing is founded.
+
+    :returns: Processing.
+    """
+    return orm_processings.get_processings(request_id=request_id, workload_id=workload_id,
+                                           transform_id=transform_id, to_json=to_json, session=session)
+
+
+@read_session
 def get_processings_by_transform_id(transform_id=None, to_json=False, session=None):
     """
     Get processings or raise a NoObject exception.

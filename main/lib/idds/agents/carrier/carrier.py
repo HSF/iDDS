@@ -53,6 +53,9 @@ class Carrier(BaseAgent):
         """
         Get new processing
         """
+        if self.new_task_queue.qsize() >= self.num_threads:
+            return []
+
         processing_status = [ProcessingStatus.New]
         processings = core_processings.get_processings_by_status(status=processing_status, locking=True, bulk_size=self.retrieve_bulk_size)
 
@@ -66,11 +69,13 @@ class Carrier(BaseAgent):
         # transform = core_transforms.get_transform(transform_id=transform_id)
         # work = transform['transform_metadata']['work']
         work = processing['processing_metadata']['work']
-        # work.set_agent_attributes(self.agent_attributes)
+        work.set_agent_attributes(self.agent_attributes)
+
         work.submit_processing(processing)
         ret = {'processing_id': processing['processing_id'],
-               'status': ProcessingStatus.Submitted,
+               'status': ProcessingStatus.Submitting,
                'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period),
+               'expired_at': work.get_expired_at(processing),
                'processing_metadata': processing['processing_metadata']}
         if processing['processing_metadata'] and 'workload_id' in processing['processing_metadata']:
             ret['workload_id'] = processing['processing_metadata']['workload_id']
@@ -107,8 +112,12 @@ class Carrier(BaseAgent):
         """
         Get running processing
         """
+        if self.running_task_queue.qsize() >= self.num_threads:
+            return []
+
         processing_status = [ProcessingStatus.Submitting, ProcessingStatus.Submitted, ProcessingStatus.Running, ProcessingStatus.FinishedOnExec,
-                             ProcessingStatus.ToCancel, ProcessingStatus.Cancelling]
+                             ProcessingStatus.ToCancel, ProcessingStatus.Cancelling, ProcessingStatus.ToSuspend, ProcessingStatus.Suspending,
+                             ProcessingStatus.ToResume, ProcessingStatus.Resuming]
         processings = core_processings.get_processings_by_status(status=processing_status,
                                                                  # time_period=self.poll_time_period,
                                                                  locking=True,
@@ -129,6 +138,7 @@ class Carrier(BaseAgent):
         # transform = core_transforms.get_transform(transform_id=transform_id)
         # work = transform['transform_metadata']['work']
         work = processing['processing_metadata']['work']
+        work.set_agent_attributes(self.agent_attributes)
 
         input_collections = work.get_input_collections()
         output_collections = work.get_output_collections()
@@ -143,8 +153,16 @@ class Carrier(BaseAgent):
                                                                             output_coll_ids=output_coll_ids,
                                                                             log_coll_ids=log_coll_ids)
 
-        if processing['status'] in [ProcessingStatus.ToCancel]:
+        processing_substatus = None
+        if processing['substatus'] in [ProcessingStatus.ToCancel]:
             work.abort_processing(processing)
+            processing_substatus = ProcessingStatus.Cancelling
+        if processing['substatus'] in [ProcessingStatus.ToSuspend]:
+            work.suspend_processing(processing)
+            processing_substatus = ProcessingStatus.Suspending
+        if processing['substatus'] in [ProcessingStatus.ToResume]:
+            work.resume_processing(processing)
+            processing_substatus = ProcessingStatus.Resuming
 
         # work = processing['processing_metadata']['work']
         # outputs = work.poll_processing()
@@ -155,6 +173,11 @@ class Carrier(BaseAgent):
         else:
             processing_update = {'processing_id': processing['processing_id'],
                                  'parameters': {'locking': ProcessingLocking.Idle}}
+
+        if processing_substatus:
+            processing_update['parameters']['substatus'] = processing_substatus
+
+        processing_update['parameters']['expired_at'] = work.get_expired_at(processing)
 
         ret = {'processing_update': processing_update,
                'content_updates': content_updates}
@@ -204,15 +227,17 @@ class Carrier(BaseAgent):
 
             task = self.create_task(task_func=self.get_new_processings, task_output_queue=self.new_task_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
             self.add_task(task)
-            task = self.create_task(task_func=self.process_new_processings, task_output_queue=self.new_output_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
-            self.add_task(task)
+            for _ in range(self.num_threads):
+                task = self.create_task(task_func=self.process_new_processings, task_output_queue=self.new_output_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
+                self.add_task(task)
             task = self.create_task(task_func=self.finish_new_processings, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
             self.add_task(task)
 
             task = self.create_task(task_func=self.get_running_processings, task_output_queue=self.running_task_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
             self.add_task(task)
-            task = self.create_task(task_func=self.process_running_processings, task_output_queue=self.running_output_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
-            self.add_task(task)
+            for _ in range(self.num_threads):
+                task = self.create_task(task_func=self.process_running_processings, task_output_queue=self.running_output_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
+                self.add_task(task)
             task = self.create_task(task_func=self.finish_running_processings, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
             self.add_task(task)
 

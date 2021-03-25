@@ -26,7 +26,7 @@ from idds.common.constants import (RequestType, RequestStatus, RequestLocking,
                                    TransformType, TransformStatus, TransformLocking,
                                    ProcessingStatus, ProcessingLocking,
                                    CollectionStatus, CollectionLocking, CollectionType,
-                                   CollectionRelationType, ContentType,
+                                   CollectionRelationType, ContentType, ContentRelationType,
                                    ContentStatus, ContentLocking, GranularityType,
                                    MessageType, MessageStatus, MessageLocking, MessageSource)
 from idds.common.utils import date_to_str
@@ -132,7 +132,7 @@ class Request(BASE, ModelBase):
     workload_id = Column(Integer())
     priority = Column(Integer())
     status = Column(EnumWithValue(RequestStatus))
-    substatus = Column(Integer())
+    substatus = Column(EnumWithValue(RequestStatus), default=0)
     locking = Column(EnumWithValue(RequestLocking))
     created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow)
     updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
@@ -164,7 +164,7 @@ class Workprogress(BASE, ModelBase):
     # workload_id = Column(Integer())
     priority = Column(Integer())
     status = Column(EnumWithValue(WorkprogressStatus))
-    substatus = Column(Integer())
+    substatus = Column(EnumWithValue(WorkprogressStatus), default=0)
     locking = Column(EnumWithValue(WorkprogressLocking))
     created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow)
     updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
@@ -194,7 +194,7 @@ class Transform(BASE, ModelBase):
     priority = Column(Integer())
     safe2get_output_from_input = Column(Integer())
     status = Column(EnumWithValue(TransformStatus))
-    substatus = Column(Integer())
+    substatus = Column(EnumWithValue(TransformStatus), default=0)
     locking = Column(EnumWithValue(TransformLocking))
     retries = Column(Integer(), default=0)
     created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow)
@@ -230,7 +230,7 @@ class Processing(BASE, ModelBase):
     request_id = Column(BigInteger().with_variant(Integer, "sqlite"))
     workload_id = Column(Integer())
     status = Column(EnumWithValue(ProcessingStatus))
-    substatus = Column(EnumWithValue(ProcessingStatus))
+    substatus = Column(EnumWithValue(ProcessingStatus), default=0)
     locking = Column(EnumWithValue(ProcessingLocking))
     submitter = Column(String(20))
     submitted_id = Column(Integer())
@@ -260,13 +260,12 @@ class Collection(BASE, ModelBase):
     workload_id = Column(Integer())
     transform_id = Column(BigInteger().with_variant(Integer, "sqlite"))
     coll_type = Column(EnumWithValue(CollectionType))
-    transform_id = Column(BigInteger().with_variant(Integer, "sqlite"))
     relation_type = Column(EnumWithValue(CollectionRelationType))
     scope = Column(String(SCOPE_LENGTH))
     name = Column(String(NAME_LENGTH))
     bytes = Column(Integer())
     status = Column(EnumWithValue(CollectionStatus))
-    substatus = Column(Integer())
+    substatus = Column(EnumWithValue(CollectionStatus), default=0)
     locking = Column(EnumWithValue(CollectionLocking))
     total_files = Column(Integer())
     storage_id = Column(Integer())
@@ -307,6 +306,7 @@ class Content(BASE, ModelBase):
     min_id = Column(Integer())
     max_id = Column(Integer())
     content_type = Column(EnumWithValue(ContentType))
+    content_relation_type = Column(EnumWithValue(ContentRelationType))
     status = Column(EnumWithValue(ContentStatus))
     substatus = Column(EnumWithValue(ContentStatus))
     locking = Column(EnumWithValue(ContentLocking))
@@ -327,12 +327,14 @@ class Content(BASE, ModelBase):
                    # UniqueConstraint('name', 'scope', 'coll_id', 'content_type', 'min_id', 'max_id', name='CONTENT_SCOPE_NAME_UQ'),
                    # UniqueConstraint('name', 'scope', 'coll_id', 'min_id', 'max_id', name='CONTENT_SCOPE_NAME_UQ'),
                    # UniqueConstraint('content_id', 'coll_id', name='CONTENTS_UQ'),
-                   UniqueConstraint('transform_id', 'coll_id', 'map_id', name='CONTENT_ID_UQ'),
+                   UniqueConstraint('transform_id', 'coll_id', 'map_id', 'name', name='CONTENT_ID_UQ'),
                    ForeignKeyConstraint(['transform_id'], ['transforms.transform_id'], name='CONTENTS_TRANSFORM_ID_FK'),
                    ForeignKeyConstraint(['coll_id'], ['collections.coll_id'], name='CONTENTS_COLL_ID_FK'),
                    CheckConstraint('status IS NOT NULL', name='CONTENTS_STATUS_ID_NN'),
                    CheckConstraint('coll_id IS NOT NULL', name='CONTENTS_COLL_ID_NN'),
-                   Index('CONTENTS_STATUS_UPDATED_IDX', 'status', 'locking', 'updated_at', 'created_at'))
+                   Index('CONTENTS_STATUS_UPDATED_IDX', 'status', 'locking', 'updated_at', 'created_at'),
+                   Index('CONTENTS_ID_NAME_IDX', 'coll_id', 'scope', 'name', 'status'),
+                   Index('CONTENTS_REQ_TF_COLL_IDX', 'request_id', 'transform_id', 'coll_id', 'status'))
 
 
 class Health(BASE, ModelBase):

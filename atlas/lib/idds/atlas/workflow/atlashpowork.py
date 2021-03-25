@@ -104,7 +104,6 @@ class ATLASHPOWork(ATLASCondorWork):
         self.points_to_generate = self.num_points_per_iteration
         self.point_index = 0
         self.terminated = False
-        self.tocancel = False
 
         if not self.num_points_per_iteration or self.num_points_per_iteration < 0:
             raise exceptions.IDDSException("num_points_per_iteration must be integer bigger than 0")
@@ -298,9 +297,13 @@ class ATLASHPOWork(ATLASCondorWork):
                 next_key = 1
             for ip in new_inputs:
                 out_ip = copy.deepcopy(ip)
+                ip['status'] = ContentStatus.Available
+                ip['substatus'] = ContentStatus.Available
                 out_ip['coll_id'] = self.collections[self.output_collections[0]]['coll_id']
                 new_input_output_maps[next_key] = {'inputs': [ip],
-                                                   'outputs': [out_ip]}
+                                                   'outputs': [out_ip],
+                                                   'inputs_dependency': [],
+                                                   'logs': []}
                 next_key += 1
 
         self.unfinished_points = self.unfinished_points + len(new_inputs)
@@ -369,6 +372,7 @@ class ATLASHPOWork(ATLASCondorWork):
         self.status_statistics = status_statistics
         return status_statistics
 
+    """
     def syn_collection_status(self):
         input_collections = self.get_input_collections()
         output_collections = self.get_output_collections()
@@ -381,13 +385,19 @@ class ATLASHPOWork(ATLASCondorWork):
         for output_collection in output_collections:
             output_collection['total_files'] = self.finished_points + self.unfinished_points
             output_collection['processed_files'] = self.finished_points
+    """
 
     def syn_work_status(self, registered_input_output_maps):
+        super(ATLASHPOWork, self).syn_work_status(registered_input_output_maps)
         self.get_status_statistics(registered_input_output_maps)
 
-        self.syn_collection_status()
+        # self.syn_collection_status()
 
         if self.is_processings_terminated() and not self.has_new_inputs():
+            if not self.is_all_outputs_flushed(registered_input_output_maps):
+                self.logger.warn("The processing is terminated. but not all outputs are flushed. Wait to flush the outputs then finish the transform")
+                return
+
             keys = self.status_statistics.keys()
             if ContentStatus.New.name in keys or ContentStatus.Processing.name in keys:
                 pass
@@ -598,9 +608,6 @@ class ATLASHPOWork(ATLASCondorWork):
             processing['processing_metadata']['job_id'] = job_id
             processing['processing_metadata']['errors'] = errors
 
-    def abort_processing(self, processing):
-        self.tocancel = True
-
     def parse_processing_outputs(self, processing):
         request_id = processing['request_id']
         workload_id = processing['workload_id']
@@ -637,8 +644,31 @@ class ATLASHPOWork(ATLASCondorWork):
             else:
                 processing_status = ProcessingStatus.Failed
                 processing_err = parser_errors
+        elif job_status in [ProcessingStatus.Failed]:
+            processing_status = job_status
+            processing_err = job_err_msg
+        elif self.is_processing_expired(processing):
+            processing_status = ProcessingStatus.Expired
+            processing_err = "The processing is expired"
+        elif job_status in [ProcessingStatus.Cancelled]:
+            processing_status = job_status
+            processing_err = job_err_msg
         elif self.tocancel:
+            self.cancelled_processings.append(processing['processing_metadata']['internal_id'])
             processing_status = ProcessingStatus.Cancelled
+            processing_outputs = None
+            processing_err = 'Cancelled'
+        elif self.tosuspend:
+            self.suspended_processings.append(processing['processing_metadata']['internal_id'])
+            processing_status = ProcessingStatus.Suspended
+            processing_outputs = None
+            processing_err = 'Suspend'
+        elif self.toresume:
+            # self.old_processings.append(processing['processing_metadata']['internal_id'])
+            # self.active_processings.clear()
+            # self.active_processings.remove(processing['processing_metadata']['internal_id'])
+            processing['processing_metadata']['resuming_at'] = datetime.datetime.utcnow()
+            processing_status = ProcessingStatus.Running
             processing_outputs = None
             processing_err = None
         else:

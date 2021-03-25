@@ -329,6 +329,7 @@ CREATE TABLE CONTENTS
         min_id NUMBER(7) constraint CONTENT_MIN_ID_NN NOT NULL,
         max_id NUMBER(7) constraint CONTENT_MAX_ID_NN NOT NULL,
         content_type NUMBER(2) constraint CONTENT_TYPE_NN NOT NULL,
+        content_relation_type NUMBER(2) constraint CONTENT_RTYPE_NN NOT NULL,
         status NUMBER(2) constraint CONTENT_STATUS_NN NOT NULL,
         substatus NUMBER(2),
         locking NUMBER(2),
@@ -348,7 +349,7 @@ CREATE TABLE CONTENTS
         CONSTRAINT CONTENT_PK PRIMARY KEY (content_id),
         --- CONSTRAINT CONTENT_SCOPE_NAME_UQ UNIQUE (name, scope, coll_id, content_type, min_id, max_id) USING INDEX LOCAL,
         --- CONSTRAINT CONTENT_SCOPE_NAME_UQ UNIQUE (name, scope, coll_id, min_id, max_id) USING INDEX LOCAL,
-        CONSTRAINT CONTENT_ID_UQ UNIQUE (transform_id, coll_id, map_id) USING INDEX LOCAL,
+        CONSTRAINT CONTENT_ID_UQ UNIQUE (transform_id, coll_id, map_id, name, min_id, max_id) USING INDEX LOCAL,
         CONSTRAINT CONTENT_TRANSFORM_ID_FK FOREIGN KEY(transform_id) REFERENCES TRANSFORMS(transform_id),
         CONSTRAINT CONTENT_COLL_ID_FK FOREIGN KEY(coll_id) REFERENCES COLLECTIONS(coll_id)
 )
@@ -356,6 +357,10 @@ PCTFREE 3
 PARTITION BY RANGE(TRANSFORM_ID)
 INTERVAL ( 1000000 )
 ( PARTITION initial_part VALUES LESS THAN (1) );
+
+alter table contents modify (min_id NUMBER(7) default 0)
+alter table contents modify (max_id NUMBER(7) default 0)
+alter table contents add content_relation_type NUMBER(2) default 0
 
 ---PCTFREE 0
 ---COMPRESS FOR OLTP
@@ -372,7 +377,8 @@ CREATE OR REPLACE TRIGGER TRIG_CONTENT_ID
 
 
 CREATE INDEX CONTENTS_STATUS_UPDATED_IDX ON CONTENTS (status, locking, updated_at, created_at) LOCAL;
-
+CREATE INDEX CONTENTS_ID_NAME_IDX ON CONTENTS (coll_id, scope, name, status) LOCAL;
+CREATE INDEX CONTENTS_REQ_TF_COLL_IDX ON CONTENTS (request_id, transform_id, coll_id, status) LOCAL;
 
 --- messages
 CREATE SEQUENCE MESSAGE_ID_SEQ MINVALUE 1 INCREMENT BY 1 START WITH 1 NOCACHE NOORDER NOCYCLE;
@@ -453,4 +459,17 @@ from requests r
     full outer join (select coll_id , transform_id, status, total_files, processed_files from collections where relation_type = 0) in_coll on (t.transform_id = in_coll.transform_id)
     full outer join (select coll_id , transform_id, status, total_files, processed_files from collections where relation_type = 1) out_coll on (t.transform_id = out_coll.transform_id)
  ) tr on (wt.transform_id=tr.transform_id)
+order by r.request_id
+
+
+select r.request_id, r.scope, r.name, r.status, tr.transform_id, tr.transform_status, tr.in_status, tr.in_total_files, tr.in_processed_files, tr.out_status, tr.out_total_files, tr.out_processed_files
+from requests r
+ full outer join (
+    select t.request_id, t.transform_id, t.status transform_status, in_coll.status in_status, in_coll.total_files in_total_files,
+    in_coll.processed_files in_processed_files, out_coll.status out_status, out_coll.total_files out_total_files,
+    out_coll.processed_files out_processed_files
+    from transforms t
+    full outer join (select coll_id , transform_id, status, total_files, processed_files from collections where relation_type = 0) in_coll on (t.transform_id = in_coll.transform_id)
+    full outer join (select coll_id , transform_id, status, total_files, processed_files from collections where relation_type = 1) out_coll on (t.transform_id = out_coll.transform_id)
+ ) tr on (r.request_id=tr.request_id)
 order by r.request_id

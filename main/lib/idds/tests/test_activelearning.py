@@ -12,9 +12,17 @@
 """
 Test client.
 """
+import json
 import re
 import time
 # import traceback
+
+try:
+    from urllib import quote
+except ImportError:
+    from urllib.parse import quote
+
+from pandatools import Client
 
 # from idds.client.client import Client
 from idds.client.clientmanager import ClientManager
@@ -39,7 +47,8 @@ def get_task_id(output, error):
 
 
 def submit_processing_task():
-    cmd = "cd /afs/cern.ch/user/w/wguan/workdisk/iDDS/test/activelearning/hepexcursion/grid; prun --exec 'python simplescript.py 0.5 0.5 200 output.json' --outDS user.wguan.altest123456  --outputs output.json --nJobs=10"
+    outDS = "user.wguan.altest%s" % str(int(time.time()))
+    cmd = "cd /afs/cern.ch/user/w/wguan/workdisk/iDDS/main/lib/idds/tests/activelearning_test_codes; prun --exec 'python simplescript.py 0.5 0.5 200 output.json' --outDS %s  --outputs output.json --nJobs=10" % outDS
     status, output, error = run_command(cmd)
     """
     print("status:")
@@ -54,7 +63,7 @@ def submit_processing_task():
     output:
 
     error:
-    INFO : gathering files under /afs/cern.ch/work/w/wguan/iDDS/test/activelearning/hepexcursion/grid
+    INFO : gathering files under /afs/cern.ch/user/w/wguan/workdisk/iDDS/main/lib/idds/tests/activelearning_test_codes
     INFO : upload source files
     INFO : submit user.wguan.altest1234/
     INFO : succeeded. new jediTaskID=23752996
@@ -66,11 +75,37 @@ def submit_processing_task():
         raise Exception(output + error)
 
 
-def test_panda_work(panda_task_id):
+def get_panda_task_paramsmap(panda_task_id):
+    status, task_param_map = Client.getTaskParamsMap(panda_task_id)
+    if status == 0:
+        task_param_map = json.loads(task_param_map)
+        return task_param_map
+    return None
+
+
+def define_panda_task_paramsmap():
+    # here is using a fake method by submitting a panda task.
+    # Users should define the task params map by themselves.
+
+    # (0, '{"buildSpec": {"jobParameters": "-i ${IN} -o ${OUT} --sourceURL ${SURL} -r . ", "archiveName": "sources.0ca6a2fb-4ad0-42d0-979d-aa7c284f1ff7.tar.gz", "prodSourceLabel": "panda"}, "sourceURL": "https://aipanda048.cern.ch:25443", "cliParams": "prun --exec \\"python simplescript.py 0.5 0.5 200 output.json\\" --outDS user.wguan.altest1234 --outputs output.json --nJobs=10", "site": null, "vo": "atlas", "respectSplitRule": true, "osInfo": "Linux-3.10.0-1127.19.1.el7.x86_64-x86_64-with-centos-7.9.2009-Core", "log": {"type": "template", "param_type": "log", "container": "user.wguan.altest1234.log/", "value": "user.wguan.altest1234.log.$JEDITASKID.${SN}.log.tgz", "dataset": "user.wguan.altest1234.log/"}, "transUses": "", "excludedSite": [], "nMaxFilesPerJob": 200, "uniqueTaskName": true, "noInput": true, "taskName": "user.wguan.altest1234/", "transHome": null, "includedSite": null, "nEvents": 10, "nEventsPerJob": 1, "jobParameters": [{"type": "constant", "value": "-j \\"\\" --sourceURL ${SURL}"}, {"type": "constant", "value": "-r ."}, {"padding": false, "type": "constant", "value": "-p \\""}, {"padding": false, "type": "constant", "value": "python%20simplescript.py%200.5%200.5%20200%20output.json"}, {"type": "constant", "value": "\\""}, {"type": "constant", "value": "-l ${LIB}"}, {"container": "user.wguan.altest1234_output.json/", "value": "user.wguan.$JEDITASKID._${SN/P}.output.json", "dataset": "user.wguan.altest1234_output.json/", "param_type": "output", "hidden": true, "type": "template"}, {"type": "constant", "value": "-o \\"{\'output.json\': \'user.wguan.$JEDITASKID._${SN/P}.output.json\'}\\""}], "prodSourceLabel": "user", "processingType": "panda-client-1.4.47-jedi-run", "architecture": "@centos7", "userName": "Wen Guan", "taskType": "anal", "taskPriority": 1000, "countryGroup": "us"}')  # noqa E501
+
+    task_id = submit_processing_task()
+    task_param_map = get_panda_task_paramsmap(task_id)
     cmd_to_arguments = {'arguments': 'python simplescript.py 0.5 0.5 200',
-                        'parameters': 'python simplescript.py {m1} {m2} {nevents}',
-                        'outDS': 'user.wguan.altest123456'}
-    work = ATLASPandaWork(panda_task_id=panda_task_id, cmd_to_arguments=cmd_to_arguments)
+                        'parameters': 'python simplescript.py {m1} {m2} {nevents}'}
+
+    # update the cliParams to have undefined parameters, these parameters {m1}, {m2}, {nevents} will be the outputs of learning script.
+    task_param_map['cliParams'] = task_param_map['cliParams'].replace(cmd_to_arguments['arguments'], cmd_to_arguments['parameters'])
+    jobParameters = task_param_map['jobParameters']
+    for p in jobParameters:
+        if 'value' in p:
+            p['value'] = p['value'].replace(quote(cmd_to_arguments['arguments']), quote(cmd_to_arguments['parameters']))
+    return task_param_map
+
+
+def test_panda_work():
+    task_param_map = define_panda_task_paramsmap()
+    work = ATLASPandaWork(panda_task_paramsmap=task_param_map)
     work.initialize_work()
     print(work.__class__.__name__)
     print('sandbox: %s' % work.sandbox)
@@ -78,9 +113,9 @@ def test_panda_work(panda_task_id):
 
     print("new work")
     test_work = work.generate_work_from_template()
-    test_work.initialize_work()
     test_work.set_parameters({'m1': 0.5, 'm2': 0.5, 'nevents': 100})
-    test_work.parse_arguments()
+
+    test_work.initialize_work()
     # print(json_dumps(test_work, sort_keys=True, indent=4))
     # print('output_collections: %s' % str(test_work.get_output_collections()))
     # print(json_dumps(test_work, sort_keys=True, indent=4))
@@ -91,11 +126,9 @@ def test_panda_work(panda_task_id):
     # print(ret)
 
 
-def get_workflow(panda_task_id):
-    cmd_to_arguments = {'arguments': 'python simplescript.py 0.5 0.5 200',
-                        'parameters': 'python simplescript.py {m1} {m2} {nevents}',
-                        'outDS': 'user.wguan.altest123456'}
-    work = ATLASPandaWork(panda_task_id=panda_task_id, cmd_to_arguments=cmd_to_arguments)
+def get_workflow():
+    task_param_map = define_panda_task_paramsmap()
+    work = ATLASPandaWork(panda_task_paramsmap=task_param_map)
 
     # it's needed to parse the panda task parameter information, for example output dataset name, for the next task.
     # if the information is not needed, you don't need to run it manually. iDDS will call it interally to parse the information.
@@ -139,10 +172,10 @@ if __name__ == '__main__':
     # panda_task_id = submit_processing_task()
     # panda_task_id = 23752996
     # panda_task_id = 23810059
-    panda_task_id = 23818866
-    print(panda_task_id)
-    test_panda_work(panda_task_id)
-    workflow = get_workflow(panda_task_id)
+    # panda_task_id = 23818866
+    # print(panda_task_id)
+    test_panda_work()
+    workflow = get_workflow()
     wm = ClientManager(host=host)
     request_id = wm.submit(workflow)
     print(request_id)

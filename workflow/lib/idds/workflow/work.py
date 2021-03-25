@@ -9,13 +9,16 @@
 # - Wen Guan, <wen.guan@cern.ch>, 2020
 
 import copy
+import datetime
 import logging
 import os
 import stat
 import uuid
+import traceback
 
 from idds.common import exceptions
-from idds.common.constants import WorkStatus, ProcessingStatus
+from idds.common.constants import (WorkStatus, ProcessingStatus,
+                                   CollectionStatus, CollectionType)
 from idds.common.utils import setup_logging
 
 from .base import Base
@@ -45,7 +48,7 @@ class Parameter(object):
 class Work(Base):
 
     def __init__(self, executable=None, arguments=None, parameters=None, setup=None, work_type=None,
-                 work_tag=None, exec_type='local', sandbox=None, work_id=None,
+                 work_tag=None, exec_type='local', sandbox=None, work_id=None, work_name=None,
                  primary_input_collection=None, other_input_collections=None,
                  output_collections=None, log_collections=None, release_inputs_after_submitting=False,
                  agent_attributes=None,
@@ -86,6 +89,9 @@ class Work(Base):
         self.exec_type = exec_type
         self.sandbox = sandbox
         self.work_id = work_id
+        self.work_name = work_name
+        if not self.work_name:
+            self.work_name = self.template_work_id
         # self.workflow = workflow
         self.transforming = False
         self.workdir = None
@@ -115,8 +121,13 @@ class Work(Base):
         self.errors = []
         self.next_works = []
 
+        self.work_name_to_coll_map = []
+
         self.processings = {}
         self.active_processings = []
+        self.cancelled_processings = []
+        self.suspended_processings = []
+        self.old_processings = []
         self.terminated_msg = ""
         self.output_data = None
         self.parameters_for_next_task = None
@@ -128,17 +139,30 @@ class Work(Base):
         self.proxy = None
         self.original_proxy = None
 
+        self.tocancel = False
+        self.tosuspend = False
+        self.toresume = False
+
     def get_class_name(self):
         return self.__class__.__name__
 
     def get_internal_id(self):
         return self.internal_id
 
+    def get_template_work_id(self):
+        return self.template_work_id
+
     def set_sequence_id(self, seq_id):
         self.sequence_id = seq_id
 
     def get_sequence_id(self):
         return self.sequence_id
+
+    def set_work_name(self, work_name):
+        self.work_name = work_name
+
+    def get_work_name(self):
+        return self.work_name
 
     def setup_logger(self):
         """
@@ -169,10 +193,19 @@ class Work(Base):
     # def set_workflow(self, workflow):
     #     self.workflow = workflow
 
+    def clean_work(self):
+        pass
+
     def set_agent_attributes(self, attrs, req_attributes=None):
         if attrs and self.class_name in attrs:
-            self.agent_attributes = attrs[self.class_name]
+            if self.agent_attributes is None:
+                self.agent_attributes = {}
+            for key, value in attrs[self.class_name].items():
+                self.agent_attributes[key] = value
         self.logger.info("agent_attributes: %s" % self.agent_attributes)
+
+    def get_agent_attributes(self):
+        return self.agent_attributes
 
     def set_workdir(self, workdir):
         self.workdir = workdir
@@ -258,7 +291,7 @@ class Work(Base):
         """
         *** Function called by Transformer agent.
         """
-        if self.status in [WorkStatus.Finished, WorkStatus.SubFinished, WorkStatus.Failed, WorkStatus.Cancelled]:
+        if self.status in [WorkStatus.Finished, WorkStatus.SubFinished, WorkStatus.Failed, WorkStatus.Cancelled, WorkStatus.Suspended]:
             return True
         return False
 
@@ -286,11 +319,27 @@ class Work(Base):
             return True
         return False
 
+    def is_expired(self):
+        """
+        *** Function called by Transformer agent.
+        """
+        if self.status in [WorkStatus.Expired]:
+            return True
+        return False
+
     def is_cancelled(self):
         """
         *** Function called by Transformer agent.
         """
         if self.status in [WorkStatus.Cancelled]:
+            return True
+        return False
+
+    def is_suspended(self):
+        """
+        *** Function called by Transformer agent.
+        """
+        if self.status in [WorkStatus.Suspended]:
             return True
         return False
 
@@ -396,6 +445,76 @@ class Work(Base):
         keys = [self.primary_input_collection] + self.other_input_collections
         return [self.collections[k] for k in keys]
 
+    def is_internal_collection(self, coll):
+        if ('coll_metadata' in coll and coll['coll_metadata']
+            and 'source' in coll['coll_metadata'] and coll['coll_metadata']['source']  # noqa W503
+            and type(coll['coll_metadata']['source']) == str and coll['coll_metadata']['source'].lower() == 'idds'):  # noqa W503
+            return True
+        return False
+
+    def get_internal_collections(self, coll):
+        if 'coll_metadata' in coll and coll['coll_metadata'] and 'request_id' in coll['coll_metadata']:
+            # relation_type = coll['coll_metadata']['relation_type'] if 'relation_type' in coll['coll_metadata'] else CollectionRelationType.Output
+            # colls = core_catalog.get_collections(scope=coll['scope'],
+            #                                 name=coll['name'],
+            #                                 request_id=coll['coll_metadata']['request_id'],
+            #                                 relation_type=relation_type)
+            return []
+        return []
+
+    def poll_internal_collection(self, coll):
+        try:
+            if 'status' in coll and coll['status'] in [CollectionStatus.Closed]:
+                return coll
+            else:
+                if 'coll_metadata' not in coll:
+                    coll['coll_metadata'] = {}
+                coll['coll_metadata']['bytes'] = 0
+                coll['coll_metadata']['availability'] = 0
+                coll['coll_metadata']['events'] = 0
+                coll['coll_metadata']['is_open'] = True
+                coll['coll_metadata']['run_number'] = 1
+                coll['coll_metadata']['did_type'] = 'DATASET'
+                coll['coll_metadata']['list_all_files'] = False
+                coll['coll_metadata']['interal_colls'] = []
+
+                is_open = False
+                internal_colls = self.get_internal_collections(coll)
+                for i_coll in internal_colls:
+                    if i_coll['status'] not in [CollectionStatus.Closed]:
+                        is_open = True
+                    coll['coll_metadata']['bytes'] += i_coll['bytes']
+
+                if not is_open:
+                    coll_status = CollectionStatus.Closed
+                else:
+                    coll_status = CollectionStatus.Open
+                coll['status'] = coll_status
+                if len(internal_colls) > 1:
+                    coll['coll_type'] = CollectionType.Container
+                else:
+                    coll['coll_type'] = CollectionType.Dataset
+
+                return coll
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+            raise exceptions.IDDSException('%s: %s' % (str(ex), traceback.format_exc()))
+
+    def get_internal_input_contents(self, coll):
+        """
+        Get all input contents from iDDS collections.
+        """
+        coll = self.collections[self.primary_input_collection]
+        internal_colls = self.get_internal_collection(coll)
+        internal_coll_ids = [coll['coll_id'] for coll in internal_colls]
+        if internal_coll_ids:
+            # contents = catalog.get_contents_by_coll_id_status(coll_id=coll_ids)
+            contents = []
+        else:
+            contents = []
+        return contents
+
     def get_input_contents(self):
         """
         Get all input contents from DDM.
@@ -447,7 +566,6 @@ class Work(Base):
         """
         inputs = self.get_input_contents()
         # mapped_inputs = mapped_input_output_maps.keys()
-        next_map_id = max(mapped_input_output_maps.keys()) + 1
 
         mapped_inputs = []
         for map_id in mapped_input_output_maps:
@@ -462,10 +580,24 @@ class Work(Base):
                 pass
             else:
                 new_inputs.append(ip)
-        new_input_maps = {}
-        for new_input in new_inputs:
-            new_input_maps[next_map_id] = [new_input]
-        return new_input_maps
+
+        new_input_output_maps = {}
+        mapped_keys = mapped_input_output_maps.keys()
+        if mapped_keys:
+            next_key = max(mapped_keys) + 1
+        else:
+            next_key = 1
+        for ip in new_inputs:
+            self.num_mapped_inputs += 1
+            out_ip = copy.deepcopy(ip)
+            out_ip['coll_id'] = self.collections[self.output_collections[0]]['coll_id']
+            new_input_output_maps[next_key] = {'inputs': [ip],
+                                               'outputs': [out_ip],
+                                               'inputs_dependency': [],
+                                               'logs': []}
+            next_key += 1
+
+        return new_input_output_maps
 
     def set_collection_id(self, collection, coll_id):
         # print(collection)
@@ -475,10 +607,23 @@ class Work(Base):
     def should_release_inputs(self, processing=None):
         if self.release_inputs_after_submitting:
             if (processing and 'status' in processing
-                and processing['status'] in [ProcessingStatus.Submitted, ProcessingStatus.Submitted.value]):  # noqa: W503
+                and processing['status'] not in [ProcessingStatus.New, ProcessingStatus.New.value,  # noqa: W503
+                                                 ProcessingStatus.Submitting, ProcessingStatus.Submitting.value]):  # noqa: W503
                 return True
             return False
         return True
+
+    def use_dependency_to_release_jobs(self):
+        """
+        *** Function called by Transformer agent.
+        """
+        return False
+
+    def set_work_name_to_coll_map(self, work_name_to_coll_map):
+        self.work_name_to_coll_map = work_name_to_coll_map
+
+    def get_work_name_to_coll_map(self):
+        return self.work_name_to_coll_map
 
     def add_processing_to_processings(self, processing):
         assert(isinstance(processing, dict))
@@ -489,6 +634,14 @@ class Work(Base):
         if 'internal_id' not in processing['processing_metadata']:
             processing['processing_metadata']['internal_id'] = str(uuid.uuid1())
         self.processings[processing['processing_metadata']['internal_id']] = processing
+
+    def get_processing_ids(self):
+        ids = []
+        for p_id in self.active_processings:
+            p = self.processings[p_id]
+            if 'processing_id' in p:
+                ids.append(p['processing_id'])
+        return ids
 
     # def set_processing(self, processing):
     #     self.processing = processing
@@ -521,7 +674,13 @@ class Work(Base):
         if 'status' in processing and processing['status'] not in [ProcessingStatus.New,
                                                                    ProcessingStatus.Submitting,
                                                                    ProcessingStatus.Submitted,
-                                                                   ProcessingStatus.Running]:
+                                                                   ProcessingStatus.Running,
+                                                                   ProcessingStatus.ToCancel,
+                                                                   ProcessingStatus.Cancelling,
+                                                                   ProcessingStatus.ToSuspend,
+                                                                   ProcessingStatus.Suspending,
+                                                                   ProcessingStatus.ToResume,
+                                                                   ProcessingStatus.Resuming]:
             return True
         return False
 
@@ -582,6 +741,51 @@ class Work(Base):
                 return False
         return True
 
+    def is_processings_expired(self):
+        """
+        *** Function called by Transformer agent.
+        """
+        has_expired = False
+        for p_id in self.active_processings:
+            p = self.processings[p_id]
+            if not self.is_processing_terminated(p):
+                return False
+            elif p['status'] in [ProcessingStatus.Expired]:
+                has_expired = True
+        if has_expired:
+            return True
+        return False
+
+    def is_processings_cancelled(self):
+        """
+        *** Function called by Transformer agent.
+        """
+        has_cancelled = False
+        for p_id in self.active_processings:
+            p = self.processings[p_id]
+            if not self.is_processing_terminated(p):
+                return False
+            elif p['status'] in [ProcessingStatus.Cancelled]:
+                has_cancelled = True
+        if has_cancelled:
+            return True
+        return False
+
+    def is_processings_suspended(self):
+        """
+        *** Function called by Transformer agent.
+        """
+        has_suspended = False
+        for p_id in self.active_processings:
+            p = self.processings[p_id]
+            if not self.is_processing_terminated(p):
+                return False
+            elif p['status'] in [ProcessingStatus.Suspended]:
+                has_suspended = True
+        if has_suspended:
+            return True
+        return False
+
     def create_processing(self, input_output_maps):
         """
         *** Function called by Transformer agent.
@@ -612,7 +816,41 @@ class Work(Base):
         """
         *** Function called by Carrier agent.
         """
-        raise exceptions.NotImplementedException
+        # raise exceptions.NotImplementedException
+        self.tocancel = True
+
+    def suspend_processing(self, processing):
+        """
+        *** Function called by Carrier agent.
+        """
+        # raise exceptions.NotImplementedException
+        self.tosuspend = True
+
+    def resume_processing(self, processing):
+        """
+        *** Function called by Carrier agent.
+        """
+        # raise exceptions.NotImplementedException
+        self.toresume = True
+
+    def get_expired_at(self, processing=None):
+        if processing and 'created_at' in processing and processing['created_at']:
+            return processing['created_at'] + datetime.timedelta(seconds=int(self.agent_attributes['life_time']))
+        return datetime.datetime.utcnow() + datetime.timedelta(seconds=int(self.agent_attributes['life_time']))
+
+    def is_processing_expired_old(self, processing):
+        if (self.agent_attributes and 'life_time' in self.agent_attributes and self.agent_attributes['life_time']):
+            time_diff = datetime.datetime.utcnow() - processing['created_at']
+            time_diff = time_diff.total_seconds()
+            if time_diff > int(self.agent_attributes['life_time']):
+                return True
+        return False
+
+    def is_processing_expired(self, processing):
+        if processing['expired_at'] and processing['expired_at'] < datetime.datetime.utcnow():
+            self.logger.info("Processing %s expired" % processing['processing_id'])
+            return True
+        return False
 
     def poll_processing_updates(self, processing, input_output_maps):
         """
@@ -620,11 +858,37 @@ class Work(Base):
         """
         raise exceptions.NotImplementedException
 
+    def is_all_outputs_flushed(self, input_output_maps):
+        for map_id in input_output_maps:
+            outputs = input_output_maps[map_id]['outputs']
+
+            for content in outputs:
+                if content['status'] != content['substatus']:
+                    return False
+        return True
+
     def syn_work_status(self, input_output_maps):
         """
         *** Function called by Transformer agent.
         """
-        raise exceptions.NotImplementedException
+        # raise exceptions.NotImplementedException
+        if self.is_processings_terminated() and not self.has_new_inputs():
+            if not self.is_all_outputs_flushed(input_output_maps):
+                self.logger.warn("The work processings %s is terminated. but not all outputs are flushed. Wait to flush the outputs then finish the transform" % str(self.get_processing_ids()))
+                return
+
+            if self.is_processings_finished():
+                self.status = WorkStatus.Finished
+            elif self.is_processings_subfinished():
+                self.status = WorkStatus.SubFinished
+            elif self.is_processings_failed():
+                self.status = WorkStatus.Failed
+            elif self.is_processings_expired():
+                self.status = WorkStatus.Expired
+            elif self.is_processings_cancelled():
+                self.status = WorkStatus.Cancelled
+            elif self.is_processings_suspended():
+                self.status = WorkStatus.Suspended
 
     def sync_work_data(self, work):
         self.status = work.status
@@ -641,6 +905,8 @@ class Work(Base):
 
         self.processings = work.processings
         self.active_processings = work.active_processings
+        self.cancelled_processings = work.cancelled_processings
+        self.suspended_processings = work.suspended_processings
 
     def add_proxy(self, proxy):
         self.proxy = proxy

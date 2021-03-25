@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2020
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2021
 
 
 """
@@ -80,7 +80,7 @@ def get_collections(scope=None, name=None, request_id=None, workload_id=None, tr
 
 @transactional_session
 def add_collection(request_id, workload_id, scope, name, coll_type=CollectionType.Dataset, transform_id=None,
-                   relation_type=CollectionRelationType.Input, coll_size=0, status=CollectionStatus.New,
+                   relation_type=CollectionRelationType.Input, bytes=0, status=CollectionStatus.New,
                    total_files=0, new_files=0, processing_files=0, processed_files=0, retries=0,
                    expired_at=None, coll_metadata=None, session=None):
     """
@@ -94,7 +94,7 @@ def add_collection(request_id, workload_id, scope, name, coll_type=CollectionTyp
     :param transform_id: The transform id related to this collection.
     :param relation_type: The relation between this collection and its transform,
                           such as Input, Output, Log and so on.
-    :param size: The size of the collection.
+    :param bytes: The size of the collection.
     :param status: The status.
     :param total_files: Number of total files.
     :param retries: Number of retries.
@@ -109,7 +109,7 @@ def add_collection(request_id, workload_id, scope, name, coll_type=CollectionTyp
     orm_collections.add_collection(request_id=request_id, workload_id=workload_id,
                                    scope=scope, name=name, coll_type=coll_type,
                                    transform_id=transform_id, relation_type=relation_type,
-                                   coll_size=coll_size, status=status, total_files=total_files,
+                                   bytes=bytes, status=status, total_files=total_files,
                                    new_files=new_files, processing_files=processing_files,
                                    processed_files=processed_files, retries=retries, expired_at=expired_at,
                                    coll_metadata=coll_metadata, session=session)

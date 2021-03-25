@@ -25,6 +25,8 @@ class TimerScheduler(threading.Thread):
     def __init__(self, num_threads, logger=None):
         super(TimerScheduler, self).__init__()
         self.num_threads = int(num_threads)
+        if self.num_threads < 1:
+            self.num_threads = 1
         self.graceful_stop = threading.Event()
         self.executors = futures.ThreadPoolExecutor(max_workers=self.num_threads)
 

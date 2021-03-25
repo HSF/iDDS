@@ -259,6 +259,7 @@ CREATE TABLE CONTENTS
         min_id NUMBER(7) constraint CONTENT_MIN_ID_NN NOT NULL,
         max_id NUMBER(7) constraint CONTENT_MAX_ID_NN NOT NULL,
         content_type NUMBER(2) constraint CONTENT_TYPE_NN NOT NULL,
+        content_relation_type NUMBER(2) constraint CONTENT_RTYPE_NN NOT NULL,
         status NUMBER(2) constraint CONTENT_STATUS_NN NOT NULL,
         substatus NUMBER(2),
         locking NUMBER(2),
@@ -278,15 +279,20 @@ CREATE TABLE CONTENTS
         CONSTRAINT CONTENT_PK PRIMARY KEY (content_id),
         ---- CONSTRAINT CONTENT_SCOPE_NAME_UQ UNIQUE (name, scope, coll_id, content_type, min_id, max_id) USING INDEX LOCAL,
         ---- CONSTRAINT CONTENT_SCOPE_NAME_UQ UNIQUE (name, scope, coll_id, min_id, max_id) USING INDEX LOCAL,
-        CONSTRAINT CONTENT_ID_UQ UNIQUE (transform_id, coll_id, map_id) USING INDEX LOCAL,  
+        CONSTRAINT CONTENT_ID_UQ UNIQUE (transform_id, coll_id, map_id, name, min_id, max_id) USING INDEX LOCAL,  
         CONSTRAINT CONTENT_TRANSFORM_ID_FK FOREIGN KEY(transform_id) REFERENCES TRANSFORMS(transform_id),
         CONSTRAINT CONTENT_COLL_ID_FK FOREIGN KEY(coll_id) REFERENCES COLLECTIONS(coll_id)
 )
 PCTFREE 0
 PARTITION BY REFERENCE(CONTENT_TRANSFORM_ID_FK);
 
-CREATE INDEX CONTENTS_STATUS_UPDATED_AT_IDX ON CONTENTS (status, locking, updated_at, created_at) LOCAL;
+CREATE INDEX CONTENTS_STATUS_UPDATED_IDX ON CONTENTS (status, locking, updated_at, created_at) LOCAL;
+CREATE INDEX CONTENTS_ID_NAME_IDX ON CONTENTS (coll_id, scope, name, status) LOCAL;
+CREATE INDEX CONTENTS_REQ_TF_COLL_IDX ON CONTENTS (request_id, transform_id, coll_id, status) LOCAL;
 
+alter table contents modify (min_id NUMBER(7) default 0)
+alter table contents modify (max_id NUMBER(7) default 0)
+alter table contents add content_relation_type NUMBER(2) default 0
 
 --- messages
 CREATE SEQUENCE MESSAGE_ID_SEQ MINVALUE 1 INCREMENT BY 1 START WITH 1 NOCACHE ORDER NOCYCLE GLOBAL;
