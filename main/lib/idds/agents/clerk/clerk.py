@@ -8,6 +8,7 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2019
 
+import datetime
 import traceback
 try:
     # python 3
@@ -17,7 +18,7 @@ except ImportError:
     from Queue import Queue
 
 from idds.common.constants import (Sections, RequestStatus, RequestLocking,
-                                   TransformStatus, WorkStatus)
+                                   TransformStatus)
 from idds.common.utils import setup_logging
 from idds.core import (requests as core_requests,
                        transforms as core_transforms)
@@ -50,6 +51,9 @@ class Clerk(BaseAgent):
         # reqs_open = core_requests.get_requests_by_status_type(status=req_status, time_period=3600)
         # self.logger.info("Main thread get %s TransformingOpen requests to process" % len(reqs_open))
 
+        if self.new_task_queue.qsize() >= self.num_threads:
+            return []
+
         req_status = [RequestStatus.New, RequestStatus.Extend]
         reqs_new = core_requests.get_requests_by_status_type(status=req_status, locking=True,
                                                              bulk_size=self.retrieve_bulk_size)
@@ -78,7 +82,12 @@ class Clerk(BaseAgent):
                              'status': TransformStatus.New,
                              'retries': 0,
                              'expired_at': req['expired_at'],
-                             'transform_metadata': {'orginal_work': work, 'work': new_work}
+                             'transform_metadata': {'internal_id': new_work.get_internal_id(),
+                                                    'template_work_id': new_work.get_template_work_id(),
+                                                    'sequence_id': new_work.get_sequence_id(),
+                                                    'work_name': new_work.get_work_name(),
+                                                    'work': new_work,
+                                                    'original_work': work}
                              # 'collections': related_collections
                              }
                 transforms.append(transform)
@@ -147,7 +156,12 @@ class Clerk(BaseAgent):
         """
         Get running requests
         """
-        req_status = [RequestStatus.Transforming, RequestStatus.ToCancel, RequestStatus.Cancelling]
+        if self.running_task_queue.qsize() >= self.num_threads:
+            return []
+
+        req_status = [RequestStatus.Transforming, RequestStatus.ToCancel, RequestStatus.Cancelling,
+                      RequestStatus.ToSuspend, RequestStatus.Suspending,
+                      RequestStatus.ToResume, RequestStatus.Resuming]
         reqs = core_requests.get_requests_by_status_type(status=req_status, time_period=self.poll_time_period,
                                                          locking=True, bulk_size=self.retrieve_bulk_size)
 
@@ -179,24 +193,16 @@ class Clerk(BaseAgent):
                                  'status': TransformStatus.New,
                                  'retries': 0,
                                  'expired_at': req['expired_at'],
-                                 'transform_metadata': {'orginal_work': work, 'work': new_work}
+                                 'transform_metadata': {'internal_id': new_work.get_internal_id(),
+                                                        'template_work_id': new_work.get_template_work_id(),
+                                                        'sequence_id': new_work.get_sequence_id(),
+                                                        'work_name': new_work.get_work_name(),
+                                                        'work': new_work}
                                  # 'collections': related_collections
                                  }
                 new_transforms.append(new_transform)
             self.logger.info("Processing request(%s): new transforms: %s" % (req['request_id'],
                                                                              str(new_transforms)))
-
-        update_transforms = {}
-        if req['status'] in [RequestStatus.ToCancel]:
-            # current works
-            works = wf.get_current_works()
-            # print(works)
-            for work in works:
-                if work.get_status() not in [WorkStatus.Finished, WorkStatus.SubFinished,
-                                             WorkStatus.Failed, WorkStatus.Cancelling,
-                                             WorkStatus.Cancelled]:
-                    update_transforms[work.get_work_id()] = {'status': TransformStatus.ToCancel}
-
         # current works
         works = wf.get_current_works()
         # print(works)
@@ -215,13 +221,22 @@ class Clerk(BaseAgent):
                 req_status = RequestStatus.SubFinished
             elif wf.is_failed():
                 req_status = RequestStatus.Failed
+            elif wf.is_expired():
+                req_status = RequestStatus.Expired
             elif wf.is_cancelled():
                 req_status = RequestStatus.Cancelled
+            elif wf.is_suspended():
+                req_status = RequestStatus.Suspended
             else:
                 req_status = RequestStatus.Failed
             req_msg = wf.get_terminated_msg()
         else:
-            req_status = RequestStatus.Transforming
+            if req['status'] in [RequestStatus.ToSuspend, RequestStatus.Suspending]:
+                req_status = RequestStatus.Suspending
+            elif req['status'] in [RequestStatus.ToCancel, RequestStatus.Cancelling]:
+                req_status = RequestStatus.Cancelling
+            else:
+                req_status = RequestStatus.Transforming
             req_msg = None
 
         parameters = {'status': req_status,
@@ -230,24 +245,40 @@ class Clerk(BaseAgent):
                       'errors': {'msg': req_msg}}
         ret = {'request_id': req['request_id'],
                'parameters': parameters,
-               'new_transforms': new_transforms,
-               'update_transforms': update_transforms}
+               'new_transforms': new_transforms}   # 'update_transforms': update_transforms}
         return ret
 
-    def process_tocancel_request(self, req):
+    def process_operating_request(self, req):
         """
-        process ToCancel request
+        process ToCancel/ToSuspend/ToResume request
         """
+        if req['substatus'] == RequestStatus.ToCancel:
+            tf_status = TransformStatus.ToCancel
+            req_status = RequestStatus.Cancelling
+        if req['substatus'] == RequestStatus.ToSuspend:
+            tf_status = TransformStatus.ToSuspend
+            req_status = RequestStatus.Suspending
+        if req['substatus'] == RequestStatus.ToResume:
+            tf_status = TransformStatus.ToResume
+            req_status = RequestStatus.Resuming
+
+        processing_metadata = req['processing_metadata']
+        if 'operations' not in processing_metadata:
+            processing_metadata['operations'] = []
+        processing_metadata['operations'].append({'status': req['substatus'], 'time': datetime.datetime.utcnow()})
+
         tfs = core_transforms.get_transforms(request_id=req['request_id'])
         tfs_status = {}
         for tf in tfs:
             if tf['status'] not in [RequestStatus.Finished, RequestStatus.SubFinished,
                                     RequestStatus.Failed, RequestStatus.Cancelling,
-                                    RequestStatus.Cancelled]:
-                tfs_status[tf['request_id']] = {'status': RequestStatus.ToCancel}
+                                    RequestStatus.Cancelled, RequestStatus.Suspending,
+                                    RequestStatus.Suspended]:
+                tfs_status[tf['transform_id']] = {'substatus': tf_status}
 
         ret_req = {'request_id': req['request_id'],
-                   'parameters': {'status': RequestStatus.Cancelling,
+                   'parameters': {'status': req_status,
+                                  'substatus': req_status,
                                   'locking': RequestLocking.Idle},
                    'update_transforms': tfs_status
                    }
@@ -262,12 +293,12 @@ class Clerk(BaseAgent):
             try:
                 req = self.running_task_queue.get()
                 if req:
-                    if req['status'] in [RequestStatus.Transforming, RequestStatus.Cancelling]:
+                    if req['substatus'] in [RequestStatus.ToCancel, RequestStatus.ToSuspend, RequestStatus.ToResume]:
+                        self.logger.info("Main thread processing operating requst: %s" % req)
+                        ret_req = self.process_operating_request(req)
+                    elif req['status'] in [RequestStatus.Transforming, RequestStatus.Cancelling, RequestStatus.Suspending, RequestStatus.Resuming]:
                         self.logger.info("Main thread processing running requst: %s" % req)
                         ret_req = self.process_running_request(req)
-                    elif req['status'] in [RequestStatus.ToCancel]:
-                        self.logger.info("Main thread processing ToCancel requst: %s" % req)
-                        ret_req = self.process_tocancel_request(req)
 
                     if ret_req:
                         ret.append(ret_req)
@@ -313,15 +344,17 @@ class Clerk(BaseAgent):
 
             task = self.create_task(task_func=self.get_new_requests, task_output_queue=self.new_task_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
             self.add_task(task)
-            task = self.create_task(task_func=self.process_new_requests, task_output_queue=self.new_output_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
-            self.add_task(task)
+            for _ in range(self.num_threads):
+                task = self.create_task(task_func=self.process_new_requests, task_output_queue=self.new_output_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
+                self.add_task(task)
             task = self.create_task(task_func=self.finish_new_requests, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
             self.add_task(task)
 
             task = self.create_task(task_func=self.get_running_requests, task_output_queue=self.running_task_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
             self.add_task(task)
-            task = self.create_task(task_func=self.process_running_requests, task_output_queue=self.running_output_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
-            self.add_task(task)
+            for _ in range(self.num_threads):
+                task = self.create_task(task_func=self.process_running_requests, task_output_queue=self.running_output_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
+                self.add_task(task)
             task = self.create_task(task_func=self.finish_running_requests, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
             self.add_task(task)
 

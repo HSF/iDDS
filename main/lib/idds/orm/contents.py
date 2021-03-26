@@ -21,14 +21,15 @@ from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.sql.expression import asc
 
 from idds.common import exceptions
-from idds.common.constants import ContentType, ContentStatus, ContentLocking
+from idds.common.constants import (ContentType, ContentStatus, ContentLocking,
+                                   ContentRelationType)
 from idds.orm.base.session import read_session, transactional_session
 from idds.orm.base import models
 
 
 def create_content(request_id, workload_id, transform_id, coll_id, map_id, scope, name,
                    min_id, max_id, content_type=ContentType.File,
-                   status=ContentStatus.New,
+                   status=ContentStatus.New, content_relation_type=ContentRelationType.Input,
                    bytes=0, md5=None, adler32=None, processing_id=None, storage_id=None, retries=0,
                    locking=ContentLocking.Idle, path=None, expired_at=None, content_metadata=None):
     """
@@ -61,7 +62,8 @@ def create_content(request_id, workload_id, transform_id, coll_id, map_id, scope
     new_content = models.Content(request_id=request_id, workload_id=workload_id,
                                  transform_id=transform_id, coll_id=coll_id, map_id=map_id,
                                  scope=scope, name=name, min_id=min_id, max_id=max_id,
-                                 content_type=content_type, status=status, bytes=bytes, md5=md5,
+                                 content_type=content_type, content_relation_type=content_relation_type,
+                                 status=status, bytes=bytes, md5=md5,
                                  adler32=adler32, processing_id=processing_id, storage_id=storage_id,
                                  retries=retries, path=path, expired_at=expired_at, locking=locking,
                                  content_metadata=content_metadata)
@@ -70,7 +72,7 @@ def create_content(request_id, workload_id, transform_id, coll_id, map_id, scope
 
 @transactional_session
 def add_content(request_id, workload_id, transform_id, coll_id, map_id, scope, name, min_id=0, max_id=0,
-                content_type=ContentType.File, status=ContentStatus.New,
+                content_type=ContentType.File, status=ContentStatus.New, content_relation_type=ContentRelationType.Input,
                 bytes=0, md5=None, adler32=None, processing_id=None, storage_id=None, retries=0,
                 locking=ContentLocking.Idle, path=None, expired_at=None, content_metadata=None, session=None):
     """
@@ -105,7 +107,7 @@ def add_content(request_id, workload_id, transform_id, coll_id, map_id, scope, n
 
     try:
         new_content = create_content(request_id=request_id, workload_id=workload_id, transform_id=transform_id,
-                                     coll_id=coll_id, map_id=map_id,
+                                     coll_id=coll_id, map_id=map_id, content_relation_type=content_relation_type,
                                      scope=scope, name=name, min_id=min_id, max_id=max_id,
                                      content_type=content_type, status=status, bytes=bytes, md5=md5,
                                      adler32=adler32, processing_id=processing_id, storage_id=storage_id,
@@ -138,7 +140,7 @@ def add_contents(contents, bulk_size=1000, session=None):
                       'transform_id': None, 'coll_id': None, 'map_id': None,
                       'scope': None, 'name': None, 'min_id': 0, 'max_id': 0,
                       'content_type': ContentType.File, 'status': ContentStatus.New,
-                      'locking': ContentLocking.Idle,
+                      'locking': ContentLocking.Idle, 'content_relation_type': ContentRelationType.Input,
                       'bytes': 0, 'md5': None, 'adler32': None, 'processing_id': None,
                       'storage_id': None, 'retries': 0, 'path': None,
                       'expired_at': datetime.datetime.utcnow() + datetime.timedelta(days=30),
@@ -190,12 +192,14 @@ def get_content(content_id=None, coll_id=None, scope=None, name=None, content_ty
         else:
             if content_type in [ContentType.File, ContentType.File.value]:
                 query = session.query(models.Content)\
+                               .with_hint(models.Content, "INDEX(CONTENTS CONTENTS_ID_NAME_IDX)", 'oracle')\
                                .filter(models.Content.coll_id == coll_id)\
                                .filter(models.Content.scope == scope)\
                                .filter(models.Content.name == name)\
                                .filter(models.Content.content_type == content_type)
             else:
                 query = session.query(models.Content)\
+                               .with_hint(models.Content, "INDEX(CONTENTS CONTENTS_ID_NAME_IDX)", 'oracle')\
                                .filter(models.Content.coll_id == coll_id)\
                                .filter(models.Content.scope == scope)\
                                .filter(models.Content.name == name)\
@@ -241,6 +245,7 @@ def get_match_contents(coll_id, scope, name, content_type=None, min_id=None, max
 
     try:
         query = session.query(models.Content)\
+                       .with_hint(models.Content, "INDEX(CONTENTS CONTENTS_ID_NAME_IDX)", 'oracle')\
                        .filter(models.Content.coll_id == coll_id)\
                        .filter(models.Content.scope == scope)\
                        .filter(models.Content.name.like(name.replace('*', '%')))
@@ -298,6 +303,8 @@ def get_contents(scope=None, name=None, coll_id=None, status=None, to_json=False
                 coll_id = [coll_id[0], coll_id[0]]
 
         query = session.query(models.Content)
+        query = query.with_hint(models.Content, "INDEX(CONTENTS CONTENTS_ID_NAME_IDX)", 'oracle')
+
         if coll_id:
             query = query.filter(models.Content.coll_id.in_(coll_id))
         if scope:
@@ -339,7 +346,9 @@ def get_contents_by_transform(transform_id, to_json=False, session=None):
     """
 
     try:
-        query = session.query(models.Content).filter(models.Content.transform_id == transform_id)
+        query = session.query(models.Content)
+        query = query.with_hint(models.Content, "INDEX(CONTENTS CONTENTS_REQ_TF_COLL_IDX)", 'oracle')
+        query = query.filter(models.Content.transform_id == transform_id)
         query = query.order_by(asc(models.Content.map_id))
 
         tmp = query.all()
@@ -359,6 +368,48 @@ def get_contents_by_transform(transform_id, to_json=False, session=None):
 
 
 @read_session
+def get_input_contents(request_id, coll_id, name, to_json=False, session=None):
+    """
+    Get content or raise a NoObject exception.
+
+    :param request_id: request id.
+    :param coll_id: collection id.
+    :param name: content name.
+    :param to_json: return json format.
+
+    :param session: The database session in use.
+
+    :raises NoObject: If no content is founded.
+
+    :returns: list of contents.
+    """
+
+    try:
+        query = session.query(models.Content)
+        query = query.with_hint(models.Content, "INDEX(CONTENTS CONTENTS_REQ_TF_COLL_IDX)", 'oracle')
+        query = query.filter(models.Content.request_id == request_id)
+        query = query.filter(models.Content.coll_id == coll_id)
+        query = query.filter(models.Content.name == name)
+        # query = query.filter(models.Content.content_relation_type == ContentRelationType.Input)
+        query = query.order_by(asc(models.Content.map_id))
+
+        tmp = query.all()
+        rets = []
+        if tmp:
+            for t in tmp:
+                if to_json:
+                    rets.append(t.to_dict_json())
+                else:
+                    rets.append(t.to_dict())
+        return rets
+    except sqlalchemy.orm.exc.NoResultFound as error:
+        raise exceptions.NoObject('No record can be found with (transform_id=%s, coll_id=%s, name=%s): %s' %
+                                  (request_id, coll_id, name, error))
+    except Exception as error:
+        raise error
+
+
+@read_session
 def get_content_status_statistics(coll_id=None, session=None):
     """
     Get statistics group by status
@@ -370,6 +421,7 @@ def get_content_status_statistics(coll_id=None, session=None):
     """
     try:
         query = session.query(models.Content.status, func.count(models.Content.content_id))
+        query = query.with_hint(models.Content, "INDEX(CONTENTS CONTENTS_REQ_TF_COLL_IDX)", 'oracle')
         if coll_id:
             query = query.filter(models.Content.coll_id == coll_id)
         query = query.group_by(models.Content.status)

@@ -103,6 +103,12 @@ class WorkStatus(IDDSEnum):
     ToCancel = 7
     Cancelling = 8
     Cancelled = 9
+    ToSuspend = 10
+    Suspending = 11
+    Suspended = 12
+    ToResume = 13
+    Resuming = 14
+    Expired = 15
 
 
 class RequestStatus(IDDSEnum):
@@ -116,6 +122,12 @@ class RequestStatus(IDDSEnum):
     ToCancel = 7
     Cancelling = 8
     Cancelled = 9
+    ToSuspend = 10
+    Suspending = 11
+    Suspended = 12
+    ToResume = 13
+    Resuming = 14
+    Expired = 15
 
 
 class RequestLocking(IDDSEnum):
@@ -174,6 +186,12 @@ class TransformStatus(IDDSEnum):
     ToCancel = 7
     Cancelling = 8
     Cancelled = 9
+    ToSuspend = 10
+    Suspending = 11
+    Suspended = 12
+    ToResume = 13
+    Resuming = 14
+    Expired = 15
 
 
 class TransformLocking(IDDSEnum):
@@ -204,6 +222,7 @@ class CollectionStatus(IDDSEnum):
     Failed = 6
     Deleted = 7
     Cancelled = 8
+    Suspended = 9
 
 
 class CollectionLocking(IDDSEnum):
@@ -215,6 +234,13 @@ class ContentType(IDDSEnum):
     File = 0
     Event = 1
     PseudoContent = 2
+
+
+class ContentRelationType(IDDSEnum):
+    Input = 0
+    Output = 1
+    Log = 2
+    InputDependency = 3
 
 
 class ContentStatus(IDDSEnum):
@@ -254,6 +280,12 @@ class ProcessingStatus(IDDSEnum):
     ToCancel = 12
     Cancelling = 13
     Cancelled = 14
+    ToSuspend = 15
+    Suspending = 16
+    Suspended = 17
+    ToResume = 18
+    Resuming = 19
+    Expired = 20
 
 
 class ProcessingLocking(IDDSEnum):

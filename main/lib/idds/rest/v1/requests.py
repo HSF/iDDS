@@ -137,7 +137,7 @@ class Request(IDDSController):
                 request_id = None
             if workload_id == 'null':
                 workload_id = None
-            if with_detail and with_detail.lower in ['true']:
+            if with_detail and with_detail.lower() in ['true']:
                 with_detail = True
             else:
                 with_detail = False

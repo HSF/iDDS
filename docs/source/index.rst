@@ -31,6 +31,7 @@ For documentation specific to any of these three, please see the subsequent sect
    general/v2/schematic_view
    general/v2/architecture
    general/v2/workflow
+   general/v2/dag
    general/v1/index
 
 Use Cases
@@ -44,6 +45,7 @@ Here it includes use cases that iDDS supports or will supports.
    usecases/data_carousel
    usecases/active_learning
    usecases/hyperparemeter_optimization
+   usecases/doma_rubin
 
 User Documentation
 ==================

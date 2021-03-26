@@ -218,38 +218,84 @@ def get_requests(request_id=None, workload_id=None, with_detail=False, to_json=F
                 query = query.filter(models.Request.request_id == request_id)
             if workload_id:
                 query = query.filter(models.Request.workload_id == workload_id)
+
+            tmp = query.all()
+            rets = []
+            if tmp:
+                for t in tmp:
+                    if to_json:
+                        rets.append(t.to_dict_json())
+                    else:
+                        rets.append(t.to_dict())
+            return rets
         else:
             subquery1 = session.query(models.Collection.coll_id, models.Collection.transform_id,
-                                      models.Collection.status, models.Collection.total_files,
-                                      models.Collection.processed_files).filter(models.Collection.relation_type == 0)
-            subquery2 = session.query(models.Collection.coll_id, models.Collection.transform_id,
-                                      models.Collection.status, models.Collection.total_files,
-                                      models.Collection.processed_files).filter(models.Collection.relation_type == 1)
+                                      models.Collection.scope.label("input_coll_scope"),
+                                      models.Collection.name.label("input_coll_name"),
+                                      models.Collection.status.label("input_coll_status"),
+                                      models.Collection.total_files.label("input_total_files"),
+                                      models.Collection.processed_files.label("input_processed_files"),
+                                      models.Collection.processing_files.label("input_processing_files")).filter(models.Collection.relation_type == 0)
+            subquery1 = subquery1.subquery()
 
-            query = session.query(models.Request,
-                                  models.Transfrom.transform_id, models.Transform.status,
-                                  subquery1.c.status, subquery1.c.total_files, subquery1.c.processed_files,
-                                  subquery2.c.status, subquery2.c.total_files, subquery2.c.processed_files)
+            subquery2 = session.query(models.Collection.coll_id, models.Collection.transform_id,
+                                      models.Collection.scope.label("output_coll_scope"),
+                                      models.Collection.name.label("output_coll_name"),
+                                      models.Collection.status.label("output_coll_status"),
+                                      models.Collection.total_files.label("output_total_files"),
+                                      models.Collection.processed_files.label("output_processed_files"),
+                                      models.Collection.processing_files.label("output_processing_files")).filter(models.Collection.relation_type == 1)
+            subquery2 = subquery2.subquery()
+
+            query = session.query(models.Request.request_id,
+                                  models.Request.scope,
+                                  models.Request.name,
+                                  models.Request.requester,
+                                  models.Request.request_type,
+                                  models.Request.transform_tag,
+                                  models.Request.workload_id,
+                                  models.Request.priority,
+                                  models.Request.status,
+                                  models.Request.substatus,
+                                  models.Request.locking,
+                                  models.Request.created_at,
+                                  models.Request.updated_at,
+                                  models.Request.next_poll_at,
+                                  models.Request.accessed_at,
+                                  models.Request.expired_at,
+                                  models.Request.errors,
+                                  models.Request.request_metadata,
+                                  models.Request.processing_metadata,
+                                  models.Transform.transform_id,
+                                  models.Transform.workload_id.label("transform_workload_id"),
+                                  models.Transform.status.label("transform_status"),
+                                  subquery1.c.input_coll_scope, subquery1.c.input_coll_name,
+                                  subquery1.c.input_coll_status, subquery1.c.input_total_files,
+                                  subquery1.c.input_processed_files,
+                                  subquery1.c.input_processing_files,
+                                  subquery2.c.output_coll_scope, subquery2.c.output_coll_name,
+                                  subquery2.c.output_coll_status, subquery2.c.output_total_files,
+                                  subquery2.c.output_processed_files,
+                                  subquery2.c.output_processing_files)
+
             if request_id:
                 query = query.filter(models.Request.request_id == request_id)
             if workload_id:
                 query = query.filter(models.Request.workload_id == workload_id)
 
-            query = query.outerjoin(models.Workprogress, and_(models.Request.request_id == models.Workprogress.request_id))
-            query = query.outerjoin(models.Workprogress2transform, and_(models.Workprogress.workprogress_id == models.Workprogress2transform.workprogress_id))
-            query = query.outerjoin(subquery1, and_(subquery1.c.transform_id == models.Workprogress2transform.transform_id))
-            query = query.outerjoin(subquery2, and_(subquery2.c.transform_id == models.Workprogress2transform.transform_id))
+            query = query.outerjoin(models.Transform, and_(models.Request.request_id == models.Transform.request_id))
+            query = query.outerjoin(subquery1, and_(subquery1.c.transform_id == models.Transform.transform_id))
+            query = query.outerjoin(subquery2, and_(subquery2.c.transform_id == models.Transform.transform_id))
             query = query.order_by(asc(models.Request.request_id))
 
-        tmp = query.all()
-        rets = []
-        if tmp:
-            for t in tmp:
-                if to_json:
-                    rets.append(t.to_dict_json())
-                else:
-                    rets.append(t.to_dict())
-        return rets
+            tmp = query.all()
+            rets = []
+            if tmp:
+                for t in tmp:
+                    # t2 = dict(t)
+                    t2 = dict(zip(t.keys(), t))
+                    rets.append(t2)
+            return rets
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('request workload_id: %s cannot be found: %s' % (workload_id, error))
 

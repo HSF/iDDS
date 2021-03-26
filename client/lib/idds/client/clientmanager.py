@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2020
+# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2021
 
 
 """
@@ -78,7 +78,39 @@ class ClientManager:
         reqs = self.client.get_requests(request_id=request_id, workload_id=workload_id)
         for req in reqs:
             logging.info("Aborting request: %s" % req['request_id'])
-            self.client.update_request(request_id=req['request_id'], parameters={'status': RequestStatus.ToCancel})
+            self.client.update_request(request_id=req['request_id'], parameters={'substatus': RequestStatus.ToCancel})
+
+    @exception_handler
+    def suspend(self, request_id=None, workload_id=None):
+        """
+        Suspend requests.
+
+        :param workload_id: the workload id.
+        :param request_id: the request.
+        """
+        if request_id is None and workload_id is None:
+            logging.error("Both request_id and workload_id are None. One of them should not be None")
+            return
+        reqs = self.client.get_requests(request_id=request_id, workload_id=workload_id)
+        for req in reqs:
+            logging.info("Suspending request: %s" % req['request_id'])
+            self.client.update_request(request_id=req['request_id'], parameters={'substatus': RequestStatus.ToSuspend})
+
+    @exception_handler
+    def resume(self, request_id=None, workload_id=None):
+        """
+        Resume requests.
+
+        :param workload_id: the workload id.
+        :param request_id: the request.
+        """
+        if request_id is None and workload_id is None:
+            logging.error("Both request_id and workload_id are None. One of them should not be None")
+            return
+        reqs = self.client.get_requests(request_id=request_id, workload_id=workload_id)
+        for req in reqs:
+            logging.info("Resuming request: %s" % req['request_id'])
+            self.client.update_request(request_id=req['request_id'], parameters={'substatus': RequestStatus.ToResume})
 
     @exception_handler
     def get_status(self, request_id=None, workload_id=None, with_detail=False):
@@ -93,15 +125,15 @@ class ClientManager:
         if with_detail:
             table = []
             for req in reqs:
-                table.append([req['request_id'], req['workload_id'], "%s:%s" % (req['scope'], req['name']),
-                              "%s[%s/%s/%s]" % (req['status'], req['total_contents'], req['processed_contents'], req['processing_contents']),
+                table.append([req['request_id'], req['transform_id'], req['workload_id'], req['transform_workload_id'], "%s:%s" % (req['output_coll_scope'], req['output_coll_name']),
+                              "%s[%s/%s/%s]" % (req['transform_status'].name, req['output_total_files'], req['output_processed_files'], req['output_processing_files']),
                               req['errors']])
-            print(tabulate.tabulate(table, tablefmt='simple', headers=['request_id', 'workload_id', 'scope:name', 'status[Total/OK/Processing]', 'errors']))
+            print(tabulate.tabulate(table, tablefmt='simple', headers=['request_id', 'transform_id', 'request_workload_id', 'transform_workload_id', 'scope:name', 'status[Total/OK/Processing]', 'errors']))
         else:
             table = []
             for req in reqs:
-                table.append([req['request_id'], req['workload_id'], "%s:%s" % (req['scope'], req['name']), req['status'], req['errors']])
-            print(tabulate.tabulate(table, tablefmt='simple', headers=['request_id', 'workload_id', 'scope:name', 'status', 'errors']))
+                table.append([req['request_id'], req['workload_id'], "%s:%s" % (req['scope'], req['name']), req['status'].name, req['errors']])
+            print(tabulate.tabulate(table, tablefmt='simple', headers=['request_id', 'request_workload_id', 'scope:name', 'status', 'errors']))
 
     @exception_handler
     def download_logs(self, request_id=None, workload_id=None, dest_dir='./', filename=None):

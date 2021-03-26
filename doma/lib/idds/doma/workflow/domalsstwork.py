@@ -35,7 +35,7 @@ from idds.workflow.workflow import Condition
 import logging
 
 DEBUG = False
-CACHE_TIMEOUT = 30*60
+CACHE_TIMEOUT = 30 * 60
 
 
 class DomaCondition(Condition):

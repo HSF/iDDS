@@ -59,7 +59,7 @@ systemctl start condor
 systemctl status condor
 
 
-#docker
+#docker https://docs.docker.com/engine/install/linux-postinstall/
 groupadd docker
 yum install docker
 systemctl start docker

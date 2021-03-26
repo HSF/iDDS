@@ -15,8 +15,8 @@ operations related to Transform.
 
 # from idds.common import exceptions
 
-from idds.common.constants import (TransformStatus,
-                                   TransformLocking)
+from idds.common.constants import (TransformStatus, ContentRelationType,
+                                   TransformLocking, CollectionRelationType)
 from idds.orm.base.session import read_session, transactional_session
 from idds.orm import (transforms as orm_transforms,
                       collections as orm_collections,
@@ -126,7 +126,7 @@ def get_transforms(workprogress_id=None, to_json=False, request_id=None, workloa
                                          to_json=to_json, session=session)
 
 
-@read_session
+@transactional_session
 def get_transforms_by_status(status, period=None, locking=False, bulk_size=None, to_json=False, session=None):
     """
     Get transforms or raise a NoObject exception.
@@ -166,7 +166,7 @@ def update_transform(transform_id, parameters, session=None):
 
 
 @transactional_session
-def add_transform_outputs(transform, input_collections=None, output_collections=None, log_collections=None,
+def add_transform_outputs(transform, transform_parameters, input_collections=None, output_collections=None, log_collections=None,
                           update_input_collections=None, update_output_collections=None, update_log_collections=None,
                           new_contents=None, update_contents=None, new_processing=None, update_processing=None,
                           messages=None, message_bulk_size=1000, session=None):
@@ -222,7 +222,7 @@ def add_transform_outputs(transform, input_collections=None, output_collections=
         processing_id = orm_processings.add_processing(**new_processing, session=session)
     if update_processing:
         for proc_id in update_processing:
-            orm_processings.add_processing(processing_id=proc_id, parameters=update_processing[proc_id], session=session)
+            orm_processings.update_processing(processing_id=proc_id, parameters=update_processing[proc_id], session=session)
 
     if messages:
         if not type(messages) in [list, tuple]:
@@ -259,12 +259,8 @@ def add_transform_outputs(transform, input_collections=None, output_collections=
         """
         if processing_id:
             work.set_processing_id(new_processing, processing_id)
-        parameters = {'status': transform['status'],
-                      'locking': transform['locking'],
-                      'workload_id': transform['workload_id'],
-                      'transform_metadata': transform['transform_metadata']}
         orm_transforms.update_transform(transform_id=transform['transform_id'],
-                                        parameters=parameters,
+                                        parameters=transform_parameters,
                                         session=session)
 
 
@@ -314,8 +310,9 @@ def get_transform_input_output_maps(transform_id, input_coll_ids, output_coll_id
     for content in contents:
         map_id = content['map_id']
         if map_id not in ret:
-            ret[map_id] = {'inputs': [], 'outputs': [], 'logs': [], 'others': []}
+            ret[map_id] = {'inputs_dependency': [], 'inputs': [], 'outputs': [], 'logs': [], 'others': []}
 
+        """
         if content['coll_id'] in input_coll_ids:
             ret[map_id]['inputs'].append(content)
         elif content['coll_id'] in output_coll_ids:
@@ -324,4 +321,50 @@ def get_transform_input_output_maps(transform_id, input_coll_ids, output_coll_id
             ret[map_id]['logs'].append(content)
         else:
             ret[map_id]['others'].append(content)
+        """
+        if content['content_relation_type'] == ContentRelationType.Input:
+            ret[map_id]['inputs'].append(content)
+        elif content['content_relation_type'] == ContentRelationType.InputDependency:
+            ret[map_id]['inputs_dependency'].append(content)
+        elif content['content_relation_type'] == ContentRelationType.Output:
+            ret[map_id]['outputs'].append(content)
+        elif content['content_relation_type'] == ContentRelationType.Log:
+            ret[map_id]['logs'].append(content)
+        else:
+            ret[map_id]['others'].append(content)
     return ret
+
+
+def release_inputs(to_release_inputs):
+    update_contents = []
+    for to_release in to_release_inputs:
+        contents = orm_contents.get_input_contents(request_id=to_release['request_id'],
+                                                   coll_id=to_release['coll_id'],
+                                                   name=to_release['name'])
+        for content in contents:
+            if content['content_relation_type'] == ContentRelationType.InputDependency:
+                update_content = {'content_id': content['content_id'],
+                                  'substatus': to_release['substatus'],
+                                  'status': to_release['status']}
+                update_contents.append(update_content)
+    return update_contents
+
+
+def get_work_name_to_coll_map(request_id):
+    tfs = orm_transforms.get_transforms(request_id=request_id)
+    colls = orm_collections.get_collections(request_id=request_id)
+    work_name_to_coll_map = {}
+    for tf in tfs:
+        if ('transform_metadata' in tf and tf['transform_metadata']
+            and 'work_name' in tf['transform_metadata'] and tf['transform_metadata']['work_name']):  # noqa: W503
+            work_name = tf['transform_metadata']['work_name']
+            transform_id = tf['transform_id']
+            if work_name not in work_name_to_coll_map:
+                work_name_to_coll_map[work_name] = {'inputs': [], 'outputs': []}
+            for coll in colls:
+                if coll['transform_id'] == transform_id:
+                    if coll['relation_type'] == CollectionRelationType.Input:
+                        work_name_to_coll_map[work_name]['inputs'].append({'coll_id': coll['coll_id'], 'scope': coll['scope'], 'name': coll['name']})
+                    elif coll['relation_type'] == CollectionRelationType.Output:
+                        work_name_to_coll_map[work_name]['outputs'].append({'coll_id': coll['coll_id'], 'scope': coll['scope'], 'name': coll['name']})
+    return work_name_to_coll_map
