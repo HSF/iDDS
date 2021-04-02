@@ -515,10 +515,13 @@ class DomaPanDAWork(Work):
             content['substatus'] = status
 
             if 'panda_id' in content['content_metadata'] and content['content_metadata']['panda_id']:
-                if content['content_metadata']['panda_id'] != job_info.PandaID:
+                # if content['content_metadata']['panda_id'] != job_info.PandaID:
+                if content['content_metadata']['panda_id'] < job_info.PandaID:
+                    # new panda id is the bigger one.
                     if 'old_panda_id' not in content['content_metadata']:
                         content['content_metadata']['old_panda_id'] = []
-                    content['content_metadata']['old_panda_id'].append(content['content_metadata']['panda_id'])
+                    if content['content_metadata']['panda_id'] not in content['content_metadata']['old_panda_id']:
+                        content['content_metadata']['old_panda_id'].append(content['content_metadata']['panda_id'])
             content['content_metadata']['panda_id'] = job_info.PandaID
 
             update_contents.append(content)
@@ -600,6 +603,16 @@ class DomaPanDAWork(Work):
                 map_update_contents = self.map_panda_ids(unregistered_job_ids, input_output_maps)
                 status_changed_update_contents = self.get_status_changed_contents(unterminated_job_ids, input_output_maps, panda_id_to_map_ids)
 
+                if processing_status in [ProcessingStatus.SubFinished, ProcessingStatus.Finished, ProcessingStatus.Failed] and (unregistered_job_ids or unterminated_job_ids):
+                    # there are still polling contents, should not terminate the task.
+                    log_warn = "Processing (%s) with panda id (%s) is %s, however there are still unregistered_job_ids(%s) or unterminated_job_ids(%s)" % (processing['processing_id'],
+                                                                                                                                                           task_id,
+                                                                                                                                                           unregistered_job_ids,
+                                                                                                                                                           unterminated_job_ids)
+                    log_warn = log_warn + ". Keep the processing status as running now."
+                    self.logger.warn(log_warn)
+                    processing_status = ProcessingStatus.Running
+
                 return processing_status, map_update_contents + status_changed_update_contents
         except Exception as ex:
             msg = "Failed to check the processing (%s) status: %s" % (str(processing['processing_id']), str(ex))
@@ -673,6 +686,10 @@ class DomaPanDAWork(Work):
                         content_substatus['unfinished'] += 1
                     else:
                         content_substatus['finished'] += 1
+
+            if processing_status in [ProcessingStatus.SubFinished, ProcessingStatus.Finished, ProcessingStatus.Failed] and updated_contents:
+                # there are still polling contents, should not terminate the task.
+                processing_status = ProcessingStatus.Running
 
             update_processing = {'processing_id': processing['processing_id'],
                                  'parameters': {'status': processing_status}}
