@@ -286,6 +286,7 @@ class ProcessingStatus(IDDSEnum):
     ToResume = 18
     Resuming = 19
     Expired = 20
+    SubFinished = 21
 
 
 class ProcessingLocking(IDDSEnum):
