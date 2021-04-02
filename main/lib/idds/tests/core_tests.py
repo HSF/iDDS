@@ -9,7 +9,7 @@ from idds.core.processings import get_processings
 rets = get_requests(request_id=91, with_detail=True)
 for req in rets:
     # print(rets)
-    print(json_dumps(req, sort_keys=True, indent=4))
+    # print(json_dumps(req, sort_keys=True, indent=4))
     pass
 
 reqs = get_requests()
@@ -23,10 +23,10 @@ for req in reqs:
 
 tfs = get_transforms()
 for tf in tfs:
-    if tf['request_id'] == 91:
+    if tf['request_id'] == 236:
         # print(tf)
         # print(tf['transform_metadata']['work'].to_dict())
-        # print(json_dumps(tf, sort_keys=True, indent=4))
+        print(json_dumps(tf, sort_keys=True, indent=4))
         pass
 
 msgs = retrieve_messages()

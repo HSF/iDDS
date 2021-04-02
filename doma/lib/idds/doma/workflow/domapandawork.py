@@ -72,6 +72,9 @@ class DomaPanDAWork(Work):
         self.maxAttempt = maxattempt
         self.core_count = core_count
 
+        self.retry_number = 0
+        self.num_retries = 5
+
         self.load_panda_urls()
 
     def my_condition(self):
@@ -128,6 +131,11 @@ class DomaPanDAWork(Work):
     def clean_work(self):
         self.dependency_map_deleted = []
         self.dependency_map = []
+
+    def set_agent_attributes(self, attrs, req_attributes=None):
+        super(DomaPanDAWork, self).set_agent_attributes(attrs)
+        if 'num_retries' in self.agent_attributes and self.agent_attributes['num_retries']:
+            self.num_retries = int(self.agent_attributes['num_retries'])
 
     def poll_external_collection(self, coll):
         try:
@@ -573,6 +581,12 @@ class DomaPanDAWork(Work):
 
                 processing_status = self.get_processing_status_from_panda_status(task_info["status"])
 
+                if processing_status in [ProcessingStatus.SubFinished]:
+                    if self.retry_number < self.num_retries:
+                        self.reactivate_processing(processing)
+                        processing_status = ProcessingStatus.Submitted
+                        self.retry_number += 1
+
                 jobs_ids = task_info['PandaID']
                 ret_get_registered_panda_jobids = self.get_registered_panda_jobids(input_output_maps)
                 terminated_job_ids, unterminated_job_ids, map_id_without_panda_ids, panda_id_to_map_ids = ret_get_registered_panda_jobids
@@ -607,7 +621,9 @@ class DomaPanDAWork(Work):
             if processing:
                 from pandatools import Client
                 task_id = processing['processing_metadata']['task_id']
-                Client.retryTask(task_id)
+                # Client.retryTask(task_id)
+                status, out = Client.retryTask(task_id, newParams={})
+                self.logger.warn("Retry processing(%s) with task id(%s): %s, %s" % (processing['processing_id'], task_id, status, out))
                 # Client.reactivateTask(task_id)
                 # Client.resumeTask(task_id)
         except Exception as ex:
