@@ -502,7 +502,7 @@ class DomaPanDAWork(Work):
     def get_content_status_from_panda_status(self, jobstatus):
         if jobstatus == 'finished':
             return ContentStatus.Available
-        elif jobstatus == 'failed':
+        elif jobstatus in ['failed', 'closed']:
             return ContentStatus.Failed
         else:
             return ContentStatus.Processing
@@ -607,8 +607,9 @@ class DomaPanDAWork(Work):
                     # there are still polling contents, should not terminate the task.
                     log_warn = "Processing (%s) with panda id (%s) is %s, however there are still unregistered_job_ids(%s) or unterminated_job_ids(%s)" % (processing['processing_id'],
                                                                                                                                                            task_id,
-                                                                                                                                                           unregistered_job_ids,
-                                                                                                                                                           unterminated_job_ids)
+                                                                                                                                                           processing_status,
+                                                                                                                                                           str(unregistered_job_ids),
+                                                                                                                                                           str(unterminated_job_ids))
                     log_warn = log_warn + ". Keep the processing status as running now."
                     self.logger.warn(log_warn)
                     processing_status = ProcessingStatus.Running
