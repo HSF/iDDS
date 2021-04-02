@@ -500,9 +500,9 @@ class DomaPanDAWork(Work):
         return None
 
     def get_content_status_from_panda_status(self, jobstatus):
-        if jobstatus == 'finished':
+        if jobstatus in ['finished', 'merging']:
             return ContentStatus.Available
-        elif jobstatus in ['failed', 'closed']:
+        elif jobstatus in ['failed', 'closed', 'cancelled', 'lost', 'broken', 'missing']:
             return ContentStatus.Failed
         else:
             return ContentStatus.Processing
