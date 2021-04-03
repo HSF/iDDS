@@ -365,6 +365,11 @@ class Workflow(Base):
                 elif work.is_suspended():
                     self.num_suspended_works += 1
 
+    def resume_works(self):
+        t_works = self.terminated_works
+        self.terminated_works = []
+        self.current_running_works = self.current_running_works + t_works
+
     def get_exact_workflows(self):
         """
         *** Function called by Clerk agent.

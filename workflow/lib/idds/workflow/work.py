@@ -118,6 +118,7 @@ class Work(Base):
         self._has_new_inputs = True
 
         self.status = WorkStatus.New
+        self.substatus = WorkStatus.New
         self.errors = []
         self.next_works = []
 
@@ -291,7 +292,8 @@ class Work(Base):
         """
         *** Function called by Transformer agent.
         """
-        if self.status in [WorkStatus.Finished, WorkStatus.SubFinished, WorkStatus.Failed, WorkStatus.Cancelled, WorkStatus.Suspended]:
+        if (self.status in [WorkStatus.Finished, WorkStatus.SubFinished, WorkStatus.Failed, WorkStatus.Cancelled, WorkStatus.Suspended]
+            and self.substatus not in [WorkStatus.ToCancel, WorkStatus.ToSuspend, WorkStatus.ToResume]):   # noqa W503
             return True
         return False
 
@@ -299,7 +301,7 @@ class Work(Base):
         """
         *** Function called by Transformer agent.
         """
-        if self.status in [WorkStatus.Finished]:
+        if self.status in [WorkStatus.Finished] and self.substatus not in [WorkStatus.ToCancel, WorkStatus.ToSuspend, WorkStatus.ToResume]:
             return True
         return False
 
@@ -307,7 +309,7 @@ class Work(Base):
         """
         *** Function called by Transformer agent.
         """
-        if self.status in [WorkStatus.SubFinished]:
+        if self.status in [WorkStatus.SubFinished] and self.substatus not in [WorkStatus.ToCancel, WorkStatus.ToSuspend, WorkStatus.ToResume]:
             return True
         return False
 
@@ -315,7 +317,7 @@ class Work(Base):
         """
         *** Function called by Transformer agent.
         """
-        if self.status in [WorkStatus.Failed]:
+        if self.status in [WorkStatus.Failed] and self.substatus not in [WorkStatus.ToCancel, WorkStatus.ToSuspend, WorkStatus.ToResume]:
             return True
         return False
 
@@ -323,7 +325,7 @@ class Work(Base):
         """
         *** Function called by Transformer agent.
         """
-        if self.status in [WorkStatus.Expired]:
+        if self.status in [WorkStatus.Expired] and self.substatus not in [WorkStatus.ToCancel, WorkStatus.ToSuspend, WorkStatus.ToResume]:
             return True
         return False
 
@@ -331,7 +333,7 @@ class Work(Base):
         """
         *** Function called by Transformer agent.
         """
-        if self.status in [WorkStatus.Cancelled]:
+        if self.status in [WorkStatus.Cancelled] and self.substatus not in [WorkStatus.ToCancel, WorkStatus.ToSuspend, WorkStatus.ToResume]:
             return True
         return False
 
@@ -339,7 +341,7 @@ class Work(Base):
         """
         *** Function called by Transformer agent.
         """
-        if self.status in [WorkStatus.Suspended]:
+        if self.status in [WorkStatus.Suspended] and self.substatus not in [WorkStatus.ToCancel, WorkStatus.ToSuspend, WorkStatus.ToResume]:
             return True
         return False
 
@@ -652,11 +654,12 @@ class Work(Base):
         """
         self.processings[processing['processing_metadata']['internal_id']]['processing_id'] = processing_id
 
-    def set_processing_status(self, processing, status):
+    def set_processing_status(self, processing, status, substatus):
         """
         *** Function called by Transformer agent.
         """
         self.processings[processing['processing_metadata']['internal_id']]['status'] = status
+        self.processings[processing['processing_metadata']['internal_id']]['substatus'] = substatus
         # if status not in [ProcessingStatus.New, ProcessingStatus.Submitting,
         #                   ProcessingStatus.Submitted, ProcessingStatus.Running]:
         #     if processing['processing_metadata']['internal_id'] in self.active_processings:
@@ -670,7 +673,17 @@ class Work(Base):
         processing['output_metadata'] = output_metadata
         self.set_output_data(output_metadata)
 
+    def is_processing_substatus_new_operationing(self, processing):
+        if 'substatus' in processing and processing['substatus'] in [ProcessingStatus.ToCancel,
+                                                                     ProcessingStatus.ToSuspend,
+                                                                     ProcessingStatus.ToResume]:
+            return True
+        return False
+
     def is_processing_terminated(self, processing):
+        if self.is_processing_substatus_new_operationing(processing):
+            return False
+
         if 'status' in processing and processing['status'] not in [ProcessingStatus.New,
                                                                    ProcessingStatus.Submitting,
                                                                    ProcessingStatus.Submitted,
@@ -894,8 +907,10 @@ class Work(Base):
             elif self.is_processings_suspended():
                 self.status = WorkStatus.Suspended
 
-    def sync_work_data(self, work):
-        self.status = work.status
+    def sync_work_data(self, status, substatus, work):
+        # self.status = work.status
+        self.status = WorkStatus(status.value)
+        self.substatus = WorkStatus(substatus.value)
         self.workdir = work.workdir
         self._has_new_inputs = work._has_new_inputs
         self.errors = work.errors

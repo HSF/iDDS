@@ -490,6 +490,10 @@ class ATLASPandaWork(Work):
                                      'parameters': {'status': processing_status}}
                 if reset_expired_at:
                     update_processing['parameters']['expired_at'] = None
+                    processing['expired_at'] = None
+                    if (processing_status in [ProcessingStatus.SubFinished, ProcessingStatus.Finished, ProcessingStatus.Failed]
+                        or processing['status'] in [ProcessingStatus.Resuming]):   # noqa W503
+                        update_processing['parameters']['status'] = ProcessingStatus.Resuming
 
         return update_processing, updated_contents
 

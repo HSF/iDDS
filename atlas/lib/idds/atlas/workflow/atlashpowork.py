@@ -693,6 +693,6 @@ class ATLASHPOWork(ATLASCondorWork):
 
         if reset_expired_at:
             update_processing['parameters']['expired_at'] = None
-
+            processing['expired_at'] = None
         updated_contents = []
         return update_processing, updated_contents

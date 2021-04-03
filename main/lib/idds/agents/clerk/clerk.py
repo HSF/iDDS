@@ -218,7 +218,7 @@ class Clerk(BaseAgent):
             transform_work = tf['transform_metadata']['work']
             # work_status = WorkStatus(tf['status'].value)
             # work.set_status(work_status)
-            work.sync_work_data(transform_work)
+            work.sync_work_data(status=tf['status'], substatus=tf['substatus'], work=transform_work)
 
         if wf.is_terminated():
             if wf.is_finished():
@@ -269,6 +269,11 @@ class Clerk(BaseAgent):
             req_status = RequestStatus.Resuming
 
         processing_metadata = req['processing_metadata']
+
+        if req['substatus'] == RequestStatus.ToResume:
+            wf = processing_metadata['workflow']
+            wf.resume_works()
+
         if 'operations' not in processing_metadata:
             processing_metadata['operations'] = []
         processing_metadata['operations'].append({'status': req['substatus'], 'time': datetime.datetime.utcnow()})
@@ -276,15 +281,16 @@ class Clerk(BaseAgent):
         tfs = core_transforms.get_transforms(request_id=req['request_id'])
         tfs_status = {}
         for tf in tfs:
-            if tf['status'] not in [RequestStatus.Finished, RequestStatus.SubFinished,
-                                    RequestStatus.Failed, RequestStatus.Cancelling,
-                                    RequestStatus.Cancelled, RequestStatus.Suspending,
-                                    RequestStatus.Suspended]:
-                tfs_status[tf['transform_id']] = {'substatus': tf_status}
+            # if tf['status'] not in [RequestStatus.Finished, RequestStatus.SubFinished,
+            #                         RequestStatus.Failed, RequestStatus.Cancelling,
+            #                         RequestStatus.Cancelled, RequestStatus.Suspending,
+            #                         RequestStatus.Suspended]:
+            tfs_status[tf['transform_id']] = {'substatus': tf_status}
 
         ret_req = {'request_id': req['request_id'],
                    'parameters': {'status': req_status,
                                   'substatus': req_status,
+                                  'processing_metadata': req['processing_metadata'],
                                   'locking': RequestLocking.Idle},
                    'update_transforms': tfs_status
                    }

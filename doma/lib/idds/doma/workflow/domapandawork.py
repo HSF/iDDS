@@ -697,7 +697,11 @@ class DomaPanDAWork(Work):
             update_processing = {'processing_id': processing['processing_id'],
                                  'parameters': {'status': processing_status}}
             if reset_expired_at:
+                processing['expired_at'] = None
                 update_processing['parameters']['expired_at'] = None
+                if (processing_status in [ProcessingStatus.SubFinished, ProcessingStatus.Finished, ProcessingStatus.Failed]
+                    or processing['status'] in [ProcessingStatus.Resuming]):   # noqa W503
+                    update_processing['parameters']['status'] = ProcessingStatus.Resuming
 
         self.logger.debug("poll_processing_updates, task: %i, update_processing: %s" %
                           (processing['processing_metadata']['task_id'], str(update_processing)))
