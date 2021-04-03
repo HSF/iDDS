@@ -16,7 +16,7 @@ operations related to Transform.
 import datetime
 
 import sqlalchemy
-from sqlalchemy import and_
+from sqlalchemy import and_, or_
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.sql.expression import asc, desc
 
@@ -310,7 +310,7 @@ def get_transforms_by_status(status, period=None, locking=False, bulk_size=None,
             status = [status[0], status[0]]
 
         query = session.query(models.Transform)\
-                       .filter(models.Transform.status.in_(status))\
+                       .filter(or_(models.Transform.status.in_(status), models.Transform.substatus.in_(status)))\
                        .filter(models.Transform.next_poll_at < datetime.datetime.utcnow())
 
         if period:

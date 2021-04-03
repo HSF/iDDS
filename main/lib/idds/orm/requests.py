@@ -17,7 +17,7 @@ import datetime
 import random
 
 import sqlalchemy
-from sqlalchemy import and_
+from sqlalchemy import and_, or_
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.sql.expression import asc, desc
 
@@ -411,7 +411,7 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, loc
 
         query = session.query(models.Request)\
                        .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_SCOPE_NAME_IDX)", 'oracle')\
-                       .filter(models.Request.status.in_(status))\
+                       .filter(or_(models.Request.status.in_(status), models.Request.substatus.in_(status)))\
                        .filter(models.Request.next_poll_at < datetime.datetime.utcnow())
 
         if request_type is not None:

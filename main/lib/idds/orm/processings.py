@@ -16,6 +16,7 @@ operations related to Processings.
 import datetime
 
 import sqlalchemy
+from sqlalchemy import or_
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.sql.expression import asc
 
@@ -226,7 +227,7 @@ def get_processings_by_status(status, period=None, locking=False, bulk_size=None
             status = [status[0], status[0]]
 
         query = session.query(models.Processing)\
-                       .filter(models.Processing.status.in_(status))\
+                       .filter(or_(models.Processing.status.in_(status), models.Processing.substatus.in_(status)))\
                        .filter(models.Processing.next_poll_at < datetime.datetime.utcnow())
 
         if period:
