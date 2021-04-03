@@ -161,9 +161,15 @@ class Clerk(BaseAgent):
 
         req_status = [RequestStatus.Transforming, RequestStatus.ToCancel, RequestStatus.Cancelling,
                       RequestStatus.ToSuspend, RequestStatus.Suspending,
-                      RequestStatus.ToResume, RequestStatus.Resuming]
+                      RequestStatus.Resuming]
         reqs = core_requests.get_requests_by_status_type(status=req_status, time_period=self.poll_time_period,
                                                          locking=True, bulk_size=self.retrieve_bulk_size)
+
+        req_status = [RequestStatus.ToResume]
+        reqs_1 = core_requests.get_requests_by_status_type(status=req_status, time_period=self.poll_time_period,
+                                                           locking=True, by_substatus=True, bulk_size=self.retrieve_bulk_size)
+
+        reqs = reqs + reqs_1
 
         self.logger.debug("Main thread get %s Transforming requests to running" % len(reqs))
         if reqs:

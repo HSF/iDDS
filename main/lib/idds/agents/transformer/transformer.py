@@ -349,11 +349,19 @@ class Transformer(BaseAgent):
 
         transform_status = [TransformStatus.Transforming, TransformStatus.ToCancel, TransformStatus.Cancelling,
                             TransformStatus.ToSuspend, TransformStatus.Suspending,
-                            TransformStatus.ToResume, TransformStatus.Resuming]
+                            TransformStatus.Resuming]
         transforms = core_transforms.get_transforms_by_status(status=transform_status,
                                                               period=self.poll_time_period,
                                                               locking=True,
                                                               bulk_size=self.retrieve_bulk_size)
+
+        transform_status = [TransformStatus.ToResume]
+        transforms_1 = core_transforms.get_transforms_by_status(status=transform_status,
+                                                                period=self.poll_time_period,
+                                                                locking=True,
+                                                                by_substatus=True,
+                                                                bulk_size=self.retrieve_bulk_size)
+        transforms = transforms + transforms_1
 
         self.logger.debug("Main thread get %s transforming transforms to process" % len(transforms))
         if transforms:

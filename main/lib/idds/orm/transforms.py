@@ -16,7 +16,7 @@ operations related to Transform.
 import datetime
 
 import sqlalchemy
-from sqlalchemy import and_, or_
+from sqlalchemy import and_
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.sql.expression import asc, desc
 
@@ -288,7 +288,7 @@ def get_transforms(request_id=None, workload_id=None, transform_id=None, workpro
 
 
 @read_session
-def get_transforms_by_status(status, period=None, locking=False, bulk_size=None, to_json=False, session=None):
+def get_transforms_by_status(status, period=None, locking=False, bulk_size=None, to_json=False, by_substatus=False, session=None):
     """
     Get transforms or raise a NoObject exception.
 
@@ -309,9 +309,12 @@ def get_transforms_by_status(status, period=None, locking=False, bulk_size=None,
         if len(status) == 1:
             status = [status[0], status[0]]
 
-        query = session.query(models.Transform)\
-                       .filter(or_(models.Transform.status.in_(status), models.Transform.substatus.in_(status)))\
-                       .filter(models.Transform.next_poll_at < datetime.datetime.utcnow())
+        query = session.query(models.Transform)
+        if by_substatus:
+            query = query.filter(models.Transform.substatus.in_(status))
+        else:
+            query = query.filter(models.Transform.status.in_(status))
+        query = query.filter(models.Transform.next_poll_at < datetime.datetime.utcnow())
 
         if period:
             query = query.filter(models.Transform.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=period))

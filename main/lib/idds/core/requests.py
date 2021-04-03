@@ -201,7 +201,7 @@ def update_request_with_workprogresses(request_id, parameters, new_workprogresse
 
 
 @transactional_session
-def get_requests_by_status_type(status, request_type=None, time_period=None, locking=False, bulk_size=None, to_json=False, session=None):
+def get_requests_by_status_type(status, request_type=None, time_period=None, locking=False, bulk_size=None, to_json=False, by_substatus=False, session=None):
     """
     Get requests by status and type
 
@@ -215,7 +215,7 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, loc
     :returns: list of Request.
     """
     reqs = orm_requests.get_requests_by_status_type(status, request_type, time_period, locking=locking, bulk_size=bulk_size,
-                                                    to_json=to_json, session=session)
+                                                    to_json=to_json, by_substatus=by_substatus, session=session)
     if locking:
         parameters = {'locking': RequestLocking.Locking}
         for req in reqs:
