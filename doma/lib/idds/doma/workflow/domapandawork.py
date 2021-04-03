@@ -133,6 +133,8 @@ class DomaPanDAWork(Work):
         self.dependency_map = []
 
     def set_agent_attributes(self, attrs, req_attributes=None):
+        if 'life_time' not in attrs[self.class_name] or int(attrs[self.class_name]['life_time']) <= 0:
+            attrs['life_time'] = None
         super(DomaPanDAWork, self).set_agent_attributes(attrs)
         if 'num_retries' in self.agent_attributes and self.agent_attributes['num_retries']:
             self.num_retries = int(self.agent_attributes['num_retries'])
