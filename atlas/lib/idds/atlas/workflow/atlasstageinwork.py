@@ -328,6 +328,7 @@ class ATLASStageinWork(Work):
         elif self.toresume:
             update_processing = {'processing_id': processing['processing_id'],
                                  'parameters': {'status': ProcessingStatus.Running}}
+            update_processing['parameters']['expired_at'] = None
         return update_processing, updated_contents
 
     def get_status_statistics(self, registered_input_output_maps):

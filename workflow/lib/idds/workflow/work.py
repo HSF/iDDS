@@ -834,9 +834,13 @@ class Work(Base):
         self.toresume = True
 
     def get_expired_at(self, processing=None):
-        if processing and 'created_at' in processing and processing['created_at']:
-            return processing['created_at'] + datetime.timedelta(seconds=int(self.agent_attributes['life_time']))
-        return datetime.datetime.utcnow() + datetime.timedelta(seconds=int(self.agent_attributes['life_time']))
+        if processing and 'expired_at' in processing and processing['expired_at']:
+            return processing['expired_at']
+        elif (self.agent_attributes and 'life_time' in self.agent_attributes and self.agent_attributes['life_time']):
+            # if processing and 'created_at' in processing and processing['created_at']:
+            #     return processing['created_at'] + datetime.timedelta(seconds=int(self.agent_attributes['life_time']))
+            return datetime.datetime.utcnow() + datetime.timedelta(seconds=int(self.agent_attributes['life_time']))
+        return None
 
     def is_processing_expired_old(self, processing):
         if (self.agent_attributes and 'life_time' in self.agent_attributes and self.agent_attributes['life_time']):
@@ -847,7 +851,7 @@ class Work(Base):
         return False
 
     def is_processing_expired(self, processing):
-        if processing['expired_at'] and processing['expired_at'] < datetime.datetime.utcnow():
+        if 'expired_at' in processing and processing['expired_at'] and processing['expired_at'] < datetime.datetime.utcnow():
             self.logger.info("Processing %s expired" % processing['processing_id'])
             return True
         return False

@@ -635,6 +635,7 @@ class ATLASHPOWork(ATLASCondorWork):
     def poll_processing(self, processing):
         job_status, job_err_msg = self.poll_condor_job_status(processing, processing['processing_metadata']['job_id'])
         processing_outputs = None
+        reset_expired_at = False
         if job_status in [ProcessingStatus.Finished]:
             job_outputs, parser_errors = self.parse_processing_outputs(processing)
             if job_outputs:
@@ -669,15 +670,16 @@ class ATLASHPOWork(ATLASCondorWork):
             # self.active_processings.remove(processing['processing_metadata']['internal_id'])
             processing['processing_metadata']['resuming_at'] = datetime.datetime.utcnow()
             processing_status = ProcessingStatus.Running
+            reset_expired_at = True
             processing_outputs = None
             processing_err = None
         else:
             processing_status = job_status
             processing_err = job_err_msg
-        return processing_status, processing_outputs, processing_err
+        return processing_status, processing_outputs, processing_err, reset_expired_at
 
     def poll_processing_updates(self, processing, input_output_maps):
-        processing_status, processing_outputs, processing_err = self.poll_processing(processing)
+        processing_status, processing_outputs, processing_err, reset_expired_at = self.poll_processing(processing)
 
         processing_metadata = processing['processing_metadata']
         if not processing_metadata:
@@ -688,6 +690,9 @@ class ATLASHPOWork(ATLASCondorWork):
                              'parameters': {'status': processing_status,
                                             'processing_metadata': processing_metadata,
                                             'output_metadata': processing_outputs}}
+
+        if reset_expired_at:
+            update_processing['parameters']['expired_at'] = None
 
         updated_contents = []
         return update_processing, updated_contents

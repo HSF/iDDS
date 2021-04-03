@@ -650,6 +650,7 @@ class DomaPanDAWork(Work):
         """
         updated_contents = []
         update_processing = {}
+        reset_expired_at = False
         # self.logger.debug("poll_processing_updates, input_output_maps: %s" % str(input_output_maps))
 
         if processing:
@@ -664,6 +665,7 @@ class DomaPanDAWork(Work):
             elif self.toresume:
                 self.logger.info("Resuming processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], processing['processing_metadata']['task_id']))
                 self.reactivate_processing(processing)
+                reset_expired_at = True
                 self.toresume = False
             elif self.is_processing_expired(processing):
                 self.logger.info("Expiring processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], processing['processing_metadata']['task_id']))
@@ -694,6 +696,8 @@ class DomaPanDAWork(Work):
 
             update_processing = {'processing_id': processing['processing_id'],
                                  'parameters': {'status': processing_status}}
+            if reset_expired_at:
+                update_processing['parameters']['expired_at'] = None
 
         self.logger.debug("poll_processing_updates, task: %i, update_processing: %s" %
                           (processing['processing_metadata']['task_id'], str(update_processing)))
