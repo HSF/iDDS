@@ -337,7 +337,7 @@ class Workflow(Base):
 
         for work in [self.works[k] for k in self.current_running_works]:
             if work.is_terminated():
-                self.log_info("Work %s is terminated" % work.get_internal_id())
+                self.log_info("Work %s is terminated(%s)" % (work.get_internal_id(), work.get_status()))
                 self.log_debug("Work conditions: %s" % json_dumps(self.work_conds, sort_keys=True, indent=4))
                 if work.get_template_id() not in self.work_conds:
                     # has no next work
@@ -366,6 +366,13 @@ class Workflow(Base):
                     self.num_suspended_works += 1
 
     def resume_works(self):
+        self.num_subfinished_works = 0
+        self.num_finished_works = 0
+        self.num_failed_works = 0
+        self.num_cancelled_works = 0
+        self.num_suspended_works = 0
+        self.num_expired_works = 0
+
         t_works = self.terminated_works
         self.terminated_works = []
         self.current_running_works = self.current_running_works + t_works
