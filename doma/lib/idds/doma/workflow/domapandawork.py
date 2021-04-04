@@ -660,18 +660,22 @@ class DomaPanDAWork(Work):
                 self.logger.info("Cancelling processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], processing['processing_metadata']['task_id']))
                 self.kill_processing(processing)
                 self.tocancel = False
+                self.polling_retries = None
             elif self.tosuspend:
                 self.logger.info("Suspending processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], processing['processing_metadata']['task_id']))
                 self.kill_processing(processing)
                 self.tosuspend = False
+                self.polling_retries = None
             elif self.toresume:
                 self.logger.info("Resuming processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], processing['processing_metadata']['task_id']))
                 self.reactivate_processing(processing)
                 reset_expired_at = True
                 self.toresume = False
+                self.polling_retries = None
             elif self.is_processing_expired(processing):
                 self.logger.info("Expiring processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], processing['processing_metadata']['task_id']))
                 self.kill_processing(processing)
+                self.polling_retries = None
 
             processing_status, poll_updated_contents = self.poll_panda_task(processing=processing, input_output_maps=input_output_maps)
             self.logger.debug("poll_processing_updates, processing_status: %s" % str(processing_status))
@@ -696,14 +700,28 @@ class DomaPanDAWork(Work):
                 # there are still polling contents, should not terminate the task.
                 processing_status = ProcessingStatus.Running
 
+            if processing_status in [ProcessingStatus.SubFinished] and content_substatus['finished'] > 0 and content_substatus['unfinished'] == 0:
+                # found that a 'done' panda task has got a 'finished' status. Maybe in this case 'finished' is a transparent status.
+                if self.polling_retries is None:
+                    self.polling_retries = 0
+
+            if processing_status in [ProcessingStatus.SubFinished, ProcessingStatus.Finished, ProcessingStatus.Failed]:
+                if self.polling_retries is not None and self.polling_retries < 3:
+                    processing_status = ProcessingStatus.Running
+                    self.polling_retries += 1
+            else:
+                self.polling_retries = None
+
             update_processing = {'processing_id': processing['processing_id'],
                                  'parameters': {'status': processing_status}}
             if reset_expired_at:
                 processing['expired_at'] = None
                 update_processing['parameters']['expired_at'] = None
-                if (processing_status in [ProcessingStatus.SubFinished, ProcessingStatus.Finished, ProcessingStatus.Failed]
-                    or processing['status'] in [ProcessingStatus.Resuming]):   # noqa W503
-                    update_processing['parameters']['status'] = ProcessingStatus.Resuming
+                self.polling_retries = 0
+                # if (processing_status in [ProcessingStatus.SubFinished, ProcessingStatus.Finished, ProcessingStatus.Failed]
+                #     or processing['status'] in [ProcessingStatus.Resuming]):   # noqa W503
+                # using polling_retries to poll it again when panda may update the status in a delay(when issuing retryTask, panda will not update it without any delay).
+                update_processing['parameters']['status'] = ProcessingStatus.Resuming
 
         self.logger.debug("poll_processing_updates, task: %i, update_processing: %s" %
                           (processing['processing_metadata']['task_id'], str(update_processing)))

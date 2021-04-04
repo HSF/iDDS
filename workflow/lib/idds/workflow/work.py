@@ -119,6 +119,7 @@ class Work(Base):
 
         self.status = WorkStatus.New
         self.substatus = WorkStatus.New
+        self.polling_retries = None
         self.errors = []
         self.next_works = []
 
@@ -413,7 +414,8 @@ class Work(Base):
         if self.status in [WorkStatus.New, WorkStatus.Ready]:
             pass
         else:
-           self.status = WorkStatus.Transforming
+            self.status = WorkStatus.Transforming
+        self.polling_retries = None
 
     def add_collection_to_collections(self, coll):
         assert(isinstance(coll, dict))
