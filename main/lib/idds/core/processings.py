@@ -102,7 +102,7 @@ def get_processings_by_transform_id(transform_id=None, to_json=False, session=No
 
 
 @transactional_session
-def get_processings_by_status(status, time_period=None, locking=False, bulk_size=None, to_json=False, session=None):
+def get_processings_by_status(status, time_period=None, locking=False, bulk_size=None, to_json=False, by_substatus=False, session=None):
     """
     Get processing or raise a NoObject exception.
 
@@ -117,7 +117,8 @@ def get_processings_by_status(status, time_period=None, locking=False, bulk_size
     :returns: Processings.
     """
     processings = orm_processings.get_processings_by_status(status=status, period=time_period, locking=locking,
-                                                            bulk_size=bulk_size, to_json=to_json, session=session)
+                                                            bulk_size=bulk_size, to_json=to_json,
+                                                            by_substatus=by_substatus, session=session)
     if locking:
         parameters = {'locking': ProcessingLocking.Locking}
         for processing in processings:

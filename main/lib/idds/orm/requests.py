@@ -386,7 +386,7 @@ def get_requests_by_requester(scope, name, requester, to_json=False, session=Non
 
 
 @read_session
-def get_requests_by_status_type(status, request_type=None, time_period=None, locking=False, bulk_size=None, to_json=False, session=None):
+def get_requests_by_status_type(status, request_type=None, time_period=None, locking=False, bulk_size=None, to_json=False, by_substatus=False, session=None):
     """
     Get requests.
 
@@ -410,9 +410,12 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, loc
             status = [status[0], status[0]]
 
         query = session.query(models.Request)\
-                       .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_SCOPE_NAME_IDX)", 'oracle')\
-                       .filter(models.Request.status.in_(status))\
-                       .filter(models.Request.next_poll_at < datetime.datetime.utcnow())
+                       .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_SCOPE_NAME_IDX)", 'oracle')
+        if by_substatus:
+            query = query.filter(models.Request.substatus.in_(status))
+        else:
+            query = query.filter(models.Request.status.in_(status))
+        query = query.filter(models.Request.next_poll_at < datetime.datetime.utcnow())
 
         if request_type is not None:
             query = query.filter(models.Request.request_type == request_type)

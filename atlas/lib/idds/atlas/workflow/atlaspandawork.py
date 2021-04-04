@@ -450,6 +450,7 @@ class ATLASPandaWork(Work):
         """
         updated_contents = []
         update_processing = {}
+        reset_expired_at = False
 
         if processing:
             if self.tocancel:
@@ -464,6 +465,7 @@ class ATLASPandaWork(Work):
                 self.logger.info("Resuming processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], processing['processing_metadata']['task_id']))
                 self.reactivate_processing(processing)
                 self.toresume = False
+                reset_expired_at = True
             elif self.is_processing_expired(processing):
                 self.logger.info("Expiring processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], processing['processing_metadata']['task_id']))
                 self.kill_processing(processing)
@@ -486,6 +488,13 @@ class ATLASPandaWork(Work):
 
                 update_processing = {'processing_id': processing['processing_id'],
                                      'parameters': {'status': processing_status}}
+                if reset_expired_at:
+                    update_processing['parameters']['expired_at'] = None
+                    processing['expired_at'] = None
+                    if (processing_status in [ProcessingStatus.SubFinished, ProcessingStatus.Finished, ProcessingStatus.Failed]
+                        or processing['status'] in [ProcessingStatus.Resuming]):   # noqa W503
+                        update_processing['parameters']['status'] = ProcessingStatus.Resuming
+
         return update_processing, updated_contents
 
     """

@@ -122,6 +122,16 @@ class Carrier(BaseAgent):
                                                                  # time_period=self.poll_time_period,
                                                                  locking=True,
                                                                  bulk_size=self.retrieve_bulk_size)
+
+        processing_status = [ProcessingStatus.ToResume]
+        processings_1 = core_processings.get_processings_by_status(status=processing_status,
+                                                                   # time_period=self.poll_time_period,
+                                                                   locking=True,
+                                                                   by_substatus=True,
+                                                                   bulk_size=self.retrieve_bulk_size)
+
+        processings = processings + processings_1
+
         self.logger.debug("Main thread get %s [submitting + submitted + running] processings to process: %s" % (len(processings), str([processing['processing_id'] for processing in processings])))
         if processings:
             self.logger.info("Main thread get %s [submitting + submitted + running] processings to process: %s" % (len(processings), str([processing['processing_id'] for processing in processings])))
