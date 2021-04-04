@@ -88,21 +88,35 @@ Below is an example for hyperparameter optimization
     # One of workload_id or request_id can be None
     clientmanager.abort(request_id=<request_id>, workload_id=<workload_id>)
 
-3. Get progress report
+3. Suspend a request
+
+.. code-block:: python
+
+    # One of workload_id or request_id can be None
+    clientmanager.suspend(request_id=<request_id>, workload_id=<workload_id>)
+
+4. Resume a request
+
+.. code-block:: python
+
+    # One of workload_id or request_id can be None
+    clientmanager.resume(request_id=<request_id>, workload_id=<workload_id>)
+
+5. Get progress report
 
 .. code-block:: python
        
     # One of workload_id or request_id can be None
     clientmanager.get_status(request_id=<request_id>, workload_id=<workload_id>, with_detail=False/True)
 
-4. Download logs for a request
+6. Download logs for a request
 
 .. code-block:: python
        
     # One of workload_id or request_id can be None
     clientmanager.download_logs(request_id=<request_id>, workload_id=<workload_id>, dest_dir='./', filename=None)
 
-5. Upload a file to the iDDS cacher
+7. Upload a file to the iDDS cacher
 
 .. code-block:: python
 
@@ -110,7 +124,7 @@ Below is an example for hyperparameter optimization
     # Upload file to iDDS cacher: On the cacher, the filename will be the basename of the file.
     clientmanager.upload_to_cacher(filename)
 
-6. Download a file from the iDDS cacher
+8. Download a file from the iDDS cacher
 
 .. code-block:: python
        
@@ -118,7 +132,7 @@ Below is an example for hyperparameter optimization
     # Download file from iDDS cacher: On the cacher, the filename will be the basename of the file.
     clientmanager.download_from_cacher(filename)
 
-7. Get hyperparameters
+9. Get hyperparameters
 
 .. code-block:: python
        
@@ -129,7 +143,7 @@ Below is an example for hyperparameter optimization
     clientmanager.get_hyperparameters(workload_id=None, request_id=456)
     clientmanager.get_hyperparameters(workload_id=None, request_id=456, id=0)
 
-8. Update hyperparameter
+10. Update hyperparameter
 
 .. code-block:: python
 
@@ -146,7 +160,21 @@ iDDS Command Line Interface (CLI)
     # One of workload_id or request_id can be None
     idds abort-requests --request_id=<request_id> --workload_id=<workload_id>
 
-2. Get progress report
+2. Suspend a request
+
+.. code-block:: python
+
+    # One of workload_id or request_id can be None
+    idds suspend-requests --request_id=<request_id> --workload_id=<workload_id>
+
+3. Resume a request
+
+.. code-block:: python
+
+    # One of workload_id or request_id can be None
+    idds resume-requests --request_id=<request_id> --workload_id=<workload_id>
+
+4. Get progress report
 
 .. code-block:: python
 
@@ -165,14 +193,14 @@ iDDS Command Line Interface (CLI)
               94             152             1616422511                     1002  pseudo_dataset:pseudo_output_collection#2  Finished[3/3/0]                {'msg': ''}
               94             153             1616422511                     1001  pseudo_dataset:pseudo_output_collection#3  Finished[5/5/0]                {'msg': ''}
 
-3. Download logs for a request
+5. Download logs for a request
 
 .. code-block:: python
 
     # One of workload_id or request_id can be None
     idds download_logs --request_id=<request_id> --workload_id=<workload_id> --dest_dir='./' --filename=<filename>
 
-4. Upload a file to the iDDS cacher
+6. Upload a file to the iDDS cacher
 
 .. code-block:: python
 
@@ -180,7 +208,7 @@ iDDS Command Line Interface (CLI)
     # Upload file to iDDS cacher: On the cacher, the filename will be the basename of the file.
     idds upload_to_cacher --filename=<filename>
 
-5. Download a file from the iDDS cacher
+7. Download a file from the iDDS cacher
 
 .. code-block:: python
 
@@ -188,7 +216,7 @@ iDDS Command Line Interface (CLI)
     # Download file from iDDS cacher: On the cacher, the filename will be the basename of the file.
     idds download_from_cacher --filename=<filename>
 
-6. Get hyperparameters
+8. Get hyperparameters
 
 .. code-block:: python
 
@@ -199,7 +227,7 @@ iDDS Command Line Interface (CLI)
     idds get_hyperparameters --request_id=456
     idds get_hyperparameters --request_id=456 --id=0
 
-7. Update hyperparameter
+9. Update hyperparameter
 
 .. code-block:: python
 

@@ -9,21 +9,21 @@ from idds.core.processings import get_processings
 rets = get_requests(request_id=91, with_detail=True)
 for req in rets:
     # print(rets)
-    print(json_dumps(req, sort_keys=True, indent=4))
+    # print(json_dumps(req, sort_keys=True, indent=4))
     pass
 
 reqs = get_requests()
 # print(len(reqs))
 for req in reqs:
-    if req['request_id'] == 91:
+    if req['request_id'] == 113:
         # print(req)
         # print(req['request_metadata']['workflow'].to_dict())
-        # print(json_dumps(req, sort_keys=True, indent=4))
+        print(json_dumps(req, sort_keys=True, indent=4))
         pass
 
 tfs = get_transforms()
 for tf in tfs:
-    if tf['request_id'] == 91:
+    if tf['transform_id'] == 364:
         # print(tf)
         # print(tf['transform_metadata']['work'].to_dict())
         # print(json_dumps(tf, sort_keys=True, indent=4))
@@ -35,7 +35,7 @@ for msg in msgs:
     # if True:
     # if msg['request_id'] in [208]:
     if msg['transform_id'] in [1186]:
-        print(msg)
+        # print(msg)
         # print(msg['msg_content'])
         pass
     pass

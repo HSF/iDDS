@@ -127,7 +127,7 @@ def get_transforms(workprogress_id=None, to_json=False, request_id=None, workloa
 
 
 @transactional_session
-def get_transforms_by_status(status, period=None, locking=False, bulk_size=None, to_json=False, session=None):
+def get_transforms_by_status(status, period=None, locking=False, bulk_size=None, to_json=False, by_substatus=False, session=None):
     """
     Get transforms or raise a NoObject exception.
 
@@ -141,7 +141,8 @@ def get_transforms_by_status(status, period=None, locking=False, bulk_size=None,
     :returns: list of transform.
     """
     transforms = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking,
-                                                         bulk_size=bulk_size, to_json=to_json, session=session)
+                                                         bulk_size=bulk_size, to_json=to_json,
+                                                         by_substatus=by_substatus, session=session)
     if locking:
         parameters = {'locking': TransformLocking.Locking}
         for transform in transforms:

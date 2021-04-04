@@ -201,7 +201,7 @@ def get_processings_by_transform_id(transform_id=None, to_json=False, session=No
 
 
 @read_session
-def get_processings_by_status(status, period=None, locking=False, bulk_size=None, submitter=None, to_json=False, session=None):
+def get_processings_by_status(status, period=None, locking=False, bulk_size=None, submitter=None, to_json=False, by_substatus=False, session=None):
     """
     Get processing or raise a NoObject exception.
 
@@ -225,9 +225,12 @@ def get_processings_by_status(status, period=None, locking=False, bulk_size=None
         if len(status) == 1:
             status = [status[0], status[0]]
 
-        query = session.query(models.Processing)\
-                       .filter(models.Processing.status.in_(status))\
-                       .filter(models.Processing.next_poll_at < datetime.datetime.utcnow())
+        query = session.query(models.Processing)
+        if by_substatus:
+            query = query.filter(models.Processing.substatus.in_(status))
+        else:
+            query = query.filter(models.Processing.status.in_(status))
+        query = query.filter(models.Processing.next_poll_at < datetime.datetime.utcnow())
 
         if period:
             query = query.filter(models.Processing.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=period))

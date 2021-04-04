@@ -118,6 +118,8 @@ class Work(Base):
         self._has_new_inputs = True
 
         self.status = WorkStatus.New
+        self.substatus = WorkStatus.New
+        self.polling_retries = None
         self.errors = []
         self.next_works = []
 
@@ -291,7 +293,8 @@ class Work(Base):
         """
         *** Function called by Transformer agent.
         """
-        if self.status in [WorkStatus.Finished, WorkStatus.SubFinished, WorkStatus.Failed, WorkStatus.Cancelled, WorkStatus.Suspended]:
+        if (self.status in [WorkStatus.Finished, WorkStatus.SubFinished, WorkStatus.Failed, WorkStatus.Cancelled, WorkStatus.Suspended]
+            and self.substatus not in [WorkStatus.ToCancel, WorkStatus.ToSuspend, WorkStatus.ToResume]):   # noqa W503
             return True
         return False
 
@@ -299,7 +302,7 @@ class Work(Base):
         """
         *** Function called by Transformer agent.
         """
-        if self.status in [WorkStatus.Finished]:
+        if self.status in [WorkStatus.Finished] and self.substatus not in [WorkStatus.ToCancel, WorkStatus.ToSuspend, WorkStatus.ToResume]:
             return True
         return False
 
@@ -307,7 +310,7 @@ class Work(Base):
         """
         *** Function called by Transformer agent.
         """
-        if self.status in [WorkStatus.SubFinished]:
+        if self.status in [WorkStatus.SubFinished] and self.substatus not in [WorkStatus.ToCancel, WorkStatus.ToSuspend, WorkStatus.ToResume]:
             return True
         return False
 
@@ -315,7 +318,7 @@ class Work(Base):
         """
         *** Function called by Transformer agent.
         """
-        if self.status in [WorkStatus.Failed]:
+        if self.status in [WorkStatus.Failed] and self.substatus not in [WorkStatus.ToCancel, WorkStatus.ToSuspend, WorkStatus.ToResume]:
             return True
         return False
 
@@ -323,7 +326,7 @@ class Work(Base):
         """
         *** Function called by Transformer agent.
         """
-        if self.status in [WorkStatus.Expired]:
+        if self.status in [WorkStatus.Expired] and self.substatus not in [WorkStatus.ToCancel, WorkStatus.ToSuspend, WorkStatus.ToResume]:
             return True
         return False
 
@@ -331,7 +334,7 @@ class Work(Base):
         """
         *** Function called by Transformer agent.
         """
-        if self.status in [WorkStatus.Cancelled]:
+        if self.status in [WorkStatus.Cancelled] and self.substatus not in [WorkStatus.ToCancel, WorkStatus.ToSuspend, WorkStatus.ToResume]:
             return True
         return False
 
@@ -339,7 +342,7 @@ class Work(Base):
         """
         *** Function called by Transformer agent.
         """
-        if self.status in [WorkStatus.Suspended]:
+        if self.status in [WorkStatus.Suspended] and self.substatus not in [WorkStatus.ToCancel, WorkStatus.ToSuspend, WorkStatus.ToResume]:
             return True
         return False
 
@@ -406,6 +409,13 @@ class Work(Base):
 
     def get_template_id(self):
         return self.template_work_id
+
+    def resume_work(self):
+        if self.status in [WorkStatus.New, WorkStatus.Ready]:
+            pass
+        else:
+            self.status = WorkStatus.Transforming
+        self.polling_retries = None
 
     def add_collection_to_collections(self, coll):
         assert(isinstance(coll, dict))
@@ -652,11 +662,12 @@ class Work(Base):
         """
         self.processings[processing['processing_metadata']['internal_id']]['processing_id'] = processing_id
 
-    def set_processing_status(self, processing, status):
+    def set_processing_status(self, processing, status, substatus):
         """
         *** Function called by Transformer agent.
         """
         self.processings[processing['processing_metadata']['internal_id']]['status'] = status
+        self.processings[processing['processing_metadata']['internal_id']]['substatus'] = substatus
         # if status not in [ProcessingStatus.New, ProcessingStatus.Submitting,
         #                   ProcessingStatus.Submitted, ProcessingStatus.Running]:
         #     if processing['processing_metadata']['internal_id'] in self.active_processings:
@@ -670,7 +681,17 @@ class Work(Base):
         processing['output_metadata'] = output_metadata
         self.set_output_data(output_metadata)
 
+    def is_processing_substatus_new_operationing(self, processing):
+        if 'substatus' in processing and processing['substatus'] in [ProcessingStatus.ToCancel,
+                                                                     ProcessingStatus.ToSuspend,
+                                                                     ProcessingStatus.ToResume]:
+            return True
+        return False
+
     def is_processing_terminated(self, processing):
+        if self.is_processing_substatus_new_operationing(processing):
+            return False
+
         if 'status' in processing and processing['status'] not in [ProcessingStatus.New,
                                                                    ProcessingStatus.Submitting,
                                                                    ProcessingStatus.Submitted,
@@ -834,9 +855,13 @@ class Work(Base):
         self.toresume = True
 
     def get_expired_at(self, processing=None):
-        if processing and 'created_at' in processing and processing['created_at']:
-            return processing['created_at'] + datetime.timedelta(seconds=int(self.agent_attributes['life_time']))
-        return datetime.datetime.utcnow() + datetime.timedelta(seconds=int(self.agent_attributes['life_time']))
+        if processing and 'expired_at' in processing and processing['expired_at']:
+            return processing['expired_at']
+        elif (self.agent_attributes and 'life_time' in self.agent_attributes and self.agent_attributes['life_time']):
+            # if processing and 'created_at' in processing and processing['created_at']:
+            #     return processing['created_at'] + datetime.timedelta(seconds=int(self.agent_attributes['life_time']))
+            return datetime.datetime.utcnow() + datetime.timedelta(seconds=int(self.agent_attributes['life_time']))
+        return None
 
     def is_processing_expired_old(self, processing):
         if (self.agent_attributes and 'life_time' in self.agent_attributes and self.agent_attributes['life_time']):
@@ -847,7 +872,7 @@ class Work(Base):
         return False
 
     def is_processing_expired(self, processing):
-        if processing['expired_at'] and processing['expired_at'] < datetime.datetime.utcnow():
+        if 'expired_at' in processing and processing['expired_at'] and processing['expired_at'] < datetime.datetime.utcnow():
             self.logger.info("Processing %s expired" % processing['processing_id'])
             return True
         return False
@@ -889,9 +914,13 @@ class Work(Base):
                 self.status = WorkStatus.Cancelled
             elif self.is_processings_suspended():
                 self.status = WorkStatus.Suspended
+        else:
+            self.status = WorkStatus.Transforming
 
-    def sync_work_data(self, work):
-        self.status = work.status
+    def sync_work_data(self, status, substatus, work):
+        # self.status = work.status
+        self.status = WorkStatus(status.value)
+        self.substatus = WorkStatus(substatus.value)
         self.workdir = work.workdir
         self._has_new_inputs = work._has_new_inputs
         self.errors = work.errors

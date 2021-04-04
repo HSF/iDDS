@@ -349,11 +349,19 @@ class Transformer(BaseAgent):
 
         transform_status = [TransformStatus.Transforming, TransformStatus.ToCancel, TransformStatus.Cancelling,
                             TransformStatus.ToSuspend, TransformStatus.Suspending,
-                            TransformStatus.ToResume, TransformStatus.Resuming]
+                            TransformStatus.Resuming]
         transforms = core_transforms.get_transforms_by_status(status=transform_status,
                                                               period=self.poll_time_period,
                                                               locking=True,
                                                               bulk_size=self.retrieve_bulk_size)
+
+        transform_status = [TransformStatus.ToResume]
+        transforms_1 = core_transforms.get_transforms_by_status(status=transform_status,
+                                                                period=self.poll_time_period,
+                                                                locking=True,
+                                                                by_substatus=True,
+                                                                bulk_size=self.retrieve_bulk_size)
+        transforms = transforms + transforms_1
 
         self.logger.debug("Main thread get %s transforming transforms to process" % len(transforms))
         if transforms:
@@ -583,6 +591,19 @@ class Transformer(BaseAgent):
         processing = work.get_processing(new_input_output_maps)
         self.logger.info("work get_processing: %s" % processing)
 
+        transform_substatus = None
+        t_processing_status = None
+        if transform['substatus'] in [TransformStatus.ToCancel, TransformStatus.ToSuspend, TransformStatus.ToResume]:
+            if transform['substatus'] == TransformStatus.ToCancel:
+                t_processing_status = ProcessingStatus.ToCancel
+                transform_substatus = TransformStatus.Cancelling
+            if transform['substatus'] == TransformStatus.ToSuspend:
+                t_processing_status = ProcessingStatus.ToSuspend
+                transform_substatus = TransformStatus.Suspending
+            if transform['substatus'] == TransformStatus.ToResume:
+                t_processing_status = ProcessingStatus.ToResume
+                transform_substatus = TransformStatus.Resuming
+
         new_processing_model, processing_model, update_processing_model = None, None, {}
         if processing:
             if 'processing_id' not in processing:
@@ -600,30 +621,20 @@ class Transformer(BaseAgent):
                 proc_work = copy.deepcopy(work)
                 proc_work.clean_work()
                 new_processing_model['processing_metadata']['work'] = proc_work
+                if t_processing_status is not None:
+                    new_processing_model['status'] = t_processing_status
+                    new_processing_model['substatus'] = t_processing_status
             else:
                 processing_model = core_processings.get_processing(processing_id=processing['processing_id'])
-                work.set_processing_status(processing, processing_model['status'])
+                work.set_processing_status(processing, processing_model['status'], processing_model['substatus'])
                 processing_metadata = processing_model['processing_metadata']
                 if 'errors' in processing_metadata:
                     work.set_terminated_msg(processing_metadata['errors'])
                 work.set_processing_output_metadata(processing, processing_model['output_metadata'])
                 transform['workload_id'] = processing_model['workload_id']
-
-        transform_substatus = None
-        if transform['substatus'] in [TransformStatus.ToCancel, TransformStatus.ToSuspend, TransformStatus.ToResume]:
-            if transform['substatus'] == TransformStatus.ToCancel:
-                t_processing_status = ProcessingStatus.ToCancel
-                transform_substatus = TransformStatus.Cancelling
-            if transform['substatus'] == TransformStatus.ToSuspend:
-                t_processing_status = ProcessingStatus.ToSuspend
-                transform_substatus = TransformStatus.Suspending
-            if transform['substatus'] == TransformStatus.ToResume:
-                t_processing_status = ProcessingStatus.ToResume
-                transform_substatus = TransformStatus.Resuming
-
-            if processing_model and processing_model['status'] in [ProcessingStatus.New, ProcessingStatus.Submitting, ProcessingStatus.Submitted,
-                                                                   ProcessingStatus.Running]:
-                update_processing_model[processing_model['processing_id']] = {'substatus': t_processing_status}
+                if t_processing_status is not None:
+                    update_processing_model[processing_model['processing_id']] = {'substatus': t_processing_status}
+                    work.set_processing_status(processing, processing_model['status'], t_processing_status)
 
         updated_contents, updated_input_contents_full, updated_output_contents_full = [], [], []
         to_release_input_contents = []
@@ -770,7 +781,9 @@ class Transformer(BaseAgent):
         while not self.running_output_queue.empty():
             try:
                 ret = self.running_output_queue.get()
-                self.logger.info("Main thread finishing running transform: %s" % ret['transform'])
+                self.logger.debug("Main thread finishing running transform: %s" % ret['transform'])
+                self.logger.info("Main thread finishing running transform(%s): %s" % (ret['transform']['transform_id'],
+                                                                                      ret['transform_parameters']))
                 if ret:
                     # self.logger.debug("wen: %s" % str(ret['output_contents']))
                     core_transforms.add_transform_outputs(transform=ret['transform'],
