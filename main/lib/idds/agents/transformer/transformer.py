@@ -781,7 +781,9 @@ class Transformer(BaseAgent):
         while not self.running_output_queue.empty():
             try:
                 ret = self.running_output_queue.get()
-                self.logger.info("Main thread finishing running transform: %s" % ret['transform'])
+                self.logger.debug("Main thread finishing running transform: %s" % ret['transform'])
+                self.logger.info("Main thread finishing running transform(%s): %s" % (ret['transform']['transform_id'],
+                                                                                      ret['transform_parameters']))
                 if ret:
                     # self.logger.debug("wen: %s" % str(ret['output_contents']))
                     core_transforms.add_transform_outputs(transform=ret['transform'],

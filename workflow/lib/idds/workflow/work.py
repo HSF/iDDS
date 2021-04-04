@@ -409,6 +409,12 @@ class Work(Base):
     def get_template_id(self):
         return self.template_work_id
 
+    def resume_work(self):
+        if self.status in [WorkStatus.New, WorkStatus.Ready]:
+            pass
+        else:
+           self.status = WorkStatus.Transforming
+
     def add_collection_to_collections(self, coll):
         assert(isinstance(coll, dict))
         assert('scope' in coll)
@@ -906,6 +912,8 @@ class Work(Base):
                 self.status = WorkStatus.Cancelled
             elif self.is_processings_suspended():
                 self.status = WorkStatus.Suspended
+        else:
+            self.status = WorkStatus.Transforming
 
     def sync_work_data(self, status, substatus, work):
         # self.status = work.status

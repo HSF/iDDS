@@ -369,6 +369,8 @@ class Workflow(Base):
         t_works = self.terminated_works
         self.terminated_works = []
         self.current_running_works = self.current_running_works + t_works
+        for work in [self.works[k] for k in self.current_running_works]:
+            work.resume_work()
 
     def get_exact_workflows(self):
         """
