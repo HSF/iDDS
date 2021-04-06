@@ -73,7 +73,7 @@ class DomaPanDAWork(Work):
         self.core_count = core_count
 
         self.retry_number = 0
-        self.num_retries = 5
+        self.num_retries = 0
 
         self.load_panda_urls()
 
