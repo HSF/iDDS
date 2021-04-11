@@ -496,6 +496,8 @@ class Transformer(BaseAgent):
         return msg
 
     def syn_collection_status(self, input_collections, output_collections, log_collections, registered_input_output_maps):
+        all_updates_flushed, output_statistics = True, {}
+
         input_status, output_status, log_status = {}, {}, {}
         for map_id in registered_input_output_maps:
             inputs = registered_input_output_maps[map_id]['inputs'] if 'inputs' in registered_input_output_maps[map_id] else []
@@ -519,6 +521,13 @@ class Transformer(BaseAgent):
                     output_status[content['coll_id']]['processed_files'] += 1
                 else:
                     output_status[content['coll_id']]['processing_files'] += 1
+
+                if content['status'].name not in output_statistics:
+                    output_statistics[content['status'].name] = 0
+                output_statistics[content['status'].name] += 1
+
+                if content['status'] != content['substatus']:
+                    all_updates_flushed = False
 
             for content in logs:
                 if content['coll_id'] not in log_status:
@@ -546,6 +555,8 @@ class Transformer(BaseAgent):
                 coll['total_files'] = log_status[coll['coll_id']]['total_files']
                 coll['processed_files'] = log_status[coll['coll_id']]['processed_files']
                 coll['processing_files'] = log_status[coll['coll_id']]['processing_files']
+
+        return all_updates_flushed, output_statistics
 
     def process_running_transform(self, transform):
         """
@@ -611,6 +622,7 @@ class Transformer(BaseAgent):
 
         new_processing_model, processing_model, update_processing_model = None, None, {}
         if processing:
+            self.logger.debug("processing model: %s" % processing)
             if 'processing_id' not in processing:
                 # new_processing = work.create_processing(new_input_output_maps)
                 new_processing_model = copy.deepcopy(processing)
@@ -644,11 +656,14 @@ class Transformer(BaseAgent):
         updated_contents, updated_input_contents_full, updated_output_contents_full = [], [], []
         to_release_input_contents = []
         if work.should_release_inputs(processing_model):
+            self.logger.info("get_updated_contents for transform %s" % transform['transform_id'])
             updated_contents, updated_input_contents_full, updated_output_contents_full = self.get_updated_contents(transform, registered_input_output_maps)
         if work.use_dependency_to_release_jobs() and updated_output_contents_full:
+            self.logger.info("trigger_release_inputs: %s" % transform['transform_id'])
             to_release_input_contents = self.trigger_release_inputs(updated_output_contents_full, work)
 
         msgs = []
+        self.logger.info("generate_message: %s" % transform['transform_id'])
         if new_input_contents:
             msg = self.generate_message(transform, files=new_input_contents, msg_type='file', relation_type='input')
             msgs.append(msg)
@@ -664,8 +679,12 @@ class Transformer(BaseAgent):
 
         # transform['locking'] = TransformLocking.Idle
         # status_statistics = work.get_status_statistics(registered_input_output_maps)
-        work.syn_work_status(registered_input_output_maps)
-        self.syn_collection_status(input_collections, output_collections, log_collections, registered_input_output_maps)
+        self.logger.info("syn_collection_status: %s" % transform['transform_id'])
+        all_updates_flushed, output_statistics = self.syn_collection_status(input_collections, output_collections, log_collections, registered_input_output_maps)
+
+        self.logger.info("syn_work_status: %s" % transform['transform_id'])
+        work.syn_work_status(registered_input_output_maps, all_updates_flushed, output_statistics)
+
         if transform['substatus'] in [TransformStatus.ToCancel]:
             transform['status'] = TransformStatus.Cancelling
         elif transform['substatus'] in [TransformStatus.ToSuspend]:
@@ -775,6 +794,7 @@ class Transformer(BaseAgent):
                 if transform:
                     self.logger.info("Main thread processing running transform: %s" % transform)
                     ret_transform = self.process_running_transform(transform)
+                    self.logger.debug("Main thread processing running transform finished: %s" % transform)
                     if ret_transform:
                         ret.append(ret_transform)
             except Exception as ex:

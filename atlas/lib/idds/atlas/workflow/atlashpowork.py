@@ -387,7 +387,7 @@ class ATLASHPOWork(ATLASCondorWork):
             output_collection['processed_files'] = self.finished_points
     """
 
-    def syn_work_status(self, registered_input_output_maps):
+    def syn_work_status(self, registered_input_output_maps, all_updates_flushed=True, output_statistics={}):
         super(ATLASHPOWork, self).syn_work_status(registered_input_output_maps)
         self.get_status_statistics(registered_input_output_maps)
 

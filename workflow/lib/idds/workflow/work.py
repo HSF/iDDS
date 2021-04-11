@@ -910,7 +910,7 @@ class Work(Base):
                     return False
         return True
 
-    def syn_work_status(self, input_output_maps):
+    def syn_work_status(self, input_output_maps, all_updates_flushed=True, output_statistics={}):
         """
         *** Function called by Transformer agent.
         """

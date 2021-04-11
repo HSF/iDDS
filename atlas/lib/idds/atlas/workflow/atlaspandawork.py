@@ -511,7 +511,7 @@ class ATLASPandaWork(Work):
             output_collection['processed_files'] = 0
     """
 
-    def syn_work_status(self, registered_input_output_maps):
+    def syn_work_status(self, registered_input_output_maps, all_updates_flushed=True, output_statistics={}):
         # self.syn_collection_status()
 
         if self.is_processings_terminated() and not self.has_new_inputs():

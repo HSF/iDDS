@@ -744,9 +744,11 @@ class DomaPanDAWork(Work):
         self.logger.debug("registered_input_output_maps, status_statistics: %s" % str(status_statistics))
         return status_statistics
 
-    def syn_work_status(self, registered_input_output_maps):
+    def syn_work_status(self, registered_input_output_maps, all_updates_flushed=True, output_statistics={}):
         super(DomaPanDAWork, self).syn_work_status(registered_input_output_maps)
-        self.get_status_statistics(registered_input_output_maps)
+        # self.get_status_statistics(registered_input_output_maps)
+        self.status_statistics = output_statistics
+
         self.logger.debug("syn_work_status, self.active_processings: %s" % str(self.active_processings))
         self.logger.debug("syn_work_status, self.has_new_inputs(): %s" % str(self.has_new_inputs()))
         self.logger.debug("syn_work_status, coll_metadata_is_open: %s" %
@@ -755,7 +757,8 @@ class DomaPanDAWork(Work):
                           str(self.collections[self.primary_input_collection]['status']))
 
         if self.is_processings_terminated() and not self.has_new_inputs() and not self.has_to_release_inputs():
-            if not self.is_all_outputs_flushed(registered_input_output_maps):
+            # if not self.is_all_outputs_flushed(registered_input_output_maps):
+            if not all_updates_flushed:
                 self.logger.warn("The work processings %s is terminated. but not all outputs are flushed. Wait to flush the outputs then finish the transform" % str(self.get_processing_ids()))
                 return
 
