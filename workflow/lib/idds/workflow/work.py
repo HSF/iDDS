@@ -145,6 +145,8 @@ class Work(Base):
         self.tosuspend = False
         self.toresume = False
 
+        self.backup_to_release_inputs = {'0': [], '1': [], '2': []}
+
     def get_class_name(self):
         return self.__class__.__name__
 
@@ -288,6 +290,22 @@ class Work(Base):
 
     def get_arguments(self):
         return self.arguments
+
+    def has_to_release_inputs(self):
+        if self.backup_to_release_inputs['0'] or self.backup_to_release_inputs['1'] or self.backup_to_release_inputs['2']:
+            return True
+        return False
+
+    def add_backup_to_release_inputs(self, to_release_inputs):
+        if to_release_inputs:
+            self.backup_to_release_inputs['0'] = self.backup_to_release_inputs['0'] + to_release_inputs
+
+    def get_backup_to_release_inputs(self):
+        to_release_inputs = self.backup_to_release_inputs['0'] + self.backup_to_release_inputs['1'] + self.backup_to_release_inputs['2']
+        self.backup_to_release_inputs['2'] = self.backup_to_release_inputs['1']
+        self.backup_to_release_inputs['1'] = self.backup_to_release_inputs['0']
+        self.backup_to_release_inputs['0'] = []
+        return to_release_inputs
 
     def is_terminated(self):
         """
@@ -897,7 +915,7 @@ class Work(Base):
         *** Function called by Transformer agent.
         """
         # raise exceptions.NotImplementedException
-        if self.is_processings_terminated() and not self.has_new_inputs():
+        if self.is_processings_terminated() and not self.has_new_inputs() and not self.has_to_release_inputs():
             if not self.is_all_outputs_flushed(input_output_maps):
                 self.logger.warn("The work processings %s is terminated. but not all outputs are flushed. Wait to flush the outputs then finish the transform" % str(self.get_processing_ids()))
                 return

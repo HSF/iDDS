@@ -237,7 +237,7 @@ class Transformer(BaseAgent):
                     updated_output_contents_full.append(content)
         return updated_contents, updated_input_contents_full, updated_output_contents_full
 
-    def trigger_release_inputs(self, updated_output_contents):
+    def trigger_release_inputs(self, updated_output_contents, work):
         to_release_inputs = []
         for content in updated_output_contents:
             to_release = {'request_id': content['request_id'],
@@ -246,9 +246,14 @@ class Transformer(BaseAgent):
                           'status': content['status'],
                           'substatus': content['substatus']}
             to_release_inputs.append(to_release)
+
+        to_release_inputs_backup = work.get_backup_to_release_inputs()
+        work.add_backup_to_release_inputs(to_release_inputs)
+
         # updated_contents = core_transforms.release_inputs(to_release_inputs)
         self.logger.debug("trigger_release_inputs, to_release_inputs: %s" % str(to_release_inputs))
-        updated_contents = core_transforms.release_inputs(to_release_inputs)
+        self.logger.debug("trigger_release_inputs, to_release_inputs_backup: %s" % str(to_release_inputs_backup))
+        updated_contents = core_transforms.release_inputs(to_release_inputs + to_release_inputs_backup)
         self.logger.debug("trigger_release_inputs, updated_contents: %s" % str(updated_contents))
         return updated_contents
 
@@ -641,7 +646,7 @@ class Transformer(BaseAgent):
         if work.should_release_inputs(processing_model):
             updated_contents, updated_input_contents_full, updated_output_contents_full = self.get_updated_contents(transform, registered_input_output_maps)
         if work.use_dependency_to_release_jobs() and updated_output_contents_full:
-            to_release_input_contents = self.trigger_release_inputs(updated_output_contents_full)
+            to_release_input_contents = self.trigger_release_inputs(updated_output_contents_full, work)
 
         msgs = []
         if new_input_contents:
