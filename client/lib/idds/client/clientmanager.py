@@ -113,6 +113,18 @@ class ClientManager:
             self.client.update_request(request_id=req['request_id'], parameters={'substatus': RequestStatus.ToResume})
 
     @exception_handler
+    def get_requests(self, request_id=None, workload_id=None, with_detail=False):
+        """
+        Get requests.
+
+        :param workload_id: the workload id.
+        :param request_id: the request.
+        :param with_detail: Whether to show detail info.
+        """
+        reqs = self.client.get_requests(request_id=request_id, workload_id=workload_id, with_detail=with_detail)
+        return reqs
+
+    @exception_handler
     def get_status(self, request_id=None, workload_id=None, with_detail=False):
         """
         Get the status progress report of requests.
