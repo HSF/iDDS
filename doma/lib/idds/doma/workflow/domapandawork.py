@@ -227,7 +227,9 @@ class DomaPanDAWork(Work):
     def is_all_dependency_tasks_available(self, inputs_dependency, task_name_to_coll_map):
         for input_d in inputs_dependency:
             task_name = input_d['task']
-            if task_name not in task_name_to_coll_map:
+            if (task_name not in task_name_to_coll_map                    # noqa: W503
+                or 'outputs' not in task_name_to_coll_map[task_name]      # noqa: W503
+                or not task_name_to_coll_map[task_name]['outputs']):      # noqa: W503
                 return False
         return True
 
