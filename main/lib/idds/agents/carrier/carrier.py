@@ -90,7 +90,8 @@ class Carrier(BaseAgent):
                     self.logger.info("Main thread processing new processing: %s" % processing)
                     ret_processing = self.process_new_processing(processing)
                     if ret_processing:
-                        ret.append(ret_processing)
+                        # ret.append(ret_processing)
+                        self.new_output_queue.put(ret_processing)
             except Exception as ex:
                 self.logger.error(ex)
                 self.logger.error(traceback.format_exc())
@@ -202,7 +203,8 @@ class Carrier(BaseAgent):
                     self.logger.info("Main thread processing running processing: %s" % processing)
                     ret_processing = self.process_running_processing(processing)
                     if ret_processing:
-                        ret.append(ret_processing)
+                        # ret.append(ret_processing)
+                        self.running_output_queue.put(ret_processing)
             except Exception as ex:
                 self.logger.error(ex)
                 self.logger.error(traceback.format_exc())
@@ -238,7 +240,8 @@ class Carrier(BaseAgent):
             task = self.create_task(task_func=self.get_new_processings, task_output_queue=self.new_task_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
             self.add_task(task)
             for _ in range(self.num_threads):
-                task = self.create_task(task_func=self.process_new_processings, task_output_queue=self.new_output_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
+                # task = self.create_task(task_func=self.process_new_processings, task_output_queue=self.new_output_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
+                task = self.create_task(task_func=self.process_new_processings, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
                 self.add_task(task)
             task = self.create_task(task_func=self.finish_new_processings, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
             self.add_task(task)
@@ -246,7 +249,8 @@ class Carrier(BaseAgent):
             task = self.create_task(task_func=self.get_running_processings, task_output_queue=self.running_task_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
             self.add_task(task)
             for _ in range(self.num_threads):
-                task = self.create_task(task_func=self.process_running_processings, task_output_queue=self.running_output_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
+                # task = self.create_task(task_func=self.process_running_processings, task_output_queue=self.running_output_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
+                task = self.create_task(task_func=self.process_running_processings, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
                 self.add_task(task)
             task = self.create_task(task_func=self.finish_running_processings, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
             self.add_task(task)
