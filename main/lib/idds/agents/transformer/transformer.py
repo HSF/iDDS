@@ -240,12 +240,14 @@ class Transformer(BaseAgent):
     def trigger_release_inputs(self, updated_output_contents, work):
         to_release_inputs = []
         for content in updated_output_contents:
-            to_release = {'request_id': content['request_id'],
-                          'coll_id': content['coll_id'],
-                          'name': content['name'],
-                          'status': content['status'],
-                          'substatus': content['substatus']}
-            to_release_inputs.append(to_release)
+            if (content['status'] in [ContentStatus.Available, ContentStatus.Available.value]
+                or content['substatus'] in [ContentStatus.Available, ContentStatus.Available.value]):  # noqa W503
+                to_release = {'request_id': content['request_id'],
+                              'coll_id': content['coll_id'],
+                              'name': content['name'],
+                              'status': content['status'],
+                              'substatus': content['substatus']}
+                to_release_inputs.append(to_release)
 
         to_release_inputs_backup = work.get_backup_to_release_inputs()
         work.add_backup_to_release_inputs(to_release_inputs)
@@ -659,7 +661,7 @@ class Transformer(BaseAgent):
         if work.should_release_inputs(processing_model):
             self.logger.info("get_updated_contents for transform %s" % transform['transform_id'])
             updated_contents, updated_input_contents_full, updated_output_contents_full = self.get_updated_contents(transform, registered_input_output_maps)
-        if work.use_dependency_to_release_jobs() and updated_output_contents_full:
+        if work.use_dependency_to_release_jobs() and (updated_output_contents_full or work.has_to_release_inputs()):
             self.logger.info("trigger_release_inputs: %s" % transform['transform_id'])
             to_release_input_contents = self.trigger_release_inputs(updated_output_contents_full, work)
 
