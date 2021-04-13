@@ -51,7 +51,7 @@ class Clerk(BaseAgent):
         # reqs_open = core_requests.get_requests_by_status_type(status=req_status, time_period=3600)
         # self.logger.info("Main thread get %s TransformingOpen requests to process" % len(reqs_open))
 
-        if self.new_task_queue.qsize() >= self.num_threads:
+        if self.new_task_queue.qsize() >= self.num_threads or self.new_output_queue.qsize() > 3:
             return []
 
         req_status = [RequestStatus.New, RequestStatus.Extend]
@@ -122,7 +122,8 @@ class Clerk(BaseAgent):
                     self.logger.info("Main thread processing new requst: %s" % req)
                     ret_req = self.process_new_request(req)
                     if ret_req:
-                        ret.append(ret_req)
+                        # ret.append(ret_req)
+                        self.new_output_queue.put(req_req)
             except Exception as ex:
                 self.logger.error(ex)
                 self.logger.error(traceback.format_exc())
@@ -156,7 +157,7 @@ class Clerk(BaseAgent):
         """
         Get running requests
         """
-        if self.running_task_queue.qsize() >= self.num_threads:
+        if self.running_task_queue.qsize() >= self.num_threads or self.running_output_queue.qsize() > 3:
             return []
 
         req_status = [RequestStatus.Transforming, RequestStatus.ToCancel, RequestStatus.Cancelling,
@@ -313,7 +314,8 @@ class Clerk(BaseAgent):
                         ret_req = self.process_running_request(req)
 
                     if ret_req:
-                        ret.append(ret_req)
+                        # ret.append(ret_req)
+                        self.running_output_queue.put(ret_req)
             except Exception as ex:
                 self.logger.error(ex)
                 self.logger.error(traceback.format_exc())
@@ -357,7 +359,8 @@ class Clerk(BaseAgent):
             task = self.create_task(task_func=self.get_new_requests, task_output_queue=self.new_task_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
             self.add_task(task)
             for _ in range(self.num_threads):
-                task = self.create_task(task_func=self.process_new_requests, task_output_queue=self.new_output_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
+                # task = self.create_task(task_func=self.process_new_requests, task_output_queue=self.new_output_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
+                task = self.create_task(task_func=self.process_new_requests, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
                 self.add_task(task)
             task = self.create_task(task_func=self.finish_new_requests, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
             self.add_task(task)
@@ -365,7 +368,8 @@ class Clerk(BaseAgent):
             task = self.create_task(task_func=self.get_running_requests, task_output_queue=self.running_task_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
             self.add_task(task)
             for _ in range(self.num_threads):
-                task = self.create_task(task_func=self.process_running_requests, task_output_queue=self.running_output_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
+                # task = self.create_task(task_func=self.process_running_requests, task_output_queue=self.running_output_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
+                task = self.create_task(task_func=self.process_running_requests, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
                 self.add_task(task)
             task = self.create_task(task_func=self.finish_running_requests, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
             self.add_task(task)
