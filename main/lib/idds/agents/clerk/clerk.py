@@ -51,7 +51,7 @@ class Clerk(BaseAgent):
         # reqs_open = core_requests.get_requests_by_status_type(status=req_status, time_period=3600)
         # self.logger.info("Main thread get %s TransformingOpen requests to process" % len(reqs_open))
 
-        if self.new_task_queue.qsize() >= self.num_threads or self.new_output_queue.qsize() > 3:
+        if self.new_task_queue.qsize() >= self.num_threads or self.new_output_queue.qsize() >= 3:
             return []
 
         req_status = [RequestStatus.New, RequestStatus.Extend]
@@ -123,7 +123,7 @@ class Clerk(BaseAgent):
                     ret_req = self.process_new_request(req)
                     if ret_req:
                         # ret.append(ret_req)
-                        self.new_output_queue.put(req_req)
+                        self.new_output_queue.put(ret_req)
             except Exception as ex:
                 self.logger.error(ex)
                 self.logger.error(traceback.format_exc())
@@ -157,7 +157,7 @@ class Clerk(BaseAgent):
         """
         Get running requests
         """
-        if self.running_task_queue.qsize() >= self.num_threads or self.running_output_queue.qsize() > 3:
+        if self.running_task_queue.qsize() >= self.num_threads or self.running_output_queue.qsize() >= 3:
             return []
 
         req_status = [RequestStatus.Transforming, RequestStatus.ToCancel, RequestStatus.Cancelling,

@@ -53,7 +53,7 @@ class Carrier(BaseAgent):
         """
         Get new processing
         """
-        if self.new_task_queue.qsize() >= self.num_threads:
+        if self.new_task_queue.qsize() >= self.num_threads or self.new_output_queue.qsize() >= 3:
             return []
 
         processing_status = [ProcessingStatus.New]
@@ -113,7 +113,7 @@ class Carrier(BaseAgent):
         """
         Get running processing
         """
-        if self.running_task_queue.qsize() >= self.num_threads:
+        if self.running_task_queue.qsize() >= self.num_threads or self.running_output_queue.qsize() >= 3:
             return []
 
         processing_status = [ProcessingStatus.Submitting, ProcessingStatus.Submitted, ProcessingStatus.Running, ProcessingStatus.FinishedOnExec,

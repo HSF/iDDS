@@ -53,7 +53,7 @@ class Transformer(BaseAgent):
         """
         Get new transforms to process
         """
-        if self.new_task_queue.qsize() >= self.num_threads:
+        if self.new_task_queue.qsize() >= self.num_threads or self.new_output_queue.qsize() >= 3:
             return []
 
         transform_status = [TransformStatus.New, TransformStatus.Ready, TransformStatus.Extend]
@@ -352,7 +352,7 @@ class Transformer(BaseAgent):
         """
         Get running transforms
         """
-        if self.running_task_queue.qsize() >= self.num_threads:
+        if self.running_task_queue.qsize() >= self.num_threads or self.running_output_queue.qsize() >= 3:
             return []
 
         transform_status = [TransformStatus.Transforming, TransformStatus.ToCancel, TransformStatus.Cancelling,
