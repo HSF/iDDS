@@ -385,7 +385,7 @@ def get_requests_by_requester(scope, name, requester, to_json=False, session=Non
         raise exceptions.NoObject('No requests with scope:name(%s:%s) and requester(%s) %s' % (scope, name, requester, error))
 
 
-@read_session
+@transactional_session
 def get_requests_by_status_type(status, request_type=None, time_period=None, locking=False, bulk_size=None, to_json=False, by_substatus=False, session=None):
     """
     Get requests.
@@ -427,6 +427,9 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, loc
                      .order_by(desc(models.Request.priority))
         if bulk_size:
             query = query.limit(bulk_size)
+
+        if locking:
+            query = query.with_for_update(nowait=True, skip_locked=True)
 
         tmp = query.all()
         rets = []

@@ -287,7 +287,7 @@ def get_transforms(request_id=None, workload_id=None, transform_id=None, workpro
         raise error
 
 
-@read_session
+@transactional_session
 def get_transforms_by_status(status, period=None, locking=False, bulk_size=None, to_json=False, by_substatus=False, session=None):
     """
     Get transforms or raise a NoObject exception.
@@ -325,6 +325,9 @@ def get_transforms_by_status(status, period=None, locking=False, bulk_size=None,
 
         if bulk_size:
             query = query.limit(bulk_size)
+
+        if locking:
+            query = query.with_for_update(nowait=True, skip_locked=True)
 
         tmp = query.all()
         rets = []

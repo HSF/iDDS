@@ -200,7 +200,7 @@ def get_processings_by_transform_id(transform_id=None, to_json=False, session=No
         raise error
 
 
-@read_session
+@transactional_session
 def get_processings_by_status(status, period=None, locking=False, bulk_size=None, submitter=None, to_json=False, by_substatus=False, session=None):
     """
     Get processing or raise a NoObject exception.
@@ -243,6 +243,9 @@ def get_processings_by_status(status, period=None, locking=False, bulk_size=None
 
         if bulk_size:
             query = query.limit(bulk_size)
+
+        if locking:
+            query = query.with_for_update(nowait=True, skip_locked=True)
 
         tmp = query.all()
         rets = []
