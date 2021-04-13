@@ -214,12 +214,42 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, loc
 
     :returns: list of Request.
     """
-    reqs = orm_requests.get_requests_by_status_type(status, request_type, time_period, locking=locking, bulk_size=bulk_size,
-                                                    to_json=to_json, by_substatus=by_substatus, session=session)
     if locking:
+        if bulk_size:
+            # order by cannot work together with locking. So first select 2 * bulk_size without locking with order by.
+            # then select with locking.
+            req1s = orm_requests.get_requests_by_status_type(status, request_type, time_period, locking=locking, bulk_size=bulk_size * 2,
+                                                             locking_for_update=False, to_json=to_json, by_substatus=by_substatus,
+                                                             session=session)
+            req_ids = [req['request_id'] for req in req1s]
+            if req_ids:
+                req2s = orm_requests.get_requests_by_status_type(status, request_type, time_period, request_ids=req_ids,
+                                                                 locking=locking, locking_for_update=True, bulk_size=None, to_json=to_json,
+                                                                 by_substatus=by_substatus, session=session)
+                if req2s:
+                    # reqs = req2s[:bulk_size]
+                    # order requests
+                    reqs = []
+                    for req_id in req_ids:
+                        for req in req2s:
+                            if req['request_id'] == req_id:
+                                reqs.append(req)
+                    reqs = reqs[:bulk_size]
+                else:
+                    reqs = []
+            else:
+                reqs = []
+        else:
+            reqs = orm_requests.get_requests_by_status_type(status, request_type, time_period, locking=locking, locking_for_update=locking,
+                                                            bulk_size=bulk_size,
+                                                            to_json=to_json, by_substatus=by_substatus, session=session)
+
         parameters = {'locking': RequestLocking.Locking}
         for req in reqs:
             orm_requests.update_request(request_id=req['request_id'], parameters=parameters, session=session)
+    else:
+        reqs = orm_requests.get_requests_by_status_type(status, request_type, time_period, locking=locking, bulk_size=bulk_size,
+                                                        to_json=to_json, by_substatus=by_substatus, session=session)
     return reqs
 
 

@@ -386,7 +386,8 @@ def get_requests_by_requester(scope, name, requester, to_json=False, session=Non
 
 
 @transactional_session
-def get_requests_by_status_type(status, request_type=None, time_period=None, locking=False, bulk_size=None, to_json=False, by_substatus=False, session=None):
+def get_requests_by_status_type(status, request_type=None, time_period=None, request_ids=[], locking=False,
+                                locking_for_update=False, bulk_size=None, to_json=False, by_substatus=False, session=None):
     """
     Get requests.
 
@@ -411,6 +412,7 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, loc
 
         query = session.query(models.Request)\
                        .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_SCOPE_NAME_IDX)", 'oracle')
+
         if by_substatus:
             query = query.filter(models.Request.substatus.in_(status))
         else:
@@ -421,15 +423,18 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, loc
             query = query.filter(models.Request.request_type == request_type)
         if time_period is not None:
             query = query.filter(models.Request.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=time_period))
+        if request_ids:
+            query = query.filter(models.Request.request_id.in_(request_ids))
         if locking:
             query = query.filter(models.Request.locking == RequestLocking.Idle)
-        query = query.order_by(asc(models.Request.updated_at))\
-                     .order_by(desc(models.Request.priority))
+
+        if locking_for_update:
+            query = query.with_for_update(skip_locked=True)
+        else:
+            query = query.order_by(asc(models.Request.updated_at))\
+                         .order_by(desc(models.Request.priority))
         if bulk_size:
             query = query.limit(bulk_size)
-
-        if locking:
-            query = query.with_for_update(nowait=True, skip_locked=True)
 
         tmp = query.all()
         rets = []

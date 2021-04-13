@@ -116,13 +116,44 @@ def get_processings_by_status(status, time_period=None, locking=False, bulk_size
 
     :returns: Processings.
     """
-    processings = orm_processings.get_processings_by_status(status=status, period=time_period, locking=locking,
-                                                            bulk_size=bulk_size, to_json=to_json,
-                                                            by_substatus=by_substatus, session=session)
     if locking:
+        if bulk_size:
+            # order by cannot work together with locking. So first select 2 * bulk_size without locking with order by.
+            # then select with locking.
+            processings = orm_processings.get_processings_by_status(status=status, period=time_period, locking=locking,
+                                                                    bulk_size=bulk_size * 2, to_json=to_json, locking_for_update=False,
+                                                                    by_substatus=by_substatus, session=session)
+            proc_ids = [p['processing_id'] for p in processings]
+            if proc_ids:
+                processing2s = orm_processings.get_processings_by_status(status=status, period=time_period, locking=locking,
+                                                                         processing_ids=proc_ids,
+                                                                         bulk_size=None, to_json=to_json, locking_for_update=True,
+                                                                         by_substatus=by_substatus, session=session)
+                if processing2s:
+                    # reqs = req2s[:bulk_size]
+                    # order requests
+                    processings = []
+                    for proc_id in proc_ids:
+                        for p in processing2s:
+                            if p['processing_id'] == proc_id:
+                                processings.append(p)
+                    processings = processings[:bulk_size]
+                else:
+                    processings = []
+            else:
+                processings = []
+        else:
+            processings = orm_processings.get_processings_by_status(status=status, period=time_period, locking=locking,
+                                                                    bulk_size=bulk_size, to_json=to_json, locking_for_update=locking,
+                                                                    by_substatus=by_substatus, session=session)
+
         parameters = {'locking': ProcessingLocking.Locking}
         for processing in processings:
             orm_processings.update_processing(processing['processing_id'], parameters=parameters, session=session)
+    else:
+        processings = orm_processings.get_processings_by_status(status=status, period=time_period, locking=locking,
+                                                                bulk_size=bulk_size, to_json=to_json,
+                                                                by_substatus=by_substatus, session=session)
     return processings
 
 

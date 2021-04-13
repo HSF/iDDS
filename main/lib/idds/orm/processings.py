@@ -201,7 +201,8 @@ def get_processings_by_transform_id(transform_id=None, to_json=False, session=No
 
 
 @transactional_session
-def get_processings_by_status(status, period=None, locking=False, bulk_size=None, submitter=None, to_json=False, by_substatus=False, session=None):
+def get_processings_by_status(status, period=None, processing_ids=[], locking=False, locking_for_update=False,
+                              bulk_size=None, submitter=None, to_json=False, by_substatus=False, session=None):
     """
     Get processing or raise a NoObject exception.
 
@@ -232,6 +233,8 @@ def get_processings_by_status(status, period=None, locking=False, bulk_size=None
             query = query.filter(models.Processing.status.in_(status))
         query = query.filter(models.Processing.next_poll_at < datetime.datetime.utcnow())
 
+        if processing_ids:
+            query = query.filter(models.Processing.processing_id.in_(processing_ids))
         if period:
             query = query.filter(models.Processing.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=period))
         if locking:
@@ -239,13 +242,13 @@ def get_processings_by_status(status, period=None, locking=False, bulk_size=None
         if submitter:
             query = query.filter(models.Processing.submitter == submitter)
 
-        query = query.order_by(asc(models.Processing.updated_at))
+        if locking_for_update:
+            query = query.with_for_update(skip_locked=True)
+        else:
+            query = query.order_by(asc(models.Processing.updated_at))
 
         if bulk_size:
             query = query.limit(bulk_size)
-
-        if locking:
-            query = query.with_for_update(nowait=True, skip_locked=True)
 
         tmp = query.all()
         rets = []

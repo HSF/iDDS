@@ -140,13 +140,48 @@ def get_transforms_by_status(status, period=None, locking=False, bulk_size=None,
 
     :returns: list of transform.
     """
-    transforms = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking,
-                                                         bulk_size=bulk_size, to_json=to_json,
-                                                         by_substatus=by_substatus, session=session)
     if locking:
+        if bulk_size:
+            # order by cannot work together with locking. So first select 2 * bulk_size without locking with order by.
+            # then select with locking.
+            transform1s = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking,
+                                                                  bulk_size=bulk_size * 2, locking_for_update=False,
+                                                                  to_json=to_json,
+                                                                  by_substatus=by_substatus, session=session)
+            tf_ids = [tf['transform_id'] for tf in transform1s]
+            # print(tf_ids)
+            if tf_ids:
+                transform2s = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking,
+                                                                      bulk_size=None, locking_for_update=True,
+                                                                      to_json=to_json, transform_ids=tf_ids,
+                                                                      by_substatus=by_substatus, session=session)
+                # print(transform2s)
+                if transform2s:
+                    # reqs = req2s[:bulk_size]
+                    # order requests
+                    transforms = []
+                    for tf_id in tf_ids:
+                        for tf in transform2s:
+                            if tf['transform_id'] == tf_id:
+                                transforms.append(tf)
+                    transforms = transforms[:bulk_size]
+                else:
+                    transforms = []
+            else:
+                transforms = []
+        else:
+            transforms = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking,
+                                                                 locking_for_update=locking,
+                                                                 bulk_size=bulk_size, to_json=to_json,
+                                                                 by_substatus=by_substatus, session=session)
+
         parameters = {'locking': TransformLocking.Locking}
         for transform in transforms:
             orm_transforms.update_transform(transform_id=transform['transform_id'], parameters=parameters, session=session)
+    else:
+        transforms = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking,
+                                                             bulk_size=bulk_size, to_json=to_json,
+                                                             by_substatus=by_substatus, session=session)
     return transforms
 
 
