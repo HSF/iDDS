@@ -60,7 +60,7 @@ class Carrier(BaseAgent):
         """
         Get new processing
         """
-        if self.new_task_queue.qsize() >= self.num_threads or self.new_output_queue.qsize() >= 3:
+        if self.new_task_queue.qsize() > 0 or self.new_output_queue.qsize() > 0:
             return []
 
         self.show_queue_size()
@@ -122,7 +122,7 @@ class Carrier(BaseAgent):
         """
         Get running processing
         """
-        if self.running_task_queue.qsize() >= self.num_threads or self.running_output_queue.qsize() >= 3:
+        if self.running_task_queue.qsize() > 0 or self.running_output_queue.qsize() > 0:
             return []
 
         self.show_queue_size()

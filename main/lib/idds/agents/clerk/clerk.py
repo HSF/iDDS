@@ -58,7 +58,7 @@ class Clerk(BaseAgent):
         # reqs_open = core_requests.get_requests_by_status_type(status=req_status, time_period=3600)
         # self.logger.info("Main thread get %s TransformingOpen requests to process" % len(reqs_open))
 
-        if self.new_task_queue.qsize() >= self.num_threads or self.new_output_queue.qsize() >= 3:
+        if self.new_task_queue.qsize() > 0 or self.new_output_queue.qsize() > 0:
             return []
 
         self.show_queue_size()
@@ -166,7 +166,7 @@ class Clerk(BaseAgent):
         """
         Get running requests
         """
-        if self.running_task_queue.qsize() >= self.num_threads or self.running_output_queue.qsize() >= 3:
+        if self.running_task_queue.qsize() > 0 or self.running_output_queue.qsize() > 0:
             return []
 
         self.show_queue_size()
