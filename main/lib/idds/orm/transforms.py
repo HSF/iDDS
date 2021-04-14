@@ -289,7 +289,7 @@ def get_transforms(request_id=None, workload_id=None, transform_id=None, workpro
 
 @transactional_session
 def get_transforms_by_status(status, period=None, transform_ids=[], locking=False, locking_for_update=False,
-                             bulk_size=None, to_json=False, by_substatus=False, session=None):
+                             bulk_size=None, to_json=False, by_substatus=False, only_return_id=False, session=None):
     """
     Get transforms or raise a NoObject exception.
 
@@ -310,7 +310,11 @@ def get_transforms_by_status(status, period=None, transform_ids=[], locking=Fals
         if len(status) == 1:
             status = [status[0], status[0]]
 
-        query = session.query(models.Transform)
+        if only_return_id:
+            query = session.query(models.Transform.transform_id)
+        else:
+            query = session.query(models.Transform)
+
         if by_substatus:
             query = query.filter(models.Transform.substatus.in_(status))
         else:
@@ -336,10 +340,13 @@ def get_transforms_by_status(status, period=None, transform_ids=[], locking=Fals
         rets = []
         if tmp:
             for t in tmp:
-                if to_json:
-                    rets.append(t.to_dict_json())
+                if only_return_id:
+                    rets.append(t[0])
                 else:
-                    rets.append(t.to_dict())
+                    if to_json:
+                        rets.append(t.to_dict_json())
+                    else:
+                        rets.append(t.to_dict())
         return rets
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('No transforms attached with status (%s): %s' %

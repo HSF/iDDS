@@ -387,7 +387,8 @@ def get_requests_by_requester(scope, name, requester, to_json=False, session=Non
 
 @transactional_session
 def get_requests_by_status_type(status, request_type=None, time_period=None, request_ids=[], locking=False,
-                                locking_for_update=False, bulk_size=None, to_json=False, by_substatus=False, session=None):
+                                locking_for_update=False, bulk_size=None, to_json=False, by_substatus=False,
+                                only_return_id=False, session=None):
     """
     Get requests.
 
@@ -410,8 +411,12 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, req
         if len(status) == 1:
             status = [status[0], status[0]]
 
-        query = session.query(models.Request)\
-                       .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_SCOPE_NAME_IDX)", 'oracle')
+        if only_return_id:
+            query = session.query(models.Request.request_id)\
+                           .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_SCOPE_NAME_IDX)", 'oracle')
+        else:
+            query = session.query(models.Request)\
+                           .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_SCOPE_NAME_IDX)", 'oracle')
 
         if by_substatus:
             query = query.filter(models.Request.substatus.in_(status))
@@ -440,10 +445,13 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, req
         rets = []
         if tmp:
             for req in tmp:
-                if to_json:
-                    rets.append(req.to_dict_json())
+                if only_return_id:
+                    rets.append(req[0])
                 else:
-                    rets.append(req.to_dict())
+                    if to_json:
+                        rets.append(req.to_dict_json())
+                    else:
+                        rets.append(req.to_dict())
         return rets
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('No requests with status: %s, request_type: %s, time_period: %s, locking: %s, %s' % (status, request_type, time_period, locking, error))

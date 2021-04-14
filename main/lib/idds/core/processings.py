@@ -120,10 +120,9 @@ def get_processings_by_status(status, time_period=None, locking=False, bulk_size
         if bulk_size:
             # order by cannot work together with locking. So first select 2 * bulk_size without locking with order by.
             # then select with locking.
-            processings = orm_processings.get_processings_by_status(status=status, period=time_period, locking=locking,
-                                                                    bulk_size=bulk_size * 2, to_json=to_json, locking_for_update=False,
-                                                                    by_substatus=by_substatus, session=session)
-            proc_ids = [p['processing_id'] for p in processings]
+            proc_ids = orm_processings.get_processings_by_status(status=status, period=time_period, locking=locking,
+                                                                 bulk_size=bulk_size * 2, to_json=False, locking_for_update=False,
+                                                                 by_substatus=by_substatus, only_return_id=True, session=session)
             if proc_ids:
                 processing2s = orm_processings.get_processings_by_status(status=status, period=time_period, locking=locking,
                                                                          processing_ids=proc_ids,
@@ -134,10 +133,13 @@ def get_processings_by_status(status, time_period=None, locking=False, bulk_size
                     # order requests
                     processings = []
                     for proc_id in proc_ids:
+                        if len(processings) >= bulk_size:
+                            break
                         for p in processing2s:
                             if p['processing_id'] == proc_id:
                                 processings.append(p)
-                    processings = processings[:bulk_size]
+                                break
+                    # processings = processings[:bulk_size]
                 else:
                     processings = []
             else:

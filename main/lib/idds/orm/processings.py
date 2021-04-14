@@ -202,7 +202,7 @@ def get_processings_by_transform_id(transform_id=None, to_json=False, session=No
 
 @transactional_session
 def get_processings_by_status(status, period=None, processing_ids=[], locking=False, locking_for_update=False,
-                              bulk_size=None, submitter=None, to_json=False, by_substatus=False, session=None):
+                              bulk_size=None, submitter=None, to_json=False, by_substatus=False, only_return_id=False, session=None):
     """
     Get processing or raise a NoObject exception.
 
@@ -226,7 +226,11 @@ def get_processings_by_status(status, period=None, processing_ids=[], locking=Fa
         if len(status) == 1:
             status = [status[0], status[0]]
 
-        query = session.query(models.Processing)
+        if only_return_id:
+            query = session.query(models.Processing.processing_id)
+        else:
+            query = session.query(models.Processing)
+
         if by_substatus:
             query = query.filter(models.Processing.substatus.in_(status))
         else:
@@ -254,10 +258,13 @@ def get_processings_by_status(status, period=None, processing_ids=[], locking=Fa
         rets = []
         if tmp:
             for t in tmp:
-                if to_json:
-                    rets.append(t.to_dict_json())
+                if only_return_id:
+                    rets.append(t[0])
                 else:
-                    rets.append(t.to_dict())
+                    if to_json:
+                        rets.append(t.to_dict_json())
+                    else:
+                        rets.append(t.to_dict())
         return rets
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('No processing attached with status (%s): %s' % (status, error))

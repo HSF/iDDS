@@ -144,27 +144,29 @@ def get_transforms_by_status(status, period=None, locking=False, bulk_size=None,
         if bulk_size:
             # order by cannot work together with locking. So first select 2 * bulk_size without locking with order by.
             # then select with locking.
-            transform1s = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking,
-                                                                  bulk_size=bulk_size * 2, locking_for_update=False,
-                                                                  to_json=to_json,
-                                                                  by_substatus=by_substatus, session=session)
-            tf_ids = [tf['transform_id'] for tf in transform1s]
-            # print(tf_ids)
+            tf_ids = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking,
+                                                             bulk_size=bulk_size * 2, locking_for_update=False,
+                                                             to_json=False, only_return_id=True,
+                                                             by_substatus=by_substatus, session=session)
+            print(tf_ids)
             if tf_ids:
                 transform2s = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking,
                                                                       bulk_size=None, locking_for_update=True,
                                                                       to_json=to_json, transform_ids=tf_ids,
                                                                       by_substatus=by_substatus, session=session)
-                # print(transform2s)
+                print(transform2s)
                 if transform2s:
                     # reqs = req2s[:bulk_size]
                     # order requests
                     transforms = []
                     for tf_id in tf_ids:
+                        if len(transforms) >= bulk_size:
+                            break
                         for tf in transform2s:
                             if tf['transform_id'] == tf_id:
                                 transforms.append(tf)
-                    transforms = transforms[:bulk_size]
+                                break
+                    # transforms = transforms[:bulk_size]
                 else:
                     transforms = []
             else:
