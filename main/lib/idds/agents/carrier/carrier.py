@@ -44,6 +44,13 @@ class Carrier(BaseAgent):
         self.running_task_queue = Queue()
         self.running_output_queue = Queue()
 
+    def show_queue_size(self):
+        q_str = "new queue size: %s, new output queue size: %s" % (self.new_task_queue.qsize(),
+                                                                   self.new_output_queue.qsize())
+        q_str += "running queue size: %s, running output queue size: %s" % (self.running_task_queue.qsize(),
+                                                                            self.running_output_queue.qsize())
+        self.logger.info(q_str)
+
     def init(self):
         status = [ProcessingStatus.New, ProcessingStatus.Submitting, ProcessingStatus.Submitted,
                   ProcessingStatus.Running, ProcessingStatus.FinishedOnExec]
@@ -55,6 +62,8 @@ class Carrier(BaseAgent):
         """
         if self.new_task_queue.qsize() >= self.num_threads or self.new_output_queue.qsize() >= 3:
             return []
+
+        self.show_queue_size()
 
         processing_status = [ProcessingStatus.New]
         processings = core_processings.get_processings_by_status(status=processing_status, locking=True, bulk_size=self.retrieve_bulk_size)
@@ -115,6 +124,8 @@ class Carrier(BaseAgent):
         """
         if self.running_task_queue.qsize() >= self.num_threads or self.running_output_queue.qsize() >= 3:
             return []
+
+        self.show_queue_size()
 
         processing_status = [ProcessingStatus.Submitting, ProcessingStatus.Submitted, ProcessingStatus.Running, ProcessingStatus.FinishedOnExec,
                              ProcessingStatus.ToCancel, ProcessingStatus.Cancelling, ProcessingStatus.ToSuspend, ProcessingStatus.Suspending,

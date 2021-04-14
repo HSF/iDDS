@@ -43,6 +43,13 @@ class Clerk(BaseAgent):
         self.running_task_queue = Queue()
         self.running_output_queue = Queue()
 
+    def show_queue_size(self):
+        q_str = "new queue size: %s, new output queue size: %s" % (self.new_task_queue.qsize(),
+                                                                   self.new_output_queue.qsize())
+        q_str += "running queue size: %s, running output queue size: %s" % (self.running_task_queue.qsize(),
+                                                                            self.running_output_queue.qsize())
+        self.logger.info(q_str)
+
     def get_new_requests(self):
         """
         Get new requests to process
@@ -53,6 +60,8 @@ class Clerk(BaseAgent):
 
         if self.new_task_queue.qsize() >= self.num_threads or self.new_output_queue.qsize() >= 3:
             return []
+
+        self.show_queue_size()
 
         req_status = [RequestStatus.New, RequestStatus.Extend]
         reqs_new = core_requests.get_requests_by_status_type(status=req_status, locking=True,
@@ -159,6 +168,8 @@ class Clerk(BaseAgent):
         """
         if self.running_task_queue.qsize() >= self.num_threads or self.running_output_queue.qsize() >= 3:
             return []
+
+        self.show_queue_size()
 
         req_status = [RequestStatus.Transforming, RequestStatus.ToCancel, RequestStatus.Cancelling,
                       RequestStatus.ToSuspend, RequestStatus.Suspending,

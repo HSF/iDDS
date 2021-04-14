@@ -49,12 +49,21 @@ class Transformer(BaseAgent):
         self.running_task_queue = Queue()
         self.running_output_queue = Queue()
 
+    def show_queue_size(self):
+        q_str = "new queue size: %s, new output queue size: %s" % (self.new_task_queue.qsize(),
+                                                                   self.new_output_queue.qsize())
+        q_str += "running queue size: %s, running output queue size: %s" % (self.running_task_queue.qsize(),
+                                                                            self.running_output_queue.qsize())
+        self.logger.info(q_str)
+
     def get_new_transforms(self):
         """
         Get new transforms to process
         """
         if self.new_task_queue.qsize() >= self.num_threads or self.new_output_queue.qsize() >= 3:
             return []
+
+        self.show_queue_size()
 
         transform_status = [TransformStatus.New, TransformStatus.Ready, TransformStatus.Extend]
         transforms_new = core_transforms.get_transforms_by_status(status=transform_status, locking=True, bulk_size=self.retrieve_bulk_size)
@@ -354,6 +363,8 @@ class Transformer(BaseAgent):
         """
         if self.running_task_queue.qsize() >= self.num_threads or self.running_output_queue.qsize() >= 3:
             return []
+
+        self.show_queue_size()
 
         transform_status = [TransformStatus.Transforming, TransformStatus.ToCancel, TransformStatus.Cancelling,
                             TransformStatus.ToSuspend, TransformStatus.Suspending,
