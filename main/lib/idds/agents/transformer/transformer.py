@@ -17,7 +17,7 @@ except ImportError:
     # Python 2
     from Queue import Queue
 
-
+from idds.common import exceptions
 from idds.common.constants import (Sections, TransformStatus, TransformLocking, TransformType,
                                    CollectionRelationType, CollectionStatus,
                                    CollectionType, ContentType, ContentStatus,
@@ -60,18 +60,25 @@ class Transformer(BaseAgent):
         """
         Get new transforms to process
         """
-        if self.new_task_queue.qsize() > 0 or self.new_output_queue.qsize() > 0:
-            return []
+        try:
+            if self.new_task_queue.qsize() > 0 or self.new_output_queue.qsize() > 0:
+                return []
 
-        self.show_queue_size()
+            self.show_queue_size()
 
-        transform_status = [TransformStatus.New, TransformStatus.Ready, TransformStatus.Extend]
-        transforms_new = core_transforms.get_transforms_by_status(status=transform_status, locking=True, bulk_size=self.retrieve_bulk_size)
+            transform_status = [TransformStatus.New, TransformStatus.Ready, TransformStatus.Extend]
+            transforms_new = core_transforms.get_transforms_by_status(status=transform_status, locking=True, bulk_size=self.retrieve_bulk_size)
 
-        self.logger.debug("Main thread get %s New+Ready+Extend transforms to process" % len(transforms_new))
-        if transforms_new:
-            self.logger.info("Main thread get %s New+Ready+Extend transforms to process" % len(transforms_new))
-        return transforms_new
+            self.logger.debug("Main thread get %s New+Ready+Extend transforms to process" % len(transforms_new))
+            if transforms_new:
+                self.logger.info("Main thread get %s New+Ready+Extend transforms to process" % len(transforms_new))
+            return transforms_new
+        except exceptions.DatabaseException as ex:
+            if 'ORA-00060' in str(ex):
+                self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
+            else:
+                raise ex
+        return []
 
     def generate_collection_model(self, transform, collection, relation_type=CollectionRelationType.Input):
         if 'coll_metadata' in collection:
@@ -268,7 +275,7 @@ class Transformer(BaseAgent):
         self.logger.debug("trigger_release_inputs, updated_contents: %s" % str(updated_contents))
         return updated_contents
 
-    def process_new_transform(self, transform):
+    def process_new_transform_real(self, transform):
         """
         Process new transform
         """
@@ -317,6 +324,20 @@ class Transformer(BaseAgent):
                'log_collections': log_colls}
         return ret
 
+    def process_new_transform(self, transform):
+        """
+        Process new transform
+        """
+        try:
+            ret = self.process_new_transform_real(transform)
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+            transform_parameters = {'status': TransformStatus.Failed,
+                                    'locking': TransformLocking.Idle}
+            ret = {'transform': transform, 'transform_parameters': transform_parameters}
+        return ret
+
     def process_new_transforms(self):
         ret = []
         while not self.new_task_queue.empty():
@@ -361,31 +382,38 @@ class Transformer(BaseAgent):
         """
         Get running transforms
         """
-        if self.running_task_queue.qsize() > 0 or self.running_output_queue.qsize() > 0:
-            return []
+        try:
+            if self.running_task_queue.qsize() > 0 or self.running_output_queue.qsize() > 0:
+                return []
 
-        self.show_queue_size()
+            self.show_queue_size()
 
-        transform_status = [TransformStatus.Transforming, TransformStatus.ToCancel, TransformStatus.Cancelling,
-                            TransformStatus.ToSuspend, TransformStatus.Suspending,
-                            TransformStatus.Resuming]
-        transforms = core_transforms.get_transforms_by_status(status=transform_status,
-                                                              period=self.poll_time_period,
-                                                              locking=True,
-                                                              bulk_size=self.retrieve_bulk_size)
+            transform_status = [TransformStatus.Transforming, TransformStatus.ToCancel, TransformStatus.Cancelling,
+                                TransformStatus.ToSuspend, TransformStatus.Suspending,
+                                TransformStatus.Resuming]
+            transforms = core_transforms.get_transforms_by_status(status=transform_status,
+                                                                  period=self.poll_time_period,
+                                                                  locking=True,
+                                                                  bulk_size=self.retrieve_bulk_size)
 
-        transform_status = [TransformStatus.ToResume]
-        transforms_1 = core_transforms.get_transforms_by_status(status=transform_status,
-                                                                period=self.poll_time_period,
-                                                                locking=True,
-                                                                by_substatus=True,
-                                                                bulk_size=self.retrieve_bulk_size)
-        transforms = transforms + transforms_1
+            transform_status = [TransformStatus.ToResume]
+            transforms_1 = core_transforms.get_transforms_by_status(status=transform_status,
+                                                                    period=self.poll_time_period,
+                                                                    locking=True,
+                                                                    by_substatus=True,
+                                                                    bulk_size=self.retrieve_bulk_size)
+            transforms = transforms + transforms_1
 
-        self.logger.debug("Main thread get %s transforming transforms to process" % len(transforms))
-        if transforms:
-            self.logger.info("Main thread get %s transforming transforms to process" % len(transforms))
-        return transforms
+            self.logger.debug("Main thread get %s transforming transforms to process" % len(transforms))
+            if transforms:
+                self.logger.info("Main thread get %s transforming transforms to process" % len(transforms))
+            return transforms
+        except exceptions.DatabaseException as ex:
+            if 'ORA-00060' in str(ex):
+                self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
+            else:
+                raise ex
+        return []
 
     def get_collection_ids(self, collections):
         coll_ids = []
@@ -572,7 +600,7 @@ class Transformer(BaseAgent):
 
         return all_updates_flushed, output_statistics
 
-    def process_running_transform(self, transform):
+    def process_running_transform_real(self, transform):
         """
         process running transforms
         """
@@ -798,6 +826,20 @@ class Transformer(BaseAgent):
                'messages': msgs,
                'new_processing': new_processing_model,
                'update_processing': update_processing_model}
+        return ret
+
+    def process_running_transform(self, transform):
+        """
+        Process running transform
+        """
+        try:
+            ret = self.process_running_transform_real(transform)
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+            transform_parameters = {'status': TransformStatus.Failed,
+                                    'locking': TransformLocking.Idle}
+            ret = {'transform': transform, 'transform_parameters': transform_parameters}
         return ret
 
     def process_running_transforms(self):

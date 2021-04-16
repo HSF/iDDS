@@ -17,6 +17,7 @@ except ImportError:
     # Python 2
     from Queue import Queue
 
+from idds.common import exceptions
 from idds.common.constants import (Sections, ProcessingStatus, ProcessingLocking)
 from idds.common.utils import setup_logging
 from idds.core import (transforms as core_transforms,
@@ -60,34 +61,47 @@ class Carrier(BaseAgent):
         """
         Get new processing
         """
-        if self.new_task_queue.qsize() > 0 or self.new_output_queue.qsize() > 0:
-            return []
+        try:
+            if self.new_task_queue.qsize() > 0 or self.new_output_queue.qsize() > 0:
+                return []
 
-        self.show_queue_size()
+            self.show_queue_size()
 
-        processing_status = [ProcessingStatus.New]
-        processings = core_processings.get_processings_by_status(status=processing_status, locking=True, bulk_size=self.retrieve_bulk_size)
+            processing_status = [ProcessingStatus.New]
+            processings = core_processings.get_processings_by_status(status=processing_status, locking=True, bulk_size=self.retrieve_bulk_size)
 
-        self.logger.debug("Main thread get %s [new] processings to process" % len(processings))
-        if processings:
-            self.logger.info("Main thread get %s [new] processings to process" % len(processings))
-        return processings
+            self.logger.debug("Main thread get %s [new] processings to process" % len(processings))
+            if processings:
+                self.logger.info("Main thread get %s [new] processings to process" % len(processings))
+            return processings
+        except exceptions.DatabaseException as ex:
+            if 'ORA-00060' in str(ex):
+                self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
+            else:
+                raise ex
+        return []
 
     def process_new_processing(self, processing):
-        # transform_id = processing['transform_id']
-        # transform = core_transforms.get_transform(transform_id=transform_id)
-        # work = transform['transform_metadata']['work']
-        work = processing['processing_metadata']['work']
-        work.set_agent_attributes(self.agent_attributes)
+        try:
+            # transform_id = processing['transform_id']
+            # transform = core_transforms.get_transform(transform_id=transform_id)
+            # work = transform['transform_metadata']['work']
+            work = processing['processing_metadata']['work']
+            work.set_agent_attributes(self.agent_attributes)
 
-        work.submit_processing(processing)
-        ret = {'processing_id': processing['processing_id'],
-               'status': ProcessingStatus.Submitting,
-               'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period),
-               'expired_at': work.get_expired_at(processing),
-               'processing_metadata': processing['processing_metadata']}
-        if processing['processing_metadata'] and 'workload_id' in processing['processing_metadata']:
-            ret['workload_id'] = processing['processing_metadata']['workload_id']
+            work.submit_processing(processing)
+            ret = {'processing_id': processing['processing_id'],
+                   'status': ProcessingStatus.Submitting,
+                   'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period),
+                   'expired_at': work.get_expired_at(processing),
+                   'processing_metadata': processing['processing_metadata']}
+            if processing['processing_metadata'] and 'workload_id' in processing['processing_metadata']:
+                ret['workload_id'] = processing['processing_metadata']['workload_id']
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+            ret = {'processing_id': processing['processing_id'],
+                   'status': ProcessingStatus.Failed}
         return ret
 
     def process_new_processings(self):
@@ -122,32 +136,39 @@ class Carrier(BaseAgent):
         """
         Get running processing
         """
-        if self.running_task_queue.qsize() > 0 or self.running_output_queue.qsize() > 0:
-            return []
+        try:
+            if self.running_task_queue.qsize() > 0 or self.running_output_queue.qsize() > 0:
+                return []
 
-        self.show_queue_size()
+            self.show_queue_size()
 
-        processing_status = [ProcessingStatus.Submitting, ProcessingStatus.Submitted, ProcessingStatus.Running, ProcessingStatus.FinishedOnExec,
-                             ProcessingStatus.ToCancel, ProcessingStatus.Cancelling, ProcessingStatus.ToSuspend, ProcessingStatus.Suspending,
-                             ProcessingStatus.ToResume, ProcessingStatus.Resuming]
-        processings = core_processings.get_processings_by_status(status=processing_status,
-                                                                 # time_period=self.poll_time_period,
-                                                                 locking=True,
-                                                                 bulk_size=self.retrieve_bulk_size)
+            processing_status = [ProcessingStatus.Submitting, ProcessingStatus.Submitted, ProcessingStatus.Running, ProcessingStatus.FinishedOnExec,
+                                 ProcessingStatus.ToCancel, ProcessingStatus.Cancelling, ProcessingStatus.ToSuspend, ProcessingStatus.Suspending,
+                                 ProcessingStatus.ToResume, ProcessingStatus.Resuming]
+            processings = core_processings.get_processings_by_status(status=processing_status,
+                                                                     # time_period=self.poll_time_period,
+                                                                     locking=True,
+                                                                     bulk_size=self.retrieve_bulk_size)
 
-        processing_status = [ProcessingStatus.ToResume]
-        processings_1 = core_processings.get_processings_by_status(status=processing_status,
-                                                                   # time_period=self.poll_time_period,
-                                                                   locking=True,
-                                                                   by_substatus=True,
-                                                                   bulk_size=self.retrieve_bulk_size)
+            processing_status = [ProcessingStatus.ToResume]
+            processings_1 = core_processings.get_processings_by_status(status=processing_status,
+                                                                       # time_period=self.poll_time_period,
+                                                                       locking=True,
+                                                                       by_substatus=True,
+                                                                       bulk_size=self.retrieve_bulk_size)
 
-        processings = processings + processings_1
+            processings = processings + processings_1
 
-        self.logger.debug("Main thread get %s [submitting + submitted + running] processings to process: %s" % (len(processings), str([processing['processing_id'] for processing in processings])))
-        if processings:
-            self.logger.info("Main thread get %s [submitting + submitted + running] processings to process: %s" % (len(processings), str([processing['processing_id'] for processing in processings])))
-        return processings
+            self.logger.debug("Main thread get %s [submitting + submitted + running] processings to process: %s" % (len(processings), str([processing['processing_id'] for processing in processings])))
+            if processings:
+                self.logger.info("Main thread get %s [submitting + submitted + running] processings to process: %s" % (len(processings), str([processing['processing_id'] for processing in processings])))
+            return processings
+        except exceptions.DatabaseException as ex:
+            if 'ORA-00060' in str(ex):
+                self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
+            else:
+                raise ex
+        return []
 
     def get_collection_ids(self, collections):
         coll_ids = []
@@ -156,53 +177,62 @@ class Carrier(BaseAgent):
         return coll_ids
 
     def process_running_processing(self, processing):
-        transform_id = processing['transform_id']
-        # transform = core_transforms.get_transform(transform_id=transform_id)
-        # work = transform['transform_metadata']['work']
-        work = processing['processing_metadata']['work']
-        work.set_agent_attributes(self.agent_attributes)
+        try:
+            transform_id = processing['transform_id']
+            # transform = core_transforms.get_transform(transform_id=transform_id)
+            # work = transform['transform_metadata']['work']
+            work = processing['processing_metadata']['work']
+            work.set_agent_attributes(self.agent_attributes)
 
-        input_collections = work.get_input_collections()
-        output_collections = work.get_output_collections()
-        log_collections = work.get_log_collections()
+            input_collections = work.get_input_collections()
+            output_collections = work.get_output_collections()
+            log_collections = work.get_log_collections()
 
-        input_coll_ids = self.get_collection_ids(input_collections)
-        output_coll_ids = self.get_collection_ids(output_collections)
-        log_coll_ids = self.get_collection_ids(log_collections)
+            input_coll_ids = self.get_collection_ids(input_collections)
+            output_coll_ids = self.get_collection_ids(output_collections)
+            log_coll_ids = self.get_collection_ids(log_collections)
 
-        input_output_maps = core_transforms.get_transform_input_output_maps(transform_id,
-                                                                            input_coll_ids=input_coll_ids,
-                                                                            output_coll_ids=output_coll_ids,
-                                                                            log_coll_ids=log_coll_ids)
+            input_output_maps = core_transforms.get_transform_input_output_maps(transform_id,
+                                                                                input_coll_ids=input_coll_ids,
+                                                                                output_coll_ids=output_coll_ids,
+                                                                                log_coll_ids=log_coll_ids)
 
-        processing_substatus = None
-        if processing['substatus'] in [ProcessingStatus.ToCancel]:
-            work.abort_processing(processing)
-            processing_substatus = ProcessingStatus.Cancelling
-        if processing['substatus'] in [ProcessingStatus.ToSuspend]:
-            work.suspend_processing(processing)
-            processing_substatus = ProcessingStatus.Suspending
-        if processing['substatus'] in [ProcessingStatus.ToResume]:
-            work.resume_processing(processing)
-            processing_substatus = ProcessingStatus.Resuming
+            processing_substatus = None
+            if processing['substatus'] in [ProcessingStatus.ToCancel]:
+                work.abort_processing(processing)
+                processing_substatus = ProcessingStatus.Cancelling
+            if processing['substatus'] in [ProcessingStatus.ToSuspend]:
+                work.suspend_processing(processing)
+                processing_substatus = ProcessingStatus.Suspending
+            if processing['substatus'] in [ProcessingStatus.ToResume]:
+                work.resume_processing(processing)
+                processing_substatus = ProcessingStatus.Resuming
 
-        # work = processing['processing_metadata']['work']
-        # outputs = work.poll_processing()
-        processing_update, content_updates = work.poll_processing_updates(processing, input_output_maps)
+            # work = processing['processing_metadata']['work']
+            # outputs = work.poll_processing()
+            processing_update, content_updates = work.poll_processing_updates(processing, input_output_maps)
 
-        if processing_update:
-            processing_update['parameters']['locking'] = ProcessingLocking.Idle
-        else:
+            if processing_update:
+                processing_update['parameters']['locking'] = ProcessingLocking.Idle
+            else:
+                processing_update = {'processing_id': processing['processing_id'],
+                                     'parameters': {'locking': ProcessingLocking.Idle}}
+
+            if processing_substatus:
+                processing_update['parameters']['substatus'] = processing_substatus
+
+            processing_update['parameters']['expired_at'] = work.get_expired_at(processing)
+
+            ret = {'processing_update': processing_update,
+                   'content_updates': content_updates}
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
             processing_update = {'processing_id': processing['processing_id'],
-                                 'parameters': {'locking': ProcessingLocking.Idle}}
-
-        if processing_substatus:
-            processing_update['parameters']['substatus'] = processing_substatus
-
-        processing_update['parameters']['expired_at'] = work.get_expired_at(processing)
-
-        ret = {'processing_update': processing_update,
-               'content_updates': content_updates}
+                                 'parameters': {'status': ProcessingStatus.Failed,
+                                                'locking': ProcessingLocking.Idle}}
+            ret = {'processing_update': processing_update,
+                   'content_updates': []}
         return ret
 
     def process_running_processings(self):

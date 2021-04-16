@@ -148,13 +148,11 @@ def get_transforms_by_status(status, period=None, locking=False, bulk_size=None,
                                                              bulk_size=bulk_size * 2, locking_for_update=False,
                                                              to_json=False, only_return_id=True,
                                                              by_substatus=by_substatus, session=session)
-            print(tf_ids)
             if tf_ids:
                 transform2s = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking,
                                                                       bulk_size=None, locking_for_update=True,
                                                                       to_json=to_json, transform_ids=tf_ids,
                                                                       by_substatus=by_substatus, session=session)
-                print(transform2s)
                 if transform2s:
                     # reqs = req2s[:bulk_size]
                     # order requests

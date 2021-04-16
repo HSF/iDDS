@@ -621,7 +621,10 @@ class DomaPanDAWork(Work):
                 return processing_status, map_update_contents + status_changed_update_contents
         except Exception as ex:
             msg = "Failed to check the processing (%s) status: %s" % (str(processing['processing_id']), str(ex))
-            raise exceptions.IDDSException(msg)
+            self.logger.error(msg)
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+            # raise exceptions.IDDSException(msg)
         return ProcessingStatus.Submitting, []
 
     def kill_processing(self, processing):

@@ -17,6 +17,7 @@ except ImportError:
     # Python 2
     from Queue import Queue
 
+from idds.common import exceptions
 from idds.common.constants import (Sections, RequestStatus, RequestLocking,
                                    TransformStatus)
 from idds.common.utils import setup_logging
@@ -54,24 +55,31 @@ class Clerk(BaseAgent):
         """
         Get new requests to process
         """
-        # req_status = [RequestStatus.TransformingOpen]
-        # reqs_open = core_requests.get_requests_by_status_type(status=req_status, time_period=3600)
-        # self.logger.info("Main thread get %s TransformingOpen requests to process" % len(reqs_open))
+        try:
+            # req_status = [RequestStatus.TransformingOpen]
+            # reqs_open = core_requests.get_requests_by_status_type(status=req_status, time_period=3600)
+            # self.logger.info("Main thread get %s TransformingOpen requests to process" % len(reqs_open))
 
-        if self.new_task_queue.qsize() > 0 or self.new_output_queue.qsize() > 0:
-            return []
+            if self.new_task_queue.qsize() > 0 or self.new_output_queue.qsize() > 0:
+                return []
 
-        self.show_queue_size()
+            self.show_queue_size()
 
-        req_status = [RequestStatus.New, RequestStatus.Extend]
-        reqs_new = core_requests.get_requests_by_status_type(status=req_status, locking=True,
-                                                             bulk_size=self.retrieve_bulk_size)
+            req_status = [RequestStatus.New, RequestStatus.Extend]
+            reqs_new = core_requests.get_requests_by_status_type(status=req_status, locking=True,
+                                                                 bulk_size=self.retrieve_bulk_size)
 
-        self.logger.debug("Main thread get %s [New+Extend] requests to process" % len(reqs_new))
-        if reqs_new:
-            self.logger.info("Main thread get %s [New+Extend] requests to process" % len(reqs_new))
+            self.logger.debug("Main thread get %s [New+Extend] requests to process" % len(reqs_new))
+            if reqs_new:
+                self.logger.info("Main thread get %s [New+Extend] requests to process" % len(reqs_new))
 
-        return reqs_new
+            return reqs_new
+        except exceptions.DatabaseException as ex:
+            if 'ORA-00060' in str(ex):
+                self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
+            else:
+                raise ex
+        return []
 
     def process_new_request(self, req):
         try:
@@ -166,29 +174,36 @@ class Clerk(BaseAgent):
         """
         Get running requests
         """
-        if self.running_task_queue.qsize() > 0 or self.running_output_queue.qsize() > 0:
-            return []
+        try:
+            if self.running_task_queue.qsize() > 0 or self.running_output_queue.qsize() > 0:
+                return []
 
-        self.show_queue_size()
+            self.show_queue_size()
 
-        req_status = [RequestStatus.Transforming, RequestStatus.ToCancel, RequestStatus.Cancelling,
-                      RequestStatus.ToSuspend, RequestStatus.Suspending,
-                      RequestStatus.Resuming]
-        reqs = core_requests.get_requests_by_status_type(status=req_status, time_period=self.poll_time_period,
-                                                         locking=True, bulk_size=self.retrieve_bulk_size)
+            req_status = [RequestStatus.Transforming, RequestStatus.ToCancel, RequestStatus.Cancelling,
+                          RequestStatus.ToSuspend, RequestStatus.Suspending,
+                          RequestStatus.Resuming]
+            reqs = core_requests.get_requests_by_status_type(status=req_status, time_period=self.poll_time_period,
+                                                             locking=True, bulk_size=self.retrieve_bulk_size)
 
-        req_status = [RequestStatus.ToResume]
-        reqs_1 = core_requests.get_requests_by_status_type(status=req_status, time_period=self.poll_time_period,
-                                                           locking=True, by_substatus=True, bulk_size=self.retrieve_bulk_size)
+            req_status = [RequestStatus.ToResume]
+            reqs_1 = core_requests.get_requests_by_status_type(status=req_status, time_period=self.poll_time_period,
+                                                               locking=True, by_substatus=True, bulk_size=self.retrieve_bulk_size)
 
-        reqs = reqs + reqs_1
+            reqs = reqs + reqs_1
 
-        self.logger.debug("Main thread get %s Transforming requests to running" % len(reqs))
-        if reqs:
-            self.logger.info("Main thread get %s Transforming requests to running" % len(reqs))
-        return reqs
+            self.logger.debug("Main thread get %s Transforming requests to running" % len(reqs))
+            if reqs:
+                self.logger.info("Main thread get %s Transforming requests to running" % len(reqs))
+            return reqs
+        except exceptions.DatabaseException as ex:
+            if 'ORA-00060' in str(ex):
+                self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
+            else:
+                raise ex
+        return []
 
-    def process_running_request(self, req):
+    def process_running_request_real(self, req):
         """
         process running request
         """
@@ -266,7 +281,22 @@ class Clerk(BaseAgent):
                'new_transforms': new_transforms}   # 'update_transforms': update_transforms}
         return ret
 
-    def process_operating_request(self, req):
+    def process_running_request(self, req):
+        """
+        process running request
+        """
+        try:
+            ret_req = self.process_running_request_real(req)
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+            ret_req = {'request_id': req['request_id'],
+                       'parameters': {'status': RequestStatus.Failed,
+                                      'locking': RequestLocking.Idle,
+                                      'errors': {'msg': '%s: %s' % (ex, traceback.format_exc())}}}
+        return ret_req
+
+    def process_operating_request_real(self, req):
         """
         process ToCancel/ToSuspend/ToResume request
         """
@@ -306,6 +336,21 @@ class Clerk(BaseAgent):
                                   'locking': RequestLocking.Idle},
                    'update_transforms': tfs_status
                    }
+        return ret_req
+
+    def process_operating_request(self, req):
+        """
+        process ToCancel/ToSuspend/ToResume request
+        """
+        try:
+            ret_req = self.process_operating_request_real(req)
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+            ret_req = {'request_id': req['request_id'],
+                       'parameters': {'status': RequestStatus.Failed,
+                                      'locking': RequestLocking.Idle,
+                                      'errors': {'msg': '%s: %s' % (ex, traceback.format_exc())}}}
         return ret_req
 
     def process_running_requests(self):
