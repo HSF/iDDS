@@ -253,7 +253,7 @@ class Transformer(BaseAgent):
                     updated_output_contents_full.append(content)
         return updated_contents, updated_input_contents_full, updated_output_contents_full
 
-    def trigger_release_inputs(self, updated_output_contents, work):
+    def trigger_release_inputs_old(self, updated_output_contents, work, input_output_maps):
         to_release_inputs = []
         for content in updated_output_contents:
             if (content['status'] in [ContentStatus.Available, ContentStatus.Available.value]
@@ -272,6 +272,21 @@ class Transformer(BaseAgent):
         self.logger.debug("trigger_release_inputs, to_release_inputs: %s" % str(to_release_inputs))
         self.logger.debug("trigger_release_inputs, to_release_inputs_backup: %s" % str(to_release_inputs_backup))
         updated_contents = core_transforms.release_inputs(to_release_inputs + to_release_inputs_backup)
+        self.logger.debug("trigger_release_inputs, updated_contents: %s" % str(updated_contents))
+        return updated_contents
+
+    def trigger_release_inputs(self, updated_output_contents, work, input_output_maps):
+        to_release_inputs = {}
+        for map_id in input_output_maps:
+            outputs = input_output_maps[map_id]['outputs'] if 'outputs' in input_output_maps[map_id] else []
+            for content in outputs:
+                if (content['status'] in [ContentStatus.Available] or content['substatus'] in [ContentStatus.Available]):
+                    if content['coll_id'] not in to_release_inputs:
+                        to_release_inputs[content['coll_id']] = []
+                    to_release_inputs[content['coll_id']].append(content)
+
+        # updated_contents = core_transforms.release_inputs(to_release_inputs)
+        updated_contents = core_transforms.release_inputs_by_collection(to_release_inputs)
         self.logger.debug("trigger_release_inputs, updated_contents: %s" % str(updated_contents))
         return updated_contents
 
@@ -647,7 +662,7 @@ class Transformer(BaseAgent):
 
         # processing = self.get_processing(transform, input_colls, output_colls, log_colls, new_input_output_maps)
         processing = work.get_processing(new_input_output_maps)
-        self.logger.info("work get_processing: %s" % processing)
+        self.logger.debug("work get_processing: %s" % processing)
 
         transform_substatus = None
         t_processing_status = None
@@ -702,7 +717,7 @@ class Transformer(BaseAgent):
             updated_contents, updated_input_contents_full, updated_output_contents_full = self.get_updated_contents(transform, registered_input_output_maps)
         if work.use_dependency_to_release_jobs() and (updated_output_contents_full or work.has_to_release_inputs()):
             self.logger.info("trigger_release_inputs: %s" % transform['transform_id'])
-            to_release_input_contents = self.trigger_release_inputs(updated_output_contents_full, work)
+            to_release_input_contents = self.trigger_release_inputs(updated_output_contents_full, work, registered_input_output_maps)
 
         msgs = []
         self.logger.info("generate_message: %s" % transform['transform_id'])

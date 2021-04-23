@@ -241,7 +241,8 @@ class Carrier(BaseAgent):
             try:
                 processing = self.running_task_queue.get()
                 if processing:
-                    self.logger.info("Main thread processing running processing: %s" % processing)
+                    self.logger.debug("Main thread processing running processing: %s" % processing)
+                    self.logger.info("Main thread processing running processing: %s" % processing['processing_id'])
                     ret_processing = self.process_running_processing(processing)
                     if ret_processing:
                         # ret.append(ret_processing)

@@ -15,7 +15,7 @@ operations related to Transform.
 
 # from idds.common import exceptions
 
-from idds.common.constants import (TransformStatus, ContentRelationType,
+from idds.common.constants import (TransformStatus, ContentRelationType, ContentStatus,
                                    TransformLocking, CollectionRelationType)
 from idds.orm.base.session import read_session, transactional_session
 from idds.orm import (transforms as orm_transforms,
@@ -383,6 +383,32 @@ def release_inputs(to_release_inputs):
                                   'substatus': to_release['substatus'],
                                   'status': to_release['status']}
                 update_contents.append(update_content)
+    return update_contents
+
+
+def release_inputs_by_collection(to_release_inputs):
+    update_contents = []
+    for coll_id in to_release_inputs:
+        to_release_contents = to_release_inputs[coll_id]
+        if to_release_contents:
+            to_release = to_release_contents[0]
+            to_release_names = []
+            for to_release_content in to_release_contents:
+                if (to_release_content['status'] in [ContentStatus.Available]                  # noqa: W503
+                    or to_release_content['substatus'] in [ContentStatus.Available]):          # noqa: W503
+                    to_release_names.append(to_release_content['name'])
+            contents = orm_contents.get_input_contents(request_id=to_release['request_id'],
+                                                       coll_id=to_release['coll_id'],
+                                                       name=None)
+
+            for content in contents:
+                if (content['content_relation_type'] == ContentRelationType.InputDependency    # noqa: W503
+                    and content['status'] not in [ContentStatus.Available]                     # noqa: W503
+                    and content['name'] in to_release_names):                                  # noqa: W503
+                    update_content = {'content_id': content['content_id'],
+                                      'substatus': ContentStatus.Available,
+                                      'status': ContentStatus.Available}
+                    update_contents.append(update_content)
     return update_contents
 
 
