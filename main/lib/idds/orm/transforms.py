@@ -374,6 +374,19 @@ def update_transform(transform_id, parameters, session=None):
                                                                TransformStatus.Failed, TransformStatus.Failed.value]:
             parameters['finished_at'] = datetime.datetime.utcnow()
 
+        if 'transform_metadata' in parameters and 'work' in parameters['transform_metadata']:
+            work = parameters['transform_metadata']['work']
+            if work is not None:
+                work.refresh_work()
+                if 'running_metadata' not in parameters:
+                    parameters['running_metadata'] = {}
+                parameters['running_metadata']['work_data'] = work.metadata
+        if 'transform_metadata' in parameters:
+            del parameters['transform_metadata']
+        if 'running_metadata' in parameters:
+            parameters['_running_metadata'] = parameters['running_metadata']
+            del parameters['running_metadata']
+
         session.query(models.Transform).filter_by(transform_id=transform_id)\
                .update(parameters, synchronize_session=False)
     except sqlalchemy.orm.exc.NoResultFound as error:

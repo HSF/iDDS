@@ -45,6 +45,11 @@ class BaseAgent(TimerScheduler, PluginBase):
         if not hasattr(self, 'heartbeat_delay'):
             self.heartbeat_delay = 600
 
+        if not hasattr(self, 'poll_operation_time_period'):
+            self.poll_operation_time_period = 120
+        else:
+            self.poll_operation_time_period = int(self.poll_operation_time_period)
+
         self.plugins = {}
         self.plugin_sequence = []
 

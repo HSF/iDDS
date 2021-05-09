@@ -45,11 +45,11 @@ class Clerk(BaseAgent):
         self.running_output_queue = Queue()
 
     def show_queue_size(self):
-        q_str = "new queue size: %s, new output queue size: %s" % (self.new_task_queue.qsize(),
-                                                                   self.new_output_queue.qsize())
+        q_str = "new queue size: %s, new output queue size: %s, " % (self.new_task_queue.qsize(),
+                                                                     self.new_output_queue.qsize())
         q_str += "running queue size: %s, running output queue size: %s" % (self.running_task_queue.qsize(),
                                                                             self.running_output_queue.qsize())
-        self.logger.info(q_str)
+        self.logger.debug(q_str)
 
     def get_new_requests(self):
         """
@@ -85,12 +85,15 @@ class Clerk(BaseAgent):
         try:
             workflow = req['request_metadata']['workflow']
 
-            wf = workflow.copy()
+            # wf = workflow.copy()
+            wf = workflow
             works = wf.get_new_works()
             transforms = []
             for work in works:
-                new_work = work.copy()
+                # new_work = work.copy()
+                new_work = work
                 new_work.add_proxy(wf.get_proxy())
+                new_work.create_processing()
                 transform = {'request_id': req['request_id'],
                              'workload_id': req['workload_id'],
                              'transform_type': work.get_work_type(),
@@ -104,19 +107,23 @@ class Clerk(BaseAgent):
                                                     'sequence_id': new_work.get_sequence_id(),
                                                     'work_name': new_work.get_work_name(),
                                                     'work': new_work,
-                                                    'original_work': work}
+                                                    # 'original_work': work,
+                                                    'workflow': wf}
+                             # 'running_metadata': {'work_data': new_work.get_running_data()}
                              # 'collections': related_collections
                              }
                 transforms.append(transform)
             self.logger.info("Processing request(%s): new transforms: %s" % (req['request_id'],
                                                                              str(transforms)))
-            processing_metadata = req['processing_metadata']
-            processing_metadata = {'workflow': wf}
+            # processing_metadata = req['processing_metadata']
+            # processing_metadata = {'workflow_data': wf.get_running_data()}
 
             ret_req = {'request_id': req['request_id'],
                        'parameters': {'status': RequestStatus.Transforming,
                                       'locking': RequestLocking.Idle,
-                                      'processing_metadata': processing_metadata},
+                                      'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period),
+                                      # 'processing_metadata': processing_metadata,
+                                      'request_metadata': req['request_metadata']},
                        'new_transforms': transforms}
         except Exception as ex:
             self.logger.error(ex)
@@ -186,7 +193,7 @@ class Clerk(BaseAgent):
             reqs = core_requests.get_requests_by_status_type(status=req_status, time_period=self.poll_time_period,
                                                              locking=True, bulk_size=self.retrieve_bulk_size)
 
-            req_status = [RequestStatus.ToResume]
+            req_status = [RequestStatus.ToSuspend, RequestStatus.ToCancel, RequestStatus.ToResume]
             reqs_1 = core_requests.get_requests_by_status_type(status=req_status, time_period=self.poll_time_period,
                                                                locking=True, by_substatus=True, bulk_size=self.retrieve_bulk_size)
 
@@ -208,15 +215,15 @@ class Clerk(BaseAgent):
         process running request
         """
         self.logger.info("process_running_request: request_id: %s" % req['request_id'])
-        processing_metadata = req['processing_metadata']
-        wf = processing_metadata['workflow']
+        wf = req['request_metadata']['workflow']
 
         new_transforms = []
         if req['status'] in [RequestStatus.Transforming]:
             # new works
             works = wf.get_new_works()
             for work in works:
-                new_work = work.copy()
+                # new_work = work.copy()
+                new_work = work
                 new_work.add_proxy(wf.get_proxy())
                 new_transform = {'request_id': req['request_id'],
                                  'workload_id': req['workload_id'],
@@ -230,7 +237,9 @@ class Clerk(BaseAgent):
                                                         'template_work_id': new_work.get_template_work_id(),
                                                         'sequence_id': new_work.get_sequence_id(),
                                                         'work_name': new_work.get_work_name(),
-                                                        'work': new_work}
+                                                        'work': new_work,
+                                                        'workflow': wf}
+                                 # 'running_metadata': {'work_data': new_work.get_running_data()}
                                  # 'collections': related_collections
                                  }
                 new_transforms.append(new_transform)
@@ -247,6 +256,7 @@ class Clerk(BaseAgent):
             # work.set_status(work_status)
             work.sync_work_data(status=tf['status'], substatus=tf['substatus'], work=transform_work)
 
+        is_operation = False
         if wf.is_terminated():
             if wf.is_finished():
                 req_status = RequestStatus.Finished
@@ -266,15 +276,24 @@ class Clerk(BaseAgent):
         else:
             if req['status'] in [RequestStatus.ToSuspend, RequestStatus.Suspending]:
                 req_status = RequestStatus.Suspending
+                is_operation = True
             elif req['status'] in [RequestStatus.ToCancel, RequestStatus.Cancelling]:
                 req_status = RequestStatus.Cancelling
+                is_operation = True
             else:
                 req_status = RequestStatus.Transforming
             req_msg = None
 
+        # processing_metadata['workflow_data'] = wf.get_running_data()
+        if not is_operation:
+            next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period)
+        else:
+            next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_operation_time_period)
+
         parameters = {'status': req_status,
                       'locking': RequestLocking.Idle,
-                      'processing_metadata': processing_metadata,
+                      'next_poll_at': next_poll_at,
+                      'request_metadata': req['request_metadata'],
                       'errors': {'msg': req_msg}}
         ret = {'request_id': req['request_id'],
                'parameters': parameters,
@@ -313,7 +332,7 @@ class Clerk(BaseAgent):
         processing_metadata = req['processing_metadata']
 
         if req['substatus'] == RequestStatus.ToResume:
-            wf = processing_metadata['workflow']
+            wf = req['request_metadata']['workflow']
             wf.resume_works()
 
         if 'operations' not in processing_metadata:
@@ -329,10 +348,14 @@ class Clerk(BaseAgent):
             #                         RequestStatus.Suspended]:
             tfs_status[tf['transform_id']] = {'substatus': tf_status}
 
+        # processing_metadata['workflow_data'] = wf.get_running_data()
+
         ret_req = {'request_id': req['request_id'],
                    'parameters': {'status': req_status,
                                   'substatus': req_status,
-                                  'processing_metadata': req['processing_metadata'],
+                                  'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_operation_time_period),
+                                  'request_metadata': req['request_metadata'],
+                                  'processing_metadata': processing_metadata,
                                   'locking': RequestLocking.Idle},
                    'update_transforms': tfs_status
                    }
@@ -379,23 +402,28 @@ class Clerk(BaseAgent):
 
     def finish_running_requests(self):
         while not self.running_output_queue.empty():
-            req = self.running_output_queue.get()
-            self.logger.info("finish_running_requests: req: %s" % req)
-            req['parameters']['locking'] = RequestLocking.Idle
+            try:
+                req = self.running_output_queue.get()
+                self.logger.info("finish_running_requests: req: %s" % req)
+                req['parameters']['locking'] = RequestLocking.Idle
 
-            if 'new_transforms' in req:
-                new_transforms = req['new_transforms']
-            else:
-                new_transforms = []
+                if 'new_transforms' in req:
+                    new_transforms = req['new_transforms']
+                else:
+                    new_transforms = []
 
-            if 'update_transforms' in req:
-                update_transforms = req['update_transforms']
-            else:
-                update_transforms = []
+                if 'update_transforms' in req:
+                    update_transforms = req['update_transforms']
+                else:
+                    update_transforms = []
 
-            core_requests.update_request_with_transforms(req['request_id'], req['parameters'],
-                                                         new_transforms=new_transforms,
-                                                         update_transforms=update_transforms)
+                core_requests.update_request_with_transforms(req['request_id'], req['parameters'],
+                                                             new_transforms=new_transforms,
+                                                             update_transforms=update_transforms)
+
+            except Exception as ex:
+                self.logger.error(ex)
+                self.logger.error(traceback.format_exc())
 
     def clean_locks(self):
         self.logger.info("clean locking")

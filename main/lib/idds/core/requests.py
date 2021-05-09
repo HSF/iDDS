@@ -170,13 +170,20 @@ def update_request_with_transforms(request_id, parameters, new_transforms=None, 
     if new_transforms:
         for tf in new_transforms:
             # tf_id = orm_transforms.add_transform(**tf, session=session)
-            original_work = tf['transform_metadata']['original_work']
-            del tf['transform_metadata']['original_work']
+            # original_work = tf['transform_metadata']['original_work']
+            # del tf['transform_metadata']['original_work']
+            workflow = tf['transform_metadata']['workflow']
+            del tf['transform_metadata']['workflow']
+
+            work = tf['transform_metadata']['work']
             tf_id = orm_transforms.add_transform(**tf, session=session)
 
             # work = tf['transform_metadata']['work']
-            original_work.set_work_id(tf_id, transforming=True)
-            original_work.set_status(WorkStatus.New)
+            # original_work.set_work_id(tf_id, transforming=True)
+            # original_work.set_status(WorkStatus.New)
+            work.set_work_id(tf_id, transforming=True)
+            work.set_status(WorkStatus.New)
+            workflow.refresh_works()
     if update_transforms:
         for tr_id in update_transforms:
             orm_transforms.update_transform(transform_id=tr_id, parameters=update_transforms[tr_id], session=session)

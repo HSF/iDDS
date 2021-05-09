@@ -34,30 +34,33 @@ def show_works(req):
 
 reqs = get_requests(request_id=268, with_detail=False)
 for req in reqs:
-    print(req['request_id'])
+    # print(req['request_id'])
     # print(rets)
     # print(json_dumps(req, sort_keys=True, indent=4))
-    show_works(req)
+    # show_works(req)
     pass
 
-sys.exit(0)
+# sys.exit(0)
 
 # reqs = get_requests()
 # print(len(reqs))
+"""
 for req in reqs:
     if req['request_id'] == 113:
         # print(req)
         # print(req['request_metadata']['workflow'].to_dict())
         # print(json_dumps(req, sort_keys=True, indent=4))
         pass
+"""
 
-# tfs = get_transforms()
-# for tf in tfs:
-#    if tf['transform_id'] == 364:
-        # print(tf)
-        # print(tf['transform_metadata']['work'].to_dict())
-        # print(json_dumps(tf, sort_keys=True, indent=4))
-#        pass
+tfs = get_transforms(transform_id=53550)
+for tf in tfs:
+    # print(tf)
+    # print(tf['transform_metadata']['work'].to_dict())
+    print(json_dumps(tf, sort_keys=True, indent=4))
+    pass
+
+sys.exit(0)
 
 msgs = retrieve_messages()
 for msg in msgs:

@@ -45,6 +45,7 @@ class DictClass(object):
         for key, value in self.__dict__.items():
             # print(key)
             # print(value)
+            # if not key.startswith('__') and not key.startswith('_'):
             if not key.startswith('__'):
                 if key == 'logger':
                     value = None

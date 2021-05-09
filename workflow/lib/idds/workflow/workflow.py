@@ -90,23 +90,26 @@ class Workflow(Base):
         """
         Init a workflow.
         """
+        super(Workflow, self).__init__()
+
         self.internal_id = str(uuid.uuid1())
         self.template_work_id = self.internal_id
 
         if name:
-            self.name = name + "." + datetime.datetime.utcnow().strftime("%Y_%m_%d_%H_%M_%S_%f") + str(random.randint(1, 1000))
+            self._name = name + "." + datetime.datetime.utcnow().strftime("%Y_%m_%d_%H_%M_%S_%f") + str(random.randint(1, 1000))
         else:
-            self.name = 'idds.workflow.' + datetime.datetime.utcnow().strftime("%Y_%m_%d_%H_%M_%S_%f") + str(random.randint(1, 1000))
+            self._name = 'idds.workflow.' + datetime.datetime.utcnow().strftime("%Y_%m_%d_%H_%M_%S_%f") + str(random.randint(1, 1000))
 
+        if workload_id is None:
+            workload_id = int(time.time())
         self.workload_id = workload_id
-        if self.workload_id is None:
-            self.workload_id = int(time.time())
 
         self.logger = logger
         if self.logger is None:
             self.setup_logger()
 
         self.works_template = {}
+        self._works = {}
         self.works = {}
         self.work_sequence = {}  # order list
 
@@ -115,11 +118,11 @@ class Workflow(Base):
         # if the primary initial_work is not set, it's the first initial work.
         self.primary_initial_work = None
         self.independent_works = []
+        self.work_conds = {}
 
         self.first_initial = False
         self.new_to_run_works = []
         self.current_running_works = []
-        self.work_conds = {}
 
         self.num_subfinished_works = 0
         self.num_finished_works = 0
@@ -136,8 +139,196 @@ class Workflow(Base):
 
         self.proxy = None
 
-    def get_name(self):
-        return self.name
+        """
+        self._running_data_names = []
+        for name in ['internal_id', 'template_work_id', 'workload_id', 'work_sequence', 'terminated_works',
+                     'first_initial', 'new_to_run_works', 'current_running_works',
+                     'num_subfinished_works', 'num_finished_works', 'num_failed_works', 'num_cancelled_works', 'num_suspended_works',
+                     'num_expired_works', 'num_total_works', 'last_work']:
+            self._running_data_names.append(name)
+        for name in ['works']:
+            self._running_data_names.append(name)
+        """
+
+    @property
+    def name(self):
+        return self._name
+
+    @name.setter
+    def name(self, value):
+        self._name = value
+
+    @property
+    def internal_id(self):
+        return self.get_metadata_item('internal_id')
+
+    @internal_id.setter
+    def internal_id(self, value):
+        self.add_metadata_item('internal_id', value)
+
+    @property
+    def template_work_id(self):
+        return self.get_metadata_item('template_work_id')
+
+    @template_work_id.setter
+    def template_work_id(self, value):
+        self.add_metadata_item('template_work_id', value)
+
+    @property
+    def workload_id(self):
+        return self.get_metadata_item('workload_id')
+
+    @workload_id.setter
+    def workload_id(self, value):
+        self.add_metadata_item('workload_id', value)
+
+    @property
+    def works(self):
+        return self._works
+
+    @works.setter
+    def works(self, value):
+        self._works = value
+        work_metadata = {}
+        if self._works:
+            for k in self._works:
+                work = self._works[k]
+                work_metadata[k] = {'internal_id': work.internal_id,
+                                    'template_work_id': work.template_work_id,
+                                    'work_id': work.work_id}
+        self.add_metadata_item('works', work_metadata)
+
+    def refresh_works(self):
+        work_metadata = {}
+        if self._works:
+            for k in self._works:
+                work = self._works[k]
+                work_metadata[k] = {'internal_id': work.internal_id,
+                                    'template_work_id': work.template_work_id,
+                                    'work_id': work.work_id,
+                                    'transforming': work.transforming}
+        self.add_metadata_item('works', work_metadata)
+
+    def load_works(self):
+        work_metadata = self.get_metadata_item('works', {})
+        for k in work_metadata:
+            if k not in self._works:
+                template_id = work_metadata[k]['template_work_id']
+                work_template = self.works_template[template_id]
+                new_work = work_template.generate_work_from_template()
+                new_work.work_id = work_metadata[k]['work_id']
+                new_work.internal_id = work_metadata[k]['internal_id']
+                self._works[k] = new_work
+
+            self._works[k].work_id = work_metadata[k]['work_id']
+            self._works[k].transforming = work_metadata[k]['transforming']
+
+    @property
+    def work_sequence(self):
+        return self.get_metadata_item('work_sequence', {})
+
+    @work_sequence.setter
+    def work_sequence(self, value):
+        self.add_metadata_item('work_sequence', value)
+
+    @property
+    def terminated_works(self):
+        return self.get_metadata_item('terminated_works', [])
+
+    @terminated_works.setter
+    def terminated_works(self, value):
+        self.add_metadata_item('terminated_works', value)
+
+    @property
+    def first_initial(self):
+        return self.get_metadata_item('first_initial', False)
+
+    @first_initial.setter
+    def first_initial(self, value):
+        self.add_metadata_item('first_initial', value)
+
+    @property
+    def new_to_run_works(self):
+        return self.get_metadata_item('new_to_run_works', [])
+
+    @new_to_run_works.setter
+    def new_to_run_works(self, value):
+        self.add_metadata_item('new_to_run_works', value)
+
+    @property
+    def current_running_works(self):
+        return self.get_metadata_item('current_running_works', [])
+
+    @current_running_works.setter
+    def current_running_works(self, value):
+        self.add_metadata_item('current_running_works', value)
+
+    @property
+    def num_subfinished_works(self):
+        return self.get_metadata_item('num_subfinished_works', 0)
+
+    @num_subfinished_works.setter
+    def num_subfinished_works(self, value):
+        self.add_metadata_item('num_subfinished_works', value)
+
+    @property
+    def num_finished_works(self):
+        return self.get_metadata_item('num_finished_works', 0)
+
+    @num_finished_works.setter
+    def num_finished_works(self, value):
+        self.add_metadata_item('num_finished_works', value)
+
+    @property
+    def num_failed_works(self):
+        return self.get_metadata_item('num_failed_works', 0)
+
+    @num_failed_works.setter
+    def num_failed_works(self, value):
+        self.add_metadata_item('num_failed_works', value)
+
+    @property
+    def num_cancelled_works(self):
+        return self.get_metadata_item('num_cancelled_works', 0)
+
+    @num_cancelled_works.setter
+    def num_cancelled_works(self, value):
+        self.add_metadata_item('num_cancelled_works', value)
+
+    @property
+    def num_suspended_works(self):
+        return self.get_metadata_item('num_suspended_works', 0)
+
+    @num_suspended_works.setter
+    def num_suspended_works(self, value):
+        self.add_metadata_item('num_suspended_works', value)
+
+    @property
+    def num_expired_works(self):
+        return self.get_metadata_item('num_expired_works', 0)
+
+    @num_expired_works.setter
+    def num_expired_works(self, value):
+        self.add_metadata_item('num_expired_works', value)
+
+    @property
+    def num_total_works(self):
+        return self.get_metadata_item('num_total_works', 0)
+
+    @num_total_works.setter
+    def num_total_works(self, value):
+        self.add_metadata_item('num_total_works', value)
+
+    @property
+    def last_work(self):
+        return self.get_metadata_item('last_work', None)
+
+    @last_work.setter
+    def last_work(self, value):
+        self.add_metadata_item('last_work', value)
+
+    def load_metadata(self):
+        self.load_works()
 
     def get_class_name(self):
         return self.__class__.__name__
@@ -195,9 +386,11 @@ class Workflow(Base):
         new_work = work.generate_work_from_template()
         if new_parameters:
             new_work.set_parameters(new_parameters)
-        new_work.set_sequence_id(self.num_total_works)
+        new_work.sequence_id = self.num_total_works
         new_work.initialize_work()
-        self.works[new_work.get_internal_id()] = new_work
+        works = self.works
+        works[new_work.get_internal_id()] = new_work
+        self.works = works
         # self.work_sequence.append(new_work.get_internal_id())
         self.work_sequence[str(self.num_total_works)] = new_work.get_internal_id()
         self.num_total_works += 1

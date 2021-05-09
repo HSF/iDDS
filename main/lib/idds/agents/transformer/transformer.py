@@ -9,6 +9,7 @@
 # - Wen Guan, <wen.guan@cern.ch>, 2019 - 2021
 
 import copy
+import datetime
 import traceback
 try:
     # python 3
@@ -25,7 +26,9 @@ from idds.common.constants import (Sections, TransformStatus, TransformLocking, 
                                    ProcessingStatus, MessageType, MessageTypeStr,
                                    MessageStatus, MessageSource)
 from idds.common.utils import setup_logging
-from idds.core import (transforms as core_transforms, processings as core_processings)
+from idds.core import (transforms as core_transforms,
+                       processings as core_processings,
+                       catalog as core_catalog)
 from idds.agents.common.baseagent import BaseAgent
 
 setup_logging(__name__)
@@ -50,11 +53,11 @@ class Transformer(BaseAgent):
         self.running_output_queue = Queue()
 
     def show_queue_size(self):
-        q_str = "new queue size: %s, new output queue size: %s" % (self.new_task_queue.qsize(),
-                                                                   self.new_output_queue.qsize())
+        q_str = "new queue size: %s, new output queue size: %s, " % (self.new_task_queue.qsize(),
+                                                                     self.new_output_queue.qsize())
         q_str += "running queue size: %s, running output queue size: %s" % (self.running_task_queue.qsize(),
                                                                             self.running_output_queue.qsize())
-        self.logger.info(q_str)
+        self.logger.debug(q_str)
 
     def get_new_transforms(self):
         """
@@ -81,20 +84,19 @@ class Transformer(BaseAgent):
         return []
 
     def generate_collection_model(self, transform, collection, relation_type=CollectionRelationType.Input):
-        if 'coll_metadata' in collection:
-            coll_metadata = collection['coll_metadata']
-        else:
-            coll_metadata = {}
+        coll_metadata = collection.coll_metadata
 
-        if 'coll_type' in collection:
-            coll_type = collection['coll_type']
+        if 'coll_type' in coll_metadata:
+            coll_type = coll_metadata['coll_type']
         else:
             coll_type = CollectionType.Dataset
 
-        if 'status' in collection:
-            coll_status = collection['status']
-        else:
-            coll_status = CollectionStatus.Open
+        # if 'status' in coll_metadata:
+        #     coll_status = coll_metadata['status']
+        # else:
+        #     coll_status = CollectionStatus.Open
+        if collection.status is None:
+            collection.status = CollectionStatus.Open
 
         # collection['status'] = coll_status
 
@@ -102,8 +104,8 @@ class Transformer(BaseAgent):
                 'request_id': transform['request_id'],
                 'workload_id': transform['workload_id'],
                 'coll_type': coll_type,
-                'scope': collection['scope'],
-                'name': collection['name'],
+                'scope': collection.scope,
+                'name': collection.name,
                 'relation_type': relation_type,
                 'bytes': coll_metadata['bytes'] if 'bytes' in coll_metadata else 0,
                 'total_files': coll_metadata['total_files'] if 'total_files' in coll_metadata else 0,
@@ -111,8 +113,9 @@ class Transformer(BaseAgent):
                 'processed_files': 0,
                 'processing_files': 0,
                 'coll_metadata': coll_metadata,
-                'status': coll_status,
-                'expired_at': transform['expired_at']}
+                'status': collection.status,
+                'expired_at': transform['expired_at'],
+                'collection': collection}
         return coll
 
     def get_new_contents(self, transform, new_input_output_maps):
@@ -329,6 +332,7 @@ class Transformer(BaseAgent):
         transform_parameters = {'status': TransformStatus.Transforming,
                                 'locking': TransformLocking.Idle,
                                 'workload_id': transform['workload_id'],
+                                'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period),
                                 'transform_metadata': transform['transform_metadata']}
 
         # ret = {'transform': transform, 'input_collections': input_colls, 'output_collections': output_colls,
@@ -411,7 +415,7 @@ class Transformer(BaseAgent):
                                                                   locking=True,
                                                                   bulk_size=self.retrieve_bulk_size)
 
-            transform_status = [TransformStatus.ToResume]
+            transform_status = [TransformStatus.ToCancel, TransformStatus.ToSuspend, TransformStatus.ToResume]
             transforms_1 = core_transforms.get_transforms_by_status(status=transform_status,
                                                                     period=self.poll_time_period,
                                                                     locking=True,
@@ -433,7 +437,7 @@ class Transformer(BaseAgent):
     def get_collection_ids(self, collections):
         coll_ids = []
         for coll in collections:
-            coll_ids.append(coll['coll_id'])
+            coll_ids.append(coll.coll_id)
         return coll_ids
 
     def get_message_type(self, transform_type, input_type='file'):
@@ -520,9 +524,9 @@ class Transformer(BaseAgent):
             msg_content = {'msg_type': i_msg_type_str,
                            'request_id': request_id,
                            'workload_id': workload_id,
-                           'collections': [{'scope': collection['scope'],
-                                            'name': collection['name'],
-                                            'status': collection['status'].name}],
+                           'collections': [{'scope': collection.scope,
+                                            'name': collection.name,
+                                            'status': collection.status.name}],
                            'output': work.get_output_data(),
                            'error': work.get_terminated_msg()}
             num_msg_content = 1
@@ -596,22 +600,22 @@ class Transformer(BaseAgent):
                     log_status[content['coll_id']]['processing_files'] += 1
 
         for coll in input_collections:
-            if coll['coll_id'] in input_status:
-                coll['total_files'] = input_status[coll['coll_id']]['total_files']
-                coll['processed_files'] = input_status[coll['coll_id']]['processed_files']
-                coll['processing_files'] = input_status[coll['coll_id']]['processing_files']
+            if coll.coll_id in input_status:
+                coll.collection['total_files'] = input_status[coll.coll_id]['total_files']
+                coll.collection['processed_files'] = input_status[coll.coll_id]['processed_files']
+                coll.collection['processing_files'] = input_status[coll.coll_id]['processing_files']
 
         for coll in output_collections:
-            if coll['coll_id'] in output_status:
-                coll['total_files'] = output_status[coll['coll_id']]['total_files']
-                coll['processed_files'] = output_status[coll['coll_id']]['processed_files']
-                coll['processing_files'] = output_status[coll['coll_id']]['processing_files']
+            if coll.coll_id in output_status:
+                coll.collection['total_files'] = output_status[coll.coll_id]['total_files']
+                coll.collection['processed_files'] = output_status[coll.coll_id]['processed_files']
+                coll.collection['processing_files'] = output_status[coll.coll_id]['processing_files']
 
         for coll in log_collections:
-            if coll['coll_id'] in log_status:
-                coll['total_files'] = log_status[coll['coll_id']]['total_files']
-                coll['processed_files'] = log_status[coll['coll_id']]['processed_files']
-                coll['processing_files'] = log_status[coll['coll_id']]['processing_files']
+            if coll.coll_id in log_status:
+                coll.collection['total_files'] = log_status[coll.coll_id]['total_files']
+                coll.collection['processed_files'] = log_status[coll.coll_id]['processed_files']
+                coll.collection['processing_files'] = log_status[coll.coll_id]['processing_files']
 
         return all_updates_flushed, output_statistics
 
@@ -620,12 +624,33 @@ class Transformer(BaseAgent):
         process running transforms
         """
         self.logger.info("process_running_transform: transform_id: %s" % transform['transform_id'])
+
+        transform_substatus = None
+        t_processing_status = None
+        is_operation = False
+        if transform['substatus'] in [TransformStatus.ToCancel, TransformStatus.ToSuspend, TransformStatus.ToResume]:
+            is_operation = True
+            if transform['substatus'] == TransformStatus.ToCancel:
+                t_processing_status = ProcessingStatus.ToCancel
+                transform_substatus = TransformStatus.Cancelling
+            if transform['substatus'] == TransformStatus.ToSuspend:
+                t_processing_status = ProcessingStatus.ToSuspend
+                transform_substatus = TransformStatus.Suspending
+            if transform['substatus'] == TransformStatus.ToResume:
+                t_processing_status = ProcessingStatus.ToResume
+                transform_substatus = TransformStatus.Resuming
+
         work = transform['transform_metadata']['work']
         work.set_work_id(transform['transform_id'])
 
+        # link collections
         input_collections = work.get_input_collections()
         output_collections = work.get_output_collections()
         log_collections = work.get_log_collections()
+
+        for coll in input_collections + output_collections + log_collections:
+            coll_model = core_catalog.get_collection(coll_id=coll.coll_id)
+            coll.collection = coll_model
 
         input_coll_ids = self.get_collection_ids(input_collections)
         output_coll_ids = self.get_collection_ids(output_collections)
@@ -635,17 +660,31 @@ class Transformer(BaseAgent):
                                                                                        input_coll_ids=input_coll_ids,
                                                                                        output_coll_ids=output_coll_ids,
                                                                                        log_coll_ids=log_coll_ids)
-        # update_input_output_maps = self.get_update_input_output_maps(registered_input_output_maps)
-        # update_contents, updated_contents_full = self.get_updated_contents(transform, registered_input_output_maps)
-        # updated_contents, updated_input_contents_full, updated_output_contents_full = self.get_updated_contents(transform, registered_input_output_maps)
 
         work_name_to_coll_map = core_transforms.get_work_name_to_coll_map(request_id=transform['request_id'])
         work.set_work_name_to_coll_map(work_name_to_coll_map)
 
-        if work.has_new_inputs():
-            new_input_output_maps = work.get_new_input_output_maps(registered_input_output_maps)
-        else:
-            new_input_output_maps = {}
+        # link processings
+        new_processing_model, processing_model, update_processing_model = None, None, {}
+
+        processing = work.get_processing(input_output_maps=[], without_creating=True)
+        self.logger.debug("work get_processing: %s" % processing)
+        if processing and processing.processing_id:
+            processing_model = core_processings.get_processing(processing_id=processing.processing_id)
+            work.sync_processing(processing, processing_model)
+            processing_metadata = processing_model['processing_metadata']
+            if 'errors' in processing_metadata:
+                work.set_terminated_msg(processing_metadata['errors'])
+            # work.set_processing_output_metadata(processing, processing_model['output_metadata'])
+            work.set_output_data(processing.output_data)
+            transform['workload_id'] = processing_model['workload_id']
+            if t_processing_status is not None:
+                update_processing_model[processing_model['processing_id']] = {'substatus': t_processing_status}
+                work.set_processing_status(processing, processing_model['status'], t_processing_status)
+
+        # check contents
+        new_input_output_maps = work.get_new_input_output_maps(registered_input_output_maps)
+
         new_input_contents, new_output_contents, new_log_contents, new_input_dependency_contents = self.get_new_contents(transform, new_input_output_maps)
         new_contents = []
         if new_input_contents:
@@ -657,62 +696,35 @@ class Transformer(BaseAgent):
         if new_input_dependency_contents:
             new_contents = new_contents + new_input_dependency_contents
 
-        # new_input_output_maps = work.get_new_input_output_maps()
-        # new_contents = self.get_new_contents(new_input_output_maps)
+        # create processing
+        if not processing:
+            processing = work.get_processing(new_input_output_maps, without_creating=False)
+            self.logger.debug("work get_processing with creating: %s" % processing)
+        if processing and not processing.processing_id:
+            new_processing_model = {}
+            new_processing_model['transform_id'] = transform['transform_id']
+            new_processing_model['request_id'] = transform['request_id']
+            new_processing_model['workload_id'] = transform['workload_id']
+            new_processing_model['status'] = ProcessingStatus.New
+            new_processing_model['expired_at'] = work.get_expired_at(None)
+            # if 'processing_metadata' not in processing:
+            #     processing['processing_metadata'] = {}
+            # if 'processing_metadata' not in new_processing_model:
+            #     new_processing_model['processing_metadata'] = {}
+            # new_processing_model['processing_metadata'] = processing.processing_metadata
 
-        # processing = self.get_processing(transform, input_colls, output_colls, log_colls, new_input_output_maps)
-        processing = work.get_processing(new_input_output_maps)
-        self.logger.debug("work get_processing: %s" % processing)
+            proc_work = copy.deepcopy(work)
+            proc_work.clean_work()
+            processing.work = proc_work
+            new_processing_model['processing_metadata'] = {'processing': processing}
+            if t_processing_status is not None:
+                new_processing_model['status'] = t_processing_status
+                new_processing_model['substatus'] = t_processing_status
 
-        transform_substatus = None
-        t_processing_status = None
-        if transform['substatus'] in [TransformStatus.ToCancel, TransformStatus.ToSuspend, TransformStatus.ToResume]:
-            if transform['substatus'] == TransformStatus.ToCancel:
-                t_processing_status = ProcessingStatus.ToCancel
-                transform_substatus = TransformStatus.Cancelling
-            if transform['substatus'] == TransformStatus.ToSuspend:
-                t_processing_status = ProcessingStatus.ToSuspend
-                transform_substatus = TransformStatus.Suspending
-            if transform['substatus'] == TransformStatus.ToResume:
-                t_processing_status = ProcessingStatus.ToResume
-                transform_substatus = TransformStatus.Resuming
-
-        new_processing_model, processing_model, update_processing_model = None, None, {}
-        if processing:
-            self.logger.debug("processing model: %s" % processing)
-            if 'processing_id' not in processing:
-                # new_processing = work.create_processing(new_input_output_maps)
-                new_processing_model = copy.deepcopy(processing)
-                new_processing_model['transform_id'] = transform['transform_id']
-                new_processing_model['request_id'] = transform['request_id']
-                new_processing_model['workload_id'] = transform['workload_id']
-                new_processing_model['status'] = ProcessingStatus.New
-                new_processing_model['expired_at'] = work.get_expired_at(None)
-                if 'processing_metadata' not in processing:
-                    processing['processing_metadata'] = {}
-                if 'processing_metadata' not in new_processing_model:
-                    new_processing_model['processing_metadata'] = {}
-                proc_work = copy.deepcopy(work)
-                proc_work.clean_work()
-                new_processing_model['processing_metadata']['work'] = proc_work
-                if t_processing_status is not None:
-                    new_processing_model['status'] = t_processing_status
-                    new_processing_model['substatus'] = t_processing_status
-            else:
-                processing_model = core_processings.get_processing(processing_id=processing['processing_id'])
-                work.set_processing_status(processing, processing_model['status'], processing_model['substatus'])
-                processing_metadata = processing_model['processing_metadata']
-                if 'errors' in processing_metadata:
-                    work.set_terminated_msg(processing_metadata['errors'])
-                work.set_processing_output_metadata(processing, processing_model['output_metadata'])
-                transform['workload_id'] = processing_model['workload_id']
-                if t_processing_status is not None:
-                    update_processing_model[processing_model['processing_id']] = {'substatus': t_processing_status}
-                    work.set_processing_status(processing, processing_model['status'], t_processing_status)
-
+        # check updated contents
         updated_contents, updated_input_contents_full, updated_output_contents_full = [], [], []
         to_release_input_contents = []
-        if work.should_release_inputs(processing_model):
+        if work.should_release_inputs(processing):
             self.logger.info("get_updated_contents for transform %s" % transform['transform_id'])
             updated_contents, updated_input_contents_full, updated_output_contents_full = self.get_updated_contents(transform, registered_input_output_maps)
         if work.use_dependency_to_release_jobs() and (updated_output_contents_full or work.has_to_release_inputs()):
@@ -740,7 +752,7 @@ class Transformer(BaseAgent):
         all_updates_flushed, output_statistics = self.syn_collection_status(input_collections, output_collections, log_collections, registered_input_output_maps)
 
         self.logger.info("syn_work_status: %s" % transform['transform_id'])
-        work.syn_work_status(registered_input_output_maps, all_updates_flushed, output_statistics)
+        work.syn_work_status(registered_input_output_maps, all_updates_flushed, output_statistics, to_release_input_contents)
 
         if transform['substatus'] in [TransformStatus.ToCancel]:
             transform['status'] = TransformStatus.Cancelling
@@ -753,11 +765,11 @@ class Transformer(BaseAgent):
             msg = self.generate_message(transform, work=work, msg_type='work')
             msgs.append(msg)
             for coll in output_collections:
-                coll['status'] = CollectionStatus.Closed
+                coll.status = CollectionStatus.Closed
                 msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
                 msgs.append(msg)
             for coll in log_collections:
-                coll['status'] = CollectionStatus.Closed
+                coll.status = CollectionStatus.Closed
                 msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
                 msgs.append(msg)
         elif work.is_subfinished():
@@ -765,11 +777,11 @@ class Transformer(BaseAgent):
             msg = self.generate_message(transform, work=work, msg_type='work')
             msgs.append(msg)
             for coll in output_collections:
-                coll['status'] = CollectionStatus.SubClosed
+                coll.status = CollectionStatus.SubClosed
                 msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
                 msgs.append(msg)
             for coll in log_collections:
-                coll['status'] = CollectionStatus.SubClosed
+                coll.status = CollectionStatus.SubClosed
                 msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
                 msgs.append(msg)
         elif work.is_failed():
@@ -777,11 +789,11 @@ class Transformer(BaseAgent):
             msg = self.generate_message(transform, work=work, msg_type='work')
             msgs.append(msg)
             for coll in output_collections:
-                coll['status'] = CollectionStatus.Failed
+                coll.status = CollectionStatus.Failed
                 msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
                 msgs.append(msg)
             for coll in log_collections:
-                coll['status'] = CollectionStatus.Failed
+                coll.status = CollectionStatus.Failed
                 msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
                 msgs.append(msg)
         elif work.is_expired():
@@ -789,11 +801,11 @@ class Transformer(BaseAgent):
             msg = self.generate_message(transform, work=work, msg_type='work')
             msgs.append(msg)
             for coll in output_collections:
-                coll['status'] = CollectionStatus.SubClosed
+                coll.status = CollectionStatus.SubClosed
                 msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
                 msgs.append(msg)
             for coll in log_collections:
-                coll['status'] = CollectionStatus.SubClosed
+                coll.status = CollectionStatus.SubClosed
                 msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
                 msgs.append(msg)
         elif work.is_cancelled():
@@ -801,11 +813,11 @@ class Transformer(BaseAgent):
             msg = self.generate_message(transform, work=work, msg_type='work')
             msgs.append(msg)
             for coll in output_collections:
-                coll['status'] = CollectionStatus.Cancelled
+                coll.status = CollectionStatus.Cancelled
                 msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
                 msgs.append(msg)
             for coll in log_collections:
-                coll['status'] = CollectionStatus.Cancelled
+                coll.status = CollectionStatus.Cancelled
                 msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
                 msgs.append(msg)
         elif work.is_suspended():
@@ -813,19 +825,24 @@ class Transformer(BaseAgent):
             msg = self.generate_message(transform, work=work, msg_type='work')
             msgs.append(msg)
             for coll in output_collections:
-                coll['status'] = CollectionStatus.Suspended
+                coll.status = CollectionStatus.Suspended
                 msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
                 msgs.append(msg)
             for coll in log_collections:
-                coll['status'] = CollectionStatus.Suspended
+                coll.status = CollectionStatus.Suspended
                 msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
                 msgs.append(msg)
         else:
             transform['status'] = TransformStatus.Transforming
 
+        if not is_operation:
+            next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period)
+        else:
+            next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_operation_time_period)
         transform_parameters = {'status': transform['status'],
                                 'locking': TransformLocking.Idle,
                                 'workload_id': transform['workload_id'],
+                                'next_poll_at': next_poll_at,
                                 'transform_metadata': transform['transform_metadata']}
         if transform_substatus:
             transform_parameters['substatus'] = transform_substatus
@@ -833,9 +850,12 @@ class Transformer(BaseAgent):
         # print(input_collections)
         ret = {'transform': transform,
                'transform_parameters': transform_parameters,
-               'update_input_collections': copy.deepcopy(input_collections) if input_collections else input_collections,
-               'update_output_collections': copy.deepcopy(output_collections) if output_collections else output_collections,
-               'update_log_collections': copy.deepcopy(log_collections) if log_collections else log_collections,
+               # 'update_input_collections': copy.deepcopy(input_collections) if input_collections else input_collections,
+               # 'update_output_collections': copy.deepcopy(output_collections) if output_collections else output_collections,
+               # 'update_log_collections': copy.deepcopy(log_collections) if log_collections else log_collections,
+               'update_input_collections': input_collections,
+               'update_output_collections': output_collections,
+               'update_log_collections': log_collections,
                'new_contents': new_contents,
                'update_contents': updated_contents + to_release_input_contents,
                'messages': msgs,

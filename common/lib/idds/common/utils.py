@@ -18,6 +18,7 @@ import requests
 import subprocess
 import sys
 import tarfile
+import traceback
 
 from enum import Enum
 from functools import wraps
@@ -404,8 +405,10 @@ def exception_handler(function):
             return function(*args, **kwargs)
         except IDDSException as ex:
             logging.error(ex)
+            print(traceback.format_exc())
         except Exception as ex:
             logging.error(ex)
+            print(traceback.format_exc())
     return new_funct
 
 

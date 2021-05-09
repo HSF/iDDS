@@ -143,6 +143,7 @@ CREATE TABLE TRANSFORMS
         finished_at DATE,
         expired_at DATE,
         transform_metadata CLOB,
+        running_metadata CLOB,
         CONSTRAINT TRANSFORMS_PK PRIMARY KEY (transform_id)  
 )
 PCTFREE 3
@@ -232,6 +233,7 @@ CREATE TABLE PROCESSINGS
         finished_at DATE,
         expired_at DATE,
         processing_metadata CLOB,
+        running_metadata CLOB,
         output_metadata CLOB,
         CONSTRAINT PROCESSINGS_PK PRIMARY KEY (processing_id),
         CONSTRAINT PROCESSINGS_TRANSFORM_ID_FK FOREIGN KEY(transform_id) REFERENCES TRANSFORMS(transform_id)

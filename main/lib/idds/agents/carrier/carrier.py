@@ -46,11 +46,11 @@ class Carrier(BaseAgent):
         self.running_output_queue = Queue()
 
     def show_queue_size(self):
-        q_str = "new queue size: %s, new output queue size: %s" % (self.new_task_queue.qsize(),
-                                                                   self.new_output_queue.qsize())
+        q_str = "new queue size: %s, new output queue size: %s, " % (self.new_task_queue.qsize(),
+                                                                     self.new_output_queue.qsize())
         q_str += "running queue size: %s, running output queue size: %s" % (self.running_task_queue.qsize(),
                                                                             self.running_output_queue.qsize())
-        self.logger.info(q_str)
+        self.logger.debug(q_str)
 
     def init(self):
         status = [ProcessingStatus.New, ProcessingStatus.Submitting, ProcessingStatus.Submitted,
@@ -86,7 +86,8 @@ class Carrier(BaseAgent):
             # transform_id = processing['transform_id']
             # transform = core_transforms.get_transform(transform_id=transform_id)
             # work = transform['transform_metadata']['work']
-            work = processing['processing_metadata']['work']
+            proc = processing['processing_metadata']['processing']
+            work = proc.work
             work.set_agent_attributes(self.agent_attributes)
 
             work.submit_processing(processing)
@@ -95,8 +96,9 @@ class Carrier(BaseAgent):
                    'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period),
                    'expired_at': work.get_expired_at(processing),
                    'processing_metadata': processing['processing_metadata']}
-            if processing['processing_metadata'] and 'workload_id' in processing['processing_metadata']:
-                ret['workload_id'] = processing['processing_metadata']['workload_id']
+            # if processing['processing_metadata'] and 'processing' in processing['processing_metadata']:
+            if proc.workload_id:
+                ret['workload_id'] = proc.workload_id
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
@@ -122,15 +124,19 @@ class Carrier(BaseAgent):
 
     def finish_new_processings(self):
         while not self.new_output_queue.empty():
-            processing = self.new_output_queue.get()
-            self.logger.info("Main thread submitted new processing: %s" % (processing['processing_id']))
-            processing_id = processing['processing_id']
-            if 'next_poll_at' not in processing:
-                processing['next_poll_at'] = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period)
-            del processing['processing_id']
-            processing['locking'] = ProcessingLocking.Idle
-            # self.logger.debug("wen: %s" % str(processing))
-            core_processings.update_processing(processing_id=processing_id, parameters=processing)
+            try:
+                processing = self.new_output_queue.get()
+                self.logger.info("Main thread submitted new processing: %s" % (processing['processing_id']))
+                processing_id = processing['processing_id']
+                if 'next_poll_at' not in processing:
+                    processing['next_poll_at'] = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period)
+                del processing['processing_id']
+                processing['locking'] = ProcessingLocking.Idle
+                # self.logger.debug("wen: %s" % str(processing))
+                core_processings.update_processing(processing_id=processing_id, parameters=processing)
+            except Exception as ex:
+                self.logger.error(ex)
+                self.logger.error(traceback.format_exc())
 
     def get_running_processings(self):
         """
@@ -150,7 +156,7 @@ class Carrier(BaseAgent):
                                                                      locking=True,
                                                                      bulk_size=self.retrieve_bulk_size)
 
-            processing_status = [ProcessingStatus.ToResume]
+            processing_status = [ProcessingStatus.ToCancel, ProcessingStatus.ToSuspend, ProcessingStatus.ToResume]
             processings_1 = core_processings.get_processings_by_status(status=processing_status,
                                                                        # time_period=self.poll_time_period,
                                                                        locking=True,
@@ -173,7 +179,7 @@ class Carrier(BaseAgent):
     def get_collection_ids(self, collections):
         coll_ids = []
         for coll in collections:
-            coll_ids.append(coll['coll_id'])
+            coll_ids.append(coll.coll_id)
         return coll_ids
 
     def process_running_processing(self, processing):
@@ -181,7 +187,10 @@ class Carrier(BaseAgent):
             transform_id = processing['transform_id']
             # transform = core_transforms.get_transform(transform_id=transform_id)
             # work = transform['transform_metadata']['work']
-            work = processing['processing_metadata']['work']
+            # work = processing['processing_metadata']['work']
+            # work.set_agent_attributes(self.agent_attributes)
+            proc = processing['processing_metadata']['processing']
+            work = proc.work
             work.set_agent_attributes(self.agent_attributes)
 
             input_collections = work.get_input_collections()
@@ -198,14 +207,18 @@ class Carrier(BaseAgent):
                                                                                 log_coll_ids=log_coll_ids)
 
             processing_substatus = None
+            is_operation = False
             if processing['substatus'] in [ProcessingStatus.ToCancel]:
                 work.abort_processing(processing)
+                is_operation = True
                 processing_substatus = ProcessingStatus.Cancelling
             if processing['substatus'] in [ProcessingStatus.ToSuspend]:
                 work.suspend_processing(processing)
+                is_operation = True
                 processing_substatus = ProcessingStatus.Suspending
             if processing['substatus'] in [ProcessingStatus.ToResume]:
                 work.resume_processing(processing)
+                is_operation = True
                 processing_substatus = ProcessingStatus.Resuming
 
             # work = processing['processing_metadata']['work']
@@ -221,7 +234,14 @@ class Carrier(BaseAgent):
             if processing_substatus:
                 processing_update['parameters']['substatus'] = processing_substatus
 
+            if not is_operation:
+                next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period)
+            else:
+                next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_operation_time_period)
+
+            processing_update['parameters']['next_poll_at'] = next_poll_at
             processing_update['parameters']['expired_at'] = work.get_expired_at(processing)
+            processing_update['parameters']['processing_metadata'] = processing['processing_metadata']
 
             ret = {'processing_update': processing_update,
                    'content_updates': content_updates}
@@ -254,14 +274,18 @@ class Carrier(BaseAgent):
 
     def finish_running_processings(self):
         while not self.running_output_queue.empty():
-            processing = self.running_output_queue.get()
-            if processing:
-                self.logger.info("Main thread processing(processing_id: %s) updates: %s" % (processing['processing_update']['processing_id'],
-                                                                                            processing['processing_update']['parameters']))
+            try:
+                processing = self.running_output_queue.get()
+                if processing:
+                    self.logger.info("Main thread processing(processing_id: %s) updates: %s" % (processing['processing_update']['processing_id'],
+                                                                                                processing['processing_update']['parameters']))
 
-                # self.logger.info("Main thread finishing running processing %s" % str(processing))
-                core_processings.update_processing_contents(processing_update=processing['processing_update'],
-                                                            content_updates=processing['content_updates'])
+                    # self.logger.info("Main thread finishing running processing %s" % str(processing))
+                    core_processings.update_processing_contents(processing_update=processing['processing_update'],
+                                                                content_updates=processing['content_updates'])
+            except Exception as ex:
+                self.logger.error(ex)
+                self.logger.error(traceback.format_exc())
 
     def clean_locks(self):
         self.logger.info("clean locking")

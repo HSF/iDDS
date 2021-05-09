@@ -229,23 +229,35 @@ def add_transform_outputs(transform, transform_parameters, input_collections=Non
 
     if input_collections:
         for coll in input_collections:
+            collection = coll['collection']
+            del coll['collection']
             coll_id = orm_collections.add_collection(**coll, session=session)
-            work.set_collection_id(coll, coll_id)
+            # work.set_collection_id(coll, coll_id)
+            collection.coll_id = coll_id
     if output_collections:
         for coll in output_collections:
+            collection = coll['collection']
+            del coll['collection']
             coll_id = orm_collections.add_collection(**coll, session=session)
-            work.set_collection_id(coll, coll_id)
+            # work.set_collection_id(coll, coll_id)
+            collection.coll_id = coll_id
     if log_collections:
         for coll in log_collections:
+            collection = coll['collection']
+            del coll['collection']
             coll_id = orm_collections.add_collection(**coll, session=session)
-            work.set_collection_id(coll, coll_id)
+            # work.set_collection_id(coll, coll_id)
+            collection.coll_id = coll_id
 
     if update_input_collections:
-        orm_collections.update_collections(update_input_collections, session=session)
+        update_input_colls = [coll.collection for coll in update_input_collections]
+        orm_collections.update_collections(update_input_colls, session=session)
     if update_output_collections:
-        orm_collections.update_collections(update_output_collections, session=session)
+        update_output_colls = [coll.collection for coll in update_output_collections]
+        orm_collections.update_collections(update_output_colls, session=session)
     if update_log_collections:
-        orm_collections.update_collections(update_log_collections, session=session)
+        update_log_colls = [coll.collection for coll in update_log_collections]
+        orm_collections.update_collections(update_log_colls, session=session)
 
     if new_contents:
         orm_contents.add_contents(new_contents, session=session)
@@ -294,7 +306,9 @@ def add_transform_outputs(transform, transform_parameters, input_collections=Non
                 transform['transform_metadata']['processing_id'] = processing_id
         """
         if processing_id:
-            work.set_processing_id(new_processing, processing_id)
+            # work.set_processing_id(new_processing, processing_id)
+            work.set_processing_id(new_processing['processing_metadata']['processing'], processing_id)
+        work.refresh_work()
         orm_transforms.update_transform(transform_id=transform['transform_id'],
                                         parameters=transform_parameters,
                                         session=session)

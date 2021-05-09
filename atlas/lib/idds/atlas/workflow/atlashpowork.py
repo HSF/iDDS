@@ -14,7 +14,6 @@ import json
 import random
 import os
 import traceback
-import uuid
 
 from idds.common import exceptions
 from idds.common.constants import (TransformType, CollectionType, CollectionStatus,
@@ -23,6 +22,7 @@ from idds.common.constants import (TransformType, CollectionType, CollectionStat
 from idds.common.utils import run_command
 from idds.common.utils import replace_parameters_with_values
 # from idds.workflow.work import Work
+from idds.workflow.work import Processing
 from idds.atlas.workflow.atlascondorwork import ATLASCondorWork
 from idds.core import (catalog as core_catalog)
 
@@ -104,6 +104,7 @@ class ATLASHPOWork(ATLASCondorWork):
         self.points_to_generate = self.num_points_per_iteration
         self.point_index = 0
         self.terminated = False
+        self.polling_retries = 0
 
         if not self.num_points_per_iteration or self.num_points_per_iteration < 0:
             raise exceptions.IDDSException("num_points_per_iteration must be integer bigger than 0")
@@ -143,44 +144,46 @@ class ATLASHPOWork(ATLASCondorWork):
 
     def poll_external_collection(self, coll):
         try:
-            if 'status' in coll and coll['status'] in [CollectionStatus.Closed]:
+            if coll.status in [CollectionStatus.Closed]:
+                if not self.terminated:
+                    self.logger.info("Work is not terminated, reopen collection")
+                    coll.coll_metadata['is_open'] = True
+                    coll.status = CollectionStatus.Open
                 return coll
             else:
-                if 'coll_metadata' not in coll:
-                    coll['coll_metadata'] = {}
-                coll['coll_metadata']['bytes'] = 0
-                coll['coll_metadata']['total_files'] = 0
-                coll['coll_metadata']['availability'] = True
-                coll['coll_metadata']['events'] = 0
-                coll['coll_metadata']['is_open'] = True
-                coll['coll_metadata']['run_number'] = None
-                coll['coll_metadata']['did_type'] = 'DATASET'
-                coll['coll_metadata']['list_all_files'] = False
+                coll.coll_metadata['bytes'] = 0
+                coll.coll_metadata['total_files'] = 0
+                coll.coll_metadata['availability'] = True
+                coll.coll_metadata['events'] = 0
+                coll.coll_metadata['is_open'] = True
+                coll.coll_metadata['run_number'] = None
+                coll.coll_metadata['did_type'] = 'DATASET'
+                coll.coll_metadata['list_all_files'] = False
 
                 if self.terminated:
                     self.logger.info("Work is terminated. Closing input dataset.")
-                    coll['coll_metadata']['is_open'] = False
+                    coll.coll_metadata['is_open'] = False
 
                 if self.points_to_generate <= 0:
                     self.logger.info("points_to_generate(%s) is equal or smaller than 0. Closing input dataset." % self.points_to_generate)
-                    coll['coll_metadata']['is_open'] = False
+                    coll.coll_metadata['is_open'] = False
 
-                if 'is_open' in coll['coll_metadata'] and not coll['coll_metadata']['is_open']:
+                if 'is_open' in coll.coll_metadata and not coll.coll_metadata['is_open']:
                     coll_status = CollectionStatus.Closed
                 else:
                     coll_status = CollectionStatus.Open
-                coll['status'] = coll_status
+                coll.status = coll_status
 
-                if 'did_type' in coll['coll_metadata']:
-                    if coll['coll_metadata']['did_type'] == 'DATASET':
+                if 'did_type' in coll.coll_metadata:
+                    if coll.coll_metadata['did_type'] == 'DATASET':
                         coll_type = CollectionType.Dataset
-                    elif coll['coll_metadata']['did_type'] == 'CONTAINER':
+                    elif coll.coll_metadata['did_type'] == 'CONTAINER':
                         coll_type = CollectionType.Container
                     else:
                         coll_type = CollectionType.File
                 else:
                     coll_type = CollectionType.Dataset
-                coll['coll_type'] = coll_type
+                coll.coll_metadata['coll_type'] = coll_type
 
                 return coll
         except Exception as ex:
@@ -197,7 +200,7 @@ class ATLASHPOWork(ATLASCondorWork):
             self.collections[coll_int_id] = coll
         return super(ATLASHPOWork, self).get_input_collections()
 
-    def get_input_contents(self):
+    def get_input_contents(self, point_index=1):
         """
         Get all input contents from DDM.
         """
@@ -220,9 +223,9 @@ class ATLASHPOWork(ATLASCondorWork):
 
             loss = None
             for point in points:
-                ret_file = {'coll_id': coll['coll_id'],
-                            'scope': coll['scope'],
-                            'name': str(self.point_index),
+                ret_file = {'coll_id': coll.coll_id,
+                            'scope': coll.scope,
+                            'name': str(point_index),
                             'bytes': 0,
                             'adler32': None,
                             'min_id': 0,
@@ -231,7 +234,7 @@ class ATLASHPOWork(ATLASCondorWork):
                             'content_type': ContentType.File,
                             'content_metadata': {'events': 0}}
                 ret_files.append(ret_file)
-                self.point_index += 1
+                point_index += 1
             return ret_files
         except Exception as ex:
             self.logger.error(ex)
@@ -274,9 +277,15 @@ class ATLASHPOWork(ATLASCondorWork):
         unfinished_mapped = self.get_unfinished_points(mapped_input_output_maps)
         self.unfinished_points = unfinished_mapped
 
-        inputs = self.get_input_contents()
         mapped_inputs = self.get_mapped_inputs(mapped_input_output_maps)
         mapped_inputs_scope_name = [ip['scope'] + ":" + ip['name'] for ip in mapped_inputs]
+        mapped_keys = mapped_input_output_maps.keys()
+        if mapped_keys:
+            next_key = max(mapped_keys) + 1
+        else:
+            next_key = 1
+
+        inputs = self.get_input_contents(point_index=next_key)
 
         new_inputs = []
         new_input_output_maps = {}
@@ -286,20 +295,15 @@ class ATLASHPOWork(ATLASCondorWork):
                 new_inputs.append(ip)
 
         # to avoid cheking new inputs if there are no new inputs anymore
-        if (not new_inputs and 'status' in self.collections[self.primary_input_collection]
-           and self.collections[self.primary_input_collection]['status'] in [CollectionStatus.Closed]):  # noqa: W503
+        if (not new_inputs and self.collections[self.primary_input_collection]
+           and self.collections[self.primary_input_collection].status in [CollectionStatus.Closed]):  # noqa: W503
             self.set_has_new_inputs(False)
         else:
-            mapped_keys = mapped_input_output_maps.keys()
-            if mapped_keys:
-                next_key = max(mapped_keys) + 1
-            else:
-                next_key = 1
             for ip in new_inputs:
                 out_ip = copy.deepcopy(ip)
                 ip['status'] = ContentStatus.Available
                 ip['substatus'] = ContentStatus.Available
-                out_ip['coll_id'] = self.collections[self.output_collections[0]]['coll_id']
+                out_ip['coll_id'] = self.collections[self.output_collections[0]].coll_id
                 new_input_output_maps[next_key] = {'inputs': [ip],
                                                    'outputs': [out_ip],
                                                    'inputs_dependency': [],
@@ -311,7 +315,7 @@ class ATLASHPOWork(ATLASCondorWork):
         return new_input_output_maps
 
     def generate_points(self):
-        active_processing = self.get_processing(None)
+        active_processing = self.get_processing(None, without_creating=True)
         if not active_processing:
             if self.points_to_generate > 0:
                 active_processing = self.create_processing(None)
@@ -323,41 +327,55 @@ class ATLASHPOWork(ATLASCondorWork):
                 if active_processing:
                     return []
                 else:
-                    self.terminated = True
-                    self.set_terminated_msg("Failed to create processing")
+                    self.polling_retries += 1
+                    if self.polling_retries > 3:
+                        self.terminated = True
+                        self.set_terminated_msg("Failed to create processing")
                     return []
             else:
-                self.terminated = True
+                self.polling_retries += 1
+                if self.polling_retries > 3:
+                    self.terminated = True
                 self.set_terminated_msg("Number of points is enough(points_to_generate: %s)" % self.points_to_generate)
                 return []
 
-        if self.is_processing_terminated(active_processing):
+        if active_processing and self.is_processing_terminated(active_processing):
             self.logger.info("processing terminated: %s" % active_processing)
             self.reap_processing(active_processing)
-            output_metadata = active_processing['output_metadata']
+            # output_metadata = active_processing['output_metadata']
+            output_metadata = active_processing.output_data
             if output_metadata:
+                self.polling_retries = 0
+                if self.max_points and self.max_points > self.finished_points:
+                    self.terminated = False
                 return output_metadata
             else:
-                self.terminated = True
-                processing_metadata = active_processing['processing_metadata']
-                errors = None
-                if 'errors' in processing_metadata:
-                    errors = processing_metadata['errors']
+                self.polling_retries += 1
+                if self.polling_retries > 3:
+                    self.terminated = True
+                # processing_metadata = active_processing['processing_metadata']
+                # errors = None
+                # if 'errors' in processing_metadata:
+                #     errors = processing_metadata['errors']
+                errors = active_processing.errors
                 self.set_terminated_msg("No points generated. Terminating the Work/Transformation. Detailed errors: %s" % errors)
                 return []
         return []
 
-    def get_processing(self, input_output_maps):
+    def get_processing(self, input_output_maps, without_creating=False):
         if self.active_processings:
             return self.processings[self.active_processings[0]]
         else:
-            return self.create_processing(input_output_maps)
+            # if not without_creating:
+            #     return self.create_processing(input_output_maps)
+            pass
+        return None
 
-    def create_processing(self, input_output_maps):
-        proc = {'processing_metadata': {'internal_id': str(uuid.uuid1()),
-                                        'points_to_generate': self.points_to_generate}}
+    def create_processing(self, input_output_maps=[]):
+        processing_metadata = {'points_to_generate': self.points_to_generate}
+        proc = Processing(processing_metadata=processing_metadata)
         self.add_processing_to_processings(proc)
-        self.active_processings.append(proc['processing_metadata']['internal_id'])
+        self.active_processings.append(proc.internal_id)
         return proc
 
     def get_status_statistics(self, registered_input_output_maps):
@@ -387,13 +405,13 @@ class ATLASHPOWork(ATLASCondorWork):
             output_collection['processed_files'] = self.finished_points
     """
 
-    def syn_work_status(self, registered_input_output_maps, all_updates_flushed=True, output_statistics={}):
+    def syn_work_status(self, registered_input_output_maps, all_updates_flushed=True, output_statistics={}, to_release_input_contents=[]):
         super(ATLASHPOWork, self).syn_work_status(registered_input_output_maps)
         self.get_status_statistics(registered_input_output_maps)
 
         # self.syn_collection_status()
 
-        if self.is_processings_terminated() and not self.has_new_inputs():
+        if self.is_processings_terminated() and not self.has_new_inputs:
             if not self.is_all_outputs_flushed(registered_input_output_maps):
                 self.logger.warn("The processing is terminated. but not all outputs are flushed. Wait to flush the outputs then finish the transform")
                 return
@@ -538,7 +556,7 @@ class ATLASHPOWork(ATLASCondorWork):
     def generate_input_json(self, processing):
         try:
             output_collection = self.get_output_collections()[0]
-            contents = core_catalog.get_contents_by_coll_id_status(coll_id=output_collection['coll_id'])
+            contents = core_catalog.get_contents_by_coll_id_status(coll_id=output_collection.coll_id)
             points = []
             for content in contents:
                 # point = content['content_metadata']['point']
@@ -601,12 +619,16 @@ class ATLASHPOWork(ATLASCondorWork):
         return [self.output_json]
 
     def submit_processing(self, processing):
-        if 'job_id' in processing['processing_metadata']:
+        proc = processing['processing_metadata']['processing']
+        if proc.external_id:
+            # if 'job_id' in processing['processing_metadata']:
             pass
         else:
             job_id, errors = self.submit_condor_processing(processing)
-            processing['processing_metadata']['job_id'] = job_id
-            processing['processing_metadata']['errors'] = errors
+            # processing['processing_metadata']['job_id'] = job_id
+            # processing['processing_metadata']['errors'] = errors
+            proc.external_id = job_id
+            proc.errors = errors
 
     def parse_processing_outputs(self, processing):
         request_id = processing['request_id']
@@ -633,7 +655,8 @@ class ATLASHPOWork(ATLASCondorWork):
                 return None, 'Failed to load the content of %s: %s' % (str(full_output_json), str(ex))
 
     def poll_processing(self, processing):
-        job_status, job_err_msg = self.poll_condor_job_status(processing, processing['processing_metadata']['job_id'])
+        proc = processing['processing_metadata']['processing']
+        job_status, job_err_msg = self.poll_condor_job_status(processing, proc.external_id)
         processing_outputs = None
         reset_expired_at = False
         if job_status in [ProcessingStatus.Finished]:
@@ -655,12 +678,12 @@ class ATLASHPOWork(ATLASCondorWork):
             processing_status = job_status
             processing_err = job_err_msg
         elif self.tocancel:
-            self.cancelled_processings.append(processing['processing_metadata']['internal_id'])
+            self.cancelled_processings.append(proc.internal_id)
             processing_status = ProcessingStatus.Cancelled
             processing_outputs = None
             processing_err = 'Cancelled'
         elif self.tosuspend:
-            self.suspended_processings.append(processing['processing_metadata']['internal_id'])
+            self.suspended_processings.append(proc.internal_id)
             processing_status = ProcessingStatus.Suspended
             processing_outputs = None
             processing_err = 'Suspend'
@@ -681,14 +704,16 @@ class ATLASHPOWork(ATLASCondorWork):
     def poll_processing_updates(self, processing, input_output_maps):
         processing_status, processing_outputs, processing_err, reset_expired_at = self.poll_processing(processing)
 
-        processing_metadata = processing['processing_metadata']
-        if not processing_metadata:
-            processing_metadata = {}
-        processing_metadata['errors'] = processing_err
+        # processing_metadata = processing['processing_metadata']
+        # if not processing_metadata:
+        #     processing_metadata = {}
+        # processing_metadata['errors'] = processing_err
+        proc = processing['processing_metadata']['processing']
+        proc.errors = processing_err
 
         update_processing = {'processing_id': processing['processing_id'],
                              'parameters': {'status': processing_status,
-                                            'processing_metadata': processing_metadata,
+                                            'processing_metadata': processing['processing_metadata'],
                                             'output_metadata': processing_outputs}}
 
         if reset_expired_at:

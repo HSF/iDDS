@@ -23,6 +23,7 @@ from idds.common.utils import get_rest_host, exception_handler
 
 # from idds.workflow.work import Work, Parameter, WorkStatus
 # from idds.workflow.workflow import Condition, Workflow
+from idds.workflow.work import Collection
 
 
 setup_logging(__name__)
@@ -44,7 +45,7 @@ class ClientManager:
         """
         props = {
             'scope': 'workflow',
-            'name': workflow.get_name(),
+            'name': workflow.name,
             'requester': 'panda',
             'request_type': RequestType.Workflow,
             'transform_tag': 'workflow',
@@ -57,8 +58,12 @@ class ClientManager:
         workflow.add_proxy()
         primary_init_work = workflow.get_primary_initial_collection()
         if primary_init_work:
-            props['scope'] = primary_init_work['scope']
-            props['name'] = primary_init_work['name']
+            if type(primary_init_work) in [Collection]:
+                props['scope'] = primary_init_work.scope
+                props['name'] = primary_init_work.name
+            else:
+                props['scope'] = primary_init_work['scope']
+                props['name'] = primary_init_work['name']
 
         # print(props)
         request_id = self.client.add_request(**props)

@@ -264,8 +264,8 @@ def get_requests(request_id=None, workload_id=None, with_detail=False, to_json=F
                                   models.Request.accessed_at,
                                   models.Request.expired_at,
                                   models.Request.errors,
-                                  models.Request.request_metadata,
-                                  models.Request.processing_metadata,
+                                  models.Request._request_metadata.label('request_metadata'),
+                                  models.Request._processing_metadata.label('processing_metadata'),
                                   models.Transform.transform_id,
                                   models.Transform.workload_id.label("transform_workload_id"),
                                   models.Transform.status.label("transform_status"),
@@ -294,6 +294,16 @@ def get_requests(request_id=None, workload_id=None, with_detail=False, to_json=F
                 for t in tmp:
                     # t2 = dict(t)
                     t2 = dict(zip(t.keys(), t))
+
+                    if t2['request_metadata'] and 'workflow' in t2['request_metadata']:
+                        workflow = t2['request_metadata']['workflow']
+                        workflow_data = None
+                    if t2['processing_metadata'] and 'workflow_data' in t2['processing_metadata']:
+                        workflow_data = t2['processing_metadata']['workflow_data']
+                    if workflow is not None and workflow_data is not None:
+                        workflow.metadata = workflow_data
+                        t2['request_metadata']['workflow'] = workflow
+
                     rets.append(t2)
             return rets
     except sqlalchemy.orm.exc.NoResultFound as error:
@@ -473,6 +483,20 @@ def update_request(request_id, parameters, session=None):
     try:
         parameters['updated_at'] = datetime.datetime.utcnow()
 
+        if 'request_metadata' in parameters and 'workflow' in parameters['request_metadata']:
+            workflow = parameters['request_metadata']['workflow']
+
+            if workflow is not None:
+                workflow.refresh_works()
+                if 'processing_metadata' not in parameters:
+                    parameters['processing_metadata'] = {}
+                parameters['processing_metadata']['workflow_data'] = workflow.metadata
+
+        if 'request_metadata' in parameters:
+            del parameters['request_metadata']
+        if 'processing_metadata' in parameters:
+            parameters['_processing_metadata'] = parameters['processing_metadata']
+            del parameters['processing_metadata']
         session.query(models.Request).filter_by(request_id=request_id)\
                .update(parameters, synchronize_session=False)
     except sqlalchemy.orm.exc.NoResultFound as error:
