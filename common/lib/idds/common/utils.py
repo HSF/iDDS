@@ -428,3 +428,7 @@ def get_proxy():
             proxy = fp.read()
         return proxy
     return None
+
+
+def is_new_version(version1, version2):
+    return version1 > version2

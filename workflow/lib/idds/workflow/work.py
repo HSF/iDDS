@@ -963,7 +963,7 @@ class Work(Base):
         coll_metadata = copy.copy(coll)
         del coll_metadata['scope']
         del coll_metadata['name']
-        collection = Collection(scope=coll['scope'], name=coll['name'], coll_metadata=coll)
+        collection = Collection(scope=coll['scope'], name=coll['name'], coll_metadata=coll_metadata)
         self.collections[collection.internal_id] = collection
         return collection
 
