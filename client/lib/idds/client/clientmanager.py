@@ -17,6 +17,7 @@ import tabulate
 
 from idds.common.utils import setup_logging
 
+from idds.client.version import release_version
 from idds.client.client import Client
 from idds.common.constants import RequestType, RequestStatus
 from idds.common.utils import get_rest_host, exception_handler
@@ -53,7 +54,7 @@ class ClientManager:
             'priority': 0,
             'lifetime': 30,
             'workload_id': workflow.get_workload_id(),
-            'request_metadata': {'workload_id': workflow.get_workload_id(), 'workflow': workflow}
+            'request_metadata': {'version': release_version, 'workload_id': workflow.get_workload_id(), 'workflow': workflow}
         }
         workflow.add_proxy()
         primary_init_work = workflow.get_primary_initial_collection()

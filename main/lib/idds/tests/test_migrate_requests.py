@@ -15,7 +15,7 @@ Test client.
 
 
 from idds.client.clientmanager import ClientManager
-from idds.common.utils import json_dumps
+from idds.common.utils import json_dumps  # noqa F401
 
 
 def migrate():
@@ -32,9 +32,9 @@ def migrate():
     for req in reqs:
         workflow = req['request_metadata']['workflow']
         # print(json_dumps(workflow))
-        print(json_dumps(workflow, sort_keys=True, indent=4))
-        # req_id = cm2.submit(workflow)
-        # print(req_id)
+        # print(json_dumps(workflow, sort_keys=True, indent=4))
+        req_id = cm2.submit(workflow)
+        print(req_id)
 
 
 if __name__ == '__main__':
