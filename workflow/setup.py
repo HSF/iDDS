@@ -89,8 +89,9 @@ if sys.version_info[0] == 2:
 
 data_files = [
     # config and cron files
-    # ('etc/idds/', glob.glob('etc/idds/*.template')),
-    # ('etc/idds/rest', glob.glob('etc/idds/rest/*template')),
+    ('etc/idds/', glob.glob('etc/idds/*.template')),
+    ('etc/idds/rest', glob.glob('etc/idds/rest/*template')),
+    ('tools/env/', glob.glob('tools/env/*.yml')),
 ]
 scripts = glob.glob('bin/*')
 
