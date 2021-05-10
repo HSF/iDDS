@@ -20,6 +20,7 @@ from idds.common import exceptions
 from idds.common.constants import (WorkStatus, ProcessingStatus,
                                    CollectionStatus, CollectionType)
 from idds.common.utils import setup_logging
+from idds.common.utils import str_to_date
 
 from .base import Base
 
@@ -237,7 +238,10 @@ class Processing(Base):
 
     @property
     def operation_time(self):
-        return self.get_metadata_item('operation_time', False)
+        opt_time = self.get_metadata_item('operation_time', None)
+        if opt_time and type(opt_time) in [str]:
+            opt_time = str_to_date(opt_time)
+        return opt_time
 
     @operation_time.setter
     def operation_time(self, value):
