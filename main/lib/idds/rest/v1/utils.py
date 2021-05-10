@@ -122,7 +122,7 @@ def convert_old_req_2_workflow_req(data):
 
     if data['request_type'] == RequestType.Workflow:
         if ('request_metadata' in data and data['request_metadata'] and 'version' in data['request_metadata']
-            and data['request_metadata']['version'] and is_new_version(data['request_metadata']['version'], '0.3.0')):  # noqa W503
+            and data['request_metadata']['version'] and is_new_version(data['request_metadata']['version'], '0.2.9')):  # noqa W503
             return data
         else:
             data = convert_old_workflow_to_new_workflow(data)
