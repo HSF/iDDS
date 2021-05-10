@@ -15,7 +15,7 @@ operations related to Transform.
 
 # from idds.common import exceptions
 
-from idds.common.constants import (TransformStatus, ContentRelationType,
+from idds.common.constants import (TransformStatus, ContentRelationType, ContentStatus,
                                    TransformLocking, CollectionRelationType)
 from idds.orm.base.session import read_session, transactional_session
 from idds.orm import (transforms as orm_transforms,
@@ -140,13 +140,48 @@ def get_transforms_by_status(status, period=None, locking=False, bulk_size=None,
 
     :returns: list of transform.
     """
-    transforms = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking,
-                                                         bulk_size=bulk_size, to_json=to_json,
-                                                         by_substatus=by_substatus, session=session)
     if locking:
+        if bulk_size:
+            # order by cannot work together with locking. So first select 2 * bulk_size without locking with order by.
+            # then select with locking.
+            tf_ids = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking,
+                                                             bulk_size=bulk_size * 2, locking_for_update=False,
+                                                             to_json=False, only_return_id=True,
+                                                             by_substatus=by_substatus, session=session)
+            if tf_ids:
+                transform2s = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking,
+                                                                      bulk_size=None, locking_for_update=True,
+                                                                      to_json=to_json, transform_ids=tf_ids,
+                                                                      by_substatus=by_substatus, session=session)
+                if transform2s:
+                    # reqs = req2s[:bulk_size]
+                    # order requests
+                    transforms = []
+                    for tf_id in tf_ids:
+                        if len(transforms) >= bulk_size:
+                            break
+                        for tf in transform2s:
+                            if tf['transform_id'] == tf_id:
+                                transforms.append(tf)
+                                break
+                    # transforms = transforms[:bulk_size]
+                else:
+                    transforms = []
+            else:
+                transforms = []
+        else:
+            transforms = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking,
+                                                                 locking_for_update=locking,
+                                                                 bulk_size=bulk_size, to_json=to_json,
+                                                                 by_substatus=by_substatus, session=session)
+
         parameters = {'locking': TransformLocking.Locking}
         for transform in transforms:
             orm_transforms.update_transform(transform_id=transform['transform_id'], parameters=parameters, session=session)
+    else:
+        transforms = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking,
+                                                             bulk_size=bulk_size, to_json=to_json,
+                                                             by_substatus=by_substatus, session=session)
     return transforms
 
 
@@ -194,23 +229,35 @@ def add_transform_outputs(transform, transform_parameters, input_collections=Non
 
     if input_collections:
         for coll in input_collections:
+            collection = coll['collection']
+            del coll['collection']
             coll_id = orm_collections.add_collection(**coll, session=session)
-            work.set_collection_id(coll, coll_id)
+            # work.set_collection_id(coll, coll_id)
+            collection.coll_id = coll_id
     if output_collections:
         for coll in output_collections:
+            collection = coll['collection']
+            del coll['collection']
             coll_id = orm_collections.add_collection(**coll, session=session)
-            work.set_collection_id(coll, coll_id)
+            # work.set_collection_id(coll, coll_id)
+            collection.coll_id = coll_id
     if log_collections:
         for coll in log_collections:
+            collection = coll['collection']
+            del coll['collection']
             coll_id = orm_collections.add_collection(**coll, session=session)
-            work.set_collection_id(coll, coll_id)
+            # work.set_collection_id(coll, coll_id)
+            collection.coll_id = coll_id
 
     if update_input_collections:
-        orm_collections.update_collections(update_input_collections, session=session)
+        update_input_colls = [coll.collection for coll in update_input_collections]
+        orm_collections.update_collections(update_input_colls, session=session)
     if update_output_collections:
-        orm_collections.update_collections(update_output_collections, session=session)
+        update_output_colls = [coll.collection for coll in update_output_collections]
+        orm_collections.update_collections(update_output_colls, session=session)
     if update_log_collections:
-        orm_collections.update_collections(update_log_collections, session=session)
+        update_log_colls = [coll.collection for coll in update_log_collections]
+        orm_collections.update_collections(update_log_colls, session=session)
 
     if new_contents:
         orm_contents.add_contents(new_contents, session=session)
@@ -259,7 +306,9 @@ def add_transform_outputs(transform, transform_parameters, input_collections=Non
                 transform['transform_metadata']['processing_id'] = processing_id
         """
         if processing_id:
-            work.set_processing_id(new_processing, processing_id)
+            # work.set_processing_id(new_processing, processing_id)
+            work.set_processing_id(new_processing['processing_metadata']['processing'], processing_id)
+        work.refresh_work()
         orm_transforms.update_transform(transform_id=transform['transform_id'],
                                         parameters=transform_parameters,
                                         session=session)
@@ -348,6 +397,32 @@ def release_inputs(to_release_inputs):
                                   'substatus': to_release['substatus'],
                                   'status': to_release['status']}
                 update_contents.append(update_content)
+    return update_contents
+
+
+def release_inputs_by_collection(to_release_inputs):
+    update_contents = []
+    for coll_id in to_release_inputs:
+        to_release_contents = to_release_inputs[coll_id]
+        if to_release_contents:
+            to_release = to_release_contents[0]
+            to_release_names = []
+            for to_release_content in to_release_contents:
+                if (to_release_content['status'] in [ContentStatus.Available]                  # noqa: W503
+                    or to_release_content['substatus'] in [ContentStatus.Available]):          # noqa: W503
+                    to_release_names.append(to_release_content['name'])
+            contents = orm_contents.get_input_contents(request_id=to_release['request_id'],
+                                                       coll_id=to_release['coll_id'],
+                                                       name=None)
+
+            for content in contents:
+                if (content['content_relation_type'] == ContentRelationType.InputDependency    # noqa: W503
+                    and content['status'] not in [ContentStatus.Available]                     # noqa: W503
+                    and content['name'] in to_release_names):                                  # noqa: W503
+                    update_content = {'content_id': content['content_id'],
+                                      'substatus': ContentStatus.Available,
+                                      'status': ContentStatus.Available}
+                    update_contents.append(update_content)
     return update_contents
 
 

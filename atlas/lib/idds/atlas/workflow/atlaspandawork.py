@@ -22,12 +22,11 @@ import copy
 import os
 import re
 import traceback
-import uuid
 
 from idds.common import exceptions
 from idds.common.constants import (TransformType, CollectionType, CollectionStatus,
                                    ProcessingStatus, WorkStatus, ContentStatus)
-from idds.workflow.work import Work
+from idds.workflow.work import Work, Processing
 from idds.workflow.workflow import Condition
 
 
@@ -130,7 +129,7 @@ class ATLASPandaWork(Work):
 
         # generate new dataset name
         # self.padding = self.sequence_in_workflow
-        new_dataset_name = self.output_dataset_name + "_" + str(self.get_sequence_id())
+        new_dataset_name = self.output_dataset_name + "_" + str(self.sequence_id)
         for coll_id in self.collections:
             coll = self.collections[coll_id]
             coll['name'] = coll['name'].replace(self.output_dataset_name, new_dataset_name)
@@ -243,38 +242,36 @@ class ATLASPandaWork(Work):
     def poll_external_collection(self, coll):
         try:
             # if 'coll_metadata' in coll and 'is_open' in coll['coll_metadata'] and not coll['coll_metadata']['is_open']:
-            if 'status' in coll and coll['status'] in [CollectionStatus.Closed]:
+            if coll.status in [CollectionStatus.Closed]:
                 return coll
             else:
                 # client = self.get_rucio_client()
                 # did_meta = client.get_metadata(scope=coll['scope'], name=coll['name'])
-                if 'coll_metadata' not in coll:
-                    coll['coll_metadata'] = {}
-                coll['coll_metadata']['bytes'] = 0
-                coll['coll_metadata']['total_files'] = 0
-                coll['coll_metadata']['availability'] = True
-                coll['coll_metadata']['events'] = 0
-                coll['coll_metadata']['is_open'] = False
-                coll['coll_metadata']['run_number'] = None
-                coll['coll_metadata']['did_type'] = 'DATASET'
-                coll['coll_metadata']['list_all_files'] = False
+                coll.coll_metadata['bytes'] = 0
+                coll.coll_metadata['total_files'] = 0
+                coll.coll_metadata['availability'] = True
+                coll.coll_metadata['events'] = 0
+                coll.coll_metadata['is_open'] = False
+                coll.coll_metadata['run_number'] = None
+                coll.coll_metadata['did_type'] = 'DATASET'
+                coll.coll_metadata['list_all_files'] = False
 
-                if 'is_open' in coll['coll_metadata'] and not coll['coll_metadata']['is_open']:
+                if 'is_open' in coll.coll_metadata and not coll.coll_metadata['is_open']:
                     coll_status = CollectionStatus.Closed
                 else:
                     coll_status = CollectionStatus.Open
-                coll['status'] = coll_status
+                coll.status = coll_status
 
-                if 'did_type' in coll['coll_metadata']:
-                    if coll['coll_metadata']['did_type'] == 'DATASET':
+                if 'did_type' in coll.coll_metadata:
+                    if coll.coll_metadata['did_type'] == 'DATASET':
                         coll_type = CollectionType.Dataset
-                    elif coll['coll_metadata']['did_type'] == 'CONTAINER':
+                    elif coll.coll_metadata['did_type'] == 'CONTAINER':
                         coll_type = CollectionType.Container
                     else:
                         coll_type = CollectionType.File
                 else:
                     coll_type = CollectionType.Dataset
-                coll['coll_type'] = coll_type
+                coll.coll_metadata['coll_type'] = coll_type
 
                 return coll
         except Exception as ex:
@@ -358,7 +355,7 @@ class ATLASPandaWork(Work):
 
         return new_input_output_maps
 
-    def get_processing(self, input_output_maps):
+    def get_processing(self, input_output_maps, without_creating=False):
         """
         *** Function called by Transformer agent.
 
@@ -368,18 +365,21 @@ class ATLASPandaWork(Work):
         if self.active_processings:
             return self.processings[self.active_processings[0]]
         else:
-            return self.create_processing(input_output_maps)
+            if not without_creating:
+                return self.create_processing(input_output_maps)
+        return None
 
-    def create_processing(self, input_output_maps):
+    def create_processing(self, input_output_maps=[]):
         """
         *** Function called by Transformer agent.
 
         :param input_output_maps: new maps from inputs to outputs.
         """
-        proc = {'processing_metadata': {'internal_id': str(uuid.uuid1()),
-                                        'panda_task_id': self.panda_task_id}}
+        processing_metadata = {'panda_task_id': self.panda_task_id}
+        proc = Processing(processing_metadata=processing_metadata)
+        proc.workload_id = self.panda_task_id
         self.add_processing_to_processings(proc)
-        self.active_processings.append(proc['processing_metadata']['internal_id'])
+        self.active_processings.append(proc.internal_id)
         return proc
 
     def submit_panda_task(self, processing):
@@ -391,7 +391,7 @@ class ATLASPandaWork(Work):
                 tmp_status, tmp_output = tmpOut
                 m = re.search("jediTaskID=(\d+)", tmp_output)  # noqa W605
                 task_id = int(m.group(1))
-                processing['processing_metadata']['panda_task_id'] = task_id
+                processing.workload_id = task_id
             else:
                 self.add_errors(tmpOut)
                 raise Exception(tmpOut)
@@ -415,7 +415,7 @@ class ATLASPandaWork(Work):
         if 'panda_task_id' in processing['processing_metadata']:
             from pandatools import Client
 
-            status, task_status = Client.getTaskStatus(processing['processing_metadata']['panda_task_id'])
+            status, task_status = Client.getTaskStatus(processing.workload_id)
             if status == 0:
                 return task_status
         else:
@@ -426,7 +426,7 @@ class ATLASPandaWork(Work):
         try:
             if processing:
                 from pandatools import Client
-                task_id = processing['processing_metadata']['task_id']
+                task_id = processing.workload_id
                 Client.killTask(task_id)
         except Exception as ex:
             msg = "Failed to check the processing (%s) status: %s" % (str(processing['processing_id']), str(ex))
@@ -436,7 +436,7 @@ class ATLASPandaWork(Work):
         try:
             if processing:
                 from pandatools import Client
-                task_id = processing['processing_metadata']['task_id']
+                task_id = processing.workload_id
                 Client.retryTask(task_id)
                 # Client.reactivateTask(task_id)
                 # Client.resumeTask(task_id)
@@ -511,7 +511,7 @@ class ATLASPandaWork(Work):
             output_collection['processed_files'] = 0
     """
 
-    def syn_work_status(self, registered_input_output_maps):
+    def syn_work_status(self, registered_input_output_maps, all_updates_flushed=True, output_statistics={}):
         # self.syn_collection_status()
 
         if self.is_processings_terminated() and not self.has_new_inputs():

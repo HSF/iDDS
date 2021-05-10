@@ -158,21 +158,21 @@ iDDS Command Line Interface (CLI)
 .. code-block:: python
 
     # One of workload_id or request_id can be None
-    idds abort-requests --request_id=<request_id> --workload_id=<workload_id>
+    idds abort_requests --request_id=<request_id> --workload_id=<workload_id>
 
 2. Suspend a request
 
 .. code-block:: python
 
     # One of workload_id or request_id can be None
-    idds suspend-requests --request_id=<request_id> --workload_id=<workload_id>
+    idds suspend_requests --request_id=<request_id> --workload_id=<workload_id>
 
 3. Resume a request
 
 .. code-block:: python
 
     # One of workload_id or request_id can be None
-    idds resume-requests --request_id=<request_id> --workload_id=<workload_id>
+    idds resume_requests --request_id=<request_id> --workload_id=<workload_id>
 
 4. Get progress report
 

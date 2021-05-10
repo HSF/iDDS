@@ -45,6 +45,253 @@ class Parameter(object):
         return value
 
 
+class Collection(Base):
+
+    def __init__(self, scope=None, name=None, coll_metadata={}):
+        super(Collection, self).__init__()
+        self.scope = scope
+        self.name = name
+        self.coll_metadata = coll_metadata
+
+        self.collection = None
+
+        self.internal_id = str(uuid.uuid1())
+        self.coll_id = None
+        self.status = CollectionStatus.New
+        self.substatus = CollectionStatus.New
+
+    @property
+    def internal_id(self):
+        return self.get_metadata_item('internal_id')
+
+    @internal_id.setter
+    def internal_id(self, value):
+        self.add_metadata_item('internal_id', value)
+
+    @property
+    def coll_id(self):
+        return self.get_metadata_item('coll_id', None)
+
+    @coll_id.setter
+    def coll_id(self, value):
+        self.add_metadata_item('coll_id', value)
+
+    @property
+    def status(self):
+        return self.get_metadata_item('status', CollectionStatus.New)
+
+    @status.setter
+    def status(self, value):
+        self.add_metadata_item('status', value)
+        if self.collection:
+            self.collection['status'] = value
+
+    @property
+    def substatus(self):
+        return self.get_metadata_item('substatus', CollectionStatus.New)
+
+    @substatus.setter
+    def substatus(self, value):
+        self.add_metadata_item('substatus', value)
+        if self.collection:
+            self.collection['substatus'] = value
+
+    @property
+    def collection(self):
+        return self._collection
+
+    @collection.setter
+    def collection(self, value):
+        self._collection = value
+        if self._collection:
+            self.scope = self._collection['scope']
+            self.name = self._collection['name']
+            self.coll_metadata = self._collection['coll_metadata']
+            self.coll_id = self._collection['coll_id']
+            self.status = self._collection['status']
+            self.substatus = self._collection['substatus']
+
+
+class Processing(Base):
+
+    def __init__(self, processing_metadata={}):
+        super(Processing, self).__init__()
+
+        self.processing_metadata = processing_metadata
+        if self.processing_metadata and 'work' in self.processing_metadata:
+            self.work = self.processing_metadata['work']
+        else:
+            self.work = None
+
+        self.processing = None
+
+        self.internal_id = str(uuid.uuid1())
+        self.processing_id = None
+        self.workload_id = None
+        self.status = ProcessingStatus.New
+        self.substatus = ProcessingStatus.New
+        self.last_updated_at = datetime.datetime.utcnow()
+        self.polling_retries = 0
+        self.tocancel = False
+        self.tosuspend = False
+        self.toresume = False
+        self.operation_time = datetime.datetime.utcnow()
+
+        self.external_id = None
+        self.errors = None
+
+        self.output_data = None
+
+    @property
+    def internal_id(self):
+        return self.get_metadata_item('internal_id')
+
+    @internal_id.setter
+    def internal_id(self, value):
+        self.add_metadata_item('internal_id', value)
+
+    @property
+    def processing_id(self):
+        return self.get_metadata_item('processing_id', None)
+
+    @processing_id.setter
+    def processing_id(self, value):
+        self.add_metadata_item('processing_id', value)
+
+    @property
+    def workload_id(self):
+        return self.get_metadata_item('workload_id', None)
+
+    @workload_id.setter
+    def workload_id(self, value):
+        self.add_metadata_item('workload_id', value)
+
+    @property
+    def status(self):
+        return self.get_metadata_item('status', ProcessingStatus.New)
+
+    @status.setter
+    def status(self, value):
+        self.add_metadata_item('status', value)
+        if self.processing:
+            self.processing['status'] = value
+
+    @property
+    def substatus(self):
+        return self.get_metadata_item('substatus', ProcessingStatus.New)
+
+    @substatus.setter
+    def substatus(self, value):
+        self.add_metadata_item('substatus', value)
+        if self.processing:
+            self.processing['substatus'] = value
+
+    @property
+    def last_updated_at(self):
+        return self.get_metadata_item('last_updated_at', None)
+
+    @last_updated_at.setter
+    def last_updated_at(self, value):
+        self.add_metadata_item('last_updated_at', value)
+
+    @property
+    def polling_retries(self):
+        return self.get_metadata_item('polling_retries', 0)
+
+    @polling_retries.setter
+    def polling_retries(self, value):
+        self.add_metadata_item('polling_retries', value)
+
+    @property
+    def tocancel(self):
+        return self.get_metadata_item('tocancel', False)
+
+    @tocancel.setter
+    def tocancel(self, value):
+        old_value = self.get_metadata_item('tocancel', False)
+        if old_value != value:
+            self.operation_time = datetime.datetime.utcnow()
+        self.add_metadata_item('tocancel', value)
+
+    @property
+    def tosuspend(self):
+        return self.get_metadata_item('tosuspend', False)
+
+    @tosuspend.setter
+    def tosuspend(self, value):
+        old_value = self.get_metadata_item('tosuspend', False)
+        if old_value != value:
+            self.operation_time = datetime.datetime.utcnow()
+        self.add_metadata_item('tosuspend', value)
+
+    @property
+    def toresume(self):
+        return self.get_metadata_item('toresume', False)
+
+    @toresume.setter
+    def toresume(self, value):
+        old_value = self.get_metadata_item('toresume', False)
+        if old_value != value:
+            self.operation_time = datetime.datetime.utcnow()
+        self.add_metadata_item('toresume', value)
+
+    @property
+    def operation_time(self):
+        return self.get_metadata_item('operation_time', False)
+
+    @operation_time.setter
+    def operation_time(self, value):
+        self.add_metadata_item('operation_time', value)
+
+    def in_operation_time(self):
+        if self.operation_time:
+            time_diff = datetime.datetime.utcnow() - self.operation_time
+            time_diff = time_diff.total_seconds()
+            if time_diff < 120:
+                return True
+        return False
+
+    @property
+    def errors(self):
+        return self.get_metadata_item('errors', None)
+
+    @errors.setter
+    def errors(self, value):
+        self.add_metadata_item('errors', value)
+
+    @property
+    def external_id(self):
+        return self.get_metadata_item('external_id', None)
+
+    @external_id.setter
+    def external_id(self, value):
+        self.add_metadata_item('external_id', value)
+
+    @property
+    def processing(self):
+        return self._processing
+
+    @processing.setter
+    def processing(self, value):
+        self._processing = value
+        if self._processing:
+            self.processing_id = self._processing.get('processing_id', None)
+            self.workload_id = self._processing.get('workload_id', None)
+            self.status = self._processing.get('status', None)
+            self.substatus = self._processing.get('substatus', None)
+            self.processing_metadata = self._processing.get('processing_metadata', None)
+            if self.processing_metadata and 'processing' in self.processing_metadata:
+                proc = self.processing_metadata['processing']
+                self.work = proc.work
+                self.external_id = proc.external_id
+                self.errors = proc.errors
+
+            self.output_data = self._processing.get('output_metadata', None)
+
+    def has_new_updates(self):
+        self.last_updated_at = datetime.datetime.utcnow()
+
+
 class Work(Base):
 
     def __init__(self, executable=None, arguments=None, parameters=None, setup=None, work_type=None,
@@ -69,6 +316,8 @@ class Work(Base):
         :param output_collections: List of the output collections.
         # :param workflow: The workflow the current work belongs to.
         """
+        super(Work, self).__init__()
+
         self.internal_id = str(uuid.uuid1())
         self.template_work_id = self.internal_id
         self.class_name = self.__class__.__name__.lower()
@@ -115,11 +364,11 @@ class Work(Base):
         self.add_log_collections(log_collections)
 
         self.release_inputs_after_submitting = release_inputs_after_submitting
-        self._has_new_inputs = True
+        self.has_new_inputs = True
 
         self.status = WorkStatus.New
         self.substatus = WorkStatus.New
-        self.polling_retries = None
+        self.polling_retries = 0
         self.errors = []
         self.next_works = []
 
@@ -145,6 +394,21 @@ class Work(Base):
         self.tosuspend = False
         self.toresume = False
 
+        self.backup_to_release_inputs = {'0': [], '1': [], '2': []}
+
+        """
+        self._running_data_names = []
+        for name in ['internal_id', 'template_work_id', 'initialized', 'sequence_id', 'parameters', 'work_id', 'transforming', 'workdir',
+                     # 'collections', 'primary_input_collection', 'other_input_collections', 'output_collections', 'log_collections',
+                     'collections',
+                     # 'output_data',
+                     '_has_new_inputs', 'status', 'substatus', 'polling_retries', 'errors', 'next_works',
+                     'processings', 'active_processings', 'cancelled_processings', 'suspended_processings', 'old_processings',
+                     # 'terminated_msg', 'output_data', 'parameters_for_next_task', 'status_statistics',
+                     'tocancel', 'tosuspend', 'toresume']:
+            self._running_data_names.append(name)
+        """
+
     def get_class_name(self):
         return self.__class__.__name__
 
@@ -154,11 +418,257 @@ class Work(Base):
     def get_template_work_id(self):
         return self.template_work_id
 
-    def set_sequence_id(self, seq_id):
-        self.sequence_id = seq_id
-
     def get_sequence_id(self):
         return self.sequence_id
+
+    @property
+    def internal_id(self):
+        return self.get_metadata_item('internal_id')
+
+    @internal_id.setter
+    def internal_id(self, value):
+        self.add_metadata_item('internal_id', value)
+
+    @property
+    def template_work_id(self):
+        return self.get_metadata_item('template_work_id')
+
+    @template_work_id.setter
+    def template_work_id(self, value):
+        self.add_metadata_item('template_work_id', value)
+
+    @property
+    def initialized(self):
+        return self.get_metadata_item('initialized', False)
+
+    @initialized.setter
+    def initialized(self, value):
+        self.add_metadata_item('initialized', value)
+
+    @property
+    def sequence_id(self):
+        return self.get_metadata_item('sequence_id', 0)
+
+    @sequence_id.setter
+    def sequence_id(self, value):
+        self.add_metadata_item('sequence_id', value)
+
+    @property
+    def parameters(self):
+        return self.get_metadata_item('parameters', None)
+
+    @parameters.setter
+    def parameters(self, value):
+        self.add_metadata_item('parameters', value)
+
+    @property
+    def work_id(self):
+        return self.get_metadata_item('work_id', None)
+
+    @work_id.setter
+    def work_id(self, value):
+        self.add_metadata_item('work_id', value)
+
+    @property
+    def transforming(self):
+        return self.get_metadata_item('transforming', False)
+
+    @transforming.setter
+    def transforming(self, value):
+        self.add_metadata_item('transforming', value)
+
+    @property
+    def workdir(self):
+        return self.get_metadata_item('workdir', None)
+
+    @workdir.setter
+    def workdir(self, value):
+        self.add_metadata_item('workdir', value)
+
+    @property
+    def work_name(self):
+        return self.get_metadata_item('work_name', 0)
+
+    @work_name.setter
+    def work_name(self, value):
+        self.add_metadata_item('work_name', value)
+
+    @property
+    def has_new_inputs(self):
+        return self.get_metadata_item('has_new_inputs', 0)
+
+    @has_new_inputs.setter
+    def has_new_inputs(self, value):
+        self.add_metadata_item('has_new_inputs', value)
+
+    @property
+    def status(self):
+        return self.get_metadata_item('status', WorkStatus.New)
+
+    @status.setter
+    def status(self, value):
+        self.add_metadata_item('status', value)
+
+    @property
+    def substatus(self):
+        return self.get_metadata_item('substatus', WorkStatus.New)
+
+    @substatus.setter
+    def substatus(self, value):
+        self.add_metadata_item('substatus', value)
+
+    @property
+    def polling_retries(self):
+        return self.get_metadata_item('polling_retries', 0)
+
+    @polling_retries.setter
+    def polling_retries(self, value):
+        self.add_metadata_item('polling_retries', value)
+
+    @property
+    def errors(self):
+        return self.get_metadata_item('errors', None)
+
+    @errors.setter
+    def errors(self, value):
+        self.add_metadata_item('errors', value)
+
+    @property
+    def next_works(self):
+        return self.get_metadata_item('next_works', 0)
+
+    @next_works.setter
+    def next_works(self, value):
+        self.add_metadata_item('next_works', value)
+
+    @property
+    def collections(self):
+        return self._collections
+
+    @collections.setter
+    def collections(self, value):
+        self._collections = value
+        coll_metadata = {}
+        if self._collections:
+            for k in self._collections:
+                coll = self._collections[k]
+                if type(coll) in [Collection]:
+                    coll_metadata[k] = {'coll_id': coll.coll_id}
+        self.add_metadata_item('collections', coll_metadata)
+
+    @property
+    def processings(self):
+        return self._processings
+
+    @processings.setter
+    def processings(self, value):
+        self._processings = value
+        proc_metadata = {}
+        if self._processings:
+            for k in self._processings:
+                proc = self._processings[k]
+                if type(proc) in [Processing]:
+                    proc_metadata[k] = {'processing_id': proc.processing_id}
+        self.add_metadata_item('processings', proc_metadata)
+
+    def refresh_work(self):
+        coll_metadata = {}
+        if self._collections:
+            for k in self._collections:
+                coll = self._collections[k]
+                if type(coll) in [Collection]:
+                    coll_metadata[k] = {'coll_id': coll.coll_id}
+        self.add_metadata_item('collections', coll_metadata)
+
+        proc_metadata = {}
+        if self._processings:
+            for k in self._processings:
+                proc = self._processings[k]
+                if type(proc) in [Processing]:
+                    proc_metadata[k] = {'processing_id': proc.processing_id}
+        self.add_metadata_item('processings', proc_metadata)
+
+    def load_work(self):
+        coll_metadata = self.get_metadata_item('collections', {})
+        for k in coll_metadata:
+            if k in self._collections:
+                coll_id = coll_metadata[k]['coll_id']
+                self._collections[k].coll_id = coll_id
+            else:
+                self._collections[k] = Collection(scope=None, name=None)
+                coll_id = coll_metadata[k]['coll_id']
+                self._collections[k].coll_id = coll_id
+                self._collections[k].internal_id = k
+
+        proc_metadata = self.get_metadata_item('processings', {})
+        for k in proc_metadata:
+            if k in self._processings:
+                proc_id = proc_metadata[k]['processing_id']
+                self._processings[k].processing_id = proc_id
+            else:
+                self._processings[k] = Processing(processing_metadata={})
+                proc_id = proc_metadata[k]['processing_id']
+                self._processings[k].processing_id = proc_id
+                self._processings[k].internal_id = k
+
+    def load_metadata(self):
+        self.load_work()
+
+    @property
+    def active_processings(self):
+        return self.get_metadata_item('active_processings', [])
+
+    @active_processings.setter
+    def active_processings(self, value):
+        self.add_metadata_item('active_processings', value)
+
+    @property
+    def cancelled_processings(self):
+        return self.get_metadata_item('cancelled_processings', [])
+
+    @cancelled_processings.setter
+    def cancelled_processings(self, value):
+        self.add_metadata_item('cancelled_processings', value)
+
+    @property
+    def suspended_processings(self):
+        return self.get_metadata_item('suspended_processings', [])
+
+    @suspended_processings.setter
+    def suspended_processings(self, value):
+        self.add_metadata_item('suspended_processings', value)
+
+    @property
+    def old_processings(self):
+        return self.get_metadata_item('old_processings', [])
+
+    @old_processings.setter
+    def old_processings(self, value):
+        self.add_metadata_item('old_processings', value)
+
+    @property
+    def tocancel(self):
+        return self.get_metadata_item('tocancel', False)
+
+    @tocancel.setter
+    def tocancel(self, value):
+        self.add_metadata_item('tocancel', value)
+
+    @property
+    def tosuspend(self):
+        return self.get_metadata_item('tosuspend', False)
+
+    @tosuspend.setter
+    def tosuspend(self, value):
+        self.add_metadata_item('tosuspend', value)
+
+    @property
+    def toresume(self):
+        return self.get_metadata_item('toresume', False)
+
+    @toresume.setter
+    def toresume(self, value):
+        self.add_metadata_item('toresume', value)
 
     def set_work_name(self, work_name):
         self.work_name = work_name
@@ -196,7 +706,14 @@ class Work(Base):
     #     self.workflow = workflow
 
     def clean_work(self):
-        pass
+        self.processings = {}
+        self.active_processings = []
+        self.cancelled_processings = []
+        self.suspended_processings = []
+        self.old_processings = []
+        self.terminated_msg = ""
+        self.output_data = None
+        self.parameters_for_next_task = None
 
     def set_agent_attributes(self, attrs, req_attributes=None):
         if attrs and self.class_name in attrs:
@@ -232,6 +749,7 @@ class Work(Base):
         *** Function called by Marshaller agent.
         """
         self.terminated_msg = msg
+        self.add_errors(msg)
 
     def get_terminated_msg(self):
         return self.terminated_msg
@@ -288,6 +806,22 @@ class Work(Base):
 
     def get_arguments(self):
         return self.arguments
+
+    def has_to_release_inputs(self):
+        if self.backup_to_release_inputs['0'] or self.backup_to_release_inputs['1'] or self.backup_to_release_inputs['2']:
+            return True
+        return False
+
+    def add_backup_to_release_inputs(self, to_release_inputs):
+        if to_release_inputs:
+            self.backup_to_release_inputs['0'] = self.backup_to_release_inputs['0'] + to_release_inputs
+
+    def get_backup_to_release_inputs(self):
+        to_release_inputs = self.backup_to_release_inputs['0'] + self.backup_to_release_inputs['1'] + self.backup_to_release_inputs['2']
+        self.backup_to_release_inputs['2'] = self.backup_to_release_inputs['1']
+        self.backup_to_release_inputs['1'] = self.backup_to_release_inputs['0']
+        self.backup_to_release_inputs['0'] = []
+        return to_release_inputs
 
     def is_terminated(self):
         """
@@ -415,21 +949,24 @@ class Work(Base):
             pass
         else:
             self.status = WorkStatus.Transforming
-        self.polling_retries = None
+        self.polling_retries = 0
 
     def add_collection_to_collections(self, coll):
         assert(isinstance(coll, dict))
         assert('scope' in coll)
         assert('name' in coll)
-        if 'coll_metadata' not in coll:
-            coll['coll_metadata'] = {}
-        coll['coll_metadata']['internal_id'] = str(uuid.uuid1())
-        self.collections[coll['coll_metadata']['internal_id']] = coll
+
+        coll_metadata = copy.copy(coll)
+        del coll_metadata['scope']
+        del coll_metadata['name']
+        collection = Collection(scope=coll['scope'], name=coll['name'], coll_metadata=coll)
+        self.collections[collection.internal_id] = collection
+        return collection
 
     def set_primary_input_collection(self, coll):
         if coll:
-            self.add_collection_to_collections(coll)
-            self.primary_input_collection = coll['coll_metadata']['internal_id']
+            collection = self.add_collection_to_collections(coll)
+            self.primary_input_collection = collection.internal_id
 
     def get_primary_input_collection(self):
         """
@@ -442,8 +979,8 @@ class Work(Base):
             return
 
         for coll in colls:
-            self.add_collection_to_collections(coll)
-            self.other_input_collections.append(coll['coll_metadata']['internal_id'])
+            collection = self.add_collection_to_collections(coll)
+            self.other_input_collections.append(collection.internal_id)
 
     def get_other_input_collections(self):
         return [self.collections[k] for k in self.other_input_collections]
@@ -455,15 +992,21 @@ class Work(Base):
         keys = [self.primary_input_collection] + self.other_input_collections
         return [self.collections[k] for k in keys]
 
+    def is_input_collections_closed(self):
+        colls = self.get_input_collections()
+        for coll in colls:
+            if coll.status not in [CollectionStatus.Closed]:
+                return False
+        return True
+
     def is_internal_collection(self, coll):
-        if ('coll_metadata' in coll and coll['coll_metadata']
-            and 'source' in coll['coll_metadata'] and coll['coll_metadata']['source']  # noqa W503
-            and type(coll['coll_metadata']['source']) == str and coll['coll_metadata']['source'].lower() == 'idds'):  # noqa W503
+        if (coll.coll_metadata and 'source' in coll.coll_metadata and coll.coll_metadata['source']  # noqa W503
+            and type(coll.coll_metadata['source']) == str and coll.coll_metadata['source'].lower() == 'idds'):  # noqa W503
             return True
         return False
 
     def get_internal_collections(self, coll):
-        if 'coll_metadata' in coll and coll['coll_metadata'] and 'request_id' in coll['coll_metadata']:
+        if coll.coll_metadata and 'request_id' in coll.coll_metadata:
             # relation_type = coll['coll_metadata']['relation_type'] if 'relation_type' in coll['coll_metadata'] else CollectionRelationType.Output
             # colls = core_catalog.get_collections(scope=coll['scope'],
             #                                 name=coll['name'],
@@ -474,36 +1017,36 @@ class Work(Base):
 
     def poll_internal_collection(self, coll):
         try:
-            if 'status' in coll and coll['status'] in [CollectionStatus.Closed]:
+            if coll.status in [CollectionStatus.Closed]:
                 return coll
             else:
-                if 'coll_metadata' not in coll:
-                    coll['coll_metadata'] = {}
-                coll['coll_metadata']['bytes'] = 0
-                coll['coll_metadata']['availability'] = 0
-                coll['coll_metadata']['events'] = 0
-                coll['coll_metadata']['is_open'] = True
-                coll['coll_metadata']['run_number'] = 1
-                coll['coll_metadata']['did_type'] = 'DATASET'
-                coll['coll_metadata']['list_all_files'] = False
-                coll['coll_metadata']['interal_colls'] = []
+                if coll.coll_metadata is None:
+                    coll.coll_metadata = {}
+                coll.coll_metadata['bytes'] = 0
+                coll.coll_metadata['availability'] = 0
+                coll.coll_metadata['events'] = 0
+                coll.coll_metadata['is_open'] = True
+                coll.coll_metadata['run_number'] = 1
+                coll.coll_metadata['did_type'] = 'DATASET'
+                coll.coll_metadata['list_all_files'] = False
+                coll.coll_metadata['interal_colls'] = []
 
                 is_open = False
                 internal_colls = self.get_internal_collections(coll)
                 for i_coll in internal_colls:
-                    if i_coll['status'] not in [CollectionStatus.Closed]:
+                    if i_coll.status not in [CollectionStatus.Closed]:
                         is_open = True
-                    coll['coll_metadata']['bytes'] += i_coll['bytes']
+                    coll.coll_metadata['bytes'] += i_coll['bytes']
 
                 if not is_open:
                     coll_status = CollectionStatus.Closed
                 else:
                     coll_status = CollectionStatus.Open
-                coll['status'] = coll_status
+                coll.status = coll_status
                 if len(internal_colls) > 1:
-                    coll['coll_type'] = CollectionType.Container
+                    coll.coll_metadata['coll_type'] = CollectionType.Container
                 else:
-                    coll['coll_type'] = CollectionType.Dataset
+                    coll.coll_metadata['coll_type'] = CollectionType.Dataset
 
                 return coll
         except Exception as ex:
@@ -517,7 +1060,7 @@ class Work(Base):
         """
         coll = self.collections[self.primary_input_collection]
         internal_colls = self.get_internal_collection(coll)
-        internal_coll_ids = [coll['coll_id'] for coll in internal_colls]
+        internal_coll_ids = [coll.coll_id for coll in internal_colls]
         if internal_coll_ids:
             # contents = catalog.get_contents_by_coll_id_status(coll_id=coll_ids)
             contents = []
@@ -538,8 +1081,8 @@ class Work(Base):
             return
 
         for coll in colls:
-            self.add_collection_to_collections(coll)
-            self.output_collections.append(coll['coll_metadata']['internal_id'])
+            collection = self.add_collection_to_collections(coll)
+            self.output_collections.append(collection.internal_id)
 
     def get_output_collections(self):
         return [self.collections[k] for k in self.output_collections]
@@ -552,20 +1095,14 @@ class Work(Base):
             return
 
         for coll in colls:
-            self.add_collection_to_collections(coll)
-            self.log_collections.append(coll['coll_metadata']['internal_id'])
+            collection = self.add_collection_to_collections(coll)
+            self.log_collections.append(collection.internal_id)
 
     def get_log_collections(self):
         return [self.collections[k] for k in self.log_collections]
 
     def set_has_new_inputs(self, yes=True):
-        self._has_new_inputs = yes
-
-    def has_new_inputs(self):
-        """
-        *** Function called by Transformer agent.
-        """
-        return self._has_new_inputs
+        self.has_new_inputs = yes
 
     def get_new_input_output_maps(self, mapped_input_output_maps={}):
         """
@@ -612,12 +1149,12 @@ class Work(Base):
     def set_collection_id(self, collection, coll_id):
         # print(collection)
         # print(coll_id)
-        self.collections[collection['coll_metadata']['internal_id']]['coll_id'] = coll_id
+        self.collections[collection.internal_id]['coll_id'] = coll_id
 
     def should_release_inputs(self, processing=None):
         if self.release_inputs_after_submitting:
-            if (processing and 'status' in processing
-                and processing['status'] not in [ProcessingStatus.New, ProcessingStatus.New.value,  # noqa: W503
+            if (processing and processing.status
+                and processing.status not in [ProcessingStatus.New, ProcessingStatus.New.value,  # noqa: W503
                                                  ProcessingStatus.Submitting, ProcessingStatus.Submitting.value]):  # noqa: W503
                 return True
             return False
@@ -636,21 +1173,21 @@ class Work(Base):
         return self.work_name_to_coll_map
 
     def add_processing_to_processings(self, processing):
-        assert(isinstance(processing, dict))
+        # assert(isinstance(processing, dict))
         # assert('processing_metadata' in processing)
-        if 'processing_metadata' not in processing:
-            processing['processing_metadata'] = {}
+        # if 'processing_metadata' not in processing:
+        #     processing['processing_metadata'] = {}
 
-        if 'internal_id' not in processing['processing_metadata']:
-            processing['processing_metadata']['internal_id'] = str(uuid.uuid1())
-        self.processings[processing['processing_metadata']['internal_id']] = processing
+        # if 'internal_id' not in processing['processing_metadata']:
+        #     processing['processing_metadata']['internal_id'] = str(uuid.uuid1())
+        self.processings[processing.internal_id] = processing
 
     def get_processing_ids(self):
         ids = []
         for p_id in self.active_processings:
             p = self.processings[p_id]
-            if 'processing_id' in p:
-                ids.append(p['processing_id'])
+            if p.processing_id:
+                ids.append(p.processing_id)
         return ids
 
     # def set_processing(self, processing):
@@ -660,14 +1197,14 @@ class Work(Base):
         """
         *** Function called by Transformer agent.
         """
-        self.processings[processing['processing_metadata']['internal_id']]['processing_id'] = processing_id
+        self.processings[processing.internal_id].processing_id = processing_id
 
     def set_processing_status(self, processing, status, substatus):
         """
         *** Function called by Transformer agent.
         """
-        self.processings[processing['processing_metadata']['internal_id']]['status'] = status
-        self.processings[processing['processing_metadata']['internal_id']]['substatus'] = substatus
+        self.processings[processing.internal_id].status = status
+        self.processings[processing.internal_id].substatus = substatus
         # if status not in [ProcessingStatus.New, ProcessingStatus.Submitting,
         #                   ProcessingStatus.Submitted, ProcessingStatus.Running]:
         #     if processing['processing_metadata']['internal_id'] in self.active_processings:
@@ -677,14 +1214,14 @@ class Work(Base):
         """
         *** Function called by Transformer agent.
         """
-        processing = self.processings[processing['processing_metadata']['internal_id']]
-        processing['output_metadata'] = output_metadata
+        processing = self.processings[processing.internal_id]
+        # processing['output_metadata'] = output_metadata
         self.set_output_data(output_metadata)
 
     def is_processing_substatus_new_operationing(self, processing):
-        if 'substatus' in processing and processing['substatus'] in [ProcessingStatus.ToCancel,
-                                                                     ProcessingStatus.ToSuspend,
-                                                                     ProcessingStatus.ToResume]:
+        if processing.substatus in [ProcessingStatus.ToCancel,
+                                    ProcessingStatus.ToSuspend,
+                                    ProcessingStatus.ToResume]:
             return True
         return False
 
@@ -692,22 +1229,22 @@ class Work(Base):
         if self.is_processing_substatus_new_operationing(processing):
             return False
 
-        if 'status' in processing and processing['status'] not in [ProcessingStatus.New,
-                                                                   ProcessingStatus.Submitting,
-                                                                   ProcessingStatus.Submitted,
-                                                                   ProcessingStatus.Running,
-                                                                   ProcessingStatus.ToCancel,
-                                                                   ProcessingStatus.Cancelling,
-                                                                   ProcessingStatus.ToSuspend,
-                                                                   ProcessingStatus.Suspending,
-                                                                   ProcessingStatus.ToResume,
-                                                                   ProcessingStatus.Resuming]:
+        if processing.status not in [ProcessingStatus.New,
+                                     ProcessingStatus.Submitting,
+                                     ProcessingStatus.Submitted,
+                                     ProcessingStatus.Running,
+                                     ProcessingStatus.ToCancel,
+                                     ProcessingStatus.Cancelling,
+                                     ProcessingStatus.ToSuspend,
+                                     ProcessingStatus.Suspending,
+                                     ProcessingStatus.ToResume,
+                                     ProcessingStatus.Resuming]:
             return True
         return False
 
     def reap_processing(self, processing):
         if self.is_processing_terminated(processing):
-            self.active_processings.remove(processing['processing_metadata']['internal_id'])
+            self.active_processings.remove(processing.internal_id)
         else:
             self.logger.error("Cannot reap an unterminated processing: %s" % processing)
 
@@ -729,7 +1266,7 @@ class Work(Base):
         """
         for p_id in self.active_processings:
             p = self.processings[p_id]
-            if not self.is_processing_terminated(p) or p['status'] not in [ProcessingStatus.Finished]:
+            if not self.is_processing_terminated(p) or p.status not in [ProcessingStatus.Finished]:
                 return False
         return True
 
@@ -744,9 +1281,9 @@ class Work(Base):
             if not self.is_processing_terminated(p):
                 return False
             else:
-                if p['status'] in [ProcessingStatus.Finished]:
+                if p.status in [ProcessingStatus.Finished]:
                     has_finished = True
-                if p['status'] in [ProcessingStatus.Failed]:
+                if p.status in [ProcessingStatus.Failed]:
                     has_failed = True
         if has_finished and has_failed:
             return True
@@ -758,7 +1295,7 @@ class Work(Base):
         """
         for p_id in self.active_processings:
             p = self.processings[p_id]
-            if not self.is_processing_terminated(p) or p['status'] not in [ProcessingStatus.Failed]:
+            if not self.is_processing_terminated(p) or p.status not in [ProcessingStatus.Failed]:
                 return False
         return True
 
@@ -771,7 +1308,7 @@ class Work(Base):
             p = self.processings[p_id]
             if not self.is_processing_terminated(p):
                 return False
-            elif p['status'] in [ProcessingStatus.Expired]:
+            elif p.status in [ProcessingStatus.Expired]:
                 has_expired = True
         if has_expired:
             return True
@@ -786,7 +1323,7 @@ class Work(Base):
             p = self.processings[p_id]
             if not self.is_processing_terminated(p):
                 return False
-            elif p['status'] in [ProcessingStatus.Cancelled]:
+            elif p.status in [ProcessingStatus.Cancelled]:
                 has_cancelled = True
         if has_cancelled:
             return True
@@ -801,31 +1338,39 @@ class Work(Base):
             p = self.processings[p_id]
             if not self.is_processing_terminated(p):
                 return False
-            elif p['status'] in [ProcessingStatus.Suspended]:
+            elif p.status in [ProcessingStatus.Suspended]:
                 has_suspended = True
         if has_suspended:
             return True
         return False
 
-    def create_processing(self, input_output_maps):
+    def create_processing(self, input_output_maps=[]):
         """
         *** Function called by Transformer agent.
         """
-        proc = {'processing_metadata': {'internal_id': str(uuid.uuid1())}}
+        # proc = {'processing_metadata': {'internal_id': str(uuid.uuid1())}}
+        proc = Processing()
         self.add_processing_to_processings(proc)
-        self.active_processings.append(proc['processing_metadata']['internal_id'])
+        self.active_processings.append(proc.internal_id)
         return proc
 
-    def get_processing(self, input_output_maps):
+    def get_processing(self, input_output_maps, without_creating=False):
         """
         *** Function called by Transformer agent.
         """
         if self.active_processings:
             return self.processings[self.active_processings[0]]
         else:
-            return None
-            # self.process = process
-            # return process
+            if not without_creating:
+                # return None
+                return self.create_processing(input_output_maps)
+                # self.process = process
+                # return process
+        return None
+
+    def sync_processing(self, processing, processing_model):
+        processing.processing = processing_model
+        self.set_processing_status(processing, processing_model['status'], processing_model['substatus'])
 
     def submit_processing(self, processing):
         """
@@ -839,6 +1384,10 @@ class Work(Base):
         """
         # raise exceptions.NotImplementedException
         self.tocancel = True
+        if (processing and 'processing_metadata' in processing and processing['processing_metadata']                     # noqa W503
+            and 'processing' in processing['processing_metadata'] and processing['processing_metadata']['processing']):  # noqa W503
+            proc = processing['processing_metadata']['processing']
+            proc.tocancel = True
 
     def suspend_processing(self, processing):
         """
@@ -846,6 +1395,10 @@ class Work(Base):
         """
         # raise exceptions.NotImplementedException
         self.tosuspend = True
+        if (processing and 'processing_metadata' in processing and processing['processing_metadata']                     # noqa W503
+            and 'processing' in processing['processing_metadata'] and processing['processing_metadata']['processing']):  # noqa W503
+            proc = processing['processing_metadata']['processing']
+            proc.tosuspend = True
 
     def resume_processing(self, processing):
         """
@@ -853,6 +1406,10 @@ class Work(Base):
         """
         # raise exceptions.NotImplementedException
         self.toresume = True
+        if (processing and 'processing_metadata' in processing and processing['processing_metadata']                     # noqa W503
+            and 'processing' in processing['processing_metadata'] and processing['processing_metadata']['processing']):  # noqa W503
+            proc = processing['processing_metadata']['processing']
+            proc.toresume = True
 
     def get_expired_at(self, processing=None):
         if processing and 'expired_at' in processing and processing['expired_at']:
@@ -860,7 +1417,13 @@ class Work(Base):
         elif (self.agent_attributes and 'life_time' in self.agent_attributes and self.agent_attributes['life_time']):
             # if processing and 'created_at' in processing and processing['created_at']:
             #     return processing['created_at'] + datetime.timedelta(seconds=int(self.agent_attributes['life_time']))
-            return datetime.datetime.utcnow() + datetime.timedelta(seconds=int(self.agent_attributes['life_time']))
+            # return datetime.datetime.utcnow() + datetime.timedelta(seconds=int(self.agent_attributes['life_time']))
+
+            if (processing and 'processing_metadata' in processing and processing['processing_metadata']                     # noqa W503
+                and 'processing' in processing['processing_metadata'] and processing['processing_metadata']['processing']):  # noqa W503
+                proc = processing['processing_metadata']['processing']
+
+                return proc.last_updated_at + datetime.timedelta(seconds=int(self.agent_attributes['life_time']))
         return None
 
     def is_processing_expired_old(self, processing):
@@ -881,6 +1444,7 @@ class Work(Base):
         """
         *** Function called by Carrier agent.
         """
+        processing['processing'].has_new_updates()
         raise exceptions.NotImplementedException
 
     def is_all_outputs_flushed(self, input_output_maps):
@@ -892,12 +1456,12 @@ class Work(Base):
                     return False
         return True
 
-    def syn_work_status(self, input_output_maps):
+    def syn_work_status(self, input_output_maps, all_updates_flushed=True, output_statistics={}, to_release_input_contents=[]):
         """
         *** Function called by Transformer agent.
         """
         # raise exceptions.NotImplementedException
-        if self.is_processings_terminated() and not self.has_new_inputs():
+        if self.is_processings_terminated() and self.is_input_collections_closed() and not self.has_new_inputs and not self.has_to_release_inputs() and not to_release_input_contents:
             if not self.is_all_outputs_flushed(input_output_maps):
                 self.logger.warn("The work processings %s is terminated. but not all outputs are flushed. Wait to flush the outputs then finish the transform" % str(self.get_processing_ids()))
                 return
@@ -919,10 +1483,18 @@ class Work(Base):
 
     def sync_work_data(self, status, substatus, work):
         # self.status = work.status
+        work.work_id = self.work_id
+        work.transforming = self.transforming
+        self.metadata = work.metadata
+
+        self.status_statistics = work.status_statistics
+        self.processings = work.processings
+
+        """
         self.status = WorkStatus(status.value)
         self.substatus = WorkStatus(substatus.value)
         self.workdir = work.workdir
-        self._has_new_inputs = work._has_new_inputs
+        self.has_new_inputs = work.has_new_inputs
         self.errors = work.errors
         self.next_works = work.next_works
 
@@ -936,6 +1508,7 @@ class Work(Base):
         self.active_processings = work.active_processings
         self.cancelled_processings = work.cancelled_processings
         self.suspended_processings = work.suspended_processings
+        """
 
     def add_proxy(self, proxy):
         self.proxy = proxy

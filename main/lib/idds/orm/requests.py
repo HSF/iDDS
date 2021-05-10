@@ -264,8 +264,8 @@ def get_requests(request_id=None, workload_id=None, with_detail=False, to_json=F
                                   models.Request.accessed_at,
                                   models.Request.expired_at,
                                   models.Request.errors,
-                                  models.Request.request_metadata,
-                                  models.Request.processing_metadata,
+                                  models.Request._request_metadata.label('request_metadata'),
+                                  models.Request._processing_metadata.label('processing_metadata'),
                                   models.Transform.transform_id,
                                   models.Transform.workload_id.label("transform_workload_id"),
                                   models.Transform.status.label("transform_status"),
@@ -294,6 +294,16 @@ def get_requests(request_id=None, workload_id=None, with_detail=False, to_json=F
                 for t in tmp:
                     # t2 = dict(t)
                     t2 = dict(zip(t.keys(), t))
+
+                    if t2['request_metadata'] and 'workflow' in t2['request_metadata']:
+                        workflow = t2['request_metadata']['workflow']
+                        workflow_data = None
+                    if t2['processing_metadata'] and 'workflow_data' in t2['processing_metadata']:
+                        workflow_data = t2['processing_metadata']['workflow_data']
+                    if workflow is not None and workflow_data is not None:
+                        workflow.metadata = workflow_data
+                        t2['request_metadata']['workflow'] = workflow
+
                     rets.append(t2)
             return rets
     except sqlalchemy.orm.exc.NoResultFound as error:
@@ -385,8 +395,10 @@ def get_requests_by_requester(scope, name, requester, to_json=False, session=Non
         raise exceptions.NoObject('No requests with scope:name(%s:%s) and requester(%s) %s' % (scope, name, requester, error))
 
 
-@read_session
-def get_requests_by_status_type(status, request_type=None, time_period=None, locking=False, bulk_size=None, to_json=False, by_substatus=False, session=None):
+@transactional_session
+def get_requests_by_status_type(status, request_type=None, time_period=None, request_ids=[], locking=False,
+                                locking_for_update=False, bulk_size=None, to_json=False, by_substatus=False,
+                                only_return_id=False, session=None):
     """
     Get requests.
 
@@ -409,8 +421,13 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, loc
         if len(status) == 1:
             status = [status[0], status[0]]
 
-        query = session.query(models.Request)\
-                       .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_SCOPE_NAME_IDX)", 'oracle')
+        if only_return_id:
+            query = session.query(models.Request.request_id)\
+                           .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_SCOPE_NAME_IDX)", 'oracle')
+        else:
+            query = session.query(models.Request)\
+                           .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_SCOPE_NAME_IDX)", 'oracle')
+
         if by_substatus:
             query = query.filter(models.Request.substatus.in_(status))
         else:
@@ -421,10 +438,16 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, loc
             query = query.filter(models.Request.request_type == request_type)
         if time_period is not None:
             query = query.filter(models.Request.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=time_period))
+        if request_ids:
+            query = query.filter(models.Request.request_id.in_(request_ids))
         if locking:
             query = query.filter(models.Request.locking == RequestLocking.Idle)
-        query = query.order_by(asc(models.Request.updated_at))\
-                     .order_by(desc(models.Request.priority))
+
+        if locking_for_update:
+            query = query.with_for_update(skip_locked=True)
+        else:
+            query = query.order_by(asc(models.Request.updated_at))\
+                         .order_by(desc(models.Request.priority))
         if bulk_size:
             query = query.limit(bulk_size)
 
@@ -432,10 +455,13 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, loc
         rets = []
         if tmp:
             for req in tmp:
-                if to_json:
-                    rets.append(req.to_dict_json())
+                if only_return_id:
+                    rets.append(req[0])
                 else:
-                    rets.append(req.to_dict())
+                    if to_json:
+                        rets.append(req.to_dict_json())
+                    else:
+                        rets.append(req.to_dict())
         return rets
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('No requests with status: %s, request_type: %s, time_period: %s, locking: %s, %s' % (status, request_type, time_period, locking, error))
@@ -457,6 +483,20 @@ def update_request(request_id, parameters, session=None):
     try:
         parameters['updated_at'] = datetime.datetime.utcnow()
 
+        if 'request_metadata' in parameters and 'workflow' in parameters['request_metadata']:
+            workflow = parameters['request_metadata']['workflow']
+
+            if workflow is not None:
+                workflow.refresh_works()
+                if 'processing_metadata' not in parameters:
+                    parameters['processing_metadata'] = {}
+                parameters['processing_metadata']['workflow_data'] = workflow.metadata
+
+        if 'request_metadata' in parameters:
+            del parameters['request_metadata']
+        if 'processing_metadata' in parameters:
+            parameters['_processing_metadata'] = parameters['processing_metadata']
+            del parameters['processing_metadata']
         session.query(models.Request).filter_by(request_id=request_id)\
                .update(parameters, synchronize_session=False)
     except sqlalchemy.orm.exc.NoResultFound as error:

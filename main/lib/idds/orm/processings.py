@@ -200,8 +200,9 @@ def get_processings_by_transform_id(transform_id=None, to_json=False, session=No
         raise error
 
 
-@read_session
-def get_processings_by_status(status, period=None, locking=False, bulk_size=None, submitter=None, to_json=False, by_substatus=False, session=None):
+@transactional_session
+def get_processings_by_status(status, period=None, processing_ids=[], locking=False, locking_for_update=False,
+                              bulk_size=None, submitter=None, to_json=False, by_substatus=False, only_return_id=False, session=None):
     """
     Get processing or raise a NoObject exception.
 
@@ -225,13 +226,19 @@ def get_processings_by_status(status, period=None, locking=False, bulk_size=None
         if len(status) == 1:
             status = [status[0], status[0]]
 
-        query = session.query(models.Processing)
+        if only_return_id:
+            query = session.query(models.Processing.processing_id)
+        else:
+            query = session.query(models.Processing)
+
         if by_substatus:
             query = query.filter(models.Processing.substatus.in_(status))
         else:
             query = query.filter(models.Processing.status.in_(status))
         query = query.filter(models.Processing.next_poll_at < datetime.datetime.utcnow())
 
+        if processing_ids:
+            query = query.filter(models.Processing.processing_id.in_(processing_ids))
         if period:
             query = query.filter(models.Processing.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=period))
         if locking:
@@ -239,7 +246,10 @@ def get_processings_by_status(status, period=None, locking=False, bulk_size=None
         if submitter:
             query = query.filter(models.Processing.submitter == submitter)
 
-        query = query.order_by(asc(models.Processing.updated_at))
+        if locking_for_update:
+            query = query.with_for_update(skip_locked=True)
+        else:
+            query = query.order_by(asc(models.Processing.updated_at))
 
         if bulk_size:
             query = query.limit(bulk_size)
@@ -248,10 +258,13 @@ def get_processings_by_status(status, period=None, locking=False, bulk_size=None
         rets = []
         if tmp:
             for t in tmp:
-                if to_json:
-                    rets.append(t.to_dict_json())
+                if only_return_id:
+                    rets.append(t[0])
                 else:
-                    rets.append(t.to_dict())
+                    if to_json:
+                        rets.append(t.to_dict_json())
+                    else:
+                        rets.append(t.to_dict())
         return rets
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('No processing attached with status (%s): %s' % (status, error))
@@ -278,6 +291,18 @@ def update_processing(processing_id, parameters, session=None):
         if 'status' in parameters and parameters['status'] in [ProcessingStatus.Finished, ProcessingStatus.Failed,
                                                                ProcessingStatus.Lost]:
             parameters['finished_at'] = datetime.datetime.utcnow()
+
+        if parameters and 'processing_metadata' in parameters and 'processing' in parameters['processing_metadata']:
+            proc = parameters['processing_metadata']['processing']
+            if proc is not None:
+                if 'running_metadata' not in parameters:
+                    parameters['running_metadata'] = {}
+                parameters['running_metadata']['processing_data'] = proc.metadata
+        if parameters and 'processing_metadata' in parameters:
+            del parameters['processing_metadata']
+        if parameters and 'running_metadata' in parameters:
+            parameters['_running_metadata'] = parameters['running_metadata']
+            del parameters['running_metadata']
 
         session.query(models.Processing).filter_by(processing_id=processing_id)\
                .update(parameters, synchronize_session=False)

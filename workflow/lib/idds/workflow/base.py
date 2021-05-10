@@ -15,9 +15,57 @@ import urllib
 from idds.common.dict_class import DictClass
 
 
-class Base(DictClass):
+class IDDSDict(dict):
+    def __setitem__(self, key, value):
+        if key == 'test':
+            pass
+        else:
+            super().__setitem__(key, value)
+
+
+class IDDSMetadata(DictClass):
     def __init__(self):
         pass
+
+    def add_item(self, key, value):
+        setattr(self, key, value)
+
+    def get_item(self, key, default):
+        return getattr(self, key, default)
+
+
+class Base(DictClass):
+    def __init__(self):
+        self.metadata = IDDSMetadata()
+        pass
+
+    def add_metadata_item(self, key, value):
+        self.metadata.add_item(key, value)
+
+    def get_metadata_item(self, key, default=None):
+        return self.metadata.get_item(key, default)
+
+    def load_metadata(self):
+        pass
+
+    @property
+    def metadata(self):
+        return self._metadata
+
+    @metadata.setter
+    def metadata(self, value):
+        self._metadata = value
+        self.load_metadata()
+
+    def IDDSProperty(self, attribute):
+        def _get(self, attribute):
+            self.get_metadata_item(attribute, None)
+
+        def _set(self, attribute, value):
+            self.add_metadata_item(attribute, value)
+
+        attribute = property(_get, _set)
+        return attribute
 
     def serialize(self):
         return urllib.parse.quote_from_bytes(pickle.dumps(self))

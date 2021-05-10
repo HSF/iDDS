@@ -10,7 +10,6 @@
 
 import copy
 import traceback
-import uuid
 
 from rucio.client.client import Client as RucioClient
 from rucio.common.exception import (CannotAuthenticate as RucioCannotAuthenticate,
@@ -21,7 +20,7 @@ from idds.common import exceptions
 from idds.common.constants import (TransformType, CollectionType, CollectionStatus,
                                    ContentStatus, ContentType,
                                    ProcessingStatus, WorkStatus)
-from idds.workflow.work import Work
+from idds.workflow.work import Work, Processing
 
 
 class ATLASStageinWork(Work):
@@ -84,38 +83,37 @@ class ATLASStageinWork(Work):
     def poll_external_collection(self, coll):
         try:
             # if 'coll_metadata' in coll and 'is_open' in coll['coll_metadata'] and not coll['coll_metadata']['is_open']:
-            if 'status' in coll and coll['status'] in [CollectionStatus.Closed]:
+            if coll.status in [CollectionStatus.Closed]:
                 return coll
             else:
                 client = self.get_rucio_client()
-                did_meta = client.get_metadata(scope=coll['scope'], name=coll['name'])
-                if 'coll_metadata' not in coll:
-                    coll['coll_metadata'] = {}
-                coll['coll_metadata']['bytes'] = did_meta['bytes']
-                coll['coll_metadata']['total_files'] = did_meta['length']
-                coll['coll_metadata']['availability'] = did_meta['availability']
-                coll['coll_metadata']['events'] = did_meta['events']
-                coll['coll_metadata']['is_open'] = did_meta['is_open']
-                coll['coll_metadata']['run_number'] = did_meta['run_number']
-                coll['coll_metadata']['did_type'] = did_meta['did_type']
-                coll['coll_metadata']['list_all_files'] = False
+                did_meta = client.get_metadata(scope=coll.scope, name=coll.name)
 
-                if 'is_open' in coll['coll_metadata'] and not coll['coll_metadata']['is_open']:
+                coll.coll_metadata['bytes'] = did_meta['bytes']
+                coll.coll_metadata['total_files'] = did_meta['length']
+                coll.coll_metadata['availability'] = did_meta['availability']
+                coll.coll_metadata['events'] = did_meta['events']
+                coll.coll_metadata['is_open'] = did_meta['is_open']
+                coll.coll_metadata['run_number'] = did_meta['run_number']
+                coll.coll_metadata['did_type'] = did_meta['did_type']
+                coll.coll_metadata['list_all_files'] = False
+
+                if 'is_open' in coll.coll_metadata and not coll.coll_metadata['is_open']:
                     coll_status = CollectionStatus.Closed
                 else:
                     coll_status = CollectionStatus.Open
-                coll['status'] = coll_status
+                coll.status = coll_status
 
-                if 'did_type' in coll['coll_metadata']:
-                    if coll['coll_metadata']['did_type'] == 'DATASET':
+                if 'did_type' in coll.coll_metadata:
+                    if coll.coll_metadata['did_type'] == 'DATASET':
                         coll_type = CollectionType.Dataset
-                    elif coll['coll_metadata']['did_type'] == 'CONTAINER':
+                    elif coll.coll_metadata['did_type'] == 'CONTAINER':
                         coll_type = CollectionType.Container
                     else:
                         coll_type = CollectionType.File
                 else:
                     coll_type = CollectionType.Dataset
-                coll['coll_type'] = coll_type
+                coll.coll_metadata['coll_type'] = coll_type
 
                 return coll
         except Exception as ex:
@@ -139,10 +137,10 @@ class ATLASStageinWork(Work):
         try:
             ret_files = []
             rucio_client = self.get_rucio_client()
-            files = rucio_client.list_files(scope=self.collections[self.primary_input_collection]['scope'],
-                                            name=self.collections[self.primary_input_collection]['name'])
+            files = rucio_client.list_files(scope=self.collections[self.primary_input_collection].scope,
+                                            name=self.collections[self.primary_input_collection].name)
             for file in files:
-                ret_file = {'coll_id': self.collections[self.primary_input_collection]['coll_id'],
+                ret_file = {'coll_id': self.collections[self.primary_input_collection].coll_id,
                             'scope': file['scope'],
                             'name': file['name'],
                             'bytes': file['bytes'],
@@ -189,8 +187,7 @@ class ATLASStageinWork(Work):
                 new_inputs.append(ip)
 
         # to avoid cheking new inputs if there are no new inputs anymore
-        if (not new_inputs and 'status' in self.collections[self.primary_input_collection]
-           and self.collections[self.primary_input_collection]['status'] in [CollectionStatus.Closed]):  # noqa: W503
+        if (not new_inputs and self.collections[self.primary_input_collection].status in [CollectionStatus.Closed]):  # noqa: W503
             self.set_has_new_inputs(False)
         else:
             mapped_keys = mapped_input_output_maps.keys()
@@ -203,7 +200,7 @@ class ATLASStageinWork(Work):
                 out_ip = copy.deepcopy(ip)
                 ip['status'] = ContentStatus.Available
                 ip['substatus'] = ContentStatus.Available
-                out_ip['coll_id'] = self.collections[self.output_collections[0]]['coll_id']
+                out_ip['coll_id'] = self.collections[self.output_collections[0]].coll_id
                 new_input_output_maps[next_key] = {'inputs': [ip],
                                                    'outputs': [out_ip],
                                                    'inputs_dependency': [],
@@ -212,27 +209,30 @@ class ATLASStageinWork(Work):
 
         return new_input_output_maps
 
-    def get_processing(self, input_output_maps):
+    def get_processing(self, input_output_maps, without_creating=False):
         if self.active_processings:
             return self.processings[self.active_processings[0]]
         else:
-            return self.create_processing(input_output_maps)
+            if not without_creating:
+                return self.create_processing(input_output_maps)
+        return None
 
-    def create_processing(self, input_output_maps):
-        proc = {'processing_metadata': {'internal_id': str(uuid.uuid1()),
-                                        'src_rse': self.src_rse,
-                                        'dest_rse': self.dest_rse,
-                                        'life_time': self.life_time,
-                                        'rule_id': self.rule_id}}
+    def create_processing(self, input_output_maps=[]):
+        processing_metadata = {'src_rse': self.src_rse,
+                               'dest_rse': self.dest_rse,
+                               'life_time': self.life_time,
+                               'rule_id': self.rule_id}
+        proc = Processing(processing_metadata=processing_metadata)
+        proc.external_id = self.rule_id
         self.add_processing_to_processings(proc)
-        self.active_processings.append(proc['processing_metadata']['internal_id'])
+        self.active_processings.append(proc.internal_id)
         return proc
 
     def create_rule(self, processing):
         try:
             rucio_client = self.get_rucio_client()
-            ds_did = {'scope': self.collections[self.primary_input_collection]['scope'],
-                      'name': self.collections[self.primary_input_collection]['name']}
+            ds_did = {'scope': self.collections[self.primary_input_collection].scope,
+                      'name': self.collections[self.primary_input_collection].name}
             rule_id = rucio_client.add_replication_rule(dids=[ds_did],
                                                         copies=1,
                                                         rse_expression=self.dest_rse,
@@ -246,7 +246,8 @@ class ATLASStageinWork(Work):
             return rule_id
         except RucioDuplicateRule as ex:
             self.logger.warn(ex)
-            rules = rucio_client.list_did_rules(scope=self.primary_input_collection['scope'], name=self.primary_input_collection['name'])
+            rules = rucio_client.list_did_rules(scope=self.collections[self.primary_input_collection].scope,
+                                                name=self.collections[self.primary_input_collection].name)
             for rule in rules:
                 if rule['account'] == rucio_client.account and rule['rse_expression'] == self.dest_rse:
                     return rule['id']
@@ -257,16 +258,21 @@ class ATLASStageinWork(Work):
         return None
 
     def submit_processing(self, processing):
-        if 'rule_id' in processing['processing_metadata']:
+        proc = processing['processing_metadata']['processing']
+        if proc.external_id:
+            # if 'rule_id' in processing['processing_meta']:
             pass
         else:
             rule_id = self.create_rule(processing)
-            processing['processing_metadata']['rule_id'] = rule_id
+            # processing['processing_metadata']['rule_id'] = rule_id
+            proc.external_id = rule_id
 
     def poll_rule(self, processing):
         try:
-            p = processing
-            rule_id = p['processing_metadata']['rule_id']
+            # p = processing
+            # rule_id = p['processing_metadata']['rule_id']
+            proc = processing['processing_metadata']['processing']
+            rule_id = proc.external_id
 
             replicases_status = {}
             if rule_id:
@@ -284,7 +290,7 @@ class ATLASStageinWork(Work):
                             scope_name = '%s:%s' % (lock['scope'], lock['name'])
                             if lock['state'] == 'OK':
                                 replicases_status[scope_name] = ContentStatus.Available   # 'OK'
-            return p, rule['state'], replicases_status
+            return processing, rule['state'], replicases_status
         except RucioRuleNotFound as ex:
             msg = "rule(%s) not found: %s" % (str(rule_id), str(ex))
             raise exceptions.ProcessNotFound(msg)
@@ -330,6 +336,13 @@ class ATLASStageinWork(Work):
                                  'parameters': {'status': ProcessingStatus.Running}}
             update_processing['parameters']['expired_at'] = None
             processing['expired_at'] = None
+            proc = processing['processing_metadata']['processing']
+            proc.has_new_updates()
+
+        if updated_contents:
+            proc = processing['processing_metadata']['processing']
+            proc.has_new_updates()
+
         return update_processing, updated_contents
 
     def get_status_statistics(self, registered_input_output_maps):
@@ -369,13 +382,13 @@ class ATLASStageinWork(Work):
             output_collection['processed_files'] = self.processed_output_file
     """
 
-    def syn_work_status(self, registered_input_output_maps):
+    def syn_work_status(self, registered_input_output_maps, all_updates_flushed=True, output_statistics={}, to_release_input_contents=[]):
         super(ATLASStageinWork, self).syn_work_status(registered_input_output_maps)
         self.get_status_statistics(registered_input_output_maps)
 
         # self.syn_collection_status()
 
-        if self.is_processings_terminated() and not self.has_new_inputs():
+        if self.is_processings_terminated() and not self.has_new_inputs:
             if not self.is_all_outputs_flushed(registered_input_output_maps):
                 self.logger.warn("The processing is terminated. but not all outputs are flushed. Wait to flush the outputs then finish the transform")
                 return

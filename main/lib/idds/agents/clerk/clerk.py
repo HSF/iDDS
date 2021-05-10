@@ -17,6 +17,7 @@ except ImportError:
     # Python 2
     from Queue import Queue
 
+from idds.common import exceptions
 from idds.common.constants import (Sections, RequestStatus, RequestLocking,
                                    TransformStatus)
 from idds.common.utils import setup_logging
@@ -43,37 +44,56 @@ class Clerk(BaseAgent):
         self.running_task_queue = Queue()
         self.running_output_queue = Queue()
 
+    def show_queue_size(self):
+        q_str = "new queue size: %s, new output queue size: %s, " % (self.new_task_queue.qsize(),
+                                                                     self.new_output_queue.qsize())
+        q_str += "running queue size: %s, running output queue size: %s" % (self.running_task_queue.qsize(),
+                                                                            self.running_output_queue.qsize())
+        self.logger.debug(q_str)
+
     def get_new_requests(self):
         """
         Get new requests to process
         """
-        # req_status = [RequestStatus.TransformingOpen]
-        # reqs_open = core_requests.get_requests_by_status_type(status=req_status, time_period=3600)
-        # self.logger.info("Main thread get %s TransformingOpen requests to process" % len(reqs_open))
+        try:
+            # req_status = [RequestStatus.TransformingOpen]
+            # reqs_open = core_requests.get_requests_by_status_type(status=req_status, time_period=3600)
+            # self.logger.info("Main thread get %s TransformingOpen requests to process" % len(reqs_open))
 
-        if self.new_task_queue.qsize() >= self.num_threads:
-            return []
+            if self.new_task_queue.qsize() > 0 or self.new_output_queue.qsize() > 0:
+                return []
 
-        req_status = [RequestStatus.New, RequestStatus.Extend]
-        reqs_new = core_requests.get_requests_by_status_type(status=req_status, locking=True,
-                                                             bulk_size=self.retrieve_bulk_size)
+            self.show_queue_size()
 
-        self.logger.debug("Main thread get %s [New+Extend] requests to process" % len(reqs_new))
-        if reqs_new:
-            self.logger.info("Main thread get %s [New+Extend] requests to process" % len(reqs_new))
+            req_status = [RequestStatus.New, RequestStatus.Extend]
+            reqs_new = core_requests.get_requests_by_status_type(status=req_status, locking=True,
+                                                                 bulk_size=self.retrieve_bulk_size)
 
-        return reqs_new
+            self.logger.debug("Main thread get %s [New+Extend] requests to process" % len(reqs_new))
+            if reqs_new:
+                self.logger.info("Main thread get %s [New+Extend] requests to process" % len(reqs_new))
+
+            return reqs_new
+        except exceptions.DatabaseException as ex:
+            if 'ORA-00060' in str(ex):
+                self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
+            else:
+                raise ex
+        return []
 
     def process_new_request(self, req):
         try:
             workflow = req['request_metadata']['workflow']
 
-            wf = workflow.copy()
+            # wf = workflow.copy()
+            wf = workflow
             works = wf.get_new_works()
             transforms = []
             for work in works:
-                new_work = work.copy()
+                # new_work = work.copy()
+                new_work = work
                 new_work.add_proxy(wf.get_proxy())
+                new_work.create_processing()
                 transform = {'request_id': req['request_id'],
                              'workload_id': req['workload_id'],
                              'transform_type': work.get_work_type(),
@@ -87,19 +107,23 @@ class Clerk(BaseAgent):
                                                     'sequence_id': new_work.get_sequence_id(),
                                                     'work_name': new_work.get_work_name(),
                                                     'work': new_work,
-                                                    'original_work': work}
+                                                    # 'original_work': work,
+                                                    'workflow': wf}
+                             # 'running_metadata': {'work_data': new_work.get_running_data()}
                              # 'collections': related_collections
                              }
                 transforms.append(transform)
             self.logger.info("Processing request(%s): new transforms: %s" % (req['request_id'],
                                                                              str(transforms)))
-            processing_metadata = req['processing_metadata']
-            processing_metadata = {'workflow': wf}
+            # processing_metadata = req['processing_metadata']
+            # processing_metadata = {'workflow_data': wf.get_running_data()}
 
             ret_req = {'request_id': req['request_id'],
                        'parameters': {'status': RequestStatus.Transforming,
                                       'locking': RequestLocking.Idle,
-                                      'processing_metadata': processing_metadata},
+                                      'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period),
+                                      # 'processing_metadata': processing_metadata,
+                                      'request_metadata': req['request_metadata']},
                        'new_transforms': transforms}
         except Exception as ex:
             self.logger.error(ex)
@@ -122,7 +146,8 @@ class Clerk(BaseAgent):
                     self.logger.info("Main thread processing new requst: %s" % req)
                     ret_req = self.process_new_request(req)
                     if ret_req:
-                        ret.append(ret_req)
+                        # ret.append(ret_req)
+                        self.new_output_queue.put(ret_req)
             except Exception as ex:
                 self.logger.error(ex)
                 self.logger.error(traceback.format_exc())
@@ -156,40 +181,49 @@ class Clerk(BaseAgent):
         """
         Get running requests
         """
-        if self.running_task_queue.qsize() >= self.num_threads:
-            return []
+        try:
+            if self.running_task_queue.qsize() > 0 or self.running_output_queue.qsize() > 0:
+                return []
 
-        req_status = [RequestStatus.Transforming, RequestStatus.ToCancel, RequestStatus.Cancelling,
-                      RequestStatus.ToSuspend, RequestStatus.Suspending,
-                      RequestStatus.Resuming]
-        reqs = core_requests.get_requests_by_status_type(status=req_status, time_period=self.poll_time_period,
-                                                         locking=True, bulk_size=self.retrieve_bulk_size)
+            self.show_queue_size()
 
-        req_status = [RequestStatus.ToResume]
-        reqs_1 = core_requests.get_requests_by_status_type(status=req_status, time_period=self.poll_time_period,
-                                                           locking=True, by_substatus=True, bulk_size=self.retrieve_bulk_size)
+            req_status = [RequestStatus.Transforming, RequestStatus.ToCancel, RequestStatus.Cancelling,
+                          RequestStatus.ToSuspend, RequestStatus.Suspending,
+                          RequestStatus.Resuming]
+            reqs = core_requests.get_requests_by_status_type(status=req_status, time_period=self.poll_time_period,
+                                                             locking=True, bulk_size=self.retrieve_bulk_size)
 
-        reqs = reqs + reqs_1
+            req_status = [RequestStatus.ToSuspend, RequestStatus.ToCancel, RequestStatus.ToResume]
+            reqs_1 = core_requests.get_requests_by_status_type(status=req_status, time_period=self.poll_time_period,
+                                                               locking=True, by_substatus=True, bulk_size=self.retrieve_bulk_size)
 
-        self.logger.debug("Main thread get %s Transforming requests to running" % len(reqs))
-        if reqs:
-            self.logger.info("Main thread get %s Transforming requests to running" % len(reqs))
-        return reqs
+            reqs = reqs + reqs_1
 
-    def process_running_request(self, req):
+            self.logger.debug("Main thread get %s Transforming requests to running" % len(reqs))
+            if reqs:
+                self.logger.info("Main thread get %s Transforming requests to running" % len(reqs))
+            return reqs
+        except exceptions.DatabaseException as ex:
+            if 'ORA-00060' in str(ex):
+                self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
+            else:
+                raise ex
+        return []
+
+    def process_running_request_real(self, req):
         """
         process running request
         """
         self.logger.info("process_running_request: request_id: %s" % req['request_id'])
-        processing_metadata = req['processing_metadata']
-        wf = processing_metadata['workflow']
+        wf = req['request_metadata']['workflow']
 
         new_transforms = []
         if req['status'] in [RequestStatus.Transforming]:
             # new works
             works = wf.get_new_works()
             for work in works:
-                new_work = work.copy()
+                # new_work = work.copy()
+                new_work = work
                 new_work.add_proxy(wf.get_proxy())
                 new_transform = {'request_id': req['request_id'],
                                  'workload_id': req['workload_id'],
@@ -203,7 +237,9 @@ class Clerk(BaseAgent):
                                                         'template_work_id': new_work.get_template_work_id(),
                                                         'sequence_id': new_work.get_sequence_id(),
                                                         'work_name': new_work.get_work_name(),
-                                                        'work': new_work}
+                                                        'work': new_work,
+                                                        'workflow': wf}
+                                 # 'running_metadata': {'work_data': new_work.get_running_data()}
                                  # 'collections': related_collections
                                  }
                 new_transforms.append(new_transform)
@@ -220,6 +256,7 @@ class Clerk(BaseAgent):
             # work.set_status(work_status)
             work.sync_work_data(status=tf['status'], substatus=tf['substatus'], work=transform_work)
 
+        is_operation = False
         if wf.is_terminated():
             if wf.is_finished():
                 req_status = RequestStatus.Finished
@@ -239,22 +276,46 @@ class Clerk(BaseAgent):
         else:
             if req['status'] in [RequestStatus.ToSuspend, RequestStatus.Suspending]:
                 req_status = RequestStatus.Suspending
+                is_operation = True
             elif req['status'] in [RequestStatus.ToCancel, RequestStatus.Cancelling]:
                 req_status = RequestStatus.Cancelling
+                is_operation = True
             else:
                 req_status = RequestStatus.Transforming
             req_msg = None
 
+        # processing_metadata['workflow_data'] = wf.get_running_data()
+        if not is_operation:
+            next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period)
+        else:
+            next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_operation_time_period)
+
         parameters = {'status': req_status,
                       'locking': RequestLocking.Idle,
-                      'processing_metadata': processing_metadata,
+                      'next_poll_at': next_poll_at,
+                      'request_metadata': req['request_metadata'],
                       'errors': {'msg': req_msg}}
         ret = {'request_id': req['request_id'],
                'parameters': parameters,
                'new_transforms': new_transforms}   # 'update_transforms': update_transforms}
         return ret
 
-    def process_operating_request(self, req):
+    def process_running_request(self, req):
+        """
+        process running request
+        """
+        try:
+            ret_req = self.process_running_request_real(req)
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+            ret_req = {'request_id': req['request_id'],
+                       'parameters': {'status': RequestStatus.Failed,
+                                      'locking': RequestLocking.Idle,
+                                      'errors': {'msg': '%s: %s' % (ex, traceback.format_exc())}}}
+        return ret_req
+
+    def process_operating_request_real(self, req):
         """
         process ToCancel/ToSuspend/ToResume request
         """
@@ -271,7 +332,7 @@ class Clerk(BaseAgent):
         processing_metadata = req['processing_metadata']
 
         if req['substatus'] == RequestStatus.ToResume:
-            wf = processing_metadata['workflow']
+            wf = req['request_metadata']['workflow']
             wf.resume_works()
 
         if 'operations' not in processing_metadata:
@@ -287,13 +348,32 @@ class Clerk(BaseAgent):
             #                         RequestStatus.Suspended]:
             tfs_status[tf['transform_id']] = {'substatus': tf_status}
 
+        # processing_metadata['workflow_data'] = wf.get_running_data()
+
         ret_req = {'request_id': req['request_id'],
                    'parameters': {'status': req_status,
                                   'substatus': req_status,
-                                  'processing_metadata': req['processing_metadata'],
+                                  'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_operation_time_period),
+                                  'request_metadata': req['request_metadata'],
+                                  'processing_metadata': processing_metadata,
                                   'locking': RequestLocking.Idle},
                    'update_transforms': tfs_status
                    }
+        return ret_req
+
+    def process_operating_request(self, req):
+        """
+        process ToCancel/ToSuspend/ToResume request
+        """
+        try:
+            ret_req = self.process_operating_request_real(req)
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+            ret_req = {'request_id': req['request_id'],
+                       'parameters': {'status': RequestStatus.Failed,
+                                      'locking': RequestLocking.Idle,
+                                      'errors': {'msg': '%s: %s' % (ex, traceback.format_exc())}}}
         return ret_req
 
     def process_running_requests(self):
@@ -313,7 +393,8 @@ class Clerk(BaseAgent):
                         ret_req = self.process_running_request(req)
 
                     if ret_req:
-                        ret.append(ret_req)
+                        # ret.append(ret_req)
+                        self.running_output_queue.put(ret_req)
             except Exception as ex:
                 self.logger.error(ex)
                 self.logger.error(traceback.format_exc())
@@ -321,23 +402,28 @@ class Clerk(BaseAgent):
 
     def finish_running_requests(self):
         while not self.running_output_queue.empty():
-            req = self.running_output_queue.get()
-            self.logger.info("finish_running_requests: req: %s" % req)
-            req['parameters']['locking'] = RequestLocking.Idle
+            try:
+                req = self.running_output_queue.get()
+                self.logger.info("finish_running_requests: req: %s" % req)
+                req['parameters']['locking'] = RequestLocking.Idle
 
-            if 'new_transforms' in req:
-                new_transforms = req['new_transforms']
-            else:
-                new_transforms = []
+                if 'new_transforms' in req:
+                    new_transforms = req['new_transforms']
+                else:
+                    new_transforms = []
 
-            if 'update_transforms' in req:
-                update_transforms = req['update_transforms']
-            else:
-                update_transforms = []
+                if 'update_transforms' in req:
+                    update_transforms = req['update_transforms']
+                else:
+                    update_transforms = []
 
-            core_requests.update_request_with_transforms(req['request_id'], req['parameters'],
-                                                         new_transforms=new_transforms,
-                                                         update_transforms=update_transforms)
+                core_requests.update_request_with_transforms(req['request_id'], req['parameters'],
+                                                             new_transforms=new_transforms,
+                                                             update_transforms=update_transforms)
+
+            except Exception as ex:
+                self.logger.error(ex)
+                self.logger.error(traceback.format_exc())
 
     def clean_locks(self):
         self.logger.info("clean locking")
@@ -357,7 +443,8 @@ class Clerk(BaseAgent):
             task = self.create_task(task_func=self.get_new_requests, task_output_queue=self.new_task_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
             self.add_task(task)
             for _ in range(self.num_threads):
-                task = self.create_task(task_func=self.process_new_requests, task_output_queue=self.new_output_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
+                # task = self.create_task(task_func=self.process_new_requests, task_output_queue=self.new_output_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
+                task = self.create_task(task_func=self.process_new_requests, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
                 self.add_task(task)
             task = self.create_task(task_func=self.finish_new_requests, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
             self.add_task(task)
@@ -365,7 +452,8 @@ class Clerk(BaseAgent):
             task = self.create_task(task_func=self.get_running_requests, task_output_queue=self.running_task_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
             self.add_task(task)
             for _ in range(self.num_threads):
-                task = self.create_task(task_func=self.process_running_requests, task_output_queue=self.running_output_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
+                # task = self.create_task(task_func=self.process_running_requests, task_output_queue=self.running_output_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
+                task = self.create_task(task_func=self.process_running_requests, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
                 self.add_task(task)
             task = self.create_task(task_func=self.finish_running_requests, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
             self.add_task(task)

@@ -170,13 +170,20 @@ def update_request_with_transforms(request_id, parameters, new_transforms=None, 
     if new_transforms:
         for tf in new_transforms:
             # tf_id = orm_transforms.add_transform(**tf, session=session)
-            original_work = tf['transform_metadata']['original_work']
-            del tf['transform_metadata']['original_work']
+            # original_work = tf['transform_metadata']['original_work']
+            # del tf['transform_metadata']['original_work']
+            workflow = tf['transform_metadata']['workflow']
+            del tf['transform_metadata']['workflow']
+
+            work = tf['transform_metadata']['work']
             tf_id = orm_transforms.add_transform(**tf, session=session)
 
             # work = tf['transform_metadata']['work']
-            original_work.set_work_id(tf_id, transforming=True)
-            original_work.set_status(WorkStatus.New)
+            # original_work.set_work_id(tf_id, transforming=True)
+            # original_work.set_status(WorkStatus.New)
+            work.set_work_id(tf_id, transforming=True)
+            work.set_status(WorkStatus.New)
+            workflow.refresh_works()
     if update_transforms:
         for tr_id in update_transforms:
             orm_transforms.update_transform(transform_id=tr_id, parameters=update_transforms[tr_id], session=session)
@@ -214,12 +221,44 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, loc
 
     :returns: list of Request.
     """
-    reqs = orm_requests.get_requests_by_status_type(status, request_type, time_period, locking=locking, bulk_size=bulk_size,
-                                                    to_json=to_json, by_substatus=by_substatus, session=session)
     if locking:
+        if bulk_size:
+            # order by cannot work together with locking. So first select 2 * bulk_size without locking with order by.
+            # then select with locking.
+            req_ids = orm_requests.get_requests_by_status_type(status, request_type, time_period, locking=locking, bulk_size=bulk_size * 2,
+                                                               locking_for_update=False, to_json=False, by_substatus=by_substatus,
+                                                               only_return_id=True, session=session)
+            if req_ids:
+                req2s = orm_requests.get_requests_by_status_type(status, request_type, time_period, request_ids=req_ids,
+                                                                 locking=locking, locking_for_update=True, bulk_size=None, to_json=to_json,
+                                                                 by_substatus=by_substatus, session=session)
+                if req2s:
+                    # reqs = req2s[:bulk_size]
+                    # order requests
+                    reqs = []
+                    for req_id in req_ids:
+                        if len(reqs) >= bulk_size:
+                            break
+                        for req in req2s:
+                            if req['request_id'] == req_id:
+                                reqs.append(req)
+                                break
+                    # reqs = reqs[:bulk_size]
+                else:
+                    reqs = []
+            else:
+                reqs = []
+        else:
+            reqs = orm_requests.get_requests_by_status_type(status, request_type, time_period, locking=locking, locking_for_update=locking,
+                                                            bulk_size=bulk_size,
+                                                            to_json=to_json, by_substatus=by_substatus, session=session)
+
         parameters = {'locking': RequestLocking.Locking}
         for req in reqs:
             orm_requests.update_request(request_id=req['request_id'], parameters=parameters, session=session)
+    else:
+        reqs = orm_requests.get_requests_by_status_type(status, request_type, time_period, locking=locking, bulk_size=bulk_size,
+                                                        to_json=to_json, by_substatus=by_substatus, session=session)
     return reqs
 
 

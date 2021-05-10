@@ -123,7 +123,7 @@ class TestWorkflow(unittest.TestCase):
 
         props = {
             'scope': 'workflow',
-            'name': workflow.get_name(),
+            'name': workflow.name,
             'requester': 'panda',
             'request_type': RequestType.Workflow,
             'transform_tag': 'workflow',

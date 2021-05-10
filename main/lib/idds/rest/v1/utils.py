@@ -122,3 +122,11 @@ def convert_old_req_2_workflow_req(data):
                                     'workflow': wf}
         return data
     return data
+
+
+def convert_old_request_metadata(req):
+    if 'request_metadata' in req and req['request_metadata']:
+        wf = req['request_metadata']['workflow']
+        req['request_metadata'] = wf
+        return req
+    return req
