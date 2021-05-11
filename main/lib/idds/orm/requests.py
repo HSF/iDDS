@@ -233,6 +233,7 @@ def get_requests(request_id=None, workload_id=None, with_detail=False, to_json=F
                                       models.Collection.scope.label("input_coll_scope"),
                                       models.Collection.name.label("input_coll_name"),
                                       models.Collection.status.label("input_coll_status"),
+                                      models.Collection.bytes.label("input_coll_bytes"),
                                       models.Collection.total_files.label("input_total_files"),
                                       models.Collection.processed_files.label("input_processed_files"),
                                       models.Collection.processing_files.label("input_processing_files")).filter(models.Collection.relation_type == 0)
@@ -242,6 +243,7 @@ def get_requests(request_id=None, workload_id=None, with_detail=False, to_json=F
                                       models.Collection.scope.label("output_coll_scope"),
                                       models.Collection.name.label("output_coll_name"),
                                       models.Collection.status.label("output_coll_status"),
+                                      models.Collection.bytes.label("output_coll_bytes"),
                                       models.Collection.total_files.label("output_total_files"),
                                       models.Collection.processed_files.label("output_processed_files"),
                                       models.Collection.processing_files.label("output_processing_files")).filter(models.Collection.relation_type == 1)
@@ -270,11 +272,13 @@ def get_requests(request_id=None, workload_id=None, with_detail=False, to_json=F
                                   models.Transform.workload_id.label("transform_workload_id"),
                                   models.Transform.status.label("transform_status"),
                                   subquery1.c.input_coll_scope, subquery1.c.input_coll_name,
-                                  subquery1.c.input_coll_status, subquery1.c.input_total_files,
+                                  subquery1.c.input_coll_status, subquery1.c.input_coll_bytes,
+                                  subquery1.c.input_total_files,
                                   subquery1.c.input_processed_files,
                                   subquery1.c.input_processing_files,
                                   subquery2.c.output_coll_scope, subquery2.c.output_coll_name,
-                                  subquery2.c.output_coll_status, subquery2.c.output_total_files,
+                                  subquery2.c.output_coll_status, subquery2.c.output_coll_bytes,
+                                  subquery2.c.output_total_files,
                                   subquery2.c.output_processed_files,
                                   subquery2.c.output_processing_files)
 

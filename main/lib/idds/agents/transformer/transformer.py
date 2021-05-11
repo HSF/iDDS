@@ -567,19 +567,22 @@ class Transformer(BaseAgent):
 
             for content in inputs:
                 if content['coll_id'] not in input_status:
-                    input_status[content['coll_id']] = {'total_files': 0, 'processed_files': 0, 'processing_files': 0}
+                    input_status[content['coll_id']] = {'total_files': 0, 'processed_files': 0, 'processing_files': 0, 'bytes': 0}
                 input_status[content['coll_id']]['total_files'] += 1
+
                 if content['status'] in [ContentStatus.Available, ContentStatus.Mapped, ContentStatus.Available.value, ContentStatus.Mapped.value]:
                     input_status[content['coll_id']]['processed_files'] += 1
+                    input_status[content['coll_id']]['bytes'] += content['bytes']
                 else:
                     input_status[content['coll_id']]['processing_files'] += 1
 
             for content in outputs:
                 if content['coll_id'] not in output_status:
-                    output_status[content['coll_id']] = {'total_files': 0, 'processed_files': 0, 'processing_files': 0}
+                    output_status[content['coll_id']] = {'total_files': 0, 'processed_files': 0, 'processing_files': 0, 'bytes': 0}
                 output_status[content['coll_id']]['total_files'] += 1
                 if content['status'] in [ContentStatus.Available, ContentStatus.Available.value]:
                     output_status[content['coll_id']]['processed_files'] += 1
+                    output_status[content['coll_id']]['bytes'] += content['bytes']
                 else:
                     output_status[content['coll_id']]['processing_files'] += 1
 
@@ -592,10 +595,11 @@ class Transformer(BaseAgent):
 
             for content in logs:
                 if content['coll_id'] not in log_status:
-                    log_status[content['coll_id']] = {'total_files': 0, 'processed_files': 0, 'processing_files': 0}
+                    log_status[content['coll_id']] = {'total_files': 0, 'processed_files': 0, 'processing_files': 0, 'bytes': 0}
                 log_status[content['coll_id']]['total_files'] += 1
                 if content['status'] in [ContentStatus.Available, ContentStatus.Available.value]:
                     log_status[content['coll_id']]['processed_files'] += 1
+                    log_status[content['coll_id']]['bytes'] += content['bytes']
                 else:
                     log_status[content['coll_id']]['processing_files'] += 1
 
@@ -610,12 +614,14 @@ class Transformer(BaseAgent):
                 coll.collection['total_files'] = output_status[coll.coll_id]['total_files']
                 coll.collection['processed_files'] = output_status[coll.coll_id]['processed_files']
                 coll.collection['processing_files'] = output_status[coll.coll_id]['processing_files']
+                coll.collection['bytes'] = output_status[coll.coll_id]['bytes']
 
         for coll in log_collections:
             if coll.coll_id in log_status:
                 coll.collection['total_files'] = log_status[coll.coll_id]['total_files']
                 coll.collection['processed_files'] = log_status[coll.coll_id]['processed_files']
                 coll.collection['processing_files'] = log_status[coll.coll_id]['processing_files']
+                coll.collection['bytes'] = log_status[coll.coll_id]['bytes']
 
         return all_updates_flushed, output_statistics
 
