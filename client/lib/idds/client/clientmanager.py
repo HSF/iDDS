@@ -80,16 +80,20 @@ class ClientManager:
         """
         if request_id is None and workload_id is None:
             logging.error("Both request_id and workload_id are None. One of them should not be None")
-            return
+            return (-1, "Both request_id and workload_id are None. One of them should not be None")
+
         reqs = self.client.get_requests(request_id=request_id, workload_id=workload_id)
-        rets = []
-        for req in reqs:
-            logging.info("Aborting request: %s" % req['request_id'])
-            self.client.update_request(request_id=req['request_id'], parameters={'substatus': RequestStatus.ToCancel})
-            logging.info("Abort request registered successfully: %s" % req['request_id'])
-            ret = (0, "Abort request registered successfully: %s" % req['request_id'])
-            rets.append(ret)
-        return rets
+        if reqs:
+            rets = []
+            for req in reqs:
+                logging.info("Aborting request: %s" % req['request_id'])
+                self.client.update_request(request_id=req['request_id'], parameters={'substatus': RequestStatus.ToCancel})
+                logging.info("Abort request registered successfully: %s" % req['request_id'])
+                ret = (0, "Abort request registered successfully: %s" % req['request_id'])
+                rets.append(ret)
+            return rets
+        else:
+            return (-1, 'No matching requests')
 
     @exception_handler
     def suspend(self, request_id=None, workload_id=None):
@@ -101,16 +105,20 @@ class ClientManager:
         """
         if request_id is None and workload_id is None:
             logging.error("Both request_id and workload_id are None. One of them should not be None")
-            return
+            return (-1, "Both request_id and workload_id are None. One of them should not be None")
+
         reqs = self.client.get_requests(request_id=request_id, workload_id=workload_id)
-        rets = []
-        for req in reqs:
-            logging.info("Suspending request: %s" % req['request_id'])
-            self.client.update_request(request_id=req['request_id'], parameters={'substatus': RequestStatus.ToSuspend})
-            logging.info("Suspend request registered successfully: %s" % req['request_id'])
-            ret = (0, "Suspend request registered successfully: %s" % req['request_id'])
-            rets.append(ret)
-        return rets
+        if reqs:
+            rets = []
+            for req in reqs:
+                logging.info("Suspending request: %s" % req['request_id'])
+                self.client.update_request(request_id=req['request_id'], parameters={'substatus': RequestStatus.ToSuspend})
+                logging.info("Suspend request registered successfully: %s" % req['request_id'])
+                ret = (0, "Suspend request registered successfully: %s" % req['request_id'])
+                rets.append(ret)
+            return rets
+        else:
+            return (-1, 'No matching requests')
 
     @exception_handler
     def resume(self, request_id=None, workload_id=None):
@@ -122,16 +130,20 @@ class ClientManager:
         """
         if request_id is None and workload_id is None:
             logging.error("Both request_id and workload_id are None. One of them should not be None")
-            return
+            return (-1, "Both request_id and workload_id are None. One of them should not be None")
+
         reqs = self.client.get_requests(request_id=request_id, workload_id=workload_id)
-        rets = []
-        for req in reqs:
-            logging.info("Resuming request: %s" % req['request_id'])
-            self.client.update_request(request_id=req['request_id'], parameters={'substatus': RequestStatus.ToResume})
-            logging.info("Resume request registered successfully: %s" % req['request_id'])
-            ret = (0, "Resume request registered successfully: %s" % req['request_id'])
-            rets.append(ret)
-        return rets
+        if reqs:
+            rets = []
+            for req in reqs:
+                logging.info("Resuming request: %s" % req['request_id'])
+                self.client.update_request(request_id=req['request_id'], parameters={'substatus': RequestStatus.ToResume})
+                logging.info("Resume request registered successfully: %s" % req['request_id'])
+                ret = (0, "Resume request registered successfully: %s" % req['request_id'])
+                rets.append(ret)
+            return rets
+        else:
+            return (-1, 'No matching requests')
 
     @exception_handler
     def retry(self, request_id=None, workload_id=None):
@@ -143,19 +155,23 @@ class ClientManager:
         """
         if request_id is None and workload_id is None:
             logging.error("Both request_id and workload_id are None. One of them should not be None")
-            return
+            return (-1, "Both request_id and workload_id are None. One of them should not be None")
+
         reqs = self.client.get_requests(request_id=request_id, workload_id=workload_id)
-        rets = []
-        for req in reqs:
-            logging.info("Retrying request: %s" % req['request_id'])
-            self.client.update_request(request_id=req['request_id'], parameters={'substatus': RequestStatus.ToResume})
-            logging.info("Retry request registered successfully: %s" % req['request_id'])
-            ret = (0, "Retry request registered successfully: %s" % req['request_id'])
-            rets.append(ret)
-        return rets
+        if reqs:
+            rets = []
+            for req in reqs:
+                logging.info("Retrying request: %s" % req['request_id'])
+                self.client.update_request(request_id=req['request_id'], parameters={'substatus': RequestStatus.ToResume})
+                logging.info("Retry request registered successfully: %s" % req['request_id'])
+                ret = (0, "Retry request registered successfully: %s" % req['request_id'])
+                rets.append(ret)
+            return rets
+        else:
+            return (-1, 'No matching requests')
 
     @exception_handler
-    def get_requests(self, request_id=None, workload_id=None, with_detail=False):
+    def get_requests(self, request_id=None, workload_id=None, with_detail=False, with_metadata=False):
         """
         Get requests.
 
@@ -163,11 +179,11 @@ class ClientManager:
         :param request_id: the request.
         :param with_detail: Whether to show detail info.
         """
-        reqs = self.client.get_requests(request_id=request_id, workload_id=workload_id, with_detail=with_detail)
+        reqs = self.client.get_requests(request_id=request_id, workload_id=workload_id, with_detail=with_detail, with_metadata=with_metadata)
         return reqs
 
     @exception_handler
-    def get_status(self, request_id=None, workload_id=None, with_detail=False):
+    def get_status(self, request_id=None, workload_id=None, with_detail=False, with_metadata=False):
         """
         Get the status progress report of requests.
 
@@ -175,7 +191,7 @@ class ClientManager:
         :param request_id: the request.
         :param with_detail: Whether to show detail info.
         """
-        reqs = self.client.get_requests(request_id=request_id, workload_id=workload_id, with_detail=with_detail)
+        reqs = self.client.get_requests(request_id=request_id, workload_id=workload_id, with_detail=with_detail, with_metadata=with_metadata)
         if with_detail:
             table = []
             for req in reqs:
@@ -183,14 +199,14 @@ class ClientManager:
                               "%s[%s/%s/%s]" % (req['transform_status'].name, req['output_total_files'], req['output_processed_files'], req['output_processing_files']),
                               req['errors']])
             ret = tabulate.tabulate(table, tablefmt='simple', headers=['request_id', 'transform_id', 'request_workload_id', 'transform_workload_id', 'scope:name', 'status[Total/OK/Processing]', 'errors'])
-            print(ret)
+            # print(ret)
             return str(ret)
         else:
             table = []
             for req in reqs:
                 table.append([req['request_id'], req['workload_id'], "%s:%s" % (req['scope'], req['name']), req['status'].name, req['errors']])
             ret = tabulate.tabulate(table, tablefmt='simple', headers=['request_id', 'request_workload_id', 'scope:name', 'status', 'errors'])
-            print(ret)
+            # print(ret)
             return str(ret)
 
     @exception_handler
