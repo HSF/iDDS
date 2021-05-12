@@ -110,7 +110,7 @@ replace_data_path(wsgi_file, install_data_path)
 
 requirements_files = ['tools/env/environment.yml']
 install_requires = parse_requirements(requirements_files=requirements_files)
-install_requires = install_requires + ['idds-common', 'idds-client', 'idds-workflow']
+install_requires = install_requires
 
 extras_requires = dict(mysql=['mysqlclient'])
 
