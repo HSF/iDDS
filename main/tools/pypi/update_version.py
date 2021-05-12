@@ -23,6 +23,13 @@ ver_files = ['main/lib/idds/version.py',
              'client/lib/idds/client/version.py',
              'doma/lib/idds/doma/version.py']
 
+env_files = ['atlas/tools/env/environment.yml',
+             'common/tools/env/environment.yml',
+             'main/tools/env/environment.yml',
+             'client/tools/env/environment.yml',
+             'doma/tools/env/environment.yml',
+             'workflow/tools/env/environment.yml']
+
 
 for ver_file in ver_files:
     print(ver_file)
@@ -34,4 +41,25 @@ for ver_file in ver_files:
 
     data = data.replace(version, new_version)
     with io.open(ver_file, "wt", encoding="utf8") as f:
+        f.write(data)
+
+for env_file in env_files:
+    print(env_file)
+
+    data = None
+    with io.open(env_file, "rt", encoding="utf8") as f:
+        for line in f:
+            stripline = line.strip()
+            if stripline.startswith('- idds-'):
+                pkg, ver = line.split("==")
+                line = pkg + '==' + new_version + "\n"
+            if data is None:
+                data = line
+            else:
+                data = data + line
+            # print(data)
+    if data.endswith('\n'):
+        data = data[:-1]
+
+    with io.open(env_file, "wt", encoding="utf8") as f:
         f.write(data)
