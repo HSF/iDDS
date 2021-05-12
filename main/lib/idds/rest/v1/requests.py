@@ -141,6 +141,10 @@ class Request(IDDSController):
                 with_detail = True
             else:
                 with_detail = False
+            if with_metadata and with_metadata.lower() in ['true']:
+                with_metadata = True
+            else:
+                with_metadata = False
 
             # reqs = get_requests(request_id=request_id, workload_id=workload_id, to_json=True)
             reqs = get_requests(request_id=request_id, workload_id=workload_id, with_detail=with_detail, with_metadata=with_metadata)
@@ -173,6 +177,6 @@ def get_blueprint():
     request_view = Request.as_view('request')
     bp.add_url_rule('/request', view_func=request_view, methods=['post', ])
     bp.add_url_rule('/request/<request_id>', view_func=request_view, methods=['put', ])
-    # bp.add_url_rule('/request/<request_id>/<workload_id>/<with_detail>', view_func=request_view, methods=['get', ])
+    bp.add_url_rule('/request/<request_id>/<workload_id>/<with_detail>', view_func=request_view, methods=['get', ])
     bp.add_url_rule('/request/<request_id>/<workload_id>/<with_detail>/<with_metadata>', view_func=request_view, methods=['get', ])
     return bp
