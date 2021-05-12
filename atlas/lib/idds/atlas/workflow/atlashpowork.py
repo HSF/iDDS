@@ -24,7 +24,7 @@ from idds.common.utils import replace_parameters_with_values
 # from idds.workflow.work import Work
 from idds.workflow.work import Processing
 from idds.atlas.workflow.atlascondorwork import ATLASCondorWork
-from idds.core import (catalog as core_catalog)
+# from idds.core import (catalog as core_catalog)
 
 
 class ATLASHPOWork(ATLASCondorWork):
@@ -555,6 +555,8 @@ class ATLASHPOWork(ATLASCondorWork):
 
     def generate_input_json(self, processing):
         try:
+            from idds.core import (catalog as core_catalog)
+
             output_collection = self.get_output_collections()[0]
             contents = core_catalog.get_contents_by_coll_id_status(coll_id=output_collection.coll_id)
             points = []
