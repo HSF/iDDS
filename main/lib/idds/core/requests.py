@@ -24,7 +24,7 @@ from idds.orm import workprogress as orm_workprogresses
 
 def create_request(scope=None, name=None, requester=None, request_type=None, transform_tag=None,
                    status=RequestStatus.New, locking=RequestLocking.Idle, priority=0,
-                   lifetime=30, workload_id=None, request_metadata=None,
+                   lifetime=None, workload_id=None, request_metadata=None,
                    processing_metadata=None):
     """
     Add a request.
@@ -58,7 +58,7 @@ def create_request(scope=None, name=None, requester=None, request_type=None, tra
 @transactional_session
 def add_request(scope=None, name=None, requester=None, request_type=None, transform_tag=None,
                 status=RequestStatus.New, locking=RequestLocking.Idle, priority=0,
-                lifetime=30, workload_id=None, request_metadata=None,
+                lifetime=None, workload_id=None, request_metadata=None,
                 processing_metadata=None, session=None):
     """
     Add a request.

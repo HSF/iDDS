@@ -52,7 +52,7 @@ class ClientManager:
             'transform_tag': 'workflow',
             'status': RequestStatus.New,
             'priority': 0,
-            'lifetime': 30,
+            'lifetime': workflow.lifetime,
             'workload_id': workflow.get_workload_id(),
             'request_metadata': {'version': release_version, 'workload_id': workflow.get_workload_id(), 'workflow': workflow}
         }

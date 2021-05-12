@@ -74,8 +74,8 @@ class Request(IDDSController):
                 parameters['status'] = RequestStatus.New
             if 'priority' not in parameters:
                 parameters['priority'] = 0
-            if 'lifetime' not in parameters:
-                parameters['lifetime'] = 30
+            # if 'lifetime' not in parameters:
+            #     parameters['lifetime'] = 30
         except ValueError:
             return self.generate_http_response(HTTP_STATUS_CODE.BadRequest, exc_cls=exceptions.BadRequest.__name__, exc_msg='Cannot decode json parameter dictionary')
 

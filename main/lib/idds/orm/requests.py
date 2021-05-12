@@ -29,7 +29,7 @@ from idds.orm.base import models
 
 def create_request(scope=None, name=None, requester=None, request_type=None, transform_tag=None,
                    status=RequestStatus.New, locking=RequestLocking.Idle, priority=0,
-                   lifetime=30, workload_id=None, request_metadata=None,
+                   lifetime=None, workload_id=None, request_metadata=None,
                    processing_metadata=None):
     """
     Create a request.
@@ -68,10 +68,15 @@ def create_request(scope=None, name=None, requester=None, request_type=None, tra
             request_metadata = {}
         request_metadata['is_pseudo_input'] = True
 
+    if lifetime:
+        expired_at = datetime.datetime.utcnow() + datetime.timedelta(days=lifetime)
+    else:
+        expired_at = None
+
     new_request = models.Request(scope=scope, name=name, requester=requester, request_type=request_type,
                                  transform_tag=transform_tag, status=status, locking=locking,
                                  priority=priority, workload_id=workload_id,
-                                 expired_at=datetime.datetime.utcnow() + datetime.timedelta(days=lifetime),
+                                 expired_at=expired_at,
                                  request_metadata=request_metadata, processing_metadata=processing_metadata)
     return new_request
 
@@ -79,7 +84,7 @@ def create_request(scope=None, name=None, requester=None, request_type=None, tra
 @transactional_session
 def add_request(scope=None, name=None, requester=None, request_type=None, transform_tag=None,
                 status=RequestStatus.New, locking=RequestLocking.Idle, priority=0,
-                lifetime=30, workload_id=None, request_metadata=None,
+                lifetime=None, workload_id=None, request_metadata=None,
                 processing_metadata=None, session=None):
     """
     Add a request.
