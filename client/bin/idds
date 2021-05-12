@@ -46,6 +46,11 @@ def resume_requests(args):
     wm.resume(request_id=args.request_id, workload_id=args.workload_id)
 
 
+def retry_requests(args):
+    wm = ClientManager(host=args.host)
+    wm.retry(request_id=args.request_id, workload_id=args.workload_id)
+
+
 def download_logs(args):
     wm = ClientManager(host=args.host)
     wm.download_logs(request_id=args.request_id, workload_id=args.workload_id, dest_dir=args.dest_dir, filename=args.dest_filename)
@@ -112,6 +117,12 @@ def get_parser():
     resume_parser.set_defaults(function=resume_requests)
     resume_parser.add_argument('--request_id', dest='request_id', action='store', type=int, help='The request id')
     resume_parser.add_argument('--workload_id', dest='workload_id', action='store', type=int, help='The workload id')
+
+    # retry requests
+    retry_parser = subparsers.add_parser('retry_requests', help='Resume requests')
+    retry_parser.set_defaults(function=retry_requests)
+    retry_parser.add_argument('--request_id', dest='request_id', action='store', type=int, help='The request id')
+    retry_parser.add_argument('--workload_id', dest='workload_id', action='store', type=int, help='The workload id')
 
     # download logs
     log_parser = subparsers.add_parser('download_logs', help='Download logs')
