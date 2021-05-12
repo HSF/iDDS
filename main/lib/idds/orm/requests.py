@@ -212,28 +212,8 @@ def get_requests(request_id=None, workload_id=None, with_detail=False, with_meta
     """
     try:
         if not with_detail:
-            if with_metadata:
-                query = session.query(models.Request)\
-                               .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_SCOPE_NAME_IDX)", 'oracle')
-            else:
-                query = session.query(models.Request.request_id,
-                                      models.Request.scope,
-                                      models.Request.name,
-                                      models.Request.requester,
-                                      models.Request.request_type,
-                                      models.Request.transform_tag,
-                                      models.Request.workload_id,
-                                      models.Request.priority,
-                                      models.Request.status,
-                                      models.Request.substatus,
-                                      models.Request.locking,
-                                      models.Request.created_at,
-                                      models.Request.updated_at,
-                                      models.Request.next_poll_at,
-                                      models.Request.accessed_at,
-                                      models.Request.expired_at,
-                                      models.Request.errors)\
-                               .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_SCOPE_NAME_IDX)", 'oracle')
+            query = session.query(models.Request)\
+                           .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_SCOPE_NAME_IDX)", 'oracle')
 
             if request_id:
                 query = query.filter(models.Request.request_id == request_id)
