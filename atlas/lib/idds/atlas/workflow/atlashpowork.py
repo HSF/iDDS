@@ -630,6 +630,8 @@ class ATLASHPOWork(ATLASCondorWork):
             # processing['processing_metadata']['job_id'] = job_id
             # processing['processing_metadata']['errors'] = errors
             proc.external_id = job_id
+            if job_id:
+                proc.submitted_at = datetime.datetime.utcnow()
             proc.errors = errors
 
     def parse_processing_outputs(self, processing):

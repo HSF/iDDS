@@ -9,6 +9,7 @@
 # - Wen Guan, <wen.guan@cern.ch>, 2020
 
 import copy
+import datetime
 import traceback
 
 from rucio.client.client import Client as RucioClient
@@ -224,6 +225,9 @@ class ATLASStageinWork(Work):
                                'rule_id': self.rule_id}
         proc = Processing(processing_metadata=processing_metadata)
         proc.external_id = self.rule_id
+        if self.rule_id:
+            proc.submitted_at = datetime.datetime.utcnow()
+
         self.add_processing_to_processings(proc)
         self.active_processings.append(proc.internal_id)
         return proc
@@ -266,6 +270,8 @@ class ATLASStageinWork(Work):
             rule_id = self.create_rule(processing)
             # processing['processing_metadata']['rule_id'] = rule_id
             proc.external_id = rule_id
+            if rule_id:
+                proc.submitted_at = datetime.datetime.utcnow()
 
     def poll_rule(self, processing):
         try:
