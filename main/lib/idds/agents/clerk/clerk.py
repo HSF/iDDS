@@ -33,11 +33,15 @@ class Clerk(BaseAgent):
     Clerk works to process requests and converts requests to transforms.
     """
 
-    def __init__(self, num_threads=1, poll_time_period=10, retrieve_bulk_size=10, **kwargs):
+    def __init__(self, num_threads=1, poll_time_period=10, retrieve_bulk_size=10, pending_time=None, **kwargs):
         super(Clerk, self).__init__(num_threads=num_threads, **kwargs)
         self.poll_time_period = int(poll_time_period)
         self.retrieve_bulk_size = int(retrieve_bulk_size)
         self.config_section = Sections.Clerk
+        if pending_time:
+            self.pending_time = float(pending_time)
+        else:
+            self.pending_time = None
 
         self.new_task_queue = Queue()
         self.new_output_queue = Queue()
@@ -93,7 +97,7 @@ class Clerk(BaseAgent):
                 # new_work = work.copy()
                 new_work = work
                 new_work.add_proxy(wf.get_proxy())
-                new_work.create_processing()
+                # new_work.create_processing()
                 transform = {'request_id': req['request_id'],
                              'workload_id': req['workload_id'],
                              'transform_type': work.get_work_type(),
@@ -101,7 +105,8 @@ class Clerk(BaseAgent):
                              'priority': req['priority'],
                              'status': TransformStatus.New,
                              'retries': 0,
-                             'expired_at': req['expired_at'],
+                             # 'expired_at': req['expired_at'],
+                             'expired_at': None,
                              'transform_metadata': {'internal_id': new_work.get_internal_id(),
                                                     'template_work_id': new_work.get_template_work_id(),
                                                     'sequence_id': new_work.get_sequence_id(),
@@ -189,11 +194,12 @@ class Clerk(BaseAgent):
 
             req_status = [RequestStatus.Transforming, RequestStatus.ToCancel, RequestStatus.Cancelling,
                           RequestStatus.ToSuspend, RequestStatus.Suspending,
+                          RequestStatus.ToExpire, RequestStatus.Expiring,
                           RequestStatus.Resuming]
             reqs = core_requests.get_requests_by_status_type(status=req_status, time_period=self.poll_time_period,
                                                              locking=True, bulk_size=self.retrieve_bulk_size)
 
-            req_status = [RequestStatus.ToSuspend, RequestStatus.ToCancel, RequestStatus.ToResume]
+            req_status = [RequestStatus.ToSuspend, RequestStatus.ToCancel, RequestStatus.ToResume, RequestStatus.ToExpire]
             reqs_1 = core_requests.get_requests_by_status_type(status=req_status, time_period=self.poll_time_period,
                                                                locking=True, by_substatus=True, bulk_size=self.retrieve_bulk_size)
 
@@ -232,7 +238,8 @@ class Clerk(BaseAgent):
                                  'priority': req['priority'],
                                  'status': TransformStatus.New,
                                  'retries': 0,
-                                 'expired_at': req['expired_at'],
+                                 # 'expired_at': req['expired_at'],
+                                 'expired_at': None,
                                  'transform_metadata': {'internal_id': new_work.get_internal_id(),
                                                         'template_work_id': new_work.get_template_work_id(),
                                                         'sequence_id': new_work.get_sequence_id(),
@@ -255,17 +262,18 @@ class Clerk(BaseAgent):
             # work_status = WorkStatus(tf['status'].value)
             # work.set_status(work_status)
             work.sync_work_data(status=tf['status'], substatus=tf['substatus'], work=transform_work)
+        wf.refresh_works()
 
         is_operation = False
         if wf.is_terminated():
             if wf.is_finished():
                 req_status = RequestStatus.Finished
+            elif wf.is_expired():
+                req_status = RequestStatus.Expired
             elif wf.is_subfinished():
                 req_status = RequestStatus.SubFinished
             elif wf.is_failed():
                 req_status = RequestStatus.Failed
-            elif wf.is_expired():
-                req_status = RequestStatus.Expired
             elif wf.is_cancelled():
                 req_status = RequestStatus.Cancelled
             elif wf.is_suspended():
@@ -274,15 +282,20 @@ class Clerk(BaseAgent):
                 req_status = RequestStatus.Failed
             req_msg = wf.get_terminated_msg()
         else:
+            req_msg = None
             if req['status'] in [RequestStatus.ToSuspend, RequestStatus.Suspending]:
                 req_status = RequestStatus.Suspending
                 is_operation = True
             elif req['status'] in [RequestStatus.ToCancel, RequestStatus.Cancelling]:
                 req_status = RequestStatus.Cancelling
                 is_operation = True
+            elif wf.is_to_expire(req['expired_at'], self.pending_time, request_id=req['request_id']):
+                wf.expired = True
+                req_status = RequestStatus.ToExpire
+                is_operation = True
+                req_msg = "Workflow expired"
             else:
                 req_status = RequestStatus.Transforming
-            req_msg = None
 
         # processing_metadata['workflow_data'] = wf.get_running_data()
         if not is_operation:
@@ -295,6 +308,10 @@ class Clerk(BaseAgent):
                       'next_poll_at': next_poll_at,
                       'request_metadata': req['request_metadata'],
                       'errors': {'msg': req_msg}}
+
+        if req_status == RequestStatus.ToExpire:
+            parameters['substatus'] = req_status
+
         ret = {'request_id': req['request_id'],
                'parameters': parameters,
                'new_transforms': new_transforms}   # 'update_transforms': update_transforms}
@@ -317,7 +334,7 @@ class Clerk(BaseAgent):
 
     def process_operating_request_real(self, req):
         """
-        process ToCancel/ToSuspend/ToResume request
+        process ToCancel/ToSuspend/ToResume/ToExpire request
         """
         if req['substatus'] == RequestStatus.ToCancel:
             tf_status = TransformStatus.ToCancel
@@ -328,6 +345,9 @@ class Clerk(BaseAgent):
         if req['substatus'] == RequestStatus.ToResume:
             tf_status = TransformStatus.ToResume
             req_status = RequestStatus.Resuming
+        if req['substatus'] == RequestStatus.ToExpire:
+            tf_status = TransformStatus.ToExpire
+            req_status = RequestStatus.Expiring
 
         processing_metadata = req['processing_metadata']
 
@@ -363,7 +383,7 @@ class Clerk(BaseAgent):
 
     def process_operating_request(self, req):
         """
-        process ToCancel/ToSuspend/ToResume request
+        process ToCancel/ToSuspend/ToResume/ToExpire request
         """
         try:
             ret_req = self.process_operating_request_real(req)
@@ -385,10 +405,11 @@ class Clerk(BaseAgent):
             try:
                 req = self.running_task_queue.get()
                 if req:
-                    if req['substatus'] in [RequestStatus.ToCancel, RequestStatus.ToSuspend, RequestStatus.ToResume]:
+                    if req['substatus'] in [RequestStatus.ToCancel, RequestStatus.ToSuspend, RequestStatus.ToResume, RequestStatus.ToExpire]:
                         self.logger.info("Main thread processing operating requst: %s" % req)
                         ret_req = self.process_operating_request(req)
-                    elif req['status'] in [RequestStatus.Transforming, RequestStatus.Cancelling, RequestStatus.Suspending, RequestStatus.Resuming]:
+                    # elif req['status'] in [RequestStatus.Transforming, RequestStatus.Cancelling, RequestStatus.Suspending, RequestStatus.Resuming]:
+                    else:
                         self.logger.info("Main thread processing running requst: %s" % req)
                         ret_req = self.process_running_request(req)
 
