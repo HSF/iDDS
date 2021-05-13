@@ -14,9 +14,9 @@ ret = c.retry(request_id=27)
 print(ret)
 
 ret = c.get_status(request_id=27)
-if ret[0] == 0 and ret[1][0] == True:
+if ret[0] == 0 and ret[1][0] is True:
     print(ret[1][-1])
 
 ret = c.get_status(request_id=27, with_detail=True)
-if ret[0] == 0 and ret[1][0] == True:
+if ret[0] == 0 and ret[1][0] is True:
     print(ret[1][-1])
