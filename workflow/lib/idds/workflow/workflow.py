@@ -17,6 +17,7 @@ import time
 import uuid
 
 from idds.common.utils import json_dumps, setup_logging, get_proxy
+from idds.common.utils import str_to_date
 from .base import Base
 
 
@@ -86,7 +87,7 @@ class Condition(Base):
 
 class Workflow(Base):
 
-    def __init__(self, name=None, workload_id=None, logger=None):
+    def __init__(self, name=None, workload_id=None, lifetime=None, pending_time=None, logger=None):
         """
         Init a workflow.
         """
@@ -94,6 +95,8 @@ class Workflow(Base):
 
         self.internal_id = str(uuid.uuid1())
         self.template_work_id = self.internal_id
+        self.lifetime = lifetime
+        self.pending_time = pending_time
 
         if name:
             self._name = name + "." + datetime.datetime.utcnow().strftime("%Y_%m_%d_%H_%M_%S_%f") + str(random.randint(1, 1000))
@@ -133,6 +136,9 @@ class Workflow(Base):
         self.num_total_works = 0
 
         self.last_work = None
+
+        self.last_updated_at = datetime.datetime.utcnow()
+        self.expired = False
 
         # user defined Condition class
         self.user_defined_conditions = {}
@@ -183,6 +189,54 @@ class Workflow(Base):
         self.add_metadata_item('workload_id', value)
 
     @property
+    def lifetime(self):
+        # return self.get_metadata_item('lifetime', None)
+        return getattr(self, '_lifetime', None)
+
+    @lifetime.setter
+    def lifetime(self, value):
+        # self.add_metadata_item('lifetime', value)
+        self._lifetime = value
+
+    @property
+    def pending_time(self):
+        # return self.get_metadata_item('pending_time', None)
+        return getattr(self, '_pending_time', None)
+
+    @pending_time.setter
+    def pending_time(self, value):
+        # self.add_metadata_item('pending_time', value)
+        self._pending_time = value
+
+    @property
+    def last_updated_at(self):
+        last_updated_at = self.get_metadata_item('last_updated_at', None)
+        if last_updated_at and type(last_updated_at) in [str]:
+            last_updated_at = str_to_date(last_updated_at)
+        return last_updated_at
+
+    @last_updated_at.setter
+    def last_updated_at(self, value):
+        self.add_metadata_item('last_updated_at', value)
+
+    def has_new_updates(self):
+        self.last_updated_at = datetime.datetime.utcnow()
+
+    @property
+    def expired(self):
+        t = self.get_metadata_item('expired', False)
+        if type(t) in [bool]:
+            return t
+        elif type(t) in [str] and t.lower() in ['true']:
+            return True
+        else:
+            return False
+
+    @expired.setter
+    def expired(self, value):
+        self.add_metadata_item('expired', value)
+
+    @property
     def works(self):
         return self._works
 
@@ -207,6 +261,8 @@ class Workflow(Base):
                                     'template_work_id': work.template_work_id,
                                     'work_id': work.work_id,
                                     'transforming': work.transforming}
+                if work.last_updated_at and (not self.last_updated_at or work.last_updated_at > self.last_updated_at):
+                    self.last_updated_at = work.last_updated_at
         self.add_metadata_item('works', work_metadata)
 
     def load_works(self):
@@ -222,6 +278,9 @@ class Workflow(Base):
 
             self._works[k].work_id = work_metadata[k]['work_id']
             self._works[k].transforming = work_metadata[k]['transforming']
+            work = self._works[k]
+            if work.last_updated_at and (not self.last_updated_at or work.last_updated_at > self.last_updated_at):
+                self.last_updated_at = work.last_updated_at
 
     @property
     def work_sequence(self):
@@ -523,6 +582,8 @@ class Workflow(Base):
     def sync_works(self):
         self.first_initialize()
 
+        self.refresh_works()
+
         for work in [self.works[k] for k in self.new_to_run_works]:
             if work.transforming:
                 self.new_to_run_works.remove(work.get_internal_id())
@@ -565,6 +626,8 @@ class Workflow(Base):
         self.num_cancelled_works = 0
         self.num_suspended_works = 0
         self.num_expired_works = 0
+
+        self.last_updated_at = datetime.datetime.utcnow()
 
         t_works = self.terminated_works
         self.terminated_works = []
@@ -616,11 +679,41 @@ class Workflow(Base):
         """
         return self.is_terminated() and (self.num_failed_works > 0) and (self.num_cancelled_works == 0) and (self.num_suspended_works == 0) and (self.num_expired_works == 0)
 
+    def is_to_expire(self, expired_at=None, pending_time=None, request_id=None):
+        if expired_at:
+            if type(expired_at) in [str]:
+                expired_at = str_to_date(expired_at)
+            if expired_at < datetime.datetime.utcnow():
+                self.logger.info("Request(%s) expired_at(%s) is smaller than utc now(%s), expiring" % (request_id,
+                                                                                                       expired_at,
+                                                                                                       datetime.datetime.utcnow()))
+                return True
+
+        act_pending_time = None
+        if self.pending_time:
+            # in days
+            act_pending_time = float(self.pending_time)
+        else:
+            if pending_time:
+                act_pending_time = float(pending_time)
+        if act_pending_time:
+            act_pending_seconds = int(86400 * act_pending_time)
+            if self.last_updated_at + datetime.timedelta(seconds=act_pending_seconds) < datetime.datetime.utcnow():
+                log_str = "Request(%s) last updated at(%s) + pending seconds(%s)" % (request_id,
+                                                                                     self.last_updated_at,
+                                                                                     act_pending_seconds)
+                log_str += " is smaller than utc now(%s), expiring" % (datetime.datetime.utcnow())
+                self.logger.info(log_str)
+                return True
+
+        return False
+
     def is_expired(self):
         """
         *** Function called by Marshaller agent.
         """
-        return self.is_terminated() and (self.num_expired_works > 0)
+        # return self.is_terminated() and (self.num_expired_works > 0)
+        return self.is_terminated() and self.expired
 
     def is_cancelled(self):
         """

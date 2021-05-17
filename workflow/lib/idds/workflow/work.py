@@ -20,6 +20,7 @@ from idds.common import exceptions
 from idds.common.constants import (WorkStatus, ProcessingStatus,
                                    CollectionStatus, CollectionType)
 from idds.common.utils import setup_logging
+from idds.common.utils import str_to_date
 
 from .base import Base
 
@@ -135,7 +136,9 @@ class Processing(Base):
         self.tocancel = False
         self.tosuspend = False
         self.toresume = False
+        self.toexpire = False
         self.operation_time = datetime.datetime.utcnow()
+        self.submitted_at = None
 
         self.external_id = None
         self.errors = None
@@ -188,7 +191,10 @@ class Processing(Base):
 
     @property
     def last_updated_at(self):
-        return self.get_metadata_item('last_updated_at', None)
+        last_updated_at = self.get_metadata_item('last_updated_at', None)
+        if last_updated_at and type(last_updated_at) in [str]:
+            last_updated_at = str_to_date(last_updated_at)
+        return last_updated_at
 
     @last_updated_at.setter
     def last_updated_at(self, value):
@@ -236,8 +242,22 @@ class Processing(Base):
         self.add_metadata_item('toresume', value)
 
     @property
+    def toexpire(self):
+        return self.get_metadata_item('toexpire', False)
+
+    @toexpire.setter
+    def toexpire(self, value):
+        old_value = self.get_metadata_item('toexpire', False)
+        if old_value != value:
+            self.operation_time = datetime.datetime.utcnow()
+        self.add_metadata_item('toexpire', value)
+
+    @property
     def operation_time(self):
-        return self.get_metadata_item('operation_time', False)
+        opt_time = self.get_metadata_item('operation_time', None)
+        if opt_time and type(opt_time) in [str]:
+            opt_time = str_to_date(opt_time)
+        return opt_time
 
     @operation_time.setter
     def operation_time(self, value):
@@ -250,6 +270,17 @@ class Processing(Base):
             if time_diff < 120:
                 return True
         return False
+
+    @property
+    def submitted_at(self):
+        opt_time = self.get_metadata_item('submitted_at', None)
+        if opt_time and type(opt_time) in [str]:
+            opt_time = str_to_date(opt_time)
+        return opt_time
+
+    @submitted_at.setter
+    def submitted_at(self, value):
+        self.add_metadata_item('submitted_at', value)
 
     @property
     def errors(self):
@@ -393,6 +424,9 @@ class Work(Base):
         self.tocancel = False
         self.tosuspend = False
         self.toresume = False
+        self.toexpire = False
+
+        self.last_updated_at = datetime.datetime.utcnow()
 
         self.backup_to_release_inputs = {'0': [], '1': [], '2': []}
 
@@ -669,6 +703,28 @@ class Work(Base):
     @toresume.setter
     def toresume(self, value):
         self.add_metadata_item('toresume', value)
+
+    @property
+    def toexpire(self):
+        return self.get_metadata_item('toexpire', False)
+
+    @toexpire.setter
+    def toexpire(self, value):
+        self.add_metadata_item('toexpire', value)
+
+    @property
+    def last_updated_at(self):
+        last_updated_at = self.get_metadata_item('last_updated_at', None)
+        if last_updated_at and type(last_updated_at) in [str]:
+            last_updated_at = str_to_date(last_updated_at)
+        return last_updated_at
+
+    @last_updated_at.setter
+    def last_updated_at(self, value):
+        self.add_metadata_item('last_updated_at', value)
+
+    def has_new_updates(self):
+        self.last_updated_at = datetime.datetime.utcnow()
 
     def set_work_name(self, work_name):
         self.work_name = work_name
@@ -959,7 +1015,7 @@ class Work(Base):
         coll_metadata = copy.copy(coll)
         del coll_metadata['scope']
         del coll_metadata['name']
-        collection = Collection(scope=coll['scope'], name=coll['name'], coll_metadata=coll)
+        collection = Collection(scope=coll['scope'], name=coll['name'], coll_metadata=coll_metadata)
         self.collections[collection.internal_id] = collection
         return collection
 
@@ -1151,12 +1207,20 @@ class Work(Base):
         # print(coll_id)
         self.collections[collection.internal_id]['coll_id'] = coll_id
 
-    def should_release_inputs(self, processing=None):
+    def should_release_inputs(self, processing=None, poll_operation_time_period=120):
         if self.release_inputs_after_submitting:
-            if (processing and processing.status
-                and processing.status not in [ProcessingStatus.New, ProcessingStatus.New.value,  # noqa: W503
-                                                 ProcessingStatus.Submitting, ProcessingStatus.Submitting.value]):  # noqa: W503
-                return True
+            if not poll_operation_time_period:
+                poll_operation_time_period = 120
+
+            processing_model = processing.processing
+            if (processing_model and processing_model['submitted_at']                                                 # noqa: W503
+                and processing_model['submitted_at'] + datetime.timedelta(seconds=int(poll_operation_time_period))    # noqa: W503
+                < datetime.datetime.utcnow()):                                                                        # noqa: W503
+
+                if (processing and processing.status
+                    and processing.status not in [ProcessingStatus.New, ProcessingStatus.New.value,                   # noqa: W503
+                                                  ProcessingStatus.Submitting, ProcessingStatus.Submitting.value]):   # noqa: W503
+                    return True
             return False
         return True
 
@@ -1411,6 +1475,18 @@ class Work(Base):
             proc = processing['processing_metadata']['processing']
             proc.toresume = True
 
+    def expire_processing(self, processing):
+        """
+        *** Function called by Carrier agent.
+        """
+        # raise exceptions.NotImplementedException
+        self.toexpire = True
+        if (processing and 'processing_metadata' in processing and processing['processing_metadata']                     # noqa W503
+            and 'processing' in processing['processing_metadata'] and processing['processing_metadata']['processing']):  # noqa W503
+            proc = processing['processing_metadata']['processing']
+            proc.toexpire = True
+
+    """
     def get_expired_at(self, processing=None):
         if processing and 'expired_at' in processing and processing['expired_at']:
             return processing['expired_at']
@@ -1439,6 +1515,7 @@ class Work(Base):
             self.logger.info("Processing %s expired" % processing['processing_id'])
             return True
         return False
+    """
 
     def poll_processing_updates(self, processing, input_output_maps):
         """

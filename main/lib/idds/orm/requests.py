@@ -29,7 +29,7 @@ from idds.orm.base import models
 
 def create_request(scope=None, name=None, requester=None, request_type=None, transform_tag=None,
                    status=RequestStatus.New, locking=RequestLocking.Idle, priority=0,
-                   lifetime=30, workload_id=None, request_metadata=None,
+                   lifetime=None, workload_id=None, request_metadata=None,
                    processing_metadata=None):
     """
     Create a request.
@@ -68,10 +68,15 @@ def create_request(scope=None, name=None, requester=None, request_type=None, tra
             request_metadata = {}
         request_metadata['is_pseudo_input'] = True
 
+    if lifetime:
+        expired_at = datetime.datetime.utcnow() + datetime.timedelta(days=lifetime)
+    else:
+        expired_at = None
+
     new_request = models.Request(scope=scope, name=name, requester=requester, request_type=request_type,
                                  transform_tag=transform_tag, status=status, locking=locking,
                                  priority=priority, workload_id=workload_id,
-                                 expired_at=datetime.datetime.utcnow() + datetime.timedelta(days=lifetime),
+                                 expired_at=expired_at,
                                  request_metadata=request_metadata, processing_metadata=processing_metadata)
     return new_request
 
@@ -79,7 +84,7 @@ def create_request(scope=None, name=None, requester=None, request_type=None, tra
 @transactional_session
 def add_request(scope=None, name=None, requester=None, request_type=None, transform_tag=None,
                 status=RequestStatus.New, locking=RequestLocking.Idle, priority=0,
-                lifetime=30, workload_id=None, request_metadata=None,
+                lifetime=None, workload_id=None, request_metadata=None,
                 processing_metadata=None, session=None):
     """
     Add a request.
@@ -197,7 +202,7 @@ def get_request(request_id, to_json=False, session=None):
 
 
 @read_session
-def get_requests(request_id=None, workload_id=None, with_detail=False, to_json=False, session=None):
+def get_requests(request_id=None, workload_id=None, with_detail=False, with_metadata=False, to_json=False, session=None):
     """
     Get a request or raise a NoObject exception.
 
@@ -212,27 +217,63 @@ def get_requests(request_id=None, workload_id=None, with_detail=False, to_json=F
     """
     try:
         if not with_detail:
-            query = session.query(models.Request)\
-                           .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_SCOPE_NAME_IDX)", 'oracle')
-            if request_id:
-                query = query.filter(models.Request.request_id == request_id)
-            if workload_id:
-                query = query.filter(models.Request.workload_id == workload_id)
+            if with_metadata:
+                query = session.query(models.Request)\
+                               .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_SCOPE_NAME_IDX)", 'oracle')
 
-            tmp = query.all()
-            rets = []
-            if tmp:
-                for t in tmp:
-                    if to_json:
-                        rets.append(t.to_dict_json())
-                    else:
-                        rets.append(t.to_dict())
-            return rets
+                if request_id:
+                    query = query.filter(models.Request.request_id == request_id)
+                if workload_id:
+                    query = query.filter(models.Request.workload_id == workload_id)
+
+                tmp = query.all()
+                rets = []
+                if tmp:
+                    for t in tmp:
+                        if to_json:
+                            t_dict = t.to_dict_json()
+                        else:
+                            t_dict = t.to_dict()
+                        rets.append(t_dict)
+                return rets
+            else:
+                query = session.query(models.Request.request_id,
+                                      models.Request.scope,
+                                      models.Request.name,
+                                      models.Request.requester,
+                                      models.Request.request_type,
+                                      models.Request.transform_tag,
+                                      models.Request.workload_id,
+                                      models.Request.priority,
+                                      models.Request.status,
+                                      models.Request.substatus,
+                                      models.Request.locking,
+                                      models.Request.created_at,
+                                      models.Request.updated_at,
+                                      models.Request.next_poll_at,
+                                      models.Request.accessed_at,
+                                      models.Request.expired_at,
+                                      models.Request.errors)\
+                               .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_SCOPE_NAME_IDX)", 'oracle')
+
+                if request_id:
+                    query = query.filter(models.Request.request_id == request_id)
+                if workload_id:
+                    query = query.filter(models.Request.workload_id == workload_id)
+
+                tmp = query.all()
+                rets = []
+                if tmp:
+                    for t in tmp:
+                        t2 = dict(zip(t.keys(), t))
+                        rets.append(t2)
+                return rets
         else:
             subquery1 = session.query(models.Collection.coll_id, models.Collection.transform_id,
                                       models.Collection.scope.label("input_coll_scope"),
                                       models.Collection.name.label("input_coll_name"),
                                       models.Collection.status.label("input_coll_status"),
+                                      models.Collection.bytes.label("input_coll_bytes"),
                                       models.Collection.total_files.label("input_total_files"),
                                       models.Collection.processed_files.label("input_processed_files"),
                                       models.Collection.processing_files.label("input_processing_files")).filter(models.Collection.relation_type == 0)
@@ -242,41 +283,76 @@ def get_requests(request_id=None, workload_id=None, with_detail=False, to_json=F
                                       models.Collection.scope.label("output_coll_scope"),
                                       models.Collection.name.label("output_coll_name"),
                                       models.Collection.status.label("output_coll_status"),
+                                      models.Collection.bytes.label("output_coll_bytes"),
                                       models.Collection.total_files.label("output_total_files"),
                                       models.Collection.processed_files.label("output_processed_files"),
                                       models.Collection.processing_files.label("output_processing_files")).filter(models.Collection.relation_type == 1)
             subquery2 = subquery2.subquery()
 
-            query = session.query(models.Request.request_id,
-                                  models.Request.scope,
-                                  models.Request.name,
-                                  models.Request.requester,
-                                  models.Request.request_type,
-                                  models.Request.transform_tag,
-                                  models.Request.workload_id,
-                                  models.Request.priority,
-                                  models.Request.status,
-                                  models.Request.substatus,
-                                  models.Request.locking,
-                                  models.Request.created_at,
-                                  models.Request.updated_at,
-                                  models.Request.next_poll_at,
-                                  models.Request.accessed_at,
-                                  models.Request.expired_at,
-                                  models.Request.errors,
-                                  models.Request._request_metadata.label('request_metadata'),
-                                  models.Request._processing_metadata.label('processing_metadata'),
-                                  models.Transform.transform_id,
-                                  models.Transform.workload_id.label("transform_workload_id"),
-                                  models.Transform.status.label("transform_status"),
-                                  subquery1.c.input_coll_scope, subquery1.c.input_coll_name,
-                                  subquery1.c.input_coll_status, subquery1.c.input_total_files,
-                                  subquery1.c.input_processed_files,
-                                  subquery1.c.input_processing_files,
-                                  subquery2.c.output_coll_scope, subquery2.c.output_coll_name,
-                                  subquery2.c.output_coll_status, subquery2.c.output_total_files,
-                                  subquery2.c.output_processed_files,
-                                  subquery2.c.output_processing_files)
+            if with_metadata:
+                query = session.query(models.Request.request_id,
+                                      models.Request.scope,
+                                      models.Request.name,
+                                      models.Request.requester,
+                                      models.Request.request_type,
+                                      models.Request.transform_tag,
+                                      models.Request.workload_id,
+                                      models.Request.priority,
+                                      models.Request.status,
+                                      models.Request.substatus,
+                                      models.Request.locking,
+                                      models.Request.created_at,
+                                      models.Request.updated_at,
+                                      models.Request.next_poll_at,
+                                      models.Request.accessed_at,
+                                      models.Request.expired_at,
+                                      models.Request.errors,
+                                      models.Request._request_metadata.label('request_metadata'),
+                                      models.Request._processing_metadata.label('processing_metadata'),
+                                      models.Transform.transform_id,
+                                      models.Transform.workload_id.label("transform_workload_id"),
+                                      models.Transform.status.label("transform_status"),
+                                      subquery1.c.input_coll_scope, subquery1.c.input_coll_name,
+                                      subquery1.c.input_coll_status, subquery1.c.input_coll_bytes,
+                                      subquery1.c.input_total_files,
+                                      subquery1.c.input_processed_files,
+                                      subquery1.c.input_processing_files,
+                                      subquery2.c.output_coll_scope, subquery2.c.output_coll_name,
+                                      subquery2.c.output_coll_status, subquery2.c.output_coll_bytes,
+                                      subquery2.c.output_total_files,
+                                      subquery2.c.output_processed_files,
+                                      subquery2.c.output_processing_files)
+            else:
+                query = session.query(models.Request.request_id,
+                                      models.Request.scope,
+                                      models.Request.name,
+                                      models.Request.requester,
+                                      models.Request.request_type,
+                                      models.Request.transform_tag,
+                                      models.Request.workload_id,
+                                      models.Request.priority,
+                                      models.Request.status,
+                                      models.Request.substatus,
+                                      models.Request.locking,
+                                      models.Request.created_at,
+                                      models.Request.updated_at,
+                                      models.Request.next_poll_at,
+                                      models.Request.accessed_at,
+                                      models.Request.expired_at,
+                                      models.Request.errors,
+                                      models.Transform.transform_id,
+                                      models.Transform.workload_id.label("transform_workload_id"),
+                                      models.Transform.status.label("transform_status"),
+                                      subquery1.c.input_coll_scope, subquery1.c.input_coll_name,
+                                      subquery1.c.input_coll_status, subquery1.c.input_coll_bytes,
+                                      subquery1.c.input_total_files,
+                                      subquery1.c.input_processed_files,
+                                      subquery1.c.input_processing_files,
+                                      subquery2.c.output_coll_scope, subquery2.c.output_coll_name,
+                                      subquery2.c.output_coll_status, subquery2.c.output_coll_bytes,
+                                      subquery2.c.output_total_files,
+                                      subquery2.c.output_processed_files,
+                                      subquery2.c.output_processing_files)
 
             if request_id:
                 query = query.filter(models.Request.request_id == request_id)
@@ -295,14 +371,14 @@ def get_requests(request_id=None, workload_id=None, with_detail=False, to_json=F
                     # t2 = dict(t)
                     t2 = dict(zip(t.keys(), t))
 
-                    if t2['request_metadata'] and 'workflow' in t2['request_metadata']:
+                    if 'request_metadata' in t2 and t2['request_metadata'] and 'workflow' in t2['request_metadata']:
                         workflow = t2['request_metadata']['workflow']
                         workflow_data = None
-                    if t2['processing_metadata'] and 'workflow_data' in t2['processing_metadata']:
-                        workflow_data = t2['processing_metadata']['workflow_data']
-                    if workflow is not None and workflow_data is not None:
-                        workflow.metadata = workflow_data
-                        t2['request_metadata']['workflow'] = workflow
+                        if 'processing_metadata' in t2 and t2['processing_metadata'] and 'workflow_data' in t2['processing_metadata']:
+                            workflow_data = t2['processing_metadata']['workflow_data']
+                        if workflow is not None and workflow_data is not None:
+                            workflow.metadata = workflow_data
+                            t2['request_metadata']['workflow'] = workflow
 
                     rets.append(t2)
             return rets

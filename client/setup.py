@@ -82,11 +82,13 @@ install_data_path = get_data_path()
 
 requirements_files = ['tools/env/environment.yml']
 install_requires = parse_requirements(requirements_files=requirements_files)
-install_requires = install_requires + ['idds-common']
+install_requires = install_requires
+
 data_files = [
     # config and cron files
     ('etc/idds/', glob.glob('etc/idds/*.template')),
     ('etc/idds/rest', glob.glob('etc/idds/rest/*template')),
+    ('tools/env/', glob.glob('tools/env/*.yml')),
 ]
 scripts = glob.glob('bin/*')
 

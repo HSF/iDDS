@@ -94,8 +94,12 @@ class Carrier(BaseAgent):
             ret = {'processing_id': processing['processing_id'],
                    'status': ProcessingStatus.Submitting,
                    'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period),
-                   'expired_at': work.get_expired_at(processing),
+                   # 'expired_at': work.get_expired_at(processing),
                    'processing_metadata': processing['processing_metadata']}
+            if proc.submitted_at:
+                if not processing['submitted_at'] or processing['submitted_at'] < proc.submitted_at:
+                    ret['submitted_at'] = proc.submitted_at
+
             # if processing['processing_metadata'] and 'processing' in processing['processing_metadata']:
             if proc.workload_id:
                 ret['workload_id'] = proc.workload_id
@@ -150,13 +154,13 @@ class Carrier(BaseAgent):
 
             processing_status = [ProcessingStatus.Submitting, ProcessingStatus.Submitted, ProcessingStatus.Running, ProcessingStatus.FinishedOnExec,
                                  ProcessingStatus.ToCancel, ProcessingStatus.Cancelling, ProcessingStatus.ToSuspend, ProcessingStatus.Suspending,
-                                 ProcessingStatus.ToResume, ProcessingStatus.Resuming]
+                                 ProcessingStatus.ToResume, ProcessingStatus.Resuming, ProcessingStatus.ToExpire, ProcessingStatus.Expiring]
             processings = core_processings.get_processings_by_status(status=processing_status,
                                                                      # time_period=self.poll_time_period,
                                                                      locking=True,
                                                                      bulk_size=self.retrieve_bulk_size)
 
-            processing_status = [ProcessingStatus.ToCancel, ProcessingStatus.ToSuspend, ProcessingStatus.ToResume]
+            processing_status = [ProcessingStatus.ToCancel, ProcessingStatus.ToSuspend, ProcessingStatus.ToResume, ProcessingStatus.ToExpire]
             processings_1 = core_processings.get_processings_by_status(status=processing_status,
                                                                        # time_period=self.poll_time_period,
                                                                        locking=True,
@@ -220,6 +224,10 @@ class Carrier(BaseAgent):
                 work.resume_processing(processing)
                 is_operation = True
                 processing_substatus = ProcessingStatus.Resuming
+            if processing['substatus'] in [ProcessingStatus.ToExpire]:
+                work.expire_processing(processing)
+                is_operation = True
+                processing_substatus = ProcessingStatus.Expiring
 
             # work = processing['processing_metadata']['work']
             # outputs = work.poll_processing()
@@ -239,8 +247,12 @@ class Carrier(BaseAgent):
             else:
                 next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_operation_time_period)
 
+            if proc.submitted_at:
+                if not processing['submitted_at'] or processing['submitted_at'] < proc.submitted_at:
+                    processing_update['parameters']['submitted_at'] = proc.submitted_at
+
             processing_update['parameters']['next_poll_at'] = next_poll_at
-            processing_update['parameters']['expired_at'] = work.get_expired_at(processing)
+            # processing_update['parameters']['expired_at'] = work.get_expired_at(processing)
             processing_update['parameters']['processing_metadata'] = processing['processing_metadata']
 
             ret = {'processing_update': processing_update,

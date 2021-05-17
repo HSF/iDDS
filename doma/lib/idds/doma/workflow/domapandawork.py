@@ -399,6 +399,8 @@ class DomaPanDAWork(Work):
             # processing['processing_metadata']['task_id'] = task_id
             # processing['processing_metadata']['workload_id'] = task_id
             proc.workload_id = task_id
+            if task_id:
+                proc.submitted_at = datetime.datetime.utcnow()
 
     def get_panda_task_id(self, processing):
         from pandatools import Client
@@ -419,6 +421,9 @@ class DomaPanDAWork(Work):
                 # processing['processing_metadata']['task_id'] = task_id
                 # processing['processing_metadata']['workload_id'] = task_id
                 proc.workload_id = task_id
+                if task_id:
+                    proc.submitted_at = datetime.datetime.utcnow()
+
         return task_id
 
     def poll_panda_task_status(self, processing):
@@ -679,9 +684,11 @@ class DomaPanDAWork(Work):
                 proc.toresume = False
                 proc.polling_retries = 0
                 proc.has_new_updates()
-            elif self.is_processing_expired(processing):
+            # elif self.is_processing_expired(processing):
+            elif proc.toexpire:
                 self.logger.info("Expiring processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], proc.workload_id))
                 self.kill_processing(processing)
+                proc.toexpire = False
                 proc.polling_retries = 0
 
             processing_status, poll_updated_contents = self.poll_panda_task(processing=processing, input_output_maps=input_output_maps)

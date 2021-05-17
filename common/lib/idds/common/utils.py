@@ -406,9 +406,11 @@ def exception_handler(function):
         except IDDSException as ex:
             logging.error(ex)
             print(traceback.format_exc())
+            return str(ex)
         except Exception as ex:
             logging.error(ex)
             print(traceback.format_exc())
+            return str(ex)
     return new_funct
 
 
@@ -428,3 +430,7 @@ def get_proxy():
             proxy = fp.read()
         return proxy
     return None
+
+
+def is_new_version(version1, version2):
+    return version1 > version2
