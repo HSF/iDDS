@@ -16,6 +16,7 @@ Test client.
 
 from idds.client.clientmanager import ClientManager
 from idds.common.utils import json_dumps  # noqa F401
+from idds.rest.v1.utils import convert_old_req_2_workflow_req
 
 
 def migrate():
@@ -24,13 +25,15 @@ def migrate():
     # doma
     doma_host = 'https://aipanda015.cern.ch:443/idds'
 
-    cm1 = ClientManager(host=doma_host)
+    cm1 = ClientManager(host=dev_host)
     # reqs = cm1.get_requests(request_id=290)
-    reqs = cm1.get_requests(request_id=274)
+    reqs = cm1.get_requests(request_id=37, with_metadata=True)
 
-    cm2 = ClientManager(host=dev_host)
+    cm2 = ClientManager(host=doma_host)
     for req in reqs:
+        req = convert_old_req_2_workflow_req(req)
         workflow = req['request_metadata']['workflow']
+        workflow.clean_works()
         # print(json_dumps(workflow))
         # print(json_dumps(workflow, sort_keys=True, indent=4))
         req_id = cm2.submit(workflow)

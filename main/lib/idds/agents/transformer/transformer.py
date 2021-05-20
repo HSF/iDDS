@@ -332,7 +332,8 @@ class Transformer(BaseAgent):
         transform_parameters = {'status': TransformStatus.Transforming,
                                 'locking': TransformLocking.Idle,
                                 'workload_id': transform['workload_id'],
-                                'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period),
+                                # 'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period),
+                                'next_poll_at': datetime.datetime.utcnow(),
                                 'transform_metadata': transform['transform_metadata']}
 
         # ret = {'transform': transform, 'input_collections': input_colls, 'output_collections': output_colls,

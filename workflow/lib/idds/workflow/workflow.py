@@ -635,6 +635,24 @@ class Workflow(Base):
         for work in [self.works[k] for k in self.current_running_works]:
             work.resume_work()
 
+    def clean_works(self):
+        self.num_subfinished_works = 0
+        self.num_finished_works = 0
+        self.num_failed_works = 0
+        self.num_cancelled_works = 0
+        self.num_suspended_works = 0
+        self.num_expired_works = 0
+
+        self.last_updated_at = datetime.datetime.utcnow()
+
+        self.terminated_works = []
+        self.current_running_works = []
+        self.works = {}
+        self.work_sequence = {}  # order list
+
+        self.first_initial = False
+        self.new_to_run_works = []
+
     def get_exact_workflows(self):
         """
         *** Function called by Clerk agent.
