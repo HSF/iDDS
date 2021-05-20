@@ -319,7 +319,7 @@ def get_transforms_by_status(status, period=None, transform_ids=[], locking=Fals
             query = query.filter(models.Transform.substatus.in_(status))
         else:
             query = query.filter(models.Transform.status.in_(status))
-        query = query.filter(models.Transform.next_poll_at < datetime.datetime.utcnow())
+            query = query.filter(models.Transform.next_poll_at < datetime.datetime.utcnow())
 
         if transform_ids:
             query = query.filter(models.Transform.transform_id.in_(transform_ids))

@@ -508,7 +508,7 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, req
             query = query.filter(models.Request.substatus.in_(status))
         else:
             query = query.filter(models.Request.status.in_(status))
-        query = query.filter(models.Request.next_poll_at < datetime.datetime.utcnow())
+            query = query.filter(models.Request.next_poll_at < datetime.datetime.utcnow())
 
         if request_type is not None:
             query = query.filter(models.Request.request_type == request_type)

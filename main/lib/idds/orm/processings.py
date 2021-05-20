@@ -235,7 +235,7 @@ def get_processings_by_status(status, period=None, processing_ids=[], locking=Fa
             query = query.filter(models.Processing.substatus.in_(status))
         else:
             query = query.filter(models.Processing.status.in_(status))
-        query = query.filter(models.Processing.next_poll_at < datetime.datetime.utcnow())
+            query = query.filter(models.Processing.next_poll_at < datetime.datetime.utcnow())
 
         if processing_ids:
             query = query.filter(models.Processing.processing_id.in_(processing_ids))
