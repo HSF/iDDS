@@ -39,7 +39,8 @@ class DomaPanDAWork(Work):
                  primary_input_collection=None, other_input_collections=None,
                  output_collections=None, log_collections=None,
                  logger=None, dependency_map=None, task_name="", task_queue=None, processing_type=None,
-                 prodSourceLabel='test', task_type='test', maxwalltime=90000, maxattempt=5, core_count=1):
+                 prodSourceLabel='test', task_type='test', maxwalltime=90000, maxattempt=5, core_count=1,
+                 task_log=None):
 
         super(DomaPanDAWork, self).__init__(executable=executable, arguments=arguments,
                                             parameters=parameters, setup=setup, work_type=TransformType.Processing,
@@ -70,6 +71,7 @@ class DomaPanDAWork(Work):
         self.maxWalltime = maxwalltime
         self.maxAttempt = maxattempt
         self.core_count = core_count
+        self.task_log = task_log
 
         self.retry_number = 0
         self.num_retries = 0
@@ -356,6 +358,7 @@ class DomaPanDAWork(Work):
         task_param_map['maxWalltime'] = self.maxWalltime
         task_param_map['maxFailure'] = self.maxAttempt
         task_param_map['maxAttempt'] = self.maxAttempt
+        task_param_map['log'] = self.task_log
         task_param_map['jobParameters'] = [
             {'type': 'constant',
              'value': self.executable,  # noqa: E501
