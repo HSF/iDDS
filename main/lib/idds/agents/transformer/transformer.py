@@ -681,6 +681,18 @@ class Transformer(BaseAgent):
 
         # link processings
         new_processing_model, processing_model, update_processing_model = None, None, {}
+        to_update_processings = {}
+
+        to_update_processings_local = work.to_update_processings
+        if to_update_processings_local:
+            for proc_id in to_update_processings_local:
+                try:
+                    core_processings.update_processing(processing_id=proc_id, parameters=to_update_processings_local[proc_id])
+                except Exception as ex:
+                    self.logger.warn("Failed to update processing(%s) to substatus %s, record it for later update: %s" % (proc_id,
+                                                                                                                          to_update_processings_local[proc_id]['substatus'],
+                                                                                                                          str(ex)))
+                    to_update_processings[proc_id] = to_update_processings_local[proc_id]
 
         processing = work.get_processing(input_output_maps=[], without_creating=True)
         self.logger.debug("work get_processing: %s" % processing)
@@ -694,8 +706,16 @@ class Transformer(BaseAgent):
             work.set_output_data(processing.output_data)
             transform['workload_id'] = processing_model['workload_id']
             if t_processing_status is not None:
-                update_processing_model[processing_model['processing_id']] = {'substatus': t_processing_status}
-                work.set_processing_status(processing, processing_model['status'], t_processing_status)
+                try:
+                    core_processings.update_processing(processing_id=processing_model['processing_id'], parameters={'substatus': t_processing_status})
+                    work.set_processing_status(processing, processing_model['status'], t_processing_status)
+                except Exception as ex:
+                    self.logger.warn("Failed to update processing(%s) to substatus %s, record it for later update: %s" % (processing_model['processing_id'],
+                                                                                                                          t_processing_status, str(ex)))
+                    to_update_processings[processing_model['processing_id']] = {'substatus': t_processing_status}
+                    # update_processing_model[processing_model['processing_id']] = {'substatus': t_processing_status}
+                    # work.set_processing_status(processing, processing_model['status'], t_processing_status)
+        work.to_update_processings = to_update_processings
 
         # check contents
         new_input_output_maps = work.get_new_input_output_maps(registered_input_output_maps)
