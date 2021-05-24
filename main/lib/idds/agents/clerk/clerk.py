@@ -82,7 +82,9 @@ class Clerk(BaseAgent):
             if 'ORA-00060' in str(ex):
                 self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
             else:
-                raise ex
+                # raise ex
+                self.logger.error(ex)
+                self.logger.error(traceback.format_exc())
         return []
 
     def process_new_request(self, req):
@@ -213,7 +215,9 @@ class Clerk(BaseAgent):
             if 'ORA-00060' in str(ex):
                 self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
             else:
-                raise ex
+                # raise ex
+                self.logger.error(ex)
+                self.logger.error(traceback.format_exc())
         return []
 
     def process_running_request_real(self, req):

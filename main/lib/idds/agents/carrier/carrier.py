@@ -78,7 +78,9 @@ class Carrier(BaseAgent):
             if 'ORA-00060' in str(ex):
                 self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
             else:
-                raise ex
+                # raise ex
+                self.logger.error(ex)
+                self.logger.error(traceback.format_exc())
         return []
 
     def process_new_processing(self, processing):
@@ -177,7 +179,9 @@ class Carrier(BaseAgent):
             if 'ORA-00060' in str(ex):
                 self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
             else:
-                raise ex
+                # raise ex
+                self.logger.error(ex)
+                self.logger.error(traceback.format_exc())
         return []
 
     def get_collection_ids(self, collections):

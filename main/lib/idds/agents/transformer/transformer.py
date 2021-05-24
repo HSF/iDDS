@@ -80,7 +80,9 @@ class Transformer(BaseAgent):
             if 'ORA-00060' in str(ex):
                 self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
             else:
-                raise ex
+                # raise ex
+                self.logger.error(ex)
+                self.logger.error(traceback.format_exc())
         return []
 
     def generate_collection_model(self, transform, collection, relation_type=CollectionRelationType.Input):
@@ -433,7 +435,8 @@ class Transformer(BaseAgent):
             if 'ORA-00060' in str(ex):
                 self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
             else:
-                raise ex
+                self.logger.error(ex)
+                self.logger.error(traceback.format_exc())
         return []
 
     def get_collection_ids(self, collections):
