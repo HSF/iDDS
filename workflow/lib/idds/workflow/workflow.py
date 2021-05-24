@@ -140,6 +140,8 @@ class Workflow(Base):
         self.last_updated_at = datetime.datetime.utcnow()
         self.expired = False
 
+        self.to_update_transforms = {}
+
         # user defined Condition class
         self.user_defined_conditions = {}
 
@@ -385,6 +387,14 @@ class Workflow(Base):
     @last_work.setter
     def last_work(self, value):
         self.add_metadata_item('last_work', value)
+
+    @property
+    def to_update_transforms(self):
+        return self.get_metadata_item('to_update_transforms', {})
+
+    @to_update_transforms.setter
+    def to_update_transforms(self, value):
+        self.add_metadata_item('to_update_transforms', value)
 
     def load_metadata(self):
         self.load_works()

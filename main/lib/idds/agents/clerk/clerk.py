@@ -175,7 +175,7 @@ class Clerk(BaseAgent):
                 if 'update_transforms' in req:
                     update_transforms = req['update_transforms']
                 else:
-                    update_transforms = []
+                    update_transforms = {}
 
                 core_requests.update_request_with_transforms(req['request_id'], req['parameters'],
                                                              new_transforms=new_transforms,
@@ -256,6 +256,18 @@ class Clerk(BaseAgent):
                 new_transforms.append(new_transform)
             self.logger.info("Processing request(%s): new transforms: %s" % (req['request_id'],
                                                                              str(new_transforms)))
+
+        to_update_transforms = wf.to_update_transforms
+        if to_update_transforms:
+            tfs_status = {}
+            for tf_id in to_update_transforms:
+                try:
+                    core_transforms.update_transform(transform_id=tf_id, parameters=to_update_transforms[tf_id])
+                except Exception as ex:
+                    self.logger.warn("failed to update tranform %s to %s, record it for later update: %s" % (tf_id, to_update_transforms[tf_id]['substatus'], str(ex)))
+                    tfs_status[tf_id] = to_update_transforms[tf_id]
+            wf.to_update_transforms = tfs_status
+
         # current works
         works = wf.get_current_works()
         # print(works)
@@ -370,7 +382,12 @@ class Clerk(BaseAgent):
             #                         RequestStatus.Failed, RequestStatus.Cancelling,
             #                         RequestStatus.Cancelled, RequestStatus.Suspending,
             #                         RequestStatus.Suspended]:
-            tfs_status[tf['transform_id']] = {'substatus': tf_status}
+            try:
+                core_transforms.update_transform(transform_id=tf['transform_id'], parameters={'substatus': tf_status})
+            except Exception as ex:
+                self.logger.warn("Failed to update tranform %s to %s, record it for later update: %s" % (tf['transform_id'], tf_status, str(ex)))
+                tfs_status[tf['transform_id']] = {'substatus': tf_status}
+        wf.to_update_transforms = tfs_status
 
         # processing_metadata['workflow_data'] = wf.get_running_data()
 
@@ -381,7 +398,8 @@ class Clerk(BaseAgent):
                                   'request_metadata': req['request_metadata'],
                                   'processing_metadata': processing_metadata,
                                   'locking': RequestLocking.Idle},
-                   'update_transforms': tfs_status
+                   # 'update_transforms': tfs_status
+                   'update_transforms': {}
                    }
         return ret_req
 
@@ -440,7 +458,7 @@ class Clerk(BaseAgent):
                 if 'update_transforms' in req:
                     update_transforms = req['update_transforms']
                 else:
-                    update_transforms = []
+                    update_transforms = {}
 
                 core_requests.update_request_with_transforms(req['request_id'], req['parameters'],
                                                              new_transforms=new_transforms,
