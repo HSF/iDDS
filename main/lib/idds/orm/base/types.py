@@ -118,6 +118,48 @@ class JSON(TypeDecorator):
             return json_loads(value)
 
 
+class JSONString(TypeDecorator):
+    """
+    Platform independent json type
+    JSONB for postgres , JSON for the rest
+    """
+
+    impl = types.JSON
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name == 'postgresql':
+            return dialect.type_descriptor(JSONB())
+        elif dialect.name == 'mysql':
+            return dialect.type_descriptor(String(100))
+            # return dialect.type_descriptor(types.JSON())
+        elif dialect.name == 'oracle':
+            return dialect.type_descriptor(String(100))
+        else:
+            return dialect.type_descriptor(String(100))
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return value
+        elif dialect.name == 'postgresql':
+            return json_dumps(value)
+        elif dialect.name == 'oracle':
+            return json_dumps(value)
+        elif dialect.name == 'mysql':
+            return json_dumps(value)
+        else:
+            return json_dumps(value)
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return value
+        elif dialect.name == 'oracle':
+            return json_loads(value)
+        elif dialect.name == 'mysql':
+            return json_loads(value)
+        else:
+            return json_loads(value)
+
+
 class EnumWithValue(TypeDecorator):
     """
     Enables passing in a Python enum and storing the enum's *value* in the db.
