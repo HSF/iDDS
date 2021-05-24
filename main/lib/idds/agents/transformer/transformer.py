@@ -51,12 +51,16 @@ class Transformer(BaseAgent):
         self.new_output_queue = Queue()
         self.running_task_queue = Queue()
         self.running_output_queue = Queue()
+        self.new_processing_size = 0
+        self.running_processing_size = 0
 
     def show_queue_size(self):
-        q_str = "new queue size: %s, new output queue size: %s, " % (self.new_task_queue.qsize(),
-                                                                     self.new_output_queue.qsize())
-        q_str += "running queue size: %s, running output queue size: %s" % (self.running_task_queue.qsize(),
-                                                                            self.running_output_queue.qsize())
+        q_str = "new queue size: %s, processing size: %s, output queue size: %s, " % (self.new_task_queue.qsize(),
+                                                                                      self.new_processing_size,
+                                                                                      self.new_output_queue.qsize())
+        q_str += "running queue size: %s, processing size: %s,  output queue size: %s" % (self.running_task_queue.qsize(),
+                                                                                          self.running_processing_size,
+                                                                                          self.running_output_queue.qsize())
         self.logger.debug(q_str)
 
     def get_new_transforms(self):
@@ -366,8 +370,10 @@ class Transformer(BaseAgent):
             try:
                 transform = self.new_task_queue.get()
                 if transform:
+                    self.new_processing_size += 1
                     self.logger.info("Main thread processing new transform: %s" % transform)
                     ret_transform = self.process_new_transform(transform)
+                    self.new_processing_size -= 1
                     if ret_transform:
                         self.new_output_queue.put(ret_transform)
                         # ret.append(ret_transform)
@@ -925,9 +931,11 @@ class Transformer(BaseAgent):
             try:
                 transform = self.running_task_queue.get()
                 if transform:
+                    self.running_processing_size += 1
                     self.logger.info("Main thread processing running transform: %s" % transform)
                     ret_transform = self.process_running_transform(transform)
                     self.logger.debug("Main thread processing running transform finished: %s" % transform)
+                    self.running_processing_size -= 1
                     if ret_transform:
                         self.running_output_queue.put(ret_transform)
                         # ret.append(ret_transform)

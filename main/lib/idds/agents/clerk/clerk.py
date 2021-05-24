@@ -47,12 +47,16 @@ class Clerk(BaseAgent):
         self.new_output_queue = Queue()
         self.running_task_queue = Queue()
         self.running_output_queue = Queue()
+        self.new_processing_size = 0
+        self.running_processing_size = 0
 
     def show_queue_size(self):
-        q_str = "new queue size: %s, new output queue size: %s, " % (self.new_task_queue.qsize(),
-                                                                     self.new_output_queue.qsize())
-        q_str += "running queue size: %s, running output queue size: %s" % (self.running_task_queue.qsize(),
-                                                                            self.running_output_queue.qsize())
+        q_str = "new queue size: %s, processing size: %s, output queue size: %s, " % (self.new_task_queue.qsize(),
+                                                                                      self.new_processing_size,
+                                                                                      self.new_output_queue.qsize())
+        q_str += "running queue size: %s, processing size: %s,  output queue size: %s" % (self.running_task_queue.qsize(),
+                                                                                          self.running_processing_size,
+                                                                                          self.running_output_queue.qsize())
         self.logger.debug(q_str)
 
     def get_new_requests(self):
@@ -150,8 +154,10 @@ class Clerk(BaseAgent):
             try:
                 req = self.new_task_queue.get()
                 if req:
+                    self.new_processing_size += 1
                     self.logger.info("Main thread processing new requst: %s" % req)
                     ret_req = self.process_new_request(req)
+                    self.new_processing_size -= 1
                     if ret_req:
                         # ret.append(ret_req)
                         self.new_output_queue.put(ret_req)
@@ -427,6 +433,7 @@ class Clerk(BaseAgent):
             try:
                 req = self.running_task_queue.get()
                 if req:
+                    self.running_processing_size += 1
                     if req['substatus'] in [RequestStatus.ToCancel, RequestStatus.ToSuspend, RequestStatus.ToResume, RequestStatus.ToExpire]:
                         self.logger.info("Main thread processing operating requst: %s" % req)
                         ret_req = self.process_operating_request(req)
@@ -434,6 +441,7 @@ class Clerk(BaseAgent):
                     else:
                         self.logger.info("Main thread processing running requst: %s" % req)
                         ret_req = self.process_running_request(req)
+                    self.running_processing_size -= 1
 
                     if ret_req:
                         # ret.append(ret_req)
