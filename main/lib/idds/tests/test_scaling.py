@@ -37,7 +37,7 @@ def migrate():
         workflow.clean_works()
         # print(json_dumps(workflow))
         # print(json_dumps(workflow, sort_keys=True, indent=4))
-        for i in range(10):
+        for i in range(1):
             wf = copy.deepcopy(workflow)
             req_id = cm2.submit(wf)
             print(req_id)

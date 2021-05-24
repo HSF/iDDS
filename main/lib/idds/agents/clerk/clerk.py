@@ -198,11 +198,11 @@ class Clerk(BaseAgent):
                           RequestStatus.ToSuspend, RequestStatus.Suspending,
                           RequestStatus.ToExpire, RequestStatus.Expiring,
                           RequestStatus.Resuming]
-            reqs = core_requests.get_requests_by_status_type(status=req_status, time_period=self.poll_time_period,
+            reqs = core_requests.get_requests_by_status_type(status=req_status, time_period=None,
                                                              locking=True, bulk_size=self.retrieve_bulk_size)
 
             req_status = [RequestStatus.ToSuspend, RequestStatus.ToCancel, RequestStatus.ToResume, RequestStatus.ToExpire]
-            reqs_1 = core_requests.get_requests_by_status_type(status=req_status, time_period=self.poll_time_period,
+            reqs_1 = core_requests.get_requests_by_status_type(status=req_status, time_period=None,
                                                                locking=True, by_substatus=True, bulk_size=self.retrieve_bulk_size)
 
             reqs = reqs + reqs_1
@@ -367,8 +367,8 @@ class Clerk(BaseAgent):
 
         processing_metadata = req['processing_metadata']
 
+        wf = req['request_metadata']['workflow']
         if req['substatus'] == RequestStatus.ToResume:
-            wf = req['request_metadata']['workflow']
             wf.resume_works()
 
         if 'operations' not in processing_metadata:

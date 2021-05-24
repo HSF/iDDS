@@ -2,10 +2,10 @@
 import pandatools.idds_api
 import idds.common.utils as idds_utils
 
-# c = pandatools.idds_api.get_api(idds_utils.json_dumps, idds_host='https://aipanda160.cern.ch:443/idds', compress=True, manager=True)
-c = pandatools.idds_api.get_api(idds_utils.json_dumps, idds_host='https://aipanda015.cern.ch:443/idds', compress=True, manager=True)
+c = pandatools.idds_api.get_api(idds_utils.json_dumps, idds_host='https://aipanda160.cern.ch:443/idds', compress=True, manager=True)
+# c = pandatools.idds_api.get_api(idds_utils.json_dumps, idds_host='https://aipanda015.cern.ch:443/idds', compress=True, manager=True)
 
-ret = c.abort(request_id=304)
+ret = c.abort(request_id=38)
 print(ret)
 
 """

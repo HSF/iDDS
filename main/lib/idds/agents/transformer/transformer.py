@@ -415,13 +415,13 @@ class Transformer(BaseAgent):
                                 TransformStatus.ToExpire, TransformStatus.Expiring,
                                 TransformStatus.Resuming]
             transforms = core_transforms.get_transforms_by_status(status=transform_status,
-                                                                  period=self.poll_time_period,
+                                                                  period=None,
                                                                   locking=True,
                                                                   bulk_size=self.retrieve_bulk_size)
 
             transform_status = [TransformStatus.ToCancel, TransformStatus.ToSuspend, TransformStatus.ToResume, TransformStatus.ToExpire]
             transforms_1 = core_transforms.get_transforms_by_status(status=transform_status,
-                                                                    period=self.poll_time_period,
+                                                                    period=None,
                                                                     locking=True,
                                                                     by_substatus=True,
                                                                     bulk_size=self.retrieve_bulk_size)

@@ -20,25 +20,26 @@ def show_req_transforms(request_id):
     trfs_times = {}
     prs_times = {}
     for req in reqs:
-        reqs_times[req['request_id']] = req['created_at']
+        reqs_times[req['request_id']] = {'created_at': req['created_at']}
     for trf in trfs:
         trfs_times[trf['transform_id']] = {'request_id': trf['request_id'], 'created_at': trf['created_at']}
     for pr in prs:
         prs_times[pr['processing_id']] = {'request_id': pr['request_id'], 'transform_id': pr['transform_id'], 'created_at': pr['created_at']}
 
     table = []
-    title = ['request_id', 'req_created_at', 'transform_id', 'tf_created_at', 'processing_id', 'pr_created_at']
+    title = ['request_id', 'req_created_at', 'transform_id', 'tf_created_at', 'processing_id', 'pr_created_at', 'request-processing']
     table.append(title)
-    for pr_id in prs_times:
+    pr_ids = sorted(list(prs_times.keys()))
+    for pr_id in pr_ids:
         req_id = prs_times[pr_id]['request_id']
         tf_id = prs_times[pr_id]['transform_id']
-        row = [req_id, reqs_times[req_id]['created_at'], tf_id, trfs_times[tf_id]['created_at'], pr_id, prs_times[pr_id]['created_at']]
+        row = [req_id, reqs_times[req_id]['created_at'], tf_id, trfs_times[tf_id]['created_at'], pr_id, prs_times[pr_id]['created_at'], (prs_times[pr_id]['created_at'] - reqs_times[req_id]['created_at']).seconds/60]
         table.append(row)
     print(tabulate(table))
 
 
 if __name__ == '__main__':
     req_ids = [i for i in range(50, 60)]
-    req_ids = [50]
+    req_ids = [74]
     for req_id in req_ids:
         show_req_transforms(req_id)

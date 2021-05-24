@@ -293,7 +293,8 @@ class DomaPanDAWork(Work):
                     # self.dependency_map.append(job)
                     pass
 
-        self.logger.debug("get_new_input_output_maps, new_input_output_maps: %s" % str(new_input_output_maps))
+        # self.logger.debug("get_new_input_output_maps, new_input_output_maps: %s" % str(new_input_output_maps))
+        self.logger.debug("get_new_input_output_maps, new_input_output_maps len: %s" % len(new_input_output_maps))
         return new_input_output_maps
 
     def use_dependency_to_release_jobs(self):
