@@ -15,7 +15,7 @@ operations related to Processings.
 
 
 from idds.orm.base.session import read_session, transactional_session
-from idds.common.constants import ProcessingLocking, GranularityType
+from idds.common.constants import ProcessingLocking, ProcessingStatus, GranularityType
 from idds.orm import (processings as orm_processings,
                       collections as orm_collections,
                       contents as orm_contents,
@@ -25,7 +25,8 @@ from idds.orm import (processings as orm_processings,
 
 @transactional_session
 def add_processing(request_id, workload_id, transform_id, status, submitter=None,
-                   granularity=None, granularity_type=GranularityType.File,
+                   substatus=ProcessingStatus.New, granularity=None,
+                   granularity_type=GranularityType.File,
                    expired_at=None, processing_metadata=None, session=None):
     """
     Add a processing.
@@ -46,7 +47,7 @@ def add_processing(request_id, workload_id, transform_id, status, submitter=None
     :returns: processing id.
     """
     return orm_processings.add_processing(request_id=request_id, workload_id=workload_id, transform_id=transform_id,
-                                          status=status, submitter=submitter,
+                                          status=status, substatus=substatus, submitter=submitter,
                                           granularity=granularity, granularity_type=granularity_type,
                                           expired_at=expired_at, processing_metadata=processing_metadata,
                                           session=session)

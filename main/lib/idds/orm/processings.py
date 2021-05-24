@@ -54,7 +54,7 @@ def create_processing(request_id, workload_id, transform_id, status=ProcessingSt
 
 @transactional_session
 def add_processing(request_id, workload_id, transform_id, status=ProcessingStatus.New,
-                   locking=ProcessingLocking.Idle, submitter=None,
+                   locking=ProcessingLocking.Idle, submitter=None, substatus=ProcessingStatus.New,
                    granularity=None, granularity_type=GranularityType.File, expired_at=None, processing_metadata=None,
                    output_metadata=None, session=None):
     """
@@ -78,7 +78,7 @@ def add_processing(request_id, workload_id, transform_id, status=ProcessingStatu
     """
     try:
         new_processing = create_processing(request_id=request_id, workload_id=workload_id, transform_id=transform_id,
-                                           status=status, locking=locking, submitter=submitter,
+                                           status=status, substatus=substatus, locking=locking, submitter=submitter,
                                            granularity=granularity, granularity_type=granularity_type, expired_at=expired_at,
                                            processing_metadata=processing_metadata, output_metadata=output_metadata)
         new_processing.save(session=session)
