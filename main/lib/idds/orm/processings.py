@@ -235,12 +235,12 @@ def get_processings_by_status(status, period=None, processing_ids=[], locking=Fa
             query = query.filter(models.Processing.substatus.in_(status))
         else:
             query = query.filter(models.Processing.status.in_(status))
-            query = query.filter(models.Processing.next_poll_at < datetime.datetime.utcnow())
+            query = query.filter(models.Processing.next_poll_at <= datetime.datetime.utcnow())
 
         if processing_ids:
             query = query.filter(models.Processing.processing_id.in_(processing_ids))
-        if period:
-            query = query.filter(models.Processing.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=period))
+        # if period:
+        #     query = query.filter(models.Processing.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=period))
         if locking:
             query = query.filter(models.Processing.locking == ProcessingLocking.Idle)
         if submitter:

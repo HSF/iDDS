@@ -33,13 +33,13 @@ def show_req_transforms(request_id):
     for pr_id in pr_ids:
         req_id = prs_times[pr_id]['request_id']
         tf_id = prs_times[pr_id]['transform_id']
-        row = [req_id, reqs_times[req_id]['created_at'], tf_id, trfs_times[tf_id]['created_at'], pr_id, prs_times[pr_id]['created_at'], (prs_times[pr_id]['created_at'] - reqs_times[req_id]['created_at']).seconds/60]
+        row = [req_id, reqs_times[req_id]['created_at'], tf_id, trfs_times[tf_id]['created_at'], pr_id, prs_times[pr_id]['created_at'], (prs_times[pr_id]['created_at'] - reqs_times[req_id]['created_at']).seconds / 60]
         table.append(row)
     print(tabulate(table))
 
 
 if __name__ == '__main__':
     req_ids = [i for i in range(50, 60)]
-    req_ids = [74]
+    req_ids = [86]
     for req_id in req_ids:
         show_req_transforms(req_id)
