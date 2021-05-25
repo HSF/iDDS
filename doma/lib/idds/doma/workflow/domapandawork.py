@@ -546,10 +546,18 @@ class DomaPanDAWork(Work):
             jobs_list = Client.getJobStatus(chunk, verbose=0)[1]
             for job_info in jobs_list:
                 if job_info.Files and len(job_info.Files) > 0:
-                    input_file = job_info.Files[0].lfn.split(':')[1]
-                    map_id = self.get_map_id_from_input(input_output_maps, input_file)
-                    update_contents = self.get_update_contents_from_map_id(map_id, input_output_maps, job_info)
-                    full_update_contents += update_contents
+                    for job_file in job_info.Files:
+                        # if job_file.type in ['log']:
+                        if job_file.type not in ['pseudo_input']:
+                            continue
+                        if ':' in job_file.lfn:
+                            input_file = job_file.lfn.split(':')[1]
+                        else:
+                            input_file = job_file.lfn
+                        map_id = self.get_map_id_from_input(input_output_maps, input_file)
+                        if map_id:
+                            update_contents = self.get_update_contents_from_map_id(map_id, input_output_maps, job_info)
+                            full_update_contents += update_contents
         return full_update_contents
 
     def get_status_changed_contents(self, unterminated_job_ids, input_output_maps, panda_id_to_map_ids):
