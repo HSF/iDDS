@@ -124,7 +124,7 @@ def add_content(request_id, workload_id, transform_id, coll_id, map_id, scope, n
 
 
 @transactional_session
-def add_contents(contents, bulk_size=1000, session=None):
+def add_contents(contents, bulk_size=10000, session=None):
     """
     Add contents.
 

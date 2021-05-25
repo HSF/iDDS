@@ -1,11 +1,27 @@
 
 import os
+import sys
 import datetime
 
 os.environ['PANDA_URL'] = 'http://ai-idds-01.cern.ch:25080/server/panda'
 os.environ['PANDA_URL_SSL'] = 'https://ai-idds-01.cern.ch:25443/server/panda'
 
 from pandatools import Client  # noqa E402
+
+
+jobids = [1276493]
+jobs_list = Client.getJobStatus(jobids, verbose=0)[1]
+for job_info in jobs_list:
+    # if job_info.Files and len(job_info.Files) > 0:
+    print(job_info)
+    print(job_info.Files)
+    print(job_info.Files[0])
+    for f in job_info.Files:
+        # print(dir(f))
+        print(f._attributes)
+        print(f.values())
+        print(f.type)
+sys.exit(0)
 
 """
 jediTaskID = 998
@@ -72,3 +88,5 @@ status, out = Client.retryTask(taskID, verbose=True, properErrorCode=True, newPa
 print(status)
 print(out)
 """
+
+sys.exit(0)

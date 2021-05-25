@@ -40,7 +40,7 @@ class Transformer(BaseAgent):
     """
 
     def __init__(self, num_threads=1, poll_time_period=1800, retrieve_bulk_size=10,
-                 message_bulk_size=1000, **kwargs):
+                 message_bulk_size=10000, **kwargs):
         super(Transformer, self).__init__(num_threads=num_threads, **kwargs)
         self.config_section = Sections.Transformer
         self.poll_time_period = int(poll_time_period)
