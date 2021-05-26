@@ -59,6 +59,30 @@ class Clerk(BaseAgent):
                                                                                           self.running_output_queue.qsize())
         self.logger.debug(q_str)
 
+    def generate_transform(self, req, work):
+        wf = req['request_metadata']['workflow']
+
+        new_transform = {'request_id': req['request_id'],
+                         'workload_id': req['workload_id'],
+                         'transform_type': work.get_work_type(),
+                         'transform_tag': work.get_work_tag(),
+                         'priority': req['priority'],
+                         'status': TransformStatus.New,
+                         'retries': 0,
+                         # 'expired_at': req['expired_at'],
+                         'expired_at': None,
+                         'transform_metadata': {'internal_id': work.get_internal_id(),
+                                                'template_work_id': work.get_template_work_id(),
+                                                'sequence_id': work.get_sequence_id(),
+                                                'work_name': work.get_work_name(),
+                                                'work': work,
+                                                'workflow': wf}
+                         # 'running_metadata': {'work_data': new_work.get_running_data()}
+                         # 'collections': related_collections
+                         }
+
+        return new_transform
+
     def get_new_requests(self):
         """
         Get new requests to process
@@ -93,6 +117,7 @@ class Clerk(BaseAgent):
 
     def process_new_request(self, req):
         try:
+            self.logger.info("Processing request(%s)" % (req['request_id']))
             workflow = req['request_metadata']['workflow']
 
             # wf = workflow.copy()
@@ -104,28 +129,11 @@ class Clerk(BaseAgent):
                 new_work = work
                 new_work.add_proxy(wf.get_proxy())
                 # new_work.create_processing()
-                transform = {'request_id': req['request_id'],
-                             'workload_id': req['workload_id'],
-                             'transform_type': work.get_work_type(),
-                             'transform_tag': work.get_work_tag(),
-                             'priority': req['priority'],
-                             'status': TransformStatus.New,
-                             'retries': 0,
-                             # 'expired_at': req['expired_at'],
-                             'expired_at': None,
-                             'transform_metadata': {'internal_id': new_work.get_internal_id(),
-                                                    'template_work_id': new_work.get_template_work_id(),
-                                                    'sequence_id': new_work.get_sequence_id(),
-                                                    'work_name': new_work.get_work_name(),
-                                                    'work': new_work,
-                                                    # 'original_work': work,
-                                                    'workflow': wf}
-                             # 'running_metadata': {'work_data': new_work.get_running_data()}
-                             # 'collections': related_collections
-                             }
+
+                transform = self.generate_transform(req, work)
                 transforms.append(transform)
-            self.logger.info("Processing request(%s): new transforms: %s" % (req['request_id'],
-                                                                             str(transforms)))
+            self.logger.debug("Processing request(%s): new transforms: %s" % (req['request_id'],
+                                                                              str(transforms)))
             # processing_metadata = req['processing_metadata']
             # processing_metadata = {'workflow_data': wf.get_running_data()}
 
@@ -241,27 +249,10 @@ class Clerk(BaseAgent):
                 # new_work = work.copy()
                 new_work = work
                 new_work.add_proxy(wf.get_proxy())
-                new_transform = {'request_id': req['request_id'],
-                                 'workload_id': req['workload_id'],
-                                 'transform_type': work.get_work_type(),
-                                 'transform_tag': work.get_work_tag(),
-                                 'priority': req['priority'],
-                                 'status': TransformStatus.New,
-                                 'retries': 0,
-                                 # 'expired_at': req['expired_at'],
-                                 'expired_at': None,
-                                 'transform_metadata': {'internal_id': new_work.get_internal_id(),
-                                                        'template_work_id': new_work.get_template_work_id(),
-                                                        'sequence_id': new_work.get_sequence_id(),
-                                                        'work_name': new_work.get_work_name(),
-                                                        'work': new_work,
-                                                        'workflow': wf}
-                                 # 'running_metadata': {'work_data': new_work.get_running_data()}
-                                 # 'collections': related_collections
-                                 }
+                new_transform = self.generate_transform(req, new_work)
                 new_transforms.append(new_transform)
-            self.logger.info("Processing request(%s): new transforms: %s" % (req['request_id'],
-                                                                             str(new_transforms)))
+            self.logger.debug("Processing request(%s): new transforms: %s" % (req['request_id'],
+                                                                              str(new_transforms)))
 
         to_update_transforms = wf.to_update_transforms
         if to_update_transforms:
