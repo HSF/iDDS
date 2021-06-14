@@ -38,8 +38,12 @@ class DomaPanDAWork(Work):
                  work_tag='lsst', exec_type='panda', sandbox=None, work_id=None,
                  primary_input_collection=None, other_input_collections=None,
                  output_collections=None, log_collections=None,
-                 logger=None, dependency_map=None, task_name="", task_queue=None, processing_type=None,
-                 prodSourceLabel='test', task_type='test', maxwalltime=90000, maxattempt=5, core_count=1,
+                 logger=None, dependency_map=None, task_name="",
+                 task_queue=None, processing_type=None,
+                 prodSourceLabel='test', task_type='test',
+                 maxwalltime=90000, maxattempt=5, core_count=1,
+                 encode_command_line=False,
+                 num_retries=5,
                  task_log=None):
 
         super(DomaPanDAWork, self).__init__(executable=executable, arguments=arguments,
@@ -73,8 +77,10 @@ class DomaPanDAWork(Work):
         self.core_count = core_count
         self.task_log = task_log
 
+        self.encode_command_line = encode_command_line
+
         self.retry_number = 0
-        self.num_retries = 0
+        self.num_retries = num_retries
 
         self.load_panda_urls()
 
@@ -345,7 +351,11 @@ class DomaPanDAWork(Work):
         task_param_map['architecture'] = ''
         task_param_map['transUses'] = ''
         task_param_map['transHome'] = None
-        task_param_map['transPath'] = 'https://atlpan.web.cern.ch/atlpan/bash-c'
+        if self.encode_command_line:
+            task_param_map['transPath'] = 'https://atlpan.web.cern.ch/atlpan/bash-c-enc'
+            task_param_map['encJobParams'] = True
+        else:
+            task_param_map['transPath'] = 'https://atlpan.web.cern.ch/atlpan/bash-c'
         task_param_map['processingType'] = self.processingType
         task_param_map['prodSourceLabel'] = self.prodSourceLabel
         task_param_map['taskType'] = self.task_type
