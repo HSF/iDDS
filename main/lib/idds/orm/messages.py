@@ -58,12 +58,15 @@ def add_message(msg_type, status, source, request_id, workload_id, transform_id,
             num_contents_list.append(num_contents)
             msg_content_list.append(msg_content)
 
+        msgs = []
         for msg_content, num_contents in zip(msg_content_list, num_contents_list):
-            new_message = models.Message(msg_type=msg_type, status=status, request_id=request_id,
-                                         workload_id=workload_id, transform_id=transform_id,
-                                         source=source, num_contents=num_contents,
-                                         locking=0, msg_content=msg_content)
-            new_message.save(session=session)
+            new_message = {'msg_type': msg_type, 'status': status, 'request_id': request_id,
+                           'workload_id': workload_id, 'transform_id': transform_id,
+                           'source': source, 'num_contents': num_contents,
+                           'locking': 0, 'msg_content': msg_content}
+            msgs.append(new_message)
+
+        session.bulk_insert_mappings(models.Message, msgs)
     except TypeError as e:
         raise exceptions.DatabaseException('Invalid JSON for msg_content: %s' % str(e))
     except DatabaseError as e:

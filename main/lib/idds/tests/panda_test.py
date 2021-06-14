@@ -9,6 +9,7 @@ os.environ['PANDA_URL_SSL'] = 'https://ai-idds-01.cern.ch:25443/server/panda'
 from pandatools import Client  # noqa E402
 
 
+"""
 jobids = [1276493]
 jobs_list = Client.getJobStatus(jobids, verbose=0)[1]
 for job_info in jobs_list:
@@ -23,7 +24,6 @@ for job_info in jobs_list:
         print(f.type)
 sys.exit(0)
 
-"""
 jediTaskID = 998
 ret = Client.getPandaIDsWithTaskID(jediTaskID, verbose=False)
 # print(ret)
@@ -48,7 +48,7 @@ print(ret)
 # task_ids += [i for i in range(833, 839)]
 # task_ids += [i for i in range(1048, 1078)]
 # task_ids = [i for i in range(1855, 1856)]
-task_ids = [1927]
+task_ids = [i for i in range(2000, 2014)]
 for task_id in task_ids:
     Client.killTask(task_id)
 

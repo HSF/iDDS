@@ -109,7 +109,7 @@ def get_request_ids_by_workload_id(workload_id, session=None):
 
 
 @read_session
-def get_requests(request_id=None, workload_id=None, with_detail=False, with_metadata=False, to_json=False, session=None):
+def get_requests(request_id=None, workload_id=None, with_detail=False, with_processing=False, with_metadata=False, to_json=False, session=None):
     """
     Get a request or raise a NoObject exception.
 
@@ -123,6 +123,7 @@ def get_requests(request_id=None, workload_id=None, with_detail=False, with_meta
     """
     return orm_requests.get_requests(request_id=request_id, workload_id=workload_id,
                                      with_detail=with_detail, with_metadata=with_metadata,
+                                     with_processing=with_processing,
                                      to_json=to_json, session=session)
 
 

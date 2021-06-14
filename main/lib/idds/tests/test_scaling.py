@@ -28,7 +28,11 @@ def migrate():
 
     cm1 = ClientManager(host=dev_host)
     # reqs = cm1.get_requests(request_id=290)
+
+    # 230K jobs
     reqs = cm1.get_requests(request_id=38, with_metadata=True)
+
+    # reqs = cm1.get_requests(request_id=37, with_metadata=True)
 
     cm2 = ClientManager(host=dev_host)
     for req in reqs:

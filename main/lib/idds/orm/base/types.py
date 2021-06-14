@@ -130,12 +130,12 @@ class JSONString(TypeDecorator):
         if dialect.name == 'postgresql':
             return dialect.type_descriptor(JSONB())
         elif dialect.name == 'mysql':
-            return dialect.type_descriptor(String(100))
+            return dialect.type_descriptor(String(255))
             # return dialect.type_descriptor(types.JSON())
         elif dialect.name == 'oracle':
-            return dialect.type_descriptor(String(100))
+            return dialect.type_descriptor(String(255))
         else:
-            return dialect.type_descriptor(String(100))
+            return dialect.type_descriptor(String(255))
 
     def process_bind_param(self, value, dialect):
         if value is None:
@@ -178,4 +178,6 @@ class EnumWithValue(TypeDecorator):
         return value.value
 
     def process_result_value(self, value, dialect):
+        if value is None:
+            return value
         return self._enumtype(value)
