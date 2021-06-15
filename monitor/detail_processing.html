@@ -18,6 +18,7 @@
     <!-- Custom CSS -->
     <link href="plugins/bower_components/chartist/dist/chartist.min.css" rel="stylesheet">
     <link rel="stylesheet" href="plugins/bower_components/chartist-plugin-tooltips/dist/chartist-plugin-tooltip.css">
+    <link href="plugins/bower_components/jquery-datatables/jquery.dataTables.min.css" rel="stylesheet">
     <!-- Custom CSS -->
     <link href="css/style.min.css" rel="stylesheet">
     <link href="css/style.extra.css" rel="stylesheet">
@@ -170,12 +171,12 @@
             <div class="page-breadcrumb bg-white">
                 <div class="row align-items-center">
                     <div class="col-lg-3 col-md-4 col-sm-4 col-xs-12">
-                        <h4 class="page-title">Transforms</h4>
+                        <h4 class="page-title">Detail</h4>
                     </div>
                     <div class="col-lg-9 col-sm-8 col-md-8 col-xs-12">
                         <div class="d-md-flex">
                             <ol class="breadcrumb ms-auto">
-                                <li><a href="#" class="fw-normal">Transforms</a></li>
+                                <li><a href="#" class="fw-normal">Detail</a></li>
                             </ol>
                         </div>
                     </div>
@@ -190,209 +191,57 @@
             <!-- ============================================================== -->
             <div class="container-fluid">
                 <!-- ============================================================== -->
-                <!-- Three charts -->
-                <!-- ============================================================== -->
-                <div class="row justify-content-center">
-                    <div class="col-lg-4 col-md-12">
-                        <div class="white-box analytics-info">
-                            <h3 class="box-title">Total Transforms</h3>
-                            <ul class="list-inline two-part d-flex align-items-center mb-0">
-                                <li>
-                                    <div id="totaltransformslinedash"><canvas width="67" height="30"
-                                            style="display: inline-block; width: 67px; height: 30px; vertical-align: top;"></canvas>
-                                    </div>
-                                </li>
-                                <li id="totaltransforms" class="ms-auto"><span class="counter text-success"></span></li>
-                            </ul>
-                        </div>
-                    </div>
-                    <div class="col-lg-4 col-md-12">
-                        <div class="white-box analytics-info">
-                            <h3 class="box-title">Total Files</h3>
-                            <ul class="list-inline two-part d-flex align-items-center mb-0">
-                                <li>
-                                    <div id="totalfileslinedash"><canvas width="67" height="30"
-                                            style="display: inline-block; width: 67px; height: 30px; vertical-align: top;"></canvas>
-                                    </div>
-                                </li>
-                                <li id="totalfiles" class="ms-auto"><span class="counter text-purple"></span></li>
-                            </ul>
-                        </div>
-                    </div>
-                    <div class="col-lg-4 col-md-12">
-                        <div class="white-box analytics-info">
-                            <h3 class="box-title">Total Bytes(TB)</h3>
-                            <ul class="list-inline two-part d-flex align-items-center mb-0">
-                                <li>
-                                    <div id="totalbyteslinedash"><canvas width="67" height="30"
-                                            style="display: inline-block; width: 67px; height: 30px; vertical-align: top;"></canvas>
-                                    </div>
-                                </li>
-                                <li id="totalbytes" class="ms-auto"><span class="counter text-info"></span>
-                                </li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-                <!-- ============================================================== -->
-                <!-- PRODUCTS YEARLY SALES -->
+                <!-- RECENT SALES -->
                 <!-- ============================================================== -->
                 <div class="row">
-                    <div class="col-md-12 col-lg-12 col-sm-12 col-xs-12">
+                    <div class="col-md-12 col-lg-12 col-sm-12">
                         <div class="white-box">
-                            <h3 class="box-title">Number Of Transforms By Transform Status</h3>
-                            <div class="d-md-flex">
-                                <select id="view_chartist_labels_status_select" class="type_select">
-                                    <option value="All" selected="selected"> All </option>
-                                </select>
-                                <ul id="view_chartist_labels_status" class="list-inline d-flex ms-auto">
-                                    <!--
-                                    <li class="ps-3">
-                                        <h5><i class="fa fa-circle me-1 text-info"></i>Mac</h5>
-                                    </li>
-                                    <li class="ps-3">
-                                        <h5><i class="fa fa-circle me-1 text-inverse"></i>Windows</h5>
-                                    </li>
-                                    -->
-                                </ul>
-                            </div>
-                            <div id="view_chartist_status" style="height: 405px;">
-                                <div class="chartist-tooltip" style="top: -17px; left: -12px;"><span
-                                        class="chartist-tooltip-value">6</span>
+                            <div class="d-md-flex mb-3">
+                                <h3 class="box-title mb-0">Request Processings</h3>
+                                <h3 class="wait_message" id="wait_message"></h3>
+                                <!--
+                                <div class="col-md-3 col-sm-4 col-xs-6 ms-auto">
+                                    <select id="transform_status" class="form-select shadow-none row border-top">
+                                        <option>All</option>
+                                        <option>April 2021</option>
+                                        <option>May 2021</option>
+                                        <option>June 2021</option>
+                                        <option>July 2021</option>
+                                    </select>
                                 </div>
+                                -->
+                            </div>
+                            <div class="table-responsive">
+                                <!-- table class="table no-wrap display" -->
+                                <table id="transforms_table" class="display" style="width:100%">
+                                    <thead>
+                                        <tr>
+                                            <th class="border-top-0">#</th>
+                                            <th class="border-top-0">Request ID</th>
+                                            <th class="border-top-0">Workload ID</th>
+                                            <th class="border-top-0">Processing ID</th>
+                                            <th class="border-top-0">Status</th>
+                                            <th class="border-top-0">Created At</th>
+                                            <th class="border-top-0">Updated At</th>
+                                            <th class="border-top-0">Finished At</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="transforms_table_body">
+                                        <!--
+                                        <tr>
+                                            <td>1</td>
+                                            <td class="txt-oflo">Elite admin</td>
+                                            <td>SALE</td>
+                                            <td class="txt-oflo">April 18, 2021</td>
+                                            <td><span class="text-success">$24</span></td>
+                                        </tr>
+                                        -->
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-12 col-lg-12 col-sm-12 col-xs-12">
-                        <div class="white-box">
-                            <h3 class="box-title">Number Of Files By Transform Status(K)</h3>
-                            <div class="d-md-flex">
-                                <select id="view_chartist_labels_files_select" class="type_select">
-                                    <option value="All" selected="selected"> All </option>
-                                </select>
-                                <ul id="view_chartist_labels_files" class="list-inline d-flex ms-auto">
-                                    <!--
-                                    <li class="ps-3">
-                                        <h5><i class="fa fa-circle me-1 text-info"></i>Mac</h5>
-                                    </li>
-                                    <li class="ps-3">
-                                        <h5><i class="fa fa-circle me-1 text-inverse"></i>Windows</h5>
-                                    </li>
-                                    -->
-                                </ul>
-                            </div>
-                            <div id="view_chartist_files" style="height: 405px;">
-                                <div class="chartist-tooltip" style="top: -17px; left: -12px;"><span
-                                        class="chartist-tooltip-value">6</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-12 col-lg-12 col-sm-12 col-xs-12">
-                        <div class="white-box">
-                            <h3 class="box-title">Number Of Bytes By Transform Status(TB)</h3>
-                            <div class="d-md-flex">
-                                <select id="view_chartist_labels_bytes_select" class="type_select">
-                                    <option value="All" selected="selected"> All </option>
-                                </select>
-                                <ul id="view_chartist_labels_bytes" class="list-inline d-flex ms-auto">
-                                    <!--
-                                    <li class="ps-3">
-                                        <h5><i class="fa fa-circle me-1 text-info"></i>Mac</h5>
-                                    </li>
-                                    <li class="ps-3">
-                                        <h5><i class="fa fa-circle me-1 text-inverse"></i>Windows</h5>
-                                    </li>
-                                    -->
-                                </ul>
-                            </div>
-                            <div id="view_chartist_bytes" style="height: 405px;">
-                                <div class="chartist-tooltip" style="top: -17px; left: -12px;"><span
-                                        class="chartist-tooltip-value">6</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-
-                    <div class="col-md-12 col-lg-12 col-sm-12 col-xs-12">
-                        <div class="white-box">
-                            <h3 class="box-title">Number Of Transforms By Transform Type</h3>
-                            <div class="d-md-flex">
-                                <select id="view_chartist_labels_type_select" class="type_select">
-                                    <option value="All" selected="selected"> All </option>
-                                </select>
-                                <ul id="view_chartist_labels_type" class="list-inline d-flex ms-auto">
-                                    <!--
-                                    <li class="ps-3">
-                                        <h5><i class="fa fa-circle me-1 text-info"></i>Mac</h5>
-                                    </li>
-                                    <li class="ps-3">
-                                        <h5><i class="fa fa-circle me-1 text-inverse"></i>Windows</h5>
-                                    </li>
-                                    -->
-                                </ul>
-                            </div>
-                            <div id="view_chartist_type" style="height: 405px;">
-                                <div class="chartist-tooltip" style="top: -17px; left: -12px;"><span
-                                        class="chartist-tooltip-value">6</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-12 col-lg-12 col-sm-12 col-xs-12">
-                        <div class="white-box">
-                            <h3 class="box-title">Number Of Files By Transform Type</h3>
-                            <div class="d-md-flex">
-                                <select id="view_chartist_labels_files_type_select" class="type_select">
-                                    <option value="All" selected="selected"> All </option>
-                                </select>
-                                <ul id="view_chartist_labels_files_type" class="list-inline d-flex ms-auto">
-                                    <!--
-                                    <li class="ps-3">
-                                        <h5><i class="fa fa-circle me-1 text-info"></i>Mac</h5>
-                                    </li>
-                                    <li class="ps-3">
-                                        <h5><i class="fa fa-circle me-1 text-inverse"></i>Windows</h5>
-                                    </li>
-                                    -->
-                                </ul>
-                            </div>
-                            <div id="view_chartist_files_type" style="height: 405px;">
-                                <div class="chartist-tooltip" style="top: -17px; left: -12px;"><span
-                                        class="chartist-tooltip-value">6</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-12 col-lg-12 col-sm-12 col-xs-12">
-                        <div class="white-box">
-                            <h3 class="box-title">Number Of Bytes By Transform Type(TB)</h3>
-                            <div class="d-md-flex">
-                                <select id="view_chartist_labels_bytes_type_select" class="type_select">
-                                    <option value="All" selected="selected"> All </option>
-                                </select>
-                                <ul id="view_chartist_labels_bytes_type" class="list-inline d-flex ms-auto">
-                                    <!--
-                                    <li class="ps-3">
-                                        <h5><i class="fa fa-circle me-1 text-info"></i>Mac</h5>
-                                    </li>
-                                    <li class="ps-3">
-                                        <h5><i class="fa fa-circle me-1 text-inverse"></i>Windows</h5>
-                                    </li>
-                                    -->
-                                </ul>
-                            </div>
-                            <div id="view_chartist_bytes_type" style="height: 405px;">
-                                <div class="chartist-tooltip" style="top: -17px; left: -12px;"><span
-                                        class="chartist-tooltip-value">6</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
                 </div>
-
             </div>
             <!-- ============================================================== -->
             <!-- End Container fluid  -->
@@ -432,8 +281,10 @@
     <!--chartis chart-->
     <script src="plugins/bower_components/chartist/dist/chartist.min.js"></script>
     <script src="plugins/bower_components/chartist-plugin-tooltips/dist/chartist-plugin-tooltip.min.js"></script>
+    <!--data table-->
+    <script src="plugins/bower_components/jquery-datatables/jquery.dataTables.min.js"></script>
     <script src="conf.js"></script>
-    <script src="js/pages/dashboards/dashboard2.js"></script>
+    <script src="js/pages/dashboards/dashboard5.js"></script>
 </body>
 
 </html>

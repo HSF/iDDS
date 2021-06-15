@@ -119,3 +119,14 @@
 .ct-line {
     stroke-width: 2px;
 }
+
+
+
+// data table
+div.dataTables_wrapper {
+        margin-bottom: 3em;
+}
+
+.wait_message {
+    color: red !important;
+}
