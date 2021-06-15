@@ -11,6 +11,9 @@ $(function () {
     // ============================================================== 
 
     function draw_chartist(group_types, group_types_name, chartist_name, labels, num_monthly) {
+        
+
+        $(group_types_name).empty();
         $.each(group_types, function(i) {
             var new_li = '<li class="ps-3"><h5><i class="fa fa-circle me-1 ';
             new_li += 'view_chartist_lable_' + i + '"></i>' + group_types[i]+ '</h5>';
@@ -39,93 +42,125 @@ $(function () {
         });
     }
 
+    function draw_chartist1(labels, data, group_types_name, chartist_name, group_types_select) {
+        var g_types = Object.keys(data);
+
+        var select_option = $(group_types_select + " option").filter(':selected').text();
+        select_option = $.trim(select_option);
+
+        $(group_types_select).empty();
+        if (select_option === 'All'){
+            var all_option = '<option value="All" selected="selected">All</option>';
+            $(group_types_select).append(all_option);
+        } else {
+            var all_option = '<option value="All">All</option>';
+            $(group_types_select).append(all_option);
+        }
+        $.each(g_types, function(i) {
+            if (select_option === g_types[i]){
+                var new_opt = '<option value="' + g_types[i] + '" selected="selected">' + g_types[i] + '</option>';
+                $(group_types_select).append(new_opt);
+            } else {
+                var new_opt = '<option value="' + g_types[i] + '">' + g_types[i] + '</option>';
+                $(group_types_select).append(new_opt);
+            }
+        });
+
+        if (select_option === 'All'){
+            var num_monthly = Object.keys(data).map(function(key){
+                var mnum_monthly_status = Object.keys(data[key]).map(function(key1){
+                    return data[key][key1];
+                });
+                return mnum_monthly_status;
+            });
+            draw_chartist(g_types, group_types_name, chartist_name, labels, num_monthly);
+        } else {
+            var num_monthly = Object.keys(data[select_option]).map(function(key){
+                return data[select_option][key];
+            });
+            num_monthly = [num_monthly];
+            draw_chartist(g_types, group_types_name, chartist_name, labels, num_monthly);
+        }
+    }
+
+    function draw_chartist2(labels, data, group_types_name, chartist_name, group_types_select) {
+        var g_types = Object.keys(data);
+
+        var select_option = $(group_types_select + " option").filter(':selected').text();
+        select_option = $.trim(select_option);
+
+        $(group_types_select).empty();
+        if (select_option === 'All'){
+            var all_option = '<option value="All" selected="selected">All</option>';
+            $(group_types_select).append(all_option);
+        } else {
+            var all_option = '<option value="All">All</option>';
+            $(group_types_select).append(all_option);
+        }
+        $.each(g_types, function(i) {
+            if (select_option === g_types[i]){
+                var new_opt = '<option value="' + g_types[i] + '" selected="selected">' + g_types[i] + '</option>';
+                $(group_types_select).append(new_opt);
+            } else {
+                var new_opt = '<option value="' + g_types[i] + '">' + g_types[i] + '</option>';
+                $(group_types_select).append(new_opt);
+            }
+        });
+
+        if (select_option === 'All'){
+            var num_monthly = Object.keys(data).map(function(key){
+                var mnum_monthly_status = Object.keys(data[key].Total).map(function(key1){
+                    return data[key].Total[key1];
+                });
+                return mnum_monthly_status;
+            });
+            draw_chartist(g_types, group_types_name, chartist_name, labels, num_monthly);
+        } else {
+            var num_monthly = Object.keys(data[select_option].Total).map(function(key){
+                return data[select_option].Total[key];
+            });
+            num_monthly = [num_monthly];
+            draw_chartist(g_types, group_types_name, chartist_name, labels, num_monthly);
+        }
+    }
+
     function draw_chartist_status(data) {
 
         // alert(Object.keys(data.month_acc_status.Total));
         var labels = Object.keys(data.month_acc_status.Total);
-        var statuses = Object.keys(data.month_acc_status);
-        var num_monthly = Object.keys(data.month_acc_status).map(function(key){
-            var mnum_monthly_status = Object.keys(data.month_acc_status[key]).map(function(key1){
-                return data.month_acc_status[key][key1];
-            });
-            return mnum_monthly_status;
-        });
 
-        draw_chartist(statuses, '#view_chartist_labels_status', '#view_chartist_status', labels, num_monthly);
+        draw_chartist1(labels, data.month_acc_status, '#view_chartist_labels_status', '#view_chartist_status', "#view_chartist_labels_status_select");
     }
 
     function draw_chartist_files(data) {
 
         var labels = Object.keys(data.month_acc_processed_files.Total);
-        var statuses = Object.keys(data.month_acc_processed_files);
-        var num_monthly = Object.keys(data.month_acc_processed_files).map(function(key){
-            var mnum_monthly_status = Object.keys(data.month_acc_processed_files[key]).map(function(key1){
-                return Math.round(data.month_acc_processed_files[key][key1]/1000);
-                // return data.month_acc_processed_files[key][key1];
-            });
-            return mnum_monthly_status;
-        });
-
-        draw_chartist(statuses, '#view_chartist_labels_files', '#view_chartist_files', labels, num_monthly);
+        draw_chartist1(labels, data.month_acc_processed_files, '#view_chartist_labels_files', '#view_chartist_files', "#view_chartist_labels_files_select");
     }
 
     function draw_chartist_bytes(data) {
 
-        // alert(Object.keys(data.month_acc_status.Total));
         var labels = Object.keys(data.month_acc_processed_bytes.Total);
-        var statuses = Object.keys(data.month_acc_processed_bytes);
-        var num_monthly = Object.keys(data.month_acc_processed_bytes).map(function(key){
-            var mnum_monthly_status = Object.keys(data.month_acc_processed_bytes[key]).map(function(key1){
-                var n_value = data.month_acc_processed_bytes[key][key1];
-                n_value = Math.round(n_value/1000/1000/1000/1000);
-                return n_value;
-            });
-            return mnum_monthly_status;
-        });
-
-        draw_chartist(statuses, '#view_chartist_labels_bytes', '#view_chartist_bytes', labels, num_monthly);
+        draw_chartist1(labels, data.month_acc_processed_bytes, '#view_chartist_labels_bytes', '#view_chartist_bytes', "#view_chartist_labels_bytes_select");
     }
 
     function draw_chartist_status_type(data) {
 
         var labels = Object.keys(data.month_acc_status.Total);
-        var g_types = Object.keys(data.month_acc_status_dict_by_type);
-        var num_monthly = Object.keys(data.month_acc_status_dict_by_type).map(function(key){
-            var mnum_monthly_status = Object.keys(data.month_acc_status_dict_by_type[key].Total).map(function(key1){
-                return data.month_acc_status_dict_by_type[key].Total[key1];
-            });
-            return mnum_monthly_status;
-        });
 
-        draw_chartist(g_types, '#view_chartist_labels_type', '#view_chartist_type', labels, num_monthly);
+        draw_chartist2(labels, data.month_acc_status_dict_by_type, '#view_chartist_labels_type', '#view_chartist_type', "#view_chartist_labels_type_select");
     }
 
     function draw_chartist_files_type(data) {
 
         var labels = Object.keys(data.month_acc_status.Total);
-        var g_types = Object.keys(data.month_acc_processed_files_by_type);
-        var num_monthly = Object.keys(data.month_acc_processed_files_by_type).map(function(key){
-            var mnum_monthly_status = Object.keys(data.month_acc_processed_files_by_type[key].Total).map(function(key1){
-                return data.month_acc_processed_files_by_type[key].Total[key1];
-            });
-            return mnum_monthly_status;
-        });
-
-        draw_chartist(g_types, '#view_chartist_labels_files_type', '#view_chartist_files_type', labels, num_monthly);
+        draw_chartist2(labels, data.month_acc_processed_files_by_type, '#view_chartist_labels_files_type', '#view_chartist_files_type', "#view_chartist_labels_files_type_select");
     }
 
     function draw_chartist_bytes_type(data) {
 
         var labels = Object.keys(data.month_acc_status.Total);
-        var g_types = Object.keys(data.month_acc_processed_bytes_by_type);
-        var num_monthly = Object.keys(data.month_acc_processed_bytes_by_type).map(function(key){
-            var mnum_monthly_status = Object.keys(data.month_acc_processed_bytes_by_type[key].Total).map(function(key1){
-                return Math.round(data.month_acc_processed_bytes_by_type[key].Total[key1]/1000/1000/1000/1000);
-            });
-            return mnum_monthly_status;
-        });
-
-        draw_chartist(g_types, '#view_chartist_labels_bytes_type', '#view_chartist_bytes_type', labels, num_monthly);
+        draw_chartist2(labels, data.month_acc_processed_files_by_type, '#view_chartist_labels_bytes_type', '#view_chartist_bytes_type', "#view_chartist_labels_bytes_type_select");
     }
 
 
@@ -191,6 +226,10 @@ $(function () {
     });
     sparklineLogin();
 
+    $("select").on("change", function() {
+        // alert( "Handler for .change() called." );
+        sparklineLogin();
+    });
 });
 
 
