@@ -424,11 +424,28 @@ def is_sub(a, b):
     return True
 
 
+def get_proxy_path():
+    try:
+        if 'X509_USER_PROXY' in os.environ:
+            proxy = os.environ['X509_USER_PROXY']
+            if os.access(proxy, os.R_OK):
+                return proxy
+        proxy = '/tmp/x509up_u%s' % os.getuid()
+        if os.access(proxy, os.R_OK):
+            return proxy
+    except Exception:
+        pass
+    return None
+
+
 def get_proxy():
-    if 'X509_USER_PROXY' in os.environ:
-        with open(os.environ['X509_USER_PROXY'], 'r') as fp:
-            proxy = fp.read()
-        return proxy
+    try:
+        proxy = get_proxy_path()
+        with open(proxy, 'r') as fp:
+            data = fp.read()
+        return data
+    except Exception:
+        pass
     return None
 
 

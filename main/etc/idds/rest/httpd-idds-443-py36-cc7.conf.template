@@ -12,6 +12,14 @@ KeepAliveTimeout 600
 # Built-in modules
 LoadModule ssl_module /usr/lib64/httpd/modules/mod_ssl.so
 
+# # LoadModule log_config_module    /usr/lib64/httpd/modules/mod_log_config.so
+# # LoadModule ssl_module           /usr/lib64/httpd/modules/mod_ssl.so
+# # LoadModule gridsite_module      /usr/lib64/httpd/modules/mod_gridsite.so
+# # LoadModule mime_module          /usr/lib64/httpd/modules/mod_mime.so
+# # LoadModule dir_module           /usr/lib64/httpd/modules/mod_dir.so
+# # LoadModule alias_module         /usr/lib64/httpd/modules/mod_alias.so
+# # LoadModule cgi_module           /usr/lib64/httpd/modules/mod_cgi.so
+
 # External modules
 LoadModule gridsite_module /usr/lib64/httpd/modules/mod_gridsite.so
 #LoadModule wsgi_module /usr/lib64/httpd/modules/mod_wsgi.so
@@ -51,8 +59,13 @@ Alias "/monitor"     "/opt/idds/monitor"
     SSLCACertificatePath /etc/grid-security/certificates
     SSLCARevocationPath /etc/grid-security/certificates
     SSLVerifyClient optional
-    SSLVerifyDepth 10
+    SSLVerifyDepth 16
     SSLOptions +StdEnvVars +ExportCertData
+
+    # CERN security recommendation to only allow the seven strongest ssl ciphers
+    SSLProtocol  all -SSLv2 -SSLv3
+    SSLCipherSuite HIGH:!CAMELLIA:!ADH:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!3DES
+    SSLHonorCipherOrder on
 
     LogLevel debug
     ErrorLog /var/log/idds/httpd_error_log
@@ -66,6 +79,16 @@ Alias "/monitor"     "/opt/idds/monitor"
         GridSiteGSIProxyLimit 16
         GridSiteEnvs on
         GridSiteACLPath /etc/idds/rest/gacl
+    </LocationMatch>
+
+    <LocationMatch "^/idds">
+        GridSiteIndexes on
+        GridSiteAuth on
+        GridSiteDNlists /etc/grid-security/dn-lists/
+        GridSiteGSIProxyLimit 16
+        GridSiteEnvs on
+        GridSiteACLPath /opt/idds/etc/idds/rest/gacl
+        # GridSiteMethods GET
     </LocationMatch>
 
     <Directory {python_site_packages_path}>
