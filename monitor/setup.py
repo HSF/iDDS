@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019
+# - Wen Guan, <wen.guan@cern.ch>, 2021
 
 
 import glob
@@ -105,7 +105,7 @@ def get_data_files(dest, src):
     return data
 
 
-for build_dir in ['build', 'dist', 'idds_website.egg-info']:
+for build_dir in ['build', 'dist', 'idds_monitor.egg-info']:
     if os.path.exists(build_dir):
         print("removing %s............................." % build_dir)
         shutil.rmtree(build_dir)
@@ -132,7 +132,7 @@ data_files += get_data_files('website/', '.')
 scripts = glob.glob('bin/*')
 
 setup(
-    name="idds-website",
+    name="idds-monitor",
     version=version,
     description='intelligent Data Delivery Service(iDDS) Package',
     long_description=readme,
