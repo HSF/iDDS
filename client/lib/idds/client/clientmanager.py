@@ -171,6 +171,34 @@ class ClientManager:
             return (-1, 'No matching requests')
 
     @exception_handler
+    def finish(self, request_id=None, workload_id=None, set_all_finished=False):
+        """
+        Retry requests.
+
+        :param workload_id: the workload id.
+        :param request_id: the request.
+        """
+        if request_id is None and workload_id is None:
+            logging.error("Both request_id and workload_id are None. One of them should not be None")
+            return (-1, "Both request_id and workload_id are None. One of them should not be None")
+
+        reqs = self.client.get_requests(request_id=request_id, workload_id=workload_id)
+        if reqs:
+            rets = []
+            for req in reqs:
+                logging.info("Finishing request: %s" % req['request_id'])
+                if set_all_finished:
+                    self.client.update_request(request_id=req['request_id'], parameters={'substatus': RequestStatus.ToForceFinish})
+                else:
+                    self.client.update_request(request_id=req['request_id'], parameters={'substatus': RequestStatus.ToFinish})
+                logging.info("ToFinish request registered successfully: %s" % req['request_id'])
+                ret = (0, "ToFinish request registered successfully: %s" % req['request_id'])
+                rets.append(ret)
+            return rets
+        else:
+            return (-1, 'No matching requests')
+
+    @exception_handler
     def get_requests(self, request_id=None, workload_id=None, with_detail=False, with_metadata=False):
         """
         Get requests.

@@ -52,6 +52,11 @@ def retry_requests(args):
     wm.retry(request_id=args.request_id, workload_id=args.workload_id)
 
 
+def finish_requests(args):
+    wm = ClientManager(host=args.host)
+    wm.finish(request_id=args.request_id, workload_id=args.workload_id, set_all_finished=args.set_all_finished)
+
+
 def download_logs(args):
     wm = ClientManager(host=args.host)
     wm.download_logs(request_id=args.request_id, workload_id=args.workload_id, dest_dir=args.dest_dir, filename=args.dest_filename)
@@ -124,6 +129,13 @@ def get_parser():
     retry_parser.set_defaults(function=retry_requests)
     retry_parser.add_argument('--request_id', dest='request_id', action='store', type=int, help='The request id')
     retry_parser.add_argument('--workload_id', dest='workload_id', action='store', type=int, help='The workload id')
+
+    # finish requests
+    finish_parser = subparsers.add_parser('finish_requests', help='Finish requests')
+    finish_parser.set_defaults(function=finish_requests)
+    finish_parser.add_argument('--request_id', dest='request_id', action='store', type=int, help='The request id')
+    finish_parser.add_argument('--workload_id', dest='workload_id', action='store', type=int, help='The workload id')
+    finish_parser.add_argument('--set_all_finished', default=False, action='store_true', help="Mark unfinished transformations as finished")
 
     # download logs
     log_parser = subparsers.add_parser('download_logs', help='Download logs')
