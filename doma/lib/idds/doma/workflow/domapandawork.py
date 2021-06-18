@@ -44,7 +44,9 @@ class DomaPanDAWork(Work):
                  maxwalltime=90000, maxattempt=5, core_count=1,
                  encode_command_line=False,
                  num_retries=5,
-                 task_log=None):
+                 task_log=None,
+                 task_cloud=None,
+                 task_rss=0):
 
         super(DomaPanDAWork, self).__init__(executable=executable, arguments=arguments,
                                             parameters=parameters, setup=setup, work_type=TransformType.Processing,
@@ -78,6 +80,8 @@ class DomaPanDAWork(Work):
         self.task_log = task_log
 
         self.encode_command_line = encode_command_line
+        self.task_cloud = task_cloud
+        self.task_rss = task_rss
 
         self.retry_number = 0
         self.num_retries = num_retries
@@ -339,7 +343,8 @@ class DomaPanDAWork(Work):
 
         task_param_map = {}
         task_param_map['vo'] = 'wlcg'
-        task_param_map['site'] = self.queue
+        if self.queue and len(self.queue) > 0:
+            task_param_map['site'] = self.queue
         task_param_map['workingGroup'] = 'lsst'
         task_param_map['nFilesPerJob'] = 1
         task_param_map['nFiles'] = len(in_files)
@@ -361,7 +366,11 @@ class DomaPanDAWork(Work):
         task_param_map['taskType'] = self.task_type
         task_param_map['coreCount'] = self.core_count
         task_param_map['skipScout'] = True
-        task_param_map['cloud'] = 'US'
+        task_param_map['cloud'] = self.task_cloud
+        if self.task_rss > 0:
+            task_param_map['ramCount'] = self.task_rss
+            task_param_map['ramUnit'] = 'MB'
+
         task_param_map['inputPreStaging'] = True
         task_param_map['prestagingRuleID'] = 123
         task_param_map['nChunksToWait'] = 1
@@ -430,7 +439,7 @@ class DomaPanDAWork(Work):
         task_id = None
         for req_id in results:
             task_name = results[req_id]['taskName']
-            if proc.workload is None and task_name == self.task_name:
+            if proc.workload_id is None and task_name == self.task_name:
                 task_id = results[req_id]['jediTaskID']
                 # processing['processing_metadata']['task_id'] = task_id
                 # processing['processing_metadata']['workload_id'] = task_id
@@ -596,51 +605,54 @@ class DomaPanDAWork(Work):
                 proc = processing['processing_metadata']['processing']
                 task_id = proc.workload_id
                 if task_id is None:
-                    self.get_panda_task_id(processing)
+                    task_id = self.get_panda_task_id(processing)
 
-                # ret_ids = Client.getPandaIDsWithTaskID(task_id, verbose=False)
-                task_info = Client.getJediTaskDetails({'jediTaskID': task_id}, True, True, verbose=False)
-                self.logger.info("poll_panda_task, task_info: %s" % str(task_info))
-                if task_info[0] != 0:
-                    self.logger.warn("poll_panda_task %s, error getting task status, task_info: %s" % (task_id, str(task_info)))
-                    # return "No status", {}
-                    return ProcessingStatus.Submitting, {}
+                if task_id:
+                    # ret_ids = Client.getPandaIDsWithTaskID(task_id, verbose=False)
+                    task_info = Client.getJediTaskDetails({'jediTaskID': task_id}, True, True, verbose=False)
+                    self.logger.info("poll_panda_task, task_info: %s" % str(task_info))
+                    if task_info[0] != 0:
+                        self.logger.warn("poll_panda_task %s, error getting task status, task_info: %s" % (task_id, str(task_info)))
+                        # return "No status", {}
+                        return ProcessingStatus.Submitting, {}
 
-                task_info = task_info[1]
+                    task_info = task_info[1]
 
-                processing_status = self.get_processing_status_from_panda_status(task_info["status"])
+                    processing_status = self.get_processing_status_from_panda_status(task_info["status"])
 
-                if processing_status in [ProcessingStatus.SubFinished]:
-                    if self.retry_number < self.num_retries:
-                        self.reactivate_processing(processing)
-                        processing_status = ProcessingStatus.Submitted
-                        self.retry_number += 1
+                    if processing_status in [ProcessingStatus.SubFinished]:
+                        if self.retry_number < self.num_retries:
+                            self.reactivate_processing(processing)
+                            processing_status = ProcessingStatus.Submitted
+                            self.retry_number += 1
 
-                jobs_ids = task_info['PandaID']
-                ret_get_registered_panda_jobids = self.get_registered_panda_jobids(input_output_maps)
-                terminated_job_ids, unterminated_job_ids, map_id_without_panda_ids, panda_id_to_map_ids = ret_get_registered_panda_jobids
+                    jobs_ids = task_info['PandaID']
+                    ret_get_registered_panda_jobids = self.get_registered_panda_jobids(input_output_maps)
+                    terminated_job_ids, unterminated_job_ids, map_id_without_panda_ids, panda_id_to_map_ids = ret_get_registered_panda_jobids
 
-                registered_job_ids = terminated_job_ids + unterminated_job_ids
-                unregistered_job_ids = []
-                for job_id in jobs_ids:
-                    if job_id not in registered_job_ids:
-                        unregistered_job_ids.append(job_id)
+                    registered_job_ids = terminated_job_ids + unterminated_job_ids
+                    unregistered_job_ids = []
+                    for job_id in jobs_ids:
+                        if job_id not in registered_job_ids:
+                            unregistered_job_ids.append(job_id)
 
-                map_update_contents = self.map_panda_ids(unregistered_job_ids, input_output_maps)
-                status_changed_update_contents = self.get_status_changed_contents(unterminated_job_ids, input_output_maps, panda_id_to_map_ids)
+                    map_update_contents = self.map_panda_ids(unregistered_job_ids, input_output_maps)
+                    status_changed_update_contents = self.get_status_changed_contents(unterminated_job_ids, input_output_maps, panda_id_to_map_ids)
 
-                if processing_status in [ProcessingStatus.SubFinished, ProcessingStatus.Finished, ProcessingStatus.Failed] and (unregistered_job_ids or unterminated_job_ids):
-                    # there are still polling contents, should not terminate the task.
-                    log_warn = "Processing (%s) with panda id (%s) is %s, however there are still unregistered_job_ids(%s) or unterminated_job_ids(%s)" % (processing['processing_id'],
-                                                                                                                                                           task_id,
-                                                                                                                                                           processing_status,
-                                                                                                                                                           str(unregistered_job_ids),
-                                                                                                                                                           str(unterminated_job_ids))
-                    log_warn = log_warn + ". Keep the processing status as running now."
-                    self.logger.warn(log_warn)
-                    processing_status = ProcessingStatus.Running
+                    if processing_status in [ProcessingStatus.SubFinished, ProcessingStatus.Finished, ProcessingStatus.Failed] and (unregistered_job_ids or unterminated_job_ids):
+                        # there are still polling contents, should not terminate the task.
+                        log_warn = "Processing (%s) with panda id (%s) is %s, however there are still unregistered_job_ids(%s) or unterminated_job_ids(%s)" % (processing['processing_id'],
+                                                                                                                                                               task_id,
+                                                                                                                                                               processing_status,
+                                                                                                                                                               str(unregistered_job_ids),
+                                                                                                                                                               str(unterminated_job_ids))
+                        log_warn = log_warn + ". Keep the processing status as running now."
+                        self.logger.warn(log_warn)
+                        processing_status = ProcessingStatus.Running
 
-                return processing_status, map_update_contents + status_changed_update_contents
+                    return processing_status, map_update_contents + status_changed_update_contents
+                else:
+                    return ProcessingStatus.Failed, {}
         except Exception as ex:
             msg = "Failed to check the processing (%s) status: %s" % (str(processing['processing_id']), str(ex))
             self.logger.error(msg)
@@ -712,6 +724,12 @@ class DomaPanDAWork(Work):
                 self.kill_processing(processing)
                 proc.toexpire = False
                 proc.polling_retries = 0
+            elif proc.tofinish or proc.toforcefinish:
+                self.logger.info("Finishing processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], proc.workload_id))
+                self.kill_processing(processing)
+                proc.tofinish = False
+                proc.toforcefinish = False
+                proc.polling_retries = 0
 
             processing_status, poll_updated_contents = self.poll_panda_task(processing=processing, input_output_maps=input_output_maps)
             self.logger.debug("poll_processing_updates, processing_status: %s" % str(processing_status))
@@ -746,6 +764,7 @@ class DomaPanDAWork(Work):
 
             if processing_status in [ProcessingStatus.SubFinished, ProcessingStatus.Finished, ProcessingStatus.Failed]:
                 if proc.polling_retries is not None and proc.polling_retries < 3:
+                    self.logger.info("processing %s polling_retries(%s) < 3, keep running" % (processing['processing_id'], proc.polling_retries))
                     processing_status = ProcessingStatus.Running
                     proc.polling_retries += 1
             else:
@@ -766,9 +785,9 @@ class DomaPanDAWork(Work):
                 update_processing['parameters']['status'] = ProcessingStatus.Resuming
             proc.status = update_processing['parameters']['status']
 
-        self.logger.debug("poll_processing_updates, task: %i, update_processing: %s" %
+        self.logger.debug("poll_processing_updates, task: %s, update_processing: %s" %
                           (proc.workload_id, str(update_processing)))
-        self.logger.debug("poll_processing_updates, task: %i, updated_contents: %s" %
+        self.logger.debug("poll_processing_updates, task: %s, updated_contents: %s" %
                           (proc.workload_id, str(updated_contents)))
         return update_processing, updated_contents
 
@@ -797,6 +816,12 @@ class DomaPanDAWork(Work):
         self.logger.debug("syn_work_status, primary_input_collection_status: %s" %
                           str(self.collections[self.primary_input_collection].status))
 
+        self.logger.debug("syn_work_status(%s): is_processings_terminated: %s" % (str(self.get_processing_ids()), str(self.is_processings_terminated())))
+        self.logger.debug("syn_work_status(%s): is_input_collections_closed: %s" % (str(self.get_processing_ids()), str(self.is_input_collections_closed())))
+        self.logger.debug("syn_work_status(%s): has_new_inputs: %s" % (str(self.get_processing_ids()), str(self.has_new_inputs)))
+        self.logger.debug("syn_work_status(%s): has_to_release_inputs: %s" % (str(self.get_processing_ids()), str(self.has_to_release_inputs())))
+        self.logger.debug("syn_work_status(%s): to_release_input_contents: %s" % (str(self.get_processing_ids()), str(to_release_input_contents)))
+
         if self.is_processings_terminated() and self.is_input_collections_closed() and not self.has_new_inputs and not self.has_to_release_inputs() and not to_release_input_contents:
             # if not self.is_all_outputs_flushed(registered_input_output_maps):
             if not all_updates_flushed:
@@ -804,13 +829,10 @@ class DomaPanDAWork(Work):
                 return
 
             keys = self.status_statistics.keys()
-            if ContentStatus.New.name in keys or ContentStatus.Processing.name in keys:
-                pass
-            else:
-                if len(keys) == 1:
-                    if ContentStatus.Available.name in keys:
-                        self.status = WorkStatus.Finished
-                    else:
-                        self.status = WorkStatus.Failed
+            if len(keys) == 1:
+                if ContentStatus.Available.name in keys:
+                    self.status = WorkStatus.Finished
                 else:
-                    self.status = WorkStatus.SubFinished
+                    self.status = WorkStatus.Failed
+            else:
+                self.status = WorkStatus.SubFinished
