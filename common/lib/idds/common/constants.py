@@ -132,6 +132,8 @@ class RequestStatus(IDDSEnum):
     ToExpire = 15
     Expiring = 16
     Expired = 17
+    ToFinish = 18
+    ToForceFinish = 19
 
 
 class RequestLocking(IDDSEnum):
@@ -150,6 +152,16 @@ class WorkprogressStatus(IDDSEnum):
     ToCancel = 7
     Cancelling = 8
     Cancelled = 9
+    ToSuspend = 10
+    Suspending = 11
+    Suspended = 12
+    ToResume = 13
+    Resuming = 14
+    ToExpire = 15
+    Expiring = 16
+    Expired = 17
+    ToFinish = 18
+    ToForceFinish = 19
 
 
 class WorkprogressLocking(IDDSEnum):
@@ -198,6 +210,8 @@ class TransformStatus(IDDSEnum):
     ToExpire = 15
     Expiring = 16
     Expired = 17
+    ToFinish = 18
+    ToForceFinish = 19
 
 
 class TransformLocking(IDDSEnum):
@@ -258,6 +272,7 @@ class ContentStatus(IDDSEnum):
     Lost = 5
     Deleted = 6
     Mapped = 7
+    FakeAvailable = 8
 
 
 class ContentLocking(IDDSEnum):
@@ -295,6 +310,8 @@ class ProcessingStatus(IDDSEnum):
     Expiring = 21
     Expired = 22
     TimeOut = 23
+    ToFinish = 24
+    ToForceFinish = 25
 
 
 class ProcessingLocking(IDDSEnum):
