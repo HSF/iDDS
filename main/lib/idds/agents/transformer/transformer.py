@@ -193,7 +193,7 @@ class Transformer(BaseAgent):
 
     def is_all_inputs_dependency_available(self, inputs_dependency):
         for content in inputs_dependency:
-            if content['status'] != ContentStatus.Available:
+            if content['status'] not in [ContentStatus.Available, ContentStatus.FakeAvailable]:
                 return False
         return True
 
@@ -229,8 +229,8 @@ class Transformer(BaseAgent):
     def trigger_release_inputs_old(self, updated_output_contents, work, input_output_maps):
         to_release_inputs = []
         for content in updated_output_contents:
-            if (content['status'] in [ContentStatus.Available, ContentStatus.Available.value]
-                or content['substatus'] in [ContentStatus.Available, ContentStatus.Available.value]):  # noqa W503
+            if (content['status'] in [ContentStatus.Available, ContentStatus.Available.value, ContentStatus.FakeAvailable, ContentStatus.FakeAvailable.value]
+                or content['substatus'] in [ContentStatus.Available, ContentStatus.Available.value, ContentStatus.FakeAvailable, ContentStatus.FakeAvailable.value]):  # noqa W503
                 to_release = {'request_id': content['request_id'],
                               'coll_id': content['coll_id'],
                               'name': content['name'],
@@ -253,7 +253,7 @@ class Transformer(BaseAgent):
         for map_id in input_output_maps:
             outputs = input_output_maps[map_id]['outputs'] if 'outputs' in input_output_maps[map_id] else []
             for content in outputs:
-                if (content['status'] in [ContentStatus.Available] or content['substatus'] in [ContentStatus.Available]):
+                if (content['status'] in [ContentStatus.Available, ContentStatus.FakeAvailable] or content['substatus'] in [ContentStatus.Available, ContentStatus.FakeAvailable]):
                     if content['coll_id'] not in to_release_inputs:
                         to_release_inputs[content['coll_id']] = []
                     to_release_inputs[content['coll_id']].append(content)
@@ -407,22 +407,23 @@ class Transformer(BaseAgent):
 
             self.show_queue_size()
 
-            transform_status = [TransformStatus.Transforming, TransformStatus.ToCancel, TransformStatus.Cancelling,
-                                TransformStatus.ToSuspend, TransformStatus.Suspending,
-                                TransformStatus.ToExpire, TransformStatus.Expiring,
-                                TransformStatus.Resuming]
+            transform_status = [TransformStatus.ToCancel, TransformStatus.ToSuspend,
+                                TransformStatus.ToResume, TransformStatus.ToExpire,
+                                TransformStatus.ToFinish, TransformStatus.ToForceFinish]
             transforms = core_transforms.get_transforms_by_status(status=transform_status,
                                                                   period=None,
                                                                   locking=True,
+                                                                  by_substatus=True,
                                                                   bulk_size=self.retrieve_bulk_size)
-
-            transform_status = [TransformStatus.ToCancel, TransformStatus.ToSuspend, TransformStatus.ToResume, TransformStatus.ToExpire]
-            transforms_1 = core_transforms.get_transforms_by_status(status=transform_status,
-                                                                    period=None,
-                                                                    locking=True,
-                                                                    by_substatus=True,
-                                                                    bulk_size=self.retrieve_bulk_size)
-            transforms = transforms + transforms_1
+            if not transforms:
+                transform_status = [TransformStatus.Transforming, TransformStatus.ToCancel, TransformStatus.Cancelling,
+                                    TransformStatus.ToSuspend, TransformStatus.Suspending,
+                                    TransformStatus.ToExpire, TransformStatus.Expiring,
+                                    TransformStatus.Resuming]
+                transforms = core_transforms.get_transforms_by_status(status=transform_status,
+                                                                      period=None,
+                                                                      locking=True,
+                                                                      bulk_size=self.retrieve_bulk_size)
 
             self.logger.debug("Main thread get %s transforming transforms to process" % len(transforms))
             if transforms:
@@ -536,10 +537,13 @@ class Transformer(BaseAgent):
             i_msg_type, i_msg_type_str = self.get_message_type(transform['transform_type'], input_type='file')
             files_message = []
             for file in files:
+                file_status = file['status'].name
+                if file['status'] == ContentStatus.FakeAvailable:
+                    file_status = ContentStatus.Available.name
                 file_message = {'scope': file['scope'],
                                 'name': file['name'],
                                 'path': file['path'],
-                                'status': file['status'].name}
+                                'status': file_status}
                 files_message.append(file_message)
             msg_content = {'msg_type': i_msg_type_str,
                            'request_id': request_id,
@@ -572,7 +576,9 @@ class Transformer(BaseAgent):
                     input_status[content['coll_id']] = {'total_files': 0, 'processed_files': 0, 'processing_files': 0, 'bytes': 0}
                 input_status[content['coll_id']]['total_files'] += 1
 
-                if content['status'] in [ContentStatus.Available, ContentStatus.Mapped, ContentStatus.Available.value, ContentStatus.Mapped.value]:
+                if content['status'] in [ContentStatus.Available, ContentStatus.Mapped,
+                                         ContentStatus.Available.value, ContentStatus.Mapped.value,
+                                         ContentStatus.FakeAvailable, ContentStatus.FakeAvailable.value]:
                     input_status[content['coll_id']]['processed_files'] += 1
                     input_status[content['coll_id']]['bytes'] += content['bytes']
                 else:
@@ -582,7 +588,8 @@ class Transformer(BaseAgent):
                 if content['coll_id'] not in output_status:
                     output_status[content['coll_id']] = {'total_files': 0, 'processed_files': 0, 'processing_files': 0, 'bytes': 0}
                 output_status[content['coll_id']]['total_files'] += 1
-                if content['status'] in [ContentStatus.Available, ContentStatus.Available.value]:
+                if content['status'] in [ContentStatus.Available, ContentStatus.Available.value,
+                                         ContentStatus.FakeAvailable, ContentStatus.FakeAvailable.value]:
                     output_status[content['coll_id']]['processed_files'] += 1
                     output_status[content['coll_id']]['bytes'] += content['bytes']
                 else:
@@ -599,7 +606,8 @@ class Transformer(BaseAgent):
                 if content['coll_id'] not in log_status:
                     log_status[content['coll_id']] = {'total_files': 0, 'processed_files': 0, 'processing_files': 0, 'bytes': 0}
                 log_status[content['coll_id']]['total_files'] += 1
-                if content['status'] in [ContentStatus.Available, ContentStatus.Available.value]:
+                if content['status'] in [ContentStatus.Available, ContentStatus.Available.value,
+                                         ContentStatus.FakeAvailable, ContentStatus.FakeAvailable.value]:
                     log_status[content['coll_id']]['processed_files'] += 1
                     log_status[content['coll_id']]['bytes'] += content['bytes']
                 else:
@@ -637,7 +645,8 @@ class Transformer(BaseAgent):
         t_processing_status = None
         is_operation = False
         if transform['substatus'] in [TransformStatus.ToCancel, TransformStatus.ToSuspend,
-                                      TransformStatus.ToResume, TransformStatus.ToExpire]:
+                                      TransformStatus.ToResume, TransformStatus.ToExpire,
+                                      TransformStatus.ToFinish, TransformStatus.ToForceFinish]:
             is_operation = True
             if transform['substatus'] == TransformStatus.ToCancel:
                 t_processing_status = ProcessingStatus.ToCancel
@@ -651,6 +660,12 @@ class Transformer(BaseAgent):
             if transform['substatus'] == TransformStatus.ToExpire:
                 t_processing_status = ProcessingStatus.ToExpire
                 transform_substatus = TransformStatus.Expiring
+            if transform['substatus'] == TransformStatus.ToFinish:
+                t_processing_status = ProcessingStatus.ToFinish
+                transform_substatus = TransformStatus.Transforming
+            if transform['substatus'] == TransformStatus.ToForceFinish:
+                t_processing_status = ProcessingStatus.ToForceFinish
+                transform_substatus = TransformStatus.Transforming
 
         work = transform['transform_metadata']['work']
         work.set_work_id(transform['transform_id'])
@@ -785,17 +800,27 @@ class Transformer(BaseAgent):
         self.logger.info("syn_collection_status: %s" % transform['transform_id'])
         all_updates_flushed, output_statistics = self.syn_collection_status(input_collections, output_collections, log_collections, registered_input_output_maps)
 
-        self.logger.info("syn_work_status: %s" % transform['transform_id'])
+        self.logger.info("syn_work_status: %s, transform status: %s" % (transform['transform_id'], transform['substatus']))
         work.syn_work_status(registered_input_output_maps, all_updates_flushed, output_statistics, to_release_input_contents)
 
         if transform['substatus'] in [TransformStatus.ToCancel]:
             transform['status'] = TransformStatus.Cancelling
+            work.tocancel = True
         elif transform['substatus'] in [TransformStatus.ToSuspend]:
             transform['status'] = TransformStatus.Suspending
+            work.tosuspend = True
         elif transform['substatus'] in [TransformStatus.ToResume]:
             transform['status'] = TransformStatus.Resuming
+            work.toresume = True
         elif transform['substatus'] in [TransformStatus.ToExpire]:
             transform['status'] = TransformStatus.Expiring
+            work.toexpire = True
+        elif transform['substatus'] in [TransformStatus.ToFinish]:
+            transform['status'] = TransformStatus.Transforming
+            work.tofinish = True
+        elif transform['substatus'] in [TransformStatus.ToForceFinish]:
+            transform['status'] = TransformStatus.Transforming
+            work.toforcefinish = True
         elif work.is_finished():
             transform['status'] = TransformStatus.Finished
             msg = self.generate_message(transform, work=work, msg_type='work')

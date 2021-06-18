@@ -160,22 +160,22 @@ class Carrier(BaseAgent):
 
             self.show_queue_size()
 
-            processing_status = [ProcessingStatus.Submitting, ProcessingStatus.Submitted, ProcessingStatus.Running, ProcessingStatus.FinishedOnExec,
-                                 ProcessingStatus.ToCancel, ProcessingStatus.Cancelling, ProcessingStatus.ToSuspend, ProcessingStatus.Suspending,
-                                 ProcessingStatus.ToResume, ProcessingStatus.Resuming, ProcessingStatus.ToExpire, ProcessingStatus.Expiring]
+            processing_status = [ProcessingStatus.ToCancel, ProcessingStatus.ToSuspend,
+                                 ProcessingStatus.ToResume, ProcessingStatus.ToExpire,
+                                 ProcessingStatus.ToFinish, ProcessingStatus.ToForceFinish]
             processings = core_processings.get_processings_by_status(status=processing_status,
                                                                      # time_period=self.poll_time_period,
                                                                      locking=True,
+                                                                     by_substatus=True,
                                                                      bulk_size=self.retrieve_bulk_size)
-
-            processing_status = [ProcessingStatus.ToCancel, ProcessingStatus.ToSuspend, ProcessingStatus.ToResume, ProcessingStatus.ToExpire]
-            processings_1 = core_processings.get_processings_by_status(status=processing_status,
-                                                                       # time_period=self.poll_time_period,
-                                                                       locking=True,
-                                                                       by_substatus=True,
-                                                                       bulk_size=self.retrieve_bulk_size)
-
-            processings = processings + processings_1
+            if not processings:
+                processing_status = [ProcessingStatus.Submitting, ProcessingStatus.Submitted, ProcessingStatus.Running, ProcessingStatus.FinishedOnExec,
+                                     ProcessingStatus.ToCancel, ProcessingStatus.Cancelling, ProcessingStatus.ToSuspend, ProcessingStatus.Suspending,
+                                     ProcessingStatus.ToResume, ProcessingStatus.Resuming, ProcessingStatus.ToExpire, ProcessingStatus.Expiring]
+                processings = core_processings.get_processings_by_status(status=processing_status,
+                                                                         # time_period=self.poll_time_period,
+                                                                         locking=True,
+                                                                         bulk_size=self.retrieve_bulk_size)
 
             self.logger.debug("Main thread get %s [submitting + submitted + running] processings to process: %s" % (len(processings), str([processing['processing_id'] for processing in processings])))
             if processings:
@@ -238,6 +238,14 @@ class Carrier(BaseAgent):
                 work.expire_processing(processing)
                 is_operation = True
                 processing_substatus = ProcessingStatus.Expiring
+            if processing['substatus'] in [ProcessingStatus.ToFinish]:
+                work.finish_processing(processing)
+                is_operation = True
+                processing_substatus = ProcessingStatus.Running
+            if processing['substatus'] in [ProcessingStatus.ToForceFinish]:
+                work.finish_processing(processing, forcing=True)
+                is_operation = True
+                processing_substatus = ProcessingStatus.Running
 
             # work = processing['processing_metadata']['work']
             # outputs = work.poll_processing()

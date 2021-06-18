@@ -208,18 +208,18 @@ class Clerk(BaseAgent):
 
             self.show_queue_size()
 
-            req_status = [RequestStatus.Transforming, RequestStatus.ToCancel, RequestStatus.Cancelling,
-                          RequestStatus.ToSuspend, RequestStatus.Suspending,
-                          RequestStatus.ToExpire, RequestStatus.Expiring,
-                          RequestStatus.Resuming]
+            req_status = [RequestStatus.ToSuspend, RequestStatus.ToCancel, RequestStatus.ToResume, RequestStatus.ToExpire,
+                          RequestStatus.ToFinish, RequestStatus.ToForceFinish]
             reqs = core_requests.get_requests_by_status_type(status=req_status, time_period=None,
-                                                             locking=True, bulk_size=self.retrieve_bulk_size)
+                                                             locking=True, by_substatus=True, bulk_size=self.retrieve_bulk_size)
 
-            req_status = [RequestStatus.ToSuspend, RequestStatus.ToCancel, RequestStatus.ToResume, RequestStatus.ToExpire]
-            reqs_1 = core_requests.get_requests_by_status_type(status=req_status, time_period=None,
-                                                               locking=True, by_substatus=True, bulk_size=self.retrieve_bulk_size)
-
-            reqs = reqs + reqs_1
+            if not reqs:
+                req_status = [RequestStatus.Transforming, RequestStatus.ToCancel, RequestStatus.Cancelling,
+                              RequestStatus.ToSuspend, RequestStatus.Suspending,
+                              RequestStatus.ToExpire, RequestStatus.Expiring,
+                              RequestStatus.Resuming]
+                reqs = core_requests.get_requests_by_status_type(status=req_status, time_period=None,
+                                                                 locking=True, bulk_size=self.retrieve_bulk_size)
 
             self.logger.debug("Main thread get %s Transforming requests to running" % len(reqs))
             if reqs:
@@ -281,10 +281,10 @@ class Clerk(BaseAgent):
         if wf.is_terminated():
             if wf.is_finished():
                 req_status = RequestStatus.Finished
-            elif wf.is_expired():
-                req_status = RequestStatus.Expired
             elif wf.is_subfinished():
                 req_status = RequestStatus.SubFinished
+            elif wf.is_expired():
+                req_status = RequestStatus.Expired
             elif wf.is_failed():
                 req_status = RequestStatus.Failed
             elif wf.is_cancelled():
@@ -361,6 +361,12 @@ class Clerk(BaseAgent):
         if req['substatus'] == RequestStatus.ToExpire:
             tf_status = TransformStatus.ToExpire
             req_status = RequestStatus.Expiring
+        if req['substatus'] == RequestStatus.ToFinish:
+            tf_status = TransformStatus.ToFinish
+            req_status = RequestStatus.Transforming
+        if req['substatus'] == RequestStatus.ToForceFinish:
+            tf_status = TransformStatus.ToForceFinish
+            req_status = RequestStatus.Transforming
 
         processing_metadata = req['processing_metadata']
 
@@ -425,7 +431,8 @@ class Clerk(BaseAgent):
                 req = self.running_task_queue.get()
                 if req:
                     self.running_processing_size += 1
-                    if req['substatus'] in [RequestStatus.ToCancel, RequestStatus.ToSuspend, RequestStatus.ToResume, RequestStatus.ToExpire]:
+                    if req['substatus'] in [RequestStatus.ToCancel, RequestStatus.ToSuspend, RequestStatus.ToResume, RequestStatus.ToExpire,
+                                            RequestStatus.ToFinish, RequestStatus.ToForceFinish]:
                         self.logger.info("Main thread processing operating requst: %s" % req)
                         ret_req = self.process_operating_request(req)
                     # elif req['status'] in [RequestStatus.Transforming, RequestStatus.Cancelling, RequestStatus.Suspending, RequestStatus.Resuming]:
