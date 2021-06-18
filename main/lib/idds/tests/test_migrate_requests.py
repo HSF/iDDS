@@ -21,15 +21,17 @@ from idds.rest.v1.utils import convert_old_req_2_workflow_req
 
 def migrate():
     # dev
-    dev_host = 'https://aipanda160.cern.ch:443/idds'
+    dev_host = 'https://aipanda160.cern.ch:443/idds'    # noqa F841
     # doma
-    doma_host = 'https://aipanda015.cern.ch:443/idds'
+    doma_host = 'https://aipanda015.cern.ch:443/idds'   # noqa F841
+    # atlas
+    atlas_host = 'https://aipanda161.cern.ch:443/idds'  # noqa F841
 
-    cm1 = ClientManager(host=dev_host)
+    cm1 = ClientManager(host=atlas_host)
     # reqs = cm1.get_requests(request_id=290)
-    reqs = cm1.get_requests(request_id=37, with_metadata=True)
+    reqs = cm1.get_requests(request_id=73001, with_metadata=True)
 
-    cm2 = ClientManager(host=doma_host)
+    cm2 = ClientManager(host=dev_host)
     for req in reqs:
         req = convert_old_req_2_workflow_req(req)
         workflow = req['request_metadata']['workflow']

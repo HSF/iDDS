@@ -48,7 +48,8 @@ print(ret)
 # task_ids += [i for i in range(833, 839)]
 # task_ids += [i for i in range(1048, 1078)]
 # task_ids = [i for i in range(1855, 1856)]
-task_ids = [i for i in range(2000, 2014)]
+task_ids = [i for i in range(1840, 1850)] + [i for i in range(1990, 2000)]
+# task_ids = [2549, 2560]
 for task_id in task_ids:
     Client.killTask(task_id)
 
