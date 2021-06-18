@@ -124,10 +124,10 @@ data_files = [
     ('etc/idds/', glob.glob('etc/idds/*.template')),
     ('etc/idds/rest', glob.glob('etc/idds/rest/*template')),
     ('tools/env/', glob.glob('tools/env/*.yml')),
-    # ('website/', glob.glob('*', recursive=True))
-    # ('website/', get_all_files('.')),
+    # ('monitor/', glob.glob('*', recursive=True))
+    # ('monitor/', get_all_files('.')),
 ]
-data_files += get_data_files('website/', '.')
+data_files += get_data_files('monitor/', '.')
 
 scripts = glob.glob('bin/*')
 
