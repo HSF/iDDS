@@ -466,7 +466,7 @@ class ATLASPandaWork(Work):
                 self.reactivate_processing(processing)
                 self.toresume = False
                 reset_expired_at = True
-            elif self.is_processing_expired(processing):
+            elif self.toexpire:
                 self.logger.info("Expiring processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], processing['processing_metadata']['task_id']))
                 self.kill_processing(processing)
 
@@ -496,20 +496,6 @@ class ATLASPandaWork(Work):
                         update_processing['parameters']['status'] = ProcessingStatus.Resuming
 
         return update_processing, updated_contents
-
-    """
-    def syn_collection_status(self):
-        input_collections = self.get_input_collections()
-        output_collections = self.get_output_collections()
-        # log_collections = self.get_log_collections()
-
-        for input_collection in input_collections:
-            input_collection['processed_files'] = 0
-
-        for output_collection in output_collections:
-            output_collection['total_files'] = 0
-            output_collection['processed_files'] = 0
-    """
 
     def syn_work_status(self, registered_input_output_maps, all_updates_flushed=True, output_statistics={}):
         # self.syn_collection_status()
