@@ -628,6 +628,14 @@ class Workflow(Base):
                     self.num_cancelled_works += 1
                 elif work.is_suspended():
                     self.num_suspended_works += 1
+        log_str = "num_total_works: %s" % self.num_total_works
+        log_str += ", num_finished_works: %s" % self.num_finished_works
+        log_str += ", num_subfinished_works: %s" % self.num_subfinished_works
+        log_str += ", num_failed_works: %s" % self.num_failed_works
+        log_str += ", num_expired_works: %s" % self.num_expired_works
+        log_str += ", num_cancelled_works: %s" % self.num_cancelled_works
+        log_str += ", num_suspended_works: %s" % self.num_suspended_works
+        self.log_debug(log_str)
 
     def resume_works(self):
         self.num_subfinished_works = 0
@@ -699,7 +707,7 @@ class Workflow(Base):
         """
         *** Function called by Marshaller agent.
         """
-        return self.is_terminated() and (self.num_finished_works > 0 and self.num_finished_works < self.num_total_works)
+        return self.is_terminated() and (self.num_finished_works + self.num_subfinished_works > 0 and self.num_finished_works + self.num_subfinished_works <= self.num_total_works)
 
     def is_failed(self):
         """

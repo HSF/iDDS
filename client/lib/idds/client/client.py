@@ -53,7 +53,7 @@ class Client(RequestClient, CatalogClient, CacherClient, HPOClient, LogsClient):
 
         client_proxy = get_proxy_path()
 
-        if not os.path.exists(client_proxy):
+        if not client_proxy or not os.path.exists(client_proxy):
             raise exceptions.RestException("Cannot find a valid x509 proxy.")
 
         return client_proxy
