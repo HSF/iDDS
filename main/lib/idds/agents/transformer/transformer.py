@@ -518,6 +518,7 @@ class Transformer(BaseAgent):
             msg_content = {'msg_type': i_msg_type_str,
                            'request_id': request_id,
                            'workload_id': workload_id,
+                           'relation_type': relation_type,
                            'status': transform['status'].name,
                            'output': work.get_output_data(),
                            'error': work.get_terminated_msg()}
@@ -527,6 +528,7 @@ class Transformer(BaseAgent):
             msg_content = {'msg_type': i_msg_type_str,
                            'request_id': request_id,
                            'workload_id': workload_id,
+                           'relation_type': relation_type,
                            'collections': [{'scope': collection.scope,
                                             'name': collection.name,
                                             'status': collection.status.name}],
