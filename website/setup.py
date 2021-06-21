@@ -90,7 +90,11 @@ def get_data_files(dest, src):
     data = []
     data.append((dest, get_files(src)))
     for root, dirs, files in os.walk(src):
+        if 'dist' in root or 'build' in root or 'egg-info' in root:
+            continue
         for idir in dirs:
+            if idir == 'dist' or idir == 'build' or idir.endswith('.egg-info'):
+                continue
             idir = os.path.join(root, idir)
             if idir.startswith("./"):
                 idir = idir[2:]

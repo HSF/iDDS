@@ -27,7 +27,8 @@ from idds.orm.base import models
 
 
 def create_transform(request_id, workload_id, transform_type, transform_tag=None,
-                     priority=0, status=TransformStatus.New, locking=TransformLocking.Idle,
+                     priority=0, status=TransformStatus.New,
+                     substatus=TransformStatus.New, locking=TransformLocking.Idle,
                      retries=0, expired_at=None, transform_metadata=None):
     """
     Create a transform.
@@ -47,14 +48,15 @@ def create_transform(request_id, workload_id, transform_type, transform_tag=None
     """
     new_transform = models.Transform(request_id=request_id, workload_id=workload_id, transform_type=transform_type,
                                      transform_tag=transform_tag, priority=priority,
-                                     status=status, locking=locking, retries=retries, expired_at=expired_at,
+                                     status=status, substatus=substatus, locking=locking,
+                                     retries=retries, expired_at=expired_at,
                                      transform_metadata=transform_metadata)
     return new_transform
 
 
 @transactional_session
 def add_transform(request_id, workload_id, transform_type, transform_tag=None, priority=0,
-                  status=TransformStatus.New, locking=TransformLocking.Idle,
+                  status=TransformStatus.New, substatus=TransformStatus.New, locking=TransformLocking.Idle,
                   retries=0, expired_at=None, transform_metadata=None, workprogress_id=None, session=None):
     """
     Add a transform.
@@ -78,7 +80,8 @@ def add_transform(request_id, workload_id, transform_type, transform_tag=None, p
     try:
         new_transform = create_transform(request_id=request_id, workload_id=workload_id, transform_type=transform_type,
                                          transform_tag=transform_tag, priority=priority,
-                                         status=status, locking=locking, retries=retries, expired_at=expired_at,
+                                         status=status, substatus=substatus, locking=locking,
+                                         retries=retries, expired_at=expired_at,
                                          transform_metadata=transform_metadata)
         new_transform.save(session=session)
         transform_id = new_transform.transform_id
@@ -319,12 +322,12 @@ def get_transforms_by_status(status, period=None, transform_ids=[], locking=Fals
             query = query.filter(models.Transform.substatus.in_(status))
         else:
             query = query.filter(models.Transform.status.in_(status))
-        query = query.filter(models.Transform.next_poll_at < datetime.datetime.utcnow())
+            query = query.filter(models.Transform.next_poll_at <= datetime.datetime.utcnow())
 
         if transform_ids:
             query = query.filter(models.Transform.transform_id.in_(transform_ids))
-        if period:
-            query = query.filter(models.Transform.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=period))
+        # if period:
+        #     query = query.filter(models.Transform.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=period))
         if locking:
             query = query.filter(models.Transform.locking == TransformLocking.Idle)
 

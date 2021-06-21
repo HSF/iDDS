@@ -21,6 +21,7 @@ from idds.common.constants import (WorkStatus, ProcessingStatus,
                                    CollectionStatus, CollectionType)
 from idds.common.utils import setup_logging
 from idds.common.utils import str_to_date
+# from idds.common.utils import json_dumps
 
 from .base import Base
 
@@ -428,6 +429,8 @@ class Work(Base):
 
         self.last_updated_at = datetime.datetime.utcnow()
 
+        self.to_update_processings = {}
+
         self.backup_to_release_inputs = {'0': [], '1': [], '2': []}
 
         """
@@ -725,6 +728,14 @@ class Work(Base):
 
     def has_new_updates(self):
         self.last_updated_at = datetime.datetime.utcnow()
+
+    @property
+    def to_update_processings(self):
+        return self.get_metadata_item('to_update_processings', {})
+
+    @to_update_processings.setter
+    def to_update_processings(self, value):
+        self.add_metadata_item('to_update_processings', value)
 
     def set_work_name(self, work_name):
         self.work_name = work_name

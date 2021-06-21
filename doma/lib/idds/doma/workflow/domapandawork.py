@@ -38,8 +38,13 @@ class DomaPanDAWork(Work):
                  work_tag='lsst', exec_type='panda', sandbox=None, work_id=None,
                  primary_input_collection=None, other_input_collections=None,
                  output_collections=None, log_collections=None,
-                 logger=None, dependency_map=None, task_name="", task_queue=None, processing_type=None,
-                 prodSourceLabel='test', task_type='test', maxwalltime=90000, maxattempt=5, core_count=1):
+                 logger=None, dependency_map=None, task_name="",
+                 task_queue=None, processing_type=None,
+                 prodSourceLabel='test', task_type='test',
+                 maxwalltime=90000, maxattempt=5, core_count=1,
+                 encode_command_line=False,
+                 num_retries=5,
+                 task_log=None):
 
         super(DomaPanDAWork, self).__init__(executable=executable, arguments=arguments,
                                             parameters=parameters, setup=setup, work_type=TransformType.Processing,
@@ -70,9 +75,12 @@ class DomaPanDAWork(Work):
         self.maxWalltime = maxwalltime
         self.maxAttempt = maxattempt
         self.core_count = core_count
+        self.task_log = task_log
+
+        self.encode_command_line = encode_command_line
 
         self.retry_number = 0
-        self.num_retries = 0
+        self.num_retries = num_retries
 
         self.load_panda_urls()
 
@@ -291,7 +299,8 @@ class DomaPanDAWork(Work):
                     # self.dependency_map.append(job)
                     pass
 
-        self.logger.debug("get_new_input_output_maps, new_input_output_maps: %s" % str(new_input_output_maps))
+        # self.logger.debug("get_new_input_output_maps, new_input_output_maps: %s" % str(new_input_output_maps))
+        self.logger.debug("get_new_input_output_maps, new_input_output_maps len: %s" % len(new_input_output_maps))
         return new_input_output_maps
 
     def use_dependency_to_release_jobs(self):
@@ -342,7 +351,11 @@ class DomaPanDAWork(Work):
         task_param_map['architecture'] = ''
         task_param_map['transUses'] = ''
         task_param_map['transHome'] = None
-        task_param_map['transPath'] = 'https://atlpan.web.cern.ch/atlpan/bash-c'
+        if self.encode_command_line:
+            task_param_map['transPath'] = 'https://atlpan.web.cern.ch/atlpan/bash-c-enc'
+            task_param_map['encJobParams'] = True
+        else:
+            task_param_map['transPath'] = 'https://atlpan.web.cern.ch/atlpan/bash-c'
         task_param_map['processingType'] = self.processingType
         task_param_map['prodSourceLabel'] = self.prodSourceLabel
         task_param_map['taskType'] = self.task_type
@@ -356,6 +369,7 @@ class DomaPanDAWork(Work):
         task_param_map['maxWalltime'] = self.maxWalltime
         task_param_map['maxFailure'] = self.maxAttempt
         task_param_map['maxAttempt'] = self.maxAttempt
+        task_param_map['log'] = self.task_log
         task_param_map['jobParameters'] = [
             {'type': 'constant',
              'value': self.executable,  # noqa: E501
@@ -542,10 +556,18 @@ class DomaPanDAWork(Work):
             jobs_list = Client.getJobStatus(chunk, verbose=0)[1]
             for job_info in jobs_list:
                 if job_info.Files and len(job_info.Files) > 0:
-                    input_file = job_info.Files[0].lfn.split(':')[1]
-                    map_id = self.get_map_id_from_input(input_output_maps, input_file)
-                    update_contents = self.get_update_contents_from_map_id(map_id, input_output_maps, job_info)
-                    full_update_contents += update_contents
+                    for job_file in job_info.Files:
+                        # if job_file.type in ['log']:
+                        if job_file.type not in ['pseudo_input']:
+                            continue
+                        if ':' in job_file.lfn:
+                            input_file = job_file.lfn.split(':')[1]
+                        else:
+                            input_file = job_file.lfn
+                        map_id = self.get_map_id_from_input(input_output_maps, input_file)
+                        if map_id:
+                            update_contents = self.get_update_contents_from_map_id(map_id, input_output_maps, job_info)
+                            full_update_contents += update_contents
         return full_update_contents
 
     def get_status_changed_contents(self, unterminated_job_ids, input_output_maps, panda_id_to_map_ids):

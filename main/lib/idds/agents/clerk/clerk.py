@@ -47,13 +47,41 @@ class Clerk(BaseAgent):
         self.new_output_queue = Queue()
         self.running_task_queue = Queue()
         self.running_output_queue = Queue()
+        self.new_processing_size = 0
+        self.running_processing_size = 0
 
     def show_queue_size(self):
-        q_str = "new queue size: %s, new output queue size: %s, " % (self.new_task_queue.qsize(),
-                                                                     self.new_output_queue.qsize())
-        q_str += "running queue size: %s, running output queue size: %s" % (self.running_task_queue.qsize(),
-                                                                            self.running_output_queue.qsize())
+        q_str = "new queue size: %s, processing size: %s, output queue size: %s, " % (self.new_task_queue.qsize(),
+                                                                                      self.new_processing_size,
+                                                                                      self.new_output_queue.qsize())
+        q_str += "running queue size: %s, processing size: %s,  output queue size: %s" % (self.running_task_queue.qsize(),
+                                                                                          self.running_processing_size,
+                                                                                          self.running_output_queue.qsize())
         self.logger.debug(q_str)
+
+    def generate_transform(self, req, work):
+        wf = req['request_metadata']['workflow']
+
+        new_transform = {'request_id': req['request_id'],
+                         'workload_id': req['workload_id'],
+                         'transform_type': work.get_work_type(),
+                         'transform_tag': work.get_work_tag(),
+                         'priority': req['priority'],
+                         'status': TransformStatus.New,
+                         'retries': 0,
+                         # 'expired_at': req['expired_at'],
+                         'expired_at': None,
+                         'transform_metadata': {'internal_id': work.get_internal_id(),
+                                                'template_work_id': work.get_template_work_id(),
+                                                'sequence_id': work.get_sequence_id(),
+                                                'work_name': work.get_work_name(),
+                                                'work': work,
+                                                'workflow': wf}
+                         # 'running_metadata': {'work_data': new_work.get_running_data()}
+                         # 'collections': related_collections
+                         }
+
+        return new_transform
 
     def get_new_requests(self):
         """
@@ -82,11 +110,14 @@ class Clerk(BaseAgent):
             if 'ORA-00060' in str(ex):
                 self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
             else:
-                raise ex
+                # raise ex
+                self.logger.error(ex)
+                self.logger.error(traceback.format_exc())
         return []
 
     def process_new_request(self, req):
         try:
+            self.logger.info("Processing request(%s)" % (req['request_id']))
             workflow = req['request_metadata']['workflow']
 
             # wf = workflow.copy()
@@ -98,28 +129,11 @@ class Clerk(BaseAgent):
                 new_work = work
                 new_work.add_proxy(wf.get_proxy())
                 # new_work.create_processing()
-                transform = {'request_id': req['request_id'],
-                             'workload_id': req['workload_id'],
-                             'transform_type': work.get_work_type(),
-                             'transform_tag': work.get_work_tag(),
-                             'priority': req['priority'],
-                             'status': TransformStatus.New,
-                             'retries': 0,
-                             # 'expired_at': req['expired_at'],
-                             'expired_at': None,
-                             'transform_metadata': {'internal_id': new_work.get_internal_id(),
-                                                    'template_work_id': new_work.get_template_work_id(),
-                                                    'sequence_id': new_work.get_sequence_id(),
-                                                    'work_name': new_work.get_work_name(),
-                                                    'work': new_work,
-                                                    # 'original_work': work,
-                                                    'workflow': wf}
-                             # 'running_metadata': {'work_data': new_work.get_running_data()}
-                             # 'collections': related_collections
-                             }
+
+                transform = self.generate_transform(req, work)
                 transforms.append(transform)
-            self.logger.info("Processing request(%s): new transforms: %s" % (req['request_id'],
-                                                                             str(transforms)))
+            self.logger.debug("Processing request(%s): new transforms: %s" % (req['request_id'],
+                                                                              str(transforms)))
             # processing_metadata = req['processing_metadata']
             # processing_metadata = {'workflow_data': wf.get_running_data()}
 
@@ -148,8 +162,10 @@ class Clerk(BaseAgent):
             try:
                 req = self.new_task_queue.get()
                 if req:
+                    self.new_processing_size += 1
                     self.logger.info("Main thread processing new requst: %s" % req)
                     ret_req = self.process_new_request(req)
+                    self.new_processing_size -= 1
                     if ret_req:
                         # ret.append(ret_req)
                         self.new_output_queue.put(ret_req)
@@ -173,7 +189,7 @@ class Clerk(BaseAgent):
                 if 'update_transforms' in req:
                     update_transforms = req['update_transforms']
                 else:
-                    update_transforms = []
+                    update_transforms = {}
 
                 core_requests.update_request_with_transforms(req['request_id'], req['parameters'],
                                                              new_transforms=new_transforms,
@@ -196,11 +212,11 @@ class Clerk(BaseAgent):
                           RequestStatus.ToSuspend, RequestStatus.Suspending,
                           RequestStatus.ToExpire, RequestStatus.Expiring,
                           RequestStatus.Resuming]
-            reqs = core_requests.get_requests_by_status_type(status=req_status, time_period=self.poll_time_period,
+            reqs = core_requests.get_requests_by_status_type(status=req_status, time_period=None,
                                                              locking=True, bulk_size=self.retrieve_bulk_size)
 
             req_status = [RequestStatus.ToSuspend, RequestStatus.ToCancel, RequestStatus.ToResume, RequestStatus.ToExpire]
-            reqs_1 = core_requests.get_requests_by_status_type(status=req_status, time_period=self.poll_time_period,
+            reqs_1 = core_requests.get_requests_by_status_type(status=req_status, time_period=None,
                                                                locking=True, by_substatus=True, bulk_size=self.retrieve_bulk_size)
 
             reqs = reqs + reqs_1
@@ -213,7 +229,9 @@ class Clerk(BaseAgent):
             if 'ORA-00060' in str(ex):
                 self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
             else:
-                raise ex
+                # raise ex
+                self.logger.error(ex)
+                self.logger.error(traceback.format_exc())
         return []
 
     def process_running_request_real(self, req):
@@ -231,27 +249,22 @@ class Clerk(BaseAgent):
                 # new_work = work.copy()
                 new_work = work
                 new_work.add_proxy(wf.get_proxy())
-                new_transform = {'request_id': req['request_id'],
-                                 'workload_id': req['workload_id'],
-                                 'transform_type': work.get_work_type(),
-                                 'transform_tag': work.get_work_tag(),
-                                 'priority': req['priority'],
-                                 'status': TransformStatus.New,
-                                 'retries': 0,
-                                 # 'expired_at': req['expired_at'],
-                                 'expired_at': None,
-                                 'transform_metadata': {'internal_id': new_work.get_internal_id(),
-                                                        'template_work_id': new_work.get_template_work_id(),
-                                                        'sequence_id': new_work.get_sequence_id(),
-                                                        'work_name': new_work.get_work_name(),
-                                                        'work': new_work,
-                                                        'workflow': wf}
-                                 # 'running_metadata': {'work_data': new_work.get_running_data()}
-                                 # 'collections': related_collections
-                                 }
+                new_transform = self.generate_transform(req, new_work)
                 new_transforms.append(new_transform)
-            self.logger.info("Processing request(%s): new transforms: %s" % (req['request_id'],
-                                                                             str(new_transforms)))
+            self.logger.debug("Processing request(%s): new transforms: %s" % (req['request_id'],
+                                                                              str(new_transforms)))
+
+        to_update_transforms = wf.to_update_transforms
+        if to_update_transforms:
+            tfs_status = {}
+            for tf_id in to_update_transforms:
+                try:
+                    core_transforms.update_transform(transform_id=tf_id, parameters=to_update_transforms[tf_id])
+                except Exception as ex:
+                    self.logger.warn("failed to update tranform %s to %s, record it for later update: %s" % (tf_id, to_update_transforms[tf_id]['substatus'], str(ex)))
+                    tfs_status[tf_id] = to_update_transforms[tf_id]
+            wf.to_update_transforms = tfs_status
+
         # current works
         works = wf.get_current_works()
         # print(works)
@@ -351,8 +364,8 @@ class Clerk(BaseAgent):
 
         processing_metadata = req['processing_metadata']
 
+        wf = req['request_metadata']['workflow']
         if req['substatus'] == RequestStatus.ToResume:
-            wf = req['request_metadata']['workflow']
             wf.resume_works()
 
         if 'operations' not in processing_metadata:
@@ -366,7 +379,12 @@ class Clerk(BaseAgent):
             #                         RequestStatus.Failed, RequestStatus.Cancelling,
             #                         RequestStatus.Cancelled, RequestStatus.Suspending,
             #                         RequestStatus.Suspended]:
-            tfs_status[tf['transform_id']] = {'substatus': tf_status}
+            try:
+                core_transforms.update_transform(transform_id=tf['transform_id'], parameters={'substatus': tf_status})
+            except Exception as ex:
+                self.logger.warn("Failed to update tranform %s to %s, record it for later update: %s" % (tf['transform_id'], tf_status, str(ex)))
+                tfs_status[tf['transform_id']] = {'substatus': tf_status}
+        wf.to_update_transforms = tfs_status
 
         # processing_metadata['workflow_data'] = wf.get_running_data()
 
@@ -377,7 +395,8 @@ class Clerk(BaseAgent):
                                   'request_metadata': req['request_metadata'],
                                   'processing_metadata': processing_metadata,
                                   'locking': RequestLocking.Idle},
-                   'update_transforms': tfs_status
+                   # 'update_transforms': tfs_status
+                   'update_transforms': {}
                    }
         return ret_req
 
@@ -405,6 +424,7 @@ class Clerk(BaseAgent):
             try:
                 req = self.running_task_queue.get()
                 if req:
+                    self.running_processing_size += 1
                     if req['substatus'] in [RequestStatus.ToCancel, RequestStatus.ToSuspend, RequestStatus.ToResume, RequestStatus.ToExpire]:
                         self.logger.info("Main thread processing operating requst: %s" % req)
                         ret_req = self.process_operating_request(req)
@@ -412,6 +432,7 @@ class Clerk(BaseAgent):
                     else:
                         self.logger.info("Main thread processing running requst: %s" % req)
                         ret_req = self.process_running_request(req)
+                    self.running_processing_size -= 1
 
                     if ret_req:
                         # ret.append(ret_req)
@@ -436,7 +457,7 @@ class Clerk(BaseAgent):
                 if 'update_transforms' in req:
                     update_transforms = req['update_transforms']
                 else:
-                    update_transforms = []
+                    update_transforms = {}
 
                 core_requests.update_request_with_transforms(req['request_id'], req['parameters'],
                                                              new_transforms=new_transforms,

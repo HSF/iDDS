@@ -44,12 +44,16 @@ class Carrier(BaseAgent):
         self.new_output_queue = Queue()
         self.running_task_queue = Queue()
         self.running_output_queue = Queue()
+        self.new_processing_size = 0
+        self.running_processing_size = 0
 
     def show_queue_size(self):
-        q_str = "new queue size: %s, new output queue size: %s, " % (self.new_task_queue.qsize(),
-                                                                     self.new_output_queue.qsize())
-        q_str += "running queue size: %s, running output queue size: %s" % (self.running_task_queue.qsize(),
-                                                                            self.running_output_queue.qsize())
+        q_str = "new queue size: %s, processing size: %s, output queue size: %s, " % (self.new_task_queue.qsize(),
+                                                                                      self.new_processing_size,
+                                                                                      self.new_output_queue.qsize())
+        q_str += "running queue size: %s, processing size: %s,  output queue size: %s" % (self.running_task_queue.qsize(),
+                                                                                          self.running_processing_size,
+                                                                                          self.running_output_queue.qsize())
         self.logger.debug(q_str)
 
     def init(self):
@@ -78,7 +82,9 @@ class Carrier(BaseAgent):
             if 'ORA-00060' in str(ex):
                 self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
             else:
-                raise ex
+                # raise ex
+                self.logger.error(ex)
+                self.logger.error(traceback.format_exc())
         return []
 
     def process_new_processing(self, processing):
@@ -116,8 +122,10 @@ class Carrier(BaseAgent):
             try:
                 processing = self.new_task_queue.get()
                 if processing:
+                    self.new_processing_size += 1
                     self.logger.info("Main thread processing new processing: %s" % processing)
                     ret_processing = self.process_new_processing(processing)
+                    self.new_processing_size -= 1
                     if ret_processing:
                         # ret.append(ret_processing)
                         self.new_output_queue.put(ret_processing)
@@ -177,7 +185,9 @@ class Carrier(BaseAgent):
             if 'ORA-00060' in str(ex):
                 self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
             else:
-                raise ex
+                # raise ex
+                self.logger.error(ex)
+                self.logger.error(traceback.format_exc())
         return []
 
     def get_collection_ids(self, collections):
@@ -273,9 +283,11 @@ class Carrier(BaseAgent):
             try:
                 processing = self.running_task_queue.get()
                 if processing:
+                    self.running_processing_size += 1
                     self.logger.debug("Main thread processing running processing: %s" % processing)
                     self.logger.info("Main thread processing running processing: %s" % processing['processing_id'])
                     ret_processing = self.process_running_processing(processing)
+                    self.running_processing_size -= 1
                     if ret_processing:
                         # ret.append(ret_processing)
                         self.running_output_queue.put(ret_processing)

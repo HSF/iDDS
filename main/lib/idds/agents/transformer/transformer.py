@@ -20,9 +20,8 @@ except ImportError:
 
 from idds.common import exceptions
 from idds.common.constants import (Sections, TransformStatus, TransformLocking, TransformType,
-                                   CollectionRelationType, CollectionStatus,
-                                   CollectionType, ContentType, ContentStatus,
-                                   ContentRelationType,
+                                   ContentRelationType, CollectionStatus,
+                                   ContentType, ContentStatus,
                                    ProcessingStatus, MessageType, MessageTypeStr,
                                    MessageStatus, MessageSource)
 from idds.common.utils import setup_logging
@@ -40,7 +39,7 @@ class Transformer(BaseAgent):
     """
 
     def __init__(self, num_threads=1, poll_time_period=1800, retrieve_bulk_size=10,
-                 message_bulk_size=1000, **kwargs):
+                 message_bulk_size=10000, **kwargs):
         super(Transformer, self).__init__(num_threads=num_threads, **kwargs)
         self.config_section = Sections.Transformer
         self.poll_time_period = int(poll_time_period)
@@ -51,12 +50,16 @@ class Transformer(BaseAgent):
         self.new_output_queue = Queue()
         self.running_task_queue = Queue()
         self.running_output_queue = Queue()
+        self.new_processing_size = 0
+        self.running_processing_size = 0
 
     def show_queue_size(self):
-        q_str = "new queue size: %s, new output queue size: %s, " % (self.new_task_queue.qsize(),
-                                                                     self.new_output_queue.qsize())
-        q_str += "running queue size: %s, running output queue size: %s" % (self.running_task_queue.qsize(),
-                                                                            self.running_output_queue.qsize())
+        q_str = "new queue size: %s, processing size: %s, output queue size: %s, " % (self.new_task_queue.qsize(),
+                                                                                      self.new_processing_size,
+                                                                                      self.new_output_queue.qsize())
+        q_str += "running queue size: %s, processing size: %s,  output queue size: %s" % (self.running_task_queue.qsize(),
+                                                                                          self.running_processing_size,
+                                                                                          self.running_output_queue.qsize())
         self.logger.debug(q_str)
 
     def get_new_transforms(self):
@@ -80,43 +83,10 @@ class Transformer(BaseAgent):
             if 'ORA-00060' in str(ex):
                 self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
             else:
-                raise ex
+                # raise ex
+                self.logger.error(ex)
+                self.logger.error(traceback.format_exc())
         return []
-
-    def generate_collection_model(self, transform, collection, relation_type=CollectionRelationType.Input):
-        coll_metadata = collection.coll_metadata
-
-        if 'coll_type' in coll_metadata:
-            coll_type = coll_metadata['coll_type']
-        else:
-            coll_type = CollectionType.Dataset
-
-        # if 'status' in coll_metadata:
-        #     coll_status = coll_metadata['status']
-        # else:
-        #     coll_status = CollectionStatus.Open
-        if collection.status is None:
-            collection.status = CollectionStatus.Open
-
-        # collection['status'] = coll_status
-
-        coll = {'transform_id': transform['transform_id'],
-                'request_id': transform['request_id'],
-                'workload_id': transform['workload_id'],
-                'coll_type': coll_type,
-                'scope': collection.scope,
-                'name': collection.name,
-                'relation_type': relation_type,
-                'bytes': coll_metadata['bytes'] if 'bytes' in coll_metadata else 0,
-                'total_files': coll_metadata['total_files'] if 'total_files' in coll_metadata else 0,
-                'new_files': coll_metadata['new_files'] if 'new_files' in coll_metadata else 0,
-                'processed_files': 0,
-                'processing_files': 0,
-                'coll_metadata': coll_metadata,
-                'status': collection.status,
-                'expired_at': transform['expired_at'],
-                'collection': collection}
-        return coll
 
     def get_new_contents(self, transform, new_input_output_maps):
         new_input_contents, new_output_contents, new_log_contents = [], [], []
@@ -297,50 +267,78 @@ class Transformer(BaseAgent):
         """
         Process new transform
         """
-        # self.logger.info("process_new_transform: transform_id: %s" % transform['transform_id'])
+        self.logger.info("process_new_transform: transform_id: %s" % transform['transform_id'])
+
         work = transform['transform_metadata']['work']
-        req_attributes = {'request_id': transform['request_id'],
-                          'workload_id': transform['workload_id'],
-                          'transform_id': transform['transform_id']}
-        work.set_agent_attributes(self.agent_attributes, req_attributes)
+        work.set_work_id(transform['transform_id'])
 
-        input_collections = work.get_input_collections()
-        output_collections = work.get_output_collections()
-        log_collections = work.get_log_collections()
+        work_name_to_coll_map = core_transforms.get_work_name_to_coll_map(request_id=transform['request_id'])
+        work.set_work_name_to_coll_map(work_name_to_coll_map)
 
-        input_colls, output_colls, log_colls = [], [], []
-        for input_coll in input_collections:
-            in_coll = self.generate_collection_model(transform, input_coll, relation_type=CollectionRelationType.Input)
-            input_colls.append(in_coll)
-        for output_coll in output_collections:
-            out_coll = self.generate_collection_model(transform, output_coll, relation_type=CollectionRelationType.Output)
-            output_colls.append(out_coll)
-        for log_coll in log_collections:
-            l_coll = self.generate_collection_model(transform, log_coll, relation_type=CollectionRelationType.Log)
-            log_colls.append(l_coll)
+        # check contents
+        new_input_output_maps = work.get_new_input_output_maps(mapped_input_output_maps={})
 
-        # new_input_output_maps = work.get_new_input_output_maps()
-        # new_contents = self.get_new_contents(new_input_output_maps)
+        new_input_contents, new_output_contents, new_log_contents, new_input_dependency_contents = self.get_new_contents(transform, new_input_output_maps)
+        new_contents = []
+        if new_input_contents:
+            new_contents = new_contents + new_input_contents
+        if new_output_contents:
+            new_contents = new_contents + new_output_contents
+        if new_log_contents:
+            new_contents = new_contents + new_log_contents
+        if new_input_dependency_contents:
+            new_contents = new_contents + new_input_dependency_contents
 
-        # file_msgs = []
-        # if input_output_maps:
-        #     file_msg = self.generate_file_message(transform, input_output_maps)
-        #     file_msgs.append(file_msg)
+        # create processing
+        new_processing_model = None
+        processing = work.get_processing(new_input_output_maps, without_creating=False)
+        self.logger.debug("work get_processing with creating: %s" % processing)
+        if processing and not processing.processing_id:
+            new_processing_model = {}
+            new_processing_model['transform_id'] = transform['transform_id']
+            new_processing_model['request_id'] = transform['request_id']
+            new_processing_model['workload_id'] = transform['workload_id']
+            new_processing_model['status'] = ProcessingStatus.New
+            # new_processing_model['expired_at'] = work.get_expired_at(None)
+            new_processing_model['expired_at'] = transform['expired_at']
 
-        # processing = self.get_processing(transform, input_colls, output_colls, log_colls, input_output_maps)
+            # if 'processing_metadata' not in processing:
+            #     processing['processing_metadata'] = {}
+            # if 'processing_metadata' not in new_processing_model:
+            #     new_processing_model['processing_metadata'] = {}
+            # new_processing_model['processing_metadata'] = processing.processing_metadata
+
+            proc_work = copy.deepcopy(work)
+            proc_work.clean_work()
+            processing.work = proc_work
+            new_processing_model['processing_metadata'] = {'processing': processing}
+
+        msgs = []
+        self.logger.info("generate_message: %s" % transform['transform_id'])
+        if new_input_contents:
+            msg = self.generate_message(transform, files=new_input_contents, msg_type='file', relation_type='input')
+            msgs.append(msg)
+        if new_output_contents:
+            msg = self.generate_message(transform, files=new_output_contents, msg_type='file', relation_type='output')
+            msgs.append(msg)
 
         transform_parameters = {'status': TransformStatus.Transforming,
                                 'locking': TransformLocking.Idle,
                                 'workload_id': transform['workload_id'],
                                 'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period),
+                                # 'next_poll_at': datetime.datetime.utcnow(),
                                 'transform_metadata': transform['transform_metadata']}
 
-        # ret = {'transform': transform, 'input_collections': input_colls, 'output_collections': output_colls,
-        #        'log_collections': log_colls, 'new_input_output_maps': input_output_maps, 'messages': file_msgs,
-        #        'new_processing': processing}
-        ret = {'transform': transform, 'transform_parameters': transform_parameters,
-               'input_collections': input_colls, 'output_collections': output_colls,
-               'log_collections': log_colls}
+        if new_contents:
+            work.has_new_updates()
+
+        ret = {'transform': transform,
+               'transform_parameters': transform_parameters,
+               'new_contents': new_contents,
+               # 'update_contents': updated_contents + to_release_input_contents,
+               'messages': msgs,
+               'new_processing': new_processing_model
+               }
         return ret
 
     def process_new_transform(self, transform):
@@ -363,8 +361,10 @@ class Transformer(BaseAgent):
             try:
                 transform = self.new_task_queue.get()
                 if transform:
+                    self.new_processing_size += 1
                     self.logger.info("Main thread processing new transform: %s" % transform)
                     ret_transform = self.process_new_transform(transform)
+                    self.new_processing_size -= 1
                     if ret_transform:
                         self.new_output_queue.put(ret_transform)
                         # ret.append(ret_transform)
@@ -412,13 +412,13 @@ class Transformer(BaseAgent):
                                 TransformStatus.ToExpire, TransformStatus.Expiring,
                                 TransformStatus.Resuming]
             transforms = core_transforms.get_transforms_by_status(status=transform_status,
-                                                                  period=self.poll_time_period,
+                                                                  period=None,
                                                                   locking=True,
                                                                   bulk_size=self.retrieve_bulk_size)
 
             transform_status = [TransformStatus.ToCancel, TransformStatus.ToSuspend, TransformStatus.ToResume, TransformStatus.ToExpire]
             transforms_1 = core_transforms.get_transforms_by_status(status=transform_status,
-                                                                    period=self.poll_time_period,
+                                                                    period=None,
                                                                     locking=True,
                                                                     by_substatus=True,
                                                                     bulk_size=self.retrieve_bulk_size)
@@ -432,7 +432,8 @@ class Transformer(BaseAgent):
             if 'ORA-00060' in str(ex):
                 self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
             else:
-                raise ex
+                self.logger.error(ex)
+                self.logger.error(traceback.format_exc())
         return []
 
     def get_collection_ids(self, collections):
@@ -677,6 +678,18 @@ class Transformer(BaseAgent):
 
         # link processings
         new_processing_model, processing_model, update_processing_model = None, None, {}
+        to_update_processings = {}
+
+        to_update_processings_local = work.to_update_processings
+        if to_update_processings_local:
+            for proc_id in to_update_processings_local:
+                try:
+                    core_processings.update_processing(processing_id=proc_id, parameters=to_update_processings_local[proc_id])
+                except Exception as ex:
+                    self.logger.warn("Failed to update processing(%s) to substatus %s, record it for later update: %s" % (proc_id,
+                                                                                                                          to_update_processings_local[proc_id]['substatus'],
+                                                                                                                          str(ex)))
+                    to_update_processings[proc_id] = to_update_processings_local[proc_id]
 
         processing = work.get_processing(input_output_maps=[], without_creating=True)
         self.logger.debug("work get_processing: %s" % processing)
@@ -690,8 +703,16 @@ class Transformer(BaseAgent):
             work.set_output_data(processing.output_data)
             transform['workload_id'] = processing_model['workload_id']
             if t_processing_status is not None:
-                update_processing_model[processing_model['processing_id']] = {'substatus': t_processing_status}
-                work.set_processing_status(processing, processing_model['status'], t_processing_status)
+                try:
+                    core_processings.update_processing(processing_id=processing_model['processing_id'], parameters={'substatus': t_processing_status})
+                    work.set_processing_status(processing, processing_model['status'], t_processing_status)
+                except Exception as ex:
+                    self.logger.warn("Failed to update processing(%s) to substatus %s, record it for later update: %s" % (processing_model['processing_id'],
+                                                                                                                          t_processing_status, str(ex)))
+                    to_update_processings[processing_model['processing_id']] = {'substatus': t_processing_status}
+                    # update_processing_model[processing_model['processing_id']] = {'substatus': t_processing_status}
+                    # work.set_processing_status(processing, processing_model['status'], t_processing_status)
+        work.to_update_processings = to_update_processings
 
         # check contents
         new_input_output_maps = work.get_new_input_output_maps(registered_input_output_maps)
@@ -901,9 +922,11 @@ class Transformer(BaseAgent):
             try:
                 transform = self.running_task_queue.get()
                 if transform:
+                    self.running_processing_size += 1
                     self.logger.info("Main thread processing running transform: %s" % transform)
                     ret_transform = self.process_running_transform(transform)
                     self.logger.debug("Main thread processing running transform finished: %s" % transform)
+                    self.running_processing_size -= 1
                     if ret_transform:
                         self.running_output_queue.put(ret_transform)
                         # ret.append(ret_transform)

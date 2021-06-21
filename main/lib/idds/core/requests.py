@@ -13,12 +13,15 @@
 operations related to Requests.
 """
 
+import copy
 
-from idds.common.constants import RequestStatus, RequestLocking, WorkStatus
+from idds.common.constants import (RequestStatus, RequestLocking, WorkStatus,
+                                   CollectionType, CollectionStatus, CollectionRelationType)
 from idds.orm.base.session import read_session, transactional_session
 from idds.orm import requests as orm_requests
 from idds.orm import transforms as orm_transforms
 from idds.orm import workprogress as orm_workprogresses
+from idds.orm import collections as orm_collections
 # from idds.atlas.worflow.utils import convert_request_metadata_to_workflow
 
 
@@ -106,7 +109,7 @@ def get_request_ids_by_workload_id(workload_id, session=None):
 
 
 @read_session
-def get_requests(request_id=None, workload_id=None, with_detail=False, with_metadata=False, to_json=False, session=None):
+def get_requests(request_id=None, workload_id=None, with_detail=False, with_processing=False, with_metadata=False, to_json=False, session=None):
     """
     Get a request or raise a NoObject exception.
 
@@ -120,6 +123,7 @@ def get_requests(request_id=None, workload_id=None, with_detail=False, with_meta
     """
     return orm_requests.get_requests(request_id=request_id, workload_id=workload_id,
                                      with_detail=with_detail, with_metadata=with_metadata,
+                                     with_processing=with_processing,
                                      to_json=to_json, session=session)
 
 
@@ -158,6 +162,56 @@ def update_request(request_id, parameters, session=None):
     return orm_requests.update_request(request_id, parameters, session=session)
 
 
+def generate_collection(transform, collection, relation_type=CollectionRelationType.Input):
+    coll_metadata = collection.coll_metadata
+
+    if 'coll_type' in coll_metadata:
+        coll_type = coll_metadata['coll_type']
+    else:
+        coll_type = CollectionType.Dataset
+
+    if collection.status is None:
+        collection.status = CollectionStatus.Open
+
+    coll = {'transform_id': transform['request_id'],
+            'request_id': transform['request_id'],
+            'workload_id': transform['workload_id'],
+            'coll_type': coll_type,
+            'scope': collection.scope,
+            'name': collection.name,
+            'relation_type': relation_type,
+            'bytes': coll_metadata['bytes'] if 'bytes' in coll_metadata else 0,
+            'total_files': coll_metadata['total_files'] if 'total_files' in coll_metadata else 0,
+            'new_files': coll_metadata['new_files'] if 'new_files' in coll_metadata else 0,
+            'processed_files': 0,
+            'processing_files': 0,
+            'coll_metadata': coll_metadata,
+            'status': collection.status,
+            'expired_at': transform['expired_at'],
+            'collection': collection}
+    return coll
+
+
+def generate_collections(transform):
+    work = transform['transform_metadata']['work']
+
+    input_collections = work.get_input_collections()
+    output_collections = work.get_output_collections()
+    log_collections = work.get_log_collections()
+
+    input_colls, output_colls, log_colls = [], [], []
+    for input_coll in input_collections:
+        in_coll = generate_collection(transform, input_coll, relation_type=CollectionRelationType.Input)
+        input_colls.append(in_coll)
+    for output_coll in output_collections:
+        out_coll = generate_collection(transform, output_coll, relation_type=CollectionRelationType.Output)
+        output_colls.append(out_coll)
+    for log_coll in log_collections:
+        l_coll = generate_collection(transform, log_coll, relation_type=CollectionRelationType.Log)
+        log_colls.append(l_coll)
+    return input_colls + output_colls + log_colls
+
+
 @transactional_session
 def update_request_with_transforms(request_id, parameters, new_transforms=None, update_transforms=None, session=None):
     """
@@ -177,7 +231,9 @@ def update_request_with_transforms(request_id, parameters, new_transforms=None, 
             del tf['transform_metadata']['workflow']
 
             work = tf['transform_metadata']['work']
-            tf_id = orm_transforms.add_transform(**tf, session=session)
+            tf_copy = copy.deepcopy(tf)
+            tf_id = orm_transforms.add_transform(**tf_copy, session=session)
+            tf['transform_id'] = tf_id
 
             # work = tf['transform_metadata']['work']
             # original_work.set_work_id(tf_id, transforming=True)
@@ -185,6 +241,22 @@ def update_request_with_transforms(request_id, parameters, new_transforms=None, 
             work.set_work_id(tf_id, transforming=True)
             work.set_status(WorkStatus.New)
             workflow.refresh_works()
+
+            collections = generate_collections(tf)
+            for coll in collections:
+                collection = coll['collection']
+                del coll['collection']
+                coll['transform_id'] = tf_id
+                coll_id = orm_collections.add_collection(**coll, session=session)
+                # work.set_collection_id(coll, coll_id)
+                collection.coll_id = coll_id
+
+            # update transform to record the coll_id
+            work.refresh_work()
+            orm_transforms.update_transform(transform_id=tf_id,
+                                            parameters={'transform_metadata': tf['transform_metadata']},
+                                            session=session)
+
     if update_transforms:
         for tr_id in update_transforms:
             orm_transforms.update_transform(transform_id=tr_id, parameters=update_transforms[tr_id], session=session)

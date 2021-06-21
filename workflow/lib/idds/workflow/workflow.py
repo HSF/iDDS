@@ -140,6 +140,8 @@ class Workflow(Base):
         self.last_updated_at = datetime.datetime.utcnow()
         self.expired = False
 
+        self.to_update_transforms = {}
+
         # user defined Condition class
         self.user_defined_conditions = {}
 
@@ -385,6 +387,14 @@ class Workflow(Base):
     @last_work.setter
     def last_work(self, value):
         self.add_metadata_item('last_work', value)
+
+    @property
+    def to_update_transforms(self):
+        return self.get_metadata_item('to_update_transforms', {})
+
+    @to_update_transforms.setter
+    def to_update_transforms(self, value):
+        self.add_metadata_item('to_update_transforms', value)
 
     def load_metadata(self):
         self.load_works()
@@ -634,6 +644,24 @@ class Workflow(Base):
         self.current_running_works = self.current_running_works + t_works
         for work in [self.works[k] for k in self.current_running_works]:
             work.resume_work()
+
+    def clean_works(self):
+        self.num_subfinished_works = 0
+        self.num_finished_works = 0
+        self.num_failed_works = 0
+        self.num_cancelled_works = 0
+        self.num_suspended_works = 0
+        self.num_expired_works = 0
+
+        self.last_updated_at = datetime.datetime.utcnow()
+
+        self.terminated_works = []
+        self.current_running_works = []
+        self.works = {}
+        self.work_sequence = {}  # order list
+
+        self.first_initial = False
+        self.new_to_run_works = []
 
     def get_exact_workflows(self):
         """

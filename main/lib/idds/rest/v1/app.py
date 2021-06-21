@@ -23,6 +23,7 @@ from idds.rest.v1 import catalog
 from idds.rest.v1 import cacher
 from idds.rest.v1 import hyperparameteropt
 from idds.rest.v1 import logs
+from idds.rest.v1 import monitor
 
 
 class LoggingMiddleware(object):
@@ -55,6 +56,7 @@ def get_blueprints():
     bps.append(cacher.get_blueprint())
     bps.append(hyperparameteropt.get_blueprint())
     bps.append(logs.get_blueprint())
+    bps.append(monitor.get_blueprint())
     return bps
 
 
