@@ -86,6 +86,14 @@ def update_hyperparameter(args):
     print(ret)
 
 
+def get_messages(args):
+    wm = ClientManager(host=args.host)
+    ret = wm.get_messages(request_id=args.request_id, workload_id=args.workload_id)
+    status, msgs = ret
+    print("status: %s" % status)
+    print("messages: %s" % str(msgs))
+
+
 def get_parser():
     """
     Return the argparse parser.
@@ -125,7 +133,7 @@ def get_parser():
     resume_parser.add_argument('--workload_id', dest='workload_id', action='store', type=int, help='The workload id')
 
     # retry requests
-    retry_parser = subparsers.add_parser('retry_requests', help='Resume requests')
+    retry_parser = subparsers.add_parser('retry_requests', help='Retry requests')
     retry_parser.set_defaults(function=retry_requests)
     retry_parser.add_argument('--request_id', dest='request_id', action='store', type=int, help='The request id')
     retry_parser.add_argument('--workload_id', dest='workload_id', action='store', type=int, help='The workload id')
@@ -171,6 +179,12 @@ def get_parser():
     hp_update_parser.add_argument('--workload_id', dest='workload_id', action='store', type=int, help='The workload id')
     hp_update_parser.add_argument('--id', dest='id', action='store', type=int, help='The id of the hyperparameter')
     hp_update_parser.add_argument('--loss', dest='loss', action='store', type=float, help='The loss result to be updated')
+
+    # get messages
+    get_messages_parser = subparsers.add_parser('get_messages', help='Get messages')
+    get_messages_parser.set_defaults(function=get_messages)
+    get_messages_parser.add_argument('--request_id', dest='request_id', action='store', type=int, help='The request id')
+    get_messages_parser.add_argument('--workload_id', dest='workload_id', action='store', type=int, help='The workload id')
 
     return oparser
 

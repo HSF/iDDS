@@ -296,3 +296,20 @@ class ClientManager:
         :raise exceptions if it's not updated successfully.
         """
         return self.client.update_hyperparameter(workload_id=workload_id, request_id=request_id, id=id, loss=loss)
+
+    @exception_handler
+    def get_messages(self, request_id=None, workload_id=None):
+        """
+        Get messages.
+
+        :param workload_id: the workload id.
+        :param request_id: the request.
+        """
+        if request_id is None and workload_id is None:
+            logging.error("Both request_id and workload_id are None. One of them should not be None")
+            return (-1, "Both request_id and workload_id are None. One of them should not be None")
+
+        logging.info("Retrieving messages for request_id: %s, workload_id: %s" % (request_id, workload_id))
+        msgs = self.client.get_messages(request_id=request_id, workload_id=workload_id)
+        logging.info("Retrieved %s messages for request_id: %s, workload_id: %s" % (len(msgs), request_id, workload_id))
+        return (0, msgs)
