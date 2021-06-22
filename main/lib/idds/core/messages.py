@@ -37,7 +37,8 @@ def add_message(msg_type, status, source, request_id, workload_id, transform_id,
 
 
 @read_session
-def retrieve_messages(bulk_size=None, msg_type=None, status=None, source=None, session=None):
+def retrieve_messages(bulk_size=None, msg_type=None, status=None,
+                      source=None, request_id=None, workload_id=None, session=None):
     """
     Retrieve up to $bulk messages.
 
@@ -49,7 +50,9 @@ def retrieve_messages(bulk_size=None, msg_type=None, status=None, source=None, s
 
     :returns messages: List of dictionaries
     """
-    return orm_messages.retrieve_messages(bulk_size=bulk_size, msg_type=msg_type, status=status, source=source,
+    return orm_messages.retrieve_messages(bulk_size=bulk_size, msg_type=msg_type,
+                                          status=status, source=source,
+                                          request_id=request_id, workload_id=workload_id,
                                           session=session)
 
 
