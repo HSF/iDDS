@@ -102,21 +102,36 @@ Below is an example for hyperparameter optimization
     # One of workload_id or request_id can be None
     clientmanager.resume(request_id=<request_id>, workload_id=<workload_id>)
 
-5. Get progress report
+5. Retry a request
+
+.. code-block:: python
+
+    # One of workload_id or request_id can be None
+    clientmanager.retry(request_id=<request_id>, workload_id=<workload_id>)
+
+6. Finish a request
+
+.. code-block:: python
+
+    # One of workload_id or request_id can be None
+    # if set_all_finished is set, all left files will be set finished
+    clientmanager.finish(request_id=<request_id>, workload_id=<workload_id>, set_all_finished=False)
+
+7. Get progress report
 
 .. code-block:: python
        
     # One of workload_id or request_id can be None
     clientmanager.get_status(request_id=<request_id>, workload_id=<workload_id>, with_detail=False/True)
 
-6. Download logs for a request
+8. Download logs for a request
 
 .. code-block:: python
        
     # One of workload_id or request_id can be None
     clientmanager.download_logs(request_id=<request_id>, workload_id=<workload_id>, dest_dir='./', filename=None)
 
-7. Upload a file to the iDDS cacher
+9. Upload a file to the iDDS cacher
 
 .. code-block:: python
 
@@ -124,7 +139,7 @@ Below is an example for hyperparameter optimization
     # Upload file to iDDS cacher: On the cacher, the filename will be the basename of the file.
     clientmanager.upload_to_cacher(filename)
 
-8. Download a file from the iDDS cacher
+10. Download a file from the iDDS cacher
 
 .. code-block:: python
        
@@ -132,23 +147,42 @@ Below is an example for hyperparameter optimization
     # Download file from iDDS cacher: On the cacher, the filename will be the basename of the file.
     clientmanager.download_from_cacher(filename)
 
-9. Get hyperparameters
+11. Get hyperparameters
 
 .. code-block:: python
        
     clientmanager.get_hyperparameters(request_id=<request_id>, workload_id=<workload_id>,
                                         id=<id>, status=<status>, limit=<limit>)
 
+    from idds.client.clientmanager import ClientManager
+    clientmanager = ClientManager(host='https://aipanda160.cern.ch:443/idds')
     clientmanager.get_hyperparameters(workload_id=123, request_id=None)
     clientmanager.get_hyperparameters(workload_id=None, request_id=456)
     clientmanager.get_hyperparameters(workload_id=None, request_id=456, id=0)
 
-10. Update hyperparameter
+12. Update hyperparameter
 
 .. code-block:: python
 
     clientmanager.update_hyperparameter(request_id=<request_id>, workload_id=<workload_id>,
                                           id=<id>, loss=<loss>)
+
+13. Get messages
+
+.. code-block:: python
+
+    clientmanager.get_messages(request_id=<idds_request_id>, workload_id=<workload_id>)
+
+    from idds.client.clientmanager import ClientManager
+    host = 'https://iddsserver.cern.ch:443/idds'
+    clientmanager = ClientManager(host=host)
+
+    # clientmanager = ClientManager()  #  if idds.cfg is configured with [rest] host.
+
+    ret = clientmanager.get_messages(request_id=<idds_request_id>)
+    ret = clientmanager.get_messages(workload_id=<JEDI_task_id>)
+    status, msgs = ret
+
 
 iDDS Command Line Interface (CLI)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -174,7 +208,21 @@ iDDS Command Line Interface (CLI)
     # One of workload_id or request_id can be None
     idds resume_requests --request_id=<request_id> --workload_id=<workload_id>
 
-4. Get progress report
+4. Retry a request
+
+.. code-block:: python
+
+    # One of workload_id or request_id can be None
+    idds retry_requests --request_id=<request_id> --workload_id=<workload_id>
+
+5. Finish a request
+
+.. code-block:: python
+
+    # One of workload_id or request_id can be None
+    idds finish_requests --request_id=<request_id> --workload_id=<workload_id> [--set_all_finished]
+
+6. Get progress report
 
 .. code-block:: python
 
@@ -193,14 +241,14 @@ iDDS Command Line Interface (CLI)
               94             152             1616422511                     1002  pseudo_dataset:pseudo_output_collection#2  Finished[3/3/0]                {'msg': ''}
               94             153             1616422511                     1001  pseudo_dataset:pseudo_output_collection#3  Finished[5/5/0]                {'msg': ''}
 
-5. Download logs for a request
+7. Download logs for a request
 
 .. code-block:: python
 
     # One of workload_id or request_id can be None
     idds download_logs --request_id=<request_id> --workload_id=<workload_id> --dest_dir='./' --filename=<filename>
 
-6. Upload a file to the iDDS cacher
+8. Upload a file to the iDDS cacher
 
 .. code-block:: python
 
@@ -208,7 +256,7 @@ iDDS Command Line Interface (CLI)
     # Upload file to iDDS cacher: On the cacher, the filename will be the basename of the file.
     idds upload_to_cacher --filename=<filename>
 
-7. Download a file from the iDDS cacher
+9. Download a file from the iDDS cacher
 
 .. code-block:: python
 
@@ -216,7 +264,7 @@ iDDS Command Line Interface (CLI)
     # Download file from iDDS cacher: On the cacher, the filename will be the basename of the file.
     idds download_from_cacher --filename=<filename>
 
-8. Get hyperparameters
+10. Get hyperparameters
 
 .. code-block:: python
 
@@ -227,9 +275,18 @@ iDDS Command Line Interface (CLI)
     idds get_hyperparameters --request_id=456
     idds get_hyperparameters --request_id=456 --id=0
 
-9. Update hyperparameter
+11. Update hyperparameter
 
 .. code-block:: python
 
     idds update_hyperparameter --request_id=<request_id> --workload_id=<workload_id>,
                                --id=<id> --loss=<loss>
+
+12. Get messages
+
+.. code-block:: python
+
+    idds get_messsage --request_id=<request_id> --workload_id=<workload_id>
+
+    idds get_messages --request_id=75483
+    idds get_messages --workload_id=25792557
