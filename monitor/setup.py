@@ -15,6 +15,7 @@ import os
 import re
 import sys
 import shutil
+import socket
 from distutils.sysconfig import get_python_lib
 from setuptools import setup, Distribution
 from setuptools.command.install import install
@@ -76,6 +77,18 @@ def parse_requirements(requirements_files):
     return requirements
 
 
+def get_full_hostname():
+    return socket.getfqdn()
+
+
+def config_api_host(conf_file_template="conf.js.template", conf_file='conf.js', hostname=None):
+    with open(conf_file_template, 'r') as f:
+        template = f.read()
+    template = template.format(api_host_name=hostname)
+    with open(conf_file, 'w') as f:
+        f.write(template)
+
+
 def get_files(idir):
     files = []
     for f in os.listdir(idir):
@@ -118,6 +131,9 @@ install_data_path = get_data_path()
 requirements_files = ['tools/env/environment.yml']
 install_requires = parse_requirements(requirements_files=requirements_files)
 install_requires = install_requires
+
+hostname = get_full_hostname()
+config_api_host(conf_file_template="conf.js.template", conf_file='conf.js', hostname=hostname)
 
 data_files = [
     # config and cron files
