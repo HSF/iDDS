@@ -525,11 +525,17 @@ class DomaPanDAWork(Work):
                     return map_id
         return None
 
-    def get_content_status_from_panda_status(self, jobstatus):
+    def get_content_status_from_panda_status(self, job_info):
+        jobstatus = job_info.jobStatus
         if jobstatus in ['finished', 'merging']:
             return ContentStatus.Available
         elif jobstatus in ['failed', 'closed', 'cancelled', 'lost', 'broken', 'missing']:
-            return ContentStatus.Failed
+            attempt_nr = int(job_info.attemptNr) if job_info.attemptNr else 0
+            max_attempt = int(job_info.maxAttempt) if job_info.maxAttempt else 0
+            if attempt_nr >= max_attempt:
+                return ContentStatus.FinalFailed
+            else:
+                return ContentStatus.Failed
         else:
             return ContentStatus.Processing
 
@@ -537,7 +543,7 @@ class DomaPanDAWork(Work):
         outputs = input_output_maps[map_id]['outputs']
         update_contents = []
         for content in outputs:
-            status = self.get_content_status_from_panda_status(job_info.jobStatus)
+            status = self.get_content_status_from_panda_status(job_info)
             content['substatus'] = status
 
             if 'panda_id' in content['content_metadata'] and content['content_metadata']['panda_id']:
@@ -595,6 +601,18 @@ class DomaPanDAWork(Work):
                 full_update_contents += update_contents
         return full_update_contents
 
+    def get_final_update_contents(self, input_output_maps):
+        update_contents = []
+        for map_id in input_output_maps:
+            outputs = input_output_maps[map_id]['outputs'] if 'outputs' in input_output_maps[map_id] else []
+            for content in outputs:
+                if (content['substatus'] not in [ContentStatus.Available, ContentStatus.FakeAvailable, ContentStatus.FinalFailed]):
+                    content['content_metadata']['old_final_status'] = content['substatus']
+                    content['substatus'] = ContentStatus.FinalFailed
+                    update_contents.append(content)
+
+        return update_contents
+
     def poll_panda_task(self, processing=None, input_output_maps=None):
         task_id = None
         try:
@@ -613,7 +631,6 @@ class DomaPanDAWork(Work):
                     self.logger.info("poll_panda_task, task_info: %s" % str(task_info))
                     if task_info[0] != 0:
                         self.logger.warn("poll_panda_task %s, error getting task status, task_info: %s" % (task_id, str(task_info)))
-                        # return "No status", {}
                         return ProcessingStatus.Submitting, {}
 
                     task_info = task_info[1]
@@ -638,19 +655,24 @@ class DomaPanDAWork(Work):
 
                     map_update_contents = self.map_panda_ids(unregistered_job_ids, input_output_maps)
                     status_changed_update_contents = self.get_status_changed_contents(unterminated_job_ids, input_output_maps, panda_id_to_map_ids)
+                    final_update_contents = []
 
-                    if processing_status in [ProcessingStatus.SubFinished, ProcessingStatus.Finished, ProcessingStatus.Failed] and (unregistered_job_ids or unterminated_job_ids):
-                        # there are still polling contents, should not terminate the task.
-                        log_warn = "Processing (%s) with panda id (%s) is %s, however there are still unregistered_job_ids(%s) or unterminated_job_ids(%s)" % (processing['processing_id'],
-                                                                                                                                                               task_id,
-                                                                                                                                                               processing_status,
-                                                                                                                                                               str(unregistered_job_ids),
-                                                                                                                                                               str(unterminated_job_ids))
-                        log_warn = log_warn + ". Keep the processing status as running now."
-                        self.logger.warn(log_warn)
-                        processing_status = ProcessingStatus.Running
-
-                    return processing_status, map_update_contents + status_changed_update_contents
+                    if processing_status in [ProcessingStatus.SubFinished, ProcessingStatus.Finished, ProcessingStatus.Failed]:
+                        if (unregistered_job_ids or unterminated_job_ids):
+                            # there are still polling contents, should not terminate the task.
+                            log_warn = "Processing (%s) with panda id (%s) is %s, however there are still unregistered_job_ids(%s) or unterminated_job_ids(%s)" % (processing['processing_id'],
+                                                                                                                                                                   task_id,
+                                                                                                                                                                   processing_status,
+                                                                                                                                                                   str(unregistered_job_ids),
+                                                                                                                                                                   str(unterminated_job_ids))
+                            log_warn = log_warn + ". Keep the processing status as running now."
+                            self.logger.warn(log_warn)
+                            processing_status = ProcessingStatus.Running
+                        else:
+                            final_update_contents = self.get_final_update_contents(input_output_maps)
+                            if final_update_contents:
+                                processing_status = ProcessingStatus.Running
+                    return processing_status, map_update_contents + status_changed_update_contents + final_update_contents
                 else:
                     return ProcessingStatus.Failed, {}
         except Exception as ex:
