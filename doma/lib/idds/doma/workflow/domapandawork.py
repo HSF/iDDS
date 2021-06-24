@@ -690,7 +690,8 @@ class DomaPanDAWork(Work):
                 proc = processing['processing_metadata']['processing']
                 task_id = proc.workload_id
                 # task_id = processing['processing_metadata']['task_id']
-                Client.killTask(task_id)
+                # Client.killTask(task_id)
+                Client.finishTask(task_id, soft=True)
         except Exception as ex:
             msg = "Failed to check the processing (%s) status: %s" % (str(processing['processing_id']), str(ex))
             raise exceptions.IDDSException(msg)
