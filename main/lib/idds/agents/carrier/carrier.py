@@ -94,7 +94,7 @@ class Carrier(BaseAgent):
             # work = transform['transform_metadata']['work']
             proc = processing['processing_metadata']['processing']
             work = proc.work
-            work.set_agent_attributes(self.agent_attributes)
+            work.set_agent_attributes(self.agent_attributes, processing)
 
             work.submit_processing(processing)
             ret = {'processing_id': processing['processing_id'],
@@ -205,7 +205,7 @@ class Carrier(BaseAgent):
             # work.set_agent_attributes(self.agent_attributes)
             proc = processing['processing_metadata']['processing']
             work = proc.work
-            work.set_agent_attributes(self.agent_attributes)
+            work.set_agent_attributes(self.agent_attributes, processing)
 
             input_collections = work.get_input_collections()
             output_collections = work.get_output_collections()
