@@ -151,8 +151,12 @@ def convert_old_req_2_workflow_req(data):
                                                       data['request_metadata'])
         primary_init_work = wf.get_primary_initial_collection()
         if primary_init_work:
-            data['scope'] = primary_init_work['scope']
-            data['name'] = primary_init_work['name']
+            if type(primary_init_work) in [dict]:
+                data['scope'] = primary_init_work['scope']
+                data['name'] = primary_init_work['name']
+            elif type(primary_init_work) in [Collection]:
+                data['scope'] = primary_init_work.scope
+                data['name'] = primary_init_work.name
 
         data['request_type'] = RequestType.Workflow
         data['transform_tag'] = 'workflow'

@@ -1,5 +1,5 @@
 
-import os
+import os   # noqa E402
 import sys
 import datetime
 
@@ -12,17 +12,18 @@ from pandatools import Client  # noqa E402
 jobids = [1377843]
 jobs_list = Client.getJobStatus(jobids, verbose=0)[1]
 for job_info in jobs_list:
-    # if job_info.Files and len(job_info.Files) > 0:
-    print(job_info)
-    print(job_info.attemptNr)
-    print(job_info.maxAttempt)
-    print(job_info.Files)
-    print(job_info.Files[0])
-    for f in job_info.Files:
-        # print(dir(f))
-        print(f._attributes)
-        print(f.values())
-        print(f.type)
+    if job_info is not None:
+        # if job_info.Files and len(job_info.Files) > 0:
+        print(job_info)
+        print(job_info.attemptNr)
+        print(job_info.maxAttempt)
+        print(job_info.Files)
+        print(job_info.Files[0])
+        for f in job_info.Files:
+            # print(dir(f))
+            print(f._attributes)
+            print(f.values())
+            print(f.type)
 """
 sys.exit(0)
 
@@ -70,8 +71,8 @@ Client.getFullJobStatus(ids, verbose=False)
 
 start_time = datetime.datetime.utcnow() - datetime.timedelta(hours=5)
 start_time = start_time.strftime('%Y-%m-%d %H:%M:%S')
-ret = Client.getJobIDsJediTasksInTimeRange(start_time, verbose=False)
-print(ret)
+# ret = Client.getJobIDsJediTasksInTimeRange(start_time, verbose=False)
+# print(ret)
 
 # ret = Client.getJobIDsJediTasksInTimeRange(start_time, task_type='test', verbose=False)
 # print(ret)
@@ -88,6 +89,7 @@ newOpts = {}
 # excludedSite = newOpts.get('excludedSite', None)
 # for JEDI
 """
+taskID=26034796
 status, out = Client.retryTask(taskID, verbose=True, properErrorCode=True, newParams=newOpts)
 print(status)
 print(out)
