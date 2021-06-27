@@ -249,7 +249,7 @@ def get_transform_ids(workprogress_id=None, request_id=None, workload_id=None, t
 
 
 @read_session
-def get_transforms(request_id=None, workload_id=None, transform_id=None, workprogress_id=None,
+def get_transforms(request_id=None, workload_id=None, transform_id=None,
                    to_json=False, session=None):
     """
     Get transforms or raise a NoObject exception.
@@ -271,8 +271,6 @@ def get_transforms(request_id=None, workload_id=None, transform_id=None, workpro
             query = query.filter(models.Transform.workload_id == workload_id)
         if transform_id:
             query = query.filter(models.Transform.transform_id == transform_id)
-        if workprogress_id:
-            query = query.join(models.Workprogress2transform, and_(models.Workprogress2transform.workprogress_id == workprogress_id))
 
         tmp = query.all()
         rets = []

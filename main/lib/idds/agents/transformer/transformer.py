@@ -297,6 +297,7 @@ class Transformer(BaseAgent):
 
         work = transform['transform_metadata']['work']
         work.set_work_id(transform['transform_id'])
+        work.set_agent_attributes(self.agent_attributes, transform)
 
         work_name_to_coll_map = core_transforms.get_work_name_to_coll_map(request_id=transform['request_id'])
         work.set_work_name_to_coll_map(work_name_to_coll_map)
@@ -697,6 +698,7 @@ class Transformer(BaseAgent):
 
         work = transform['transform_metadata']['work']
         work.set_work_id(transform['transform_id'])
+        work.set_agent_attributes(self.agent_attributes, transform)
 
         # link collections
         input_collections = work.get_input_collections()
