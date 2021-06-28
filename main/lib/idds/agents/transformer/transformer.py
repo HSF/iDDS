@@ -224,7 +224,7 @@ class Transformer(BaseAgent):
                         updated_input_contents_full.append(content)
             elif self.is_all_inputs_dependency_terminated(inputs_dependency):
                 for content in inputs:
-                    content['substatus'] = ContentStatus.FinalFailed
+                    content['substatus'] = ContentStatus.Missing
                     if content['status'] != content['substatus']:
                         updated_content = {'content_id': content['content_id'],
                                            'status': content['substatus'],
