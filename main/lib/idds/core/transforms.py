@@ -411,6 +411,7 @@ def release_inputs_by_collection(to_release_inputs):
             to_release_names_available = []
             to_release_names_fake_available = []
             to_release_names_final_failed = []
+            to_release_names_missing = []
             for to_release_content in to_release_contents:
                 if (to_release_content['status'] in [ContentStatus.Available]            # noqa: W503
                     or to_release_content['substatus'] in [ContentStatus.Available]):    # noqa: W503
@@ -421,32 +422,39 @@ def release_inputs_by_collection(to_release_inputs):
                 elif (to_release_content['status'] in [ContentStatus.FinalFailed]            # noqa: W503
                       or to_release_content['substatus'] in [ContentStatus.FinalFailed]):    # noqa: W503
                     to_release_names_final_failed.append(to_release_content['name'])
+                elif (to_release_content['status'] in [ContentStatus.Missing]            # noqa: W503
+                      or to_release_content['substatus'] in [ContentStatus.Missing]):    # noqa: W503
+                    to_release_names_missing.append(to_release_content['name'])
             contents = orm_contents.get_input_contents(request_id=to_release['request_id'],
                                                        coll_id=to_release['coll_id'],
                                                        name=None)
 
             for content in contents:
-                if (content['content_relation_type'] == ContentRelationType.InputDependency    # noqa: W503
-                    and content['status'] not in [ContentStatus.Available]                     # noqa: W503
-                    and content['name'] in to_release_names_available):                        # noqa: W503
-                    update_content = {'content_id': content['content_id'],
-                                      'substatus': ContentStatus.Available,
-                                      'status': ContentStatus.Available}
-                    update_contents.append(update_content)
-                elif (content['content_relation_type'] == ContentRelationType.InputDependency    # noqa: W503
-                      and content['status'] not in [ContentStatus.FakeAvailable]                     # noqa: W503
-                      and content['name'] in to_release_names_fake_available):                        # noqa: W503
-                    update_content = {'content_id': content['content_id'],
-                                      'substatus': ContentStatus.FakeAvailable,
-                                      'status': ContentStatus.FakeAvailable}
-                    update_contents.append(update_content)
-                elif (content['content_relation_type'] == ContentRelationType.InputDependency    # noqa: W503
-                      and content['status'] not in [ContentStatus.FinalFailed]                     # noqa: W503
-                      and content['name'] in to_release_names_final_failed):                        # noqa: W503
-                    update_content = {'content_id': content['content_id'],
-                                      'substatus': ContentStatus.FinalFailed,
-                                      'status': ContentStatus.FinalFailed}
-                    update_contents.append(update_content)
+                if (content['content_relation_type'] == ContentRelationType.InputDependency):    # noqa: W503
+                    if (content['status'] not in [ContentStatus.Available]                       # noqa: W503
+                        and content['name'] in to_release_names_available):                          # noqa: W503
+                        update_content = {'content_id': content['content_id'],
+                                          'substatus': ContentStatus.Available,
+                                          'status': ContentStatus.Available}
+                        update_contents.append(update_content)
+                    elif (content['status'] not in [ContentStatus.FakeAvailable]                     # noqa: W503
+                          and content['name'] in to_release_names_fake_available):                        # noqa: W503
+                        update_content = {'content_id': content['content_id'],
+                                          'substatus': ContentStatus.FakeAvailable,
+                                          'status': ContentStatus.FakeAvailable}
+                        update_contents.append(update_content)
+                    elif (content['status'] not in [ContentStatus.FinalFailed]                     # noqa: W503
+                          and content['name'] in to_release_names_final_failed):                        # noqa: W503
+                        update_content = {'content_id': content['content_id'],
+                                          'substatus': ContentStatus.FinalFailed,
+                                          'status': ContentStatus.FinalFailed}
+                        update_contents.append(update_content)
+                    elif (content['status'] not in [ContentStatus.Missing]                     # noqa: W503
+                          and content['name'] in to_release_names_missing):                        # noqa: W503
+                        update_content = {'content_id': content['content_id'],
+                                          'substatus': ContentStatus.Missing,
+                                          'status': ContentStatus.Missing}
+                        update_contents.append(update_content)
     return update_contents
 
 

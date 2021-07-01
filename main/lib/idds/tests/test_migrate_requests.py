@@ -29,13 +29,13 @@ def migrate():
     # atlas
     atlas_host = 'https://aipanda181.cern.ch:443/idds'  # noqa F841
 
-    cm1 = ClientManager(host=atlas_host)
+    cm1 = ClientManager(host=doma_host)
     # reqs = cm1.get_requests(request_id=290)
     old_request_id = 72533
-    for old_request_id in [72533, 72569, 72733, 72769, 72783, 72939, 73351, 73983, 74545, 74567, 74569, 74573]:
+    for old_request_id in [27]:
         reqs = cm1.get_requests(request_id=old_request_id, with_metadata=True)
 
-        cm2 = ClientManager(host=atlas_host)
+        cm2 = ClientManager(host=dev_host)
         for req in reqs:
             req = convert_old_req_2_workflow_req(req)
             workflow = req['request_metadata']['workflow']

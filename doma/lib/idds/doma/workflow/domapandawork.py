@@ -508,7 +508,9 @@ class DomaPanDAWork(Work):
         for key in panda_job_ids:
             if key in [ContentStatus.Available]:
                 finished_panda_ids += panda_job_ids[key]
-            elif key in [ContentStatus.Failed, ContentStatus.FinalFailed, ContentStatus.Lost, ContentStatus.Deleted]:
+            elif key in [ContentStatus.Failed, ContentStatus.FinalFailed,
+                         ContentStatus.Lost, ContentStatus.Deleted,
+                         ContentStatus.Missing]:
                 failed_panda_ids += panda_job_ids[key]
             else:
                 unterminated_panda_ids += panda_job_ids[key]

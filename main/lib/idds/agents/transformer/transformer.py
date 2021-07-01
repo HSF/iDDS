@@ -199,7 +199,8 @@ class Transformer(BaseAgent):
 
     def is_all_inputs_dependency_terminated(self, inputs_dependency):
         for content in inputs_dependency:
-            if content['status'] not in [ContentStatus.Available, ContentStatus.FakeAvailable, ContentStatus.FinalFailed]:
+            if content['status'] not in [ContentStatus.Available, ContentStatus.FakeAvailable,
+                                         ContentStatus.FinalFailed, ContentStatus.Missing]:
                 return False
         return True
 
@@ -233,7 +234,7 @@ class Transformer(BaseAgent):
                         updated_contents.append(updated_content)
                         updated_input_contents_full.append(content)
                 for content in outputs:
-                    content['substatus'] = ContentStatus.FinalFailed
+                    content['substatus'] = ContentStatus.Missing
                     if content['status'] != content['substatus']:
                         content['status'] = content['substatus']
                         updated_content = {'content_id': content['content_id'],
@@ -278,8 +279,8 @@ class Transformer(BaseAgent):
         for map_id in input_output_maps:
             outputs = input_output_maps[map_id]['outputs'] if 'outputs' in input_output_maps[map_id] else []
             for content in outputs:
-                if (content['status'] in [ContentStatus.Available, ContentStatus.FakeAvailable, ContentStatus.FinalFailed]
-                    or content['substatus'] in [ContentStatus.Available, ContentStatus.FakeAvailable, ContentStatus.FinalFailed]):  # noqa W503
+                if (content['status'] in [ContentStatus.Available, ContentStatus.FakeAvailable, ContentStatus.FinalFailed, ContentStatus.Missing]
+                    or content['substatus'] in [ContentStatus.Available, ContentStatus.FakeAvailable, ContentStatus.FinalFailed, ContentStatus.Missing]):  # noqa W503
                     if content['coll_id'] not in to_release_inputs:
                         to_release_inputs[content['coll_id']] = []
                     to_release_inputs[content['coll_id']].append(content)
