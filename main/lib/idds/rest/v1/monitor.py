@@ -9,7 +9,6 @@
 # - Wen Guan, <wen.guan@cern.ch>, 2019
 
 import datetime
-from collections import OrderedDict
 from traceback import format_exc
 
 from flask import Blueprint
@@ -24,7 +23,12 @@ class Monitor(IDDSController):
     """ Monitor """
 
     def get_month_list(self, start, end):
-        return list(OrderedDict(((start + datetime.timedelta(_)).strftime(r"%Y-%m"), None) for _ in range(max(1, (end - start).days))).keys())
+        mlist = []
+        total_months = lambda dt: dt.month + 12 * dt.year
+        for tot_m in range(total_months(start) - 1, total_months(end)):
+            y, m = divmod(tot_m, 12)
+            mlist.append(datetime.datetime(y, m + 1, 1).strftime("%Y-%m"))
+        return mlist
 
     def get_requests(self, request_id, workload_id, with_request=False, with_transform=False, with_processing=False):
 
