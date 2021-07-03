@@ -146,6 +146,16 @@ class DomaPanDAWork(Work):
         if 'num_retries' in self.agent_attributes and self.agent_attributes['num_retries']:
             self.num_retries = int(self.agent_attributes['num_retries'])
 
+    def depend_on(self, work):
+        for job in self.dependency_map:
+            inputs_dependency = job["dependencies"]
+
+            for input_d in inputs_dependency:
+                task_name = input_d['task']
+                if task_name == work.task_name:
+                    return True
+        return False
+
     def poll_external_collection(self, coll):
         try:
             if coll.status in [CollectionStatus.Closed]:
@@ -367,7 +377,7 @@ class DomaPanDAWork(Work):
         task_param_map['coreCount'] = self.core_count
         task_param_map['skipScout'] = True
         task_param_map['cloud'] = self.task_cloud
-        if self.task_rss > 0:
+        if self.task_rss and self.task_rss > 0:
             task_param_map['ramCount'] = self.task_rss
             task_param_map['ramUnit'] = 'MB'
 
@@ -693,7 +703,20 @@ class DomaPanDAWork(Work):
                 task_id = proc.workload_id
                 # task_id = processing['processing_metadata']['task_id']
                 # Client.killTask(task_id)
-                Client.finishTask(task_id, soft=True)
+                Client.finishTask(task_id, soft=False)
+        except Exception as ex:
+            msg = "Failed to check the processing (%s) status: %s" % (str(processing['processing_id']), str(ex))
+            raise exceptions.IDDSException(msg)
+
+    def kill_processing_force(self, processing):
+        try:
+            if processing:
+                from pandatools import Client
+                proc = processing['processing_metadata']['processing']
+                task_id = proc.workload_id
+                # task_id = processing['processing_metadata']['task_id']
+                Client.killTask(task_id)
+                # Client.finishTask(task_id, soft=True)
         except Exception as ex:
             msg = "Failed to check the processing (%s) status: %s" % (str(processing['processing_id']), str(ex))
             raise exceptions.IDDSException(msg)
@@ -728,12 +751,12 @@ class DomaPanDAWork(Work):
             proc = processing['processing_metadata']['processing']
             if proc.tocancel:
                 self.logger.info("Cancelling processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], proc.workload_id))
-                self.kill_processing(processing)
+                self.kill_processing_force(processing)
                 proc.tocancel = False
                 proc.polling_retries = 0
             elif proc.tosuspend:
                 self.logger.info("Suspending processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], proc.workload_id))
-                self.kill_processing(processing)
+                self.kill_processing_force(processing)
                 proc.tosuspend = False
                 proc.polling_retries = 0
             elif proc.toresume:

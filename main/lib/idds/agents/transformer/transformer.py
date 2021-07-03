@@ -214,6 +214,7 @@ class Transformer(BaseAgent):
             inputs_dependency = registered_input_output_maps[map_id]['inputs_dependency'] if 'inputs_dependency' in registered_input_output_maps[map_id] else []
 
             if self.is_all_inputs_dependency_available(inputs_dependency):
+                self.logger.debug("all input dependency available: %s, inputs: %s" % (str(inputs_dependency), str(inputs)))
                 for content in inputs:
                     content['substatus'] = ContentStatus.Available
                     if content['status'] != content['substatus']:
@@ -224,6 +225,7 @@ class Transformer(BaseAgent):
                         updated_contents.append(updated_content)
                         updated_input_contents_full.append(content)
             elif self.is_all_inputs_dependency_terminated(inputs_dependency):
+                self.logger.debug("all input dependency terminated: %s, inputs: %s, outputs: %s" % (str(inputs_dependency), str(inputs), str(outputs)))
                 for content in inputs:
                     content['substatus'] = ContentStatus.Missing
                     if content['status'] != content['substatus']:
@@ -287,6 +289,7 @@ class Transformer(BaseAgent):
 
         # updated_contents = core_transforms.release_inputs(to_release_inputs)
         updated_contents = core_transforms.release_inputs_by_collection(to_release_inputs)
+        self.logger.debug("trigger_release_inputs, to_release_inputs: %s" % str(to_release_inputs))
         self.logger.debug("trigger_release_inputs, updated_contents: %s" % str(updated_contents))
         return updated_contents
 
