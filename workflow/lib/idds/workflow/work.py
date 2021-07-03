@@ -1040,6 +1040,9 @@ class Work(Base):
         result.logger = logger
         return result
 
+    def depend_on(self, work):
+        return False
+
     def generate_work_from_template(self):
         logger = self.logger
         self.logger = None
