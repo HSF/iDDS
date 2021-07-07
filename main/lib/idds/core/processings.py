@@ -245,7 +245,7 @@ def update_processing_with_collection_contents(updated_processing, new_processin
 
 
 @transactional_session
-def update_processing_contents(processing_update, content_updates, session=None):
+def update_processing_contents(processing_update, content_updates, update_messages=None, session=None):
     """
     Update processing with contents.
 
@@ -258,6 +258,8 @@ def update_processing_contents(processing_update, content_updates, session=None)
         orm_processings.update_processing(processing_id=processing_update['processing_id'],
                                           parameters=processing_update['parameters'],
                                           session=session)
+    if update_messages:
+        orm_messages.update_messages(update_messages, session=session)
 
 
 @transactional_session
