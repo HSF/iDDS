@@ -334,6 +334,7 @@ class MessageType(IDDSEnum):
     ProcessingCollection = 10
     ProcessingWork = 11
     HealthHeartbeat = 12
+    IDDSCommunication = 13
     UnknownFile = 97
     UnknownCollection = 98
     UnknownWork = 99
@@ -353,6 +354,7 @@ class MessageTypeStr(IDDSEnum):
     ProcessingCollection = 'collection_processing'
     ProcessingWork = 'work_processing'
     HealthHeartbeat = 'health_heartbeat'
+    IDDSCommunication = 'idds_communication'
     UnknownFile = 'file_unknown'
     UnknownCollection = 'collection_unknown'
     UnknownWork = 'work_unknown'
@@ -362,6 +364,7 @@ class MessageStatus(IDDSEnum):
     New = 0
     Fetched = 1
     Delivered = 2
+    Failed = 3
 
 
 class MessageLocking(IDDSEnum):
@@ -375,3 +378,13 @@ class MessageSource(IDDSEnum):
     Transporter = 2
     Carrier = 3
     Conductor = 4
+    Rest = 5
+
+
+class MessageDestination(IDDSEnum):
+    Clerk = 0
+    Transformer = 1
+    Transporter = 2
+    Carrier = 3
+    Conductor = 4
+    Outside = 5
