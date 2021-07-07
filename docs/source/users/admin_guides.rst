@@ -24,7 +24,7 @@ Environment setup on CENTOS 7
     source /etc/profile.d/conda.sh
     conda create --prefix=/opt/idds python=3.6.2
     conda activate /opt/idds
-    pip install idds-server idds-doma idds-atlas
+    pip install idds-server idds-doma idds-atlas idds-monitor idds-website
 
     pip install rucio-clients-atlas rucio-clients panda-client
     # # add "auth_type = x509_proxy" to /opt/idds/etc/rucio.cfg
@@ -36,7 +36,7 @@ Environment setup on CENTOS 7
     source /etc/profile.d/conda.sh
     conda activate /opt/idds
 
-    pip install --upgrade idds-server
+    pip install --upgrade idds-server idds-doma idds-atlas idds-monitor idds-website
 
 
 3. Configure REST service
