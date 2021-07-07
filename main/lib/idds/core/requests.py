@@ -22,6 +22,7 @@ from idds.orm import requests as orm_requests
 from idds.orm import transforms as orm_transforms
 from idds.orm import workprogress as orm_workprogresses
 from idds.orm import collections as orm_collections
+from idds.orm import messages as orm_messages
 # from idds.atlas.worflow.utils import convert_request_metadata_to_workflow
 
 
@@ -213,7 +214,9 @@ def generate_collections(transform):
 
 
 @transactional_session
-def update_request_with_transforms(request_id, parameters, new_transforms=None, update_transforms=None, session=None):
+def update_request_with_transforms(request_id, parameters,
+                                   new_transforms=None, update_transforms=None,
+                                   new_messages=None, update_messages=None, session=None):
     """
     update an request.
 
@@ -260,6 +263,11 @@ def update_request_with_transforms(request_id, parameters, new_transforms=None, 
     if update_transforms:
         for tr_id in update_transforms:
             orm_transforms.update_transform(transform_id=tr_id, parameters=update_transforms[tr_id], session=session)
+
+    if new_messages:
+        orm_messages.add_messages(new_messages, session=session)
+    if update_messages:
+        orm_messages.update_messages(update_messages, session=session)
     return orm_requests.update_request(request_id, parameters, session=session)
 
 

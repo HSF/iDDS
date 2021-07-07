@@ -153,6 +153,15 @@ class BaseAgent(TimerScheduler, PluginBase):
                                 priority=1)
         self.add_task(task)
 
+    def get_request_message(self, request_id, bulk_size=1):
+        return core_messages.retrieve_request_messages(request_id, bulk_size=bulk_size)
+
+    def get_transform_message(self, transform_id, bulk_size=1):
+        return core_messages.retrieve_transform_messages(transform_id, bulk_size=bulk_size)
+
+    def get_processing_message(self, processing_id, bulk_size=1):
+        return core_messages.retrieve_processing_messages(processing_id, bulk_size=bulk_size)
+
 
 if __name__ == '__main__':
     agent = BaseAgent()
