@@ -8,7 +8,7 @@ Environment setup on CENTOS 7
 
 1. setup environment for the first time.
 
-.. code-block:: ruby
+.. code-block:: bash
     yum install -y httpd.x86_64 conda gridsite mod_ssl.x86_64 httpd-devel.x86_64 gcc.x86_64 supervisor.noarch
     mkdir /opt/idds
     mkdir /opt/idds_source
@@ -30,7 +30,7 @@ Environment setup on CENTOS 7
 
 2. setup environment after installed.
 
-.. code-block:: ruby
+.. code-block:: sh
     source /etc/profile.d/conda.sh
     conda activate /opt/idds
 
