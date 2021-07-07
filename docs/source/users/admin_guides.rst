@@ -8,7 +8,7 @@ Environment setup on CENTOS 7
 
 1. setup environment for the first time.
 
-::
+.. code-block:: python
     yum install -y httpd.x86_64 conda gridsite mod_ssl.x86_64 httpd-devel.x86_64 gcc.x86_64 supervisor.noarch
     mkdir /opt/idds
     mkdir /opt/idds_source
@@ -30,7 +30,7 @@ Environment setup on CENTOS 7
 
 2. setup environment after installed.
 
-::
+.. code-block:: python
     source /etc/profile.d/conda.sh
     conda activate /opt/idds
 
@@ -41,7 +41,7 @@ Environment setup on CENTOS 7
 
 The Rest service is based http server. By default it's using the port 443. If the port 443 is used, you need to comment out the 443 port in ssl.conf.
 
-::
+.. code-block:: python
     # configure httpd service
     cp /opt/idds/etc/idds/rest/httpd-idds-443-py36-cc7.conf.install_template /etc/httpd/conf.d/httpd-idds-443-py36-cc7.conf
     # comment /etc/httpd/conf.d/ssl.conf "Listen 443 https"
@@ -52,7 +52,7 @@ The Rest service is based http server. By default it's using the port 443. If th
 
 "supervisord" is employed to manage iDDS agents. Here is the configuration.
 
-::
+.. code-block:: python
     # configure iDDS agents
     cp /opt/idds/etc/idds/supervisord.d/idds.ini /etc/supervisord.d/idds.ini
     cp /opt/idds_source/main/etc/idds/supervisord.d/idds.ini /etc/supervisord.d/idds.ini
@@ -66,13 +66,13 @@ b) Transformer, to manage transforms, collections, contents and create processin
 c) Carrier, to submit processings to workload manager and poll processings.
 d) Conductor, to send messages to ActiveMQ for workload managers to consume.
 
-::
+.. code-block:: python
     cp /opt/idds/etc/idds/idds.cfg.template /opt/idds/etc/idds/idds.cfg
     # configure the database
 
 3. Logs locations (httpd REST logs and idds agents logs)
 
-::
+.. code-block:: python
     ls /var/log/idds
     ls /var/log/idds/httpd_error_log
     ls /var/log/idds/idds-server-std*
@@ -80,7 +80,7 @@ d) Conductor, to send messages to ActiveMQ for workload managers to consume.
 
 4. Restart service
 
-::
+.. code-block:: python
     systemctl stop httpd
     systemctl start httpd
 
