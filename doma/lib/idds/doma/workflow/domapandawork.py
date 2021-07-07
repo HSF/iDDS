@@ -492,6 +492,37 @@ class DomaPanDAWork(Work):
             processing_status = ProcessingStatus.Submitted
         return processing_status
 
+    def is_all_contents_terminated(self, input_output_maps):
+        for map_id in input_output_maps:
+            outputs = input_output_maps[map_id]['outputs']
+            for content in outputs:
+                if not content['status'] in [ContentStatus.Failed, ContentStatus.FinalFailed,
+                                             ContentStatus.Lost, ContentStatus.Deleted,
+                                             ContentStatus.Missing]:
+                    return False
+        return True
+
+    def reactive_contents(self, input_output_maps):
+        updated_contents = []
+        for map_id in input_output_maps:
+            inputs = input_output_maps[map_id]['inputs'] if 'inputs' in input_output_maps[map_id] else []
+            outputs = input_output_maps[map_id]['outputs'] if 'outputs' in input_output_maps[map_id] else []
+            inputs_dependency = input_output_maps[map_id]['inputs_dependency'] if 'inputs_dependency' in input_output_maps[map_id] else []
+
+            all_outputs_available = True
+            for content in outputs:
+                if not content['status'] in [ContentStatus.Available]:
+                    all_outputs_available = False
+                    break
+
+            if not all_outputs_available:
+                for content in inputs + outputs + inputs_dependency:
+                    update_content = {'content_id': content['content_id'],
+                                      'status': ContentStatus.New,
+                                      'substatus': ContentStatus.New}
+                    updated_contents.append(update_content)
+        return updated_contents
+
     def sort_panda_jobids(self, input_output_maps):
         panda_job_ids = {}
         panda_id_to_map_ids = {}
@@ -743,6 +774,7 @@ class DomaPanDAWork(Work):
         *** Function called by Carrier agent.
         """
         updated_contents = []
+        reactive_contents = []
         update_processing = {}
         reset_expired_at = False
         # self.logger.debug("poll_processing_updates, input_output_maps: %s" % str(input_output_maps))
@@ -751,12 +783,14 @@ class DomaPanDAWork(Work):
             proc = processing['processing_metadata']['processing']
             if proc.tocancel:
                 self.logger.info("Cancelling processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], proc.workload_id))
-                self.kill_processing_force(processing)
+                # self.kill_processing_force(processing)
+                self.kill_processing(processing)
                 proc.tocancel = False
                 proc.polling_retries = 0
             elif proc.tosuspend:
                 self.logger.info("Suspending processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], proc.workload_id))
-                self.kill_processing_force(processing)
+                # self.kill_processing_force(processing)
+                self.kill_processing(processing)
                 proc.tosuspend = False
                 proc.polling_retries = 0
             elif proc.toresume:
@@ -766,6 +800,7 @@ class DomaPanDAWork(Work):
                 proc.toresume = False
                 proc.polling_retries = 0
                 proc.has_new_updates()
+                reactive_contents = self.reactive_contents(input_output_maps)
             # elif self.is_processing_expired(processing):
             elif proc.toexpire:
                 self.logger.info("Expiring processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], proc.workload_id))
@@ -778,6 +813,9 @@ class DomaPanDAWork(Work):
                 proc.tofinish = False
                 proc.toforcefinish = False
                 proc.polling_retries = 0
+            elif self.is_all_contents_terminated(input_output_maps):
+                self.logger.info("All contents terminated. Finishing processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], proc.workload_id))
+                self.kill_processing(processing)
 
             processing_status, poll_updated_contents = self.poll_panda_task(processing=processing, input_output_maps=input_output_maps)
             self.logger.debug("poll_processing_updates, processing_status: %s" % str(processing_status))
@@ -837,7 +875,9 @@ class DomaPanDAWork(Work):
                           (proc.workload_id, str(update_processing)))
         self.logger.debug("poll_processing_updates, task: %s, updated_contents: %s" %
                           (proc.workload_id, str(updated_contents)))
-        return update_processing, updated_contents
+        self.logger.debug("poll_processing_updates, task: %s, reactive_contents: %s" %
+                          (proc.workload_id, str(reactive_contents)))
+        return update_processing, updated_contents + reactive_contents
 
     def get_status_statistics(self, registered_input_output_maps):
         status_statistics = {}
