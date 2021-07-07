@@ -207,7 +207,7 @@ def update_transform(transform_id, parameters, session=None):
 def add_transform_outputs(transform, transform_parameters, input_collections=None, output_collections=None, log_collections=None,
                           update_input_collections=None, update_output_collections=None, update_log_collections=None,
                           new_contents=None, update_contents=None, new_processing=None, update_processing=None,
-                          messages=None, message_bulk_size=10000, session=None):
+                          messages=None, update_messages=None, message_bulk_size=10000, session=None):
     """
     For input contents, add corresponding output contents.
 
@@ -277,36 +277,22 @@ def add_transform_outputs(transform, transform_parameters, input_collections=Non
     if messages:
         if not type(messages) in [list, tuple]:
             messages = [messages]
-        for message in messages:
-            orm_messages.add_message(msg_type=message['msg_type'],
-                                     status=message['status'],
-                                     source=message['source'],
-                                     request_id=message['request_id'],
-                                     workload_id=message['workload_id'],
-                                     transform_id=message['transform_id'],
-                                     num_contents=message['num_contents'],
-                                     msg_content=message['msg_content'],
-                                     bulk_size=message_bulk_size,
-                                     session=session)
-
-    """
-    if to_cancel_processing:
-        to_cancel_params = {'status': ProcessingStatus.Cancel}
-        for to_cancel_id in to_cancel_processing:
-            orm_processings.update_processing(processing_id=to_cancel_id, parameters=to_cancel_params, session=session)
-    processing_id = None
-    if processing:
-        processing_id = orm_processings.add_processing(**processing, session=session)
-    """
+        # for message in messages:
+        #     orm_messages.add_message(msg_type=message['msg_type'],
+        #                              status=message['status'],
+        #                              source=message['source'],
+        #                              request_id=message['request_id'],
+        #                              workload_id=message['workload_id'],
+        #                              transform_id=message['transform_id'],
+        #                              num_contents=message['num_contents'],
+        #                              msg_content=message['msg_content'],
+        #                              bulk_size=message_bulk_size,
+        #                              session=session)
+        orm_messages.add_messages(messages, session=session)
+    if update_messages:
+        orm_messages.update_messages(update_messages, session=session)
 
     if transform:
-        """
-        if processing_id is not None:
-            if not transform['transform_metadata']:
-                transform['transform_metadata'] = {'processing_id': processing_id}
-            else:
-                transform['transform_metadata']['processing_id'] = processing_id
-        """
         if processing_id:
             # work.set_processing_id(new_processing, processing_id)
             work.set_processing_id(new_processing['processing_metadata']['processing'], processing_id)
