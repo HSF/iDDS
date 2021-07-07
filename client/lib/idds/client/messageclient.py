@@ -35,6 +35,28 @@ class MessageClient(BaseRestClient):
         """
         super(MessageClient, self).__init__(host=host, client_proxy=client_proxy, timeout=timeout)
 
+    def send_message(self, request_id=None, workload_id=None, msg=None):
+        """
+        Send messages to the Head service.
+
+        :param request_id: the request id.
+        :param workload_id: the workload id.
+
+        :raise exceptions if it's not got successfully.
+        """
+        path = self.MESSAGE_BASEURL
+        if request_id is None:
+            request_id = 'null'
+        if workload_id is None:
+            workload_id = 'null'
+        url = self.build_url(self.host, path=os.path.join(path, str(request_id), str(workload_id)))
+
+        if msg is None:
+            raise Exception("Message is None")
+        self.get_request_response(url, type='POST', data=msg)
+
+        return None
+
     def get_messages(self, request_id=None, workload_id=None):
         """
         Get message from the Head service.
