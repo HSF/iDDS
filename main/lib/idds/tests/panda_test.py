@@ -8,9 +8,11 @@ os.environ['PANDA_URL_SSL'] = 'https://ai-idds-01.cern.ch:25443/server/panda'
 
 from pandatools import Client  # noqa E402
 
-
-jobids = [1377843]
-jobs_list = Client.getJobStatus(jobids, verbose=0)[1]
+jobids = [1408118]
+jobs_list_status = Client.getJobStatus(jobids, verbose=0)
+print(jobs_list_status)
+jobs_list = jobs_list_status[1]
+print(jobs_list)
 for job_info in jobs_list:
     if job_info is not None:
         # if job_info.Files and len(job_info.Files) > 0:
@@ -24,6 +26,15 @@ for job_info in jobs_list:
             print(f._attributes)
             print(f.values())
             print(f.type)
+
+
+jediTaskID = 3885
+ret = Client.getJediTaskDetails({'jediTaskID': jediTaskID}, True, True, verbose=False)
+print(ret)
+
+ret = Client.getTaskStatus(jediTaskID, verbose=False)
+print(ret)
+
 """
 sys.exit(0)
 

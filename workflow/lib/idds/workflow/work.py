@@ -1274,8 +1274,9 @@ class Work(Base):
                 < datetime.datetime.utcnow()):                                                                        # noqa: W503
 
                 if (processing and processing.status
-                    and processing.status not in [ProcessingStatus.New, ProcessingStatus.New.value,                   # noqa: W503
-                                                  ProcessingStatus.Submitting, ProcessingStatus.Submitting.value]):   # noqa: W503
+                    and processing.status not in [ProcessingStatus.New, ProcessingStatus.New.value]):                   # noqa: W503
+                    # and processing.status not in [ProcessingStatus.New, ProcessingStatus.New.value,                   # noqa: W503
+                    #                               ProcessingStatus.Submitting, ProcessingStatus.Submitting.value]):   # noqa: W503
                     return True
             return False
         return True

@@ -492,7 +492,8 @@ class DomaPanDAWork(Work):
             processing_status = ProcessingStatus.Submitted
         return processing_status
 
-    def is_all_contents_terminated(self, input_output_maps):
+    def is_all_contents_terminated_and_with_missing(self, input_output_maps):
+        with_missing = False
         for map_id in input_output_maps:
             outputs = input_output_maps[map_id]['outputs']
             for content in outputs:
@@ -500,7 +501,11 @@ class DomaPanDAWork(Work):
                                              ContentStatus.Lost, ContentStatus.Deleted,
                                              ContentStatus.Missing]:
                     return False
-        return True
+                if not with_missing and content['status'] in [ContentStatus.Missing]:
+                    with_missing = True
+        if with_missing:
+            return True
+        return False
 
     def reactive_contents(self, input_output_maps):
         updated_contents = []
@@ -613,13 +618,15 @@ class DomaPanDAWork(Work):
         for chunk in chunks:
             jobs_list = Client.getJobStatus(chunk, verbose=0)[1]
             for job_info in jobs_list:
-                if job_info.Files and len(job_info.Files) > 0:
+                if job_info and job_info.Files and len(job_info.Files) > 0:
                     for job_file in job_info.Files:
                         # if job_file.type in ['log']:
                         if job_file.type not in ['pseudo_input']:
                             continue
                         if ':' in job_file.lfn:
-                            input_file = job_file.lfn.split(':')[1]
+                            pos = job_file.lfn.find(":")
+                            input_file = job_file.lfn[pos + 1:]
+                            # input_file = job_file.lfn.split(':')[1]
                         else:
                             input_file = job_file.lfn
                         map_id = self.get_map_id_from_input(input_output_maps, input_file)
@@ -774,23 +781,23 @@ class DomaPanDAWork(Work):
         *** Function called by Carrier agent.
         """
         updated_contents = []
-        reactive_contents = []
         update_processing = {}
         reset_expired_at = False
+        reactive_contents = []
         # self.logger.debug("poll_processing_updates, input_output_maps: %s" % str(input_output_maps))
 
         if processing:
             proc = processing['processing_metadata']['processing']
             if proc.tocancel:
                 self.logger.info("Cancelling processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], proc.workload_id))
-                # self.kill_processing_force(processing)
-                self.kill_processing(processing)
+                self.kill_processing_force(processing)
+                # self.kill_processing(processing)
                 proc.tocancel = False
                 proc.polling_retries = 0
             elif proc.tosuspend:
                 self.logger.info("Suspending processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], proc.workload_id))
-                # self.kill_processing_force(processing)
-                self.kill_processing(processing)
+                self.kill_processing_force(processing)
+                # self.kill_processing(processing)
                 proc.tosuspend = False
                 proc.polling_retries = 0
             elif proc.toresume:
@@ -813,8 +820,8 @@ class DomaPanDAWork(Work):
                 proc.tofinish = False
                 proc.toforcefinish = False
                 proc.polling_retries = 0
-            elif self.is_all_contents_terminated(input_output_maps):
-                self.logger.info("All contents terminated. Finishing processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], proc.workload_id))
+            elif self.is_all_contents_terminated_and_with_missing(input_output_maps):
+                self.logger.info("All contents terminated(There are Missing contents). Finishing processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], proc.workload_id))
                 self.kill_processing(processing)
 
             processing_status, poll_updated_contents = self.poll_panda_task(processing=processing, input_output_maps=input_output_maps)
