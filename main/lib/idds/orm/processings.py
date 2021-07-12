@@ -221,20 +221,22 @@ def get_processings_by_status(status, period=None, processing_ids=[], locking=Fa
     """
 
     try:
-        if not isinstance(status, (list, tuple)):
-            status = [status]
-        if len(status) == 1:
-            status = [status[0], status[0]]
+        if status:
+            if not isinstance(status, (list, tuple)):
+                status = [status]
+            if len(status) == 1:
+                status = [status[0], status[0]]
 
         if only_return_id:
             query = session.query(models.Processing.processing_id)
         else:
             query = session.query(models.Processing)
 
-        if by_substatus:
-            query = query.filter(models.Processing.substatus.in_(status))
-        else:
-            query = query.filter(models.Processing.status.in_(status))
+        if status:
+            if by_substatus:
+                query = query.filter(models.Processing.substatus.in_(status))
+            else:
+                query = query.filter(models.Processing.status.in_(status))
             query = query.filter(models.Processing.next_poll_at <= datetime.datetime.utcnow())
 
         if processing_ids:
