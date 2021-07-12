@@ -209,20 +209,14 @@ class Clerk(BaseAgent):
 
             self.show_queue_size()
 
-            # req_status = [RequestStatus.ToSuspend, RequestStatus.ToCancel, RequestStatus.ToResume, RequestStatus.ToExpire,
-            #               RequestStatus.ToFinish, RequestStatus.ToForceFinish]
-            # reqs = core_requests.get_requests_by_status_type(status=req_status, time_period=None,
-            #                                                  locking=True, by_substatus=True, bulk_size=self.retrieve_bulk_size)
-
-            reqs = None
-            if not reqs:
-                req_status = [RequestStatus.Transforming, RequestStatus.ToCancel, RequestStatus.Cancelling,
-                              RequestStatus.ToSuspend, RequestStatus.Suspending,
-                              RequestStatus.ToExpire, RequestStatus.Expiring,
-                              RequestStatus.ToFinish, RequestStatus.ToForceFinish,
-                              RequestStatus.ToResume, RequestStatus.Resuming]
-                reqs = core_requests.get_requests_by_status_type(status=req_status, time_period=None,
-                                                                 locking=True, bulk_size=self.retrieve_bulk_size)
+            req_status = [RequestStatus.Transforming, RequestStatus.ToCancel, RequestStatus.Cancelling,
+                          RequestStatus.ToSuspend, RequestStatus.Suspending,
+                          RequestStatus.ToExpire, RequestStatus.Expiring,
+                          RequestStatus.ToFinish, RequestStatus.ToForceFinish,
+                          RequestStatus.ToResume, RequestStatus.Resuming]
+            reqs = core_requests.get_requests_by_status_type(status=req_status, time_period=None,
+                                                             locking=True, bulk_size=self.retrieve_bulk_size,
+                                                             with_messaging=True)
 
             self.logger.debug("Main thread get %s Transforming requests to running" % len(reqs))
             if reqs:

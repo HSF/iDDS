@@ -161,27 +161,18 @@ class Carrier(BaseAgent):
 
             self.show_queue_size()
 
-            # processing_status = [ProcessingStatus.ToCancel, ProcessingStatus.ToSuspend,
-            #                      ProcessingStatus.ToResume, ProcessingStatus.ToExpire,
-            #                      ProcessingStatus.ToFinish, ProcessingStatus.ToForceFinish]
-            # processings = core_processings.get_processings_by_status(status=processing_status,
-            #                                                          # time_period=self.poll_time_period,
-            #                                                          locking=True,
-            #                                                          by_substatus=True,
-            #                                                          bulk_size=self.retrieve_bulk_size)
-            processings = None
-            if not processings:
-                processing_status = [ProcessingStatus.Submitting, ProcessingStatus.Submitted,
-                                     ProcessingStatus.Running, ProcessingStatus.FinishedOnExec,
-                                     ProcessingStatus.ToCancel, ProcessingStatus.Cancelling,
-                                     ProcessingStatus.ToSuspend, ProcessingStatus.Suspending,
-                                     ProcessingStatus.ToResume, ProcessingStatus.Resuming,
-                                     ProcessingStatus.ToExpire, ProcessingStatus.Expiring,
-                                     ProcessingStatus.ToFinish, ProcessingStatus.ToForceFinish]
-                processings = core_processings.get_processings_by_status(status=processing_status,
-                                                                         # time_period=self.poll_time_period,
-                                                                         locking=True,
-                                                                         bulk_size=self.retrieve_bulk_size)
+            processing_status = [ProcessingStatus.Submitting, ProcessingStatus.Submitted,
+                                 ProcessingStatus.Running, ProcessingStatus.FinishedOnExec,
+                                 ProcessingStatus.ToCancel, ProcessingStatus.Cancelling,
+                                 ProcessingStatus.ToSuspend, ProcessingStatus.Suspending,
+                                 ProcessingStatus.ToResume, ProcessingStatus.Resuming,
+                                 ProcessingStatus.ToExpire, ProcessingStatus.Expiring,
+                                 ProcessingStatus.ToFinish, ProcessingStatus.ToForceFinish]
+            processings = core_processings.get_processings_by_status(status=processing_status,
+                                                                     # time_period=self.poll_time_period,
+                                                                     locking=True,
+                                                                     with_messaging=True,
+                                                                     bulk_size=self.retrieve_bulk_size)
 
             self.logger.debug("Main thread get %s [submitting + submitted + running] processings to process: %s" % (len(processings), str([processing['processing_id'] for processing in processings])))
             if processings:
@@ -269,7 +260,10 @@ class Carrier(BaseAgent):
             if not is_operation:
                 next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period)
             else:
-                next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_operation_time_period)
+                if processing['status'] in [ProcessingStatus.ToResume]:
+                    next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_operation_time_period * 5)
+                else:
+                    next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_operation_time_period)
 
             if proc.submitted_at:
                 if not processing['submitted_at'] or processing['submitted_at'] < proc.submitted_at:

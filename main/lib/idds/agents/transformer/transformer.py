@@ -438,26 +438,17 @@ class Transformer(BaseAgent):
 
             self.show_queue_size()
 
-            # transform_status = [TransformStatus.ToCancel, TransformStatus.ToSuspend,
-            #                     TransformStatus.ToResume, TransformStatus.ToExpire,
-            #                     TransformStatus.ToFinish, TransformStatus.ToForceFinish]
-            # transforms = core_transforms.get_transforms_by_status(status=transform_status,
-            #                                                       period=None,
-            #                                                       locking=True,
-            #                                                       by_substatus=True,
-            #                                                       bulk_size=self.retrieve_bulk_size)
-            transforms = None
-            if not transforms:
-                transform_status = [TransformStatus.Transforming,
-                                    TransformStatus.ToCancel, TransformStatus.Cancelling,
-                                    TransformStatus.ToSuspend, TransformStatus.Suspending,
-                                    TransformStatus.ToExpire, TransformStatus.Expiring,
-                                    TransformStatus.ToResume, TransformStatus.Resuming,
-                                    TransformStatus.ToFinish, TransformStatus.ToForceFinish]
-                transforms = core_transforms.get_transforms_by_status(status=transform_status,
-                                                                      period=None,
-                                                                      locking=True,
-                                                                      bulk_size=self.retrieve_bulk_size)
+            transform_status = [TransformStatus.Transforming,
+                                TransformStatus.ToCancel, TransformStatus.Cancelling,
+                                TransformStatus.ToSuspend, TransformStatus.Suspending,
+                                TransformStatus.ToExpire, TransformStatus.Expiring,
+                                TransformStatus.ToResume, TransformStatus.Resuming,
+                                TransformStatus.ToFinish, TransformStatus.ToForceFinish]
+            transforms = core_transforms.get_transforms_by_status(status=transform_status,
+                                                                  period=None,
+                                                                  locking=True,
+                                                                  with_messaging=True,
+                                                                  bulk_size=self.retrieve_bulk_size)
 
             self.logger.debug("Main thread get %s transforming transforms to process" % len(transforms))
             if transforms:
@@ -687,6 +678,27 @@ class Transformer(BaseAgent):
                'msg_content': msg_content}
         return msg
 
+    def reactive_contents(self, input_output_maps):
+        updated_contents = []
+        for map_id in input_output_maps:
+            inputs = input_output_maps[map_id]['inputs'] if 'inputs' in input_output_maps[map_id] else []
+            outputs = input_output_maps[map_id]['outputs'] if 'outputs' in input_output_maps[map_id] else []
+            inputs_dependency = input_output_maps[map_id]['inputs_dependency'] if 'inputs_dependency' in input_output_maps[map_id] else []
+
+            all_outputs_available = True
+            for content in outputs:
+                if not content['status'] in [ContentStatus.Available]:
+                    all_outputs_available = False
+                    break
+
+            if not all_outputs_available:
+                for content in inputs + outputs + inputs_dependency:
+                    update_content = {'content_id': content['content_id'],
+                                      'status': ContentStatus.New,
+                                      'substatus': ContentStatus.New}
+                    updated_contents.append(update_content)
+        return updated_contents
+
     def process_running_transform_real(self, transform):
         """
         process running transforms
@@ -748,18 +760,6 @@ class Transformer(BaseAgent):
 
         # link processings
         new_processing_model, processing_model, update_processing_model = None, None, {}
-        # to_update_processings = {}
-        #
-        # to_update_processings_local = work.to_update_processings
-        # if to_update_processings_local:
-        #     for proc_id in to_update_processings_local:
-        #         try:
-        #             core_processings.update_processing(processing_id=proc_id, parameters=to_update_processings_local[proc_id])
-        #         except Exception as ex:
-        #             self.logger.warn("Failed to update processing(%s) to substatus %s, record it for later update: %s" % (proc_id,
-        #                                                                                                                   to_update_processings_local[proc_id]['substatus'],
-        #                                                                                                                   str(ex)))
-        #             to_update_processings[proc_id] = to_update_processings_local[proc_id]
 
         processing = work.get_processing(input_output_maps=[], without_creating=True)
         self.logger.debug("work get_processing: %s" % processing)
@@ -775,16 +775,6 @@ class Transformer(BaseAgent):
             if t_processing_status is not None:
                 msg = self.get_message_for_update_processing(processing_model, t_processing_status)
                 msgs.append(msg)
-                # try:
-                #     core_processings.update_processing(processing_id=processing_model['processing_id'], parameters={'substatus': t_processing_status})
-                #     work.set_processing_status(processing, processing_model['status'], t_processing_status)
-                # except Exception as ex:
-                #     self.logger.warn("Failed to update processing(%s) to substatus %s, record it for later update: %s" % (processing_model['processing_id'],
-                #                                                                                                           t_processing_status, str(ex)))
-                #     to_update_processings[processing_model['processing_id']] = {'substatus': t_processing_status}
-                #     # update_processing_model[processing_model['processing_id']] = {'substatus': t_processing_status}
-                #     # work.set_processing_status(processing, processing_model['status'], t_processing_status)
-        # work.to_update_processings = to_update_processings
 
         # check contents
         new_input_output_maps = work.get_new_input_output_maps(registered_input_output_maps)
@@ -833,9 +823,10 @@ class Transformer(BaseAgent):
         if work.should_release_inputs(processing, self.poll_operation_time_period):
             self.logger.info("get_updated_contents for transform %s" % transform['transform_id'])
             updated_contents, updated_input_contents_full, updated_output_contents_full = self.get_updated_contents(transform, registered_input_output_maps)
-        if work.use_dependency_to_release_jobs() and (updated_output_contents_full or work.has_to_release_inputs()):
-            self.logger.info("trigger_release_inputs: %s" % transform['transform_id'])
-            to_release_input_contents = self.trigger_release_inputs(updated_output_contents_full, work, registered_input_output_maps)
+            # if work.use_dependency_to_release_jobs() and (updated_output_contents_full or work.has_to_release_inputs()):
+            if work.use_dependency_to_release_jobs():
+                self.logger.info("trigger_release_inputs: %s" % transform['transform_id'])
+                to_release_input_contents = self.trigger_release_inputs(updated_output_contents_full, work, registered_input_output_maps)
 
         self.logger.info("generate_message: %s" % transform['transform_id'])
         if new_input_contents:
@@ -859,6 +850,8 @@ class Transformer(BaseAgent):
         self.logger.info("syn_work_status: %s, transform status: %s" % (transform['transform_id'], transform['status']))
         work.syn_work_status(registered_input_output_maps, all_updates_flushed, output_statistics, to_release_input_contents)
 
+        to_resume_transform = False
+        reactivated_contents = []
         if transform['status'] in [TransformStatus.ToCancel]:
             transform['status'] = TransformStatus.Cancelling
             work.tocancel = True
@@ -868,6 +861,8 @@ class Transformer(BaseAgent):
         elif transform['status'] in [TransformStatus.ToResume]:
             transform['status'] = TransformStatus.Resuming
             work.toresume = True
+            to_resume_transform = True
+            reactivated_contents = self.reactive_contents(registered_input_output_maps)
         elif transform['status'] in [TransformStatus.ToExpire]:
             transform['status'] = TransformStatus.Expiring
             work.toexpire = True
@@ -955,7 +950,11 @@ class Transformer(BaseAgent):
         if not is_operation:
             next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period)
         else:
-            next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_operation_time_period)
+            if to_resume_transform:
+                next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_operation_time_period * 5)
+            else:
+                next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_operation_time_period)
+
         transform_parameters = {'status': transform['status'],
                                 'locking': TransformLocking.Idle,
                                 'workload_id': transform['workload_id'],
@@ -977,7 +976,7 @@ class Transformer(BaseAgent):
                'update_output_collections': output_collections,
                'update_log_collections': log_collections,
                'new_contents': new_contents,
-               'update_contents': updated_contents + to_release_input_contents,
+               'update_contents': updated_contents + to_release_input_contents + reactivated_contents,
                'messages': msgs,
                'update_messages': update_msgs,
                'new_processing': new_processing_model,
