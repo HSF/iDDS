@@ -124,7 +124,7 @@ def add_content(request_id, workload_id, transform_id, coll_id, map_id, scope, n
 
 
 @transactional_session
-def add_contents(contents, bulk_size=1000, session=None):
+def add_contents(contents, bulk_size=10000, session=None):
     """
     Add contents.
 
@@ -368,7 +368,7 @@ def get_contents_by_transform(transform_id, to_json=False, session=None):
 
 
 @read_session
-def get_input_contents(request_id, coll_id, name, to_json=False, session=None):
+def get_input_contents(request_id, coll_id, name=None, to_json=False, session=None):
     """
     Get content or raise a NoObject exception.
 
@@ -389,7 +389,9 @@ def get_input_contents(request_id, coll_id, name, to_json=False, session=None):
         query = query.with_hint(models.Content, "INDEX(CONTENTS CONTENTS_REQ_TF_COLL_IDX)", 'oracle')
         query = query.filter(models.Content.request_id == request_id)
         query = query.filter(models.Content.coll_id == coll_id)
-        query = query.filter(models.Content.name == name)
+
+        if name:
+            query = query.filter(models.Content.name == name)
         # query = query.filter(models.Content.content_relation_type == ContentRelationType.Input)
         query = query.order_by(asc(models.Content.map_id))
 

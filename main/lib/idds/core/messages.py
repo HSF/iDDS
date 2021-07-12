@@ -13,14 +13,15 @@
 operations related to Messages.
 """
 
-
+from idds.common.constants import MessageDestination, MessageType, MessageStatus
 from idds.orm.base.session import read_session, transactional_session
 from idds.orm import messages as orm_messages
 
 
 @transactional_session
 def add_message(msg_type, status, source, request_id, workload_id, transform_id,
-                num_contents, msg_content, bulk_size=None, session=None):
+                num_contents, msg_content, bulk_size=None, processing_id=0,
+                destination=MessageDestination.Outside, session=None):
     """
     Add a message to be submitted asynchronously to a message broker.
 
@@ -33,11 +34,14 @@ def add_message(msg_type, status, source, request_id, workload_id, transform_id,
     return orm_messages.add_message(msg_type=msg_type, status=status, source=source,
                                     request_id=request_id, workload_id=workload_id,
                                     transform_id=transform_id, num_contents=num_contents,
+                                    destination=destination, processing_id=processing_id,
                                     bulk_size=bulk_size, msg_content=msg_content, session=session)
 
 
 @read_session
-def retrieve_messages(bulk_size=None, msg_type=None, status=None, source=None, session=None):
+def retrieve_messages(bulk_size=None, msg_type=None, status=None, destination=None,
+                      source=None, request_id=None, workload_id=None, transform_id=None,
+                      processing_id=None, session=None):
     """
     Retrieve up to $bulk messages.
 
@@ -49,8 +53,41 @@ def retrieve_messages(bulk_size=None, msg_type=None, status=None, source=None, s
 
     :returns messages: List of dictionaries
     """
-    return orm_messages.retrieve_messages(bulk_size=bulk_size, msg_type=msg_type, status=status, source=source,
+    return orm_messages.retrieve_messages(bulk_size=bulk_size, msg_type=msg_type,
+                                          status=status, source=source, destination=destination,
+                                          request_id=request_id, workload_id=workload_id,
+                                          transform_id=transform_id, processing_id=processing_id,
                                           session=session)
+
+
+@read_session
+def retrieve_request_messages(request_id, bulk_size=1, session=None):
+    return retrieve_messages(request_id=request_id,
+                             msg_type=MessageType.IDDSCommunication,
+                             status=MessageStatus.New,
+                             bulk_size=bulk_size,
+                             destination=MessageDestination.Clerk,
+                             session=session)
+
+
+@read_session
+def retrieve_transform_messages(transform_id, bulk_size=1, session=None):
+    return retrieve_messages(transform_id=transform_id,
+                             msg_type=MessageType.IDDSCommunication,
+                             status=MessageStatus.New,
+                             bulk_size=bulk_size,
+                             destination=MessageDestination.Transformer,
+                             session=session)
+
+
+@read_session
+def retrieve_processing_messages(processing_id, bulk_size=1, session=None):
+    return retrieve_messages(processing_id=processing_id,
+                             msg_type=MessageType.IDDSCommunication,
+                             status=MessageStatus.New,
+                             bulk_size=bulk_size,
+                             destination=MessageDestination.Carrier,
+                             session=session)
 
 
 @transactional_session

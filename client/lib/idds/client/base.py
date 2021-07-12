@@ -86,13 +86,13 @@ class BaseRestClient(object):
         for retry in range(self.retries):
             try:
                 if type == 'GET':
-                    result = self.session.get(url, timeout=self.timeout, headers=headers, verify=False)
+                    result = self.session.get(url, cert=(self.client_proxy, self.client_proxy), timeout=self.timeout, headers=headers, verify=False)
                 elif type == 'PUT':
-                    result = self.session.put(url, data=json_dumps(data), timeout=self.timeout, headers=headers, verify=False)
+                    result = self.session.put(url, cert=(self.client_proxy, self.client_proxy), data=json_dumps(data), timeout=self.timeout, headers=headers, verify=False)
                 elif type == 'POST':
-                    result = self.session.post(url, data=json_dumps(data), timeout=self.timeout, headers=headers, verify=False)
+                    result = self.session.post(url, cert=(self.client_proxy, self.client_proxy), data=json_dumps(data), timeout=self.timeout, headers=headers, verify=False)
                 elif type == 'DEL':
-                    result = self.session.delete(url, data=json_dumps(data), timeout=self.timeout, headers=headers, verify=False)
+                    result = self.session.delete(url, cert=(self.client_proxy, self.client_proxy), data=json_dumps(data), timeout=self.timeout, headers=headers, verify=False)
                 else:
                     return
             except requests.exceptions.ConnectionError as error:
@@ -102,7 +102,14 @@ class BaseRestClient(object):
 
             if result is not None:
                 # print(result.text)
-                if result.status_code == HTTP_STATUS_CODE.OK:
+                if result.status_code in [HTTP_STATUS_CODE.BadRequest,
+                                          HTTP_STATUS_CODE.Unauthorized,
+                                          HTTP_STATUS_CODE.Forbidden,
+                                          HTTP_STATUS_CODE.NotFound,
+                                          HTTP_STATUS_CODE.NoMethod,
+                                          HTTP_STATUS_CODE.InternalError]:
+                    raise exceptions.IDDSException(result.text)
+                elif result.status_code == HTTP_STATUS_CODE.OK:
                     # print(result.text)
                     if result.text:
                         return json_loads(result.text)
@@ -119,8 +126,8 @@ class BaseRestClient(object):
                                 data = json_loads(result.text)
                                 raise exceptions.IDDSException(**data)
                             else:
-                                raise exceptions.IDDSException('Unknown errors: no results returned')
+                                raise exceptions.IDDSException("Unknow exception: %s" % (result.text))
                     except AttributeError:
-                        raise exceptions.IDDSException(**data)
+                        raise exceptions.IDDSException(result.text)
         if result is None:
             raise exceptions.IDDSException('Response is None')

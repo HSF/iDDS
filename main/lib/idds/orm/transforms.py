@@ -27,7 +27,8 @@ from idds.orm.base import models
 
 
 def create_transform(request_id, workload_id, transform_type, transform_tag=None,
-                     priority=0, status=TransformStatus.New, locking=TransformLocking.Idle,
+                     priority=0, status=TransformStatus.New,
+                     substatus=TransformStatus.New, locking=TransformLocking.Idle,
                      retries=0, expired_at=None, transform_metadata=None):
     """
     Create a transform.
@@ -47,14 +48,15 @@ def create_transform(request_id, workload_id, transform_type, transform_tag=None
     """
     new_transform = models.Transform(request_id=request_id, workload_id=workload_id, transform_type=transform_type,
                                      transform_tag=transform_tag, priority=priority,
-                                     status=status, locking=locking, retries=retries, expired_at=expired_at,
+                                     status=status, substatus=substatus, locking=locking,
+                                     retries=retries, expired_at=expired_at,
                                      transform_metadata=transform_metadata)
     return new_transform
 
 
 @transactional_session
 def add_transform(request_id, workload_id, transform_type, transform_tag=None, priority=0,
-                  status=TransformStatus.New, locking=TransformLocking.Idle,
+                  status=TransformStatus.New, substatus=TransformStatus.New, locking=TransformLocking.Idle,
                   retries=0, expired_at=None, transform_metadata=None, workprogress_id=None, session=None):
     """
     Add a transform.
@@ -78,7 +80,8 @@ def add_transform(request_id, workload_id, transform_type, transform_tag=None, p
     try:
         new_transform = create_transform(request_id=request_id, workload_id=workload_id, transform_type=transform_type,
                                          transform_tag=transform_tag, priority=priority,
-                                         status=status, locking=locking, retries=retries, expired_at=expired_at,
+                                         status=status, substatus=substatus, locking=locking,
+                                         retries=retries, expired_at=expired_at,
                                          transform_metadata=transform_metadata)
         new_transform.save(session=session)
         transform_id = new_transform.transform_id
@@ -246,7 +249,7 @@ def get_transform_ids(workprogress_id=None, request_id=None, workload_id=None, t
 
 
 @read_session
-def get_transforms(request_id=None, workload_id=None, transform_id=None, workprogress_id=None,
+def get_transforms(request_id=None, workload_id=None, transform_id=None,
                    to_json=False, session=None):
     """
     Get transforms or raise a NoObject exception.
@@ -268,8 +271,6 @@ def get_transforms(request_id=None, workload_id=None, transform_id=None, workpro
             query = query.filter(models.Transform.workload_id == workload_id)
         if transform_id:
             query = query.filter(models.Transform.transform_id == transform_id)
-        if workprogress_id:
-            query = query.join(models.Workprogress2transform, and_(models.Workprogress2transform.workprogress_id == workprogress_id))
 
         tmp = query.all()
         rets = []
@@ -287,8 +288,9 @@ def get_transforms(request_id=None, workload_id=None, transform_id=None, workpro
         raise error
 
 
-@read_session
-def get_transforms_by_status(status, period=None, locking=False, bulk_size=None, to_json=False, by_substatus=False, session=None):
+@transactional_session
+def get_transforms_by_status(status, period=None, transform_ids=[], locking=False, locking_for_update=False,
+                             bulk_size=None, to_json=False, by_substatus=False, only_return_id=False, session=None):
     """
     Get transforms or raise a NoObject exception.
 
@@ -304,24 +306,35 @@ def get_transforms_by_status(status, period=None, locking=False, bulk_size=None,
     :returns: list of transform.
     """
     try:
-        if not isinstance(status, (list, tuple)):
-            status = [status]
-        if len(status) == 1:
-            status = [status[0], status[0]]
+        if status:
+            if not isinstance(status, (list, tuple)):
+                status = [status]
+            if len(status) == 1:
+                status = [status[0], status[0]]
 
-        query = session.query(models.Transform)
-        if by_substatus:
-            query = query.filter(models.Transform.substatus.in_(status))
+        if only_return_id:
+            query = session.query(models.Transform.transform_id)
         else:
-            query = query.filter(models.Transform.status.in_(status))
-        query = query.filter(models.Transform.next_poll_at < datetime.datetime.utcnow())
+            query = session.query(models.Transform)
 
-        if period:
-            query = query.filter(models.Transform.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=period))
+        if status:
+            if by_substatus:
+                query = query.filter(models.Transform.substatus.in_(status))
+            else:
+                query = query.filter(models.Transform.status.in_(status))
+            query = query.filter(models.Transform.next_poll_at <= datetime.datetime.utcnow())
+
+        if transform_ids:
+            query = query.filter(models.Transform.transform_id.in_(transform_ids))
+        # if period:
+        #     query = query.filter(models.Transform.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=period))
         if locking:
             query = query.filter(models.Transform.locking == TransformLocking.Idle)
 
-        query = query.order_by(asc(models.Transform.updated_at)).order_by(desc(models.Transform.priority))
+        if locking_for_update:
+            query = query.with_for_update(skip_locked=True)
+        else:
+            query = query.order_by(asc(models.Transform.updated_at)).order_by(desc(models.Transform.priority))
 
         if bulk_size:
             query = query.limit(bulk_size)
@@ -330,10 +343,13 @@ def get_transforms_by_status(status, period=None, locking=False, bulk_size=None,
         rets = []
         if tmp:
             for t in tmp:
-                if to_json:
-                    rets.append(t.to_dict_json())
+                if only_return_id:
+                    rets.append(t[0])
                 else:
-                    rets.append(t.to_dict())
+                    if to_json:
+                        rets.append(t.to_dict_json())
+                    else:
+                        rets.append(t.to_dict())
         return rets
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('No transforms attached with status (%s): %s' %
@@ -360,6 +376,19 @@ def update_transform(transform_id, parameters, session=None):
         if 'status' in parameters and parameters['status'] in [TransformStatus.Finished, TransformStatus.Finished.value,
                                                                TransformStatus.Failed, TransformStatus.Failed.value]:
             parameters['finished_at'] = datetime.datetime.utcnow()
+
+        if 'transform_metadata' in parameters and 'work' in parameters['transform_metadata']:
+            work = parameters['transform_metadata']['work']
+            if work is not None:
+                work.refresh_work()
+                if 'running_metadata' not in parameters:
+                    parameters['running_metadata'] = {}
+                parameters['running_metadata']['work_data'] = work.metadata
+        if 'transform_metadata' in parameters:
+            del parameters['transform_metadata']
+        if 'running_metadata' in parameters:
+            parameters['_running_metadata'] = parameters['running_metadata']
+            del parameters['running_metadata']
 
         session.query(models.Transform).filter_by(transform_id=transform_id)\
                .update(parameters, synchronize_session=False)

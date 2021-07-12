@@ -108,7 +108,9 @@ class WorkStatus(IDDSEnum):
     Suspended = 12
     ToResume = 13
     Resuming = 14
-    Expired = 15
+    ToExpire = 15
+    Expiring = 16
+    Expired = 17
 
 
 class RequestStatus(IDDSEnum):
@@ -127,7 +129,11 @@ class RequestStatus(IDDSEnum):
     Suspended = 12
     ToResume = 13
     Resuming = 14
-    Expired = 15
+    ToExpire = 15
+    Expiring = 16
+    Expired = 17
+    ToFinish = 18
+    ToForceFinish = 19
 
 
 class RequestLocking(IDDSEnum):
@@ -146,6 +152,16 @@ class WorkprogressStatus(IDDSEnum):
     ToCancel = 7
     Cancelling = 8
     Cancelled = 9
+    ToSuspend = 10
+    Suspending = 11
+    Suspended = 12
+    ToResume = 13
+    Resuming = 14
+    ToExpire = 15
+    Expiring = 16
+    Expired = 17
+    ToFinish = 18
+    ToForceFinish = 19
 
 
 class WorkprogressLocking(IDDSEnum):
@@ -191,7 +207,11 @@ class TransformStatus(IDDSEnum):
     Suspended = 12
     ToResume = 13
     Resuming = 14
-    Expired = 15
+    ToExpire = 15
+    Expiring = 16
+    Expired = 17
+    ToFinish = 18
+    ToForceFinish = 19
 
 
 class TransformLocking(IDDSEnum):
@@ -252,6 +272,8 @@ class ContentStatus(IDDSEnum):
     Lost = 5
     Deleted = 6
     Mapped = 7
+    FakeAvailable = 8
+    Missing = 9
 
 
 class ContentLocking(IDDSEnum):
@@ -275,8 +297,8 @@ class ProcessingStatus(IDDSEnum):
     Cancel = 7
     FinishedOnStep = 8
     FinishedOnExec = 9
-    TimeOut = 10
-    FinishedTerm = 11
+    FinishedTerm = 10
+    SubFinished = 11
     ToCancel = 12
     Cancelling = 13
     Cancelled = 14
@@ -285,8 +307,12 @@ class ProcessingStatus(IDDSEnum):
     Suspended = 17
     ToResume = 18
     Resuming = 19
-    Expired = 20
-    SubFinished = 21
+    ToExpire = 20
+    Expiring = 21
+    Expired = 22
+    TimeOut = 23
+    ToFinish = 24
+    ToForceFinish = 25
 
 
 class ProcessingLocking(IDDSEnum):
@@ -308,6 +334,7 @@ class MessageType(IDDSEnum):
     ProcessingCollection = 10
     ProcessingWork = 11
     HealthHeartbeat = 12
+    IDDSCommunication = 13
     UnknownFile = 97
     UnknownCollection = 98
     UnknownWork = 99
@@ -327,6 +354,7 @@ class MessageTypeStr(IDDSEnum):
     ProcessingCollection = 'collection_processing'
     ProcessingWork = 'work_processing'
     HealthHeartbeat = 'health_heartbeat'
+    IDDSCommunication = 'idds_communication'
     UnknownFile = 'file_unknown'
     UnknownCollection = 'collection_unknown'
     UnknownWork = 'work_unknown'
@@ -336,6 +364,7 @@ class MessageStatus(IDDSEnum):
     New = 0
     Fetched = 1
     Delivered = 2
+    Failed = 3
 
 
 class MessageLocking(IDDSEnum):
@@ -349,3 +378,13 @@ class MessageSource(IDDSEnum):
     Transporter = 2
     Carrier = 3
     Conductor = 4
+    Rest = 5
+
+
+class MessageDestination(IDDSEnum):
+    Clerk = 0
+    Transformer = 1
+    Transporter = 2
+    Carrier = 3
+    Conductor = 4
+    Outside = 5

@@ -17,7 +17,7 @@ except ImportError:
     # Python 2
     from Queue import Queue
 
-from idds.common.constants import (Sections, MessageStatus)
+from idds.common.constants import (Sections, MessageStatus, MessageDestination)
 from idds.common.exceptions import AgentPluginError, IDDSException
 from idds.common.utils import setup_logging
 from idds.core import messages as core_messages
@@ -45,7 +45,9 @@ class Conductor(BaseAgent):
         """
         Get messages
         """
-        messages = core_messages.retrieve_messages(status=MessageStatus.New, bulk_size=self.retrieve_bulk_size)
+        messages = core_messages.retrieve_messages(status=MessageStatus.New,
+                                                   bulk_size=self.retrieve_bulk_size,
+                                                   destination=MessageDestination.Outside)
 
         self.logger.debug("Main thread get %s new messages" % len(messages))
         if messages:

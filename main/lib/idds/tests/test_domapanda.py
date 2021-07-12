@@ -121,17 +121,25 @@ def setup_workflow():
     work1 = DomaPanDAWork(executable='echo',
                           primary_input_collection={'scope': 'pseudo_dataset', 'name': 'pseudo_input_collection#1'},
                           output_collections=[{'scope': 'pseudo_dataset', 'name': 'pseudo_output_collection#1'}],
-                          log_collections=[], dependency_map=taskN1.dependencies, task_name=taskN1.name, task_queue=task_queue)
+                          log_collections=[], dependency_map=taskN1.dependencies,
+                          task_name=taskN1.name, task_queue=task_queue,
+                          task_cloud='US')
     work2 = DomaPanDAWork(executable='echo',
                           primary_input_collection={'scope': 'pseudo_dataset', 'name': 'pseudo_input_collection#2'},
                           output_collections=[{'scope': 'pseudo_dataset', 'name': 'pseudo_output_collection#2'}],
-                          log_collections=[], dependency_map=taskN2.dependencies, task_name=taskN2.name, task_queue=task_queue)
+                          log_collections=[], dependency_map=taskN2.dependencies,
+                          task_name=taskN2.name, task_queue=task_queue,
+                          task_cloud='US')
     work3 = DomaPanDAWork(executable='echo',
                           primary_input_collection={'scope': 'pseudo_dataset', 'name': 'pseudo_input_collection#3'},
                           output_collections=[{'scope': 'pseudo_dataset', 'name': 'pseudo_output_collection#3'}],
-                          log_collections=[], dependency_map=taskN3.dependencies, task_name=taskN3.name, task_queue=task_queue)
+                          log_collections=[], dependency_map=taskN3.dependencies,
+                          task_name=taskN3.name, task_queue=task_queue,
+                          task_cloud='US')
 
-    workflow = Workflow()
+    pending_time = 0.5
+    # pending_time = None
+    workflow = Workflow(pending_time=pending_time)
     workflow.add_work(work1)
     workflow.add_work(work2)
     workflow.add_work(work3)

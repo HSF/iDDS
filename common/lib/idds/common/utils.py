@@ -18,6 +18,7 @@ import requests
 import subprocess
 import sys
 import tarfile
+import traceback
 
 from enum import Enum
 from functools import wraps
@@ -404,8 +405,12 @@ def exception_handler(function):
             return function(*args, **kwargs)
         except IDDSException as ex:
             logging.error(ex)
+            print(traceback.format_exc())
+            return str(ex)
         except Exception as ex:
             logging.error(ex)
+            print(traceback.format_exc())
+            return str(ex)
     return new_funct
 
 
@@ -419,9 +424,32 @@ def is_sub(a, b):
     return True
 
 
-def get_proxy():
-    if 'X509_USER_PROXY' in os.environ:
-        with open(os.environ['X509_USER_PROXY'], 'r') as fp:
-            proxy = fp.read()
-        return proxy
+def get_proxy_path():
+    try:
+        if 'X509_USER_PROXY' in os.environ:
+            proxy = os.environ['X509_USER_PROXY']
+            if os.path.exists(proxy) and os.access(proxy, os.R_OK):
+                return proxy
+        proxy = '/tmp/x509up_u%s' % os.getuid()
+        if os.path.exists(proxy) and os.access(proxy, os.R_OK):
+            return proxy
+    except Exception as ex:
+        raise IDDSException("Cannot find User proxy: %s" % str(ex))
     return None
+
+
+def get_proxy():
+    try:
+        proxy = get_proxy_path()
+        if not proxy:
+            return proxy
+        with open(proxy, 'r') as fp:
+            data = fp.read()
+        return data
+    except Exception as ex:
+        raise IDDSException("Cannot find User proxy: %s" % str(ex))
+    return None
+
+
+def is_new_version(version1, version2):
+    return version1 > version2

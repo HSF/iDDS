@@ -8,8 +8,12 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2020
 
-from idds.common.constants import RequestType, RequestStatus
+import copy
 
+from idds.common.constants import RequestType, RequestStatus
+from idds.common.utils import is_new_version
+
+from idds.workflow.work import Collection, Processing
 from idds.workflow.workflow import Workflow
 
 # from idds.atlas.workflow.atlasstageinwork import ATLASStageInWork
@@ -81,12 +85,48 @@ def convert_hpo_request_metadata_to_workflow(scope, name, workload_id, request_m
     return wf
 
 
+def convert_old_workflow_to_new_workflow(data):
+    if ('request_metadata' in data and data['request_metadata'] and 'workflow' in data['request_metadata']):
+        workflow = data['request_metadata']['workflow']
+        if workflow:
+            for work_key in workflow.works_template:
+                work = workflow.works_template[work_key]
+                for coll_key in work.collections:
+                    coll = work.collections[coll_key]
+                    if type(coll) in [Collection]:
+                        pass
+                    else:
+                        coll_metadata = copy.copy(coll)
+                        del coll_metadata['scope']
+                        del coll_metadata['name']
+                        new_coll = Collection(scope=coll['scope'], name=coll['name'], coll_metadata=coll_metadata)
+                        new_coll.internal_id = coll_key
+                        work.collections[coll_key] = new_coll
+                for proc_key in work.processings:
+                    proc = work.processings[proc_key]
+                    if type(proc) in [Processing]:
+                        pass
+                    else:
+                        proc_metadata = proc['processing_metadata']
+                        new_proc = Processing(processing_metadata=proc_metadata)
+                        new_proc.internal_id = proc_key
+                        if 'rule_id' in proc_metadata:
+                            new_proc.external_id = proc_metadata['rule_id']
+                        work.processings[proc_key] = new_proc
+    return data
+
+
 def convert_old_req_2_workflow_req(data):
     if not data:
         return data
 
     if data['request_type'] == RequestType.Workflow:
-        return data
+        if ('request_metadata' in data and data['request_metadata'] and 'version' in data['request_metadata']
+            and data['request_metadata']['version'] and is_new_version(data['request_metadata']['version'], '0.2.9')):  # noqa W503
+            return data
+        else:
+            data = convert_old_workflow_to_new_workflow(data)
+            return data
 
     workload_id = None
     if 'workload_id' in data and data['workload_id']:
@@ -111,8 +151,12 @@ def convert_old_req_2_workflow_req(data):
                                                       data['request_metadata'])
         primary_init_work = wf.get_primary_initial_collection()
         if primary_init_work:
-            data['scope'] = primary_init_work['scope']
-            data['name'] = primary_init_work['name']
+            if type(primary_init_work) in [dict]:
+                data['scope'] = primary_init_work['scope']
+                data['name'] = primary_init_work['name']
+            elif type(primary_init_work) in [Collection]:
+                data['scope'] = primary_init_work.scope
+                data['name'] = primary_init_work.name
 
         data['request_type'] = RequestType.Workflow
         data['transform_tag'] = 'workflow'
@@ -122,3 +166,11 @@ def convert_old_req_2_workflow_req(data):
                                     'workflow': wf}
         return data
     return data
+
+
+def convert_old_request_metadata(req):
+    if 'request_metadata' in req and req['request_metadata']:
+        wf = req['request_metadata']['workflow']
+        req['request_metadata'] = wf
+        return req
+    return req

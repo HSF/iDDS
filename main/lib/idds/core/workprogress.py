@@ -131,7 +131,7 @@ def get_workprogress(workprogress_id, to_json=False, session=None):
     return orm_workprogress.get_workprogress(workprogress_id=workprogress_id, to_json=to_json, session=session)
 
 
-@read_session
+@transactional_session
 def get_workprogresses_by_status(status, period=None, locking=False, bulk_size=None, to_json=False, session=None):
     """
     Get workprogresses.

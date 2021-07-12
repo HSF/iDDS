@@ -5,6 +5,7 @@ DROP SEQUENCE TRANSFORM_ID_SEQ;
 DROP SEQUENCE PROCESSING_ID_SEQ;
 DROP SEQUENCE COLLECTION_ID_SEQ;
 DROP SEQUENCE CONTENT_ID_SEQ;
+DROP SEQUENCE HEALTH_ID_SEQ
 
 delete from HEALTH;
 delete from MESSAGES;
@@ -123,6 +124,7 @@ CREATE TABLE TRANSFORMS
         finished_at DATE,
         expired_at DATE,
         transform_metadata CLOB constraint TRANSFORM_METADATA_ENSURE_JSON CHECK(transform_metadata IS JSON(LAX)),
+        running_metadata CLOB,
         CONSTRAINT TRANSFORMS_PK PRIMARY KEY (transform_id)  
 )
 PCTFREE 3
@@ -193,6 +195,7 @@ CREATE TABLE PROCESSINGS
         finished_at DATE,
         expired_at DATE,
         processing_metadata CLOB constraint PROCESSINGS_METADATA_ENSURE_JSON CHECK(processing_metadata IS JSON(LAX)),
+        running_metadata CLOB,
         output_metadata CLOB constraint PROCESSINGS_OUTPUT_METADATA_ENSURE_JSON CHECK(output_metadata IS JSON(LAX)),
         CONSTRAINT PROCESSINGS_PK PRIMARY KEY (processing_id),
         CONSTRAINT PROCESSINGS_TRANSFORM_ID_FK FOREIGN KEY(transform_id) REFERENCES TRANSFORMS(transform_id)
@@ -256,10 +259,10 @@ CREATE TABLE CONTENTS
         map_id NUMBER(12) DEFAULT 0,
         scope VARCHAR2(25) constraint CONTENT_SCOPE_NN NOT NULL,
         name VARCHAR2(255) constraint CONTENT_NAME_NN NOT NULL,
-        min_id NUMBER(7) constraint CONTENT_MIN_ID_NN NOT NULL,
-        max_id NUMBER(7) constraint CONTENT_MAX_ID_NN NOT NULL,
+        min_id NUMBER(7) default 0,
+        max_id NUMBER(7) default 0,
         content_type NUMBER(2) constraint CONTENT_TYPE_NN NOT NULL,
-        content_relation_type NUMBER(2) constraint CONTENT_RTYPE_NN NOT NULL,
+        content_relation_type NUMBER(2) default 0,
         status NUMBER(2) constraint CONTENT_STATUS_NN NOT NULL,
         substatus NUMBER(2),
         locking NUMBER(2),
@@ -274,7 +277,8 @@ CREATE TABLE CONTENTS
         updated_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)) constraint CONTENT_UPDATED_NN NOT NULL,
         accessed_at DATE,
         expired_at DATE,
-        content_metadata CLOB constraint CONTENT_METADATA_ENSURE_JSON CHECK(CONTENT_METADATA IS JSON(LAX)),
+        --- content_metadata CLOB constraint CONTENT_METADATA_ENSURE_JSON CHECK(CONTENT_METADATA IS JSON(LAX)),
+        content_metadata VARCHAR2(100),
         --- CONSTRAINT CONTENT_PK PRIMARY KEY (name, scope, coll_id, content_type, min_id, max_id) USING INDEX LOCAL,
         CONSTRAINT CONTENT_PK PRIMARY KEY (content_id),
         ---- CONSTRAINT CONTENT_SCOPE_NAME_UQ UNIQUE (name, scope, coll_id, content_type, min_id, max_id) USING INDEX LOCAL,
@@ -304,9 +308,11 @@ CREATE TABLE MESSAGES
     substatus NUMBER(2),
     locking NUMBER(2),
     source NUMBER(2),
+    destination NUMBER(2),
     request_id NUMBER(12),
     workload_id NUMBER(10),
     transform_id NUMBER(12),
+    processing_id NUMBER(12),
     num_contents NUMBER(7),
     created_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)),
     updated_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)),
@@ -314,6 +320,8 @@ CREATE TABLE MESSAGES
     CONSTRAINT MESSAGES_PK PRIMARY KEY (msg_id) -- USING INDEX LOCAL,  
 );
 
+alter table messages add destination NUMBER(2);
+alter table messages add processing_id NUMBER(12);
 
 --- health
 CREATE SEQUENCE HEALTH_ID_SEQ MINVALUE 1 INCREMENT BY 1 START WITH 1 NOCACHE ORDER NOCYCLE GLOBAL;

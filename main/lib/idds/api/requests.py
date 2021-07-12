@@ -19,7 +19,7 @@ from idds.core import requests
 
 
 def add_request(scope, name, requester=None, request_type=None, transform_tag=None, workload_id=None,
-                status=RequestStatus.New, priority=0, lifetime=30, request_metadata=None):
+                status=RequestStatus.New, priority=0, lifetime=None, request_metadata=None):
     """
     Add a request.
 

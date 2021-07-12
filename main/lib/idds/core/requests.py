@@ -13,18 +13,22 @@
 operations related to Requests.
 """
 
+import copy
 
-from idds.common.constants import RequestStatus, RequestLocking, WorkStatus
+from idds.common.constants import (RequestStatus, RequestLocking, WorkStatus,
+                                   CollectionType, CollectionStatus, CollectionRelationType)
 from idds.orm.base.session import read_session, transactional_session
 from idds.orm import requests as orm_requests
 from idds.orm import transforms as orm_transforms
 from idds.orm import workprogress as orm_workprogresses
-# from idds.atlas.worflow.utils import convert_request_metadata_to_workflow
+from idds.orm import collections as orm_collections
+from idds.orm import messages as orm_messages
+from idds.core import messages as core_messages
 
 
 def create_request(scope=None, name=None, requester=None, request_type=None, transform_tag=None,
                    status=RequestStatus.New, locking=RequestLocking.Idle, priority=0,
-                   lifetime=30, workload_id=None, request_metadata=None,
+                   lifetime=None, workload_id=None, request_metadata=None,
                    processing_metadata=None):
     """
     Add a request.
@@ -58,7 +62,7 @@ def create_request(scope=None, name=None, requester=None, request_type=None, tra
 @transactional_session
 def add_request(scope=None, name=None, requester=None, request_type=None, transform_tag=None,
                 status=RequestStatus.New, locking=RequestLocking.Idle, priority=0,
-                lifetime=30, workload_id=None, request_metadata=None,
+                lifetime=None, workload_id=None, request_metadata=None,
                 processing_metadata=None, session=None):
     """
     Add a request.
@@ -106,7 +110,7 @@ def get_request_ids_by_workload_id(workload_id, session=None):
 
 
 @read_session
-def get_requests(request_id=None, workload_id=None, with_detail=False, to_json=False, session=None):
+def get_requests(request_id=None, workload_id=None, with_detail=False, with_processing=False, with_metadata=False, to_json=False, session=None):
     """
     Get a request or raise a NoObject exception.
 
@@ -119,7 +123,9 @@ def get_requests(request_id=None, workload_id=None, with_detail=False, to_json=F
     :returns: Request.
     """
     return orm_requests.get_requests(request_id=request_id, workload_id=workload_id,
-                                     with_detail=with_detail, to_json=to_json, session=session)
+                                     with_detail=with_detail, with_metadata=with_metadata,
+                                     with_processing=with_processing,
+                                     to_json=to_json, session=session)
 
 
 @transactional_session
@@ -157,8 +163,60 @@ def update_request(request_id, parameters, session=None):
     return orm_requests.update_request(request_id, parameters, session=session)
 
 
+def generate_collection(transform, collection, relation_type=CollectionRelationType.Input):
+    coll_metadata = collection.coll_metadata
+
+    if 'coll_type' in coll_metadata:
+        coll_type = coll_metadata['coll_type']
+    else:
+        coll_type = CollectionType.Dataset
+
+    if collection.status is None:
+        collection.status = CollectionStatus.Open
+
+    coll = {'transform_id': transform['request_id'],
+            'request_id': transform['request_id'],
+            'workload_id': transform['workload_id'],
+            'coll_type': coll_type,
+            'scope': collection.scope,
+            'name': collection.name,
+            'relation_type': relation_type,
+            'bytes': coll_metadata['bytes'] if 'bytes' in coll_metadata else 0,
+            'total_files': coll_metadata['total_files'] if 'total_files' in coll_metadata else 0,
+            'new_files': coll_metadata['new_files'] if 'new_files' in coll_metadata else 0,
+            'processed_files': 0,
+            'processing_files': 0,
+            'coll_metadata': coll_metadata,
+            'status': collection.status,
+            'expired_at': transform['expired_at'],
+            'collection': collection}
+    return coll
+
+
+def generate_collections(transform):
+    work = transform['transform_metadata']['work']
+
+    input_collections = work.get_input_collections()
+    output_collections = work.get_output_collections()
+    log_collections = work.get_log_collections()
+
+    input_colls, output_colls, log_colls = [], [], []
+    for input_coll in input_collections:
+        in_coll = generate_collection(transform, input_coll, relation_type=CollectionRelationType.Input)
+        input_colls.append(in_coll)
+    for output_coll in output_collections:
+        out_coll = generate_collection(transform, output_coll, relation_type=CollectionRelationType.Output)
+        output_colls.append(out_coll)
+    for log_coll in log_collections:
+        l_coll = generate_collection(transform, log_coll, relation_type=CollectionRelationType.Log)
+        log_colls.append(l_coll)
+    return input_colls + output_colls + log_colls
+
+
 @transactional_session
-def update_request_with_transforms(request_id, parameters, new_transforms=None, update_transforms=None, session=None):
+def update_request_with_transforms(request_id, parameters,
+                                   new_transforms=None, update_transforms=None,
+                                   new_messages=None, update_messages=None, session=None):
     """
     update an request.
 
@@ -170,16 +228,46 @@ def update_request_with_transforms(request_id, parameters, new_transforms=None, 
     if new_transforms:
         for tf in new_transforms:
             # tf_id = orm_transforms.add_transform(**tf, session=session)
-            original_work = tf['transform_metadata']['original_work']
-            del tf['transform_metadata']['original_work']
-            tf_id = orm_transforms.add_transform(**tf, session=session)
+            # original_work = tf['transform_metadata']['original_work']
+            # del tf['transform_metadata']['original_work']
+            workflow = tf['transform_metadata']['workflow']
+            del tf['transform_metadata']['workflow']
+
+            work = tf['transform_metadata']['work']
+            tf_copy = copy.deepcopy(tf)
+            tf_id = orm_transforms.add_transform(**tf_copy, session=session)
+            tf['transform_id'] = tf_id
 
             # work = tf['transform_metadata']['work']
-            original_work.set_work_id(tf_id, transforming=True)
-            original_work.set_status(WorkStatus.New)
+            # original_work.set_work_id(tf_id, transforming=True)
+            # original_work.set_status(WorkStatus.New)
+            work.set_work_id(tf_id, transforming=True)
+            work.set_status(WorkStatus.New)
+            workflow.refresh_works()
+
+            collections = generate_collections(tf)
+            for coll in collections:
+                collection = coll['collection']
+                del coll['collection']
+                coll['transform_id'] = tf_id
+                coll_id = orm_collections.add_collection(**coll, session=session)
+                # work.set_collection_id(coll, coll_id)
+                collection.coll_id = coll_id
+
+            # update transform to record the coll_id
+            work.refresh_work()
+            orm_transforms.update_transform(transform_id=tf_id,
+                                            parameters={'transform_metadata': tf['transform_metadata']},
+                                            session=session)
+
     if update_transforms:
         for tr_id in update_transforms:
             orm_transforms.update_transform(transform_id=tr_id, parameters=update_transforms[tr_id], session=session)
+
+    if new_messages:
+        orm_messages.add_messages(new_messages, session=session)
+    if update_messages:
+        orm_messages.update_messages(update_messages, session=session)
     return orm_requests.update_request(request_id, parameters, session=session)
 
 
@@ -201,7 +289,41 @@ def update_request_with_workprogresses(request_id, parameters, new_workprogresse
 
 
 @transactional_session
-def get_requests_by_status_type(status, request_type=None, time_period=None, locking=False, bulk_size=None, to_json=False, by_substatus=False, session=None):
+def get_requests_with_messaging(locking=False, bulk_size=None, session=None):
+    msgs = core_messages.retrieve_request_messages(request_id=None, bulk_size=bulk_size, session=session)
+    if msgs:
+        req_ids = [msg['request_id'] for msg in msgs]
+        if locking:
+            req2s = orm_requests.get_requests_by_status_type(status=None, request_ids=req_ids,
+                                                             locking=locking, locking_for_update=True,
+                                                             bulk_size=None, session=session)
+            if req2s:
+                reqs = []
+                for req_id in req_ids:
+                    if len(reqs) >= bulk_size:
+                        break
+                    for req in req2s:
+                        if req['request_id'] == req_id:
+                            reqs.append(req)
+                            break
+            else:
+                reqs = []
+
+            parameters = {'locking': RequestLocking.Locking}
+            for req in reqs:
+                orm_requests.update_request(request_id=req['request_id'], parameters=parameters, session=session)
+            return reqs
+        else:
+            reqs = orm_requests.get_requests_by_status_type(status=None, request_ids=req_ids, locking=locking,
+                                                            locking_for_update=locking,
+                                                            bulk_size=bulk_size, session=session)
+            return reqs
+    else:
+        return []
+
+
+@transactional_session
+def get_requests_by_status_type(status, request_type=None, time_period=None, locking=False, bulk_size=None, to_json=False, by_substatus=False, with_messaging=False, session=None):
     """
     Get requests by status and type
 
@@ -214,12 +336,49 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, loc
 
     :returns: list of Request.
     """
-    reqs = orm_requests.get_requests_by_status_type(status, request_type, time_period, locking=locking, bulk_size=bulk_size,
-                                                    to_json=to_json, by_substatus=by_substatus, session=session)
+    if with_messaging:
+        reqs = get_requests_with_messaging(locking=locking, bulk_size=bulk_size, session=session)
+        if reqs:
+            return reqs
+
     if locking:
+        if bulk_size:
+            # order by cannot work together with locking. So first select 2 * bulk_size without locking with order by.
+            # then select with locking.
+            req_ids = orm_requests.get_requests_by_status_type(status, request_type, time_period, locking=locking, bulk_size=bulk_size * 2,
+                                                               locking_for_update=False, to_json=False, by_substatus=by_substatus,
+                                                               only_return_id=True, session=session)
+            if req_ids:
+                req2s = orm_requests.get_requests_by_status_type(status, request_type, time_period, request_ids=req_ids,
+                                                                 locking=locking, locking_for_update=True, bulk_size=None, to_json=to_json,
+                                                                 by_substatus=by_substatus, session=session)
+                if req2s:
+                    # reqs = req2s[:bulk_size]
+                    # order requests
+                    reqs = []
+                    for req_id in req_ids:
+                        if len(reqs) >= bulk_size:
+                            break
+                        for req in req2s:
+                            if req['request_id'] == req_id:
+                                reqs.append(req)
+                                break
+                    # reqs = reqs[:bulk_size]
+                else:
+                    reqs = []
+            else:
+                reqs = []
+        else:
+            reqs = orm_requests.get_requests_by_status_type(status, request_type, time_period, locking=locking, locking_for_update=locking,
+                                                            bulk_size=bulk_size,
+                                                            to_json=to_json, by_substatus=by_substatus, session=session)
+
         parameters = {'locking': RequestLocking.Locking}
         for req in reqs:
             orm_requests.update_request(request_id=req['request_id'], parameters=parameters, session=session)
+    else:
+        reqs = orm_requests.get_requests_by_status_type(status, request_type, time_period, locking=locking, bulk_size=bulk_size,
+                                                        to_json=to_json, by_substatus=by_substatus, session=session)
     return reqs
 
 

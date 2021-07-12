@@ -215,7 +215,7 @@ def get_session():
 
 def retry_if_db_connection_error(exception):
     """Return True if error in connecting to db."""
-    print(exception)
+    # print(exception)
     if isinstance(exception, OperationalError):
         conn_err_codes = ('2002', '2003', '2006',  # MySQL
                           'ORA-00028',  # Oracle session has been killed

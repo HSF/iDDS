@@ -47,18 +47,22 @@ cacher_dir = /data/idds
 #plugin.<plugin_name>.<attr2> = <value2>
 
 [main]
-# agents = clerk, marshaller, transformer, carrier, conductor
-agents = clerk, transformer, carrier, conductor, consumer
+# agents = clerk, marshaller, transformer, carrier, conductor, consumer
+agents = clerk, transformer, carrier, conductor
 
 [clerk]
-num_threads = 1
-poll_time_period = 5
-retrieve_bulk_size = 10
+num_threads = 3
+poll_time_period = 120
+poll_operation_time_period = 120
+retrieve_bulk_size = 3
+pending_time = 3
 
 [transformer]
-num_threads = 1
-poll_time_period = 5
-retrieve_bulk_size = 10
+num_threads = 8
+poll_time_period = 120
+retrieve_bulk_size = 3
+poll_operation_time_period = 240
+message_bulk_size = 10000
 
 atlashpowork.workdir = /data/idds_processing
 atlashpowork.input_json = idds_input.json
@@ -68,6 +72,8 @@ atlashpowork.nevergrad.executable = docker
 atlashpowork.nevergrad.arguments = run -v $(pwd):/data wguanicedew/idds_hpo_nevergrad python /opt/hyperparameteropt_nevergrad.py --max_points=%%MAX_POINTS --num_points=%%NUM_POINTS --input=/data/%%IN --output=/data/%%OUT
 
 atlasactuatorwork.workdir = /data/idds_processing
+
+domapandawork.num_retries = 0
 
 [carrier]
 num_threads = 1

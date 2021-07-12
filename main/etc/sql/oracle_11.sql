@@ -143,6 +143,7 @@ CREATE TABLE TRANSFORMS
         finished_at DATE,
         expired_at DATE,
         transform_metadata CLOB,
+        running_metadata CLOB,
         CONSTRAINT TRANSFORMS_PK PRIMARY KEY (transform_id)  
 )
 PCTFREE 3
@@ -232,6 +233,7 @@ CREATE TABLE PROCESSINGS
         finished_at DATE,
         expired_at DATE,
         processing_metadata CLOB,
+        running_metadata CLOB,
         output_metadata CLOB,
         CONSTRAINT PROCESSINGS_PK PRIMARY KEY (processing_id),
         CONSTRAINT PROCESSINGS_TRANSFORM_ID_FK FOREIGN KEY(transform_id) REFERENCES TRANSFORMS(transform_id)
@@ -344,7 +346,8 @@ CREATE TABLE CONTENTS
         updated_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)) constraint CONTENT_UPDATED_NN NOT NULL,
         accessed_at DATE,
         expired_at DATE,
-        content_metadata CLOB,
+        --- content_metadata CLOB,
+        content_metadata VARCHAR2(100),
         ---- CONSTRAINT CONTENT_PK PRIMARY KEY (name, scope, coll_id, content_type, min_id, max_id) USING INDEX LOCAL,
         CONSTRAINT CONTENT_PK PRIMARY KEY (content_id),
         --- CONSTRAINT CONTENT_SCOPE_NAME_UQ UNIQUE (name, scope, coll_id, content_type, min_id, max_id) USING INDEX LOCAL,
@@ -390,9 +393,11 @@ CREATE TABLE MESSAGES
     substatus NUMBER(2),
     locking NUMBER(2),
     source NUMBER(2),
+    destination NUMBER(2),
     request_id NUMBER(12),
     workload_id NUMBER(10),
     transform_id NUMBER(12),
+    processing_id NUMBER(12),
     num_contents NUMBER(7),
     created_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)),
     updated_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)),
@@ -409,6 +414,8 @@ CREATE OR REPLACE TRIGGER TRIG_MESSAGE_ID
     END;
  /
 
+alter table messages add destination NUMBER(2);
+alter table messages add processing_id NUMBER(12);
 
 --- health
 CREATE SEQUENCE HEALTH_ID_SEQ MINVALUE 1 INCREMENT BY 1 START WITH 1 NOCACHE NOORDER NOCYCLE;

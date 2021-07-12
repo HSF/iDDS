@@ -18,6 +18,7 @@ from enum import Enum
 
 from sqlalchemy import BigInteger, Boolean, Column, DateTime, Integer, String, event, DDL
 from sqlalchemy.ext.compiler import compiles
+# from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import object_mapper
 from sqlalchemy.schema import CheckConstraint, UniqueConstraint, Index, PrimaryKeyConstraint, ForeignKeyConstraint, Sequence, Table
 
@@ -28,10 +29,11 @@ from idds.common.constants import (RequestType, RequestStatus, RequestLocking,
                                    CollectionStatus, CollectionLocking, CollectionType,
                                    CollectionRelationType, ContentType, ContentRelationType,
                                    ContentStatus, ContentLocking, GranularityType,
-                                   MessageType, MessageStatus, MessageLocking, MessageSource)
+                                   MessageType, MessageStatus, MessageLocking,
+                                   MessageSource, MessageDestination)
 from idds.common.utils import date_to_str
 from idds.orm.base.enum import EnumSymbol
-from idds.orm.base.types import JSON, EnumWithValue
+from idds.orm.base.types import JSON, JSONString, EnumWithValue
 from idds.orm.base.session import BASE, DEFAULT_SCHEMA_NAME
 from idds.common.constants import (SCOPE_LENGTH, NAME_LENGTH)
 
@@ -91,15 +93,20 @@ class ModelBase(object):
         return self.__dict__.values()
 
     def items(self):
-        return self.__dict__.items()
+        attr_items = list(self.__dict__.items())
+        items_extend = self._items_extend()
+        return attr_items + items_extend
+
+    def _items_extend(self):
+        return []
 
     def to_dict(self):
         return {key: value for key, value
-                in self.__dict__.items() if not key.startswith('_')}
+                in self.items() if not key.startswith('_')}
 
     def to_dict_json(self):
         return {key: self._expand_item(value) for key, value
-                in self.__dict__.items() if not key.startswith('_')}
+                in self.items() if not key.startswith('_')}
 
     @classmethod
     def _expand_item(cls, obj):
@@ -140,8 +147,62 @@ class Request(BASE, ModelBase):
     accessed_at = Column("accessed_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     expired_at = Column("expired_at", DateTime)
     errors = Column(JSON())
-    request_metadata = Column(JSON())
-    processing_metadata = Column(JSON())
+    _request_metadata = Column('request_metadata', JSON())
+    _processing_metadata = Column('processing_metadata', JSON())
+
+    @property
+    def request_metadata(self):
+        if self._request_metadata and 'workflow' in self._request_metadata:
+            workflow = self._request_metadata['workflow']
+            workflow_data = None
+            if self._processing_metadata and 'workflow_data' in self._processing_metadata:
+                workflow_data = self._processing_metadata['workflow_data']
+            if workflow is not None and workflow_data is not None:
+                workflow.metadata = workflow_data
+                self._request_metadata['workflow'] = workflow
+        return self._request_metadata
+
+    @request_metadata.setter
+    def request_metadata(self, request_metadata):
+        if self._request_metadata is None:
+            self._request_metadata = request_metadata
+        if self._processing_metadata is None:
+            self._processing_metadata = {}
+        if request_metadata and 'workflow' in request_metadata:
+            workflow = request_metadata['workflow']
+            self._processing_metadata['workflow_data'] = workflow.metadata
+
+    @property
+    def processing_metadata(self):
+        return self._processing_metadata
+
+    @processing_metadata.setter
+    def processing_metadata(self, processing_metadata):
+        if self._processing_metadata is None:
+            self._processing_metadata = {}
+        if processing_metadata:
+            for k in processing_metadata:
+                if k != 'workflow_data':
+                    self._processing_metadata[k] = processing_metadata[k]
+
+    def _items_extend(self):
+        return [('request_metadata', self.request_metadata),
+                ('processing_metadata', self.processing_metadata)]
+
+    def update(self, values, flush=True, session=None):
+        if values and 'request_metadata' in values and 'workflow' in values['request_metadata']:
+            workflow = values['request_metadata']['workflow']
+
+            if workflow is not None:
+                if 'processing_metadata' not in values:
+                    values['processing_metadata'] = {}
+                values['processing_metadata']['workflow_data'] = workflow.metadata
+        if values and 'request_metadata' in values:
+            del values['request_metadata']
+        if values and 'processing_metadata' in values:
+            values['_processing_metadata'] = values['processing_metadata']
+            del values['processing_metadata']
+        super(Request, self).update(values, flush, session)
 
     _table_args = (PrimaryKeyConstraint('request_id', name='REQUESTS_PK'),
                    CheckConstraint('status IS NOT NULL', name='REQUESTS_STATUS_ID_NN'),
@@ -203,7 +264,61 @@ class Transform(BASE, ModelBase):
     started_at = Column("started_at", DateTime)
     finished_at = Column("finished_at", DateTime)
     expired_at = Column("expired_at", DateTime)
-    transform_metadata = Column(JSON())
+    _transform_metadata = Column('transform_metadata', JSON())
+    _running_metadata = Column('running_metadata', JSON())
+
+    @property
+    def transform_metadata(self):
+        if self._transform_metadata and 'work' in self._transform_metadata:
+            work = self._transform_metadata['work']
+            work_data = None
+            if self._running_metadata and 'work_data' in self._running_metadata:
+                work_data = self._running_metadata['work_data']
+            if work is not None and work_data is not None:
+                work.metadata = work_data
+                self._transform_metadata['work'] = work
+        return self._transform_metadata
+
+    @transform_metadata.setter
+    def transform_metadata(self, transform_metadata):
+        if self._transform_metadata is None:
+            self._transform_metadata = transform_metadata
+        if self._running_metadata is None:
+            self._running_metadata = {}
+        if transform_metadata and 'work' in transform_metadata:
+            work = transform_metadata['work']
+            self._running_metadata['work_data'] = work.metadata
+
+    @property
+    def running_metadata(self):
+        return self._running_metadata
+
+    @running_metadata.setter
+    def running_metadata(self, running_metadata):
+        if self._running_metadata is None:
+            self._running_metadata = {}
+        if running_metadata:
+            for k in running_metadata:
+                if k != 'work_data':
+                    self._running_metadata[k] = running_metadata[k]
+
+    def _items_extend(self):
+        return [('transform_metadata', self.transform_metadata),
+                ('running_metadata', self.running_metadata)]
+
+    def update(self, values, flush=True, session=None):
+        if values and 'transform_metadata' in values and 'work' in values['transform_metadata']:
+            work = values['transform_metadata']['work']
+            if work is not None:
+                if 'running_metadata' not in values:
+                    values['running_metadata'] = {}
+                values['running_metadata']['work_data'] = work.metadata
+        if values and 'transform_metadata' in values:
+            del values['transform_metadata']
+        if values and 'running_metadata' in values:
+            values['_running_metadata'] = values['running_metadata']
+            del values['running_metadata']
+        super(Transform, self).update(values, flush, session)
 
     _table_args = (PrimaryKeyConstraint('transform_id', name='TRANSFORMS_PK'),
                    CheckConstraint('status IS NOT NULL', name='TRANSFORMS_STATUS_ID_NN'),
@@ -242,8 +357,62 @@ class Processing(BASE, ModelBase):
     submitted_at = Column("submitted_at", DateTime)
     finished_at = Column("finished_at", DateTime)
     expired_at = Column("expired_at", DateTime)
-    processing_metadata = Column(JSON())
+    _processing_metadata = Column('processing_metadata', JSON())
+    _running_metadata = Column('running_metadata', JSON())
     output_metadata = Column(JSON())
+
+    @property
+    def processing_metadata(self):
+        if self._processing_metadata and 'processing' in self._processing_metadata:
+            proc = self._processing_metadata['processing']
+            proc_data = None
+            if self._running_metadata and 'processing_data' in self._running_metadata:
+                proc_data = self._running_metadata['processing_data']
+            if proc is not None and proc_data is not None:
+                proc.metadata = proc_data
+                self._processing_metadata['processing'] = proc
+        return self._processing_metadata
+
+    @processing_metadata.setter
+    def processing_metadata(self, processing_metadata):
+        if self._processing_metadata is None:
+            self._processing_metadata = processing_metadata
+        if self._running_metadata is None:
+            self._running_metadata = {}
+        if processing_metadata and 'processing' in processing_metadata:
+            proc = processing_metadata['processing']
+            self._running_metadata['processing_data'] = proc.metadata
+
+    @property
+    def running_metadata(self):
+        return self._running_metadata
+
+    @running_metadata.setter
+    def running_metadata(self, running_metadata):
+        if self._running_metadata is None:
+            self._running_metadata = {}
+        if running_metadata:
+            for k in running_metadata:
+                if k != 'processing_data':
+                    self._running_metadata[k] = running_metadata[k]
+
+    def _items_extend(self):
+        return [('processing_metadata', self.processing_metadata),
+                ('running_metadata', self.running_metadata)]
+
+    def update(self, values, flush=True, session=None):
+        if values and 'processing_metadata' in values and 'processing' in values['processing_metadata']:
+            proc = values['processing_metadata']['processing']
+            if proc is not None:
+                if 'running_metadata' not in values:
+                    values['running_metadata'] = {}
+                values['running_metadata']['processing_data'] = proc.metadata
+        if values and 'processing_metadata' in values:
+            del values['processing_metadata']
+        if values and 'running_metadata' in values:
+            values['_running_metadata'] = values['running_metadata']
+            del values['running_metadata']
+        super(Transform, self).update(values, flush, session)
 
     _table_args = (PrimaryKeyConstraint('processing_id', name='PROCESSINGS_PK'),
                    ForeignKeyConstraint(['transform_id'], ['transforms.transform_id'], name='PROCESSINGS_TRANSFORM_ID_FK'),
@@ -321,7 +490,7 @@ class Content(BASE, ModelBase):
     updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     accessed_at = Column("accessed_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     expired_at = Column("expired_at", DateTime)
-    content_metadata = Column(JSON())
+    content_metadata = Column(JSONString())
 
     _table_args = (PrimaryKeyConstraint('content_id', name='CONTENTS_PK'),
                    # UniqueConstraint('name', 'scope', 'coll_id', 'content_type', 'min_id', 'max_id', name='CONTENT_SCOPE_NAME_UQ'),
@@ -366,9 +535,11 @@ class Message(BASE, ModelBase):
     substatus = Column(Integer())
     locking = Column(EnumWithValue(MessageLocking))
     source = Column(EnumWithValue(MessageSource))
+    destination = Column(EnumWithValue(MessageDestination))
     request_id = Column(BigInteger().with_variant(Integer, "sqlite"))
     workload_id = Column(Integer())
     transform_id = Column(Integer())
+    processing_id = Column(Integer())
     num_contents = Column(Integer())
     created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow)
     updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)

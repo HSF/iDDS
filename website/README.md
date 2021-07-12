@@ -1,5 +1,4 @@
-iDDS
-====
+idds-website
+============
 
-The publich website for http://idds.cern.ch
-
+idds-website subpackage is a general idds website.

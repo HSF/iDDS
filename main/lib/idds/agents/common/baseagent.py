@@ -45,6 +45,11 @@ class BaseAgent(TimerScheduler, PluginBase):
         if not hasattr(self, 'heartbeat_delay'):
             self.heartbeat_delay = 600
 
+        if not hasattr(self, 'poll_operation_time_period'):
+            self.poll_operation_time_period = 120
+        else:
+            self.poll_operation_time_period = int(self.poll_operation_time_period)
+
         self.plugins = {}
         self.plugin_sequence = []
 
@@ -147,6 +152,15 @@ class BaseAgent(TimerScheduler, PluginBase):
                                 task_args=tuple(), task_kwargs={}, delay_time=self.heartbeat_delay,
                                 priority=1)
         self.add_task(task)
+
+    def get_request_message(self, request_id, bulk_size=1):
+        return core_messages.retrieve_request_messages(request_id, bulk_size=bulk_size)
+
+    def get_transform_message(self, transform_id, bulk_size=1):
+        return core_messages.retrieve_transform_messages(transform_id, bulk_size=bulk_size)
+
+    def get_processing_message(self, processing_id, bulk_size=1):
+        return core_messages.retrieve_processing_messages(processing_id, bulk_size=bulk_size)
 
 
 if __name__ == '__main__':

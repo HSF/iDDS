@@ -184,7 +184,7 @@ def get_workprogress(workprogress_id, to_json=False, session=None):
         raise exceptions.NoObject('workprogress workprogress_id: %s cannot be found: %s' % (workprogress_id, error))
 
 
-@read_session
+@transactional_session
 def get_workprogresses_by_status(status, period=None, locking=False, bulk_size=None, to_json=False, session=None):
     """
     Get workprogresses.
@@ -220,6 +220,9 @@ def get_workprogresses_by_status(status, period=None, locking=False, bulk_size=N
                      .order_by(desc(models.Workprogress.priority))
         if bulk_size:
             query = query.limit(bulk_size)
+
+        if locking:
+            query = query.with_for_update(nowait=True, skip_locked=True)
 
         tmp = query.all()
         rets = []

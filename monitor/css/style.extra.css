@@ -1,0 +1,132 @@
+
+
+// ct visit chart
+#view_chartist_labels_status,
+#view_chartist_labels_files,
+#view_chartist_labels_bytes,
+#view_chartist_labels_type,
+#view_chartist_labels_files_type,
+#view_chartist_labels_bytes_type,
+#view_chartist {
+    position: relative;
+}
+
+/*
+#view_chartist_labels_status
+#view_chartist_labels_status
+#view_chartist_labels_files
+#view_chartist_labels_files
+#view_chartist_labels_bytes
+#view_chartist_labels_bytes
+#view_chartist_labels_type
+#view_chartist_labels_type
+#view_chartist_labels_files_type
+#view_chartist_labels_files_type
+#view_chartist_labels_bytes_type
+#view_chartist_labels_bytes_type
+
+#view_chartist .ct-series-a .ct-line,
+#view_chartist .ct-series-a .ct-point {
+    // stroke: #98a6ad;
+    stroke: blue;
+}*/
+
+.ct-series-a .ct-line,
+.ct-series-a .ct-point {
+    // stroke: #98a6ad;
+    stroke: blue;
+}
+.view_chartist_lable_0{color:blue!important}
+
+.ct-series-b .ct-line,
+.ct-series-b .ct-point {
+    // stroke: #41b3f9;
+    stroke: blueviolet;
+}
+.view_chartist_lable_1{color:blueviolet!important}
+
+.ct-series-c .ct-line,
+.ct-series-c .ct-point {
+    // stroke: #41b3f9;
+    stroke: cadetblue;
+}
+.view_chartist_lable_2{color:cadetblue!important}
+
+.ct-series-d .ct-line,
+.ct-series-d .ct-point {
+    // stroke: #41b3f9;
+    stroke: chartreuse;
+}
+.view_chartist_lable_3{color:chartreuse!important}
+
+.ct-series-e .ct-line,
+.ct-series-e .ct-point {
+    // stroke: #41b3f9;
+    stroke: crimson;
+}
+.view_chartist_lable_4{color:crimson!important}
+
+.ct-series-f .ct-line,
+.ct-series-f .ct-point {
+    // stroke: #41b3f9;
+    stroke: darkgreen;
+}
+.view_chartist_lable_5{color:darkgreen!important}
+
+.ct-series-g .ct-line,
+.ct-series-g .ct-point {
+    // stroke: #41b3f9;
+    stroke: deeppink;
+}
+.view_chartist_lable_6{color:deeppink!important}
+
+.ct-series-h .ct-line,
+.ct-series-h .ct-point {
+    // stroke: #41b3f9;
+    stroke: navy;
+}
+.view_chartist_lable_7{color:navy!important}
+
+.ct-series-i .ct-line,
+.ct-series-i .ct-point {
+    // stroke: #41b3f9;
+    stroke: red;
+}
+.view_chartist_lable_8{color:red!important}
+
+#view_chartist .ct-series-j .ct-line,
+#view_chartist .ct-series-j .ct-point {
+    // stroke: #41b3f9;
+    stroke: yellow;
+}
+.view_chartist_lable_9{color:yellow!important}
+
+.ct-series-k .ct-line,
+.ct-series-k .ct-point {
+    // stroke: #41b3f9;
+    stroke: orange;
+}
+.view_chartist_lable_10{color:orange!important}
+
+.ct-series-a .ct-area {
+    fill: #98a6ad;
+    fill-opacity: 0.05;
+}
+.ct-series-b .ct-area {
+    fill: #41b3f9;
+    fill-opacity: 0.1;
+}
+.ct-line {
+    stroke-width: 2px;
+}
+
+
+
+// data table
+div.dataTables_wrapper {
+        margin-bottom: 3em;
+}
+
+.wait_message {
+    color: red !important;
+}

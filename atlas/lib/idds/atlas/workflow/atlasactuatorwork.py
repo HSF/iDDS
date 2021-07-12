@@ -12,7 +12,6 @@ import copy
 import json
 import os
 import traceback
-import uuid
 
 from rucio.client.client import Client as RucioClient
 from rucio.common.exception import (CannotAuthenticate as RucioCannotAuthenticate)
@@ -23,6 +22,7 @@ from idds.common.constants import (TransformType, CollectionType, CollectionStat
                                    ProcessingStatus, WorkStatus)
 from idds.common.utils import run_command
 # from idds.workflow.work import Work
+from idds.workflow.work import Processing
 from idds.atlas.workflow.atlascondorwork import ATLASCondorWork
 
 
@@ -95,7 +95,7 @@ class ATLASActuatorWork(ATLASCondorWork):
 
     ##########################################   # noqa E266
     def generate_new_task(self):
-        self.logger.info("Work %s parameters for next task: %s" % (self.get_internal_id(), str(self.get_parameters_for_next_task())))
+        self.logger.info("Work %s parameters for next task: %s" % (self.internal_id, str(self.get_parameters_for_next_task())))
         if self.get_parameters_for_next_task():
             return True
         else:
@@ -120,39 +120,37 @@ class ATLASActuatorWork(ATLASCondorWork):
 
     def poll_external_collection(self, coll):
         try:
-            if 'status' in coll and coll['status'] in [CollectionStatus.Closed]:
+            if coll.status in [CollectionStatus.Closed]:
                 return coll
             else:
                 client = self.get_rucio_client()
-                did_meta = client.get_metadata(scope=coll['scope'], name=coll['name'])
-                if 'coll_metadata' not in coll:
-                    coll['coll_metadata'] = {}
-                coll['coll_metadata']['bytes'] = did_meta['bytes']
-                coll['coll_metadata']['total_files'] = did_meta['length']
-                coll['coll_metadata']['availability'] = did_meta['availability']
-                coll['coll_metadata']['events'] = did_meta['events']
-                coll['coll_metadata']['is_open'] = did_meta['is_open']
-                coll['coll_metadata']['run_number'] = did_meta['run_number']
-                coll['coll_metadata']['did_type'] = did_meta['did_type']
-                coll['coll_metadata']['list_all_files'] = False
+                did_meta = client.get_metadata(scope=coll.scope, name=coll.name)
+                coll.coll_metadata['bytes'] = did_meta['bytes']
+                coll.coll_metadata['total_files'] = did_meta['length']
+                coll.coll_metadata['availability'] = did_meta['availability']
+                coll.coll_metadata['events'] = did_meta['events']
+                coll.coll_metadata['is_open'] = did_meta['is_open']
+                coll.coll_metadata['run_number'] = did_meta['run_number']
+                coll.coll_metadata['did_type'] = did_meta['did_type']
+                coll.coll_metadata['list_all_files'] = False
 
-                if (('is_open' in coll['coll_metadata'] and not coll['coll_metadata']['is_open'])
-                   or ('force_close' in coll['coll_metadata'] and coll['coll_metadata']['force_close'])):  # noqa: W503
+                if (('is_open' in coll.coll_metadata and not coll.coll_metadata['is_open'])
+                   or ('force_close' in coll.coll_metadata and coll.coll_metadata['force_close'])):  # noqa: W503
                     coll_status = CollectionStatus.Closed
                 else:
                     coll_status = CollectionStatus.Open
-                coll['status'] = coll_status
+                coll.status = coll_status
 
-                if 'did_type' in coll['coll_metadata']:
-                    if coll['coll_metadata']['did_type'] == 'DATASET':
+                if 'did_type' in coll.coll_metadata:
+                    if coll.coll_metadata['did_type'] == 'DATASET':
                         coll_type = CollectionType.Dataset
-                    elif coll['coll_metadata']['did_type'] == 'CONTAINER':
+                    elif coll.coll_metadata['did_type'] == 'CONTAINER':
                         coll_type = CollectionType.Container
                     else:
                         coll_type = CollectionType.File
                 else:
                     coll_type = CollectionType.Dataset
-                coll['coll_type'] = coll_type
+                coll.coll_metadata['coll_type'] = coll_type
 
                 return coll
         except Exception as ex:
@@ -179,10 +177,10 @@ class ATLASActuatorWork(ATLASCondorWork):
             ret_file = {'coll_id': coll['coll_id'],
                         'scope': coll['scope'],
                         'name': coll['name'],
-                        'bytes': coll['coll_metadata']['bytes'],
+                        'bytes': coll.coll_metadata['bytes'],
                         'adler32': None,
                         'min_id': 0,
-                        'max_id': coll['coll_metadata']['total_files'],
+                        'max_id': coll.coll_metadata['total_files'],
                         'content_type': ContentType.File,
                         'content_metadata': {'total_files': coll['coll_metadata']['total_files']}
                         }
@@ -244,16 +242,19 @@ class ATLASActuatorWork(ATLASCondorWork):
 
         return new_input_output_maps
 
-    def get_processing(self, input_output_maps):
+    def get_processing(self, input_output_maps, without_creating=False):
         if self.active_processings:
             return self.processings[self.active_processings[0]]
         else:
-            return self.create_processing(input_output_maps)
+            if not without_creating:
+                return self.create_processing(input_output_maps)
+        return None
 
     def create_processing(self, input_output_maps):
-        proc = {'processing_metadata': {'internal_id': str(uuid.uuid1())}}
+        processing_metadata = {}
+        proc = Processing(processing_metadata=processing_metadata)
         self.add_processing_to_processings(proc)
-        self.active_processings.append(proc['processing_metadata']['internal_id'])
+        self.active_processings.append(proc.internal_id)
         return proc
 
     def get_status_statistics(self, registered_input_output_maps):
@@ -296,7 +297,7 @@ class ATLASActuatorWork(ATLASCondorWork):
 
         self.syn_collection_status()
 
-        if self.is_processings_terminated() and not self.has_new_inputs():
+        if self.is_processings_terminated() and not self.has_new_inputs:
             if self.is_processings_finished():
                 self.status = WorkStatus.Finished
             elif self.is_processings_failed():

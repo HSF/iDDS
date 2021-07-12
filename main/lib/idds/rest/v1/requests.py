@@ -16,8 +16,11 @@ from flask import Blueprint
 from idds.common import exceptions
 from idds.common.constants import HTTP_STATUS_CODE
 from idds.common.constants import RequestStatus
+from idds.common.constants import (MessageType, MessageStatus,
+                                   MessageSource, MessageDestination)
 from idds.common.utils import json_loads
-from idds.core.requests import add_request, get_requests, update_request
+from idds.core.requests import add_request, get_requests
+from idds.core.messages import add_message
 from idds.rest.v1.controller import IDDSController
 
 from idds.rest.v1.utils import convert_old_req_2_workflow_req
@@ -74,8 +77,8 @@ class Request(IDDSController):
                 parameters['status'] = RequestStatus.New
             if 'priority' not in parameters:
                 parameters['priority'] = 0
-            if 'lifetime' not in parameters:
-                parameters['lifetime'] = 30
+            # if 'lifetime' not in parameters:
+            #     parameters['lifetime'] = 30
         except ValueError:
             return self.generate_http_response(HTTP_STATUS_CODE.BadRequest, exc_cls=exceptions.BadRequest.__name__, exc_msg='Cannot decode json parameter dictionary')
 
@@ -110,7 +113,19 @@ class Request(IDDSController):
             return self.generate_http_response(HTTP_STATUS_CODE.BadRequest, exc_cls=exceptions.BadRequest.__name__, exc_msg='Cannot decode json parameter dictionary')
 
         try:
-            update_request(request_id, parameters)
+            # update_request(request_id, parameters)
+            # msg = {'command': 'update_request', 'parameters': {'status': RequestStatus.ToSuspend}})
+            msg = {'command': 'update_request', 'parameters': parameters}
+            add_message(msg_type=MessageType.IDDSCommunication,
+                        status=MessageStatus.New,
+                        destination=MessageDestination.Clerk,
+                        source=MessageSource.Rest,
+                        request_id=request_id,
+                        workload_id=None,
+                        transform_id=None,
+                        num_contents=1,
+                        msg_content=msg)
+
         except exceptions.NoObject as error:
             return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
         except exceptions.IDDSException as error:
@@ -122,7 +137,7 @@ class Request(IDDSController):
 
         return self.generate_http_response(HTTP_STATUS_CODE.OK, data={'status': 0, 'message': 'update successfully'})
 
-    def get(self, request_id, workload_id, with_detail):
+    def get(self, request_id, workload_id, with_detail, with_metadata=False):
         """ Get details about a specific Request with given id.
         HTTP Success:
             200 OK
@@ -141,9 +156,13 @@ class Request(IDDSController):
                 with_detail = True
             else:
                 with_detail = False
+            if with_metadata and with_metadata.lower() in ['true']:
+                with_metadata = True
+            else:
+                with_metadata = False
 
             # reqs = get_requests(request_id=request_id, workload_id=workload_id, to_json=True)
-            reqs = get_requests(request_id=request_id, workload_id=workload_id, with_detail=with_detail)
+            reqs = get_requests(request_id=request_id, workload_id=workload_id, with_detail=with_detail, with_metadata=with_metadata)
         except exceptions.NoObject as error:
             return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
         except exceptions.IDDSException as error:
@@ -174,4 +193,5 @@ def get_blueprint():
     bp.add_url_rule('/request', view_func=request_view, methods=['post', ])
     bp.add_url_rule('/request/<request_id>', view_func=request_view, methods=['put', ])
     bp.add_url_rule('/request/<request_id>/<workload_id>/<with_detail>', view_func=request_view, methods=['get', ])
+    bp.add_url_rule('/request/<request_id>/<workload_id>/<with_detail>/<with_metadata>', view_func=request_view, methods=['get', ])
     return bp
