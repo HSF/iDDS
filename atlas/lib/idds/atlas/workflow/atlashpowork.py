@@ -417,16 +417,13 @@ class ATLASHPOWork(ATLASCondorWork):
                 return
 
             keys = self.status_statistics.keys()
-            if ContentStatus.New.name in keys or ContentStatus.Processing.name in keys:
-                pass
-            else:
-                if len(keys) == 1:
-                    if ContentStatus.Available.name in keys:
-                        self.status = WorkStatus.Finished
-                    else:
-                        self.status = WorkStatus.Failed
+            if len(keys) == 1:
+                if ContentStatus.Available.name in keys:
+                    self.status = WorkStatus.Finished
                 else:
-                    self.status = WorkStatus.SubFinished
+                    self.status = WorkStatus.Failed
+            else:
+                self.status = WorkStatus.SubFinished
 
     ####### functions for carrier ########     # noqa E266
     ######################################     # noqa E266
@@ -675,7 +672,7 @@ class ATLASHPOWork(ATLASCondorWork):
         elif job_status in [ProcessingStatus.Failed]:
             processing_status = job_status
             processing_err = job_err_msg
-        elif self.is_processing_expired(processing):
+        elif self.toexpire:
             processing_status = ProcessingStatus.Expired
             processing_err = "The processing is expired"
         elif job_status in [ProcessingStatus.Cancelled]:

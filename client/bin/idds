@@ -52,6 +52,11 @@ def retry_requests(args):
     wm.retry(request_id=args.request_id, workload_id=args.workload_id)
 
 
+def finish_requests(args):
+    wm = ClientManager(host=args.host)
+    wm.finish(request_id=args.request_id, workload_id=args.workload_id, set_all_finished=args.set_all_finished)
+
+
 def download_logs(args):
     wm = ClientManager(host=args.host)
     wm.download_logs(request_id=args.request_id, workload_id=args.workload_id, dest_dir=args.dest_dir, filename=args.dest_filename)
@@ -79,6 +84,14 @@ def update_hyperparameter(args):
     wm = ClientManager(host=args.host)
     ret = wm.update_hyperparameter(workload_id=args.workload_id, request_id=args.request_id, id=args.id, loss=args.loss)
     print(ret)
+
+
+def get_messages(args):
+    wm = ClientManager(host=args.host)
+    ret = wm.get_messages(request_id=args.request_id, workload_id=args.workload_id)
+    status, msgs = ret
+    print("status: %s" % status)
+    print("messages: %s" % str(msgs))
 
 
 def get_parser():
@@ -120,10 +133,17 @@ def get_parser():
     resume_parser.add_argument('--workload_id', dest='workload_id', action='store', type=int, help='The workload id')
 
     # retry requests
-    retry_parser = subparsers.add_parser('retry_requests', help='Resume requests')
+    retry_parser = subparsers.add_parser('retry_requests', help='Retry requests')
     retry_parser.set_defaults(function=retry_requests)
     retry_parser.add_argument('--request_id', dest='request_id', action='store', type=int, help='The request id')
     retry_parser.add_argument('--workload_id', dest='workload_id', action='store', type=int, help='The workload id')
+
+    # finish requests
+    finish_parser = subparsers.add_parser('finish_requests', help='Finish requests')
+    finish_parser.set_defaults(function=finish_requests)
+    finish_parser.add_argument('--request_id', dest='request_id', action='store', type=int, help='The request id')
+    finish_parser.add_argument('--workload_id', dest='workload_id', action='store', type=int, help='The workload id')
+    finish_parser.add_argument('--set_all_finished', default=False, action='store_true', help="Mark unfinished transformations as finished")
 
     # download logs
     log_parser = subparsers.add_parser('download_logs', help='Download logs')
@@ -159,6 +179,12 @@ def get_parser():
     hp_update_parser.add_argument('--workload_id', dest='workload_id', action='store', type=int, help='The workload id')
     hp_update_parser.add_argument('--id', dest='id', action='store', type=int, help='The id of the hyperparameter')
     hp_update_parser.add_argument('--loss', dest='loss', action='store', type=float, help='The loss result to be updated')
+
+    # get messages
+    get_messages_parser = subparsers.add_parser('get_messages', help='Get messages')
+    get_messages_parser.set_defaults(function=get_messages)
+    get_messages_parser.add_argument('--request_id', dest='request_id', action='store', type=int, help='The request id')
+    get_messages_parser.add_argument('--workload_id', dest='workload_id', action='store', type=int, help='The workload id')
 
     return oparser
 

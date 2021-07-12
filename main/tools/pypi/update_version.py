@@ -22,7 +22,9 @@ ver_files = ['main/lib/idds/version.py',
              'workflow/lib/idds/workflow/version.py',
              'client/lib/idds/client/version.py',
              'doma/lib/idds/doma/version.py',
-             'website/version.py']
+             'website/version.py',
+             'monitor/version.py']
+
 
 env_files = ['atlas/tools/env/environment.yml',
              'common/tools/env/environment.yml',

@@ -308,9 +308,11 @@ CREATE TABLE MESSAGES
     substatus NUMBER(2),
     locking NUMBER(2),
     source NUMBER(2),
+    destination NUMBER(2),
     request_id NUMBER(12),
     workload_id NUMBER(10),
     transform_id NUMBER(12),
+    processing_id NUMBER(12),
     num_contents NUMBER(7),
     created_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)),
     updated_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)),
@@ -318,6 +320,8 @@ CREATE TABLE MESSAGES
     CONSTRAINT MESSAGES_PK PRIMARY KEY (msg_id) -- USING INDEX LOCAL,  
 );
 
+alter table messages add destination NUMBER(2);
+alter table messages add processing_id NUMBER(12);
 
 --- health
 CREATE SEQUENCE HEALTH_ID_SEQ MINVALUE 1 INCREMENT BY 1 START WITH 1 NOCACHE ORDER NOCYCLE GLOBAL;

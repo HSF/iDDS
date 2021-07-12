@@ -204,7 +204,7 @@
                     <div class="col-md-12 col-lg-12 col-sm-12">
                         <div class="white-box">
                             <div class="d-md-flex mb-3">
-                                <h3 class="box-title mb-0">Request Transforms</h3>
+                                <h3 class="box-title mb-0">Requests</h3>
                                 <h3 class="wait_message" id="wait_message"></h3>
                                 <!--
                                 <div class="col-md-3 col-sm-4 col-xs-6 ms-auto">
@@ -220,17 +220,13 @@
                             </div>
                             <div class="table-responsive">
                                 <!-- table class="table no-wrap display" -->
-                                <table id="transforms_table" class="display" style="width:100%">
+                                <table id="requests_table" class="display" style="width:100%">
                                     <thead>
                                         <tr>
                                             <th class="border-top-0">#</th>
                                             <th class="border-top-0">Request ID</th>
-                                            <th class="border-top-0">Workload ID</th>
-                                            <th class="border-top-0">Transform ID</th>
-                                            <th class="border-top-0">Transform Type</th>
-                                            <th class="border-top-0">Scope</th>
-                                            <th class="border-top-0">Name</th>
                                             <th class="border-top-0">Status</th>
+                                            <th class="border-top-0">Transforms</th>
                                             <th class="border-top-0">Created At</th>
                                             <th class="border-top-0">Updated At</th>
                                             <th class="border-top-0">Input Total files</th>
@@ -239,7 +235,7 @@
                                             <th class="border-top-0">Output Processed files</th>
                                         </tr>
                                     </thead>
-                                    <tbody id="transforms_table_body">
+                                    <tbody id="requests_table_body">
                                         <!--
                                         <tr>
                                             <td>1</td>
@@ -297,7 +293,7 @@
     <!--data table-->
     <script src="plugins/bower_components/jquery-datatables/jquery.dataTables.min.js"></script>
     <script src="conf.js"></script>
-    <script src="js/pages/dashboards/detail_transform.js"></script>
+    <script src="js/pages/dashboards/detail_request.js"></script>
 </body>
 
 </html>

@@ -9,7 +9,6 @@
 # - Wen Guan, <wen.guan@cern.ch>, 2019
 
 import datetime
-from collections import OrderedDict
 from traceback import format_exc
 
 from flask import Blueprint
@@ -24,23 +23,65 @@ class Monitor(IDDSController):
     """ Monitor """
 
     def get_month_list(self, start, end):
-        return list(OrderedDict(((start + datetime.timedelta(_)).strftime(r"%Y-%m"), None) for _ in range(max(1, (end - start).days))).keys())
+        mlist = []
+        total_months = lambda dt: dt.month + 12 * dt.year
+        for tot_m in range(total_months(start) - 1, total_months(end)):
+            y, m = divmod(tot_m, 12)
+            mlist.append(datetime.datetime(y, m + 1, 1).strftime("%Y-%m"))
+        return mlist
 
-    def get_requests(self, request_id, workload_id, with_detail=False, with_processing=False, with_metadata=False):
-        rets = []
-        # reqs = get_requests(request_id=request_id, workload_id=workload_id, to_json=True)
-        reqs = get_requests(request_id=request_id, workload_id=workload_id, with_detail=with_detail, with_processing=with_processing, with_metadata=False)
-        for req in reqs:
-            if with_processing:
-                ret = {'request_id': req['request_id'],
-                       'workload_id': req['workload_id'],
-                       'processing_id': req['processing_id'],
-                       'processing_status': req['processing_status'].name if req['processing_status'] else req['processing_status'],
-                       'processing_created_at': req['processing_created_at'],
-                       'processing_updated_at': req['processing_updated_at'],
-                       'processing_finished_at': req['processing_finished_at']
-                       }
-            elif with_detail:
+    def get_requests(self, request_id, workload_id, with_request=False, with_transform=False, with_processing=False):
+
+        if with_request:
+            rets, ret_reqs = [], {}
+            reqs = get_requests(request_id=request_id, workload_id=workload_id, with_detail=True, with_processing=False, with_metadata=False)
+            for req in reqs:
+                if req['request_id'] not in ret_reqs:
+                    ret_reqs[req['request_id']] = {'request_id': req['request_id'],
+                                                   'workload_id': req['workload_id'],
+                                                   'status': req['status'].name if req['status'] else req['status'],
+                                                   'created_at': req['created_at'],
+                                                   'updated_at': req['updated_at'],
+                                                   'transforms': {},
+                                                   'input_total_files': 0,
+                                                   'input_coll_bytes': 0,
+                                                   'input_processed_files': 0,
+                                                   'input_processing_files': 0,
+                                                   'output_total_files': 0,
+                                                   'output_coll_bytes': 0,
+                                                   'output_processed_files': 0,
+                                                   'output_processing_files': 0
+                                                   }
+                if req['transform_status']:
+                    if req['transform_status'].name not in ret_reqs[req['request_id']]['transforms']:
+                        ret_reqs[req['request_id']]['transforms'][req['transform_status'].name] = 0
+                    ret_reqs[req['request_id']]['transforms'][req['transform_status'].name] += 1
+
+                    if req['input_total_files']:
+                        ret_reqs[req['request_id']]['input_total_files'] += req['input_total_files']
+                    if req['input_coll_bytes']:
+                        ret_reqs[req['request_id']]['input_coll_bytes'] += req['input_coll_bytes']
+                    if req['input_processed_files']:
+                        ret_reqs[req['request_id']]['input_processed_files'] += req['input_processed_files']
+                    if req['input_processing_files']:
+                        ret_reqs[req['request_id']]['input_processing_files'] += req['input_processing_files']
+
+                    if req['output_total_files']:
+                        ret_reqs[req['request_id']]['output_total_files'] += req['output_total_files']
+                    if req['output_coll_bytes']:
+                        ret_reqs[req['request_id']]['output_coll_bytes'] += req['output_coll_bytes']
+                    if req['output_processed_files']:
+                        ret_reqs[req['request_id']]['output_processed_files'] += req['output_processed_files']
+                    if req['output_processing_files']:
+                        ret_reqs[req['request_id']]['output_processing_files'] += req['output_processing_files']
+
+            for req_id in ret_reqs:
+                rets.append(ret_reqs[req_id])
+            return rets
+        elif with_transform:
+            rets = []
+            reqs = get_requests(request_id=request_id, workload_id=workload_id, with_detail=True, with_processing=False, with_metadata=False)
+            for req in reqs:
                 ret = {'request_id': req['request_id'],
                        'transform_id': req['transform_id'],
                        'workload_id': req['workload_id'],
@@ -62,17 +103,36 @@ class Monitor(IDDSController):
                        'output_processing_files': req['output_processing_files'] if req['output_processing_files'] else 0,
                        'errors': req['errors']
                        }
-            else:
+                rets.append(ret)
+            return rets
+        elif with_processing:
+            rets = []
+            reqs = get_requests(request_id=request_id, workload_id=workload_id, with_detail=False, with_processing=True, with_metadata=False)
+            for req in reqs:
+                ret = {'request_id': req['request_id'],
+                       'workload_id': req['workload_id'],
+                       'processing_id': req['processing_id'],
+                       'processing_status': req['processing_status'].name if req['processing_status'] else req['processing_status'],
+                       'processing_created_at': req['processing_created_at'],
+                       'processing_updated_at': req['processing_updated_at'],
+                       'processing_finished_at': req['processing_finished_at']
+                       }
+                rets.append(ret)
+            return rets
+        else:
+            rets = []
+            reqs = get_requests(request_id=request_id, workload_id=workload_id, with_detail=False, with_processing=False, with_metadata=False)
+            for req in reqs:
                 ret = {'request_id': req['request_id'],
                        'workload_id': req['workload_id'],
                        'status': req['status'].name if req['status'] else req['status'],
                        'created_at': req['created_at'],
                        'updated_at': req['updated_at']
                        }
-            rets.append(ret)
-        return rets
+                rets.append(ret)
+            return rets
 
-    def get(self, request_id, workload_id, with_detail='false', with_processing='false', with_metadata='false'):
+    def get(self, request_id, workload_id, with_request='false', with_transform='false', with_processing='false'):
         """ Get details about a specific Request with given id.
         HTTP Success:
             200 OK
@@ -87,20 +147,23 @@ class Monitor(IDDSController):
                 request_id = None
             if workload_id == 'null':
                 workload_id = None
-            if with_detail and with_detail.lower() in ['true']:
-                with_detail = True
+            if with_request and with_request.lower() in ['true']:
+                with_request = True
             else:
-                with_detail = False
+                with_request = False
+            if with_transform and with_transform.lower() in ['true']:
+                with_transform = True
+            else:
+                with_transform = False
             if with_processing and with_processing.lower() in ['true']:
                 with_processing = True
             else:
                 with_processing = False
-            if with_metadata and with_metadata.lower() in ['true']:
-                with_metadata = True
-            else:
-                with_metadata = False
 
-            rets = self.get_requests(request_id=request_id, workload_id=workload_id, with_detail=with_detail, with_processing=with_processing, with_metadata=False)
+            rets = self.get_requests(request_id=request_id, workload_id=workload_id,
+                                     with_request=with_request,
+                                     with_transform=with_transform,
+                                     with_processing=with_processing)
         except exceptions.NoObject as error:
             return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
         except exceptions.IDDSException as error:
@@ -138,7 +201,9 @@ class MonitorRequest(Monitor):
             if workload_id == 'null':
                 workload_id = None
 
-            rets = self.get_requests(request_id=request_id, workload_id=workload_id, with_detail=False, with_processing=False, with_metadata=False)
+            rets = self.get_requests(request_id=request_id, workload_id=workload_id,
+                                     with_request=False, with_transform=False,
+                                     with_processing=False)
             status_dict = {'Total': {}}
             min_time, max_time = None, None
             for ret in rets:
@@ -199,7 +264,8 @@ class MonitorTransform(Monitor):
             if workload_id == 'null':
                 workload_id = None
 
-            rets = self.get_requests(request_id=request_id, workload_id=workload_id, with_detail=True, with_processing=False, with_metadata=False)
+            rets = self.get_requests(request_id=request_id, workload_id=workload_id,
+                                     with_request=False, with_transform=True, with_processing=False)
             status_dict = {'Total': {}}
             status_dict_by_type = {}
             processed_files, processed_bytes = {}, {}
@@ -345,7 +411,8 @@ class MonitorProcessing(Monitor):
             if workload_id == 'null':
                 workload_id = None
 
-            rets = self.get_requests(request_id=request_id, workload_id=workload_id, with_detail=False, with_processing=True, with_metadata=False)
+            rets = self.get_requests(request_id=request_id, workload_id=workload_id,
+                                     with_request=False, with_transform=False, with_processing=True)
             status_dict = {'Total': {}}
             min_time, max_time = None, None
             for ret in rets:
@@ -397,7 +464,7 @@ def get_blueprint():
     bp = Blueprint('monitor', __name__)
 
     monitor_view = Monitor.as_view('monitor')
-    bp.add_url_rule('/monitor/<request_id>/<workload_id>/<with_detail>/<with_processing>', view_func=monitor_view, methods=['get', ])
+    bp.add_url_rule('/monitor/<request_id>/<workload_id>/<with_request>/<with_transform>/<with_processing>', view_func=monitor_view, methods=['get', ])
 
     monitor_request_view = MonitorRequest.as_view('monitor_request')
     bp.add_url_rule('/monitor_request/<request_id>/<workload_id>', view_func=monitor_request_view, methods=['get', ])

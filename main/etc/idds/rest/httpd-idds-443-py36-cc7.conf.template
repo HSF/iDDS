@@ -6,8 +6,8 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2019
 
-TimeOut 600
-KeepAliveTimeout 600
+# TimeOut 600
+# KeepAliveTimeout 600
 
 # Built-in modules
 LoadModule ssl_module /usr/lib64/httpd/modules/mod_ssl.so
@@ -78,7 +78,7 @@ Alias "/monitor"     "/opt/idds/monitor"
         GridSiteDNlists /etc/grid-security/dn-lists/
         GridSiteGSIProxyLimit 16
         GridSiteEnvs on
-        GridSiteACLPath /etc/idds/rest/gacl
+        GridSiteACLPath /opt/idds/etc/idds/rest/gacl
     </LocationMatch>
 
     <LocationMatch "^/idds">

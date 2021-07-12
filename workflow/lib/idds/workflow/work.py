@@ -138,6 +138,8 @@ class Processing(Base):
         self.tosuspend = False
         self.toresume = False
         self.toexpire = False
+        self.tofinish = False
+        self.toforcefinish = False
         self.operation_time = datetime.datetime.utcnow()
         self.submitted_at = None
 
@@ -252,6 +254,28 @@ class Processing(Base):
         if old_value != value:
             self.operation_time = datetime.datetime.utcnow()
         self.add_metadata_item('toexpire', value)
+
+    @property
+    def tofinish(self):
+        return self.get_metadata_item('tofinish', False)
+
+    @tofinish.setter
+    def tofinish(self, value):
+        old_value = self.get_metadata_item('tofinish', False)
+        if old_value != value:
+            self.operation_time = datetime.datetime.utcnow()
+        self.add_metadata_item('tofinish', value)
+
+    @property
+    def toforcefinish(self):
+        return self.get_metadata_item('toforcefinish', False)
+
+    @toforcefinish.setter
+    def toforcefinish(self, value):
+        old_value = self.get_metadata_item('toforcefinish', False)
+        if old_value != value:
+            self.operation_time = datetime.datetime.utcnow()
+        self.add_metadata_item('toforcefinish', value)
 
     @property
     def operation_time(self):
@@ -426,6 +450,8 @@ class Work(Base):
         self.tosuspend = False
         self.toresume = False
         self.toexpire = False
+        self.tofinish = False
+        self.toforcefinish = False
 
         self.last_updated_at = datetime.datetime.utcnow()
 
@@ -716,6 +742,22 @@ class Work(Base):
         self.add_metadata_item('toexpire', value)
 
     @property
+    def tofinish(self):
+        return self.get_metadata_item('tofinish', False)
+
+    @tofinish.setter
+    def tofinish(self, value):
+        self.add_metadata_item('tofinish', value)
+
+    @property
+    def toforcefinish(self):
+        return self.get_metadata_item('toforcefinish', False)
+
+    @toforcefinish.setter
+    def toforcefinish(self, value):
+        self.add_metadata_item('toforcefinish', value)
+
+    @property
     def last_updated_at(self):
         last_updated_at = self.get_metadata_item('last_updated_at', None)
         if last_updated_at and type(last_updated_at) in [str]:
@@ -998,6 +1040,9 @@ class Work(Base):
         result.logger = logger
         return result
 
+    def depend_on(self, work):
+        return False
+
     def generate_work_from_template(self):
         logger = self.logger
         self.logger = None
@@ -1229,8 +1274,9 @@ class Work(Base):
                 < datetime.datetime.utcnow()):                                                                        # noqa: W503
 
                 if (processing and processing.status
-                    and processing.status not in [ProcessingStatus.New, ProcessingStatus.New.value,                   # noqa: W503
-                                                  ProcessingStatus.Submitting, ProcessingStatus.Submitting.value]):   # noqa: W503
+                    and processing.status not in [ProcessingStatus.New, ProcessingStatus.New.value]):                   # noqa: W503
+                    # and processing.status not in [ProcessingStatus.New, ProcessingStatus.New.value,                   # noqa: W503
+                    #                               ProcessingStatus.Submitting, ProcessingStatus.Submitting.value]):   # noqa: W503
                     return True
             return False
         return True
@@ -1296,11 +1342,14 @@ class Work(Base):
     def is_processing_substatus_new_operationing(self, processing):
         if processing.substatus in [ProcessingStatus.ToCancel,
                                     ProcessingStatus.ToSuspend,
-                                    ProcessingStatus.ToResume]:
+                                    ProcessingStatus.ToResume,
+                                    ProcessingStatus.ToFinish,
+                                    ProcessingStatus.ToForceFinish]:
             return True
         return False
 
     def is_processing_terminated(self, processing):
+        self.logger.debug("is_processing_terminated: status: %s, substatus: %s" % (processing.status, processing.substatus))
         if self.is_processing_substatus_new_operationing(processing):
             return False
 
@@ -1313,7 +1362,9 @@ class Work(Base):
                                      ProcessingStatus.ToSuspend,
                                      ProcessingStatus.Suspending,
                                      ProcessingStatus.ToResume,
-                                     ProcessingStatus.Resuming]:
+                                     ProcessingStatus.Resuming,
+                                     ProcessingStatus.ToFinish,
+                                     ProcessingStatus.ToForceFinish]:
             return True
         return False
 
@@ -1497,36 +1548,21 @@ class Work(Base):
             proc = processing['processing_metadata']['processing']
             proc.toexpire = True
 
-    """
-    def get_expired_at(self, processing=None):
-        if processing and 'expired_at' in processing and processing['expired_at']:
-            return processing['expired_at']
-        elif (self.agent_attributes and 'life_time' in self.agent_attributes and self.agent_attributes['life_time']):
-            # if processing and 'created_at' in processing and processing['created_at']:
-            #     return processing['created_at'] + datetime.timedelta(seconds=int(self.agent_attributes['life_time']))
-            # return datetime.datetime.utcnow() + datetime.timedelta(seconds=int(self.agent_attributes['life_time']))
-
-            if (processing and 'processing_metadata' in processing and processing['processing_metadata']                     # noqa W503
-                and 'processing' in processing['processing_metadata'] and processing['processing_metadata']['processing']):  # noqa W503
-                proc = processing['processing_metadata']['processing']
-
-                return proc.last_updated_at + datetime.timedelta(seconds=int(self.agent_attributes['life_time']))
-        return None
-
-    def is_processing_expired_old(self, processing):
-        if (self.agent_attributes and 'life_time' in self.agent_attributes and self.agent_attributes['life_time']):
-            time_diff = datetime.datetime.utcnow() - processing['created_at']
-            time_diff = time_diff.total_seconds()
-            if time_diff > int(self.agent_attributes['life_time']):
-                return True
-        return False
-
-    def is_processing_expired(self, processing):
-        if 'expired_at' in processing and processing['expired_at'] and processing['expired_at'] < datetime.datetime.utcnow():
-            self.logger.info("Processing %s expired" % processing['processing_id'])
-            return True
-        return False
-    """
+    def finish_processing(self, processing, forcing=False):
+        """
+        *** Function called by Carrier agent.
+        """
+        # raise exceptions.NotImplementedException
+        if forcing:
+            self.toforcefinish = True
+        else:
+            self.tofinish = True
+        if (processing and 'processing_metadata' in processing and processing['processing_metadata']                     # noqa W503
+            and 'processing' in processing['processing_metadata'] and processing['processing_metadata']['processing']):  # noqa W503
+            proc = processing['processing_metadata']['processing']
+            proc.tofinish = True
+            if forcing:
+                proc.toforcefinish = True
 
     def poll_processing_updates(self, processing, input_output_maps):
         """
@@ -1549,6 +1585,11 @@ class Work(Base):
         *** Function called by Transformer agent.
         """
         # raise exceptions.NotImplementedException
+        self.logger.debug("syn_work_status(%s): is_processings_terminated: %s" % (str(self.get_processing_ids()), str(self.is_processings_terminated())))
+        self.logger.debug("syn_work_status(%s): is_input_collections_closed: %s" % (str(self.get_processing_ids()), str(self.is_input_collections_closed())))
+        self.logger.debug("syn_work_status(%s): has_new_inputs: %s" % (str(self.get_processing_ids()), str(self.has_new_inputs)))
+        self.logger.debug("syn_work_status(%s): has_to_release_inputs: %s" % (str(self.get_processing_ids()), str(self.has_to_release_inputs())))
+        self.logger.debug("syn_work_status(%s): to_release_input_contents: %s" % (str(self.get_processing_ids()), str(to_release_input_contents)))
         if self.is_processings_terminated() and self.is_input_collections_closed() and not self.has_new_inputs and not self.has_to_release_inputs() and not to_release_input_contents:
             if not self.is_all_outputs_flushed(input_output_maps):
                 self.logger.warn("The work processings %s is terminated. but not all outputs are flushed. Wait to flush the outputs then finish the transform" % str(self.get_processing_ids()))
@@ -1568,6 +1609,7 @@ class Work(Base):
                 self.status = WorkStatus.Suspended
         else:
             self.status = WorkStatus.Transforming
+        self.logger.debug("syn_work_status(%s): work.status: %s" % (str(self.get_processing_ids()), str(self.status)))
 
     def sync_work_data(self, status, substatus, work):
         # self.status = work.status

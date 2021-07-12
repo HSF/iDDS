@@ -29,7 +29,8 @@ from idds.common.constants import (RequestType, RequestStatus, RequestLocking,
                                    CollectionStatus, CollectionLocking, CollectionType,
                                    CollectionRelationType, ContentType, ContentRelationType,
                                    ContentStatus, ContentLocking, GranularityType,
-                                   MessageType, MessageStatus, MessageLocking, MessageSource)
+                                   MessageType, MessageStatus, MessageLocking,
+                                   MessageSource, MessageDestination)
 from idds.common.utils import date_to_str
 from idds.orm.base.enum import EnumSymbol
 from idds.orm.base.types import JSON, JSONString, EnumWithValue
@@ -534,9 +535,11 @@ class Message(BASE, ModelBase):
     substatus = Column(Integer())
     locking = Column(EnumWithValue(MessageLocking))
     source = Column(EnumWithValue(MessageSource))
+    destination = Column(EnumWithValue(MessageDestination))
     request_id = Column(BigInteger().with_variant(Integer, "sqlite"))
     workload_id = Column(Integer())
     transform_id = Column(Integer())
+    processing_id = Column(Integer())
     num_contents = Column(Integer())
     created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow)
     updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)

@@ -22,7 +22,8 @@ from idds.orm import requests as orm_requests
 from idds.orm import transforms as orm_transforms
 from idds.orm import workprogress as orm_workprogresses
 from idds.orm import collections as orm_collections
-# from idds.atlas.worflow.utils import convert_request_metadata_to_workflow
+from idds.orm import messages as orm_messages
+from idds.core import messages as core_messages
 
 
 def create_request(scope=None, name=None, requester=None, request_type=None, transform_tag=None,
@@ -213,7 +214,9 @@ def generate_collections(transform):
 
 
 @transactional_session
-def update_request_with_transforms(request_id, parameters, new_transforms=None, update_transforms=None, session=None):
+def update_request_with_transforms(request_id, parameters,
+                                   new_transforms=None, update_transforms=None,
+                                   new_messages=None, update_messages=None, session=None):
     """
     update an request.
 
@@ -260,6 +263,11 @@ def update_request_with_transforms(request_id, parameters, new_transforms=None, 
     if update_transforms:
         for tr_id in update_transforms:
             orm_transforms.update_transform(transform_id=tr_id, parameters=update_transforms[tr_id], session=session)
+
+    if new_messages:
+        orm_messages.add_messages(new_messages, session=session)
+    if update_messages:
+        orm_messages.update_messages(update_messages, session=session)
     return orm_requests.update_request(request_id, parameters, session=session)
 
 
@@ -281,7 +289,41 @@ def update_request_with_workprogresses(request_id, parameters, new_workprogresse
 
 
 @transactional_session
-def get_requests_by_status_type(status, request_type=None, time_period=None, locking=False, bulk_size=None, to_json=False, by_substatus=False, session=None):
+def get_requests_with_messaging(locking=False, bulk_size=None, session=None):
+    msgs = core_messages.retrieve_request_messages(request_id=None, bulk_size=bulk_size, session=session)
+    if msgs:
+        req_ids = [msg['request_id'] for msg in msgs]
+        if locking:
+            req2s = orm_requests.get_requests_by_status_type(status=None, request_ids=req_ids,
+                                                             locking=locking, locking_for_update=True,
+                                                             bulk_size=None, session=session)
+            if req2s:
+                reqs = []
+                for req_id in req_ids:
+                    if len(reqs) >= bulk_size:
+                        break
+                    for req in req2s:
+                        if req['request_id'] == req_id:
+                            reqs.append(req)
+                            break
+            else:
+                reqs = []
+
+            parameters = {'locking': RequestLocking.Locking}
+            for req in reqs:
+                orm_requests.update_request(request_id=req['request_id'], parameters=parameters, session=session)
+            return reqs
+        else:
+            reqs = orm_requests.get_requests_by_status_type(status=None, request_ids=req_ids, locking=locking,
+                                                            locking_for_update=locking,
+                                                            bulk_size=bulk_size, session=session)
+            return reqs
+    else:
+        return []
+
+
+@transactional_session
+def get_requests_by_status_type(status, request_type=None, time_period=None, locking=False, bulk_size=None, to_json=False, by_substatus=False, with_messaging=False, session=None):
     """
     Get requests by status and type
 
@@ -294,6 +336,11 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, loc
 
     :returns: list of Request.
     """
+    if with_messaging:
+        reqs = get_requests_with_messaging(locking=locking, bulk_size=bulk_size, session=session)
+        if reqs:
+            return reqs
+
     if locking:
         if bulk_size:
             # order by cannot work together with locking. So first select 2 * bulk_size without locking with order by.

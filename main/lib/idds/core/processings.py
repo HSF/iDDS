@@ -21,6 +21,7 @@ from idds.orm import (processings as orm_processings,
                       contents as orm_contents,
                       messages as orm_messages,
                       transforms as orm_transforms)
+from idds.core import messages as core_messages
 
 
 @transactional_session
@@ -103,7 +104,41 @@ def get_processings_by_transform_id(transform_id=None, to_json=False, session=No
 
 
 @transactional_session
-def get_processings_by_status(status, time_period=None, locking=False, bulk_size=None, to_json=False, by_substatus=False, session=None):
+def get_processings_with_messaging(locking=False, bulk_size=None, session=None):
+    msgs = core_messages.retrieve_processing_messages(processing_id=None, bulk_size=bulk_size, session=session)
+    if msgs:
+        pr_ids = [msg['processing_id'] for msg in msgs]
+        if locking:
+            pr2s = orm_processings.get_processings_by_status(status=None, processing_ids=pr_ids,
+                                                             locking=locking, locking_for_update=True,
+                                                             bulk_size=None, session=session)
+            if pr2s:
+                prs = []
+                for pr_id in pr_ids:
+                    if len(prs) >= bulk_size:
+                        break
+                    for pr in pr2s:
+                        if pr['processing_id'] == pr_id:
+                            prs.append(pr)
+                            break
+            else:
+                prs = []
+
+            parameters = {'locking': ProcessingLocking.Locking}
+            for pr in prs:
+                orm_processings.update_processing(processing_id=pr['processing_id'], parameters=parameters, session=session)
+            return prs
+        else:
+            prs = orm_processings.get_processings_by_status(status=None, processing_ids=pr_ids, locking=locking,
+                                                            locking_for_update=locking,
+                                                            bulk_size=bulk_size, session=session)
+            return prs
+    else:
+        return []
+
+
+@transactional_session
+def get_processings_by_status(status, time_period=None, locking=False, bulk_size=None, to_json=False, by_substatus=False, with_messaging=False, session=None):
     """
     Get processing or raise a NoObject exception.
 
@@ -117,6 +152,11 @@ def get_processings_by_status(status, time_period=None, locking=False, bulk_size
 
     :returns: Processings.
     """
+    if with_messaging:
+        prs = get_processings_with_messaging(locking=locking, bulk_size=bulk_size, session=session)
+        if prs:
+            return prs
+
     if locking:
         if bulk_size:
             # order by cannot work together with locking. So first select 2 * bulk_size without locking with order by.
@@ -245,7 +285,7 @@ def update_processing_with_collection_contents(updated_processing, new_processin
 
 
 @transactional_session
-def update_processing_contents(processing_update, content_updates, session=None):
+def update_processing_contents(processing_update, content_updates, update_messages=None, session=None):
     """
     Update processing with contents.
 
@@ -258,6 +298,8 @@ def update_processing_contents(processing_update, content_updates, session=None)
         orm_processings.update_processing(processing_id=processing_update['processing_id'],
                                           parameters=processing_update['parameters'],
                                           session=session)
+    if update_messages:
+        orm_messages.update_messages(update_messages, session=session)
 
 
 @transactional_session

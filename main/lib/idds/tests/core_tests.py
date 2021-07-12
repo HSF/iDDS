@@ -32,15 +32,15 @@ def show_works(req):
     print(work_ids)
 
 
-reqs = get_requests(request_id=268, with_detail=False)
+reqs = get_requests(request_id=118, with_detail=False, with_metadata=True)
 for req in reqs:
     # print(req['request_id'])
     # print(rets)
-    # print(json_dumps(req, sort_keys=True, indent=4))
+    print(json_dumps(req, sort_keys=True, indent=4))
     # show_works(req)
     pass
 
-# sys.exit(0)
+sys.exit(0)
 
 # reqs = get_requests()
 # print(len(reqs))
@@ -57,27 +57,25 @@ tfs = get_transforms(transform_id=53550)
 for tf in tfs:
     # print(tf)
     # print(tf['transform_metadata']['work'].to_dict())
-    print(json_dumps(tf, sort_keys=True, indent=4))
+    # print(json_dumps(tf, sort_keys=True, indent=4))
     pass
 
-sys.exit(0)
-
-msgs = retrieve_messages()
+msgs = retrieve_messages(workload_id=25972557)
+number_contents = 0
 for msg in msgs:
     # if msg['msg_id'] in [323720]:
     # if True:
     # if msg['request_id'] in [208]:
-    if msg['transform_id'] in [1186]:
-        # print(msg)
-        # print(msg['msg_content'])
-        pass
+    print(json_dumps(msg['msg_content'], sort_keys=True, indent=4))
+    if msg['msg_content']['msg_type'] == 'file_stagein' and msg['msg_content']['relation_type'] == 'output':
+        # number_contents += len(msg['msg_content']['files'])
+        for i_file in msg['msg_content']['files']:
+            if i_file['status'] == 'Available':
+                number_contents += 1
     pass
+print(number_contents)
 
-wps = get_workprogresses()
-for wp in wps:
-    if wp['workprogress_id'] == 79:
-        # print(json_dumps(wp, sort_keys=True, indent=4))
-        pass
+sys.exit(0)
 
 prs = get_processings()
 for pr in prs:

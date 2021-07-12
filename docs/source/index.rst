@@ -55,6 +55,7 @@ User Documentation
 
    users/installing_client
    users/cli_examples
+   users/admin_guides
    users/contributing
 
 Source Codes

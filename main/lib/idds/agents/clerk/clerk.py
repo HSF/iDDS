@@ -19,7 +19,8 @@ except ImportError:
 
 from idds.common import exceptions
 from idds.common.constants import (Sections, RequestStatus, RequestLocking,
-                                   TransformStatus)
+                                   TransformStatus, MessageType, MessageStatus,
+                                   MessageSource, MessageDestination)
 from idds.common.utils import setup_logging
 from idds.core import (requests as core_requests,
                        transforms as core_transforms)
@@ -211,15 +212,11 @@ class Clerk(BaseAgent):
             req_status = [RequestStatus.Transforming, RequestStatus.ToCancel, RequestStatus.Cancelling,
                           RequestStatus.ToSuspend, RequestStatus.Suspending,
                           RequestStatus.ToExpire, RequestStatus.Expiring,
-                          RequestStatus.Resuming]
+                          RequestStatus.ToFinish, RequestStatus.ToForceFinish,
+                          RequestStatus.ToResume, RequestStatus.Resuming]
             reqs = core_requests.get_requests_by_status_type(status=req_status, time_period=None,
-                                                             locking=True, bulk_size=self.retrieve_bulk_size)
-
-            req_status = [RequestStatus.ToSuspend, RequestStatus.ToCancel, RequestStatus.ToResume, RequestStatus.ToExpire]
-            reqs_1 = core_requests.get_requests_by_status_type(status=req_status, time_period=None,
-                                                               locking=True, by_substatus=True, bulk_size=self.retrieve_bulk_size)
-
-            reqs = reqs + reqs_1
+                                                             locking=True, bulk_size=self.retrieve_bulk_size,
+                                                             with_messaging=True)
 
             self.logger.debug("Main thread get %s Transforming requests to running" % len(reqs))
             if reqs:
@@ -233,6 +230,34 @@ class Clerk(BaseAgent):
                 self.logger.error(ex)
                 self.logger.error(traceback.format_exc())
         return []
+
+    def get_message_for_update_request(self, req, req_status):
+        msg_content = {'command': 'update_request',
+                       'parameters': {'status': req_status}}
+        msg = {'msg_type': MessageType.IDDSCommunication,
+               'status': MessageStatus.New,
+               'destination': MessageDestination.Clerk,
+               'source': MessageSource.Clerk,
+               'request_id': req['request_id'],
+               'workload_id': req['workload_id'],
+               'transform_id': None,
+               'num_contents': 1,
+               'msg_content': msg_content}
+        return msg
+
+    def get_message_for_update_transform(self, tf, tf_status):
+        msg_content = {'command': 'update_transform',
+                       'parameters': {'status': tf_status}}
+        msg = {'msg_type': MessageType.IDDSCommunication,
+               'status': MessageStatus.New,
+               'destination': MessageDestination.Transformer,
+               'source': MessageSource.Clerk,
+               'request_id': tf['request_id'],
+               'workload_id': tf['workload_id'],
+               'transform_id': tf['transform_id'],
+               'num_contents': 1,
+               'msg_content': msg_content}
+        return msg
 
     def process_running_request_real(self, req):
         """
@@ -251,19 +276,7 @@ class Clerk(BaseAgent):
                 new_work.add_proxy(wf.get_proxy())
                 new_transform = self.generate_transform(req, new_work)
                 new_transforms.append(new_transform)
-            self.logger.debug("Processing request(%s): new transforms: %s" % (req['request_id'],
-                                                                              str(new_transforms)))
-
-        to_update_transforms = wf.to_update_transforms
-        if to_update_transforms:
-            tfs_status = {}
-            for tf_id in to_update_transforms:
-                try:
-                    core_transforms.update_transform(transform_id=tf_id, parameters=to_update_transforms[tf_id])
-                except Exception as ex:
-                    self.logger.warn("failed to update tranform %s to %s, record it for later update: %s" % (tf_id, to_update_transforms[tf_id]['substatus'], str(ex)))
-                    tfs_status[tf_id] = to_update_transforms[tf_id]
-            wf.to_update_transforms = tfs_status
+            self.logger.debug("Processing request(%s): new transforms: %s" % (req['request_id'], str(new_transforms)))
 
         # current works
         works = wf.get_current_works()
@@ -281,10 +294,10 @@ class Clerk(BaseAgent):
         if wf.is_terminated():
             if wf.is_finished():
                 req_status = RequestStatus.Finished
-            elif wf.is_expired():
-                req_status = RequestStatus.Expired
             elif wf.is_subfinished():
                 req_status = RequestStatus.SubFinished
+            elif wf.is_expired():
+                req_status = RequestStatus.Expired
             elif wf.is_failed():
                 req_status = RequestStatus.Failed
             elif wf.is_cancelled():
@@ -322,13 +335,47 @@ class Clerk(BaseAgent):
                       'request_metadata': req['request_metadata'],
                       'errors': {'msg': req_msg}}
 
+        new_messages = []
         if req_status == RequestStatus.ToExpire:
-            parameters['substatus'] = req_status
+            # parameters['substatus'] = req_status
+            new_message = self.get_message_for_update_request(req, req_status)
+            new_messages.append(new_message)
 
         ret = {'request_id': req['request_id'],
                'parameters': parameters,
+               'new_messages': new_messages,
                'new_transforms': new_transforms}   # 'update_transforms': update_transforms}
         return ret
+
+    def process_running_request_message(self, req, messages):
+        """
+        process running request message
+        """
+        try:
+            self.logger.info("process_running_request_message: request_id: %s, messages: %s" % (req['request_id'], str(messages) if messages else messages))
+            msg = messages[0]
+            message = messages[0]['msg_content']
+            if message['command'] == 'update_request':
+                parameters = message['parameters']
+                parameters['locking'] = RequestLocking.Idle
+                ret_req = {'request_id': req['request_id'],
+                           'parameters': parameters,
+                           'update_messages': [{'msg_id': msg['msg_id'], 'status': MessageStatus.Delivered}]
+                           }
+            else:
+                self.logger.error("Unknown message: %s" % str(msg))
+                ret_req = {'request_id': req['request_id'],
+                           'parameters': {'locking': RequestLocking.Idle},
+                           'update_messages': [{'msg_id': msg['msg_id'], 'status': MessageStatus.Failed}]
+                           }
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+            ret_req = {'request_id': req['request_id'],
+                       'parameters': {'status': RequestStatus.Failed,
+                                      'locking': RequestLocking.Idle,
+                                      'errors': {'msg': '%s: %s' % (ex, traceback.format_exc())}}}
+        return ret_req
 
     def process_running_request(self, req):
         """
@@ -349,54 +396,56 @@ class Clerk(BaseAgent):
         """
         process ToCancel/ToSuspend/ToResume/ToExpire request
         """
-        if req['substatus'] == RequestStatus.ToCancel:
+        if req['status'] == RequestStatus.ToCancel:
             tf_status = TransformStatus.ToCancel
             req_status = RequestStatus.Cancelling
-        if req['substatus'] == RequestStatus.ToSuspend:
+        elif req['status'] == RequestStatus.ToSuspend:
             tf_status = TransformStatus.ToSuspend
             req_status = RequestStatus.Suspending
-        if req['substatus'] == RequestStatus.ToResume:
+        elif req['status'] == RequestStatus.ToResume:
             tf_status = TransformStatus.ToResume
             req_status = RequestStatus.Resuming
-        if req['substatus'] == RequestStatus.ToExpire:
+        elif req['status'] == RequestStatus.ToExpire:
             tf_status = TransformStatus.ToExpire
             req_status = RequestStatus.Expiring
+        elif req['status'] == RequestStatus.ToFinish:
+            tf_status = TransformStatus.ToFinish
+            req_status = RequestStatus.Transforming
+        elif req['status'] == RequestStatus.ToForceFinish:
+            tf_status = TransformStatus.ToForceFinish
+            req_status = RequestStatus.Transforming
 
         processing_metadata = req['processing_metadata']
 
         wf = req['request_metadata']['workflow']
-        if req['substatus'] == RequestStatus.ToResume:
+        if req['status'] == RequestStatus.ToResume:
             wf.resume_works()
 
-        if 'operations' not in processing_metadata:
-            processing_metadata['operations'] = []
-        processing_metadata['operations'].append({'status': req['substatus'], 'time': datetime.datetime.utcnow()})
-
+        new_messages = []
         tfs = core_transforms.get_transforms(request_id=req['request_id'])
-        tfs_status = {}
         for tf in tfs:
             # if tf['status'] not in [RequestStatus.Finished, RequestStatus.SubFinished,
             #                         RequestStatus.Failed, RequestStatus.Cancelling,
             #                         RequestStatus.Cancelled, RequestStatus.Suspending,
             #                         RequestStatus.Suspended]:
             try:
-                core_transforms.update_transform(transform_id=tf['transform_id'], parameters={'substatus': tf_status})
+                # core_transforms.update_transform(transform_id=tf['transform_id'], parameters={'substatus': tf_status})
+                msg = self.get_message_for_update_transform(tf, tf_status)
+                new_messages.append(msg)
             except Exception as ex:
-                self.logger.warn("Failed to update tranform %s to %s, record it for later update: %s" % (tf['transform_id'], tf_status, str(ex)))
-                tfs_status[tf['transform_id']] = {'substatus': tf_status}
-        wf.to_update_transforms = tfs_status
+                self.logger.warn("Failed to add messages for tranform %s, record it for later update: %s" % (tf['transform_id'], str(ex)))
 
         # processing_metadata['workflow_data'] = wf.get_running_data()
 
         ret_req = {'request_id': req['request_id'],
                    'parameters': {'status': req_status,
-                                  'substatus': req_status,
                                   'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_operation_time_period),
                                   'request_metadata': req['request_metadata'],
                                   'processing_metadata': processing_metadata,
                                   'locking': RequestLocking.Idle},
                    # 'update_transforms': tfs_status
-                   'update_transforms': {}
+                   'update_transforms': {},
+                   'new_messages': new_messages
                    }
         return ret_req
 
@@ -425,13 +474,19 @@ class Clerk(BaseAgent):
                 req = self.running_task_queue.get()
                 if req:
                     self.running_processing_size += 1
-                    if req['substatus'] in [RequestStatus.ToCancel, RequestStatus.ToSuspend, RequestStatus.ToResume, RequestStatus.ToExpire]:
+                    if req['status'] in [RequestStatus.ToCancel, RequestStatus.ToSuspend,
+                                         RequestStatus.ToResume, RequestStatus.ToExpire,
+                                         RequestStatus.ToFinish, RequestStatus.ToForceFinish]:
                         self.logger.info("Main thread processing operating requst: %s" % req)
                         ret_req = self.process_operating_request(req)
-                    # elif req['status'] in [RequestStatus.Transforming, RequestStatus.Cancelling, RequestStatus.Suspending, RequestStatus.Resuming]:
                     else:
-                        self.logger.info("Main thread processing running requst: %s" % req)
-                        ret_req = self.process_running_request(req)
+                        msgs = self.get_request_message(request_id=req['request_id'], bulk_size=1)
+                        if msgs:
+                            self.logger.info("Main thread processing running requst with message: %s" % req)
+                            ret_req = self.process_running_request_message(req, msgs)
+                        else:
+                            self.logger.info("Main thread processing running requst: %s" % req)
+                            ret_req = self.process_running_request(req)
                     self.running_processing_size -= 1
 
                     if ret_req:
@@ -461,7 +516,9 @@ class Clerk(BaseAgent):
 
                 core_requests.update_request_with_transforms(req['request_id'], req['parameters'],
                                                              new_transforms=new_transforms,
-                                                             update_transforms=update_transforms)
+                                                             update_transforms=update_transforms,
+                                                             new_messages=req.get('new_messages', None),
+                                                             update_messages=req.get('update_messages', None))
 
             except Exception as ex:
                 self.logger.error(ex)

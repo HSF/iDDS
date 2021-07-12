@@ -24,12 +24,13 @@ from idds.client.catalogclient import CatalogClient
 from idds.client.cacherclient import CacherClient
 from idds.client.hpoclient import HPOClient
 from idds.client.logsclient import LogsClient
+from idds.client.messageclient import MessageClient
 
 
 warnings.filterwarnings("ignore")
 
 
-class Client(RequestClient, CatalogClient, CacherClient, HPOClient, LogsClient):
+class Client(RequestClient, CatalogClient, CacherClient, HPOClient, LogsClient, MessageClient):
 
     """Main client class for IDDS rest callings."""
 
@@ -53,7 +54,7 @@ class Client(RequestClient, CatalogClient, CacherClient, HPOClient, LogsClient):
 
         client_proxy = get_proxy_path()
 
-        if not os.path.exists(client_proxy):
+        if not client_proxy or not os.path.exists(client_proxy):
             raise exceptions.RestException("Cannot find a valid x509 proxy.")
 
         return client_proxy

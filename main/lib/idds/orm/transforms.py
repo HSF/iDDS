@@ -249,7 +249,7 @@ def get_transform_ids(workprogress_id=None, request_id=None, workload_id=None, t
 
 
 @read_session
-def get_transforms(request_id=None, workload_id=None, transform_id=None, workprogress_id=None,
+def get_transforms(request_id=None, workload_id=None, transform_id=None,
                    to_json=False, session=None):
     """
     Get transforms or raise a NoObject exception.
@@ -271,8 +271,6 @@ def get_transforms(request_id=None, workload_id=None, transform_id=None, workpro
             query = query.filter(models.Transform.workload_id == workload_id)
         if transform_id:
             query = query.filter(models.Transform.transform_id == transform_id)
-        if workprogress_id:
-            query = query.join(models.Workprogress2transform, and_(models.Workprogress2transform.workprogress_id == workprogress_id))
 
         tmp = query.all()
         rets = []
@@ -308,20 +306,22 @@ def get_transforms_by_status(status, period=None, transform_ids=[], locking=Fals
     :returns: list of transform.
     """
     try:
-        if not isinstance(status, (list, tuple)):
-            status = [status]
-        if len(status) == 1:
-            status = [status[0], status[0]]
+        if status:
+            if not isinstance(status, (list, tuple)):
+                status = [status]
+            if len(status) == 1:
+                status = [status[0], status[0]]
 
         if only_return_id:
             query = session.query(models.Transform.transform_id)
         else:
             query = session.query(models.Transform)
 
-        if by_substatus:
-            query = query.filter(models.Transform.substatus.in_(status))
-        else:
-            query = query.filter(models.Transform.status.in_(status))
+        if status:
+            if by_substatus:
+                query = query.filter(models.Transform.substatus.in_(status))
+            else:
+                query = query.filter(models.Transform.status.in_(status))
             query = query.filter(models.Transform.next_poll_at <= datetime.datetime.utcnow())
 
         if transform_ids:

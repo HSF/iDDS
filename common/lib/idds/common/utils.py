@@ -428,24 +428,26 @@ def get_proxy_path():
     try:
         if 'X509_USER_PROXY' in os.environ:
             proxy = os.environ['X509_USER_PROXY']
-            if os.access(proxy, os.R_OK):
+            if os.path.exists(proxy) and os.access(proxy, os.R_OK):
                 return proxy
         proxy = '/tmp/x509up_u%s' % os.getuid()
-        if os.access(proxy, os.R_OK):
+        if os.path.exists(proxy) and os.access(proxy, os.R_OK):
             return proxy
-    except Exception:
-        pass
+    except Exception as ex:
+        raise IDDSException("Cannot find User proxy: %s" % str(ex))
     return None
 
 
 def get_proxy():
     try:
         proxy = get_proxy_path()
+        if not proxy:
+            return proxy
         with open(proxy, 'r') as fp:
             data = fp.read()
         return data
-    except Exception:
-        pass
+    except Exception as ex:
+        raise IDDSException("Cannot find User proxy: %s" % str(ex))
     return None
 
 

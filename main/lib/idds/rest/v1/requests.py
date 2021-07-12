@@ -16,8 +16,11 @@ from flask import Blueprint
 from idds.common import exceptions
 from idds.common.constants import HTTP_STATUS_CODE
 from idds.common.constants import RequestStatus
+from idds.common.constants import (MessageType, MessageStatus,
+                                   MessageSource, MessageDestination)
 from idds.common.utils import json_loads
-from idds.core.requests import add_request, get_requests, update_request
+from idds.core.requests import add_request, get_requests
+from idds.core.messages import add_message
 from idds.rest.v1.controller import IDDSController
 
 from idds.rest.v1.utils import convert_old_req_2_workflow_req
@@ -110,7 +113,19 @@ class Request(IDDSController):
             return self.generate_http_response(HTTP_STATUS_CODE.BadRequest, exc_cls=exceptions.BadRequest.__name__, exc_msg='Cannot decode json parameter dictionary')
 
         try:
-            update_request(request_id, parameters)
+            # update_request(request_id, parameters)
+            # msg = {'command': 'update_request', 'parameters': {'status': RequestStatus.ToSuspend}})
+            msg = {'command': 'update_request', 'parameters': parameters}
+            add_message(msg_type=MessageType.IDDSCommunication,
+                        status=MessageStatus.New,
+                        destination=MessageDestination.Clerk,
+                        source=MessageSource.Rest,
+                        request_id=request_id,
+                        workload_id=None,
+                        transform_id=None,
+                        num_contents=1,
+                        msg_content=msg)
+
         except exceptions.NoObject as error:
             return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
         except exceptions.IDDSException as error:

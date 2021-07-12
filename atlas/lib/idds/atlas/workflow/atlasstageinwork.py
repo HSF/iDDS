@@ -328,7 +328,7 @@ class ATLASStageinWork(Work):
         if rule_state == 'OK' and content_substatus['finished'] > 0 and content_substatus['unfinished'] == 0:
             update_processing = {'processing_id': processing['processing_id'],
                                  'parameters': {'status': ProcessingStatus.Finished}}
-        elif self.is_processing_expired(processing):
+        elif self.toexpire:
             update_processing = {'processing_id': processing['processing_id'],
                                  'parameters': {'status': ProcessingStatus.Expired}}
         elif self.tocancel:
@@ -344,6 +344,21 @@ class ATLASStageinWork(Work):
             processing['expired_at'] = None
             proc = processing['processing_metadata']['processing']
             proc.has_new_updates()
+        elif self.tofinish:
+            update_processing = {'processing_id': processing['processing_id'],
+                                 'parameters': {'status': ProcessingStatus.SubFinished}}
+        elif self.toforcefinish:
+            for map_id in input_output_maps:
+                outputs = input_output_maps[map_id]['outputs']
+                for content in outputs:
+                    if content['substatus'] not in [ContentStatus.Available, ContentStatus.FakeAvailable]:
+                        updated_content = {'content_id': content['content_id'],
+                                           'substatus': ContentStatus.FakeAvailable}
+                        updated_contents.append(updated_content)
+                        content['substatus'] = ContentStatus.FakeAvailable
+
+            update_processing = {'processing_id': processing['processing_id'],
+                                 'parameters': {'status': ProcessingStatus.Finished}}
 
         if updated_contents:
             proc = processing['processing_metadata']['processing']
@@ -374,39 +389,25 @@ class ATLASStageinWork(Work):
         self.status_statistics = status_statistics
         return status_statistics
 
-    """
-    def syn_collection_status(self):
-        input_collections = self.get_input_collections()
-        output_collections = self.get_output_collections()
-        # log_collections = self.get_log_collections()
-
-        for input_collection in input_collections:
-            input_collection['processed_files'] = self.num_mapped_inputs
-
-        for output_collection in output_collections:
-            output_collection['total_files'] = self.total_output_files
-            output_collection['processed_files'] = self.processed_output_file
-    """
-
     def syn_work_status(self, registered_input_output_maps, all_updates_flushed=True, output_statistics={}, to_release_input_contents=[]):
         super(ATLASStageinWork, self).syn_work_status(registered_input_output_maps)
         self.get_status_statistics(registered_input_output_maps)
 
         # self.syn_collection_status()
 
+        self.logger.debug("syn_work_status(%s): is_processings_terminated: %s" % (str(self.get_processing_ids()), str(self.is_processings_terminated())))
+        self.logger.debug("syn_work_status(%s): has_new_inputs: %s" % (str(self.get_processing_ids()), str(self.has_new_inputs)))
         if self.is_processings_terminated() and not self.has_new_inputs:
             if not self.is_all_outputs_flushed(registered_input_output_maps):
                 self.logger.warn("The processing is terminated. but not all outputs are flushed. Wait to flush the outputs then finish the transform")
                 return
 
             keys = self.status_statistics.keys()
-            if ContentStatus.New.name in keys or ContentStatus.Processing.name in keys:
-                pass
-            else:
-                if len(keys) == 1:
-                    if ContentStatus.Available.name in keys:
-                        self.status = WorkStatus.Finished
-                    else:
-                        self.status = WorkStatus.Failed
+            if len(keys) == 1:
+                if ContentStatus.Available.name in keys:
+                    self.status = WorkStatus.Finished
                 else:
-                    self.status = WorkStatus.SubFinished
+                    self.status = WorkStatus.Failed
+            else:
+                self.status = WorkStatus.SubFinished
+        self.logger.debug("syn_work_status(%s): work.status: %s" % (str(self.get_processing_ids()), str(self.status)))

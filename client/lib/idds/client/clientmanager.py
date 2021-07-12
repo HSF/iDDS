@@ -87,7 +87,8 @@ class ClientManager:
             rets = []
             for req in reqs:
                 logging.info("Aborting request: %s" % req['request_id'])
-                self.client.update_request(request_id=req['request_id'], parameters={'substatus': RequestStatus.ToCancel})
+                # self.client.update_request(request_id=req['request_id'], parameters={'substatus': RequestStatus.ToCancel})
+                self.client.send_message(request_id=req['request_id'], msg={'command': 'update_request', 'parameters': {'status': RequestStatus.ToCancel}})
                 logging.info("Abort request registered successfully: %s" % req['request_id'])
                 ret = (0, "Abort request registered successfully: %s" % req['request_id'])
                 rets.append(ret)
@@ -112,7 +113,8 @@ class ClientManager:
             rets = []
             for req in reqs:
                 logging.info("Suspending request: %s" % req['request_id'])
-                self.client.update_request(request_id=req['request_id'], parameters={'substatus': RequestStatus.ToSuspend})
+                # self.client.update_request(request_id=req['request_id'], parameters={'substatus': RequestStatus.ToSuspend})
+                self.client.send_message(request_id=req['request_id'], msg={'command': 'update_request', 'parameters': {'status': RequestStatus.ToSuspend}})
                 logging.info("Suspend request registered successfully: %s" % req['request_id'])
                 ret = (0, "Suspend request registered successfully: %s" % req['request_id'])
                 rets.append(ret)
@@ -137,7 +139,8 @@ class ClientManager:
             rets = []
             for req in reqs:
                 logging.info("Resuming request: %s" % req['request_id'])
-                self.client.update_request(request_id=req['request_id'], parameters={'substatus': RequestStatus.ToResume})
+                # self.client.update_request(request_id=req['request_id'], parameters={'substatus': RequestStatus.ToResume})
+                self.client.send_message(request_id=req['request_id'], msg={'command': 'update_request', 'parameters': {'status': RequestStatus.ToResume}})
                 logging.info("Resume request registered successfully: %s" % req['request_id'])
                 ret = (0, "Resume request registered successfully: %s" % req['request_id'])
                 rets.append(ret)
@@ -162,9 +165,40 @@ class ClientManager:
             rets = []
             for req in reqs:
                 logging.info("Retrying request: %s" % req['request_id'])
-                self.client.update_request(request_id=req['request_id'], parameters={'substatus': RequestStatus.ToResume})
+                # self.client.update_request(request_id=req['request_id'], parameters={'substatus': RequestStatus.ToResume})
+                self.client.send_message(request_id=req['request_id'], msg={'command': 'update_request', 'parameters': {'status': RequestStatus.ToResume}})
                 logging.info("Retry request registered successfully: %s" % req['request_id'])
                 ret = (0, "Retry request registered successfully: %s" % req['request_id'])
+                rets.append(ret)
+            return rets
+        else:
+            return (-1, 'No matching requests')
+
+    @exception_handler
+    def finish(self, request_id=None, workload_id=None, set_all_finished=False):
+        """
+        Retry requests.
+
+        :param workload_id: the workload id.
+        :param request_id: the request.
+        """
+        if request_id is None and workload_id is None:
+            logging.error("Both request_id and workload_id are None. One of them should not be None")
+            return (-1, "Both request_id and workload_id are None. One of them should not be None")
+
+        reqs = self.client.get_requests(request_id=request_id, workload_id=workload_id)
+        if reqs:
+            rets = []
+            for req in reqs:
+                logging.info("Finishing request: %s" % req['request_id'])
+                if set_all_finished:
+                    # self.client.update_request(request_id=req['request_id'], parameters={'substatus': RequestStatus.ToForceFinish})
+                    self.client.send_message(request_id=req['request_id'], msg={'command': 'update_request', 'parameters': {'status': RequestStatus.ToForceFinish}})
+                else:
+                    # self.client.update_request(request_id=req['request_id'], parameters={'substatus': RequestStatus.ToFinish})
+                    self.client.send_message(request_id=req['request_id'], msg={'command': 'update_request', 'parameters': {'status': RequestStatus.ToFinish}})
+                logging.info("ToFinish request registered successfully: %s" % req['request_id'])
+                ret = (0, "ToFinish request registered successfully: %s" % req['request_id'])
                 rets.append(ret)
             return rets
         else:
@@ -268,3 +302,20 @@ class ClientManager:
         :raise exceptions if it's not updated successfully.
         """
         return self.client.update_hyperparameter(workload_id=workload_id, request_id=request_id, id=id, loss=loss)
+
+    @exception_handler
+    def get_messages(self, request_id=None, workload_id=None):
+        """
+        Get messages.
+
+        :param workload_id: the workload id.
+        :param request_id: the request.
+        """
+        if request_id is None and workload_id is None:
+            logging.error("Both request_id and workload_id are None. One of them should not be None")
+            return (-1, "Both request_id and workload_id are None. One of them should not be None")
+
+        logging.info("Retrieving messages for request_id: %s, workload_id: %s" % (request_id, workload_id))
+        msgs = self.client.get_messages(request_id=request_id, workload_id=workload_id)
+        logging.info("Retrieved %s messages for request_id: %s, workload_id: %s" % (len(msgs), request_id, workload_id))
+        return (0, msgs)

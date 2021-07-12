@@ -34,7 +34,19 @@ $(function () {
             axisY: {
                 labelInterpolationFnc: function (value) {
                     // return (value / 1) + 'k';
-                    return value;
+                    if (value > 1000000000000000) {
+                        return (value / 1000000000000000) + 'P';
+                    } else if (value > 1000000000000) {
+                        return (value / 1000000000000) + 'T';
+                    } else if (value > 1000000000) {
+                        return (value / 1000000000) + 'G';
+                    } else if (value > 1000000) {
+                        return (value / 1000000) + 'M';
+                    } else if (value > 1000) {
+                        return (value / 1000) + 'K';
+                    } else {
+                        return value;
+                    }
                 }
             },
             showArea: false
@@ -78,7 +90,7 @@ $(function () {
                 return data[select_option][key];
             });
             num_monthly = [num_monthly];
-            draw_chartist(g_types, group_types_name, chartist_name, labels, num_monthly);
+            draw_chartist([select_option], group_types_name, chartist_name, labels, num_monthly);
         }
     }
 

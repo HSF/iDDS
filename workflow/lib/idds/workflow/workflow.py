@@ -574,10 +574,60 @@ class Workflow(Base):
             return self.get_works_template()[keys[0]].get_primary_input_collection()
         return None
 
+    def get_dependency_works(self, work_id, depth, max_depth):
+        if depth > max_depth:
+            return []
+
+        deps = []
+        for dep_work_id in self.work_dependencies[work_id]:
+            deps.append(dep_work_id)
+            l_deps = self.get_dependency_works(dep_work_id, depth + 1, max_depth)
+            deps += l_deps
+        deps = list(dict.fromkeys(deps))
+        return deps
+
+    def order_independent_works(self):
+        ind_work_ids = self.independent_works
+        self.independent_works = []
+        self.work_dependencies = {}
+        for ind_work_id in ind_work_ids:
+            work = self.works_template[ind_work_id]
+            self.work_dependencies[ind_work_id] = []
+            for ind_work_id1 in ind_work_ids:
+                if ind_work_id == ind_work_id1:
+                    continue
+                work1 = self.works_template[ind_work_id1]
+                if work.depend_on(work1):
+                    self.work_dependencies[ind_work_id].append(ind_work_id1)
+        self.log_debug('work dependencies 1: %s' % str(self.work_dependencies))
+
+        max_depth = len(ind_work_ids) + 1
+        work_dependencies = copy.deepcopy(self.work_dependencies)
+        for work_id in work_dependencies:
+            deps = self.get_dependency_works(work_id, 0, max_depth)
+            self.work_dependencies[work_id] = deps
+        self.log_debug('work dependencies 2: %s' % str(self.work_dependencies))
+
+        while True:
+            for work_id in self.work_dependencies:
+                if work_id not in self.independent_works and len(self.work_dependencies[work_id]) == 0:
+                    self.independent_works.append(work_id)
+            for work_id in self.independent_works:
+                if work_id in self.work_dependencies:
+                    del self.work_dependencies[work_id]
+            for work_id in self.work_dependencies:
+                for in_work_id in self.independent_works:
+                    if in_work_id in self.work_dependencies[work_id]:
+                        self.work_dependencies[work_id].remove(in_work_id)
+            if not self.work_dependencies:
+                break
+        self.log_debug('independent_works: %s' % str(self.independent_works))
+
     def first_initialize(self):
         # set new_to_run works
         if not self.first_initial:
             self.first_initial = True
+            self.order_independent_works()
             if self.initial_works:
                 tostart_works = self.initial_works
             elif self.independent_works:
@@ -628,6 +678,14 @@ class Workflow(Base):
                     self.num_cancelled_works += 1
                 elif work.is_suspended():
                     self.num_suspended_works += 1
+        log_str = "num_total_works: %s" % self.num_total_works
+        log_str += ", num_finished_works: %s" % self.num_finished_works
+        log_str += ", num_subfinished_works: %s" % self.num_subfinished_works
+        log_str += ", num_failed_works: %s" % self.num_failed_works
+        log_str += ", num_expired_works: %s" % self.num_expired_works
+        log_str += ", num_cancelled_works: %s" % self.num_cancelled_works
+        log_str += ", num_suspended_works: %s" % self.num_suspended_works
+        self.log_debug(log_str)
 
     def resume_works(self):
         self.num_subfinished_works = 0
@@ -652,6 +710,7 @@ class Workflow(Base):
         self.num_cancelled_works = 0
         self.num_suspended_works = 0
         self.num_expired_works = 0
+        self.num_total_works = 0
 
         self.last_updated_at = datetime.datetime.utcnow()
 
@@ -699,7 +758,7 @@ class Workflow(Base):
         """
         *** Function called by Marshaller agent.
         """
-        return self.is_terminated() and (self.num_finished_works > 0 and self.num_finished_works < self.num_total_works)
+        return self.is_terminated() and (self.num_finished_works + self.num_subfinished_works > 0 and self.num_finished_works + self.num_subfinished_works <= self.num_total_works)
 
     def is_failed(self):
         """

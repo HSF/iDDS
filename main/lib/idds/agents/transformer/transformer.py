@@ -23,7 +23,7 @@ from idds.common.constants import (Sections, TransformStatus, TransformLocking, 
                                    ContentRelationType, CollectionStatus,
                                    ContentType, ContentStatus,
                                    ProcessingStatus, MessageType, MessageTypeStr,
-                                   MessageStatus, MessageSource)
+                                   MessageStatus, MessageSource, MessageDestination)
 from idds.common.utils import setup_logging
 from idds.core import (transforms as core_transforms,
                        processings as core_processings,
@@ -193,7 +193,14 @@ class Transformer(BaseAgent):
 
     def is_all_inputs_dependency_available(self, inputs_dependency):
         for content in inputs_dependency:
-            if content['status'] != ContentStatus.Available:
+            if content['status'] not in [ContentStatus.Available, ContentStatus.FakeAvailable]:
+                return False
+        return True
+
+    def is_all_inputs_dependency_terminated(self, inputs_dependency):
+        for content in inputs_dependency:
+            if content['status'] not in [ContentStatus.Available, ContentStatus.FakeAvailable,
+                                         ContentStatus.FinalFailed, ContentStatus.Missing]:
                 return False
         return True
 
@@ -207,6 +214,7 @@ class Transformer(BaseAgent):
             inputs_dependency = registered_input_output_maps[map_id]['inputs_dependency'] if 'inputs_dependency' in registered_input_output_maps[map_id] else []
 
             if self.is_all_inputs_dependency_available(inputs_dependency):
+                self.logger.debug("all input dependency available: %s, inputs: %s" % (str(inputs_dependency), str(inputs)))
                 for content in inputs:
                     content['substatus'] = ContentStatus.Available
                     if content['status'] != content['substatus']:
@@ -216,6 +224,26 @@ class Transformer(BaseAgent):
                         content['status'] = content['substatus']
                         updated_contents.append(updated_content)
                         updated_input_contents_full.append(content)
+            elif self.is_all_inputs_dependency_terminated(inputs_dependency):
+                self.logger.debug("all input dependency terminated: %s, inputs: %s, outputs: %s" % (str(inputs_dependency), str(inputs), str(outputs)))
+                for content in inputs:
+                    content['substatus'] = ContentStatus.Missing
+                    if content['status'] != content['substatus']:
+                        updated_content = {'content_id': content['content_id'],
+                                           'status': content['substatus'],
+                                           'substatus': content['substatus']}
+                        content['status'] = content['substatus']
+                        updated_contents.append(updated_content)
+                        updated_input_contents_full.append(content)
+                for content in outputs:
+                    content['substatus'] = ContentStatus.Missing
+                    if content['status'] != content['substatus']:
+                        content['status'] = content['substatus']
+                        updated_content = {'content_id': content['content_id'],
+                                           'status': content['substatus'],
+                                           'substatus': content['substatus']}
+                        updated_contents.append(updated_content)
+                        updated_output_contents_full.append(content)
 
             for content in outputs:
                 if content['status'] != content['substatus']:
@@ -229,8 +257,8 @@ class Transformer(BaseAgent):
     def trigger_release_inputs_old(self, updated_output_contents, work, input_output_maps):
         to_release_inputs = []
         for content in updated_output_contents:
-            if (content['status'] in [ContentStatus.Available, ContentStatus.Available.value]
-                or content['substatus'] in [ContentStatus.Available, ContentStatus.Available.value]):  # noqa W503
+            if (content['status'] in [ContentStatus.Available, ContentStatus.Available.value, ContentStatus.FakeAvailable, ContentStatus.FakeAvailable.value]
+                or content['substatus'] in [ContentStatus.Available, ContentStatus.Available.value, ContentStatus.FakeAvailable, ContentStatus.FakeAvailable.value]):  # noqa W503
                 to_release = {'request_id': content['request_id'],
                               'coll_id': content['coll_id'],
                               'name': content['name'],
@@ -253,13 +281,15 @@ class Transformer(BaseAgent):
         for map_id in input_output_maps:
             outputs = input_output_maps[map_id]['outputs'] if 'outputs' in input_output_maps[map_id] else []
             for content in outputs:
-                if (content['status'] in [ContentStatus.Available] or content['substatus'] in [ContentStatus.Available]):
+                if (content['status'] in [ContentStatus.Available, ContentStatus.FakeAvailable, ContentStatus.FinalFailed, ContentStatus.Missing]
+                    or content['substatus'] in [ContentStatus.Available, ContentStatus.FakeAvailable, ContentStatus.FinalFailed, ContentStatus.Missing]):  # noqa W503
                     if content['coll_id'] not in to_release_inputs:
                         to_release_inputs[content['coll_id']] = []
                     to_release_inputs[content['coll_id']].append(content)
 
         # updated_contents = core_transforms.release_inputs(to_release_inputs)
         updated_contents = core_transforms.release_inputs_by_collection(to_release_inputs)
+        self.logger.debug("trigger_release_inputs, to_release_inputs: %s" % str(to_release_inputs))
         self.logger.debug("trigger_release_inputs, updated_contents: %s" % str(updated_contents))
         return updated_contents
 
@@ -271,6 +301,7 @@ class Transformer(BaseAgent):
 
         work = transform['transform_metadata']['work']
         work.set_work_id(transform['transform_id'])
+        work.set_agent_attributes(self.agent_attributes, transform)
 
         work_name_to_coll_map = core_transforms.get_work_name_to_coll_map(request_id=transform['request_id'])
         work.set_work_name_to_coll_map(work_name_to_coll_map)
@@ -407,22 +438,17 @@ class Transformer(BaseAgent):
 
             self.show_queue_size()
 
-            transform_status = [TransformStatus.Transforming, TransformStatus.ToCancel, TransformStatus.Cancelling,
+            transform_status = [TransformStatus.Transforming,
+                                TransformStatus.ToCancel, TransformStatus.Cancelling,
                                 TransformStatus.ToSuspend, TransformStatus.Suspending,
                                 TransformStatus.ToExpire, TransformStatus.Expiring,
-                                TransformStatus.Resuming]
+                                TransformStatus.ToResume, TransformStatus.Resuming,
+                                TransformStatus.ToFinish, TransformStatus.ToForceFinish]
             transforms = core_transforms.get_transforms_by_status(status=transform_status,
                                                                   period=None,
                                                                   locking=True,
+                                                                  with_messaging=True,
                                                                   bulk_size=self.retrieve_bulk_size)
-
-            transform_status = [TransformStatus.ToCancel, TransformStatus.ToSuspend, TransformStatus.ToResume, TransformStatus.ToExpire]
-            transforms_1 = core_transforms.get_transforms_by_status(status=transform_status,
-                                                                    period=None,
-                                                                    locking=True,
-                                                                    by_substatus=True,
-                                                                    bulk_size=self.retrieve_bulk_size)
-            transforms = transforms + transforms_1
 
             self.logger.debug("Main thread get %s transforming transforms to process" % len(transforms))
             if transforms:
@@ -517,6 +543,7 @@ class Transformer(BaseAgent):
             msg_content = {'msg_type': i_msg_type_str,
                            'request_id': request_id,
                            'workload_id': workload_id,
+                           'relation_type': relation_type,
                            'status': transform['status'].name,
                            'output': work.get_output_data(),
                            'error': work.get_terminated_msg()}
@@ -526,6 +553,7 @@ class Transformer(BaseAgent):
             msg_content = {'msg_type': i_msg_type_str,
                            'request_id': request_id,
                            'workload_id': workload_id,
+                           'relation_type': relation_type,
                            'collections': [{'scope': collection.scope,
                                             'name': collection.name,
                                             'status': collection.status.name}],
@@ -536,10 +564,13 @@ class Transformer(BaseAgent):
             i_msg_type, i_msg_type_str = self.get_message_type(transform['transform_type'], input_type='file')
             files_message = []
             for file in files:
+                file_status = file['status'].name
+                if file['status'] == ContentStatus.FakeAvailable:
+                    file_status = ContentStatus.Available.name
                 file_message = {'scope': file['scope'],
                                 'name': file['name'],
                                 'path': file['path'],
-                                'status': file['status'].name}
+                                'status': file_status}
                 files_message.append(file_message)
             msg_content = {'msg_type': i_msg_type_str,
                            'request_id': request_id,
@@ -551,6 +582,7 @@ class Transformer(BaseAgent):
         msg = {'msg_type': i_msg_type,
                'status': MessageStatus.New,
                'source': MessageSource.Transformer,
+               'destination': MessageDestination.Outside,
                'request_id': request_id,
                'workload_id': workload_id,
                'transform_id': transform['transform_id'],
@@ -572,7 +604,9 @@ class Transformer(BaseAgent):
                     input_status[content['coll_id']] = {'total_files': 0, 'processed_files': 0, 'processing_files': 0, 'bytes': 0}
                 input_status[content['coll_id']]['total_files'] += 1
 
-                if content['status'] in [ContentStatus.Available, ContentStatus.Mapped, ContentStatus.Available.value, ContentStatus.Mapped.value]:
+                if content['status'] in [ContentStatus.Available, ContentStatus.Mapped,
+                                         ContentStatus.Available.value, ContentStatus.Mapped.value,
+                                         ContentStatus.FakeAvailable, ContentStatus.FakeAvailable.value]:
                     input_status[content['coll_id']]['processed_files'] += 1
                     input_status[content['coll_id']]['bytes'] += content['bytes']
                 else:
@@ -582,7 +616,8 @@ class Transformer(BaseAgent):
                 if content['coll_id'] not in output_status:
                     output_status[content['coll_id']] = {'total_files': 0, 'processed_files': 0, 'processing_files': 0, 'bytes': 0}
                 output_status[content['coll_id']]['total_files'] += 1
-                if content['status'] in [ContentStatus.Available, ContentStatus.Available.value]:
+                if content['status'] in [ContentStatus.Available, ContentStatus.Available.value,
+                                         ContentStatus.FakeAvailable, ContentStatus.FakeAvailable.value]:
                     output_status[content['coll_id']]['processed_files'] += 1
                     output_status[content['coll_id']]['bytes'] += content['bytes']
                 else:
@@ -599,7 +634,8 @@ class Transformer(BaseAgent):
                 if content['coll_id'] not in log_status:
                     log_status[content['coll_id']] = {'total_files': 0, 'processed_files': 0, 'processing_files': 0, 'bytes': 0}
                 log_status[content['coll_id']]['total_files'] += 1
-                if content['status'] in [ContentStatus.Available, ContentStatus.Available.value]:
+                if content['status'] in [ContentStatus.Available, ContentStatus.Available.value,
+                                         ContentStatus.FakeAvailable, ContentStatus.FakeAvailable.value]:
                     log_status[content['coll_id']]['processed_files'] += 1
                     log_status[content['coll_id']]['bytes'] += content['bytes']
                 else:
@@ -627,33 +663,79 @@ class Transformer(BaseAgent):
 
         return all_updates_flushed, output_statistics
 
+    def get_message_for_update_processing(self, processing, processing_status):
+        msg_content = {'command': 'update_processing',
+                       'parameters': {'status': processing_status}}
+        msg = {'msg_type': MessageType.IDDSCommunication,
+               'status': MessageStatus.New,
+               'destination': MessageDestination.Carrier,
+               'source': MessageSource.Transformer,
+               'request_id': processing['request_id'],
+               'workload_id': processing['workload_id'],
+               'transform_id': processing['transform_id'],
+               'processing_id': processing['processing_id'],
+               'num_contents': 1,
+               'msg_content': msg_content}
+        return msg
+
+    def reactive_contents(self, input_output_maps):
+        updated_contents = []
+        for map_id in input_output_maps:
+            inputs = input_output_maps[map_id]['inputs'] if 'inputs' in input_output_maps[map_id] else []
+            outputs = input_output_maps[map_id]['outputs'] if 'outputs' in input_output_maps[map_id] else []
+            inputs_dependency = input_output_maps[map_id]['inputs_dependency'] if 'inputs_dependency' in input_output_maps[map_id] else []
+
+            all_outputs_available = True
+            for content in outputs:
+                if not content['status'] in [ContentStatus.Available]:
+                    all_outputs_available = False
+                    break
+
+            if not all_outputs_available:
+                for content in inputs + outputs + inputs_dependency:
+                    update_content = {'content_id': content['content_id'],
+                                      'status': ContentStatus.New,
+                                      'substatus': ContentStatus.New}
+                    updated_contents.append(update_content)
+        return updated_contents
+
     def process_running_transform_real(self, transform):
         """
         process running transforms
         """
         self.logger.info("process_running_transform: transform_id: %s" % transform['transform_id'])
 
-        transform_substatus = None
+        msgs, update_msgs = [], []
+
+        # transform_substatus = None
         t_processing_status = None
         is_operation = False
-        if transform['substatus'] in [TransformStatus.ToCancel, TransformStatus.ToSuspend,
-                                      TransformStatus.ToResume, TransformStatus.ToExpire]:
+        if transform['status'] in [TransformStatus.ToCancel, TransformStatus.ToSuspend,
+                                   TransformStatus.ToResume, TransformStatus.ToExpire,
+                                   TransformStatus.ToFinish, TransformStatus.ToForceFinish]:
             is_operation = True
-            if transform['substatus'] == TransformStatus.ToCancel:
+            if transform['status'] == TransformStatus.ToCancel:
                 t_processing_status = ProcessingStatus.ToCancel
-                transform_substatus = TransformStatus.Cancelling
-            if transform['substatus'] == TransformStatus.ToSuspend:
+                # transform_substatus = TransformStatus.Cancelling
+            if transform['status'] == TransformStatus.ToSuspend:
                 t_processing_status = ProcessingStatus.ToSuspend
-                transform_substatus = TransformStatus.Suspending
-            if transform['substatus'] == TransformStatus.ToResume:
+                # transform_substatus = TransformStatus.Suspending
+            if transform['status'] == TransformStatus.ToResume:
                 t_processing_status = ProcessingStatus.ToResume
-                transform_substatus = TransformStatus.Resuming
-            if transform['substatus'] == TransformStatus.ToExpire:
+                # transform_substatus = TransformStatus.Resuming
+            if transform['status'] == TransformStatus.ToExpire:
                 t_processing_status = ProcessingStatus.ToExpire
-                transform_substatus = TransformStatus.Expiring
+                # transform_substatus = TransformStatus.Expiring
+            if transform['status'] == TransformStatus.ToFinish:
+                t_processing_status = ProcessingStatus.ToFinish
+                # transform_substatus = TransformStatus.Transforming
+            if transform['status'] == TransformStatus.ToForceFinish:
+                t_processing_status = ProcessingStatus.ToForceFinish
+                # transform_substatus = TransformStatus.Transforming
 
         work = transform['transform_metadata']['work']
         work.set_work_id(transform['transform_id'])
+        work.set_agent_attributes(self.agent_attributes, transform)
 
         # link collections
         input_collections = work.get_input_collections()
@@ -678,18 +760,6 @@ class Transformer(BaseAgent):
 
         # link processings
         new_processing_model, processing_model, update_processing_model = None, None, {}
-        to_update_processings = {}
-
-        to_update_processings_local = work.to_update_processings
-        if to_update_processings_local:
-            for proc_id in to_update_processings_local:
-                try:
-                    core_processings.update_processing(processing_id=proc_id, parameters=to_update_processings_local[proc_id])
-                except Exception as ex:
-                    self.logger.warn("Failed to update processing(%s) to substatus %s, record it for later update: %s" % (proc_id,
-                                                                                                                          to_update_processings_local[proc_id]['substatus'],
-                                                                                                                          str(ex)))
-                    to_update_processings[proc_id] = to_update_processings_local[proc_id]
 
         processing = work.get_processing(input_output_maps=[], without_creating=True)
         self.logger.debug("work get_processing: %s" % processing)
@@ -703,16 +773,8 @@ class Transformer(BaseAgent):
             work.set_output_data(processing.output_data)
             transform['workload_id'] = processing_model['workload_id']
             if t_processing_status is not None:
-                try:
-                    core_processings.update_processing(processing_id=processing_model['processing_id'], parameters={'substatus': t_processing_status})
-                    work.set_processing_status(processing, processing_model['status'], t_processing_status)
-                except Exception as ex:
-                    self.logger.warn("Failed to update processing(%s) to substatus %s, record it for later update: %s" % (processing_model['processing_id'],
-                                                                                                                          t_processing_status, str(ex)))
-                    to_update_processings[processing_model['processing_id']] = {'substatus': t_processing_status}
-                    # update_processing_model[processing_model['processing_id']] = {'substatus': t_processing_status}
-                    # work.set_processing_status(processing, processing_model['status'], t_processing_status)
-        work.to_update_processings = to_update_processings
+                msg = self.get_message_for_update_processing(processing_model, t_processing_status)
+                msgs.append(msg)
 
         # check contents
         new_input_output_maps = work.get_new_input_output_maps(registered_input_output_maps)
@@ -753,7 +815,7 @@ class Transformer(BaseAgent):
             new_processing_model['processing_metadata'] = {'processing': processing}
             if t_processing_status is not None:
                 new_processing_model['status'] = t_processing_status
-                new_processing_model['substatus'] = t_processing_status
+                # new_processing_model['substatus'] = t_processing_status
 
         # check updated contents
         updated_contents, updated_input_contents_full, updated_output_contents_full = [], [], []
@@ -761,11 +823,11 @@ class Transformer(BaseAgent):
         if work.should_release_inputs(processing, self.poll_operation_time_period):
             self.logger.info("get_updated_contents for transform %s" % transform['transform_id'])
             updated_contents, updated_input_contents_full, updated_output_contents_full = self.get_updated_contents(transform, registered_input_output_maps)
-        if work.use_dependency_to_release_jobs() and (updated_output_contents_full or work.has_to_release_inputs()):
-            self.logger.info("trigger_release_inputs: %s" % transform['transform_id'])
-            to_release_input_contents = self.trigger_release_inputs(updated_output_contents_full, work, registered_input_output_maps)
+            # if work.use_dependency_to_release_jobs() and (updated_output_contents_full or work.has_to_release_inputs()):
+            if work.use_dependency_to_release_jobs():
+                self.logger.info("trigger_release_inputs: %s" % transform['transform_id'])
+                to_release_input_contents = self.trigger_release_inputs(updated_output_contents_full, work, registered_input_output_maps)
 
-        msgs = []
         self.logger.info("generate_message: %s" % transform['transform_id'])
         if new_input_contents:
             msg = self.generate_message(transform, files=new_input_contents, msg_type='file', relation_type='input')
@@ -785,17 +847,31 @@ class Transformer(BaseAgent):
         self.logger.info("syn_collection_status: %s" % transform['transform_id'])
         all_updates_flushed, output_statistics = self.syn_collection_status(input_collections, output_collections, log_collections, registered_input_output_maps)
 
-        self.logger.info("syn_work_status: %s" % transform['transform_id'])
+        self.logger.info("syn_work_status: %s, transform status: %s" % (transform['transform_id'], transform['status']))
         work.syn_work_status(registered_input_output_maps, all_updates_flushed, output_statistics, to_release_input_contents)
 
-        if transform['substatus'] in [TransformStatus.ToCancel]:
+        to_resume_transform = False
+        reactivated_contents = []
+        if transform['status'] in [TransformStatus.ToCancel]:
             transform['status'] = TransformStatus.Cancelling
-        elif transform['substatus'] in [TransformStatus.ToSuspend]:
+            work.tocancel = True
+        elif transform['status'] in [TransformStatus.ToSuspend]:
             transform['status'] = TransformStatus.Suspending
-        elif transform['substatus'] in [TransformStatus.ToResume]:
+            work.tosuspend = True
+        elif transform['status'] in [TransformStatus.ToResume]:
             transform['status'] = TransformStatus.Resuming
-        elif transform['substatus'] in [TransformStatus.ToExpire]:
+            work.toresume = True
+            to_resume_transform = True
+            reactivated_contents = self.reactive_contents(registered_input_output_maps)
+        elif transform['status'] in [TransformStatus.ToExpire]:
             transform['status'] = TransformStatus.Expiring
+            work.toexpire = True
+        elif transform['status'] in [TransformStatus.ToFinish]:
+            transform['status'] = TransformStatus.Transforming
+            work.tofinish = True
+        elif transform['status'] in [TransformStatus.ToForceFinish]:
+            transform['status'] = TransformStatus.Transforming
+            work.toforcefinish = True
         elif work.is_finished():
             transform['status'] = TransformStatus.Finished
             msg = self.generate_message(transform, work=work, msg_type='work')
@@ -874,14 +950,18 @@ class Transformer(BaseAgent):
         if not is_operation:
             next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period)
         else:
-            next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_operation_time_period)
+            if to_resume_transform:
+                next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_operation_time_period * 5)
+            else:
+                next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_operation_time_period)
+
         transform_parameters = {'status': transform['status'],
                                 'locking': TransformLocking.Idle,
                                 'workload_id': transform['workload_id'],
                                 'next_poll_at': next_poll_at,
                                 'transform_metadata': transform['transform_metadata']}
-        if transform_substatus:
-            transform_parameters['substatus'] = transform_substatus
+        # if transform_substatus:
+        #     transform_parameters['substatus'] = transform_substatus
 
         if new_contents or updated_contents or to_release_input_contents:
             work.has_new_updates()
@@ -896,10 +976,41 @@ class Transformer(BaseAgent):
                'update_output_collections': output_collections,
                'update_log_collections': log_collections,
                'new_contents': new_contents,
-               'update_contents': updated_contents + to_release_input_contents,
+               'update_contents': updated_contents + to_release_input_contents + reactivated_contents,
                'messages': msgs,
+               'update_messages': update_msgs,
                'new_processing': new_processing_model,
                'update_processing': update_processing_model}
+        return ret
+
+    def process_running_transform_message(self, transform, messages):
+        """
+        process running transform message
+        """
+        try:
+            self.logger.info("process_running_transform_message: transform_id: %s, messages: %s" % (transform['transform_id'], str(messages) if messages else messages))
+            msg = messages[0]
+            message = messages[0]['msg_content']
+            if message['command'] == 'update_transform':
+                parameters = message['parameters']
+                parameters['locking'] = TransformLocking.Idle
+                ret = {'transform': transform,
+                       'transform_parameters': parameters,
+                       'update_messages': [{'msg_id': msg['msg_id'], 'status': MessageStatus.Delivered}]
+                       }
+            else:
+                self.logger.error("Unknown message: %s" % str(msg))
+                ret = {'transform': transform,
+                       'transform_parameters': {'locking': TransformLocking.Idle},
+                       'update_messages': [{'msg_id': msg['msg_id'], 'status': MessageStatus.Failed}]
+                       }
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+            ret = {'transform': transform,
+                   'transform_parameters': {'status': TransformStatus.Failed,
+                                            'locking': TransformLocking.Idle,
+                                            'errors': {'msg': '%s: %s' % (ex, traceback.format_exc())}}}
         return ret
 
     def process_running_transform(self, transform):
@@ -907,7 +1018,13 @@ class Transformer(BaseAgent):
         Process running transform
         """
         try:
-            ret = self.process_running_transform_real(transform)
+            msgs = self.get_transform_message(transform_id=transform['transform_id'], bulk_size=1)
+            if msgs:
+                self.logger.info("Main thread processing running transform with message: %s" % transform)
+                ret = self.process_running_transform_message(transform, msgs)
+            else:
+                self.logger.info("Main thread processing running transform: %s" % transform)
+                ret = self.process_running_transform_real(transform)
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
@@ -955,6 +1072,7 @@ class Transformer(BaseAgent):
                                                           update_log_collections=ret.get('update_log_collections', None),
                                                           update_contents=ret.get('update_contents', None),
                                                           messages=ret.get('messages', None),
+                                                          update_messages=ret.get('update_messages', None),
                                                           new_processing=ret.get('new_processing', None),
                                                           update_processing=ret.get('update_processing', None),
                                                           message_bulk_size=self.message_bulk_size)

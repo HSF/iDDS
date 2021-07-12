@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019
+# - Wen Guan, <wen.guan@cern.ch>, 2021
 
 
 import glob
@@ -15,6 +15,7 @@ import os
 import re
 import sys
 import shutil
+import socket
 from distutils.sysconfig import get_python_lib
 from setuptools import setup, Distribution
 from setuptools.command.install import install
@@ -76,6 +77,18 @@ def parse_requirements(requirements_files):
     return requirements
 
 
+def get_full_hostname():
+    return socket.getfqdn()
+
+
+def config_api_host(conf_file_template="conf.js.template", conf_file='conf.js', hostname=None):
+    with open(conf_file_template, 'r') as f:
+        template = f.read()
+    template = template.format(api_host_name=hostname)
+    with open(conf_file, 'w') as f:
+        f.write(template)
+
+
 def get_files(idir):
     files = []
     for f in os.listdir(idir):
@@ -105,7 +118,7 @@ def get_data_files(dest, src):
     return data
 
 
-for build_dir in ['build', 'dist', 'idds_website.egg-info']:
+for build_dir in ['build', 'dist', 'idds_monitor.egg-info']:
     if os.path.exists(build_dir):
         print("removing %s............................." % build_dir)
         shutil.rmtree(build_dir)
@@ -119,20 +132,23 @@ requirements_files = ['tools/env/environment.yml']
 install_requires = parse_requirements(requirements_files=requirements_files)
 install_requires = install_requires
 
+hostname = get_full_hostname()
+config_api_host(conf_file_template="conf.js.template", conf_file='conf.js', hostname=hostname)
+
 data_files = [
     # config and cron files
     ('etc/idds/', glob.glob('etc/idds/*.template')),
     ('etc/idds/rest', glob.glob('etc/idds/rest/*template')),
     ('tools/env/', glob.glob('tools/env/*.yml')),
-    # ('website/', glob.glob('*', recursive=True))
-    # ('website/', get_all_files('.')),
+    # ('monitor/', glob.glob('*', recursive=True))
+    # ('monitor/', get_all_files('.')),
 ]
-data_files += get_data_files('website/', '.')
+data_files += get_data_files('monitor/', '.')
 
 scripts = glob.glob('bin/*')
 
 setup(
-    name="idds-website",
+    name="idds-monitor",
     version=version,
     description='intelligent Data Delivery Service(iDDS) Package',
     long_description=readme,

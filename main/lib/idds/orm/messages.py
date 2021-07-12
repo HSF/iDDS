@@ -20,13 +20,15 @@ from sqlalchemy import or_
 from sqlalchemy.exc import DatabaseError, IntegrityError
 
 from idds.common import exceptions
+from idds.common.constants import MessageDestination
 from idds.orm.base import models
 from idds.orm.base.session import read_session, transactional_session
 
 
 @transactional_session
 def add_message(msg_type, status, source, request_id, workload_id, transform_id,
-                num_contents, msg_content, bulk_size=None, session=None):
+                num_contents, msg_content, bulk_size=None, processing_id=None,
+                destination=MessageDestination.Outside, session=None):
     """
     Add a message to be submitted asynchronously to a message broker.
 
@@ -63,6 +65,7 @@ def add_message(msg_type, status, source, request_id, workload_id, transform_id,
             new_message = {'msg_type': msg_type, 'status': status, 'request_id': request_id,
                            'workload_id': workload_id, 'transform_id': transform_id,
                            'source': source, 'num_contents': num_contents,
+                           'destination': destination, 'processing_id': processing_id,
                            'locking': 0, 'msg_content': msg_content}
             msgs.append(new_message)
 
@@ -77,8 +80,38 @@ def add_message(msg_type, status, source, request_id, workload_id, transform_id,
             raise exceptions.DatabaseException('Could not persist message: %s' % str(e))
 
 
+@transactional_session
+def add_messages(messages, session=None):
+    try:
+        session.bulk_insert_mappings(models.Message, messages)
+    except TypeError as e:
+        raise exceptions.DatabaseException('Invalid JSON for msg_content: %s' % str(e))
+    except DatabaseError as e:
+        if re.match('.*ORA-12899.*', e.args[0]) \
+           or re.match('.*1406.*', e.args[0]):
+            raise exceptions.DatabaseException('Could not persist message, msg_content too large: %s' % str(e))
+        else:
+            raise exceptions.DatabaseException('Could not persist message: %s' % str(e))
+
+
+@transactional_session
+def update_messages(messages, session=None):
+    try:
+        session.bulk_update_mappings(models.Message, messages)
+    except TypeError as e:
+        raise exceptions.DatabaseException('Invalid JSON for msg_content: %s' % str(e))
+    except DatabaseError as e:
+        if re.match('.*ORA-12899.*', e.args[0]) \
+           or re.match('.*1406.*', e.args[0]):
+            raise exceptions.DatabaseException('Could not persist message, msg_content too large: %s' % str(e))
+        else:
+            raise exceptions.DatabaseException('Could not persist message: %s' % str(e))
+
+
 @read_session
-def retrieve_messages(bulk_size=1000, msg_type=None, status=None, source=None, session=None):
+def retrieve_messages(bulk_size=1000, msg_type=None, status=None, source=None,
+                      destination=None, request_id=None, workload_id=None,
+                      transform_id=None, processing_id=None, session=None):
     """
     Retrieve up to $bulk messages.
 
@@ -99,6 +132,16 @@ def retrieve_messages(bulk_size=1000, msg_type=None, status=None, source=None, s
             query = query.filter_by(status=status)
         if source is not None:
             query = query.filter_by(source=source)
+        if destination is not None:
+            query = query.filter_by(destination=destination)
+        if request_id is not None:
+            query = query.filter_by(request_id=request_id)
+        if workload_id is not None:
+            query = query.filter_by(workload_id=workload_id)
+        if transform_id is not None:
+            query = query.filter_by(transform_id=transform_id)
+        if processing_id is not None:
+            query = query.filter_by(processing_id=processing_id)
 
         if bulk_size:
             query = query.order_by(models.Message.created_at).limit(bulk_size)
@@ -134,15 +177,15 @@ def delete_messages(messages, session=None):
         raise exceptions.DatabaseException(e.args)
 
 
-@transactional_session
-def update_messages(messages, session=None):
-    """
-    Update all messages status with the given IDs.
-
-    :param messages: The messages to be updated as a list of dictionaries.
-    """
-    try:
-        for msg in messages:
-            session.query(models.Message).filter_by(msg_id=msg['msg_id']).update({'status': msg['status']}, synchronize_session=False)
-    except IntegrityError as e:
-        raise exceptions.DatabaseException(e.args)
+# @transactional_session
+# def update_messages(messages, session=None):
+#     """
+#     Update all messages status with the given IDs.
+#
+#     :param messages: The messages to be updated as a list of dictionaries.
+#     """
+#     try:
+#         for msg in messages:
+#             session.query(models.Message).filter_by(msg_id=msg['msg_id']).update({'status': msg['status']}, synchronize_session=False)
+#     except IntegrityError as e:
+#         raise exceptions.DatabaseException(e.args)

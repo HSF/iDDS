@@ -1,6 +1,6 @@
 name: iDDS
 dependencies:
-- python==3.6
+- python==3.6.2
 - pip
 - pip:
   - requests                         # requests
@@ -22,6 +22,6 @@ dependencies:
   - recommonmark                     # use Markdown with Sphinx
   - sphinx-rtd-theme                 # sphinx readthedoc theme
   - nevergrad                        # nevergrad hyper parameter optimization
-  - idds-common==0.3.6
-  - idds-workflow==0.3.6
-  - idds-client==0.3.6
+  - idds-common==0.5.0
+  - idds-workflow==0.5.0
+  - idds-client==0.5.0

@@ -589,12 +589,11 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, req
     """
 
     try:
-        if status is None:
-            raise exceptions.WrongParameterException("status should not be None")
-        if not isinstance(status, (list, tuple)):
-            status = [status]
-        if len(status) == 1:
-            status = [status[0], status[0]]
+        if status:
+            if not isinstance(status, (list, tuple)):
+                status = [status]
+            if len(status) == 1:
+                status = [status[0], status[0]]
 
         if only_return_id:
             query = session.query(models.Request.request_id)\
@@ -603,10 +602,11 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, req
             query = session.query(models.Request)\
                            .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_SCOPE_NAME_IDX)", 'oracle')
 
-        if by_substatus:
-            query = query.filter(models.Request.substatus.in_(status))
-        else:
-            query = query.filter(models.Request.status.in_(status))
+        if status:
+            if by_substatus:
+                query = query.filter(models.Request.substatus.in_(status))
+            else:
+                query = query.filter(models.Request.status.in_(status))
             query = query.filter(models.Request.next_poll_at <= datetime.datetime.utcnow())
 
         if request_type is not None:
