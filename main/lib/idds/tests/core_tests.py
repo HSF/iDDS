@@ -52,7 +52,7 @@ def release_inputs_test():
     update_contents = release_inputs_by_collection(to_release_inputs)
     print(update_contents)
 
-    update_contents = release_inputs_by_collection_old(to_release_inputs)
+    update_contents = release_inputs_by_collection(to_release_inputs, final=True)
     print(update_contents)
 
 
