@@ -936,7 +936,7 @@ class Work(Base):
         """
         *** Function called by Transformer agent.
         """
-        if (self.status in [WorkStatus.Finished, WorkStatus.SubFinished, WorkStatus.Failed, WorkStatus.Cancelled, WorkStatus.Suspended]
+        if (self.status in [WorkStatus.Finished, WorkStatus.SubFinished, WorkStatus.Failed, WorkStatus.Cancelled, WorkStatus.Suspended, WorkStatus.Expired]
             and self.substatus not in [WorkStatus.ToCancel, WorkStatus.ToSuspend, WorkStatus.ToResume]):   # noqa W503
             return True
         return False

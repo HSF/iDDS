@@ -428,7 +428,7 @@ def release_inputs(to_release_inputs):
     return update_contents
 
 
-def release_inputs_by_collection(to_release_inputs):
+def release_inputs_by_collection_old(to_release_inputs):
     update_contents = []
     for coll_id in to_release_inputs:
         to_release_contents = to_release_inputs[coll_id]
@@ -481,6 +481,41 @@ def release_inputs_by_collection(to_release_inputs):
                                           'substatus': ContentStatus.Missing,
                                           'status': ContentStatus.Missing}
                         update_contents.append(update_content)
+    return update_contents
+
+
+def release_inputs_by_collection(to_release_inputs):
+    update_contents = []
+    status_to_check = [ContentStatus.Available, ContentStatus.FakeAvailable, ContentStatus.FinalFailed, ContentStatus.Missing]
+    for coll_id in to_release_inputs:
+        to_release_contents = to_release_inputs[coll_id]
+        if to_release_contents:
+            to_release_status = {}
+            for st in status_to_check:
+                if st.name not in to_release_status:
+                    to_release_status[st.name] = []
+
+            for to_release_content in to_release_contents:
+                for st in status_to_check:
+                    if (to_release_content['status'] in [st] or to_release_content['substatus'] in [st]):
+                        to_release_status[st.name].append(to_release_content['name'])
+
+            print("to_release_status: %s" % str(to_release_status))
+
+            contents = orm_contents.get_input_contents(request_id=to_release_contents[0]['request_id'],
+                                                       coll_id=to_release_contents[0]['coll_id'],
+                                                       name=None)
+            # print("contents: %s" % str(contents))
+
+            for content in contents:
+                if (content['content_relation_type'] == ContentRelationType.InputDependency):    # noqa: W503
+                    for st in status_to_check:
+                        if (content['status'] not in [st] and content['name'] in to_release_status[st.name]):
+                            update_content = {'content_id': content['content_id'],
+                                              'substatus': st,
+                                              'status': st}
+                            update_contents.append(update_content)
+
     return update_contents
 
 

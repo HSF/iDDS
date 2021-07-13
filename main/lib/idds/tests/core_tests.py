@@ -1,13 +1,64 @@
 import sys
 
 from idds.common.utils import json_dumps                 # noqa F401
-from idds.common.constants import ContentStatus          # noqa F401
+from idds.common.constants import ContentStatus, ContentType, ContentRelationType          # noqa F401
 from idds.core.requests import get_requests              # noqa F401
 from idds.core.messages import retrieve_messages         # noqa F401
 from idds.core.transforms import get_transforms          # noqa F401
 from idds.core.workprogress import get_workprogresses    # noqa F401
 from idds.core.processings import get_processings        # noqa F401
 from idds.core import transforms as core_transforms      # noqa F401
+from idds.core.transforms import release_inputs_by_collection, release_inputs_by_collection_old     # noqa F401
+
+
+def release_inputs_test():
+    to_release_inputs = {3498: [{'map_id': 1, 'status': ContentStatus.Available, 'retries': 0, 'scope': 'pseudo_dataset',
+                                 'substatus': ContentStatus.Available, 'path': None,
+                                 'name': 'u_jchiang_dark_12781_panda_20210712T222923Z.qgraph+3_isr_3020111900038_94+qgraphNodeId:3+qgraphId:1626129062.5744567-119392',
+                                 'content_id': 2248918, 'min_id': 0, 'bytes': 1, 'coll_id': 3498, 'max_id': 1, 'md5': None,
+                                 'request_id': 93, 'content_type': ContentType.File, 'adler32': '12345678',
+                                 'workload_id': 1626129080, 'content_relation_type': ContentRelationType.Output,
+                                 'processing_id': None, 'content_metadata': {'events': 1, 'panda_id': 1411522}, 'transform_id': 1749, 'storage_id': None},
+                                {'map_id': 2, 'status': ContentStatus.Available, 'retries': 0, 'scope': 'pseudo_dataset',
+                                 'substatus': ContentStatus.Available, 'path': None,
+                                 'name': 'u_jchiang_dark_12781_panda_20210712T222923Z.qgraph+2_isr_3020111900032_94+qgraphNodeId:2+qgraphId:1626129062.5744567-119392',
+                                 'content_id': 2248919, 'min_id': 0, 'bytes': 1, 'coll_id': 3498, 'max_id': 1, 'md5': None,
+                                 'request_id': 93, 'content_type': ContentType.File, 'adler32': '12345678',
+                                 'workload_id': 1626129080, 'content_relation_type': ContentRelationType.Output,
+                                 'processing_id': None, 'content_metadata': {'events': 1, 'panda_id': 1411523}, 'transform_id': 1749, 'storage_id': None},
+                                {'map_id': 3, 'status': ContentStatus.Available, 'retries': 0, 'scope': 'pseudo_dataset',
+                                 'substatus': ContentStatus.Available, 'path': None,
+                                 'name': 'u_jchiang_dark_12781_panda_20210712T222923Z.qgraph+4_isr_3020111900040_94+qgraphNodeId:4+qgraphId:1626129062.5744567-119392',
+                                 'content_id': 2248920, 'min_id': 0, 'bytes': 1, 'coll_id': 3498, 'max_id': 1, 'md5': None,
+                                 'request_id': 93, 'content_type': ContentType.File, 'adler32': '12345678',
+                                 'workload_id': 1626129080, 'content_relation_type': ContentRelationType.Output,
+                                 'processing_id': None, 'content_metadata': {'events': 1, 'panda_id': 1411524}, 'transform_id': 1749, 'storage_id': None},
+                                {'map_id': 4, 'status': ContentStatus.Available, 'retries': 0, 'scope': 'pseudo_dataset',
+                                 'substatus': ContentStatus.Available, 'path': None,
+                                 'name': 'u_jchiang_dark_12781_panda_20210712T222923Z.qgraph+1_isr_3020111900036_94+qgraphNodeId:1+qgraphId:1626129062.5744567-119392',
+                                 'content_id': 2248921, 'min_id': 0, 'bytes': 1, 'coll_id': 3498, 'max_id': 1, 'md5': None,
+                                 'request_id': 93, 'content_type': ContentType.File, 'adler32': '12345678',
+                                 'workload_id': 1626129080, 'content_relation_type': ContentRelationType.Output,
+                                 'processing_id': None, 'content_metadata': {'events': 1, 'panda_id': 1411525}, 'transform_id': 1749, 'storage_id': None},
+                                {'map_id': 5, 'status': ContentStatus.Available, 'retries': 0, 'scope': 'pseudo_dataset',
+                                 'substatus': ContentStatus.Available, 'path': None,
+                                 'name': 'u_jchiang_dark_12781_panda_20210712T222923Z.qgraph+0_isr_3020111900034_94+qgraphNodeId:0+qgraphId:1626129062.5744567-119392',
+                                 'content_id': 2248922, 'min_id': 0, 'bytes': 1, 'coll_id': 3498, 'max_id': 1, 'md5': None,
+                                 'request_id': 93, 'content_type': ContentType.File, 'adler32': '12345678',
+                                 'workload_id': 1626129080, 'content_relation_type': ContentRelationType.Output,
+                                 'processing_id': None, 'content_metadata': {'events': 1, 'panda_id': 1411526}, 'transform_id': 1749, 'storage_id': None}
+                                ]}
+
+    update_contents = release_inputs_by_collection(to_release_inputs)
+    print(update_contents)
+
+    update_contents = release_inputs_by_collection_old(to_release_inputs)
+    print(update_contents)
+
+
+release_inputs_test()
+
+sys.exit(0)
 
 
 def show_works(req):

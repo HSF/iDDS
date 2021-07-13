@@ -849,6 +849,12 @@ class Transformer(BaseAgent):
 
         self.logger.info("syn_work_status: %s, transform status: %s" % (transform['transform_id'], transform['status']))
         work.syn_work_status(registered_input_output_maps, all_updates_flushed, output_statistics, to_release_input_contents)
+        if work.is_terminated():
+            self.logger.info("Transform(%s) work is terminated, trigger to release all final status files" % (transform['transform_id']))
+            if work.use_dependency_to_release_jobs():
+                self.logger.info("trigger_release_inputs: %s" % transform['transform_id'])
+                to_release_input_contents1 = self.trigger_release_inputs(updated_output_contents_full, work, registered_input_output_maps)
+                to_release_input_contents = to_release_input_contents + to_release_input_contents1
 
         to_resume_transform = False
         reactivated_contents = []
