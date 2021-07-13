@@ -32,11 +32,11 @@ def migrate():
     cm1 = ClientManager(host=doma_host)
     # reqs = cm1.get_requests(request_id=290)
     old_request_id = 72533
-    for old_request_id in [27]:
+    for old_request_id in [93]:
     # for old_request_id in [60]:    # noqa E115
         reqs = cm1.get_requests(request_id=old_request_id, with_metadata=True)
 
-        cm2 = ClientManager(host=dev_host)
+        cm2 = ClientManager(host=doma_host)
         for req in reqs:
             req = convert_old_req_2_workflow_req(req)
             workflow = req['request_metadata']['workflow']
