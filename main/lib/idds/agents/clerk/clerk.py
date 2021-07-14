@@ -424,14 +424,13 @@ class Clerk(BaseAgent):
         new_messages = []
         tfs = core_transforms.get_transforms(request_id=req['request_id'])
         for tf in tfs:
-            # if tf['status'] not in [RequestStatus.Finished, RequestStatus.SubFinished,
-            #                         RequestStatus.Failed, RequestStatus.Cancelling,
-            #                         RequestStatus.Cancelled, RequestStatus.Suspending,
-            #                         RequestStatus.Suspended]:
             try:
                 # core_transforms.update_transform(transform_id=tf['transform_id'], parameters={'substatus': tf_status})
                 msg = self.get_message_for_update_transform(tf, tf_status)
                 new_messages.append(msg)
+                if tf_status in [TransformStatus.ToResume]:
+                    # duplicate the messages for ToResume
+                    new_messages.append(msg)
             except Exception as ex:
                 self.logger.warn("Failed to add messages for tranform %s, record it for later update: %s" % (tf['transform_id'], str(ex)))
 
