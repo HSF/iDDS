@@ -521,11 +521,17 @@ class DomaPanDAWork(Work):
                     break
 
             if not all_outputs_available:
-                for content in inputs + outputs + inputs_dependency:
+                for content in inputs + outputs:
                     update_content = {'content_id': content['content_id'],
                                       'status': ContentStatus.New,
                                       'substatus': ContentStatus.New}
                     updated_contents.append(update_content)
+                for content in inputs_dependency:
+                    if content['status'] not in [ContentStatus.Available]:
+                        update_content = {'content_id': content['content_id'],
+                                          'status': ContentStatus.New,
+                                          'substatus': ContentStatus.New}
+                        updated_contents.append(update_content)
         return updated_contents
 
     def sort_panda_jobids(self, input_output_maps):
