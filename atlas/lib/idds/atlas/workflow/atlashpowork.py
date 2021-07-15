@@ -424,6 +424,8 @@ class ATLASHPOWork(ATLASCondorWork):
                     self.status = WorkStatus.Failed
             else:
                 self.status = WorkStatus.SubFinished
+        else:
+            self.status = WorkStatus.Transforming
 
     ####### functions for carrier ########     # noqa E266
     ######################################     # noqa E266

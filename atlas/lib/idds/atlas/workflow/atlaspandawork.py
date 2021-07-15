@@ -511,3 +511,5 @@ class ATLASPandaWork(Work):
                 self.status = WorkStatus.Failed
             elif self.is_processings_subfinished():
                 self.status = WorkStatus.SubFinished
+        else:
+            self.status = WorkStatus.Transforming

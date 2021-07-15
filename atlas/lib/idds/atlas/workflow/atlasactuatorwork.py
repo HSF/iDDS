@@ -304,6 +304,8 @@ class ATLASActuatorWork(ATLASCondorWork):
                 self.status = WorkStatus.Failed
             elif self.is_processings_subfinished():
                 self.status = WorkStatus.SubFinished
+        else:
+            self.status = WorkStatus.Transforming
 
     ####### functions for carrier ########     # noqa E266
     ######################################     # noqa E266
