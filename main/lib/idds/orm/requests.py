@@ -271,6 +271,7 @@ def get_requests(request_id=None, workload_id=None, with_detail=False, with_meta
         elif with_processing:
             subquery = session.query(models.Processing.processing_id,
                                      models.Processing.transform_id,
+                                     models.Processing.workload_id,
                                      models.Processing.status.label("processing_status"),
                                      models.Processing.created_at.label("processing_created_at"),
                                      models.Processing.updated_at.label("processing_updated_at"),
@@ -301,6 +302,7 @@ def get_requests(request_id=None, workload_id=None, with_detail=False, with_meta
                                       models.Transform.workload_id.label("transform_workload_id"),
                                       models.Transform.status.label("transform_status"),
                                       subquery.c.processing_id,
+                                      subquery.c.workload_id.label("processing_workload_id"),
                                       subquery.c.processing_status,
                                       subquery.c.processing_created_at,
                                       subquery.c.processing_updated_at,
@@ -327,6 +329,7 @@ def get_requests(request_id=None, workload_id=None, with_detail=False, with_meta
                                       models.Transform.workload_id.label("transform_workload_id"),
                                       models.Transform.status.label("transform_status"),
                                       subquery.c.processing_id,
+                                      subquery.c.workload_id.label("processing_workload_id"),
                                       subquery.c.processing_status,
                                       subquery.c.processing_created_at,
                                       subquery.c.processing_updated_at,
