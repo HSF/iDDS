@@ -21,7 +21,9 @@ import stomp
 from idds.common.plugin.plugin_base import PluginBase
 from idds.common.utils import setup_logging
 
+
 setup_logging(__name__)
+logging.getLogger("stomp").setLevel(logging.CRITICAL)
 
 
 class MessagingListener(stomp.ConnectionListener):
