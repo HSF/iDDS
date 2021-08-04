@@ -600,9 +600,6 @@ class ATLASPandaWork(Work):
                 proc.tofinish = False
                 proc.toforcefinish = False
                 proc.polling_retries = 0
-            elif self.is_all_contents_terminated_and_with_missing(input_output_maps):
-                self.logger.info("All contents terminated(There are Missing contents). Finishing processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], proc.workload_id))
-                self.kill_processing(processing)
 
             processing_status, poll_updated_contents, new_input_output_maps = self.poll_panda_task(processing=processing, input_output_maps=input_output_maps)
             self.logger.debug("poll_processing_updates, processing_status: %s" % str(processing_status))
