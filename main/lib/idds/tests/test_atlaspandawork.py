@@ -53,16 +53,14 @@ def get_workflow():
                                "type": "constant",
                                "value": "-a jobO.6f1dc5a8-eeb3-4cdf-aed0-0930b6a0e815.tar.gz"
                            },
-                           [
-                               {
-                                   "container": "user.tmaeno.34ba141d-242c-43cf-a326-7730a5dc7338_000_top_seed.txt/",
-                                   "dataset": "user.tmaeno.34ba141d-242c-43cf-a326-7730a5dc7338_000_top_seed.txt/",
-                                   "hidden": True,
-                                   "param_type": "output",
-                                   "type": "template",
-                                   "value": "user.tmaeno.34ba141d-242c-43cf-a326-7730a5dc7338_000_top.$JEDITASKID._${SN/P}.seed.txt"
-                               }
-                           ],
+                           {
+                               "container": "user.tmaeno.34ba141d-242c-43cf-a326-7730a5dc7338_000_top_seed.txt/",
+                               "dataset": "user.tmaeno.34ba141d-242c-43cf-a326-7730a5dc7338_000_top_seed.txt/",
+                               "hidden": True,
+                               "param_type": "output",
+                               "type": "template",
+                               "value": "user.tmaeno.34ba141d-242c-43cf-a326-7730a5dc7338_000_top.$JEDITASKID._${SN/P}.seed.txt"
+                           },
                            {
                                "type": "constant",
                                "value": "-o \"{'seed.txt': 'user.tmaeno.34ba141d-242c-43cf-a326-7730a5dc7338_000_top.$JEDITASKID._${SN/P}.seed.txt'}\""

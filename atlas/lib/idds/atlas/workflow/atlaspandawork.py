@@ -143,21 +143,19 @@ class ATLASPandaWork(Work):
 
             if 'jobParameters' in self.task_parameters:
                 jobParameters = self.task_parameters['jobParameters']
-                for jobPs in jobParameters:
-                    if type(jobPs) in [tuple, list]:
-                        for jobP in jobPs:
-                            if type(jobP) in [dict]:
-                                if 'dataset' in jobP and 'param_type' in jobP:
-                                    if jobP['param_type'] == 'input':
-                                        input_c = jobP['dataset']
-                                        scope, name = extract_scope_atlas(input_c, scopes=[])
-                                        input_coll = {'scope': scope, 'name': name}
-                                        self.set_primary_input_collection(input_coll)
-                                    if jobP['param_type'] == 'output':
-                                        output_c = jobP['dataset']
-                                        scope, name = extract_scope_atlas(output_c, scopes=[])
-                                        output_coll = {'scope': scope, 'name': name}
-                                        self.add_output_collections([output_coll])
+                for jobP in jobParameters:
+                    if type(jobP) in [dict]:
+                        if 'dataset' in jobP and 'param_type' in jobP:
+                            if jobP['param_type'] == 'input':
+                                input_c = jobP['dataset']
+                                scope, name = extract_scope_atlas(input_c, scopes=[])
+                                input_coll = {'scope': scope, 'name': name}
+                                self.set_primary_input_collection(input_coll)
+                            if jobP['param_type'] == 'output':
+                                output_c = jobP['dataset']
+                                scope, name = extract_scope_atlas(output_c, scopes=[])
+                                output_coll = {'scope': scope, 'name': name}
+                                self.add_output_collections([output_coll])
 
             if 'log' in self.task_parameters:
                 log = self.task_parameters['log']
