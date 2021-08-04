@@ -890,7 +890,7 @@ class DomaPanDAWork(Work):
                           (proc.workload_id, str(updated_contents)))
         self.logger.debug("poll_processing_updates, task: %s, reactive_contents: %s" %
                           (proc.workload_id, str(reactive_contents)))
-        return update_processing, updated_contents + reactive_contents
+        return update_processing, updated_contents + reactive_contents, {}
 
     def get_status_statistics(self, registered_input_output_maps):
         status_statistics = {}
