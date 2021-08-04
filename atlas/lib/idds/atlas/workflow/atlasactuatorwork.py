@@ -453,4 +453,4 @@ class ATLASActuatorWork(ATLASCondorWork):
                                             'output_metadata': processing_outputs}}
 
         updated_contents = []
-        return update_processing, updated_contents
+        return update_processing, updated_contents, {}

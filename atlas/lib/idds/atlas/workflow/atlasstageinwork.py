@@ -373,7 +373,7 @@ class ATLASStageinWork(Work):
             proc = processing['processing_metadata']['processing']
             proc.has_new_updates()
 
-        return update_processing, updated_contents
+        return update_processing, updated_contents, {}
 
     def get_status_statistics(self, registered_input_output_maps):
         status_statistics = {}
