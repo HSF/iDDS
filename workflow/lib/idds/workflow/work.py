@@ -49,7 +49,7 @@ class Parameter(object):
 
 class Collection(Base):
 
-    def __init__(self, scope=None, name=None, coll_metadata={}):
+    def __init__(self, scope=None, name=None, coll_type=CollectionType.Dataset, coll_metadata={}):
         super(Collection, self).__init__()
         self.scope = scope
         self.name = name
@@ -59,6 +59,7 @@ class Collection(Base):
 
         self.internal_id = str(uuid.uuid1())
         self.coll_id = None
+        self.coll_type = coll_type
         self.status = CollectionStatus.New
         self.substatus = CollectionStatus.New
 
@@ -89,6 +90,16 @@ class Collection(Base):
             self.collection['status'] = value
 
     @property
+    def coll_type(self):
+        return self.get_metadata_item('coll_type', CollectionType.Dataset)
+
+    @coll_type.setter
+    def coll_type(self, value):
+        self.add_metadata_item('coll_type', value)
+        if self.collection:
+            self.collection['coll_type'] = value
+
+    @property
     def substatus(self):
         return self.get_metadata_item('substatus', CollectionStatus.New)
 
@@ -110,6 +121,7 @@ class Collection(Base):
             self.name = self._collection['name']
             self.coll_metadata = self._collection['coll_metadata']
             self.coll_id = self._collection['coll_id']
+            self.coll_type = self._collection['coll_type']
             self.status = self._collection['status']
             self.substatus = self._collection['substatus']
 
@@ -1071,7 +1083,13 @@ class Work(Base):
         coll_metadata = copy.copy(coll)
         del coll_metadata['scope']
         del coll_metadata['name']
-        collection = Collection(scope=coll['scope'], name=coll['name'], coll_metadata=coll_metadata)
+        if 'type' in coll_metadata:
+            coll_type = coll_metadata['type']
+            del coll_metadata['type']
+        else:
+            coll_type = CollectionType.Dataset
+
+        collection = Collection(scope=coll['scope'], name=coll['name'], coll_type=coll_type, coll_metadata=coll_metadata)
         self.collections[collection.internal_id] = collection
         return collection
 
@@ -1084,11 +1102,15 @@ class Work(Base):
         """
         *** Function called by Marshaller agent.
         """
-        return self.collections[self.primary_input_collection]
+        if self.primary_input_collection:
+            return self.collections[self.primary_input_collection]
+        return None
 
     def add_other_input_collections(self, colls):
         if not colls:
             return
+        if type(colls) not in [list, tuple]:
+            colls = [colls]
 
         for coll in colls:
             collection = self.add_collection_to_collections(coll)
@@ -1191,6 +1213,8 @@ class Work(Base):
         """
         if not colls:
             return
+        if type(colls) not in [list, tuple]:
+            colls = [colls]
 
         for coll in colls:
             collection = self.add_collection_to_collections(coll)
@@ -1205,6 +1229,8 @@ class Work(Base):
     def add_log_collections(self, colls):
         if not colls:
             return
+        if type(colls) not in [list, tuple]:
+            colls = [colls]
 
         for coll in colls:
             collection = self.add_collection_to_collections(coll)
