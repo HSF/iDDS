@@ -16,6 +16,8 @@ import random
 import time
 import uuid
 
+from enum import Enum
+
 from idds.common.utils import json_dumps, setup_logging, get_proxy
 from idds.common.utils import str_to_date
 from .base import Base
@@ -78,11 +80,49 @@ class Condition(Base):
             else:
                 return False
 
+    def is_condition_true(self):
+        if self.get_cond_status():
+            return True
+        return False
+
+    def is_condition_false(self):
+        if not self.get_cond_status():
+            return True
+        return False
+
     def get_next_work(self):
         if self.get_cond_status():
             return self.true_work
         else:
             return self.false_work
+
+
+class ConditionOperator(Enum):
+    And = 0
+    Or = 1
+
+
+class MultiCondition(Condition):
+    def __init__(self, cond=None, current_work=None, true_work=None, false_work=None, logger=None):
+        super(MultiCondition, self).__init__(cond=cond, current_work=current_work, true_work=true_work,
+                                             false_work=false_work, logger=logger)
+        self.additional_conds = []
+
+    def add_condition(self, cond, current_work, operator=ConditionOperator.And):
+        cond = {'cond': cond, 'current_work': current_work.get_template_id(), 'operator': operator}
+        self.additional_conds.append(cond)
+
+    def get_cond_status(self):
+        if callable(self.cond):
+            if self.cond():
+                return True
+            else:
+                return False
+        else:
+            if self.cond:
+                return True
+            else:
+                return False
 
 
 class Workflow(Base):
