@@ -102,7 +102,7 @@ def show_works(req):
     print(work_ids)
 
 
-reqs = get_requests(request_id=132, with_detail=False, with_metadata=True)
+reqs = get_requests(request_id=148, with_detail=False, with_metadata=True)
 for req in reqs:
     # print(req['request_id'])
     # print(rets)
