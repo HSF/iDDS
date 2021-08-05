@@ -102,10 +102,10 @@ class ConditionOperator(Enum):
     Or = 1
 
 
-class MultiCondition(Condition):
+class CompositeCondition(Condition):
     def __init__(self, cond=None, current_work=None, true_work=None, false_work=None, logger=None):
-        super(MultiCondition, self).__init__(cond=cond, current_work=current_work, true_work=true_work,
-                                             false_work=false_work, logger=logger)
+        super(CompositeCondition, self).__init__(cond=cond, current_work=current_work, true_work=true_work,
+                                                 false_work=false_work, logger=logger)
         self.additional_conds = []
 
     def add_condition(self, cond, current_work, operator=ConditionOperator.And):
