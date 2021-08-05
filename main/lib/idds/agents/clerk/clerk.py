@@ -284,10 +284,11 @@ class Clerk(BaseAgent):
         for work in works:
             # print(work.get_work_id())
             tf = core_transforms.get_transform(transform_id=work.get_work_id())
-            transform_work = tf['transform_metadata']['work']
-            # work_status = WorkStatus(tf['status'].value)
-            # work.set_status(work_status)
-            work.sync_work_data(status=tf['status'], substatus=tf['substatus'], work=transform_work)
+            if tf:
+                transform_work = tf['transform_metadata']['work']
+                # work_status = WorkStatus(tf['status'].value)
+                # work.set_status(work_status)
+                work.sync_work_data(status=tf['status'], substatus=tf['substatus'], work=transform_work)
         wf.refresh_works()
 
         is_operation = False

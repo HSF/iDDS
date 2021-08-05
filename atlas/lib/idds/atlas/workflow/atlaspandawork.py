@@ -702,9 +702,20 @@ class ATLASPandaWork(Work):
 
             if self.is_processings_finished():
                 self.status = WorkStatus.Finished
-            if self.is_processings_failed():
-                self.status = WorkStatus.Failed
             elif self.is_processings_subfinished():
                 self.status = WorkStatus.SubFinished
+            elif self.is_processings_failed():
+                self.status = WorkStatus.Failed
+            elif self.is_processings_expired():
+                self.status = WorkStatus.Expired
+            elif self.is_processings_cancelled():
+                self.status = WorkStatus.Cancelled
+            elif self.is_processings_suspended():
+                self.status = WorkStatus.Suspended
+        elif self.is_processings_running():
+            self.status = WorkStatus.Running
         else:
             self.status = WorkStatus.Transforming
+
+        if self.is_processings_started():
+            self.started = True

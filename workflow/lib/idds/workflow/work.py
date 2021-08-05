@@ -434,6 +434,7 @@ class Work(Base):
         self.release_inputs_after_submitting = release_inputs_after_submitting
         self.has_new_inputs = True
 
+        self.started = False
         self.status = WorkStatus.New
         self.substatus = WorkStatus.New
         self.polling_retries = 0
@@ -575,6 +576,14 @@ class Work(Base):
     @has_new_inputs.setter
     def has_new_inputs(self, value):
         self.add_metadata_item('has_new_inputs', value)
+
+    @property
+    def started(self):
+        return self.get_metadata_item('started', False)
+
+    @started.setter
+    def started(self, value):
+        self.add_metadata_item('started', value)
 
     @property
     def status(self):
@@ -943,6 +952,14 @@ class Work(Base):
         self.backup_to_release_inputs['1'] = self.backup_to_release_inputs['0']
         self.backup_to_release_inputs['0'] = []
         return to_release_inputs
+
+    def is_started(self):
+        return self.started
+
+    def is_running(self):
+        if self.status in [WorkStatus.Running]:
+            return True
+        return False
 
     def is_terminated(self):
         """
@@ -1400,6 +1417,26 @@ class Work(Base):
         else:
             self.logger.error("Cannot reap an unterminated processing: %s" % processing)
 
+    def is_processings_started(self):
+        """
+        *** Function called by Transformer agent.
+        """
+        for p_id in self.active_processings:
+            p = self.processings[p_id]
+            if p.submitted_at:
+                return True
+        return False
+
+    def is_processings_running(self):
+        """
+        *** Function called by Transformer agent.
+        """
+        for p_id in self.active_processings:
+            p = self.processings[p_id]
+            if p.status in [ProcessingStatus.Running]:
+                return True
+        return False
+
     def is_processings_terminated(self):
         """
         *** Function called by Transformer agent.
@@ -1633,8 +1670,13 @@ class Work(Base):
                 self.status = WorkStatus.Cancelled
             elif self.is_processings_suspended():
                 self.status = WorkStatus.Suspended
+        elif self.is_processings_running():
+            self.status = WorkStatus.Running
         else:
             self.status = WorkStatus.Transforming
+
+        if self.is_processings_started():
+            self.started = True
         self.logger.debug("syn_work_status(%s): work.status: %s" % (str(self.get_processing_ids()), str(self.status)))
 
     def sync_work_data(self, status, substatus, work):

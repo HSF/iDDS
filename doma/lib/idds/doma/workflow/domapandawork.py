@@ -367,10 +367,12 @@ class DomaPanDAWork(Work):
         task_param_map['transUses'] = ''
         task_param_map['transHome'] = None
         if self.encode_command_line:
-            task_param_map['transPath'] = 'https://atlpan.web.cern.ch/atlpan/bash-c-enc'
+            # task_param_map['transPath'] = 'https://atlpan.web.cern.ch/atlpan/bash-c-enc'
+            task_param_map['transPath'] = 'https://storage.googleapis.com/drp-us-central1-containers/bash-c-enc'
             task_param_map['encJobParams'] = True
         else:
-            task_param_map['transPath'] = 'https://atlpan.web.cern.ch/atlpan/bash-c'
+            # task_param_map['transPath'] = 'https://atlpan.web.cern.ch/atlpan/bash-c'
+            task_param_map['transPath'] = 'https://storage.googleapis.com/drp-us-central1-containers/bash-c'
         task_param_map['processingType'] = self.processingType
         task_param_map['prodSourceLabel'] = self.prodSourceLabel
         task_param_map['taskType'] = self.task_type
@@ -937,3 +939,10 @@ class DomaPanDAWork(Work):
                     self.status = WorkStatus.Failed
             else:
                 self.status = WorkStatus.SubFinished
+        elif self.is_processings_running():
+            self.status = WorkStatus.Running
+        else:
+            self.status = WorkStatus.Transforming
+
+        if self.is_processings_started():
+            self.started = True

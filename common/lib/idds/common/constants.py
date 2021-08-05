@@ -111,6 +111,7 @@ class WorkStatus(IDDSEnum):
     ToExpire = 15
     Expiring = 16
     Expired = 17
+    Running = 18
 
 
 class RequestStatus(IDDSEnum):
