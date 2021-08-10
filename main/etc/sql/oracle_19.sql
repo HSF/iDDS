@@ -323,6 +323,8 @@ CREATE TABLE MESSAGES
 alter table messages add destination NUMBER(2);
 alter table messages add processing_id NUMBER(12);
 
+CREATE INDEX MESSAGES_TYPE_ST_IDX ON MESSAGES (msg_type, status, destination, request_id);
+
 --- health
 CREATE SEQUENCE HEALTH_ID_SEQ MINVALUE 1 INCREMENT BY 1 START WITH 1 NOCACHE ORDER NOCYCLE GLOBAL;
 CREATE TABLE HEALTH
