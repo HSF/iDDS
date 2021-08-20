@@ -348,11 +348,14 @@ class Processing(Base):
             self.status = self._processing.get('status', None)
             self.substatus = self._processing.get('substatus', None)
             self.processing_metadata = self._processing.get('processing_metadata', None)
+            self.submitted_at = self._processing.get('submitted_at', None)
             if self.processing_metadata and 'processing' in self.processing_metadata:
                 proc = self.processing_metadata['processing']
                 self.work = proc.work
                 self.external_id = proc.external_id
                 self.errors = proc.errors
+                if not self.submitted_at:
+                    self.submitted_at = proc.submitted_at
 
             self.output_data = self._processing.get('output_metadata', None)
 
@@ -366,7 +369,7 @@ class Work(Base):
                  work_tag=None, exec_type='local', sandbox=None, work_id=None, work_name=None,
                  primary_input_collection=None, other_input_collections=None,
                  output_collections=None, log_collections=None, release_inputs_after_submitting=False,
-                 agent_attributes=None,
+                 agent_attributes=None, is_template=False,
                  logger=None):
         """
         Init a work/task/transformation.
@@ -388,6 +391,7 @@ class Work(Base):
 
         self.internal_id = str(uuid.uuid1())
         self.template_work_id = self.internal_id
+        self.is_template = is_template
         self.class_name = self.__class__.__name__.lower()
         self.initialized = False
         self.sequence_id = 0
@@ -806,6 +810,9 @@ class Work(Base):
     def get_work_name(self):
         return self.work_name
 
+    def get_is_template(self):
+        self.is_template
+
     def setup_logger(self):
         """
         Setup logger
@@ -1079,7 +1086,8 @@ class Work(Base):
         self.logger = logger
         new_work.logger = logger
         # new_work.template_work_id = self.get_internal_id()
-        new_work.internal_id = str(uuid.uuid1())
+        if self.is_template:
+            new_work.internal_id = str(uuid.uuid1())
         return new_work
 
     def get_template_id(self):
@@ -1421,7 +1429,8 @@ class Work(Base):
         """
         *** Function called by Transformer agent.
         """
-        for p_id in self.active_processings:
+        # for p_id in self.active_processings:
+        for p_id in self.processings:
             p = self.processings[p_id]
             if p.submitted_at:
                 return True
@@ -1675,7 +1684,7 @@ class Work(Base):
         else:
             self.status = WorkStatus.Transforming
 
-        if self.is_processings_started():
+        if self.is_processings_terminated() or self.is_processings_running() or self.is_processings_started():
             self.started = True
         self.logger.debug("syn_work_status(%s): work.status: %s" % (str(self.get_processing_ids()), str(self.status)))
 
