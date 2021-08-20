@@ -6,8 +6,9 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2020
+# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2021
 
+import logging
 import pickle
 import urllib
 # from enum import Enum
@@ -74,3 +75,12 @@ class Base(DictClass):
     def deserialize(obj):
         # return urllib.parse.unquote_to_bytes(pickle.loads(obj))
         return pickle.loads(urllib.parse.unquote_to_bytes(obj))
+
+    def get_class_name(self):
+        return self.__class__.__name__
+
+    def setup_logger(self):
+        """
+        Setup logger
+        """
+        self.logger = logging.getLogger(self.get_class_name())
