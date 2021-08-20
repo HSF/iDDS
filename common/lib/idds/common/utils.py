@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2020
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2021
 
 
 import datetime
@@ -471,3 +471,9 @@ def extract_scope_atlas(did, scopes):
         if did.endswith('/'):
             did = did[:-1]
         return scope, did
+
+
+def truncate_string(string, length=800):
+    string = (string[:length] + '...') if string and len(string) > length else string
+    return string
+

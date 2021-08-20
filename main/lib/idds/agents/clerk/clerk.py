@@ -20,10 +20,12 @@ except ImportError:
 from idds.common import exceptions
 from idds.common.constants import (Sections, RequestStatus, RequestLocking,
                                    TransformStatus, MessageType, MessageStatus,
-                                   MessageSource, MessageDestination)
-from idds.common.utils import setup_logging
+                                   MessageSource, MessageDestination,
+                                   ContentStatus, ContentRelationType)
+from idds.common.utils import setup_logging, truncate_string
 from idds.core import (requests as core_requests,
-                       transforms as core_transforms)
+                       transforms as core_transforms,
+                       catalog as core_catalog)
 from idds.agents.common.baseagent import BaseAgent
 
 setup_logging(__name__)
@@ -151,7 +153,7 @@ class Clerk(BaseAgent):
             ret_req = {'request_id': req['request_id'],
                        'parameters': {'status': RequestStatus.Failed,
                                       'locking': RequestLocking.Idle,
-                                      'errors': {'msg': '%s: %s' % (ex, traceback.format_exc())}}}
+                                      'errors': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=900)}}}
         return ret_req
 
     def process_new_requests(self):
@@ -334,7 +336,7 @@ class Clerk(BaseAgent):
                       'locking': RequestLocking.Idle,
                       'next_poll_at': next_poll_at,
                       'request_metadata': req['request_metadata'],
-                      'errors': {'msg': req_msg}}
+                      'errors': {'msg': truncate_string(req_msg, 900)}}
 
         new_messages = []
         if req_status == RequestStatus.ToExpire:
@@ -378,11 +380,25 @@ class Clerk(BaseAgent):
                                       'errors': {'msg': '%s: %s' % (ex, traceback.format_exc())}}}
         return ret_req
 
+    def release_inputs(self, request_id):
+        contents = core_catalog.get_contents(request_id=request_id, status=ContentStatus.Available)
+        ret_contents = {}
+        for content in contents:
+            if content['content_relation_type'] == ContentRelationType.Output:   # InputDependency
+                if content['coll_id'] not in ret_contents:
+                    ret_contents[content['coll_id']] = []
+                ret_contents[content['coll_id']].append(content)
+
+        updated_contents = core_transforms.release_inputs_by_collection(ret_contents)
+
+        core_catalog.update_contents(updated_contents)
+
     def process_running_request(self, req):
         """
         process running request
         """
         try:
+            self.release_inputs(req['request_id'])
             ret_req = self.process_running_request_real(req)
         except Exception as ex:
             self.logger.error(ex)
