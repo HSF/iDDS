@@ -32,7 +32,7 @@ def migrate():
     cm1 = ClientManager(host=dev_host)
     # reqs = cm1.get_requests(request_id=290)
     old_request_id = 72533
-    for old_request_id in [148]:
+    for old_request_id in [152]:
     # for old_request_id in [60]:    # noqa E115
         reqs = cm1.get_requests(request_id=old_request_id, with_metadata=True)
 

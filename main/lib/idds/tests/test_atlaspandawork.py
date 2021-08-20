@@ -19,82 +19,162 @@ from idds.common.utils import get_rest_host
 
 
 def get_workflow():
-    from idds.workflow.workflow import Workflow
+    from idds.workflow.workflow import Workflow, Condition
     from idds.atlas.workflow.atlaspandawork import ATLASPandaWork
 
-    task_parameters = {"architecture": "",
-                       "cliParams": "prun --exec 'echo %RNDM:10 > seed.txt' --outputs seed.txt --nJobs 3 --outDS user.tmaeno.34ba141d-242c-43cf-a326-7730a5dc7338_000_top",
-                       "excludedSite": [],
-                       "includedSite": None,
-                       "jobParameters": [
-                           {
-                               "type": "constant",
-                               "value": "-j \"\" --sourceURL ${SURL}"
-                           },
-                           {
-                               "type": "constant",
-                               "value": "-r ."
-                           },
-                           {
-                               "padding": False,
-                               "type": "constant",
-                               "value": "-p \""
-                           },
-                           {
-                               "padding": False,
-                               "type": "constant",
-                               "value": "echo%20%25RNDM%3A10%20%3E%20seed.txt"
-                           },
-                           {
-                               "type": "constant",
-                               "value": "\""
-                           },
-                           {
-                               "type": "constant",
-                               "value": "-a jobO.6f1dc5a8-eeb3-4cdf-aed0-0930b6a0e815.tar.gz"
-                           },
-                           {
-                               "container": "user.tmaeno.34ba141d-242c-43cf-a326-7730a5dc7338_000_top_seed.txt/",
-                               "dataset": "user.tmaeno.34ba141d-242c-43cf-a326-7730a5dc7338_000_top_seed.txt/",
-                               "hidden": True,
-                               "param_type": "output",
-                               "type": "template",
-                               "value": "user.tmaeno.34ba141d-242c-43cf-a326-7730a5dc7338_000_top.$JEDITASKID._${SN/P}.seed.txt"
-                           },
-                           {
-                               "type": "constant",
-                               "value": "-o \"{'seed.txt': 'user.tmaeno.34ba141d-242c-43cf-a326-7730a5dc7338_000_top.$JEDITASKID._${SN/P}.seed.txt'}\""
-                           }
-                       ],
-                       "log": {
-                           "container": "user.tmaeno.34ba141d-242c-43cf-a326-7730a5dc7338_000_top/",
-                           "dataset": "user.tmaeno.34ba141d-242c-43cf-a326-7730a5dc7338_000_top/",
-                           "param_type": "log",
-                           "type": "template",
-                           "value": "user.tmaeno.34ba141d-242c-43cf-a326-7730a5dc7338_000_top.log.$JEDITASKID.${SN}.log.tgz"
-                       },
-                       "nEvents": 3,
-                       "nEventsPerJob": 1,
-                       "nMaxFilesPerJob": 200,
-                       "noInput": True,
-                       "osInfo": "Linux-3.10.0-1160.31.1.el7.x86_64-x86_64-with-centos-7.9.2009-Core",
-                       "processingType": "panda-client-1.4.79-jedi-run",
-                       "prodSourceLabel": "user",
-                       "respectSplitRule": True,
-                       "site": None,
-                       "sourceURL": "https://aipanda059.cern.ch:25443",
-                       "taskName": "user.tmaeno.34ba141d-242c-43cf-a326-7730a5dc7338_000_top",
-                       "transHome": None,
-                       "transUses": "",
-                       "uniqueTaskName": True,
-                       "userName": "Tadashi Maeno",
-                       "vo": "atlas"
-                       }
+    task_parameters1 = {"architecture": "",
+                        "cliParams": "prun --exec 'echo %RNDM:10 > seed.txt' --outputs seed.txt --nJobs 2 --outDS user.tmaeno.389eb4c5-5db6-4b80-82aa-9edfae6dfb38_000_top",
+                        "excludedSite": [],
+                        "includedSite": None,
+                        "jobParameters": [
+                            {
+                                "type": "constant",
+                                "value": "-j \"\" --sourceURL ${SURL}"
+                            },
+                            {
+                                "type": "constant",
+                                "value": "-r ."
+                            },
+                            {
+                                "padding": False,
+                                "type": "constant",
+                                "value": "-p \""
+                            },
+                            {
+                                "padding": False,
+                                "type": "constant",
+                                "value": "echo%20%25RNDM%3A10%20%3E%20seed.txt"
+                            },
+                            {
+                                "type": "constant",
+                                "value": "\""
+                            },
+                            {
+                                "type": "constant",
+                                "value": "-a jobO.185663cd-6df9-4ac8-adf9-0d9bf9d5892e.tar.gz"
+                            },
+                            {
+                                "container": "user.tmaeno.389eb4c5-5db6-4b80-82aa-9edfae6dfb38_000_top_seed.txt/",
+                                "dataset": "user.tmaeno.389eb4c5-5db6-4b80-82aa-9edfae6dfb38_000_top_seed.txt/",
+                                "hidden": True,
+                                "param_type": "output",
+                                "type": "template",
+                                "value": "user.tmaeno.389eb4c5-5db6-4b80-82aa-9edfae6dfb38_000_top.$JEDITASKID._${SN/P}.seed.txt"
+                            },
+                            {
+                                "type": "constant",
+                                "value": "-o \"{'seed.txt': 'user.tmaeno.389eb4c5-5db6-4b80-82aa-9edfae6dfb38_000_top.$JEDITASKID._${SN/P}.seed.txt'}\""
+                            }
+                        ],
+                        "log": {
+                            "container": "user.tmaeno.389eb4c5-5db6-4b80-82aa-9edfae6dfb38_000_top/",
+                            "dataset": "user.tmaeno.389eb4c5-5db6-4b80-82aa-9edfae6dfb38_000_top/",
+                            "param_type": "log",
+                            "type": "template",
+                            "value": "user.tmaeno.389eb4c5-5db6-4b80-82aa-9edfae6dfb38_000_top.log.$JEDITASKID.${SN}.log.tgz"
+                        },
+                        "nEvents": 2,
+                        "nEventsPerJob": 1,
+                        "nMaxFilesPerJob": 200,
+                        "noInput": True,
+                        "osInfo": "Linux-3.10.0-1160.36.2.el7.x86_64-x86_64-with-centos-7.9.2009-Core",
+                        "processingType": "panda-client-1.4.80-jedi-run",
+                        "prodSourceLabel": "user",
+                        "respectSplitRule": True,
+                        "site": None,
+                        "sourceURL": "https://aipanda048.cern.ch:25443",
+                        "taskName": "user.tmaeno.389eb4c5-5db6-4b80-82aa-9edfae6dfb38_000_top",
+                        "transHome": None,
+                        "transUses": "",
+                        "uniqueTaskName": True,
+                        "userName": "Tadashi Maeno",
+                        "vo": "atlas"}
 
-    work = ATLASPandaWork(task_parameters=task_parameters)
+    task_parameters2 = {"architecture": "",
+                        "cliParams": "prun --exec 'echo %IN > results.root' --outputs results.root --forceStaged --inDS user.tmaeno.389eb4c5-5db6-4b80-82aa-9edfae6dfb38_000_top_seed.txt/ --outDS user.tmaeno.389eb4c5-5db6-4b80-82aa-9edfae6dfb38_001_bottom",
+                        "excludedSite": [],
+                        "includedSite": None,
+                        "jobParameters": [
+                            {
+                                "type": "constant",
+                                "value": "-j \"\" --sourceURL ${SURL}"
+                            },
+                            {
+                                "type": "constant",
+                                "value": "-r ."
+                            },
+                            {
+                                "padding": False,
+                                "type": "constant",
+                                "value": "-p \""
+                            },
+                            {
+                                "padding": False,
+                                "type": "constant",
+                                "value": "echo%20%25IN%20%3E%20results.root"
+                            },
+                            {
+                                "type": "constant",
+                                "value": "\""
+                            },
+                            {
+                                "type": "constant",
+                                "value": "-a jobO.185663cd-6df9-4ac8-adf9-0d9bf9d5892e.tar.gz"
+                            },
+                            {
+                                "dataset": "user.tmaeno.389eb4c5-5db6-4b80-82aa-9edfae6dfb38_000_top_seed.txt/",
+                                "exclude": "\\.log\\.tgz(\\.\\d+)*$",
+                                "expand": True,
+                                "param_type": "input",
+                                "type": "template",
+                                "value": "-i \"${IN/T}\""
+                            },
+                            {
+                                "container": "user.tmaeno.389eb4c5-5db6-4b80-82aa-9edfae6dfb38_001_bottom_results.root/",
+                                "dataset": "user.tmaeno.389eb4c5-5db6-4b80-82aa-9edfae6dfb38_001_bottom_results.root/",
+                                "hidden": True,
+                                "param_type": "output",
+                                "type": "template",
+                                "value": "user.tmaeno.389eb4c5-5db6-4b80-82aa-9edfae6dfb38_001_bottom.$JEDITASKID._${SN/P}.results.root"
+                            },
+                            {
+                                "type": "constant",
+                                "value": "-o \"{'results.root': 'user.tmaeno.389eb4c5-5db6-4b80-82aa-9edfae6dfb38_001_bottom.$JEDITASKID._${SN/P}.results.root'}\""
+                            }
+                        ],
+                        "log": {
+                            "container": "user.tmaeno.389eb4c5-5db6-4b80-82aa-9edfae6dfb38_001_bottom/",
+                            "dataset": "user.tmaeno.389eb4c5-5db6-4b80-82aa-9edfae6dfb38_001_bottom/",
+                            "param_type": "log",
+                            "type": "template",
+                            "value": "user.tmaeno.389eb4c5-5db6-4b80-82aa-9edfae6dfb38_001_bottom.log.$JEDITASKID.${SN}.log.tgz"
+                        },
+                        "nMaxFilesPerJob": 200,
+                        "noWaitParent": True,
+                        "osInfo": "Linux-3.10.0-1160.36.2.el7.x86_64-x86_64-with-centos-7.9.2009-Core",
+                        "parentTaskName": "user.tmaeno.389eb4c5-5db6-4b80-82aa-9edfae6dfb38_000_top",
+                        "processingType": "panda-client-1.4.80-jedi-run",
+                        "prodSourceLabel": "user",
+                        "respectSplitRule": True,
+                        "site": None,
+                        "sourceURL": "https://aipanda048.cern.ch:25443",
+                        "taskName": "user.tmaeno.389eb4c5-5db6-4b80-82aa-9edfae6dfb38_001_bottom",
+                        "transHome": None,
+                        "transUses": "",
+                        "uniqueTaskName": True,
+                        "userName": "Tadashi Maeno",
+                        "vo": "atlas"}
+
+    work1 = ATLASPandaWork(task_parameters=task_parameters1)
+    work2 = ATLASPandaWork(task_parameters=task_parameters2)
     wf = Workflow()
     wf.set_workload_id(234567)
-    wf.add_work(work)
+    wf.add_work(work1)
+    wf.add_work(work2)
+
+    # cond = Condition(cond=work1.is_finished, true_work=work2)
+    cond = Condition(cond=work1.is_started, true_work=work2)
+    wf.add_condition(cond)
     return wf
 
 

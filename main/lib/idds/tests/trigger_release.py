@@ -11,7 +11,7 @@ from idds.core.catalog import get_contents, update_contents  # noqa F401
 from idds.orm.contents import get_input_contents             # noqa F401
 
 
-contents = get_contents(request_id=107, status=ContentStatus.Available)
+contents = get_contents(request_id=202, status=ContentStatus.Available)
 ret_contents = {}
 for content in contents:
     if content['content_relation_type'] == ContentRelationType.Output:   # InputDependency
@@ -26,6 +26,6 @@ for ret_content in ret_contents:
 updated_contents = core_transforms.release_inputs_by_collection(ret_contents)
 for update_content in updated_contents:
     print(update_content)
-    break
+    # break
 
 update_contents(updated_contents)
