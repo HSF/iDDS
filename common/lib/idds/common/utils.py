@@ -476,4 +476,3 @@ def extract_scope_atlas(did, scopes):
 def truncate_string(string, length=800):
     string = (string[:length] + '...') if string and len(string) > length else string
     return string
-
