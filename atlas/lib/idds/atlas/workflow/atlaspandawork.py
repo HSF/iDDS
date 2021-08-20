@@ -62,6 +62,7 @@ class ATLASPandaWork(Work):
         self.panda_url_ssl = None
         self.panda_monitor = None
 
+        self.task_type = 'test'
         self.task_parameters = None
         self.parse_task_parameters(task_parameters)
         # self.logger.setLevel(logging.DEBUG)
@@ -141,6 +142,9 @@ class ATLASPandaWork(Work):
                 self.task_name = self.task_parameters['taskName']
                 self.set_work_name(self.task_name)
 
+            if 'prodSourceLabel' in self.task_parameters:
+                self.task_type = self.task_parameters['prodSourceLabel']
+
             if 'jobParameters' in self.task_parameters:
                 jobParameters = self.task_parameters['jobParameters']
                 for jobP in jobParameters:
@@ -191,55 +195,58 @@ class ATLASPandaWork(Work):
             if coll.status in [CollectionStatus.Closed]:
                 return coll
             else:
-                if coll.coll_type == CollectionType.PseudoDataset:
-                    coll.coll_metadata['bytes'] = 0
-                    coll.coll_metadata['total_files'] = 0
-                    coll.coll_metadata['availability'] = True
-                    coll.coll_metadata['events'] = 0
-                    coll.coll_metadata['is_open'] = False
-                    coll.coll_metadata['run_number'] = None
-                    coll.coll_metadata['did_type'] = 'DATASET'
-                    coll.coll_metadata['list_all_files'] = False
+                try:
+                    if not coll.coll_type == CollectionType.PseudoDataset:
+                        client = self.get_rucio_client()
+                        did_meta = client.get_metadata(scope=coll.scope, name=coll.name)
 
-                    if 'is_open' in coll.coll_metadata and not coll.coll_metadata['is_open']:
-                        coll_status = CollectionStatus.Closed
-                    else:
-                        coll_status = CollectionStatus.Open
-                    coll.status = coll_status
+                        coll.coll_metadata['bytes'] = did_meta['bytes']
+                        coll.coll_metadata['total_files'] = did_meta['length']
+                        coll.coll_metadata['availability'] = did_meta['availability']
+                        coll.coll_metadata['events'] = did_meta['events']
+                        coll.coll_metadata['is_open'] = did_meta['is_open']
+                        coll.coll_metadata['run_number'] = did_meta['run_number']
+                        coll.coll_metadata['did_type'] = did_meta['did_type']
+                        coll.coll_metadata['list_all_files'] = False
 
-                    coll.coll_metadata['coll_type'] = coll.coll_type
-
-                    return coll
-                else:
-                    client = self.get_rucio_client()
-                    did_meta = client.get_metadata(scope=coll.scope, name=coll.name)
-
-                    coll.coll_metadata['bytes'] = did_meta['bytes']
-                    coll.coll_metadata['total_files'] = did_meta['length']
-                    coll.coll_metadata['availability'] = did_meta['availability']
-                    coll.coll_metadata['events'] = did_meta['events']
-                    coll.coll_metadata['is_open'] = did_meta['is_open']
-                    coll.coll_metadata['run_number'] = did_meta['run_number']
-                    coll.coll_metadata['did_type'] = did_meta['did_type']
-                    coll.coll_metadata['list_all_files'] = False
-
-                    if 'is_open' in coll.coll_metadata and not coll.coll_metadata['is_open']:
-                        coll_status = CollectionStatus.Closed
-                    else:
-                        coll_status = CollectionStatus.Open
-                    coll.status = coll_status
-
-                    if 'did_type' in coll.coll_metadata:
-                        if coll.coll_metadata['did_type'] == 'DATASET':
-                            coll_type = CollectionType.Dataset
-                        elif coll.coll_metadata['did_type'] == 'CONTAINER':
-                            coll_type = CollectionType.Container
+                        if 'is_open' in coll.coll_metadata and not coll.coll_metadata['is_open']:
+                            coll_status = CollectionStatus.Closed
                         else:
-                            coll_type = CollectionType.File
-                    else:
-                        coll_type = CollectionType.Dataset
-                    coll.coll_metadata['coll_type'] = coll_type
-                    coll.coll_type = coll_type
+                            coll_status = CollectionStatus.Open
+                        coll.status = coll_status
+
+                        if 'did_type' in coll.coll_metadata:
+                            if coll.coll_metadata['did_type'] == 'DATASET':
+                                coll_type = CollectionType.Dataset
+                            elif coll.coll_metadata['did_type'] == 'CONTAINER':
+                                coll_type = CollectionType.Container
+                            else:
+                                coll_type = CollectionType.File
+                        else:
+                            coll_type = CollectionType.Dataset
+                        coll.coll_metadata['coll_type'] = coll_type
+                        coll.coll_type = coll_type
+                        return coll
+                except Exception as ex:
+                    self.logger.warn("Faield to get the dataset information(%s:%s) from Panda: %s" % (coll.scope, coll.name, str(ex)))
+
+                coll.coll_metadata['bytes'] = 0
+                coll.coll_metadata['total_files'] = 0
+                coll.coll_metadata['availability'] = True
+                coll.coll_metadata['events'] = 0
+                coll.coll_metadata['is_open'] = False
+                coll.coll_metadata['run_number'] = None
+                coll.coll_metadata['did_type'] = 'DATASET'
+                coll.coll_metadata['list_all_files'] = False
+
+                if 'is_open' in coll.coll_metadata and not coll.coll_metadata['is_open']:
+                    coll_status = CollectionStatus.Closed
+                else:
+                    coll_status = CollectionStatus.Open
+                coll.status = coll_status
+
+                coll.coll_metadata['coll_type'] = coll.coll_type
+
                 return coll
         except Exception as ex:
             self.logger.error(ex)
@@ -391,7 +398,18 @@ class ATLASPandaWork(Work):
             task_param = proc.processing_metadata['task_param']
             return_code = Client.insertTaskParams(task_param, verbose=True)
             if return_code[0] == 0:
-                return return_code[1][1]
+                try:
+                    task_id = int(return_code[1][1])
+                    return task_id
+                except Exception as ex:
+                    self.logger.warn("task id is not retruned: (%s) is not task id: %s" % (return_code[1][1], str(ex)))
+                    # jediTaskID=26468582
+                    if return_code[1][1] and 'jediTaskID=' in return_code[1][1]:
+                        parts = return_code[1][1].split(" ")
+                        for part in parts:
+                            if 'jediTaskID=' in part:
+                                task_id = int(part.split("=")[1])
+                                return task_id
             else:
                 self.logger.warn("submit_panda_task, return_code: %s" % str(return_code))
         except Exception as ex:
@@ -717,5 +735,5 @@ class ATLASPandaWork(Work):
         else:
             self.status = WorkStatus.Transforming
 
-        if self.is_processings_started():
+        if self.is_processings_terminated() or self.is_processings_running() or self.is_processings_started():
             self.started = True
