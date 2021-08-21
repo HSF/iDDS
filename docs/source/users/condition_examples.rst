@@ -42,6 +42,7 @@ Here are conditions iDDS supports
 
 2. condition trigger
 
+(This part is for iDDS developers. Users normally should not use this function.)
 Condition trigger is an option for iDDS to process whether to remember whether a condition work is already triggered. It's used to avoid duplicated triggering some processes(For example, when using work1.is_started to trigger work2. If the condition is not recorded, work2 can be triggered many times every time when the condition is evaluated).
 
 .. code-block:: python
