@@ -367,10 +367,12 @@ class DomaPanDAWork(Work):
         task_param_map['transUses'] = ''
         task_param_map['transHome'] = None
         if self.encode_command_line:
-            task_param_map['transPath'] = 'https://atlpan.web.cern.ch/atlpan/bash-c-enc'
+            # task_param_map['transPath'] = 'https://atlpan.web.cern.ch/atlpan/bash-c-enc'
+            task_param_map['transPath'] = 'https://storage.googleapis.com/drp-us-central1-containers/bash-c-enc'
             task_param_map['encJobParams'] = True
         else:
-            task_param_map['transPath'] = 'https://atlpan.web.cern.ch/atlpan/bash-c'
+            # task_param_map['transPath'] = 'https://atlpan.web.cern.ch/atlpan/bash-c'
+            task_param_map['transPath'] = 'https://storage.googleapis.com/drp-us-central1-containers/bash-c'
         task_param_map['processingType'] = self.processingType
         task_param_map['prodSourceLabel'] = self.prodSourceLabel
         task_param_map['taskType'] = self.task_type
@@ -521,11 +523,17 @@ class DomaPanDAWork(Work):
                     break
 
             if not all_outputs_available:
-                for content in inputs + outputs + inputs_dependency:
+                for content in inputs + outputs:
                     update_content = {'content_id': content['content_id'],
                                       'status': ContentStatus.New,
                                       'substatus': ContentStatus.New}
                     updated_contents.append(update_content)
+                for content in inputs_dependency:
+                    if content['status'] not in [ContentStatus.Available]:
+                        update_content = {'content_id': content['content_id'],
+                                          'status': ContentStatus.New,
+                                          'substatus': ContentStatus.New}
+                        updated_contents.append(update_content)
         return updated_contents
 
     def sort_panda_jobids(self, input_output_maps):
@@ -580,7 +588,7 @@ class DomaPanDAWork(Work):
         elif jobstatus in ['failed', 'closed', 'cancelled', 'lost', 'broken', 'missing']:
             attempt_nr = int(job_info.attemptNr) if job_info.attemptNr else 0
             max_attempt = int(job_info.maxAttempt) if job_info.maxAttempt else 0
-            if attempt_nr >= max_attempt:
+            if (attempt_nr >= max_attempt) and (attempt_nr >= self.maxAttempt):
                 return ContentStatus.FinalFailed
             else:
                 return ContentStatus.Failed
@@ -884,7 +892,7 @@ class DomaPanDAWork(Work):
                           (proc.workload_id, str(updated_contents)))
         self.logger.debug("poll_processing_updates, task: %s, reactive_contents: %s" %
                           (proc.workload_id, str(reactive_contents)))
-        return update_processing, updated_contents + reactive_contents
+        return update_processing, updated_contents + reactive_contents, {}
 
     def get_status_statistics(self, registered_input_output_maps):
         status_statistics = {}
@@ -931,3 +939,10 @@ class DomaPanDAWork(Work):
                     self.status = WorkStatus.Failed
             else:
                 self.status = WorkStatus.SubFinished
+        elif self.is_processings_running():
+            self.status = WorkStatus.Running
+        else:
+            self.status = WorkStatus.Transforming
+
+        if self.is_processings_started():
+            self.started = True

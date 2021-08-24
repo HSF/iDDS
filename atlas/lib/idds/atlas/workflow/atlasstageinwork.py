@@ -120,7 +120,8 @@ class ATLASStageinWork(Work):
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
-            raise exceptions.IDDSException('%s: %s' % (str(ex), traceback.format_exc()))
+            # raise exceptions.IDDSException('%s: %s' % (str(ex), traceback.format_exc()))
+            return coll
 
     def get_input_collections(self):
         # return [self.primary_input_collection] + self.other_input_collections
@@ -302,7 +303,15 @@ class ATLASStageinWork(Work):
             raise exceptions.ProcessNotFound(msg)
 
     def poll_processing(self, processing):
-        return self.poll_rule(processing)
+        try:
+            return self.poll_rule(processing)
+        except exceptions.ProcessNotFound as ex:
+            raise ex
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+
+        return processing, 'notOk', {}
 
     def poll_processing_updates(self, processing, input_output_maps):
         processing, rule_state, rep_status = self.poll_processing(processing)
@@ -364,7 +373,7 @@ class ATLASStageinWork(Work):
             proc = processing['processing_metadata']['processing']
             proc.has_new_updates()
 
-        return update_processing, updated_contents
+        return update_processing, updated_contents, {}
 
     def get_status_statistics(self, registered_input_output_maps):
         status_statistics = {}
@@ -410,4 +419,6 @@ class ATLASStageinWork(Work):
                     self.status = WorkStatus.Failed
             else:
                 self.status = WorkStatus.SubFinished
+        else:
+            self.status = WorkStatus.Transforming
         self.logger.debug("syn_work_status(%s): work.status: %s" % (str(self.get_processing_ids()), str(self.status)))

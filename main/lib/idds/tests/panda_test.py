@@ -66,6 +66,7 @@ task_ids = []
 # task_ids = [i for i in range(1840, 1850)] + [i for i in range(1990, 2000)]
 # task_ids = [2549, 2560]
 # task_ids = [i for i in range(3692, 3723)]
+# task_ids = [3834, 3835, 3836]
 task_ids = []
 for task_id in task_ids:
     print("Killing %s" % task_id)

@@ -424,6 +424,8 @@ class ATLASHPOWork(ATLASCondorWork):
                     self.status = WorkStatus.Failed
             else:
                 self.status = WorkStatus.SubFinished
+        else:
+            self.status = WorkStatus.Transforming
 
     ####### functions for carrier ########     # noqa E266
     ######################################     # noqa E266
@@ -721,4 +723,4 @@ class ATLASHPOWork(ATLASCondorWork):
             update_processing['parameters']['expired_at'] = None
             processing['expired_at'] = None
         updated_contents = []
-        return update_processing, updated_contents
+        return update_processing, updated_contents, {}

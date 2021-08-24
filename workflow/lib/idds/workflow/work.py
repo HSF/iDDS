@@ -49,7 +49,7 @@ class Parameter(object):
 
 class Collection(Base):
 
-    def __init__(self, scope=None, name=None, coll_metadata={}):
+    def __init__(self, scope=None, name=None, coll_type=CollectionType.Dataset, coll_metadata={}):
         super(Collection, self).__init__()
         self.scope = scope
         self.name = name
@@ -59,6 +59,7 @@ class Collection(Base):
 
         self.internal_id = str(uuid.uuid1())
         self.coll_id = None
+        self.coll_type = coll_type
         self.status = CollectionStatus.New
         self.substatus = CollectionStatus.New
 
@@ -89,6 +90,16 @@ class Collection(Base):
             self.collection['status'] = value
 
     @property
+    def coll_type(self):
+        return self.get_metadata_item('coll_type', CollectionType.Dataset)
+
+    @coll_type.setter
+    def coll_type(self, value):
+        self.add_metadata_item('coll_type', value)
+        if self.collection:
+            self.collection['coll_type'] = value
+
+    @property
     def substatus(self):
         return self.get_metadata_item('substatus', CollectionStatus.New)
 
@@ -110,6 +121,7 @@ class Collection(Base):
             self.name = self._collection['name']
             self.coll_metadata = self._collection['coll_metadata']
             self.coll_id = self._collection['coll_id']
+            self.coll_type = self._collection['coll_type']
             self.status = self._collection['status']
             self.substatus = self._collection['substatus']
 
@@ -336,11 +348,14 @@ class Processing(Base):
             self.status = self._processing.get('status', None)
             self.substatus = self._processing.get('substatus', None)
             self.processing_metadata = self._processing.get('processing_metadata', None)
+            self.submitted_at = self._processing.get('submitted_at', None)
             if self.processing_metadata and 'processing' in self.processing_metadata:
                 proc = self.processing_metadata['processing']
                 self.work = proc.work
                 self.external_id = proc.external_id
                 self.errors = proc.errors
+                if not self.submitted_at:
+                    self.submitted_at = proc.submitted_at
 
             self.output_data = self._processing.get('output_metadata', None)
 
@@ -354,7 +369,7 @@ class Work(Base):
                  work_tag=None, exec_type='local', sandbox=None, work_id=None, work_name=None,
                  primary_input_collection=None, other_input_collections=None,
                  output_collections=None, log_collections=None, release_inputs_after_submitting=False,
-                 agent_attributes=None,
+                 agent_attributes=None, is_template=False,
                  logger=None):
         """
         Init a work/task/transformation.
@@ -376,6 +391,7 @@ class Work(Base):
 
         self.internal_id = str(uuid.uuid1())
         self.template_work_id = self.internal_id
+        self.is_template = is_template
         self.class_name = self.__class__.__name__.lower()
         self.initialized = False
         self.sequence_id = 0
@@ -422,6 +438,7 @@ class Work(Base):
         self.release_inputs_after_submitting = release_inputs_after_submitting
         self.has_new_inputs = True
 
+        self.started = False
         self.status = WorkStatus.New
         self.substatus = WorkStatus.New
         self.polling_retries = 0
@@ -563,6 +580,14 @@ class Work(Base):
     @has_new_inputs.setter
     def has_new_inputs(self, value):
         self.add_metadata_item('has_new_inputs', value)
+
+    @property
+    def started(self):
+        return self.get_metadata_item('started', False)
+
+    @started.setter
+    def started(self, value):
+        self.add_metadata_item('started', value)
 
     @property
     def status(self):
@@ -785,6 +810,9 @@ class Work(Base):
     def get_work_name(self):
         return self.work_name
 
+    def get_is_template(self):
+        self.is_template
+
     def setup_logger(self):
         """
         Setup logger
@@ -932,11 +960,19 @@ class Work(Base):
         self.backup_to_release_inputs['0'] = []
         return to_release_inputs
 
+    def is_started(self):
+        return self.started
+
+    def is_running(self):
+        if self.status in [WorkStatus.Running]:
+            return True
+        return False
+
     def is_terminated(self):
         """
         *** Function called by Transformer agent.
         """
-        if (self.status in [WorkStatus.Finished, WorkStatus.SubFinished, WorkStatus.Failed, WorkStatus.Cancelled, WorkStatus.Suspended]
+        if (self.status in [WorkStatus.Finished, WorkStatus.SubFinished, WorkStatus.Failed, WorkStatus.Cancelled, WorkStatus.Suspended, WorkStatus.Expired]
             and self.substatus not in [WorkStatus.ToCancel, WorkStatus.ToSuspend, WorkStatus.ToResume]):   # noqa W503
             return True
         return False
@@ -1050,7 +1086,8 @@ class Work(Base):
         self.logger = logger
         new_work.logger = logger
         # new_work.template_work_id = self.get_internal_id()
-        new_work.internal_id = str(uuid.uuid1())
+        if self.is_template:
+            new_work.internal_id = str(uuid.uuid1())
         return new_work
 
     def get_template_id(self):
@@ -1071,7 +1108,13 @@ class Work(Base):
         coll_metadata = copy.copy(coll)
         del coll_metadata['scope']
         del coll_metadata['name']
-        collection = Collection(scope=coll['scope'], name=coll['name'], coll_metadata=coll_metadata)
+        if 'type' in coll_metadata:
+            coll_type = coll_metadata['type']
+            del coll_metadata['type']
+        else:
+            coll_type = CollectionType.Dataset
+
+        collection = Collection(scope=coll['scope'], name=coll['name'], coll_type=coll_type, coll_metadata=coll_metadata)
         self.collections[collection.internal_id] = collection
         return collection
 
@@ -1084,11 +1127,15 @@ class Work(Base):
         """
         *** Function called by Marshaller agent.
         """
-        return self.collections[self.primary_input_collection]
+        if self.primary_input_collection:
+            return self.collections[self.primary_input_collection]
+        return None
 
     def add_other_input_collections(self, colls):
         if not colls:
             return
+        if type(colls) not in [list, tuple]:
+            colls = [colls]
 
         for coll in colls:
             collection = self.add_collection_to_collections(coll)
@@ -1191,6 +1238,8 @@ class Work(Base):
         """
         if not colls:
             return
+        if type(colls) not in [list, tuple]:
+            colls = [colls]
 
         for coll in colls:
             collection = self.add_collection_to_collections(coll)
@@ -1205,6 +1254,8 @@ class Work(Base):
     def add_log_collections(self, colls):
         if not colls:
             return
+        if type(colls) not in [list, tuple]:
+            colls = [colls]
 
         for coll in colls:
             collection = self.add_collection_to_collections(coll)
@@ -1373,6 +1424,27 @@ class Work(Base):
             self.active_processings.remove(processing.internal_id)
         else:
             self.logger.error("Cannot reap an unterminated processing: %s" % processing)
+
+    def is_processings_started(self):
+        """
+        *** Function called by Transformer agent.
+        """
+        # for p_id in self.active_processings:
+        for p_id in self.processings:
+            p = self.processings[p_id]
+            if p.submitted_at:
+                return True
+        return False
+
+    def is_processings_running(self):
+        """
+        *** Function called by Transformer agent.
+        """
+        for p_id in self.active_processings:
+            p = self.processings[p_id]
+            if p.status in [ProcessingStatus.Running]:
+                return True
+        return False
 
     def is_processings_terminated(self):
         """
@@ -1607,8 +1679,13 @@ class Work(Base):
                 self.status = WorkStatus.Cancelled
             elif self.is_processings_suspended():
                 self.status = WorkStatus.Suspended
+        elif self.is_processings_running():
+            self.status = WorkStatus.Running
         else:
             self.status = WorkStatus.Transforming
+
+        if self.is_processings_terminated() or self.is_processings_running() or self.is_processings_started():
+            self.started = True
         self.logger.debug("syn_work_status(%s): work.status: %s" % (str(self.get_processing_ids()), str(self.status)))
 
     def sync_work_data(self, status, substatus, work):

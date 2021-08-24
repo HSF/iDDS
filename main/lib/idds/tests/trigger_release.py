@@ -11,19 +11,21 @@ from idds.core.catalog import get_contents, update_contents  # noqa F401
 from idds.orm.contents import get_input_contents             # noqa F401
 
 
-contents = get_contents(request_id=10, status=ContentStatus.Available)
-ret_contents = []
+contents = get_contents(request_id=202, status=ContentStatus.Available)
+ret_contents = {}
 for content in contents:
     if content['content_relation_type'] == ContentRelationType.Output:   # InputDependency
-        ret_contents.append(content)
+        if content['coll_id'] not in ret_contents:
+            ret_contents[content['coll_id']] = []
+        ret_contents[content['coll_id']].append(content)
 
 for ret_content in ret_contents:
     print(ret_content)
     break
 
-updated_contents = core_transforms.release_inputs(ret_contents)
+updated_contents = core_transforms.release_inputs_by_collection(ret_contents)
 for update_content in updated_contents:
     print(update_content)
-    break
+    # break
 
 update_contents(updated_contents)

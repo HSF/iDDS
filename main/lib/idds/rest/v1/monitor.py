@@ -110,7 +110,7 @@ class Monitor(IDDSController):
             reqs = get_requests(request_id=request_id, workload_id=workload_id, with_detail=False, with_processing=True, with_metadata=False)
             for req in reqs:
                 ret = {'request_id': req['request_id'],
-                       'workload_id': req['workload_id'],
+                       'workload_id': req['processing_workload_id'],
                        'processing_id': req['processing_id'],
                        'processing_status': req['processing_status'].name if req['processing_status'] else req['processing_status'],
                        'processing_created_at': req['processing_created_at'],

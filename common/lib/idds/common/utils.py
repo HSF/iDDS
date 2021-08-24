@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2020
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2021
 
 
 import datetime
@@ -453,3 +453,26 @@ def get_proxy():
 
 def is_new_version(version1, version2):
     return version1 > version2
+
+
+def extract_scope_atlas(did, scopes):
+    # Try to extract the scope from the DSN
+    if did.find(':') > -1:
+        if len(did.split(':')) > 2:
+            raise IDDSException('Too many colons. Cannot extract scope and name')
+        scope, name = did.split(':')[0], did.split(':')[1]
+        if name.endswith('/'):
+            name = name[:-1]
+        return scope, name
+    else:
+        scope = did.split('.')[0]
+        if did.startswith('user') or did.startswith('group'):
+            scope = ".".join(did.split('.')[0:2])
+        if did.endswith('/'):
+            did = did[:-1]
+        return scope, did
+
+
+def truncate_string(string, length=800):
+    string = (string[:length] + '...') if string and len(string) > length else string
+    return string
