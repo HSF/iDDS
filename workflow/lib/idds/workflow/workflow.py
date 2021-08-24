@@ -119,6 +119,8 @@ class CompositeCondition(Base):
         self._conditions = value
         new_value = []
         for cond in value:
+            if cond is None:
+                continue
             if inspect.ismethod(cond):
                 new_cond = {'idds_method': cond.__name__,
                             'idds_method_class_id': cond.__self__.get_template_id()}
@@ -137,6 +139,8 @@ class CompositeCondition(Base):
         self._true_works = value
         true_work_meta = self.get_metadata_item('true_works', {})
         for work in value:
+            if work is None:
+                continue
             if isinstance(work, Work):
                 if work.get_template_id() not in true_work_meta:
                     true_work_meta[work.get_template_id()] = {'triggered': False}
@@ -156,6 +160,8 @@ class CompositeCondition(Base):
         self._false_works = value
         false_work_meta = self.get_metadata_item('false_works', {})
         for work in value:
+            if work is None:
+                continue
             if isinstance(work, Work):
                 if work.get_template_id() not in false_work_meta:
                     false_work_meta[work.get_template_id()] = {'triggered': False}
@@ -455,6 +461,34 @@ class Condition(CompositeCondition):
                                         true_works=[true_work] if true_work else [],
                                         false_works=[false_work] if false_work else [],
                                         logger=logger)
+
+    # to support load from old conditions
+    @property
+    def cond(self):
+        # return self.get_metadata_item('true_works', [])
+        return self.conditions[0] if len(self.conditions) >= 1 else None
+
+    @cond.setter
+    def cond(self, value):
+        self.conditions = [value]
+
+    @property
+    def true_work(self):
+        # return self.get_metadata_item('true_works', [])
+        return self.true_works if len(self.true_works) >= 1 else None
+
+    @true_work.setter
+    def true_work(self, value):
+        self.true_works = [value]
+
+    @property
+    def false_work(self):
+        # return self.get_metadata_item('true_works', [])
+        return self.false_works if len(self.false_works) >= 1 else None
+
+    @false_work.setter
+    def false_work(self, value):
+        self.false_works = [value]
 
 
 class TemplateCondition(CompositeCondition):
