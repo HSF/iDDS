@@ -508,7 +508,7 @@ class ATLASPandaWork(Work):
                     self.logger.info("poll_panda_task, task_info: %s" % str(task_info))
                     if task_info[0] != 0:
                         self.logger.warn("poll_panda_task %s, error getting task status, task_info: %s" % (task_id, str(task_info)))
-                        return ProcessingStatus.Submitting, {}
+                        return ProcessingStatus.Submitting, [], {}
 
                     task_info = task_info[1]
 
