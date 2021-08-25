@@ -23,7 +23,8 @@ def get_subfinished_requests(db_pool):
     connection = db_pool.acquire()
 
     req_ids = []
-    sql = """select request_id from atlas_IDDS.requests where status in (4,5) and scope!='hpo'"""
+    # sql = """select request_id from atlas_IDDS.requests where status in (4,5) and scope!='hpo'"""
+    sql = """select request_id from atlas_IDDS.requests where scope!='hpo' and ( status in (4,5) or request_id in (select request_id from atlas_idds.transforms where status in (4, 5) and transform_type=2)) order by request_id"""
     cursor = connection.cursor()
     cursor.execute(sql)
     rows = cursor.fetchall()
@@ -34,6 +35,7 @@ def get_subfinished_requests(db_pool):
 
     connection.commit()
     db_pool.release(connection)
+    print(len(req_ids))
     print(req_ids)
 
 
