@@ -341,3 +341,38 @@ CREATE TABLE HEALTH
     CONSTRAINT HEALTH_PK PRIMARY KEY (health_id), -- USING INDEX LOCAL,  
     CONSTRAINT HEALTH_UQ UNIQUE (agent, hostname, pid, thread_id)
 );
+
+
+--- request archive table
+CREATE TABLE REQUESTS_archive
+(
+        request_id NUMBER(12),
+        scope VARCHAR2(25),
+        name VARCHAR2(255),
+        requester VARCHAR2(20),
+        request_type NUMBER(2),
+        transform_tag VARCHAR2(10),
+        workload_id NUMBER(10),
+        priority NUMBER(7),
+        status NUMBER(2),
+        substatus NUMBER(2),
+        locking NUMBER(2),
+        created_at DATE,
+        updated_at DATE,
+        next_poll_at DATE,
+        accessed_at DATE,
+        expired_at DATE,
+        errors VARCHAR2(1024),
+        request_metadata CLOB,
+        processing_metadata,
+        CONSTRAINT REQ_AR_PK PRIMARY KEY (request_id) USING INDEX LOCAL
+        --- CONSTRAINT REQUESTS_NAME_SCOPE_UQ UNIQUE (name, scope, requester, request_type, transform_tag, workload_id) -- USING INDEX LOCAL,
+)
+PCTFREE 3
+PARTITION BY RANGE(REQUEST_ID)
+INTERVAL ( 100000 )
+( PARTITION initial_part VALUES LESS THAN (1) );
+
+CREATE INDEX REQ_AR_SCOPE_NAME_IDX ON REQUESTS_archive (name, scope, workload_id) LOCAL;
+--- drop index REQUESTS_STATUS_PRIORITY_IDX
+CREATE INDEX REQ_AR_STATUS_PRIORITY_IDX ON REQUESTS_archive (status, priority, request_id, locking, updated_at, next_poll_at, created_at) LOCAL COMPRESS 1;
