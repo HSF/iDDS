@@ -46,6 +46,13 @@ class Clerk(BaseAgent):
         else:
             self.pending_time = None
 
+        if not hasattr(self, 'release_helper') or not self.release_helper:
+            self.release_helper = False
+        elif str(self.release_helper).lower() == 'true':
+            self.release_helper = True
+        else:
+            self.release_helper = False
+
         self.new_task_queue = Queue()
         self.new_output_queue = Queue()
         self.running_task_queue = Queue()
@@ -398,7 +405,8 @@ class Clerk(BaseAgent):
         process running request
         """
         try:
-            self.release_inputs(req['request_id'])
+            if self.release_helper:
+                self.release_inputs(req['request_id'])
             ret_req = self.process_running_request_real(req)
         except Exception as ex:
             self.logger.error(ex)
