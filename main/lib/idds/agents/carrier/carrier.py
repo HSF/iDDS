@@ -115,7 +115,8 @@ class Carrier(BaseAgent):
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
             ret = {'processing_id': processing['processing_id'],
-                   'status': ProcessingStatus.Failed}
+                   'status': ProcessingStatus.Running,
+                   'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period * 4)}
         return ret
 
     def process_new_processings(self):
@@ -384,8 +385,9 @@ class Carrier(BaseAgent):
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
             processing_update = {'processing_id': processing['processing_id'],
-                                 'parameters': {'status': ProcessingStatus.Failed,
-                                                'locking': ProcessingLocking.Idle}}
+                                 'parameters': {'status': ProcessingStatus.Running,
+                                                'locking': ProcessingLocking.Idle,
+                                                'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period * 4)}}
             ret = {'processing_update': processing_update,
                    'content_updates': []}
         return ret

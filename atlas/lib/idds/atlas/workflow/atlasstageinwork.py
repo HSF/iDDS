@@ -314,66 +314,71 @@ class ATLASStageinWork(Work):
         return processing, 'notOk', {}
 
     def poll_processing_updates(self, processing, input_output_maps):
-        processing, rule_state, rep_status = self.poll_processing(processing)
+        try:
+            processing, rule_state, rep_status = self.poll_processing(processing)
 
-        updated_contents = []
-        content_substatus = {'finished': 0, 'unfinished': 0}
-        for map_id in input_output_maps:
-            outputs = input_output_maps[map_id]['outputs']
-            for content in outputs:
-                key = '%s:%s' % (content['scope'], content['name'])
-                if key in rep_status:
-                    if content['substatus'] != rep_status[key]:
-                        updated_content = {'content_id': content['content_id'],
-                                           'substatus': rep_status[key]}
-                        updated_contents.append(updated_content)
-                        content['substatus'] = rep_status[key]
-                if content['substatus'] == ContentStatus.Available:
-                    content_substatus['finished'] += 1
-                else:
-                    content_substatus['unfinished'] += 1
-
-        update_processing = {}
-        if rule_state == 'OK' and content_substatus['finished'] > 0 and content_substatus['unfinished'] == 0:
-            update_processing = {'processing_id': processing['processing_id'],
-                                 'parameters': {'status': ProcessingStatus.Finished}}
-        elif self.toexpire:
-            update_processing = {'processing_id': processing['processing_id'],
-                                 'parameters': {'status': ProcessingStatus.Expired}}
-        elif self.tocancel:
-            update_processing = {'processing_id': processing['processing_id'],
-                                 'parameters': {'status': ProcessingStatus.Cancelled}}
-        elif self.tosuspend:
-            update_processing = {'processing_id': processing['processing_id'],
-                                 'parameters': {'status': ProcessingStatus.Suspended}}
-        elif self.toresume:
-            update_processing = {'processing_id': processing['processing_id'],
-                                 'parameters': {'status': ProcessingStatus.Running}}
-            update_processing['parameters']['expired_at'] = None
-            processing['expired_at'] = None
-            proc = processing['processing_metadata']['processing']
-            proc.has_new_updates()
-        elif self.tofinish:
-            update_processing = {'processing_id': processing['processing_id'],
-                                 'parameters': {'status': ProcessingStatus.SubFinished}}
-        elif self.toforcefinish:
+            updated_contents = []
+            content_substatus = {'finished': 0, 'unfinished': 0}
             for map_id in input_output_maps:
                 outputs = input_output_maps[map_id]['outputs']
                 for content in outputs:
-                    if content['substatus'] not in [ContentStatus.Available, ContentStatus.FakeAvailable]:
-                        updated_content = {'content_id': content['content_id'],
-                                           'substatus': ContentStatus.FakeAvailable}
-                        updated_contents.append(updated_content)
-                        content['substatus'] = ContentStatus.FakeAvailable
+                    key = '%s:%s' % (content['scope'], content['name'])
+                    if key in rep_status:
+                        if content['substatus'] != rep_status[key]:
+                            updated_content = {'content_id': content['content_id'],
+                                               'substatus': rep_status[key]}
+                            updated_contents.append(updated_content)
+                            content['substatus'] = rep_status[key]
+                    if content['substatus'] == ContentStatus.Available:
+                        content_substatus['finished'] += 1
+                    else:
+                        content_substatus['unfinished'] += 1
 
-            update_processing = {'processing_id': processing['processing_id'],
-                                 'parameters': {'status': ProcessingStatus.Finished}}
+            update_processing = {}
+            if rule_state == 'OK' and content_substatus['finished'] > 0 and content_substatus['unfinished'] == 0:
+                update_processing = {'processing_id': processing['processing_id'],
+                                     'parameters': {'status': ProcessingStatus.Finished}}
+            elif self.toexpire:
+                update_processing = {'processing_id': processing['processing_id'],
+                                     'parameters': {'status': ProcessingStatus.Expired}}
+            elif self.tocancel:
+                update_processing = {'processing_id': processing['processing_id'],
+                                     'parameters': {'status': ProcessingStatus.Cancelled}}
+            elif self.tosuspend:
+                update_processing = {'processing_id': processing['processing_id'],
+                                     'parameters': {'status': ProcessingStatus.Suspended}}
+            elif self.toresume:
+                update_processing = {'processing_id': processing['processing_id'],
+                                     'parameters': {'status': ProcessingStatus.Running}}
+                update_processing['parameters']['expired_at'] = None
+                processing['expired_at'] = None
+                proc = processing['processing_metadata']['processing']
+                proc.has_new_updates()
+            elif self.tofinish:
+                update_processing = {'processing_id': processing['processing_id'],
+                                     'parameters': {'status': ProcessingStatus.SubFinished}}
+            elif self.toforcefinish:
+                for map_id in input_output_maps:
+                    outputs = input_output_maps[map_id]['outputs']
+                    for content in outputs:
+                        if content['substatus'] not in [ContentStatus.Available, ContentStatus.FakeAvailable]:
+                            updated_content = {'content_id': content['content_id'],
+                                               'substatus': ContentStatus.FakeAvailable}
+                            updated_contents.append(updated_content)
+                            content['substatus'] = ContentStatus.FakeAvailable
 
-        if updated_contents:
-            proc = processing['processing_metadata']['processing']
-            proc.has_new_updates()
+                update_processing = {'processing_id': processing['processing_id'],
+                                     'parameters': {'status': ProcessingStatus.Finished}}
 
-        return update_processing, updated_contents, {}
+            if updated_contents:
+                proc = processing['processing_metadata']['processing']
+                proc.has_new_updates()
+
+            return update_processing, updated_contents, {}
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+            raise ex
 
     def get_status_statistics(self, registered_input_output_maps):
         status_statistics = {}
