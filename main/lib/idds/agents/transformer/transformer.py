@@ -381,7 +381,13 @@ class Transformer(BaseAgent):
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
-            transform_parameters = {'status': TransformStatus.Failed,
+            if transform['retries'] > 10:
+                tf_status = TransformStatus.Failed
+            else:
+                tf_status = TransformStatus.Transforming
+            transform_parameters = {'status': tf_status,
+                                    'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period * 4),
+                                    'retries': transform['retries'] + 1,
                                     'locking': TransformLocking.Idle}
             ret = {'transform': transform, 'transform_parameters': transform_parameters}
         return ret
@@ -1019,9 +1025,15 @@ class Transformer(BaseAgent):
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
+            if transform['retries'] > 10:
+                tf_status = TransformStatus.Failed
+            else:
+                tf_status = TransformStatus.Transforming
             ret = {'transform': transform,
-                   'transform_parameters': {'status': TransformStatus.Failed,
+                   'transform_parameters': {'status': tf_status,
+                                            'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period * 4),
                                             'locking': TransformLocking.Idle,
+                                            'retries': transform['retries'] + 1,
                                             'errors': {'msg': '%s: %s' % (ex, traceback.format_exc())}}}
         return ret
 
@@ -1040,7 +1052,13 @@ class Transformer(BaseAgent):
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
-            transform_parameters = {'status': TransformStatus.Failed,
+            if transform['retries'] > 10:
+                tf_status = TransformStatus.Failed
+            else:
+                tf_status = TransformStatus.Transforming
+            transform_parameters = {'status': tf_status,
+                                    'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period * 4),
+                                    'retries': transform['retries'] + 1,
                                     'locking': TransformLocking.Idle}
             ret = {'transform': transform, 'transform_parameters': transform_parameters}
         return ret
