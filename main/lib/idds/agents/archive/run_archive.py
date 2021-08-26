@@ -27,7 +27,7 @@ def get_archive_sql(schema):
                              updated_at, next_poll_at, accessed_at, expired_at, errors,
                              request_metadata, processing_metadata
                       FROM   {schema}.requests
-                      WHERE  status in (3, 5, 17) and created_at < sysdate - interval '9' month
+                      WHERE  status in (3, 5, 9, 17) and created_at < sysdate - interval '7' month
                       order by request_id asc)
             LOOP
                 --- archive records

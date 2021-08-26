@@ -160,6 +160,8 @@ class Processing(Base):
 
         self.output_data = None
 
+        self.retries = 0
+
     @property
     def internal_id(self):
         return self.get_metadata_item('internal_id')
@@ -203,6 +205,14 @@ class Processing(Base):
         self.add_metadata_item('substatus', value)
         if self.processing:
             self.processing['substatus'] = value
+
+    @property
+    def retries(self):
+        return self.get_metadata_item('retries', 0)
+
+    @retries.setter
+    def retries(self, value):
+        self.add_metadata_item('retries', value)
 
     @property
     def last_updated_at(self):

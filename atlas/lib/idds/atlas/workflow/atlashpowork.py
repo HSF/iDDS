@@ -658,51 +658,60 @@ class ATLASHPOWork(ATLASCondorWork):
                 return None, 'Failed to load the content of %s: %s' % (str(full_output_json), str(ex))
 
     def poll_processing(self, processing):
-        proc = processing['processing_metadata']['processing']
-        job_status, job_err_msg = self.poll_condor_job_status(processing, proc.external_id)
-        processing_outputs = None
-        reset_expired_at = False
-        if job_status in [ProcessingStatus.Finished]:
-            job_outputs, parser_errors = self.parse_processing_outputs(processing)
-            if job_outputs:
-                processing_status = ProcessingStatus.Finished
+        try:
+            proc = processing['processing_metadata']['processing']
+            job_status, job_err_msg = self.poll_condor_job_status(processing, proc.external_id)
+            processing_outputs = None
+            reset_expired_at = False
+            if job_status in [ProcessingStatus.Finished]:
+                job_outputs, parser_errors = self.parse_processing_outputs(processing)
+                if job_outputs:
+                    processing_status = ProcessingStatus.Finished
+                    processing_err = None
+                    processing_outputs = job_outputs
+                else:
+                    processing_status = ProcessingStatus.Failed
+                    processing_err = parser_errors
+            elif job_status in [ProcessingStatus.Failed]:
+                processing_status = job_status
+                processing_err = job_err_msg
+            elif self.toexpire:
+                processing_status = ProcessingStatus.Expired
+                processing_err = "The processing is expired"
+            elif job_status in [ProcessingStatus.Cancelled]:
+                processing_status = job_status
+                processing_err = job_err_msg
+            elif self.tocancel:
+                self.cancelled_processings.append(proc.internal_id)
+                processing_status = ProcessingStatus.Cancelled
+                processing_outputs = None
+                processing_err = 'Cancelled'
+            elif self.tosuspend:
+                self.suspended_processings.append(proc.internal_id)
+                processing_status = ProcessingStatus.Suspended
+                processing_outputs = None
+                processing_err = 'Suspend'
+            elif self.toresume:
+                # self.old_processings.append(processing['processing_metadata']['internal_id'])
+                # self.active_processings.clear()
+                # self.active_processings.remove(processing['processing_metadata']['internal_id'])
+                processing['processing_metadata']['resuming_at'] = datetime.datetime.utcnow()
+                processing_status = ProcessingStatus.Running
+                reset_expired_at = True
+                processing_outputs = None
                 processing_err = None
-                processing_outputs = job_outputs
             else:
+                processing_status = job_status
+                processing_err = job_err_msg
+            return processing_status, processing_outputs, processing_err, reset_expired_at
+        except Exception as ex:
+            self.logger.error("processing_id %s exception: %s, %s" % (processing['processing_id'], str(ex), traceback.format_exc()))
+            proc.retries += 1
+            if proc.retries > 10:
                 processing_status = ProcessingStatus.Failed
-                processing_err = parser_errors
-        elif job_status in [ProcessingStatus.Failed]:
-            processing_status = job_status
-            processing_err = job_err_msg
-        elif self.toexpire:
-            processing_status = ProcessingStatus.Expired
-            processing_err = "The processing is expired"
-        elif job_status in [ProcessingStatus.Cancelled]:
-            processing_status = job_status
-            processing_err = job_err_msg
-        elif self.tocancel:
-            self.cancelled_processings.append(proc.internal_id)
-            processing_status = ProcessingStatus.Cancelled
-            processing_outputs = None
-            processing_err = 'Cancelled'
-        elif self.tosuspend:
-            self.suspended_processings.append(proc.internal_id)
-            processing_status = ProcessingStatus.Suspended
-            processing_outputs = None
-            processing_err = 'Suspend'
-        elif self.toresume:
-            # self.old_processings.append(processing['processing_metadata']['internal_id'])
-            # self.active_processings.clear()
-            # self.active_processings.remove(processing['processing_metadata']['internal_id'])
-            processing['processing_metadata']['resuming_at'] = datetime.datetime.utcnow()
-            processing_status = ProcessingStatus.Running
-            reset_expired_at = True
-            processing_outputs = None
-            processing_err = None
-        else:
-            processing_status = job_status
-            processing_err = job_err_msg
-        return processing_status, processing_outputs, processing_err, reset_expired_at
+            else:
+                processing_status = ProcessingStatus.Running
+            return processing_status, None, None, False
 
     def poll_processing_updates(self, processing, input_output_maps):
         processing_status, processing_outputs, processing_err, reset_expired_at = self.poll_processing(processing)
