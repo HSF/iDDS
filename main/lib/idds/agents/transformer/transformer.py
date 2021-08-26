@@ -878,6 +878,7 @@ class Transformer(BaseAgent):
             work.tosuspend = True
         elif transform['status'] in [TransformStatus.ToResume]:
             transform['status'] = TransformStatus.Resuming
+            transform['retries'] = 0
             work.toresume = True
             to_resume_transform = True
             reactivated_contents = self.reactive_contents(registered_input_output_maps)
@@ -977,6 +978,7 @@ class Transformer(BaseAgent):
                                 'locking': TransformLocking.Idle,
                                 'workload_id': transform['workload_id'],
                                 'next_poll_at': next_poll_at,
+                                'retries': transform['retries'],
                                 'transform_metadata': transform['transform_metadata']}
         # if transform_substatus:
         #     transform_parameters['substatus'] = transform_substatus
