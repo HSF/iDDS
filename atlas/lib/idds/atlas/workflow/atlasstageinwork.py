@@ -375,6 +375,11 @@ class ATLASStageinWork(Work):
                 proc.has_new_updates()
 
             return update_processing, updated_contents, {}
+        except exceptions.ProcessNotFound as ex:
+            self.logger.warn("processing_id %s not not found: %s" % (processing['processing_id'], str(ex)))
+            update_processing = {'processing_id': processing['processing_id'],
+                                 'parameters': {'status': ProcessingStatus.SubFinished}}
+            return update_processing, [], {}
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
