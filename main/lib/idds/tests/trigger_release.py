@@ -11,7 +11,8 @@ from idds.core.catalog import get_contents, update_contents  # noqa F401
 from idds.orm.contents import get_input_contents             # noqa F401
 
 
-contents = get_contents(request_id=202, status=ContentStatus.Available)
+request_id = 221
+contents = get_contents(request_id=request_id, status=ContentStatus.Available)
 ret_contents = {}
 for content in contents:
     if content['content_relation_type'] == ContentRelationType.Output:   # InputDependency
