@@ -46,6 +46,11 @@ class Transformer(BaseAgent):
         self.retrieve_bulk_size = int(retrieve_bulk_size)
         self.message_bulk_size = int(message_bulk_size)
 
+        if not hasattr(self, 'retries') or not self.retries:
+            self.retries = 100
+        else:
+            self.retries = int(self.retries)
+
         self.new_task_queue = Queue()
         self.new_output_queue = Queue()
         self.running_task_queue = Queue()
@@ -381,12 +386,15 @@ class Transformer(BaseAgent):
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
-            if transform['retries'] > 10:
+            if transform['retries'] > self.retries:
                 tf_status = TransformStatus.Failed
             else:
                 tf_status = TransformStatus.Transforming
+
+            wait_times = max(4, transform['retries'])
+
             transform_parameters = {'status': tf_status,
-                                    'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period * 4),
+                                    'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period * wait_times),
                                     'retries': transform['retries'] + 1,
                                     'locking': TransformLocking.Idle}
             ret = {'transform': transform, 'transform_parameters': transform_parameters}
@@ -974,6 +982,9 @@ class Transformer(BaseAgent):
             else:
                 next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_operation_time_period)
 
+        # reset retries to 0 when it succeed
+        transform['retries'] = 0
+
         transform_parameters = {'status': transform['status'],
                                 'locking': TransformLocking.Idle,
                                 'workload_id': transform['workload_id'],
@@ -1027,13 +1038,16 @@ class Transformer(BaseAgent):
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
-            if transform['retries'] > 10:
+            if transform['retries'] > self.retries:
                 tf_status = TransformStatus.Failed
             else:
                 tf_status = TransformStatus.Transforming
+
+            wait_times = max(4, transform['retries'])
+
             ret = {'transform': transform,
                    'transform_parameters': {'status': tf_status,
-                                            'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period * 4),
+                                            'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period * wait_times),
                                             'locking': TransformLocking.Idle,
                                             'retries': transform['retries'] + 1,
                                             'errors': {'msg': '%s: %s' % (ex, traceback.format_exc())}}}
@@ -1054,12 +1068,15 @@ class Transformer(BaseAgent):
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
-            if transform['retries'] > 10:
+            if transform['retries'] > self.retries:
                 tf_status = TransformStatus.Failed
             else:
                 tf_status = TransformStatus.Transforming
+
+            wait_times = max(4, transform['retries'])
+
             transform_parameters = {'status': tf_status,
-                                    'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period * 4),
+                                    'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period * wait_times),
                                     'retries': transform['retries'] + 1,
                                     'locking': TransformLocking.Idle}
             ret = {'transform': transform, 'transform_parameters': transform_parameters}
