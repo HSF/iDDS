@@ -666,7 +666,7 @@ def update_request(request_id, parameters, session=None):
 
             if workflow is not None:
                 workflow.refresh_works()
-                if 'processing_metadata' not in parameters:
+                if 'processing_metadata' not in parameters or not parameters['processing_metadata']:
                     parameters['processing_metadata'] = {}
                 parameters['processing_metadata']['workflow_data'] = workflow.metadata
 
