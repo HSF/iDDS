@@ -305,6 +305,9 @@ class Carrier(BaseAgent):
             # work = transform['transform_metadata']['work']
             # work = processing['processing_metadata']['work']
             # work.set_agent_attributes(self.agent_attributes)
+            if 'processing' not in processing['processing_metadata']:
+                raise exceptions.ProcessFormatNotSupported
+
             proc = processing['processing_metadata']['processing']
             work = proc.work
             work.set_agent_attributes(self.agent_attributes, processing)
@@ -381,6 +384,16 @@ class Carrier(BaseAgent):
             ret = {'processing_update': processing_update,
                    'content_updates': content_updates,
                    'new_contents': new_contents}
+
+        except exceptions.ProcessFormatNotSupported as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+            processing_update = {'processing_id': processing['processing_id'],
+                                 'parameters': {'status': ProcessingStatus.Failed,
+                                                'locking': ProcessingLocking.Idle,
+                                                'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period * 4)}}
+            ret = {'processing_update': processing_update,
+                   'content_updates': []}
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
