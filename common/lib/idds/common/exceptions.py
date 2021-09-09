@@ -194,6 +194,16 @@ class ProcessNotFound(IDDSException):
         self.error_code = 403
 
 
+class ProcessFormatNotSupported(IDDSException):
+    """
+    ProcessFormatNotSupported
+    """
+    def __init__(self, *args, **kwargs):
+        super(ProcessFormatNotSupported, self).__init__(*args, **kwargs)
+        self._message = "Process format not support."
+        self.error_code = 404
+
+
 class AgentException(IDDSException):
     """
     BrokerException
