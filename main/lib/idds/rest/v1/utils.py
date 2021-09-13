@@ -37,7 +37,7 @@ def convert_stagein_request_metadata_to_workflow(scope, name, workload_id, reque
                             exec_type='local', sandbox=None,
                             primary_input_collection={'scope': scope, 'name': name},
                             other_input_collections=None,
-                            output_collections={'scope': scope, 'name': name + '.idds.stagein'},
+                            output_collections={'scope': scope, 'name': name},
                             log_collections=None,
                             logger=None,
                             max_waiting_time=request_metadata.get('max_waiting_time', 3600 * 7 * 24),
