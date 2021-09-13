@@ -200,8 +200,8 @@ class ATLASStageinWork(Work):
             for ip in new_inputs:
                 self.num_mapped_inputs += 1
                 out_ip = copy.deepcopy(ip)
-                ip['status'] = ContentStatus.Available
-                ip['substatus'] = ContentStatus.Available
+                ip['status'] = ContentStatus.New
+                ip['substatus'] = ContentStatus.New
                 out_ip['coll_id'] = self.collections[self.output_collections[0]].coll_id
                 new_input_output_maps[next_key] = {'inputs': [ip],
                                                    'outputs': [out_ip],
@@ -320,8 +320,9 @@ class ATLASStageinWork(Work):
             updated_contents = []
             content_substatus = {'finished': 0, 'unfinished': 0}
             for map_id in input_output_maps:
+                inputs = input_output_maps[map_id]['inputs']
                 outputs = input_output_maps[map_id]['outputs']
-                for content in outputs:
+                for content in inputs + outputs:
                     key = '%s:%s' % (content['scope'], content['name'])
                     if key in rep_status:
                         if content['substatus'] != rep_status[key]:
@@ -359,8 +360,9 @@ class ATLASStageinWork(Work):
                                      'parameters': {'status': ProcessingStatus.SubFinished}}
             elif self.toforcefinish:
                 for map_id in input_output_maps:
+                    inputs = input_output_maps[map_id]['inputs']
                     outputs = input_output_maps[map_id]['outputs']
-                    for content in outputs:
+                    for content in inputs + outputs:
                         if content['substatus'] not in [ContentStatus.Available, ContentStatus.FakeAvailable]:
                             updated_content = {'content_id': content['content_id'],
                                                'substatus': ContentStatus.FakeAvailable}
