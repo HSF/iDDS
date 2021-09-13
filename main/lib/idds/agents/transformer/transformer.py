@@ -903,73 +903,97 @@ class Transformer(BaseAgent):
             transform['status'] = TransformStatus.Finished
             msg = self.generate_message(transform, work=work, msg_type='work')
             msgs.append(msg)
+            for coll in input_collections:
+                coll.status = CollectionStatus.Closed
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='input')
+                msgs.append(msg)
             for coll in output_collections:
                 coll.status = CollectionStatus.Closed
-                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='output')
                 msgs.append(msg)
             for coll in log_collections:
                 coll.status = CollectionStatus.Closed
-                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='log')
                 msgs.append(msg)
         elif work.is_subfinished():
             transform['status'] = TransformStatus.SubFinished
             msg = self.generate_message(transform, work=work, msg_type='work')
             msgs.append(msg)
+            for coll in in_collections:
+                coll.status = CollectionStatus.SubClosed
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='input')
+                msgs.append(msg)
             for coll in output_collections:
                 coll.status = CollectionStatus.SubClosed
-                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='output')
                 msgs.append(msg)
             for coll in log_collections:
                 coll.status = CollectionStatus.SubClosed
-                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='log')
                 msgs.append(msg)
         elif work.is_failed():
             transform['status'] = TransformStatus.Failed
             msg = self.generate_message(transform, work=work, msg_type='work')
             msgs.append(msg)
+            for coll in input_collections:
+                coll.status = CollectionStatus.Failed
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='input')
+                msgs.append(msg)
             for coll in output_collections:
                 coll.status = CollectionStatus.Failed
-                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='output')
                 msgs.append(msg)
             for coll in log_collections:
                 coll.status = CollectionStatus.Failed
-                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='log')
                 msgs.append(msg)
         elif work.is_expired():
             transform['status'] = TransformStatus.Expired
             msg = self.generate_message(transform, work=work, msg_type='work')
             msgs.append(msg)
+            for coll in input_collections:
+                coll.status = CollectionStatus.SubClosed
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='input')
+                msgs.append(msg)
             for coll in output_collections:
                 coll.status = CollectionStatus.SubClosed
-                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='output')
                 msgs.append(msg)
             for coll in log_collections:
                 coll.status = CollectionStatus.SubClosed
-                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='log')
                 msgs.append(msg)
         elif work.is_cancelled():
             transform['status'] = TransformStatus.Cancelled
             msg = self.generate_message(transform, work=work, msg_type='work')
             msgs.append(msg)
+            for coll in input_collections:
+                coll.status = CollectionStatus.Cancelled
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='input')
+                msgs.append(msg)
             for coll in output_collections:
                 coll.status = CollectionStatus.Cancelled
-                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='output')
                 msgs.append(msg)
             for coll in log_collections:
                 coll.status = CollectionStatus.Cancelled
-                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='log')
                 msgs.append(msg)
         elif work.is_suspended():
             transform['status'] = TransformStatus.Suspended
             msg = self.generate_message(transform, work=work, msg_type='work')
             msgs.append(msg)
+            for coll in input_collections:
+                coll.status = CollectionStatus.Suspended
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='input')
+                msgs.append(msg)
             for coll in output_collections:
                 coll.status = CollectionStatus.Suspended
-                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='output')
                 msgs.append(msg)
             for coll in log_collections:
                 coll.status = CollectionStatus.Suspended
-                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='log')
                 msgs.append(msg)
         else:
             transform['status'] = TransformStatus.Transforming
