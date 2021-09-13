@@ -563,13 +563,18 @@ class Transformer(BaseAgent):
                            'error': work.get_terminated_msg()}
             num_msg_content = 1
         elif msg_type == 'collection':
+            # fix for old requests
+            coll_name = collection.name
+            if coll_name.endswith(".idds.stagein"):
+                coll_name = coll_name.replace(".idds.stagein", "")
+
             i_msg_type, i_msg_type_str = self.get_message_type(transform['transform_type'], input_type='collection')
             msg_content = {'msg_type': i_msg_type_str,
                            'request_id': request_id,
                            'workload_id': workload_id,
                            'relation_type': relation_type,
                            'collections': [{'scope': collection.scope,
-                                            'name': collection.name,
+                                            'name': coll_name,
                                             'status': collection.status.name}],
                            'output': work.get_output_data(),
                            'error': work.get_terminated_msg()}
@@ -890,6 +895,13 @@ class Transformer(BaseAgent):
             work.toresume = True
             to_resume_transform = True
             reactivated_contents = self.reactive_contents(registered_input_output_maps)
+            # reactive collections
+            for coll in input_collections:
+                coll.status = CollectionStatus.Open
+            for coll in output_collections:
+                coll.status = CollectionStatus.Open
+            for coll in log_collections:
+                coll.status = CollectionStatus.Open
         elif transform['status'] in [TransformStatus.ToExpire]:
             transform['status'] = TransformStatus.Expiring
             work.toexpire = True
@@ -919,7 +931,7 @@ class Transformer(BaseAgent):
             transform['status'] = TransformStatus.SubFinished
             msg = self.generate_message(transform, work=work, msg_type='work')
             msgs.append(msg)
-            for coll in in_collections:
+            for coll in input_collections:
                 coll.status = CollectionStatus.SubClosed
                 msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='input')
                 msgs.append(msg)

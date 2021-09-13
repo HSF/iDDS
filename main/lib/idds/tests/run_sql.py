@@ -25,6 +25,8 @@ def get_subfinished_requests(db_pool):
     req_ids = []
     # sql = """select request_id from atlas_IDDS.requests where status in (4,5) and scope!='hpo'"""
     sql = """select request_id from atlas_IDDS.requests where scope!='hpo' and ( status in (4,5) or request_id in (select request_id from atlas_idds.transforms where status in (4, 5) and transform_type=2)) order by request_id"""
+    sql = """select request_id from atlas_idds.collections where status=4 and total_files > processed_files order by request_id asc"""
+
     cursor = connection.cursor()
     cursor.execute(sql)
     rows = cursor.fetchall()
