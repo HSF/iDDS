@@ -40,8 +40,8 @@ CREATE TABLE REQUESTS
         name VARCHAR2(255) constraint REQ_NAME_NN NOT NULL,
         requester VARCHAR2(20),
         request_type NUMBER(2) constraint REQ_DATATYPE_NN NOT NULL,
-        username VARCHAR2(20),
-        userdn VARCHAR2(200),
+        username VARCHAR2(20) default null,
+        userdn VARCHAR2(200) default null,
         transform_tag VARCHAR2(10),
         workload_id NUMBER(10),
         priority NUMBER(7),
@@ -68,7 +68,8 @@ CREATE INDEX REQUESTS_SCOPE_NAME_IDX ON REQUESTS (name, scope, workload_id) LOCA
 --- drop index REQUESTS_STATUS_PRIORITY_IDX
 CREATE INDEX REQUESTS_STATUS_PRIORITY_IDX ON REQUESTS (status, priority, request_id, locking, updated_at, next_poll_at, created_at) LOCAL COMPRESS 1;
 
-alter table REQUESTS modify (min_id NUMBER(7) default 0)
+-- alter table REQUESTS add (username VARCHAR2(20) default null);
+-- alter table REQUESTS add (userdn VARCHAR2(200) default null);
 
 --- workprogress
 CREATE SEQUENCE WORKPROGRESS_ID_SEQ MINVALUE 1 INCREMENT BY 1 ORDER NOCACHE NOCYCLE GLOBAL;
