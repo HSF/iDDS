@@ -288,7 +288,7 @@ class Clerk(BaseAgent):
             self.logger.debug("Processing request(%s): new transforms: %s" % (req['request_id'], str(new_transforms)))
 
         # current works
-        works = wf.get_current_works()
+        works = wf.get_all_works()
         # print(works)
         for work in works:
             # print(work.get_work_id())

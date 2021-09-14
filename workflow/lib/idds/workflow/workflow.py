@@ -1124,6 +1124,10 @@ class Workflow(Base):
 
         self.refresh_works()
 
+        for k in self.works:
+            work = self.works[k]
+            self.log_debug("work %s is_terminated(%s:%s)" % (work.get_internal_id(), work.is_terminated(), work.get_status()))
+
         for work in [self.works[k] for k in self.new_to_run_works]:
             if work.transforming:
                 self.new_to_run_works.remove(work.get_internal_id())
