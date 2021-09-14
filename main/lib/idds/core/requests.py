@@ -26,7 +26,8 @@ from idds.orm import messages as orm_messages
 from idds.core import messages as core_messages
 
 
-def create_request(scope=None, name=None, requester=None, request_type=None, transform_tag=None,
+def create_request(scope=None, name=None, requester=None, request_type=None,
+                   username=None, userdn=None, transform_tag=None,
                    status=RequestStatus.New, locking=RequestLocking.Idle, priority=0,
                    lifetime=None, workload_id=None, request_metadata=None,
                    processing_metadata=None):
@@ -53,6 +54,7 @@ def create_request(scope=None, name=None, requester=None, request_type=None, tra
 
     # request_metadata = convert_request_metadata_to_workflow(scope, name, workload_id, request_type, request_metadata)
     kwargs = {'scope': scope, 'name': name, 'requester': requester, 'request_type': request_type,
+              'username': username, 'userdn': userdn,
               'transform_tag': transform_tag, 'status': status, 'locking': locking,
               'priority': priority, 'lifetime': lifetime, 'workload_id': workload_id,
               'request_metadata': request_metadata, 'processing_metadata': processing_metadata}
@@ -60,7 +62,8 @@ def create_request(scope=None, name=None, requester=None, request_type=None, tra
 
 
 @transactional_session
-def add_request(scope=None, name=None, requester=None, request_type=None, transform_tag=None,
+def add_request(scope=None, name=None, requester=None, request_type=None,
+                username=None, userdn=None, transform_tag=None,
                 status=RequestStatus.New, locking=RequestLocking.Idle, priority=0,
                 lifetime=None, workload_id=None, request_metadata=None,
                 processing_metadata=None, session=None):
@@ -87,6 +90,7 @@ def add_request(scope=None, name=None, requester=None, request_type=None, transf
     # request_metadata = convert_request_metadata_to_workflow(scope, name, workload_id, request_type, request_metadata)
 
     kwargs = {'scope': scope, 'name': name, 'requester': requester, 'request_type': request_type,
+              'username': username, 'userdn': userdn,
               'transform_tag': transform_tag, 'status': status, 'locking': locking,
               'priority': priority, 'lifetime': lifetime, 'workload_id': workload_id,
               'request_metadata': request_metadata, 'processing_metadata': processing_metadata,

@@ -27,7 +27,8 @@ from idds.orm.base.session import read_session, transactional_session
 from idds.orm.base import models
 
 
-def create_request(scope=None, name=None, requester=None, request_type=None, transform_tag=None,
+def create_request(scope=None, name=None, requester=None, request_type=None,
+                   username=None, userdn=None, transform_tag=None,
                    status=RequestStatus.New, locking=RequestLocking.Idle, priority=0,
                    lifetime=None, workload_id=None, request_metadata=None,
                    processing_metadata=None):
@@ -74,6 +75,7 @@ def create_request(scope=None, name=None, requester=None, request_type=None, tra
         expired_at = None
 
     new_request = models.Request(scope=scope, name=name, requester=requester, request_type=request_type,
+                                 username=username, userdn=userdn,
                                  transform_tag=transform_tag, status=status, locking=locking,
                                  priority=priority, workload_id=workload_id,
                                  expired_at=expired_at,
@@ -82,7 +84,8 @@ def create_request(scope=None, name=None, requester=None, request_type=None, tra
 
 
 @transactional_session
-def add_request(scope=None, name=None, requester=None, request_type=None, transform_tag=None,
+def add_request(scope=None, name=None, requester=None, request_type=None,
+                username=None, userdn=None, transform_tag=None,
                 status=RequestStatus.New, locking=RequestLocking.Idle, priority=0,
                 lifetime=None, workload_id=None, request_metadata=None,
                 processing_metadata=None, session=None):
@@ -110,6 +113,7 @@ def add_request(scope=None, name=None, requester=None, request_type=None, transf
 
     try:
         new_request = create_request(scope=scope, name=name, requester=requester, request_type=request_type,
+                                     username=username, userdn=userdn,
                                      transform_tag=transform_tag, status=status, locking=locking,
                                      priority=priority, workload_id=workload_id, lifetime=lifetime,
                                      request_metadata=request_metadata, processing_metadata=processing_metadata)

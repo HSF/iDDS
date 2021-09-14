@@ -578,6 +578,8 @@ class Workflow(Base):
         # user defined Condition class
         self.user_defined_conditions = {}
 
+        self.username = None
+        self.userdn = None
         self.proxy = None
 
         """

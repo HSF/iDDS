@@ -129,6 +129,8 @@ if __name__ == '__main__':
     # props = get_example_active_learning_request()
     workflow = get_workflow()
 
+    workflow.username = 'abdc'
+    workflow.userdn = '/DC=abc/DC=def'
     # props = pre_check(props)
     # print(props)
 

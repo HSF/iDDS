@@ -49,6 +49,8 @@ class ClientManager:
             'name': workflow.name,
             'requester': 'panda',
             'request_type': RequestType.Workflow,
+            'username': workflow.username,
+            'userdn': workflow.userdn,
             'transform_tag': 'workflow',
             'status': RequestStatus.New,
             'priority': 0,
