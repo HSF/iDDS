@@ -1269,6 +1269,9 @@ class Workflow(Base):
         return self.is_terminated() and (self.num_failed_works > 0) and (self.num_cancelled_works == 0) and (self.num_suspended_works == 0) and (self.num_expired_works == 0)
 
     def is_to_expire(self, expired_at=None, pending_time=None, request_id=None):
+        if self.expired:
+            # it's already expired. avoid sending duplicated messages again and again.
+            return False
         if expired_at:
             if type(expired_at) in [str]:
                 expired_at = str_to_date(expired_at)
