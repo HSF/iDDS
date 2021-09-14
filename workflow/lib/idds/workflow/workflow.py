@@ -1038,6 +1038,15 @@ class Workflow(Base):
         self.sync_works()
         return [self.works[k] for k in self.current_running_works]
 
+    def get_all_works(self):
+        """
+        *** Function called by Marshaller agent.
+
+        Current running works
+        """
+        self.sync_works()
+        return [self.works[k] for k in self.works]
+
     def get_primary_initial_collection(self):
         """
         *** Function called by Clerk agent.
