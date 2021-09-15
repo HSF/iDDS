@@ -38,7 +38,7 @@ class ClientManager:
         self.client = Client(host=self.host)
 
     @exception_handler
-    def submit(self, workflow):
+    def submit(self, workflow, username=None, userdn=None):
         """
         Submit the workflow as a request to iDDS server.
 
@@ -49,8 +49,8 @@ class ClientManager:
             'name': workflow.name,
             'requester': 'panda',
             'request_type': RequestType.Workflow,
-            'username': workflow.username,
-            'userdn': workflow.userdn,
+            'username': username if username else workflow.username,
+            'userdn': userdn if userdn else workflow.userdn,
             'transform_tag': 'workflow',
             'status': RequestStatus.New,
             'priority': 0,
