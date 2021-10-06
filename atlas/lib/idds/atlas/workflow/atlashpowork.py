@@ -438,6 +438,11 @@ class ATLASHPOWork(ATLASCondorWork):
                         'NUM_POINTS': self.points_to_generate,
                         'IN': self.input_json,
                         'OUT': self.output_json}
+        if 'X509_USER_PROXY' in os.environ and os.environ['X509_USER_PROXY']:
+            proxy_filename = os.path.basename(os.environ['X509_USER_PROXY'])
+            param_values['X509_USER_PROXY_FULLNAME'] = os.environ['X509_USER_PROXY']
+            param_values['X509_USER_PROXY_BASENAME'] = proxy_filename
+
         arguments = replace_parameters_with_values(arguments, param_values)
 
         script = "#!/bin/bash\n\n"
@@ -473,6 +478,12 @@ class ATLASHPOWork(ATLASCondorWork):
                         'NUM_POINTS': self.points_to_generate,
                         'IN': self.input_json,
                         'OUT': self.output_json}
+        proxy_filename = 'x509up'
+        if 'X509_USER_PROXY' in os.environ and os.environ['X509_USER_PROXY']:
+            proxy_filename = os.path.basename(os.environ['X509_USER_PROXY'])
+            param_values['X509_USER_PROXY_FULLNAME'] = os.environ['X509_USER_PROXY']
+            param_values['X509_USER_PROXY_BASENAME'] = proxy_filename
+
         executable = replace_parameters_with_values(self.executable, param_values)
         arguments = replace_parameters_with_values(self.arguments, param_values)
 
@@ -492,7 +503,7 @@ class ATLASHPOWork(ATLASCondorWork):
         script += "\n"
 
         if self.sandbox and 'docker' in executable:
-            arguments = 'run --rm -v $(pwd):%s %s ' % (self.container_workdir, self.sandbox) + arguments
+            arguments = 'run --rm -v $(pwd):%s -v /cvmfs:/cvmfs -e X509_USER_PROXY=%s/%s %s ' % (self.container_workdir, self.container_workdir, proxy_filename, self.sandbox) + arguments
 
         script += "echo '%s' '%s'\n" % (str(executable), str(arguments))
         script += '%s %s\n' % (str(executable), str(arguments))
@@ -515,6 +526,11 @@ class ATLASHPOWork(ATLASCondorWork):
                         'NUM_POINTS': self.points_to_generate,
                         'IN': self.input_json,
                         'OUT': self.output_json}
+        if 'X509_USER_PROXY' in os.environ and os.environ['X509_USER_PROXY']:
+            proxy_filename = os.path.basename(os.environ['X509_USER_PROXY'])
+            param_values['X509_USER_PROXY_FULLNAME'] = os.environ['X509_USER_PROXY']
+            param_values['X509_USER_PROXY_BASENAME'] = proxy_filename
+
         executable = replace_parameters_with_values(self.executable, param_values)
         arguments = replace_parameters_with_values(self.arguments, param_values)
 
