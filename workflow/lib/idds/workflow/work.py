@@ -57,7 +57,7 @@ class Collection(Base):
 
         self.collection = None
 
-        self.internal_id = str(uuid.uuid1())
+        self.internal_id = str(uuid.uuid4())[:8]
         self.coll_id = None
         self.coll_type = coll_type
         self.status = CollectionStatus.New
@@ -139,7 +139,7 @@ class Processing(Base):
 
         self.processing = None
 
-        self.internal_id = str(uuid.uuid1())
+        self.internal_id = str(uuid.uuid4())[:8]
         self.processing_id = None
         self.workload_id = None
         self.status = ProcessingStatus.New
@@ -399,7 +399,7 @@ class Work(Base):
         """
         super(Work, self).__init__()
 
-        self.internal_id = str(uuid.uuid1())
+        self.internal_id = str(uuid.uuid4())[:8]
         self.template_work_id = self.internal_id
         self.is_template = is_template
         self.class_name = self.__class__.__name__.lower()
@@ -1097,7 +1097,7 @@ class Work(Base):
         new_work.logger = logger
         # new_work.template_work_id = self.get_internal_id()
         if self.is_template:
-            new_work.internal_id = str(uuid.uuid1())
+            new_work.internal_id = str(uuid.uuid4())[:8]
         return new_work
 
     def get_template_id(self):
