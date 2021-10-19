@@ -37,6 +37,7 @@ class Conductor(BaseAgent):
         self.config_section = Sections.Conductor
         self.retrieve_bulk_size = int(retrieve_bulk_size)
         self.message_queue = Queue()
+        self.output_message_queue = Queue()
 
     def __del__(self):
         self.stop_notifier()
@@ -70,12 +71,24 @@ class Conductor(BaseAgent):
 
         self.logger.info("Starting notifier: %s" % self.notifier)
         self.notifier.set_request_queue(self.message_queue)
+        self.notifier.set_output_queue(self.output_message_queue)
         self.notifier.start()
 
     def stop_notifier(self):
         if hasattr(self, 'notifier') and self.notifier:
             self.logger.info("Stopping notifier: %s" % self.notifier)
             self.notifier.stop()
+
+    def get_output_messages(self):
+        msgs = []
+        try:
+            while not self.output_message_queue.empty():
+                msg = self.output_message_queue.get(False)
+                if msg:
+                    msgs.append(msg)
+        except Exception as error:
+            self.logger.error("Failed to get output messages: %s, %s" % (error, traceback.format_exc()))
+        return msgs
 
     def run(self):
         """
@@ -99,7 +112,8 @@ class Conductor(BaseAgent):
                         self.message_queue.put(message)
                     while not self.message_queue.empty():
                         time.sleep(1)
-                    self.clean_messages(messages)
+                    output_messages = self.get_output_messages()
+                    self.clean_messages(output_messages)
                 except IDDSException as error:
                     self.logger.error("Main thread IDDSException: %s" % str(error))
                 except Exception as error:
