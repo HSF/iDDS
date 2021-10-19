@@ -102,8 +102,8 @@ class ATLASCondorWork(Work):
         # self.logger.info("tf_inputs: %s, tf_outputs: %s" % (str(tf_inputs), str(tf_outputs)))
 
         # if 'X509_USER_PROXY' in os.environ and os.environ['X509_USER_PROXY']:
-            # proxy_filename = os.path.basename(os.environ['X509_USER_PROXY'])
-            # tf_inputs = tf_inputs + [os.environ['X509_USER_PROXY']]
+        #     proxy_filename = os.path.basename(os.environ['X509_USER_PROXY'])
+        #     tf_inputs = tf_inputs + [os.environ['X509_USER_PROXY']]
 
         if tf_inputs:
             jdl += "transfer_input_files = %s\n" % (str(','.join(tf_inputs)))
