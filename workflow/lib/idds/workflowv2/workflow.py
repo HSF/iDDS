@@ -22,7 +22,7 @@ from idds.common.constants import IDDSEnum, WorkStatus
 from idds.common.utils import json_dumps, setup_logging, get_proxy
 from idds.common.utils import str_to_date
 from .base import Base
-from .work import Work
+from .work import Work, Collection
 
 
 setup_logging(__name__)
@@ -483,6 +483,7 @@ class TemplateCondition(CompositeCondition):
 
 class ParameterLink(Base):
     def __init__(self, parameters):
+        super(ParameterLink, self).__init__()
         self.parameters = {}
         self.num_parameters = 0
         if parameters:
@@ -506,17 +507,21 @@ class ParameterLink(Base):
         return self.internal_id
 
     def get_parameter_value(self, work, p):
+        ret = None
         p_f = getattr(work, p, 'None')
         if p_f:
             if callable(p_f):
-                return p_f()
+                ret = p_f()
             else:
-                return p_f
+                ret = p_f
         else:
-            return None
+            ret = None
+        if ret and type(ret) in [Collection] and hasattr(ret, 'to_origin_dict'):
+            ret = ret.to_origin_dict()
+        return ret
 
     def set_parameters(self, work):
-        p_values = []
+        p_values = {}
         for p in self.parameters:
             p_values[p] = self.get_parameter_value(work, self.parameters[p]['source'])
         self.add_metadata_item('parameters', p_values)
@@ -527,6 +532,7 @@ class ParameterLink(Base):
         for p in self.parameters:
             if p in p_values:
                 ret[self.parameters[p]['destination']] = p_values[p]
+        return ret
 
 
 class WorkflowBase(Base):
@@ -979,6 +985,7 @@ class WorkflowBase(Base):
             self.new_to_run_works.append(work.get_internal_id())
             self.last_work = work.get_internal_id()
         else:
+            new_parameters = self.get_destination_parameters(work_id)
             if new_parameters:
                 work.set_parameters(new_parameters)
             work.sequence_id = self.num_total_works
@@ -1107,11 +1114,30 @@ class WorkflowBase(Base):
             p_metadata[internal_id] = self.parameter_links[internal_id].metadata
         self.add_metadata_item('parameter_links', p_metadata)
 
+    def get_parameter_links_metadata(self):
+        p_metadata = {}
+        for internal_id in self.parameter_links:
+            p_metadata[internal_id] = self.parameter_links[internal_id].metadata
+        self.add_metadata_item('parameter_links', p_metadata)
+        return p_metadata
+
+    def set_parameter_links_metadata(self, p_links):
+        for internal_id in self.parameter_links:
+            if internal_id in p_links:
+                p_metadata = p_links[internal_id]
+                self.parameter_links[internal_id].metadata = p_metadata
+
     def set_source_parameters(self, internal_id):
         work = self.works[internal_id]
+        # if type(work) in [Work]:
+        #     print(work.work_id)
+        #     print(internal_id)
+        #     print(self.parameter_links_source)
         if internal_id in self.parameter_links_source:
             for p_id in self.parameter_links_source[internal_id]:
+                # print(p_id)
                 p_links = self.find_parameter_links_from_id(p_id)
+                # print(p_links)
                 for wf, p_link in p_links:
                     p_link.set_parameters(work)
                     wf.refresh_parameter_links()
@@ -1146,8 +1172,8 @@ class WorkflowBase(Base):
         new_next_works = []
         if next_works is not None:
             for next_work in next_works:
-                parameters = self.get_destination_parameters(next_work.get_internal_id())
-                new_next_work = self.get_new_work_to_run(next_work.get_internal_id(), parameters)
+                # parameters = self.get_destination_parameters(next_work.get_internal_id())
+                new_next_work = self.get_new_work_to_run(next_work.get_internal_id())
                 work.add_next_work(new_next_work.get_internal_id())
                 # cond.add_condition_work(new_next_work)   ####### TODO:
                 new_next_works.append(new_next_work)
@@ -1583,6 +1609,8 @@ class Workflow(Base):
                         'runs': {}}
         for run_id in self.runs:
             run_metadata['runs'][run_id] = self.runs[run_id].metadata
+        if not self.runs:
+            run_metadata['parameter_links'] = self.template.get_parameter_links_metadata()
         return run_metadata
 
     @metadata.setter
@@ -1591,6 +1619,9 @@ class Workflow(Base):
         self.parent_num_run = run_metadata['parent_num_run']
         self._num_run = run_metadata['num_run']
         runs = run_metadata['runs']
+        if not runs and 'parameter_links' in run_metadata:
+            parameter_links = run_metadata['parameter_links']
+            self.template.set_parameter_links_metadata(parameter_links)
         for run_id in runs:
             self.runs[run_id] = self.template.copy()
             self.runs[run_id].metadata = runs[run_id]
@@ -1645,7 +1676,7 @@ class Workflow(Base):
         if str(self.num_run) not in self.runs:
             self.runs[str(self.num_run)] = self.template.copy()
             if self.runs[str(self.num_run)].has_loop_condition():
-                self.runs[str(self.num_run)]._num_run = self.num_run
+                self.runs[str(self.num_run)].num_run = self.num_run
                 if self._num_run > 1:
                     p_metadata = self.runs[str(self.num_run - 1)].get_metadata_item('parameter_links')
                     self.runs[str(self.num_run)].add_metadata_item('parameter_links', p_metadata)
@@ -1682,7 +1713,7 @@ class Workflow(Base):
     def find_parameter_links_from_id(self, internal_id):
         if self.runs:
             return self.runs[str(self.num_run)].find_parameter_links_from_id(internal_id)
-        return []
+        return self.template.find_parameter_links_from_id(internal_id)
 
     def refresh_parameter_links(self):
         if self.runs:
@@ -1795,7 +1826,7 @@ class Workflow(Base):
         if str(self.num_run) not in self.runs:
             self.runs[str(self.num_run)] = self.template.copy()
             if self.runs[str(self.num_run)].has_loop_condition():
-                self.runs[str(self.num_run)]._num_run = self._num_run
+                self.runs[str(self.num_run)].num_run = self._num_run
                 if self._num_run > 1:
                     p_metadata = self.runs[str(self.num_run - 1)].get_metadata_item('parameter_links')
                     self.runs[str(self.num_run)].add_metadata_item('parameter_links', p_metadata)
@@ -1808,7 +1839,7 @@ class Workflow(Base):
                     self._num_run += 1
                     self.runs[str(self.num_run)] = self.template.copy()
 
-                    self.runs[str(self.num_run)]._num_run = self._num_run
+                    self.runs[str(self.num_run)].num_run = self._num_run
                     p_metadata = self.runs[str(self.num_run - 1)].get_metadata_item('parameter_links')
                     self.runs[str(self.num_run)].add_metadata_item('parameter_links', p_metadata)
 
