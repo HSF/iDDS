@@ -134,6 +134,9 @@ class Collection(Base):
             self.status = self._collection['status']
             self.substatus = self._collection['substatus']
 
+    def to_origin_dict(self):
+        return {'scope': self.scope, 'name': self.name}
+
 
 class Processing(Base):
 
@@ -890,10 +893,11 @@ class Work(Base):
     def num_run(self, value):
         if value is not None:
             self.add_metadata_item('num_run', value)
-            for k in self._collections:
-                coll = self._collections[k]
-                if type(coll) in [Collection]:
-                    coll.name = coll.name + "." + str(value)
+            if value > 1:
+                # for k in self._collections:
+                for coll in self.output_collections:
+                    if type(coll) in [Collection]:
+                        coll.name = coll.name + "." + str(value)
 
     @property
     def primary_input_collection(self):
@@ -1085,8 +1089,9 @@ class Work(Base):
         self.parameters = parameters
         for p in self.parameters:
             if self.parameters[p] is not None and hasattr(self, p):
-                fp = getattr(self, p)
-                fp = self.parameters[p]  # noqa F841
+                # fp = getattr(self, p)
+                # fp = self.parameters[p]  # noqa F841
+                setattr(self, p, self.parameters[p])
 
     def get_parameters(self):
         return self.parameters
