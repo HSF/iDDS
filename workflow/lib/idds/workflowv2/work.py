@@ -779,6 +779,12 @@ class Work(Base):
             if k in proc_metadata:
                 proc_id = proc_metadata[k]['processing_id']
                 self._processings[k].processing_id = proc_id
+        for k in proc_metadata:
+            if k not in self._processings:
+                self._processings[k] = Processing(processing_metadata={})
+                proc_id = proc_metadata[k]['processing_id']
+                self._processings[k].processing_id = proc_id
+                self._processings[k].internal_id = k
 
     def load_metadata(self):
         self.load_work()
@@ -1332,14 +1338,20 @@ class Work(Base):
         """
         *** Function called by Transformer agent.
         """
-        keys = [self._primary_input_collection] + self.other_input_collections
+        if self._primary_input_collection:
+            keys = [self._primary_input_collection] + self._other_input_collections
+        else:
+            keys = self._other_input_collections
         return [self.collections[k] for k in keys]
 
     def get_output_collections(self):
         """
         *** Function called by Transformer agent.
         """
-        keys = [self._primary_output_collection] + self.other_output_collections
+        if self._primary_output_collection:
+            keys = [self._primary_output_collection] + self._other_output_collections
+        else:
+            keys = self._other_output_collections
         return [self.collections[k] for k in keys]
 
     def is_input_collections_closed(self):
@@ -1408,7 +1420,7 @@ class Work(Base):
         """
         Get all input contents from iDDS collections.
         """
-        coll = self.collections[self.primary_input_collection]
+        coll = self.collections[self._primary_input_collection]
         internal_colls = self.get_internal_collection(coll)
         internal_coll_ids = [coll.coll_id for coll in internal_colls]
         if internal_coll_ids:
@@ -1497,7 +1509,7 @@ class Work(Base):
         for ip in new_inputs:
             self.num_mapped_inputs += 1
             out_ip = copy.deepcopy(ip)
-            out_ip['coll_id'] = self.collections[self.output_collections[0]]['coll_id']
+            out_ip['coll_id'] = self.collections[self._primary_output_collection]['coll_id']
             new_input_output_maps[next_key] = {'inputs': [ip],
                                                'outputs': [out_ip],
                                                'inputs_dependency': [],

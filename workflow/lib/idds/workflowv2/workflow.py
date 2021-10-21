@@ -1651,6 +1651,22 @@ class Workflow(Base):
             self.runs[str(self.num_run)].last_updated_at = value
 
     @property
+    def name(self):
+        return self.template.name
+
+    @name.setter
+    def name(self, value):
+        self.template.name = value
+
+    @property
+    def lifetime(self):
+        return self.template.lifetime
+
+    @lifetime.setter
+    def lifetime(self, value):
+        self.template.lifetime = value
+
+    @property
     def num_run(self):
         if self.parent_num_run:
             return self.parent_num_run * 100 + self._num_run
@@ -1749,6 +1765,11 @@ class Workflow(Base):
     def clean_works(self):
         if self.runs:
             self.runs[str(self.num_run)].clean_works()
+
+    def is_to_expire(self, expired_at=None, pending_time=None, request_id=None):
+        if self.runs:
+            return self.runs[str(self.num_run)].is_to_expire(expired_at=expired_at, pending_time=pending_time, request_id=request_id)
+        return False
 
     def is_terminated(self):
         if self.runs:
