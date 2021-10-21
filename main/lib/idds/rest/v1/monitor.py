@@ -34,7 +34,9 @@ class Monitor(IDDSController):
 
         if with_request:
             rets, ret_reqs = [], {}
-            reqs = get_requests(request_id=request_id, workload_id=workload_id, with_detail=True, with_processing=False, with_metadata=False)
+            reqs = get_requests(request_id=request_id, workload_id=workload_id,
+                                with_request=False, with_transform=True, with_processing=with_processing,
+                                with_detail=False, with_metadata=False)
             for req in reqs:
                 if req['request_id'] not in ret_reqs:
                     ret_reqs[req['request_id']] = {'request_id': req['request_id'],
@@ -80,7 +82,9 @@ class Monitor(IDDSController):
             return rets
         elif with_transform:
             rets = []
-            reqs = get_requests(request_id=request_id, workload_id=workload_id, with_detail=True, with_processing=False, with_metadata=False)
+            reqs = get_requests(request_id=request_id, workload_id=workload_id,
+                                with_request=with_request, with_transform=with_transform, with_processing=with_processing,
+                                with_detail=False, with_metadata=False)
             for req in reqs:
                 ret = {'request_id': req['request_id'],
                        'transform_id': req['transform_id'],
@@ -107,7 +111,9 @@ class Monitor(IDDSController):
             return rets
         elif with_processing:
             rets = []
-            reqs = get_requests(request_id=request_id, workload_id=workload_id, with_detail=False, with_processing=True, with_metadata=False)
+            reqs = get_requests(request_id=request_id, workload_id=workload_id,
+                                with_request=with_request, with_transform=with_transform, with_processing=with_processing,
+                                with_detail=False, with_metadata=False)
             for req in reqs:
                 ret = {'request_id': req['request_id'],
                        'workload_id': req['processing_workload_id'],
@@ -202,7 +208,7 @@ class MonitorRequest(Monitor):
                 workload_id = None
 
             rets = self.get_requests(request_id=request_id, workload_id=workload_id,
-                                     with_request=False, with_transform=False,
+                                     with_request=True, with_transform=False,
                                      with_processing=False)
             status_dict = {'Total': {}}
             min_time, max_time = None, None
