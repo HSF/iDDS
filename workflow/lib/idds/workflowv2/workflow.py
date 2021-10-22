@@ -1440,7 +1440,7 @@ class WorkflowBase(Base):
             next_works_data = []
             for next_id in next_works:
                 next_work = self.works[next_id]
-                if is_instance(next_work, Workflow):
+                if isinstance(next_work, Workflow):
                     next_work_data = next_work.get_relation_map()
                 else:
                     next_work_data = self.get_relation_data(next_work)
@@ -1707,7 +1707,7 @@ class Workflow(Base):
     @property
     def userdn(self):
         return self.template.userdn
-        
+
     @userdn.setter
     def userdn(self, value):
         self.template.userdn = value

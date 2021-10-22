@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2020
+# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2021
 
 import copy
 import datetime
@@ -755,7 +755,9 @@ class Work(Base):
             for k in self._processings:
                 proc = self._processings[k]
                 if type(proc) in [Processing]:
-                    proc_metadata[k] = {'processing_id': proc.processing_id}
+                    proc_metadata[k] = {'processing_id': proc.processing_id,
+                                        'workload_id': proc.workload_id,
+                                        'external_id': proc.external_id}
         self.add_metadata_item('processings', proc_metadata)
 
     def refresh_work(self):
@@ -772,7 +774,9 @@ class Work(Base):
             for k in self._processings:
                 proc = self._processings[k]
                 if type(proc) in [Processing]:
-                    proc_metadata[k] = {'processing_id': proc.processing_id}
+                    proc_metadata[k] = {'processing_id': proc.processing_id,
+                                        'workload_id': proc.workload_id,
+                                        'external_id': proc.external_id}
         self.add_metadata_item('processings', proc_metadata)
 
     def load_work(self):
@@ -787,12 +791,24 @@ class Work(Base):
             if k in proc_metadata:
                 proc_id = proc_metadata[k]['processing_id']
                 self._processings[k].processing_id = proc_id
+                if 'workload_id' in proc_metadata[k] and proc_metadata[k]['workload_id']:
+                    self._processings[k].workload_id = proc_metadata[k]['workload_id']
+                    self.workload_id = proc_metadata[k]['workload_id']
+                if 'external_id' in proc_metadata[k] and proc_metadata[k]['external_id']:
+                    self._processings[k].external_id = proc_metadata[k]['external_id']
+                    self.external_id = proc_metadata[k]['external_id']
         for k in proc_metadata:
             if k not in self._processings:
                 self._processings[k] = Processing(processing_metadata={})
                 proc_id = proc_metadata[k]['processing_id']
                 self._processings[k].processing_id = proc_id
                 self._processings[k].internal_id = k
+                if 'workload_id' in proc_metadata[k] and proc_metadata[k]['workload_id']:
+                    self._processings[k].workload_id = proc_metadata[k]['workload_id']
+                    self.workload_id = proc_metadata[k]['workload_id']
+                if 'external_id' in proc_metadata[k] and proc_metadata[k]['external_id']:
+                    self._processings[k].external_id = proc_metadata[k]['external_id']
+                    self.external_id = proc_metadata[k]['external_id']
 
     def load_metadata(self):
         self.load_work()
