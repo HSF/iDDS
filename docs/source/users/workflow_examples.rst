@@ -1,4 +1,4 @@
-Conditions: Examples
+Workflow: Examples
 =============================
 
 iDDS examples for subworkflow and loopworkflow.

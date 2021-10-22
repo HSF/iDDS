@@ -24,8 +24,9 @@ Workflow
 .. image:: ../../images/v2/workflow_subworkflow.jpg
          :width: 45%
          :alt: Sub Workflow
+
 .. image:: ../../images/v2/loopworkflow.jpg
-            :width: 45%
+         :width: 45%
          :alt: Loop Workflow
 
 A Workflow is designed to manage multiple Works(Transformations). It's a sub-class of DictClass.
