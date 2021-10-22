@@ -10,5 +10,5 @@ dependencies:
   - pytest           # python testing tool
   - nose             # nose test tools
   - panda-client     # panda client
-  - idds-common==0.7.7
-  - idds-workflow==0.7.7
+  - idds-common==0.8.0
+  - idds-workflow==0.8.0
