@@ -221,7 +221,7 @@ def get_requests(request_id=None, workload_id=None, with_detail=False, with_meta
     :returns: Request.
     """
     try:
-        if with_request:
+        if with_request or not (with_transform or with_processing or with_detail or with_metadata):
             if with_metadata:
                 query = session.query(models.Request)\
                                .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_SCOPE_NAME_IDX)", 'oracle')
@@ -428,7 +428,7 @@ def get_requests(request_id=None, workload_id=None, with_detail=False, with_meta
 
                     rets.append(t2)
             return rets
-        elif with_detail:
+        elif with_detail or with_metadata:
             subquery1 = session.query(models.Collection.coll_id, models.Collection.transform_id,
                                       models.Collection.scope.label("input_coll_scope"),
                                       models.Collection.name.label("input_coll_name"),
