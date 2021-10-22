@@ -19,8 +19,8 @@ from idds.common.utils import get_rest_host
 
 
 def get_workflow():
-    from idds.workflow.workflow import Workflow
-    from idds.atlas.workflow.atlashpowork import ATLASHPOWork
+    from idds.workflowv2.workflow import Workflow
+    from idds.atlas.workflowv2.atlashpowork import ATLASHPOWork
 
     # request_metadata for predefined method 'nevergrad'
     request_metadata = {'workload_id': '20525135', 'sandbox': None, 'method': 'nevergrad', 'opt_space': {"A": {"type": "Choice", "params": {"choices": [1, 4]}}, "B": {"type": "Scalar", "bounds": [0, 5]}}, 'initial_points': [({'A': 1, 'B': 2}, 0.3), ({'A': 1, 'B': 3}, None)], 'max_points': 20, 'num_points_per_generation': 10}   # noqa E501

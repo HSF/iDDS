@@ -102,8 +102,8 @@ def show_works(req):
     print(work_ids)
 
 
-"""
-reqs = get_requests(request_id=256, with_detail=False, with_metadata=True)
+
+reqs = get_requests(request_id=198, with_detail=True, with_metadata=True)
 for req in reqs:
     # print(req['request_id'])
     # print(rets)
@@ -112,21 +112,23 @@ for req in reqs:
     pass
 
 sys.exit(0)
-"""
 
+
+"""
 # reqs = get_requests()
 # print(len(reqs))
-"""
 for req in reqs:
     if req['request_id'] == 113:
         # print(req)
         # print(req['request_metadata']['workflow'].to_dict())
         # print(json_dumps(req, sort_keys=True, indent=4))
         pass
-"""
+
+sys.exit(0)
 
 """
-tfs = get_transforms(request_id=301)
+
+tfs = get_transforms(request_id=194)
 for tf in tfs:
     # print(tf)
     # print(tf['transform_metadata']['work'].to_dict())
@@ -134,7 +136,7 @@ for tf in tfs:
     pass
 
 sys.exit(0)
-
+"""
 
 msgs = retrieve_messages(workload_id=25972557)
 number_contents = 0
@@ -154,7 +156,7 @@ print(number_contents)
 sys.exit(0)
 """
 
-prs = get_processings(request_id=301)
+prs = get_processings(request_id=194)
 i = 0
 for pr in prs:
     # if pr['request_id'] == 91:

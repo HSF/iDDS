@@ -19,8 +19,8 @@ from idds.common.utils import get_rest_host
 
 
 def get_workflow():
-    from idds.workflow.workflow import Workflow, Condition
-    from idds.atlas.workflow.atlaspandawork import ATLASPandaWork
+    from idds.workflowv2.workflow import Workflow, Condition
+    from idds.atlas.workflowv2.atlaspandawork import ATLASPandaWork
 
     task_parameters1 = {"architecture": "",
                         "cliParams": "prun --exec 'echo %RNDM:10 > seed.txt' --outputs seed.txt --nJobs 2 --outDS user.tmaeno.389eb4c5-5db6-4b80-82aa-9edfae6dfb38_000_top",
