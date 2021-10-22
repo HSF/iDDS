@@ -710,6 +710,7 @@ class WorkflowBase(Base):
                     work_metadata[k] = {'type': 'work',
                                         'work_id': work.work_id,
                                         'workload_id': work.workload_id,
+                                        'external_id': work.external_id,
                                         'status': work.status.value if work.status else work.status,
                                         'substatus': work.substatus.value if work.substatus else work.substatus,
                                         'transforming': work.transforming}
@@ -728,6 +729,7 @@ class WorkflowBase(Base):
                     work_metadata[k] = {'type': 'work',
                                         'work_id': work.work_id,
                                         'workload_id': work.workload_id,
+                                        'external_id': work.external_id,
                                         'status': work.status.value if work.status else work.status,
                                         'substatus': work.substatus.value if work.substatus else work.substatus,
                                         'transforming': work.transforming}
@@ -741,7 +743,8 @@ class WorkflowBase(Base):
             if k in work_metadata:
                 if work_metadata[k]['type'] == 'work':
                     self._works[k].work_id = work_metadata[k]['work_id']
-                    self._works[k].workload_id = work_metadata[k]['workload_id']
+                    self._works[k].workload_id = work_metadata[k]['workload_id'] if 'workload_id' in work_metadata[k] else None
+                    self._works[k].external_id = work_metadata[k]['external_id'] if 'external_id' in work_metadata[k] else None
                     self._works[k].transforming = work_metadata[k]['transforming']
                     self._works[k].status = WorkStatus(work_metadata[k]['status']) if work_metadata[k]['status'] else work_metadata[k]['status']
                     self._works[k].substatus = WorkStatus(work_metadata[k]['substatus']) if work_metadata[k]['substatus'] else work_metadata[k]['substatus']
@@ -898,6 +901,14 @@ class WorkflowBase(Base):
     @last_work.setter
     def last_work(self, value):
         self.add_metadata_item('last_work', value)
+
+    @property
+    def init_works(self):
+        return self.get_metadata_item('init_works', [])
+
+    @init_works.setter
+    def init_works(self, value):
+        self.add_metadata_item('init_works', value)
 
     @property
     def to_update_transforms(self):
@@ -1324,8 +1335,11 @@ class WorkflowBase(Base):
                 tostart_works = list(self.get_works().keys())
                 tostart_works = [tostart_works[0]]
 
+            init_works = []
             for work_id in tostart_works:
                 self.get_new_work_to_run(work_id)
+                init_works.append(work_id)
+            self.init_works = init_works
 
     def sync_works(self):
         self.first_initialize()
@@ -1417,6 +1431,30 @@ class WorkflowBase(Base):
                 work.resume_works()
             else:
                 work.resume_work()
+
+    def get_relation_data(self, work):
+        ret = {'work': {'workload_id': work.workload_id,
+                        'external_id': work.external_id}}
+        next_works = work.next_works
+        if next_works:
+            next_works_data = []
+            for next_id in next_works:
+                next_work = self.works[next_id]
+                if is_instance(next_work, Workflow):
+                    next_work_data = next_work.get_relation_map()
+                else:
+                    next_work_data = self.get_relation_data(next_work)
+                next_works_data.append(next_work_data)
+            ret['next_works'] = next_works_data
+        return ret
+
+    def get_relation_map(self):
+        ret = []
+        init_works = self.init_works
+        for internal_id in init_works:
+            work_data = self.get_relation_data(self.works[internal_id])
+            ret.append(work_data)
+        return ret
 
     def clean_works(self):
         self.num_subfinished_works = 0
@@ -1659,6 +1697,22 @@ class Workflow(Base):
         self.template.name = value
 
     @property
+    def username(self):
+        return self.template.username
+
+    @username.setter
+    def username(self, value):
+        self.template.username = value
+
+    @property
+    def userdn(self):
+        return self.template.userdn
+        
+    @userdn.setter
+    def userdn(self, value):
+        self.template.userdn = value
+
+    @property
     def lifetime(self):
         return self.template.lifetime
 
@@ -1863,6 +1917,17 @@ class Workflow(Base):
                     self.runs[str(self.num_run)].num_run = self._num_run
                     p_metadata = self.runs[str(self.num_run - 1)].get_metadata_item('parameter_links')
                     self.runs[str(self.num_run)].add_metadata_item('parameter_links', p_metadata)
+
+    def get_relation_map(self):
+        if not self.runs:
+            return []
+        if self.template.has_loop_condition():
+            rets = {}
+            for run in self.runs:
+                rets[run] = self.runs[run].get_relation_map()
+            return [rets]
+        else:
+            return self.runs[str(self.num_run)].get_relation_map()
 
 
 class SubWorkflow(Workflow):

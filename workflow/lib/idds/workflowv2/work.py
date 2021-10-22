@@ -592,6 +592,14 @@ class Work(Base):
     def workload_id(self, value):
         self.add_metadata_item('workload_id', value)
 
+    @property
+    def external_id(self):
+        return self.get_metadata_item('external_id', None)
+
+    @external_id.setter
+    def external_id(self, value):
+        self.add_metadata_item('external_id', value)
+
     def get_workload_id(self):
         return self.workload_id
 
@@ -714,7 +722,7 @@ class Work(Base):
 
     @property
     def next_works(self):
-        return self.get_metadata_item('next_works', 0)
+        return self.get_metadata_item('next_works', [])
 
     @next_works.setter
     def next_works(self, value):
