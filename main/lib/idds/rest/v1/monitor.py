@@ -461,6 +461,47 @@ class MonitorProcessing(Monitor):
         return self.generate_http_response(HTTP_STATUS_CODE.OK, data=ret_status)
 
 
+class MonitorRequestRelation(Monitor):
+    """ Monitor Request """
+
+    def get(self, request_id, workload_id):
+        """ Get details about a specific Request with given id.
+        HTTP Success:
+            200 OK
+        HTTP Error:
+            404 Not Found
+            500 InternalError
+        :returns: dictionary of an request.
+        """
+
+        try:
+            if request_id == 'null':
+                request_id = None
+            if workload_id == 'null':
+                workload_id = None
+
+            reqs = get_requests(request_id=request_id, workload_id=workload_id,
+                                with_request=True, with_transform=False, with_processing=False,
+                                with_detail=False, with_metadata=True)
+
+            for req in reqs:
+                req['relation_map'] = []
+                workflow = req['request_metadata']['workflow']
+                if hasattr(workflow, 'get_relation_map'):
+                    req['relation_map'] = workflow.get_relation_map()
+            # return reqs
+        except exceptions.NoObject as error:
+            return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
+        except exceptions.IDDSException as error:
+            return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=error.__class__.__name__, exc_msg=error)
+        except Exception as error:
+            print(error)
+            print(format_exc())
+            return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
+
+        return self.generate_http_response(HTTP_STATUS_CODE.OK, data=reqs)
+
+
 """----------------------
    Web service url maps
 ----------------------"""
@@ -480,5 +521,8 @@ def get_blueprint():
 
     monitor_processing_view = MonitorProcessing.as_view('monitor_processing')
     bp.add_url_rule('/monitor_processing/<request_id>/<workload_id>', view_func=monitor_processing_view, methods=['get', ])
+
+    monitor_relation_view = MonitorRequestRelation.as_view('monitor_request_relation')
+    bp.add_url_rule('/monitor_request_relation/<request_id>/<workload_id>', view_func=monitor_relation_view, methods=['get', ])
 
     return bp
