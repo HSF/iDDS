@@ -1214,7 +1214,9 @@ class Work(Base):
         return False
 
     def add_next_work(self, work):
-        self.next_works.append(work)
+        next_works = self.next_works
+        next_works.append(work)
+        self.next_works = next_works
 
     def parse_arguments(self):
         try:
@@ -1925,7 +1927,12 @@ class Work(Base):
         # self.status = work.status
         work.work_id = self.work_id
         work.transforming = self.transforming
+
+        # clerk will update next_works while transformer doesn't.
+        # synchronizing work metadata from transformer to clerk needs to keep it at first.
+        next_works = self.next_works
         self.metadata = work.metadata
+        self.next_works = next_works
 
         self.status_statistics = work.status_statistics
         self.processings = work.processings

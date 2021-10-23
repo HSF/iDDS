@@ -713,6 +713,7 @@ class WorkflowBase(Base):
                                         'external_id': work.external_id,
                                         'status': work.status.value if work.status else work.status,
                                         'substatus': work.substatus.value if work.substatus else work.substatus,
+                                        'next_works': work.next_works,
                                         'transforming': work.transforming}
         self.add_metadata_item('works', work_metadata)
 
@@ -732,6 +733,7 @@ class WorkflowBase(Base):
                                         'external_id': work.external_id,
                                         'status': work.status.value if work.status else work.status,
                                         'substatus': work.substatus.value if work.substatus else work.substatus,
+                                        'next_works': work.next_works,
                                         'transforming': work.transforming}
                 if work.last_updated_at and (not self.last_updated_at or work.last_updated_at > self.last_updated_at):
                     self.last_updated_at = work.last_updated_at
@@ -748,6 +750,7 @@ class WorkflowBase(Base):
                     self._works[k].transforming = work_metadata[k]['transforming']
                     self._works[k].status = WorkStatus(work_metadata[k]['status']) if work_metadata[k]['status'] else work_metadata[k]['status']
                     self._works[k].substatus = WorkStatus(work_metadata[k]['substatus']) if work_metadata[k]['substatus'] else work_metadata[k]['substatus']
+                    self._works[k].next_works = work_metadata[k]['next_works'] if 'next_works' in work_metadata[k] else []
                 elif work_metadata[k]['type'] == 'workflow':
                     self._works[k].metadata = work_metadata[k]['metadata']
 
@@ -1412,6 +1415,8 @@ class WorkflowBase(Base):
         log_str += ", num_cancelled_works: %s" % self.num_cancelled_works
         log_str += ", num_suspended_works: %s" % self.num_suspended_works
         self.log_debug(log_str)
+
+        self.refresh_works()
 
     def resume_works(self):
         self.num_subfinished_works = 0

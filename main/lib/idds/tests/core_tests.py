@@ -102,8 +102,7 @@ def show_works(req):
     print(work_ids)
 
 
-"""
-reqs = get_requests(request_id=203, with_detail=True, with_metadata=True)
+reqs = get_requests(request_id=211, with_detail=True, with_metadata=True)
 for req in reqs:
     # print(req['request_id'])
     # print(rets)
@@ -112,7 +111,6 @@ for req in reqs:
     pass
 
 sys.exit(0)
-"""
 
 """
 # reqs = get_requests()
