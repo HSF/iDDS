@@ -90,7 +90,7 @@ Here it returns the detail of requests.
     }
     ]
 
-Transform summary
+Transform information
 ~~~~~~~~~~~~~~~~~~~~~~~
 
 It returns a summary information monthly(accumulated and not accumulated).
@@ -373,6 +373,7 @@ It returns a list of works. For every work, it returns "work" for work data and 
      curl https://hostname:443/idds/monitor_request_relation/212/null
 
      [{
+        ......
         "relation_map": [
             {
                 "next_works": [
@@ -389,4 +390,34 @@ It returns a list of works. For every work, it returns "work" for work data and 
                 }
             }
         ],
+        ......
+     }]
+
+If there is a loop workflow or a sub loop wookflow. The returned format will be:
+
+.. code-block:: python
+    [{
+        ......
+        "relation_map": [
+            {
+                "next_works": [
+                    {
+                        "work": {
+                            "external_id": null,
+                            "workload_id": 7175
+                        },
+                        "next_works": [
+                            {"1": [{"work": <>, "next_works": <>}, ...],   # the first loop for a loop workflow.
+                             "2": <>                                       # the second loop for a loop workflow.
+                            }
+                        ]
+                    }
+                ],
+                "work": {
+                    "external_id": null,
+                    "workload_id": 7174
+                }
+            }
+        ],
+        ......
      }]
