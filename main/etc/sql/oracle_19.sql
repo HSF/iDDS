@@ -40,6 +40,8 @@ CREATE TABLE REQUESTS
         name VARCHAR2(255) constraint REQ_NAME_NN NOT NULL,
         requester VARCHAR2(20),
         request_type NUMBER(2) constraint REQ_DATATYPE_NN NOT NULL,
+        username VARCHAR2(20) default null,
+        userdn VARCHAR2(200) default null,
         transform_tag VARCHAR2(10),
         workload_id NUMBER(10),
         priority NUMBER(7),
@@ -66,6 +68,8 @@ CREATE INDEX REQUESTS_SCOPE_NAME_IDX ON REQUESTS (name, scope, workload_id) LOCA
 --- drop index REQUESTS_STATUS_PRIORITY_IDX
 CREATE INDEX REQUESTS_STATUS_PRIORITY_IDX ON REQUESTS (status, priority, request_id, locking, updated_at, next_poll_at, created_at) LOCAL COMPRESS 1;
 
+-- alter table REQUESTS add (username VARCHAR2(20) default null);
+-- alter table REQUESTS add (userdn VARCHAR2(200) default null);
 
 --- workprogress
 CREATE SEQUENCE WORKPROGRESS_ID_SEQ MINVALUE 1 INCREMENT BY 1 ORDER NOCACHE NOCYCLE GLOBAL;
@@ -324,6 +328,8 @@ alter table messages add destination NUMBER(2);
 alter table messages add processing_id NUMBER(12);
 
 CREATE INDEX MESSAGES_TYPE_ST_IDX ON MESSAGES (msg_type, status, destination, request_id);
+CREATE INDEX MESSAGES_TYPE_ST_TF_IDX ON MESSAGES (msg_type, status, destination, transform_id);
+CREATE INDEX MESSAGES_TYPE_ST_PR_IDX ON MESSAGES (msg_type, status, destination, processing_id);
 
 --- health
 CREATE SEQUENCE HEALTH_ID_SEQ MINVALUE 1 INCREMENT BY 1 START WITH 1 NOCACHE ORDER NOCYCLE GLOBAL;
@@ -341,3 +347,201 @@ CREATE TABLE HEALTH
     CONSTRAINT HEALTH_PK PRIMARY KEY (health_id), -- USING INDEX LOCAL,  
     CONSTRAINT HEALTH_UQ UNIQUE (agent, hostname, pid, thread_id)
 );
+
+
+--- request archive table
+CREATE TABLE REQUESTS_archive
+(
+        request_id NUMBER(12),
+        scope VARCHAR2(25),
+        name VARCHAR2(255),
+        requester VARCHAR2(20),
+        request_type NUMBER(2),
+        transform_tag VARCHAR2(10),
+        workload_id NUMBER(10),
+        priority NUMBER(7),
+        status NUMBER(2),
+        substatus NUMBER(2),
+        locking NUMBER(2),
+        created_at DATE,
+        updated_at DATE,
+        next_poll_at DATE,
+        accessed_at DATE,
+        expired_at DATE,
+        errors VARCHAR2(1024),
+        request_metadata CLOB,
+        processing_metadata CLOB,
+        CONSTRAINT REQ_AR_PK PRIMARY KEY (request_id) USING INDEX LOCAL
+        --- CONSTRAINT REQUESTS_NAME_SCOPE_UQ UNIQUE (name, scope, requester, request_type, transform_tag, workload_id) -- USING INDEX LOCAL,
+)
+PCTFREE 3
+PARTITION BY RANGE(REQUEST_ID)
+INTERVAL ( 100000 )
+( PARTITION initial_part VALUES LESS THAN (1) );
+
+CREATE INDEX REQ_AR_SCOPE_NAME_IDX ON REQUESTS_archive (name, scope, workload_id) LOCAL;
+--- drop index REQUESTS_STATUS_PRIORITY_IDX
+CREATE INDEX REQ_AR_STATUS_PRIORITY_IDX ON REQUESTS_archive (status, priority, request_id, locking, updated_at, next_poll_at, created_at) LOCAL COMPRESS 1;
+
+
+CREATE TABLE TRANSFORMS_archive
+(
+        transform_id NUMBER(12),
+        request_id NUMBER(12),
+        workload_id NUMBER(10),
+        transform_type NUMBER(2),
+        transform_tag VARCHAR2(20),
+        priority NUMBER(7),
+        safe2get_output_from_input NUMBER(10),
+        status NUMBER(2),
+        substatus NUMBER(2),
+        locking NUMBER(2),
+        retries NUMBER(5),
+        created_at DATE,
+        updated_at DATE,
+        next_poll_at DATE,
+        started_at DATE,
+        finished_at DATE,
+        expired_at DATE,
+        transform_metadata CLOB,
+        running_metadata CLOB,
+        CONSTRAINT TF_AR_PK PRIMARY KEY (transform_id)
+)
+PCTFREE 3
+PARTITION BY RANGE(TRANSFORM_ID)
+INTERVAL ( 100000 )
+( PARTITION initial_part VALUES LESS THAN (1) );
+
+
+CREATE TABLE PROCESSINGS_archive
+(
+        processing_id NUMBER(12),
+        transform_id NUMBER(12) Not NULL,
+        request_id NUMBER(12),
+        workload_id NUMBER(10),
+        status NUMBER(2),
+        substatus NUMBER(2),
+        locking NUMBER(2),
+        submitter VARCHAR2(20),
+        submitted_id NUMBER(12),
+        granularity NUMBER(10),
+        granularity_type NUMBER(2),
+        created_at DATE,
+        updated_at DATE,
+        next_poll_at DATE,
+        submitted_at DATE,
+        finished_at DATE,
+        expired_at DATE,
+        processing_metadata CLOB,
+        running_metadata CLOB,
+        output_metadata CLOB,
+        CONSTRAINT PR_AR_PK PRIMARY KEY (processing_id),
+        CONSTRAINT PR_AR_TRANSFORM_ID_FK FOREIGN KEY(transform_id) REFERENCES TRANSFORMS_archive(transform_id)
+)
+PCTFREE 3
+PARTITION BY RANGE(TRANSFORM_ID)
+INTERVAL ( 100000 )
+( PARTITION initial_part VALUES LESS THAN (1) );
+
+
+CREATE TABLE COLLECTIONS_archive
+(
+    coll_id NUMBER(14),
+    coll_type NUMBER(2),
+    transform_id NUMBER(12),
+    request_id NUMBER(12),
+    workload_id NUMBER(10),
+    relation_type NUMBER(2),
+    scope VARCHAR2(25),
+    name VARCHAR2(255),
+    bytes NUMBER(19),
+    status NUMBER(2),
+    substatus NUMBER(2),
+    locking NUMBER(2),
+    total_files NUMBER(19),
+    storage_id NUMBER(10),
+    new_files NUMBER(10),
+    processed_files NUMBER(10),
+    processing_files NUMBER(10),
+    processing_id NUMBER(12),
+    retries NUMBER(5) DEFAULT 0,
+    created_at DATE,
+    updated_at DATE,
+    next_poll_at DATE,
+    accessed_at DATE,
+    expired_at DATE,
+    coll_metadata CLOB,
+    CONSTRAINT CL_AR_PK PRIMARY KEY (coll_id), -- USING INDEX LOCAL,
+    CONSTRAINT CL_AR_NAME_SCOPE_UQ UNIQUE (name, scope, transform_id, relation_type), -- USING INDEX LOCAL,
+    CONSTRAINT CL_AR_TRANSFORM_ID_FK FOREIGN KEY(transform_id) REFERENCES TRANSFORMS_archive(transform_id)
+)
+PCTFREE 3
+PARTITION BY RANGE(TRANSFORM_ID)
+INTERVAL ( 100000 )
+( PARTITION initial_part VALUES LESS THAN (1) );
+
+
+
+CREATE TABLE CONTENTS_archive
+(
+        content_id NUMBER(12),
+        transform_id NUMBER(12),
+        coll_id NUMBER(14),
+        request_id NUMBER(12),
+        workload_id NUMBER(10),
+        map_id NUMBER(12),
+        scope VARCHAR2(25),
+        name VARCHAR2(255),
+        min_id NUMBER(7),
+        max_id NUMBER(7),
+        content_type NUMBER(2),
+        content_relation_type NUMBER(2),
+        status NUMBER(2),
+        substatus NUMBER(2),
+        locking NUMBER(2),
+        bytes NUMBER(12),
+        md5 VARCHAR2(32),
+        adler32 VARCHAR2(8),
+        processing_id NUMBER(12),
+        storage_id NUMBER(10),
+        retries NUMBER(5) DEFAULT 0,
+        path VARCHAR2(4000),
+        created_at DATE,
+        updated_at DATE,
+        accessed_at DATE,
+        expired_at DATE,
+        content_metadata VARCHAR2(100),
+        CONSTRAINT CT_AR_PK PRIMARY KEY (content_id),
+        --- CONSTRAINT CT_ID_UQ UNIQUE (transform_id, coll_id, map_id, name, min_id, max_id) USING INDEX LOCAL,
+        CONSTRAINT CT_AR_TRANSFORM_ID_FK FOREIGN KEY(transform_id) REFERENCES TRANSFORMS_archive(transform_id),
+        CONSTRAINT CT_AR_COLL_ID_FK FOREIGN KEY(coll_id) REFERENCES COLLECTIONS_archive(coll_id)
+)
+PCTFREE 3
+PARTITION BY RANGE(TRANSFORM_ID)
+INTERVAL ( 100000 )
+( PARTITION initial_part VALUES LESS THAN (1) );
+
+
+CREATE TABLE MESSAGES_archive
+(
+    msg_id NUMBER(12),
+    msg_type NUMBER(2),
+    status NUMBER(2),
+    substatus NUMBER(2),
+    locking NUMBER(2),
+    source NUMBER(2),
+    destination NUMBER(2),
+    request_id NUMBER(12),
+    workload_id NUMBER(10),
+    transform_id NUMBER(12),
+    processing_id NUMBER(12),
+    num_contents NUMBER(7),
+    created_at DATE,
+    updated_at DATE,
+    msg_content CLOB,
+    CONSTRAINT MG_AR_PK PRIMARY KEY (msg_id) -- USING INDEX LOCAL,
+)
+PCTFREE 3
+PARTITION BY RANGE(REQUEST_ID)
+INTERVAL ( 100000 )
+( PARTITION initial_part VALUES LESS THAN (1) );

@@ -46,6 +46,13 @@ class Clerk(BaseAgent):
         else:
             self.pending_time = None
 
+        if not hasattr(self, 'release_helper') or not self.release_helper:
+            self.release_helper = False
+        elif str(self.release_helper).lower() == 'true':
+            self.release_helper = True
+        else:
+            self.release_helper = False
+
         self.new_task_queue = Queue()
         self.new_output_queue = Queue()
         self.running_task_queue = Queue()
@@ -281,7 +288,7 @@ class Clerk(BaseAgent):
             self.logger.debug("Processing request(%s): new transforms: %s" % (req['request_id'], str(new_transforms)))
 
         # current works
-        works = wf.get_current_works()
+        works = wf.get_all_works()
         # print(works)
         for work in works:
             # print(work.get_work_id())
@@ -398,7 +405,8 @@ class Clerk(BaseAgent):
         process running request
         """
         try:
-            self.release_inputs(req['request_id'])
+            if self.release_helper:
+                self.release_inputs(req['request_id'])
             ret_req = self.process_running_request_real(req)
         except Exception as ex:
             self.logger.error(ex)

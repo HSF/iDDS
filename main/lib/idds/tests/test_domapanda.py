@@ -29,11 +29,11 @@ from idds.common.utils import get_rest_host
 # from idds.tests.common import get_example_real_tape_stagein_request
 # from idds.tests.common import get_example_prodsys2_tape_stagein_request
 
-# from idds.workflow.work import Work, Parameter, WorkStatus
-# from idds.workflow.workflow import Condition, Workflow
-from idds.workflow.workflow import Workflow
-# from idds.atlas.workflow.atlasstageinwork import ATLASStageinWork
-from idds.doma.workflow.domapandawork import DomaPanDAWork
+# from idds.workflowv2.work import Work, Parameter, WorkStatus
+# from idds.workflowv2.workflow import Condition, Workflow
+from idds.workflowv2.workflow import Workflow
+# from idds.atlas.workflowv2.atlasstageinwork import ATLASStageinWork
+from idds.doma.workflowv2.domapandawork import DomaPanDAWork
 
 
 task_queue = 'DOMA_LSST_GOOGLE_TEST'
@@ -123,19 +123,38 @@ def setup_workflow():
                           output_collections=[{'scope': 'pseudo_dataset', 'name': 'pseudo_output_collection#1'}],
                           log_collections=[], dependency_map=taskN1.dependencies,
                           task_name=taskN1.name, task_queue=task_queue,
-                          task_cloud='US')
+                          encode_command_line=True,
+                          task_log={"dataset": "PandaJob_#{pandaid}/",
+                                    "destination": "local",
+                                    "param_type": "log",
+                                    "token": "local",
+                                    "type": "template",
+                                    "value": "log.tgz"},
+                          task_cloud='LSST')
     work2 = DomaPanDAWork(executable='echo',
                           primary_input_collection={'scope': 'pseudo_dataset', 'name': 'pseudo_input_collection#2'},
                           output_collections=[{'scope': 'pseudo_dataset', 'name': 'pseudo_output_collection#2'}],
                           log_collections=[], dependency_map=taskN2.dependencies,
                           task_name=taskN2.name, task_queue=task_queue,
-                          task_cloud='US')
+                          task_log={"dataset": "PandaJob_#{pandaid}/",
+                                    "destination": "local",
+                                    "param_type": "log",
+                                    "token": "local",
+                                    "type": "template",
+                                    "value": "log.tgz"},
+                          task_cloud='LSST')
     work3 = DomaPanDAWork(executable='echo',
                           primary_input_collection={'scope': 'pseudo_dataset', 'name': 'pseudo_input_collection#3'},
                           output_collections=[{'scope': 'pseudo_dataset', 'name': 'pseudo_output_collection#3'}],
                           log_collections=[], dependency_map=taskN3.dependencies,
                           task_name=taskN3.name, task_queue=task_queue,
-                          task_cloud='US')
+                          task_log={"dataset": "PandaJob_#{pandaid}/",
+                                    "destination": "local",
+                                    "param_type": "log",
+                                    "token": "local",
+                                    "type": "template",
+                                    "value": "log.tgz"},
+                          task_cloud='LSST')
 
     pending_time = 0.5
     # pending_time = None

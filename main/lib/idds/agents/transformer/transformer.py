@@ -46,6 +46,11 @@ class Transformer(BaseAgent):
         self.retrieve_bulk_size = int(retrieve_bulk_size)
         self.message_bulk_size = int(message_bulk_size)
 
+        if not hasattr(self, 'retries') or not self.retries:
+            self.retries = 100
+        else:
+            self.retries = int(self.retries)
+
         self.new_task_queue = Queue()
         self.new_output_queue = Queue()
         self.running_task_queue = Queue()
@@ -381,7 +386,16 @@ class Transformer(BaseAgent):
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
-            transform_parameters = {'status': TransformStatus.Failed,
+            if transform['retries'] > self.retries:
+                tf_status = TransformStatus.Failed
+            else:
+                tf_status = TransformStatus.Transforming
+
+            wait_times = max(4, transform['retries'])
+
+            transform_parameters = {'status': tf_status,
+                                    'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period * wait_times),
+                                    'retries': transform['retries'] + 1,
                                     'locking': TransformLocking.Idle}
             ret = {'transform': transform, 'transform_parameters': transform_parameters}
         return ret
@@ -549,13 +563,18 @@ class Transformer(BaseAgent):
                            'error': work.get_terminated_msg()}
             num_msg_content = 1
         elif msg_type == 'collection':
+            # fix for old requests
+            coll_name = collection.name
+            if coll_name.endswith(".idds.stagein"):
+                coll_name = coll_name.replace(".idds.stagein", "")
+
             i_msg_type, i_msg_type_str = self.get_message_type(transform['transform_type'], input_type='collection')
             msg_content = {'msg_type': i_msg_type_str,
                            'request_id': request_id,
                            'workload_id': workload_id,
                            'relation_type': relation_type,
                            'collections': [{'scope': collection.scope,
-                                            'name': collection.name,
+                                            'name': coll_name,
                                             'status': collection.status.name}],
                            'output': work.get_output_data(),
                            'error': work.get_terminated_msg()}
@@ -872,9 +891,17 @@ class Transformer(BaseAgent):
             work.tosuspend = True
         elif transform['status'] in [TransformStatus.ToResume]:
             transform['status'] = TransformStatus.Resuming
+            transform['retries'] = 0
             work.toresume = True
             to_resume_transform = True
             reactivated_contents = self.reactive_contents(registered_input_output_maps)
+            # reactive collections
+            for coll in input_collections:
+                coll.status = CollectionStatus.Open
+            for coll in output_collections:
+                coll.status = CollectionStatus.Open
+            for coll in log_collections:
+                coll.status = CollectionStatus.Open
         elif transform['status'] in [TransformStatus.ToExpire]:
             transform['status'] = TransformStatus.Expiring
             work.toexpire = True
@@ -888,73 +915,97 @@ class Transformer(BaseAgent):
             transform['status'] = TransformStatus.Finished
             msg = self.generate_message(transform, work=work, msg_type='work')
             msgs.append(msg)
+            for coll in input_collections:
+                coll.status = CollectionStatus.Closed
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='input')
+                msgs.append(msg)
             for coll in output_collections:
                 coll.status = CollectionStatus.Closed
-                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='output')
                 msgs.append(msg)
             for coll in log_collections:
                 coll.status = CollectionStatus.Closed
-                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='log')
                 msgs.append(msg)
         elif work.is_subfinished():
             transform['status'] = TransformStatus.SubFinished
             msg = self.generate_message(transform, work=work, msg_type='work')
             msgs.append(msg)
+            for coll in input_collections:
+                coll.status = CollectionStatus.SubClosed
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='input')
+                msgs.append(msg)
             for coll in output_collections:
                 coll.status = CollectionStatus.SubClosed
-                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='output')
                 msgs.append(msg)
             for coll in log_collections:
                 coll.status = CollectionStatus.SubClosed
-                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='log')
                 msgs.append(msg)
         elif work.is_failed():
             transform['status'] = TransformStatus.Failed
             msg = self.generate_message(transform, work=work, msg_type='work')
             msgs.append(msg)
+            for coll in input_collections:
+                coll.status = CollectionStatus.Failed
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='input')
+                msgs.append(msg)
             for coll in output_collections:
                 coll.status = CollectionStatus.Failed
-                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='output')
                 msgs.append(msg)
             for coll in log_collections:
                 coll.status = CollectionStatus.Failed
-                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='log')
                 msgs.append(msg)
         elif work.is_expired():
             transform['status'] = TransformStatus.Expired
             msg = self.generate_message(transform, work=work, msg_type='work')
             msgs.append(msg)
+            for coll in input_collections:
+                coll.status = CollectionStatus.SubClosed
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='input')
+                msgs.append(msg)
             for coll in output_collections:
                 coll.status = CollectionStatus.SubClosed
-                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='output')
                 msgs.append(msg)
             for coll in log_collections:
                 coll.status = CollectionStatus.SubClosed
-                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='log')
                 msgs.append(msg)
         elif work.is_cancelled():
             transform['status'] = TransformStatus.Cancelled
             msg = self.generate_message(transform, work=work, msg_type='work')
             msgs.append(msg)
+            for coll in input_collections:
+                coll.status = CollectionStatus.Cancelled
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='input')
+                msgs.append(msg)
             for coll in output_collections:
                 coll.status = CollectionStatus.Cancelled
-                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='output')
                 msgs.append(msg)
             for coll in log_collections:
                 coll.status = CollectionStatus.Cancelled
-                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='log')
                 msgs.append(msg)
         elif work.is_suspended():
             transform['status'] = TransformStatus.Suspended
             msg = self.generate_message(transform, work=work, msg_type='work')
             msgs.append(msg)
+            for coll in input_collections:
+                coll.status = CollectionStatus.Suspended
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='input')
+                msgs.append(msg)
             for coll in output_collections:
                 coll.status = CollectionStatus.Suspended
-                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='output')
                 msgs.append(msg)
             for coll in log_collections:
                 coll.status = CollectionStatus.Suspended
-                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='log')
                 msgs.append(msg)
         else:
             transform['status'] = TransformStatus.Transforming
@@ -967,10 +1018,14 @@ class Transformer(BaseAgent):
             else:
                 next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_operation_time_period)
 
+        # reset retries to 0 when it succeed
+        transform['retries'] = 0
+
         transform_parameters = {'status': transform['status'],
                                 'locking': TransformLocking.Idle,
                                 'workload_id': transform['workload_id'],
                                 'next_poll_at': next_poll_at,
+                                'retries': transform['retries'],
                                 'transform_metadata': transform['transform_metadata']}
         # if transform_substatus:
         #     transform_parameters['substatus'] = transform_substatus
@@ -1019,9 +1074,18 @@ class Transformer(BaseAgent):
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
+            if transform['retries'] > self.retries:
+                tf_status = TransformStatus.Failed
+            else:
+                tf_status = TransformStatus.Transforming
+
+            wait_times = max(4, transform['retries'])
+
             ret = {'transform': transform,
-                   'transform_parameters': {'status': TransformStatus.Failed,
+                   'transform_parameters': {'status': tf_status,
+                                            'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period * wait_times),
                                             'locking': TransformLocking.Idle,
+                                            'retries': transform['retries'] + 1,
                                             'errors': {'msg': '%s: %s' % (ex, traceback.format_exc())}}}
         return ret
 
@@ -1040,7 +1104,16 @@ class Transformer(BaseAgent):
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
-            transform_parameters = {'status': TransformStatus.Failed,
+            if transform['retries'] > self.retries:
+                tf_status = TransformStatus.Failed
+            else:
+                tf_status = TransformStatus.Transforming
+
+            wait_times = max(4, transform['retries'])
+
+            transform_parameters = {'status': tf_status,
+                                    'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period * wait_times),
+                                    'retries': transform['retries'] + 1,
                                     'locking': TransformLocking.Idle}
             ret = {'transform': transform, 'transform_parameters': transform_parameters}
         return ret

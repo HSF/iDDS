@@ -25,10 +25,10 @@ from idds.common.utils import get_rest_host
 # from idds.tests.common import get_example_real_tape_stagein_request
 # from idds.tests.common import get_example_prodsys2_tape_stagein_request
 
-# from idds.workflow.work import Work, Parameter, WorkStatus
-# from idds.workflow.workflow import Condition, Workflow
-from idds.workflow.workflow import Workflow
-from idds.atlas.workflow.atlasstageinwork import ATLASStageinWork
+# from idds.workflowv2.work import Work, Parameter, WorkStatus
+# from idds.workflowv2.workflow import Condition, Workflow
+from idds.workflowv2.workflow import Workflow
+from idds.atlas.workflowv2.atlasstageinwork import ATLASStageinWork
 
 
 def get_rucio_client():
@@ -129,6 +129,8 @@ if __name__ == '__main__':
     # props = get_example_active_learning_request()
     workflow = get_workflow()
 
+    workflow.username = 'abdc'
+    workflow.userdn = '/DC=abc/DC=def'
     # props = pre_check(props)
     # print(props)
 

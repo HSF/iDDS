@@ -56,6 +56,8 @@ User Documentation
    users/installing_client
    users/cli_examples
    users/condition_examples
+   users/workflow_examples
+   users/monitorapi_examples
    users/admin_guides
    users/contributing
 

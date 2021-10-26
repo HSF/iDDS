@@ -21,8 +21,8 @@ from idds.client.client import Client
 from idds.common.constants import RequestType, RequestStatus
 from idds.common.utils import get_rest_host
 
-from idds.workflow.work import Work   # Parameter, WorkStatus
-from idds.workflow.workflow import Condition, Workflow
+from idds.workflowv2.work import Work   # Parameter, WorkStatus
+from idds.workflowv2.workflow import Condition, Workflow
 
 
 setup_logging(__name__)

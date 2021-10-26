@@ -57,7 +57,7 @@ class Collection(Base):
 
         self.collection = None
 
-        self.internal_id = str(uuid.uuid1())
+        self.internal_id = str(uuid.uuid4())[:8]
         self.coll_id = None
         self.coll_type = coll_type
         self.status = CollectionStatus.New
@@ -139,7 +139,7 @@ class Processing(Base):
 
         self.processing = None
 
-        self.internal_id = str(uuid.uuid1())
+        self.internal_id = str(uuid.uuid4())[:8]
         self.processing_id = None
         self.workload_id = None
         self.status = ProcessingStatus.New
@@ -159,6 +159,8 @@ class Processing(Base):
         self.errors = None
 
         self.output_data = None
+
+        self.retries = 0
 
     @property
     def internal_id(self):
@@ -184,6 +186,9 @@ class Processing(Base):
     def workload_id(self, value):
         self.add_metadata_item('workload_id', value)
 
+    def get_workload_id(self):
+        return self.workload_id
+
     @property
     def status(self):
         return self.get_metadata_item('status', ProcessingStatus.New)
@@ -203,6 +208,14 @@ class Processing(Base):
         self.add_metadata_item('substatus', value)
         if self.processing:
             self.processing['substatus'] = value
+
+    @property
+    def retries(self):
+        return self.get_metadata_item('retries', 0)
+
+    @retries.setter
+    def retries(self, value):
+        self.add_metadata_item('retries', value)
 
     @property
     def last_updated_at(self):
@@ -389,7 +402,7 @@ class Work(Base):
         """
         super(Work, self).__init__()
 
-        self.internal_id = str(uuid.uuid1())
+        self.internal_id = str(uuid.uuid4())[:8]
         self.template_work_id = self.internal_id
         self.is_template = is_template
         self.class_name = self.__class__.__name__.lower()
@@ -476,6 +489,8 @@ class Work(Base):
 
         self.backup_to_release_inputs = {'0': [], '1': [], '2': []}
 
+        self.num_run = None
+
         """
         self._running_data_names = []
         for name in ['internal_id', 'template_work_id', 'initialized', 'sequence_id', 'parameters', 'work_id', 'transforming', 'workdir',
@@ -516,6 +531,17 @@ class Work(Base):
     @template_work_id.setter
     def template_work_id(self, value):
         self.add_metadata_item('template_work_id', value)
+
+    @property
+    def workload_id(self):
+        return self.get_metadata_item('workload_id', None)
+
+    @workload_id.setter
+    def workload_id(self, value):
+        self.add_metadata_item('workload_id', value)
+
+    def get_workload_id(self):
+        return self.workload_id
 
     @property
     def initialized(self):
@@ -595,6 +621,13 @@ class Work(Base):
 
     @status.setter
     def status(self, value):
+        if not self.transforming:
+            if value and value in [WorkStatus.Transforming,
+                                   WorkStatus.Finished,
+                                   WorkStatus.SubFinished,
+                                   WorkStatus.Failed,
+                                   WorkStatus.Running]:
+                self.transforming = True
         self.add_metadata_item('status', value)
 
     @property
@@ -1087,7 +1120,7 @@ class Work(Base):
         new_work.logger = logger
         # new_work.template_work_id = self.get_internal_id()
         if self.is_template:
-            new_work.internal_id = str(uuid.uuid1())
+            new_work.internal_id = str(uuid.uuid4())[:8]
         return new_work
 
     def get_template_id(self):

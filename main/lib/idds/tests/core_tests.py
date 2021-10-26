@@ -102,7 +102,7 @@ def show_works(req):
     print(work_ids)
 
 
-reqs = get_requests(request_id=161, with_detail=False, with_metadata=True)
+reqs = get_requests(request_id=211, with_detail=True, with_metadata=True)
 for req in reqs:
     # print(req['request_id'])
     # print(rets)
@@ -112,24 +112,30 @@ for req in reqs:
 
 sys.exit(0)
 
+"""
 # reqs = get_requests()
 # print(len(reqs))
-"""
 for req in reqs:
     if req['request_id'] == 113:
         # print(req)
         # print(req['request_metadata']['workflow'].to_dict())
         # print(json_dumps(req, sort_keys=True, indent=4))
         pass
+
+sys.exit(0)
+
 """
 
-tfs = get_transforms(transform_id=53550)
+tfs = get_transforms(request_id=205)
 for tf in tfs:
     # print(tf)
     # print(tf['transform_metadata']['work'].to_dict())
-    # print(json_dumps(tf, sort_keys=True, indent=4))
+    print(json_dumps(tf, sort_keys=True, indent=4))
     pass
 
+sys.exit(0)
+
+"""
 msgs = retrieve_messages(workload_id=25972557)
 number_contents = 0
 for msg in msgs:
@@ -146,12 +152,18 @@ for msg in msgs:
 print(number_contents)
 
 sys.exit(0)
+"""
 
-prs = get_processings()
+prs = get_processings(request_id=205)
+i = 0
 for pr in prs:
-    if pr['request_id'] == 91:
-        # print(json_dumps(pr, sort_keys=True, indent=4))
-        pass
+    # if pr['request_id'] == 91:
+    print("processing_number: %s" % i)
+    i += 1
+    print(json_dumps(pr, sort_keys=True, indent=4))
+    pass
+
+sys.exit(0)
 
 to_release_inputs = [{'request_id': 248,
                       'coll_id': 3425,

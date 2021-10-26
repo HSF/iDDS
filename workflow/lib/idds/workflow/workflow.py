@@ -578,6 +578,8 @@ class Workflow(Base):
         # user defined Condition class
         self.user_defined_conditions = {}
 
+        self.username = None
+        self.userdn = None
         self.proxy = None
 
         """
@@ -1038,6 +1040,15 @@ class Workflow(Base):
         self.sync_works()
         return [self.works[k] for k in self.current_running_works]
 
+    def get_all_works(self):
+        """
+        *** Function called by Marshaller agent.
+
+        Current running works
+        """
+        self.sync_works()
+        return [self.works[k] for k in self.works]
+
     def get_primary_initial_collection(self):
         """
         *** Function called by Clerk agent.
@@ -1123,6 +1134,10 @@ class Workflow(Base):
         self.first_initialize()
 
         self.refresh_works()
+
+        for k in self.works:
+            work = self.works[k]
+            self.log_debug("work %s is_terminated(%s:%s)" % (work.get_internal_id(), work.is_terminated(), work.get_status()))
 
         for work in [self.works[k] for k in self.new_to_run_works]:
             if work.transforming:
@@ -1256,6 +1271,9 @@ class Workflow(Base):
         return self.is_terminated() and (self.num_failed_works > 0) and (self.num_cancelled_works == 0) and (self.num_suspended_works == 0) and (self.num_expired_works == 0)
 
     def is_to_expire(self, expired_at=None, pending_time=None, request_id=None):
+        if self.expired:
+            # it's already expired. avoid sending duplicated messages again and again.
+            return False
         if expired_at:
             if type(expired_at) in [str]:
                 expired_at = str_to_date(expired_at)

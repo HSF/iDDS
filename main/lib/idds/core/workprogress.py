@@ -17,7 +17,7 @@ core operations related to workflow model.
 from idds.common.constants import WorkprogressStatus, WorkprogressLocking
 from idds.orm.base.session import read_session, transactional_session
 from idds.orm import workprogress as orm_workprogress, transforms as orm_transforms
-from idds.workflow.work import WorkStatus
+from idds.workflowv2.work import WorkStatus
 
 
 def create_workprogress(request_id, workload_id, scope, name, priority=0, status=WorkprogressStatus.New,

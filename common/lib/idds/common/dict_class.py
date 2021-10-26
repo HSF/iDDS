@@ -26,8 +26,10 @@ class DictClass(object):
         if hasattr(d, 'to_dict'):
             return d.to_dict()
         elif isinstance(d, dict):
+            new_d = {}
             for k, v in d.items():
-                d[k] = self.to_dict_l(v)
+                new_d[k] = self.to_dict_l(v)
+            return new_d
         elif isinstance(d, list):
             new_d = []
             for k in d:
@@ -48,10 +50,10 @@ class DictClass(object):
             # if not key.startswith('__') and not key.startswith('_'):
             if not key.startswith('__'):
                 if key == 'logger':
-                    value = None
+                    new_value = None
                 else:
-                    value = self.to_dict_l(value)
-                ret['attributes'][key] = value
+                    new_value = self.to_dict_l(value)
+                ret['attributes'][key] = new_value
         return ret
 
     @staticmethod

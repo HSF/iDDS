@@ -135,6 +135,8 @@ class Request(BASE, ModelBase):
     name = Column(String(NAME_LENGTH))
     requester = Column(String(20))
     request_type = Column(EnumWithValue(RequestType))
+    username = Column(String(20))
+    userdn = Column(String(200))
     transform_tag = Column(String(20))
     workload_id = Column(Integer())
     priority = Column(Integer())

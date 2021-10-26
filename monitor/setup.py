@@ -106,9 +106,11 @@ def get_data_files(dest, src):
     for root, dirs, files in os.walk(src):
         if 'dist' in root or 'build' in root or 'egg-info' in root:
             continue
+            pass
         for idir in dirs:
             if idir == 'dist' or idir == 'build' or idir.endswith('.egg-info'):
-                continue
+                # continue
+                pass
             idir = os.path.join(root, idir)
             if idir.startswith("./"):
                 idir = idir[2:]
