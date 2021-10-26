@@ -31,7 +31,7 @@ from idds.common.utils import get_rest_host
 
 # from idds.workflowv2.work import Work, Parameter, WorkStatus
 # from idds.workflowv2.workflow import Condition, Workflow
-from idds.workflowv2.workflow import Workflow
+from idds.workflowv2.workflow import Workflow, Condition
 # from idds.atlas.workflowv2.atlasstageinwork import ATLASStageinWork
 from idds.doma.workflowv2.domapandawork import DomaPanDAWork
 
@@ -156,12 +156,17 @@ def setup_workflow():
                                     "value": "log.tgz"},
                           task_cloud='LSST')
 
+    cond1 = Condition(cond=work1.is_finished, true_work=work2)
+    cond2 = Condition(cond=work2.is_finished, true_work=work3)
+
     pending_time = 0.5
     # pending_time = None
     workflow = Workflow(pending_time=pending_time)
     workflow.add_work(work1)
     workflow.add_work(work2)
     workflow.add_work(work3)
+    workflow.add_condition(cond1)
+    workflow.add_condition(cond2)
     return workflow
 
 
