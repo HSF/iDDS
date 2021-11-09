@@ -549,6 +549,8 @@ class WorkflowBase(Base):
         self.parameter_links_source = {}
         self.parameter_links_destination = {}
 
+        self.global_parameters = {}
+
         super(WorkflowBase, self).__init__()
 
         self.internal_id = str(uuid.uuid4())[:8]
@@ -791,6 +793,32 @@ class WorkflowBase(Base):
         # self._work_conds = work_conds
 
     @property
+    def global_parameters(self):
+        self._global_parameters = self.get_metadata_item('gp', {})
+        return self._global_parameters
+
+    @global_parameters.setter
+    def global_parameters(self, value):
+        self._global_parameters = value
+        gp_metadata = {}
+        if self._global_parameters:
+            for key in self._global_parameters:
+                if key.startswith("user_"):
+                    gp_metadata[key] = self._global_parameters[key]
+                else:
+                    self.logger.warn("Only parameters start with 'user_' can be set as global parameters. The parameter '%s' will be ignored." % (key))
+        self.add_metadata_item('gp', gp_metadata)
+
+    def set_global_parameters(self, value):
+        self.global_parameters = value
+
+    def sync_global_parameters_from_work(self, work):
+        if self.global_parameters:
+            for key in self.global_parameters:
+                if hasattr(work, key):
+                    self.global_parameters[key] = getattr(work, key)
+
+    @property
     def loop_condition(self):
         return self._loop_condition
 
@@ -1005,6 +1033,7 @@ class WorkflowBase(Base):
             work.sequence_id = self.num_total_works
 
             work.initialize_work()
+            work.sync_global_parameters(self.global_parameters)
             work.num_run = self.num_run
             works = self.works
             self.works = works
@@ -1364,6 +1393,7 @@ class WorkflowBase(Base):
 
             if work.is_terminated():
                 self.set_source_parameters(work.get_internal_id())
+                self.sync_global_parameters_from_work(work)
 
             if work.get_internal_id() in self.work_conds:
                 self.log_debug("Work %s has condition dependencies %s" % (work.get_internal_id(),

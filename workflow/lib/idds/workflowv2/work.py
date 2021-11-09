@@ -1002,6 +1002,11 @@ class Work(Base):
     def get_is_template(self):
         self.is_template
 
+    def sync_global_parameters(self, global_parameters):
+        if global_parameters:
+            for key in global_parameters:
+                setattr(self, key, global_parameters[key])
+
     def setup_logger(self):
         """
         Setup logger
