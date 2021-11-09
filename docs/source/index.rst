@@ -60,14 +60,6 @@ User Documentation
    users/admin_guides
    users/contributing
 
-Source Codes
-=============
-
-.. toctree::
-   :maxdepth: 1
-
-   .. codes/libraries
-
 Indices and tables
 ==================
 
