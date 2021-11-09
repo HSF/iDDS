@@ -66,7 +66,7 @@ Source Codes
 .. toctree::
    :maxdepth: 1
 
-   codes/libraries
+   .. codes/libraries
 
 Indices and tables
 ==================
