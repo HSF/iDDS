@@ -1,5 +1,5 @@
-idds main
-=========
+idds
+====
 
 .. toctree::
    :maxdepth: 4

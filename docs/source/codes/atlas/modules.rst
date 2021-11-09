@@ -1,5 +1,5 @@
-idds atlas
-==========
+idds
+====
 
 .. toctree::
    :maxdepth: 4

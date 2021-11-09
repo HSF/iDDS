@@ -75,8 +75,9 @@ pip install --upgrade sphinx-rtd-theme
 sphinx-quickstart
 make clean
 make html
-sphinx-apidoc -o ./source/codes/main/ ../main/lib/idds
-sphinx-apidoc -o ./source/codes/common/ ../common/lib/idds
-sphinx-apidoc -o ./source/codes/client/ ../client/lib/idds
-sphinx-apidoc -o ./source/codes/atlas/ ../atlas/lib/idds
-
+sphinx-apidoc -f -o ./source/codes/main/ ../main/lib/idds
+sphinx-apidoc -f -o ./source/codes/common/ ../common/lib/idds
+sphinx-apidoc -f -o ./source/codes/client/ ../client/lib/idds
+sphinx-apidoc -f -o ./source/codes/workflow/ ../workflow/lib/idds
+sphinx-apidoc -f -o ./source/codes/atlas/ ../atlas/lib/idds
+sphinx-apidoc -f -o ./source/codes/doma/ ../doma/lib/idds

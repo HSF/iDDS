@@ -44,6 +44,14 @@ idds.atlas.rucio.contents\_register module
    :undoc-members:
    :show-inheritance:
 
+idds.atlas.rucio.rule\_creator module
+-------------------------------------
+
+.. automodule:: idds.atlas.rucio.rule_creator
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 idds.atlas.rucio.rule\_poller module
 ------------------------------------
 

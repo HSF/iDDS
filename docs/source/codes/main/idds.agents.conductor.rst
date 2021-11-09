@@ -12,6 +12,14 @@ idds.agents.conductor.conductor module
    :undoc-members:
    :show-inheritance:
 
+idds.agents.conductor.consumer module
+-------------------------------------
+
+.. automodule:: idds.agents.conductor.consumer
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 
 Module contents
 ---------------

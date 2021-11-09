@@ -1,5 +1,5 @@
-idds common
-===========
+idds
+====
 
 .. toctree::
    :maxdepth: 4
