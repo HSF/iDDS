@@ -951,7 +951,10 @@ class Work(Base):
 
     @property
     def input_collections(self):
-        keys = [self._primary_input_collection] + self._other_input_collections
+        if self._primary_input_collection:
+            keys = [self._primary_input_collection] + self._other_input_collections
+        else:
+            keys = self._other_input_collections
         return [self.collections[k] for k in keys]
 
     @input_collections.setter
@@ -973,7 +976,10 @@ class Work(Base):
 
     @property
     def output_collections(self):
-        keys = [self._primary_output_collection] + self._other_output_collections
+        if self._primary_output_collection:
+            keys = [self._primary_output_collection] + self._other_output_collections
+        else:
+            keys = self._other_output_collections
         return [self.collections[k] for k in keys]
 
     @output_collections.setter

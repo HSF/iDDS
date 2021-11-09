@@ -199,10 +199,24 @@ class CompositeCondition(Base):
                     new_value = []
                     for cond in value:
                         if inspect.ismethod(cond):
-                            new_cond = {'idds_method': cond.__name__,
-                                        'idds_method_internal_id': cond.__self__.get_internal_id()}
+                            if isinstance(cond.__self__, Work):
+                                new_cond = {'idds_method': cond.__name__,
+                                            'idds_method_internal_id': cond.__self__.get_internal_id()}
+                            elif isinstance(cond.__self__, CompositeCondition):
+                                new_cond = {'idds_method': cond.__name__,
+                                            'idds_method_condition': cond.__self__.to_dict()}
+                            elif isinstance(cond.__self__, Workflow):
+                                new_cond = {'idds_method': cond.__name__,
+                                            'idds_method_internal_id': cond.__self__.get_internal_id()}
+                            else:
+                                new_cond = {'idds_method': cond.__name__,
+                                            'idds_method_internal_id': cond.__self__.get_internal_id()}
                         else:
-                            new_cond = cond
+                            if hasattr(cond, '__self__'):
+                                new_cond = {'idds_attribute': cond.__name__,
+                                            'idds_method_internal_id': cond.__self__.get_internal_id()}
+                            else:
+                                new_cond = cond
                         new_value.append(new_cond)
                     value = new_value
                 elif key in ['_true_works', '_false_works']:
@@ -240,6 +254,17 @@ class CompositeCondition(Base):
                     else:
                         self.logger.error("Work cannot be found for %s" % (internal_id))
                         new_cond = cond
+                elif 'idds_attribute' in cond and 'idds_method_internal_id' in cond:
+                    internal_id = cond['idds_method_internal_id']
+                    work = self.get_work_from_id(internal_id, works)
+                    if work is not None:
+                        new_cond = getattr(work, cond['idds_attribute'])
+                    else:
+                        self.logger.error("Work cannot be found for %s" % (internal_id))
+                        new_cond = cond
+                elif 'idds_method' in cond and 'idds_method_condition' in cond:
+                    new_cond = cond['idds_method_condition']
+                    new_cond = getattr(new_cond, cond['idds_method'])
                 else:
                     new_cond = cond
                 new_conditions.append(new_cond)
@@ -289,7 +314,10 @@ class CompositeCondition(Base):
         works = []
         for cond in self.conditions:
             if inspect.ismethod(cond):
-                works.append(cond.__self__.get_internal_id())
+                if isinstance(cond.__self__, Work) or isinstance(cond.__self__, Workflow):
+                    works.append(cond.__self__.get_internal_id())
+                elif isinstance(cond.__self__, CompositeCondition):
+                    works = works + cond.__self__.all_condition_ids()
             else:
                 self.logger.error("cond cannot be recognized: %s" % str(cond))
                 works.append(cond)
@@ -302,7 +330,10 @@ class CompositeCondition(Base):
         works = []
         for cond in self.conditions:
             if inspect.ismethod(cond):
-                works.append(cond.__self__)
+                if isinstance(cond.__self__, Work) or isinstance(cond.__self__, Workflow):
+                    works.append(cond.__self__)
+                elif isinstance(cond.__self__, CompositeCondition):
+                    works = works + cond.__self__.all_pre_works()
             else:
                 self.logger.error("cond cannot be recognized: %s" % str(cond))
                 works.append(cond)
@@ -549,7 +580,7 @@ class WorkflowBase(Base):
         self.parameter_links_source = {}
         self.parameter_links_destination = {}
 
-        self.global_parameters = {}
+        self._global_parameters = {}
 
         super(WorkflowBase, self).__init__()
 
@@ -612,6 +643,8 @@ class WorkflowBase(Base):
         self.loop_condition = None
 
         self.num_run = None
+
+        self.global_parameters = {}
 
         """
         self._running_data_names = []
