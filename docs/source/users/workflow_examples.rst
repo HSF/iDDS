@@ -94,3 +94,30 @@ Here is a simple example of sub loop workflow with parameter links.
     workflow.add_work(workflow1, initial=False)
     workflow.add_condition(cond2)
     workflow.add_parameter_link(work3, work1, p_link1)
+
+
+Workflow with global parameters
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Here is a simple example of workflow with global parameters. When a work starts, the work will use the global parameters and call 'setattr' to set the attributes for this work. When a work terminates, idds will call getattr to get the values for global parameters and store them in the global parameters.
+However, to avoid the global parameters overwrite the work's private attributes, currently only parameters start with 'user_' will be accepted as global parameters. Other parameters will be ignored with a warning logging messages.
+
+.. code-block:: python
+
+    from idds.workflowv2.work import Work, WorkStatus
+    from idds.workflowv2.workflow import (CompositeCondition, AndCondition, OrCondition,
+                                          Condition, ConditionTrigger, Workflow, ParameterLink)
+
+    work1 = Work(executable='/bin/hostname', arguments=None, sandbox=None, work_id=1,
+                 primary_input_collection={'scope': 'test_scop', 'name': 'input_test_work_1'},
+                 primary_output_collection={'scope': 'test_scop', 'name': 'output_test_work_1'})
+    work2 = Work(executable='/bin/hostname', arguments=None, sandbox=None, work_id=2,
+                 primary_input_collection={'scope': 'test_scop', 'name': 'input_test_work_2'},
+                 primary_output_collection={'scope': 'test_scop', 'name': 'output_test_work_2'})
+
+    workflow1 = Workflow()
+    workflow1.add_work(work1, initial=False)
+    workflow1.add_work(work2, initial=False)
+
+    # to avoid 
+    workflow1.set_global_parameters({'user_attr1': 1, 'user_attr2': 2})
