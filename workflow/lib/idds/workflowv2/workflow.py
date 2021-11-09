@@ -1857,6 +1857,14 @@ class Workflow(Base):
         if self.runs:
             self.runs[str(self.num_run)].refresh_parameter_links()
 
+    def set_global_parameters(self, value):
+        self.template.set_global_parameters(value)
+
+    def sync_global_parameters_from_work(self, work):
+        if self.runs:
+            return self.runs[str(self.num_run)].sync_global_parameters_from_work(work)
+        return self.template.sync_global_parameters_from_work(work)
+
     def get_new_works(self):
         self.sync_works()
         if self.runs:

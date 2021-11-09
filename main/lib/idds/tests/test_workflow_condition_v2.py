@@ -835,7 +835,7 @@ class TestWorkflowCondtion(unittest.TestCase):
         work1.status = WorkStatus.Finished
         works = cond9.get_next_works(trigger=ConditionTrigger.Triggered)
         works.sort(key=lambda x: x.work_id)
-        assert(works == [ work6])
+        assert(works == [work6])
         work4.status = WorkStatus.New
         work1.status = WorkStatus.New
 
