@@ -7,3 +7,4 @@ nose                             # nose test tools
 sphinx                           # sphinx documentation
 recommonmark                     # use Markdown with Sphinx
 sphinx-rtd-theme                 # sphinx readthedoc theme
+docutils<0.18
