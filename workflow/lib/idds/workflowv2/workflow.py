@@ -1343,14 +1343,26 @@ class WorkflowBase(Base):
         """
 
         if self.primary_initial_work:
-            return self.get_works()[self.primary_initial_work].get_primary_input_collection()
+            if isinstance(self.get_works()[self.primary_initial_work], Workflow):
+                return self.get_works()[self.primary_initial_work].get_primary_initial_collection()
+            else:
+                return self.get_works()[self.primary_initial_work].get_primary_input_collection()
         elif self.initial_works:
-            return self.get_works()[self.initial_works[0]].get_primary_input_collection()
+            if isinstance(self.get_works()[self.initial_works[0]], Workflow):
+                return self.get_works()[self.initial_works[0]].get_primary_initial_collection()
+            else:
+                return self.get_works()[self.initial_works[0]].get_primary_input_collection()
         elif self.independent_works:
-            return self.get_works()[self.independent_works[0]].get_primary_input_collection()
+            if isinstance(self.get_works()[self.independent_works[0]], Workflow):
+                return self.get_works()[self.independent_works[0]].get_primary_initial_collection()
+            else:
+                return self.get_works()[self.independent_works[0]].get_primary_input_collection()
         else:
             keys = self.get_works().keys()
-            return self.get_works()[keys[0]].get_primary_input_collection()
+            if isinstance(self.get_works()[keys[0]], Workflow):
+                return self.get_works()[keys[0]].get_primary_initial_collection()
+            else:
+                return self.get_works()[keys[0]].get_primary_input_collection()
         return None
 
     def get_dependency_works(self, work_id, depth, max_depth):
