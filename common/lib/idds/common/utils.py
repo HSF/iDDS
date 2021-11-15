@@ -476,3 +476,18 @@ def extract_scope_atlas(did, scopes):
 def truncate_string(string, length=800):
     string = (string[:length] + '...') if string and len(string) > length else string
     return string
+
+
+def is_client():
+    if 'IDDS_CLIENT_MODE' not in os.environ:
+        if config_has_section('database') and config_has_option('database', 'default'):
+            client_mode = False
+        else:
+            client_mode = True
+    else:
+        if os.environ['IDDS_CLIENT_MODE']:
+            client_mode = True
+        else:
+            client_mode = False
+
+    return client_mode
