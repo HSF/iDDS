@@ -1013,6 +1013,9 @@ class Work(Base):
             for key in global_parameters:
                 setattr(self, key, global_parameters[key])
 
+    def renew_parameters_from_attributes(self):
+        pass
+
     def setup_logger(self):
         """
         Setup logger

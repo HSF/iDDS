@@ -1067,6 +1067,7 @@ class WorkflowBase(Base):
 
             work.initialize_work()
             work.sync_global_parameters(self.global_parameters)
+            work.renew_parameters_from_attributes()
             work.num_run = self.num_run
             works = self.works
             self.works = works
@@ -1076,6 +1077,19 @@ class WorkflowBase(Base):
             self.new_to_run_works.append(work.get_internal_id())
             self.last_work = work.get_internal_id()
 
+        return work
+
+    def get_new_parameters_for_work(self, work):
+        new_parameters = self.get_destination_parameters(work.get_internal_id())
+        if new_parameters:
+            work.set_parameters(new_parameters)
+        work.sequence_id = self.num_total_works
+
+        work.initialize_work()
+        work.sync_global_parameters(self.global_parameters)
+        work.renew_parameters_from_attributes()
+        works = self.works
+        self.works = works
         return work
 
     def register_user_defined_condition(self, condition):
@@ -1283,6 +1297,7 @@ class WorkflowBase(Base):
         works = []
         for k in self.new_to_run_works:
             if isinstance(self.works[k], Work):
+                self.works[k] = self.get_new_parameters_for_work(self.works[k])
                 works.append(self.works[k])
             if isinstance(self.works[k], Workflow):
                 works = works + self.works[k].get_new_works()

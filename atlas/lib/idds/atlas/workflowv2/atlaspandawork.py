@@ -186,6 +186,51 @@ class ATLASPandaWork(Work):
             # raise exceptions.IDDSException('%s: %s' % (str(ex), traceback.format_exc()))
             self.add_errors(str(ex))
 
+    def renew_parameter(self, parameter):
+        new_parameter = parameter
+        if '__idds__' in parameter:
+            pos_start = parameter.find('__idds__')
+            attr = parameter[pos_start:]
+            attr = attr.replace("__idds__", "")
+            pos = attr.find("__")
+            if pos > -1:
+                attr = attr[:pos]
+            if attr:
+                idds_attr = "__idds__" + attr + "__"
+                if hasattr(self, attr):
+                    attr_value = getattr(self, attr)
+                    new_parameter = parameter.replace(idds_attr, attr_value)
+        return new_parameter
+
+    def renew_parameters_from_attributes(self):
+        if not self.task_parameters:
+            return
+
+        try:
+            if 'taskName' in self.task_parameters:
+                self.task_name = self.task_parameters['taskName']
+                self.task_name = self.renew_parameter(self.task_name)
+                self.set_work_name(self.task_name)
+
+            if 'prodSourceLabel' in self.task_parameters:
+                self.task_type = self.task_parameters['prodSourceLabel']
+
+            if 'jobParameters' in self.task_parameters:
+                jobParameters = self.task_parameters['jobParameters']
+                for jobP in jobParameters:
+                    if type(jobP) in [dict]:
+                        for key in jobP:
+                            if jobP[key] and type(jobP[key]) in [str]:
+                                jobP[key] = self.renew_parameter(jobP[key])
+            for coll_id in self.collections:
+                coll_name = self.collections[coll_id].name
+                self.collections[coll_id].name = self.renew_parameter(coll_name)
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+            # raise exceptions.IDDSException('%s: %s' % (str(ex), traceback.format_exc()))
+            self.add_errors(str(ex))
+
     def get_rucio_client(self):
         try:
             client = RucioClient()
