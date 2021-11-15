@@ -752,9 +752,9 @@ class ATLASPandaWork(Work):
         self.logger.debug("syn_work_status, self.active_processings: %s" % str(self.active_processings))
         self.logger.debug("syn_work_status, self.has_new_inputs(): %s" % str(self.has_new_inputs))
         self.logger.debug("syn_work_status, coll_metadata_is_open: %s" %
-                          str(self.collections[self.primary_input_collection].coll_metadata['is_open']))
+                          str(self.collections[self._primary_input_collection].coll_metadata['is_open']))
         self.logger.debug("syn_work_status, primary_input_collection_status: %s" %
-                          str(self.collections[self.primary_input_collection].status))
+                          str(self.collections[self._primary_input_collection].status))
 
         self.logger.debug("syn_work_status(%s): is_processings_terminated: %s" % (str(self.get_processing_ids()), str(self.is_processings_terminated())))
         self.logger.debug("syn_work_status(%s): is_input_collections_closed: %s" % (str(self.get_processing_ids()), str(self.is_input_collections_closed())))

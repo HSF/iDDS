@@ -516,6 +516,33 @@ def release_inputs_by_collection(to_release_inputs, final=False):
     return update_contents
 
 
+def poll_inputs_dependency_by_collection(unfinished_inputs):
+    update_contents = []
+    status_to_check = [ContentStatus.Available, ContentStatus.FakeAvailable, ContentStatus.FinalFailed, ContentStatus.Missing]
+    for coll_id in unfinished_inputs:
+        unfinished_contents = unfinished_inputs[coll_id]
+        contents = orm_contents.get_input_contents(request_id=unfinished_contents[0]['request_id'],
+                                                   coll_id=unfinished_contents[0]['coll_id'],
+                                                   name=None)
+
+        to_release_status = {}
+        for content in contents:
+            if (content['content_relation_type'] == ContentRelationType.Output):    # noqa: W503
+                if content['status'] in status_to_check:
+                    to_release_status[content['name']] = content['status']
+                elif content['substatus'] in status_to_check:
+                    to_release_status[content['name']] = content['substatus']
+        for content in unfinished_contents:
+            if content['name'] in to_release_status:
+                if (content['status'] != to_release_status[content['name']]):
+                    update_content = {'content_id': content['content_id'],
+                                      'substatus': to_release_status[content['name']],
+                                      'status': to_release_status[content['name']]}
+                    update_contents.append(update_content)
+
+    return update_contents
+
+
 def get_work_name_to_coll_map(request_id):
     tfs = orm_transforms.get_transforms(request_id=request_id)
     colls = orm_collections.get_collections(request_id=request_id)

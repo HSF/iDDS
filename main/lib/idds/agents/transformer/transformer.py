@@ -209,6 +209,12 @@ class Transformer(BaseAgent):
                 return False
         return True
 
+    def is_input_dependency_terminated(self, input_dependency):
+        if input_dependency['status'] in [ContentStatus.Available, ContentStatus.FakeAvailable,
+                                          ContentStatus.FinalFailed, ContentStatus.Missing]:
+            return True
+        return False
+
     def get_updated_contents(self, transform, registered_input_output_maps):
         updated_contents = []
         updated_input_contents_full, updated_output_contents_full = [], []
@@ -296,6 +302,22 @@ class Transformer(BaseAgent):
         updated_contents = core_transforms.release_inputs_by_collection(to_release_inputs, final=final)
         self.logger.debug("trigger_release_inputs, to_release_inputs: %s" % str(to_release_inputs))
         self.logger.debug("trigger_release_inputs, updated_contents: %s" % str(updated_contents))
+        return updated_contents
+
+    def poll_inputs_dependency(self, transform, registered_input_output_maps):
+        unfinished_inputs = {}
+        for map_id in registered_input_output_maps:
+            inputs_dependency = registered_input_output_maps[map_id]['inputs_dependency'] if 'inputs_dependency' in registered_input_output_maps[map_id] else []
+            for content in inputs_dependency:
+                if (content['status'] not in [ContentStatus.Available, ContentStatus.FakeAvailable, ContentStatus.FinalFailed, ContentStatus.Missing]
+                    and content['substatus'] not in [ContentStatus.Available, ContentStatus.FakeAvailable, ContentStatus.FinalFailed, ContentStatus.Missing]):  # noqa W503
+                    if content['coll_id'] not in unfinished_inputs:
+                        unfinished_inputs[content['coll_id']] = []
+                    unfinished_inputs[content['coll_id']].append(content)
+
+        # updated_contents = core_transforms.release_inputs(to_release_inputs)
+        updated_contents = core_transforms.poll_inputs_dependency_by_collection(unfinished_inputs)
+        self.logger.debug("poll_inputs_dependency, updated_contents: %s" % str(updated_contents))
         return updated_contents
 
     def process_new_transform_real(self, transform):
@@ -850,8 +872,10 @@ class Transformer(BaseAgent):
             updated_contents, updated_input_contents_full, updated_output_contents_full = self.get_updated_contents(transform, registered_input_output_maps)
             # if work.use_dependency_to_release_jobs() and (updated_output_contents_full or work.has_to_release_inputs()):
             if work.use_dependency_to_release_jobs():
-                self.logger.info("trigger_release_inputs: %s" % transform['transform_id'])
-                to_release_input_contents = self.trigger_release_inputs(updated_output_contents_full, work, registered_input_output_maps)
+                pass
+                # self.logger.info("trigger_release_inputs: %s" % transform['transform_id'])
+                # to_release_input_contents = self.trigger_release_inputs(updated_output_contents_full, work, registered_input_output_maps)
+                to_release_input_contents = self.poll_inputs_dependency(transform, registered_input_output_maps)
 
         self.logger.info("generate_message: %s" % transform['transform_id'])
         if new_input_contents:
@@ -877,9 +901,10 @@ class Transformer(BaseAgent):
         if work.is_terminated():
             self.logger.info("Transform(%s) work is terminated, trigger to release all final status files" % (transform['transform_id']))
             if work.use_dependency_to_release_jobs():
-                self.logger.info("trigger_release_inputs: %s" % transform['transform_id'])
-                to_release_input_contents1 = self.trigger_release_inputs(updated_output_contents_full, work, registered_input_output_maps, final=True)
-                to_release_input_contents = to_release_input_contents + to_release_input_contents1
+                pass
+                # self.logger.info("trigger_release_inputs: %s" % transform['transform_id'])
+                # to_release_input_contents1 = self.trigger_release_inputs(updated_output_contents_full, work, registered_input_output_maps, final=True)
+                # to_release_input_contents = to_release_input_contents + to_release_input_contents1
 
         to_resume_transform = False
         reactivated_contents = []
