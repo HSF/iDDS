@@ -1920,8 +1920,11 @@ class Workflow(Base):
             self.runs[str(self.num_run)].resume_works()
 
     def clean_works(self):
-        if self.runs:
-            self.runs[str(self.num_run)].clean_works()
+        # if self.runs:
+        #     self.runs[str(self.num_run)].clean_works()
+        self.parent_num_run = None
+        self._num_run = 0
+        self.runs = {}
 
     def is_to_expire(self, expired_at=None, pending_time=None, request_id=None):
         if self.runs:
