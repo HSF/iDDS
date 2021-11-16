@@ -188,18 +188,18 @@ class ATLASPandaWork(Work):
 
     def renew_parameter(self, parameter):
         new_parameter = parameter
-        if '__idds__' in parameter:
-            pos_start = parameter.find('__idds__')
+        if '___idds___' in parameter:
+            pos_start = parameter.find('___idds___')
             attr = parameter[pos_start:]
-            attr = attr.replace("__idds__", "")
-            pos = attr.find("__")
+            attr = attr.replace("___idds___", "")
+            pos = attr.find("___")
             if pos > -1:
                 attr = attr[:pos]
             if attr:
-                idds_attr = "__idds__" + attr + "__"
+                idds_attr = "___idds___" + attr + "___"
                 if hasattr(self, attr):
                     attr_value = getattr(self, attr)
-                    new_parameter = parameter.replace(idds_attr, attr_value)
+                    new_parameter = parameter.replace(idds_attr, str(attr_value))
         return new_parameter
 
     def renew_parameters_from_attributes(self):
