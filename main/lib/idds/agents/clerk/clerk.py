@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2021
 
 import datetime
 import traceback
@@ -71,6 +71,8 @@ class Clerk(BaseAgent):
 
     def generate_transform(self, req, work):
         wf = req['request_metadata']['workflow']
+
+        work.set_request_id(req['request_id'])
 
         new_transform = {'request_id': req['request_id'],
                          'workload_id': req['workload_id'],
@@ -138,6 +140,7 @@ class Clerk(BaseAgent):
                 # new_work = work.copy()
                 new_work = work
                 new_work.add_proxy(wf.get_proxy())
+                # new_work.set_request_id(req['request_id'])
                 # new_work.create_processing()
 
                 transform = self.generate_transform(req, work)

@@ -397,7 +397,7 @@ class Processing(Base):
 class Work(Base):
 
     def __init__(self, executable=None, arguments=None, parameters=None, setup=None, work_type=None,
-                 work_tag=None, exec_type='local', sandbox=None, work_id=None, work_name=None,
+                 work_tag=None, exec_type='local', sandbox=None, request_id=None, work_id=None, work_name=None,
                  primary_input_collection=None, other_input_collections=None, input_collections=None,
                  primary_output_collection=None, other_output_collections=None, output_collections=None,
                  log_collections=None, release_inputs_after_submitting=False,
@@ -449,6 +449,7 @@ class Work(Base):
         self.work_tag = work_tag
         self.exec_type = exec_type
         self.sandbox = sandbox
+        self.request_id = request_id
         self.work_id = work_id
         self.work_name = work_name
         if not self.work_name:
@@ -1030,7 +1031,7 @@ class Work(Base):
 
     def set_work_id(self, work_id, transforming=True):
         """
-        *** Function called by Marshaller agent.
+        *** Function called by Marshaller and clerk agent.
         *** It's the transform_id set by core_workprogresses
         """
         self.work_id = work_id
@@ -1038,9 +1039,22 @@ class Work(Base):
 
     def get_work_id(self):
         """
-        *** Function called by Marshaller agent.
+        *** Function called by Marshaller and clerk agent.
         """
         return self.work_id
+
+    def set_request_id(self, request_id):
+        """
+        *** Function called by Marshaller and clerk agent.
+        *** It's the transform_id set by core_workprogresses
+        """
+        self.request_id = request_id
+
+    def get_request_id(self):
+        """
+        *** Function called by Marshaller and clerk agent.
+        """
+        return self.request_id
 
     # def set_workflow(self, workflow):
     #     self.workflow = workflow

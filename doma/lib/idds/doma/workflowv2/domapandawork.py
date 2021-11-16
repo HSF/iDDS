@@ -350,7 +350,7 @@ class DomaPanDAWork(Work):
         :param input_output_maps: new maps from inputs to outputs.
         """
         # avoid duplicated task name
-        self.task_name = self.task_name + "_" + str(self.get_work_id())
+        self.task_name = self.task_name + "_" + str(self.get_request_id()) + "_" + str(self.get_work_id())
 
         in_files = []
         for job in self.dependency_map:
@@ -401,6 +401,8 @@ class DomaPanDAWork(Work):
              'value': self.executable,  # noqa: E501
              },
         ]
+
+        task_param_map['reqID'] = self.get_work_id()
 
         processing_metadata = {'task_param': task_param_map}
         proc = Processing(processing_metadata=processing_metadata)
