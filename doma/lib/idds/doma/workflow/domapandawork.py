@@ -397,7 +397,7 @@ class DomaPanDAWork(Work):
              },
         ]
 
-        task_param_map['reqID'] = self.get_work_id()
+        task_param_map['reqID'] = self.get_request_id()
 
         processing_metadata = {'task_param': task_param_map}
         proc = Processing(processing_metadata=processing_metadata)
