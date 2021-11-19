@@ -532,13 +532,38 @@ def poll_inputs_dependency_by_collection(unfinished_inputs):
                     to_release_status[content['name']] = content['status']
                 elif content['substatus'] in status_to_check:
                     to_release_status[content['name']] = content['substatus']
+
+        unfinished_contents_dict = {}
         for content in unfinished_contents:
-            if content['name'] in to_release_status:
-                if (content['status'] != to_release_status[content['name']]):
-                    update_content = {'content_id': content['content_id'],
-                                      'substatus': to_release_status[content['name']],
-                                      'status': to_release_status[content['name']]}
-                    update_contents.append(update_content)
+            unfinished_contents_dict[content['name']] = {'content_id': content['content_id'], 'status': content['status']}
+
+        if len(unfinished_contents_dict.keys()) < len(to_release_status.keys()):
+            for name, content in unfinished_contents_dict.items():
+                if name in to_release_status:
+                    matched_content_status = to_release_status[name]
+                    if (content['status'] != matched_content_status):
+                        update_content = {'content_id': content['content_id'],
+                                          'substatus': matched_content_status,
+                                          'status': matched_content_status}
+                        update_contents.append(update_content)
+        else:
+            for key, status in to_release_status.items():
+                if name in unfinished_contents_dict:
+                    matched_content = unfinished_contents_dict[name]
+                    if (matched_content['status'] != status):
+                        update_content = {'content_id': matched_content['content_id'],
+                                          'substatus': status,
+                                          'status': status}
+                        update_contents.append(update_content)
+
+        # for content in unfinished_contents:
+        #     if content['name'] in to_release_status:
+        #         matched_content_status = to_release_status[content['name']]
+        #         if (content['status'] != matched_content_status):
+        #             update_content = {'content_id': content['content_id'],
+        #                               'substatus': matched_content_status,
+        #                               'status': matched_content_status}
+        #             update_contents.append(update_content)
 
     return update_contents
 
