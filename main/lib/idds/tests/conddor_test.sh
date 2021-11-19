@@ -11,4 +11,5 @@ cat <<EOT >> /tmp/test_condor.jdl
     queue
 EOT
 
-condor_submit /tmp/test_condor.jdl
+#condor_submit /tmp/test_condor.jdl
+condor_submit --debug -name aipanda180.cern.ch -pool aipanda180.cern.ch:9618 /tmp/test_condor.jdl

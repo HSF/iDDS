@@ -693,7 +693,7 @@ class DomaPanDAWork(Work):
                 if task_id:
                     # ret_ids = Client.getPandaIDsWithTaskID(task_id, verbose=False)
                     task_info = Client.getJediTaskDetails({'jediTaskID': task_id}, True, True, verbose=False)
-                    self.logger.info("poll_panda_task, task_info: %s" % str(task_info))
+                    # self.logger.debug("poll_panda_task, task_info: %s" % str(task_info))
                     if task_info[0] != 0:
                         self.logger.warn("poll_panda_task %s, error getting task status, task_info: %s" % (task_id, str(task_info)))
                         return ProcessingStatus.Submitting, {}
@@ -841,7 +841,7 @@ class DomaPanDAWork(Work):
 
             processing_status, poll_updated_contents = self.poll_panda_task(processing=processing, input_output_maps=input_output_maps)
             self.logger.debug("poll_processing_updates, processing_status: %s" % str(processing_status))
-            self.logger.debug("poll_processing_updates, update_contents: %s" % str(poll_updated_contents))
+            self.logger.debug("poll_processing_updates, update_contents[:100]: %s" % str(poll_updated_contents[:100]))
 
             if poll_updated_contents:
                 proc.has_new_updates()
@@ -895,10 +895,10 @@ class DomaPanDAWork(Work):
 
         self.logger.debug("poll_processing_updates, task: %s, update_processing: %s" %
                           (proc.workload_id, str(update_processing)))
-        self.logger.debug("poll_processing_updates, task: %s, updated_contents: %s" %
-                          (proc.workload_id, str(updated_contents)))
-        self.logger.debug("poll_processing_updates, task: %s, reactive_contents: %s" %
-                          (proc.workload_id, str(reactive_contents)))
+        self.logger.debug("poll_processing_updates, task: %s, updated_contents[:100]: %s" %
+                          (proc.workload_id, str(updated_contents[:100])))
+        self.logger.debug("poll_processing_updates, task: %s, reactive_contents[:100]: %s" %
+                          (proc.workload_id, str(reactive_contents[:100])))
         return update_processing, updated_contents + reactive_contents, {}
 
     def get_status_statistics(self, registered_input_output_maps):
