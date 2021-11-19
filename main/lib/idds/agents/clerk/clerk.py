@@ -9,6 +9,7 @@
 # - Wen Guan, <wen.guan@cern.ch>, 2019 - 2021
 
 import datetime
+import time
 import traceback
 try:
     # python 3
@@ -204,12 +205,38 @@ class Clerk(BaseAgent):
                 else:
                     update_transforms = {}
 
-                core_requests.update_request_with_transforms(req['request_id'], req['parameters'],
-                                                             new_transforms=new_transforms,
-                                                             update_transforms=update_transforms)
+                retry = True
+                retry_num = 0
+                while retry:
+                    retry = False
+                    retry_num += 1
+                    try:
+                        core_requests.update_request_with_transforms(req['request_id'], req['parameters'],
+                                                                     new_transforms=new_transforms,
+                                                                     update_transforms=update_transforms)
+                    except exceptions.DatabaseException as ex:
+                        if 'ORA-00060' in str(ex):
+                            self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
+                            if retry_num < 5:
+                                retry = True
+                                time.sleep(60 * retry_num * 2)
+                            else:
+                                raise ex
+                        else:
+                            # self.logger.error(ex)
+                            # self.logger.error(traceback.format_exc())
+                            raise ex
             except Exception as ex:
                 self.logger.error(ex)
                 self.logger.error(traceback.format_exc())
+                try:
+                    req_parameters = {'status': RequestStatus.Transforming,
+                                      'locking': RequestLocking.Idle,
+                                      'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period)}
+                    core_requests.update_request_with_transforms(req['request_id'], req_parameters)
+                except Exception as ex:
+                    self.logger.error(ex)
+                    self.logger.error(traceback.format_exc())
 
     def get_running_requests(self):
         """
@@ -541,15 +568,41 @@ class Clerk(BaseAgent):
                 else:
                     update_transforms = {}
 
-                core_requests.update_request_with_transforms(req['request_id'], req['parameters'],
-                                                             new_transforms=new_transforms,
-                                                             update_transforms=update_transforms,
-                                                             new_messages=req.get('new_messages', None),
-                                                             update_messages=req.get('update_messages', None))
+                retry = True
+                retry_num = 0
+                while retry:
+                    retry = False
+                    retry_num += 1
+                    try:
+                        core_requests.update_request_with_transforms(req['request_id'], req['parameters'],
+                                                                     new_transforms=new_transforms,
+                                                                     update_transforms=update_transforms,
+                                                                     new_messages=req.get('new_messages', None),
+                                                                     update_messages=req.get('update_messages', None))
 
+                    except exceptions.DatabaseException as ex:
+                        if 'ORA-00060' in str(ex):
+                            self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
+                            if retry_num < 5:
+                                retry = True
+                                time.sleep(60 * retry_num * 2)
+                            else:
+                                raise ex
+                        else:
+                            # self.logger.error(ex)
+                            # self.logger.error(traceback.format_exc())
+                            raise ex
             except Exception as ex:
                 self.logger.error(ex)
                 self.logger.error(traceback.format_exc())
+                try:
+                    req_parameters = {'status': RequestStatus.Transforming,
+                                      'locking': RequestLocking.Idle,
+                                      'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period)}
+                    core_requests.update_request_with_transforms(req['request_id'], req_parameters)
+                except Exception as ex:
+                    self.logger.error(ex)
+                    self.logger.error(traceback.format_exc())
 
     def clean_locks(self):
         self.logger.info("clean locking")

@@ -422,15 +422,15 @@ class Transformer(BaseAgent):
     def finish_new_transforms(self):
         while not self.new_output_queue.empty():
             try:
-                retry = True
-                retry_num = 0
-                while retry:
-                    retry = False
-                    retry_num += 1
-                    try:
-                        ret = self.new_output_queue.get()
-                        self.logger.info("Main thread finishing processing transform: %s" % ret['transform'])
-                        if ret:
+                ret = self.new_output_queue.get()
+                self.logger.info("Main thread finishing processing transform: %s" % ret['transform'])
+                if ret:
+                    retry = True
+                    retry_num = 0
+                    while retry:
+                        retry = False
+                        retry_num += 1
+                        try:
                             # self.logger.debug("wen: %s" % str(ret['output_contents']))
                             core_transforms.add_transform_outputs(transform=ret['transform'],
                                                                   transform_parameters=ret['transform_parameters'],
@@ -445,18 +445,18 @@ class Transformer(BaseAgent):
                                                                   messages=ret.get('messages', None),
                                                                   new_processing=ret.get('new_processing', None),
                                                                   message_bulk_size=self.message_bulk_size)
-                    except exceptions.DatabaseException as ex:
-                        if 'ORA-00060' in str(ex):
-                            self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
-                            if retry_num < 5:
-                                retry = True
-                                time.sleep(60 * retry_num * 2)
+                        except exceptions.DatabaseException as ex:
+                            if 'ORA-00060' in str(ex):
+                                self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
+                                if retry_num < 5:
+                                    retry = True
+                                    time.sleep(60 * retry_num * 2)
+                                else:
+                                    raise ex
                             else:
                                 raise ex
-                        else:
-                            raise ex
-                            # self.logger.error(ex)
-                            # self.logger.error(traceback.format_exc())
+                                # self.logger.error(ex)
+                                # self.logger.error(traceback.format_exc())
             except Exception as ex:
                 self.logger.error(ex)
                 self.logger.error(traceback.format_exc())
@@ -1173,17 +1173,17 @@ class Transformer(BaseAgent):
     def finish_running_transforms(self):
         while not self.running_output_queue.empty():
             try:
-                retry = True
-                retry_num = 0
-                while retry:
-                    retry = False
-                    retry_num += 1
-                    try:
-                        ret = self.running_output_queue.get()
-                        self.logger.debug("Main thread finishing running transform: %s" % ret['transform'])
-                        self.logger.info("Main thread finishing running transform(%s): %s" % (ret['transform']['transform_id'],
-                                                                                              ret['transform_parameters']))
-                        if ret:
+                ret = self.running_output_queue.get()
+                self.logger.debug("Main thread finishing running transform: %s" % ret['transform'])
+                self.logger.info("Main thread finishing running transform(%s): %s" % (ret['transform']['transform_id'],
+                                                                                      ret['transform_parameters']))
+                if ret:
+                    retry = True
+                    retry_num = 0
+                    while retry:
+                        retry = False
+                        retry_num += 1
+                        try:
                             # self.logger.debug("wen: %s" % str(ret['output_contents']))
                             core_transforms.add_transform_outputs(transform=ret['transform'],
                                                                   transform_parameters=ret['transform_parameters'],
@@ -1201,18 +1201,18 @@ class Transformer(BaseAgent):
                                                                   update_processing=ret.get('update_processing', None),
                                                                   message_bulk_size=self.message_bulk_size)
 
-                    except exceptions.DatabaseException as ex:
-                        if 'ORA-00060' in str(ex):
-                            self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
-                            if retry_num < 5:
-                                retry = True
-                                time.sleep(60 * retry_num * 2)
+                        except exceptions.DatabaseException as ex:
+                            if 'ORA-00060' in str(ex):
+                                self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
+                                if retry_num < 5:
+                                    retry = True
+                                    time.sleep(60 * retry_num * 2)
+                                else:
+                                    raise ex
                             else:
+                                # self.logger.error(ex)
+                                # self.logger.error(traceback.format_exc())
                                 raise ex
-                        else:
-                            # self.logger.error(ex)
-                            # self.logger.error(traceback.format_exc())
-                            raise ex
             except Exception as ex:
                 self.logger.error(ex)
                 self.logger.error(traceback.format_exc())

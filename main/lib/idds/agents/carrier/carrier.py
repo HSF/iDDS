@@ -6,9 +6,10 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2020
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2021
 
 import datetime
+import time
 import traceback
 try:
     # python 3
@@ -148,10 +149,36 @@ class Carrier(BaseAgent):
                 del processing['processing_id']
                 processing['locking'] = ProcessingLocking.Idle
                 # self.logger.debug("wen: %s" % str(processing))
-                core_processings.update_processing(processing_id=processing_id, parameters=processing)
+
+                retry = True
+                retry_num = 0
+                while retry:
+                    retry = False
+                    retry_num += 1
+                    try:
+                        core_processings.update_processing(processing_id=processing_id, parameters=processing)
+                    except exceptions.DatabaseException as ex:
+                        if 'ORA-00060' in str(ex):
+                            self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
+                            if retry_num < 5:
+                                retry = True
+                                time.sleep(60 * retry_num * 2)
+                            else:
+                                raise ex
+                        else:
+                            # self.logger.error(ex)
+                            # self.logger.error(traceback.format_exc())
+                            raise ex
             except Exception as ex:
                 self.logger.error(ex)
                 self.logger.error(traceback.format_exc())
+                try:
+                    parameters = {'status': ProcessingStatus.Running,
+                                  'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period * 4)}
+                    core_processings.update_processing(processing_id=processing_id, parameters=parameters)
+                except Exception as ex:
+                    self.logger.error(ex)
+                    self.logger.error(traceback.format_exc())
 
     def get_running_processings(self):
         """
@@ -474,13 +501,39 @@ class Carrier(BaseAgent):
                                                                                                 processing['processing_update']['parameters']))
 
                     # self.logger.info("Main thread finishing running processing %s" % str(processing))
-                    core_processings.update_processing_contents(processing_update=processing.get('processing_update', None),
-                                                                content_updates=processing.get('content_updates', None),
-                                                                update_messages=processing.get('update_messages', None),
-                                                                new_contents=processing.get('new_contents', None))
+
+                    retry = True
+                    retry_num = 0
+                    while retry:
+                        retry = False
+                        retry_num += 1
+                        try:
+                            core_processings.update_processing_contents(processing_update=processing.get('processing_update', None),
+                                                                        content_updates=processing.get('content_updates', None),
+                                                                        update_messages=processing.get('update_messages', None),
+                                                                        new_contents=processing.get('new_contents', None))
+                        except exceptions.DatabaseException as ex:
+                            if 'ORA-00060' in str(ex):
+                                self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
+                                if retry_num < 5:
+                                    retry = True
+                                    time.sleep(60 * retry_num * 2)
+                                else:
+                                    raise ex
+                            else:
+                                # self.logger.error(ex)
+                                # self.logger.error(traceback.format_exc())
+                                raise ex
             except Exception as ex:
                 self.logger.error(ex)
                 self.logger.error(traceback.format_exc())
+                try:
+                    parameters = {'status': ProcessingStatus.Running,
+                                  'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period * 4)}
+                    core_processings.update_processing(processing_id=processing['processing_update']['processing_id'], parameters=parameters)
+                except Exception as ex:
+                    self.logger.error(ex)
+                    self.logger.error(traceback.format_exc())
 
     def clean_locks(self):
         self.logger.info("clean locking")
