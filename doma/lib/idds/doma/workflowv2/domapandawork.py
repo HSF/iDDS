@@ -841,7 +841,7 @@ class DomaPanDAWork(Work):
 
             processing_status, poll_updated_contents = self.poll_panda_task(processing=processing, input_output_maps=input_output_maps)
             self.logger.debug("poll_processing_updates, processing_status: %s" % str(processing_status))
-            self.logger.debug("poll_processing_updates, update_contents[:100]: %s" % str(poll_updated_contents[:100]))
+            # self.logger.debug("poll_processing_updates, update_contents[:100]: %s" % str(poll_updated_contents[:100]))
 
             if poll_updated_contents:
                 proc.has_new_updates()
