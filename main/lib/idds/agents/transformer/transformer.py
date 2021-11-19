@@ -10,6 +10,7 @@
 
 import copy
 import datetime
+import time
 import traceback
 try:
     # python 3
@@ -421,26 +422,54 @@ class Transformer(BaseAgent):
     def finish_new_transforms(self):
         while not self.new_output_queue.empty():
             try:
-                ret = self.new_output_queue.get()
-                self.logger.info("Main thread finishing processing transform: %s" % ret['transform'])
-                if ret:
-                    # self.logger.debug("wen: %s" % str(ret['output_contents']))
-                    core_transforms.add_transform_outputs(transform=ret['transform'],
-                                                          transform_parameters=ret['transform_parameters'],
-                                                          input_collections=ret.get('input_collections', None),
-                                                          output_collections=ret.get('output_collections', None),
-                                                          log_collections=ret.get('log_collections', None),
-                                                          new_contents=ret.get('new_contents', None),
-                                                          update_input_collections=ret.get('update_input_collections', None),
-                                                          update_output_collections=ret.get('update_output_collections', None),
-                                                          update_log_collections=ret.get('update_log_collections', None),
-                                                          update_contents=ret.get('update_contents', None),
-                                                          messages=ret.get('messages', None),
-                                                          new_processing=ret.get('new_processing', None),
-                                                          message_bulk_size=self.message_bulk_size)
+                retry = True
+                retry_num = 0
+                while retry:
+                    retry = False
+                    retry_num += 1
+                    try:
+                        ret = self.new_output_queue.get()
+                        self.logger.info("Main thread finishing processing transform: %s" % ret['transform'])
+                        if ret:
+                            # self.logger.debug("wen: %s" % str(ret['output_contents']))
+                            core_transforms.add_transform_outputs(transform=ret['transform'],
+                                                                  transform_parameters=ret['transform_parameters'],
+                                                                  input_collections=ret.get('input_collections', None),
+                                                                  output_collections=ret.get('output_collections', None),
+                                                                  log_collections=ret.get('log_collections', None),
+                                                                  new_contents=ret.get('new_contents', None),
+                                                                  update_input_collections=ret.get('update_input_collections', None),
+                                                                  update_output_collections=ret.get('update_output_collections', None),
+                                                                  update_log_collections=ret.get('update_log_collections', None),
+                                                                  update_contents=ret.get('update_contents', None),
+                                                                  messages=ret.get('messages', None),
+                                                                  new_processing=ret.get('new_processing', None),
+                                                                  message_bulk_size=self.message_bulk_size)
+                    except exceptions.DatabaseException as ex:
+                        if 'ORA-00060' in str(ex):
+                            self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
+                            if retry_num < 5:
+                                retry = True
+                                time.sleep(60 * retry_num * 2)
+                            else:
+                                raise ex
+                        else:
+                            raise ex
+                            # self.logger.error(ex)
+                            # self.logger.error(traceback.format_exc())
             except Exception as ex:
                 self.logger.error(ex)
                 self.logger.error(traceback.format_exc())
+                try:
+                    transform_parameters = {'status': TransformStatus.Transforming,
+                                            'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period),
+                                            'retries': ret['transform']['retries'] + 1,
+                                            'locking': TransformLocking.Idle}
+                    core_transforms.add_transform_outputs(transform=ret['transform'],
+                                                          transform_parameters=transform_parameters)
+                except Exception as ex:
+                    self.logger.error(ex)
+                    self.logger.error(traceback.format_exc())
 
     def get_running_transforms(self):
         """
@@ -1144,31 +1173,59 @@ class Transformer(BaseAgent):
     def finish_running_transforms(self):
         while not self.running_output_queue.empty():
             try:
-                ret = self.running_output_queue.get()
-                self.logger.debug("Main thread finishing running transform: %s" % ret['transform'])
-                self.logger.info("Main thread finishing running transform(%s): %s" % (ret['transform']['transform_id'],
-                                                                                      ret['transform_parameters']))
-                if ret:
-                    # self.logger.debug("wen: %s" % str(ret['output_contents']))
-                    core_transforms.add_transform_outputs(transform=ret['transform'],
-                                                          transform_parameters=ret['transform_parameters'],
-                                                          input_collections=ret.get('input_collections', None),
-                                                          output_collections=ret.get('output_collections', None),
-                                                          log_collections=ret.get('log_collections', None),
-                                                          new_contents=ret.get('new_contents', None),
-                                                          update_input_collections=ret.get('update_input_collections', None),
-                                                          update_output_collections=ret.get('update_output_collections', None),
-                                                          update_log_collections=ret.get('update_log_collections', None),
-                                                          update_contents=ret.get('update_contents', None),
-                                                          messages=ret.get('messages', None),
-                                                          update_messages=ret.get('update_messages', None),
-                                                          new_processing=ret.get('new_processing', None),
-                                                          update_processing=ret.get('update_processing', None),
-                                                          message_bulk_size=self.message_bulk_size)
+                retry = True
+                retry_num = 0
+                while retry:
+                    retry = False
+                    retry_num += 1
+                    try:
+                        ret = self.running_output_queue.get()
+                        self.logger.debug("Main thread finishing running transform: %s" % ret['transform'])
+                        self.logger.info("Main thread finishing running transform(%s): %s" % (ret['transform']['transform_id'],
+                                                                                              ret['transform_parameters']))
+                        if ret:
+                            # self.logger.debug("wen: %s" % str(ret['output_contents']))
+                            core_transforms.add_transform_outputs(transform=ret['transform'],
+                                                                  transform_parameters=ret['transform_parameters'],
+                                                                  input_collections=ret.get('input_collections', None),
+                                                                  output_collections=ret.get('output_collections', None),
+                                                                  log_collections=ret.get('log_collections', None),
+                                                                  new_contents=ret.get('new_contents', None),
+                                                                  update_input_collections=ret.get('update_input_collections', None),
+                                                                  update_output_collections=ret.get('update_output_collections', None),
+                                                                  update_log_collections=ret.get('update_log_collections', None),
+                                                                  update_contents=ret.get('update_contents', None),
+                                                                  messages=ret.get('messages', None),
+                                                                  update_messages=ret.get('update_messages', None),
+                                                                  new_processing=ret.get('new_processing', None),
+                                                                  update_processing=ret.get('update_processing', None),
+                                                                  message_bulk_size=self.message_bulk_size)
 
+                    except exceptions.DatabaseException as ex:
+                        if 'ORA-00060' in str(ex):
+                            self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
+                            if retry_num < 5:
+                                retry = True
+                                time.sleep(60 * retry_num * 2)
+                            else:
+                                raise ex
+                        else:
+                            # self.logger.error(ex)
+                            # self.logger.error(traceback.format_exc())
+                            raise ex
             except Exception as ex:
                 self.logger.error(ex)
                 self.logger.error(traceback.format_exc())
+                try:
+                    transform_parameters = {'status': TransformStatus.Transforming,
+                                            'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period),
+                                            'retries': ret['transform']['retries'] + 1,
+                                            'locking': TransformLocking.Idle}
+                    core_transforms.add_transform_outputs(transform=ret['transform'],
+                                                          transform_parameters=transform_parameters)
+                except Exception as ex:
+                    self.logger.error(ex)
+                    self.logger.error(traceback.format_exc())
 
     def clean_locks(self):
         self.logger.info("clean locking")
