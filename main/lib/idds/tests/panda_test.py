@@ -27,9 +27,9 @@ for job_info in jobs_list:
             print(f._attributes)
             print(f.values())
             print(f.type)
+"""
 
-
-jediTaskID = 3885
+jediTaskID = 7784
 ret = Client.getJediTaskDetails({'jediTaskID': jediTaskID}, True, True, verbose=False)
 print(ret)
 
@@ -38,6 +38,7 @@ print(ret)
 
 sys.exit(0)
 
+"""
 jediTaskID = 998
 ret = Client.getPandaIDsWithTaskID(jediTaskID, verbose=False)
 # print(ret)

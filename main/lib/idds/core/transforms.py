@@ -547,7 +547,7 @@ def poll_inputs_dependency_by_collection(unfinished_inputs):
                                           'status': matched_content_status}
                         update_contents.append(update_content)
         else:
-            for key, status in to_release_status.items():
+            for name, status in to_release_status.items():
                 if name in unfinished_contents_dict:
                     matched_content = unfinished_contents_dict[name]
                     if (matched_content['status'] != status):
