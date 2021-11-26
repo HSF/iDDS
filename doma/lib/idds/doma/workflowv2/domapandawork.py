@@ -623,7 +623,7 @@ class DomaPanDAWork(Work):
         return update_contents
 
     def map_panda_ids(self, unregistered_job_ids, input_output_maps):
-        self.logger.debug("map_panda_ids, unregistered_job_ids: %s" % str(unregistered_job_ids))
+        self.logger.debug("map_panda_ids, unregistered_job_ids[:10]: %s" % str(unregistered_job_ids[:10]))
         from pandatools import Client
 
         # updated_map_ids = []
@@ -651,7 +651,7 @@ class DomaPanDAWork(Work):
         return full_update_contents
 
     def get_status_changed_contents(self, unterminated_job_ids, input_output_maps, panda_id_to_map_ids):
-        self.logger.debug("get_status_changed_contents, unterminated_job_ids: %s" % str(unterminated_job_ids))
+        self.logger.debug("get_status_changed_contents, unterminated_job_ids[:10]: %s" % str(unterminated_job_ids[:10]))
         from pandatools import Client
 
         full_update_contents = []
