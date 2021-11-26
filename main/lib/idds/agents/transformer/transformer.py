@@ -280,7 +280,7 @@ class Transformer(BaseAgent):
         # updated_contents = core_transforms.release_inputs(to_release_inputs)
         updated_contents = core_transforms.release_inputs_by_collection(to_release_inputs, final=final)
         # self.logger.debug("trigger_release_inputs, to_release_inputs: %s" % str(to_release_inputs))
-        # self.logger.debug("trigger_release_inputs, updated_contents: %s" % str(updated_contents))
+        self.logger.debug("trigger_release_inputs, updated_contents[:10]: %s" % str(updated_contents[:10]))
         return updated_contents
 
     def poll_inputs_dependency(self, transform, registered_input_output_maps):
@@ -296,7 +296,7 @@ class Transformer(BaseAgent):
 
         # updated_contents = core_transforms.release_inputs(to_release_inputs)
         updated_contents = core_transforms.poll_inputs_dependency_by_collection(unfinished_inputs)
-        # self.logger.debug("poll_inputs_dependency, updated_contents: %s" % str(updated_contents))
+        self.logger.debug("poll_inputs_dependency, updated_contents[:10]: %s" % str(updated_contents[:10]))
         return updated_contents
 
     def process_new_transform_real(self, transform):
