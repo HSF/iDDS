@@ -165,6 +165,15 @@ class ATLASLocalPandaWork(ATLASPandaWork):
             self.logger.error(traceback.format_exc())
             raise exceptions.IDDSException('%s: %s' % (str(ex), traceback.format_exc()))
 
+    def get_download_dir(self, processing):
+        req_dir = 'request_%s_%s/transform_%s' % (processing['request_id'],
+                                                  processing['workload_id'],
+                                                  processing['transform_id'])
+        d_dir = os.path.join(self.work_dir, req_dir)
+        if not os.path.exists(d_dir):
+            os.makedirs(d_dir)
+        return d_dir
+
     def download_output_files(self, processing):
         try:
             file_items = []
@@ -173,7 +182,10 @@ class ATLASLocalPandaWork(ATLASPandaWork):
                     self.logger.debug("download_output_files, Processing (%s) lfn for %s: %s" % (processing['processing_id'],
                                                                                                  self.output_files[output_i]['file'],
                                                                                                  self.output_files[output_i]['lfn']))
-                    file_items.append("%s:%s" % (self.output_files[output_i]['scope'], self.output_files[output_i]['lfn']))
+                    file_item = {'did': "%s:%s" % (self.output_files[output_i]['scope'], self.output_files[output_i]['lfn']),
+                                 'base_dir': self.get_download_dir(processing),
+                                 'no_subdir': True}
+                    file_items.append(file_item)
                 else:
                     self.logger.warn("download_output_files, Processing (%s) lfn for %s not found" % (processing['processing_id'],
                                                                                                       self.output_files[output_i]['file']))
