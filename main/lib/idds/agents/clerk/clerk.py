@@ -305,18 +305,6 @@ class Clerk(BaseAgent):
         self.logger.info("process_running_request: request_id: %s" % req['request_id'])
         wf = req['request_metadata']['workflow']
 
-        new_transforms = []
-        if req['status'] in [RequestStatus.Transforming]:
-            # new works
-            works = wf.get_new_works()
-            for work in works:
-                # new_work = work.copy()
-                new_work = work
-                new_work.add_proxy(wf.get_proxy())
-                new_transform = self.generate_transform(req, new_work)
-                new_transforms.append(new_transform)
-            self.logger.debug("Processing request(%s): new transforms: %s" % (req['request_id'], str(new_transforms)))
-
         # current works
         works = wf.get_all_works()
         # print(works)
@@ -329,6 +317,18 @@ class Clerk(BaseAgent):
                 # work.set_status(work_status)
                 work.sync_work_data(status=tf['status'], substatus=tf['substatus'], work=transform_work)
         wf.refresh_works()
+
+        new_transforms = []
+        if req['status'] in [RequestStatus.Transforming]:
+            # new works
+            works = wf.get_new_works()
+            for work in works:
+                # new_work = work.copy()
+                new_work = work
+                new_work.add_proxy(wf.get_proxy())
+                new_transform = self.generate_transform(req, new_work)
+                new_transforms.append(new_transform)
+            self.logger.debug("Processing request(%s): new transforms: %s" % (req['request_id'], str(new_transforms)))
 
         is_operation = False
         if wf.is_terminated():
