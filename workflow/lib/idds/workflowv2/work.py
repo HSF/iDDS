@@ -519,7 +519,7 @@ class Work(Base):
         self.suspended_processings = []
         self.old_processings = []
         self.terminated_msg = ""
-        self.output_data = None
+        self.output_data = {}
         self.parameters_for_next_task = None
 
         self.status_statistics = {}
@@ -627,6 +627,18 @@ class Work(Base):
     @parameters.setter
     def parameters(self, value):
         self.add_metadata_item('parameters', value)
+
+    @property
+    def output_data(self):
+        return self.get_metadata_item('output_data', {})
+
+    @output_data.setter
+    def output_data(self, value):
+        self.add_metadata_item('output_data', value)
+        if value and type(value) in [dict]:
+            for key in value:
+                new_key = "user_" + str(key)
+                setattr(self, new_key, value[key])
 
     @property
     def work_id(self):
@@ -1014,6 +1026,18 @@ class Work(Base):
             for key in global_parameters:
                 setattr(self, key, global_parameters[key])
 
+    def get_global_parameter_from_output_data(self, key):
+        self.logger.debug("get_global_parameter_from_output_data, key: %s, output_data: %s" % (key, str(self.output_data)))
+        gp_output_data = {}
+        if self.output_data and type(self.output_data) in [dict]:
+            for key in self.output_data:
+                new_key = "user_" + str(key)
+                gp_output_data[new_key] = self.output_data[key]
+        if key in gp_output_data:
+            return True, gp_output_data[key]
+        else:
+            return False, None
+
     def renew_parameters_from_attributes(self):
         pass
 
@@ -1066,7 +1090,7 @@ class Work(Base):
         self.suspended_processings = []
         self.old_processings = []
         self.terminated_msg = ""
-        self.output_data = None
+        self.output_data = {}
         self.parameters_for_next_task = None
 
     def set_agent_attributes(self, attrs, req_attributes=None):
@@ -1964,6 +1988,7 @@ class Work(Base):
 
         self.status_statistics = work.status_statistics
         self.processings = work.processings
+        self.output_data = work.output_data
 
         """
         self.status = WorkStatus(status.value)

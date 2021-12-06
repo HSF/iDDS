@@ -846,10 +846,16 @@ class WorkflowBase(Base):
         self.global_parameters = value
 
     def sync_global_parameters_from_work(self, work):
+        self.log_debug("work %s is_terminated, global_parameters: %s" % (work.get_internal_id(), str(self.global_parameters)))
         if self.global_parameters:
             for key in self.global_parameters:
-                if hasattr(work, key):
+                status, value = work.get_global_parameter_from_output_data(key)
+                self.log_debug("work %s get_global_parameter_from_output_data(key: %s) results(%s:%s)" % (work.get_internal_id(), key, status, value))
+                if status:
+                    self.global_parameters[key] = value
+                elif hasattr(work, key):
                     self.global_parameters[key] = getattr(work, key)
+        self.set_global_parameters(self.global_parameters)
 
     @property
     def loop_condition(self):
@@ -1452,6 +1458,7 @@ class WorkflowBase(Base):
                 work.sync_works()
 
             if work.is_terminated():
+                self.log_debug("work %s is_terminated, sync_global_parameters_from_work" % (work.get_internal_id()))
                 self.set_source_parameters(work.get_internal_id())
                 self.sync_global_parameters_from_work(work)
 
