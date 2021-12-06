@@ -104,6 +104,8 @@ class DictClass(object):
             for key, value in d['attributes'].items():
                 if key == 'logger':
                     continue
+                # elif key == 'output_data':
+                #     continue
                 else:
                     value = DictClass.from_dict(value)
                 setattr(impl, key, value)
