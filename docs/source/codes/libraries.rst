@@ -9,9 +9,19 @@ Common libraries
 Common libaries are the basic libraries which are used by all other libraries.
 
 .. toctree::
-   :maxdepth: 1
+      :maxdepth: 1
 
    common/modules
+
+Workflow libraries
+*********************
+
+Workflow libaries are the basic libraries which are used by all other libraries.
+
+.. toctree::
+         :maxdepth: 1
+
+   workflow/modules
 
 Main libraries
 ****************
@@ -19,7 +29,7 @@ Main libraries
 Main libaries include the core functions, RESTful service and daemon agents which run on the servers.
 
 .. toctree::
-   :maxdepth: 1
+      :maxdepth: 1
 
    main/modules
 
@@ -29,7 +39,7 @@ Client libraries
 Client libraries is used for users to communicate with iDDS service.
 
 .. toctree::
-   :maxdepth: 1
+      :maxdepth: 1
 
    client/modules
 
@@ -39,6 +49,16 @@ ATLAS libraries
 ATLAS libraries include plugins for ATLAS special services.
 
 .. toctree::
-   :maxdepth: 1
+      :maxdepth: 1
 
-   atlas/modules 
+   atlas/modules
+
+DOMA libraries
+****************
+
+DOMA libraries include plugins for DOMA special services.
+
+.. toctree::
+         :maxdepth: 1
+
+   doma/modules

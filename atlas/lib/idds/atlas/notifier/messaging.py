@@ -21,7 +21,9 @@ import stomp
 from idds.common.plugin.plugin_base import PluginBase
 from idds.common.utils import setup_logging
 
+
 setup_logging(__name__)
+logging.getLogger("stomp").setLevel(logging.CRITICAL)
 
 
 class MessagingListener(stomp.ConnectionListener):
@@ -54,6 +56,7 @@ class MessagingSender(PluginBase, threading.Thread):
         self.setup_logger()
         self.graceful_stop = threading.Event()
         self.request_queue = None
+        self.output_queue = None
 
         if not hasattr(self, 'brokers'):
             raise Exception('brokers is required but not defined.')
@@ -77,6 +80,9 @@ class MessagingSender(PluginBase, threading.Thread):
 
     def set_request_queue(self, request_queue):
         self.request_queue = request_queue
+
+    def set_output_queue(self, output_queue):
+        self.output_queue = output_queue
 
     def connect_to_messaging_brokers(self):
         broker_addresses = []
@@ -124,6 +130,7 @@ class MessagingSender(PluginBase, threading.Thread):
                     msg = self.request_queue.get(False)
                     if msg:
                         self.send_message(msg)
+                        self.output_queue.put(msg)
                 else:
                     time.sleep(1)
             except Exception as error:

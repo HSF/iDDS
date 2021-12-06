@@ -135,6 +135,8 @@ class Request(BASE, ModelBase):
     name = Column(String(NAME_LENGTH))
     requester = Column(String(20))
     request_type = Column(EnumWithValue(RequestType))
+    username = Column(String(20))
+    userdn = Column(String(200))
     transform_tag = Column(String(20))
     workload_id = Column(Integer())
     priority = Column(Integer())
@@ -545,7 +547,8 @@ class Message(BASE, ModelBase):
     updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     msg_content = Column(JSON())
 
-    _table_args = (PrimaryKeyConstraint('msg_id', name='MESSAGES_PK'))
+    _table_args = (PrimaryKeyConstraint('msg_id', name='MESSAGES_PK'),
+                   Index('MESSAGES_TYPE_ST_IDX', 'msg_type', 'status', 'destination', 'request_id'))
 
 
 def register_models(engine):

@@ -6,9 +6,10 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2021
 
 import datetime
+import time
 import traceback
 try:
     # python 3
@@ -20,10 +21,12 @@ except ImportError:
 from idds.common import exceptions
 from idds.common.constants import (Sections, RequestStatus, RequestLocking,
                                    TransformStatus, MessageType, MessageStatus,
-                                   MessageSource, MessageDestination)
-from idds.common.utils import setup_logging
+                                   MessageSource, MessageDestination,
+                                   ContentStatus, ContentRelationType)
+from idds.common.utils import setup_logging, truncate_string
 from idds.core import (requests as core_requests,
-                       transforms as core_transforms)
+                       transforms as core_transforms,
+                       catalog as core_catalog)
 from idds.agents.common.baseagent import BaseAgent
 
 setup_logging(__name__)
@@ -44,6 +47,13 @@ class Clerk(BaseAgent):
         else:
             self.pending_time = None
 
+        if not hasattr(self, 'release_helper') or not self.release_helper:
+            self.release_helper = False
+        elif str(self.release_helper).lower() == 'true':
+            self.release_helper = True
+        else:
+            self.release_helper = False
+
         self.new_task_queue = Queue()
         self.new_output_queue = Queue()
         self.running_task_queue = Queue()
@@ -62,6 +72,8 @@ class Clerk(BaseAgent):
 
     def generate_transform(self, req, work):
         wf = req['request_metadata']['workflow']
+
+        work.set_request_id(req['request_id'])
 
         new_transform = {'request_id': req['request_id'],
                          'workload_id': req['workload_id'],
@@ -129,6 +141,7 @@ class Clerk(BaseAgent):
                 # new_work = work.copy()
                 new_work = work
                 new_work.add_proxy(wf.get_proxy())
+                # new_work.set_request_id(req['request_id'])
                 # new_work.create_processing()
 
                 transform = self.generate_transform(req, work)
@@ -151,7 +164,7 @@ class Clerk(BaseAgent):
             ret_req = {'request_id': req['request_id'],
                        'parameters': {'status': RequestStatus.Failed,
                                       'locking': RequestLocking.Idle,
-                                      'errors': {'msg': '%s: %s' % (ex, traceback.format_exc())}}}
+                                      'errors': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=900)}}}
         return ret_req
 
     def process_new_requests(self):
@@ -192,12 +205,38 @@ class Clerk(BaseAgent):
                 else:
                     update_transforms = {}
 
-                core_requests.update_request_with_transforms(req['request_id'], req['parameters'],
-                                                             new_transforms=new_transforms,
-                                                             update_transforms=update_transforms)
+                retry = True
+                retry_num = 0
+                while retry:
+                    retry = False
+                    retry_num += 1
+                    try:
+                        core_requests.update_request_with_transforms(req['request_id'], req['parameters'],
+                                                                     new_transforms=new_transforms,
+                                                                     update_transforms=update_transforms)
+                    except exceptions.DatabaseException as ex:
+                        if 'ORA-00060' in str(ex):
+                            self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
+                            if retry_num < 5:
+                                retry = True
+                                time.sleep(60 * retry_num * 2)
+                            else:
+                                raise ex
+                        else:
+                            # self.logger.error(ex)
+                            # self.logger.error(traceback.format_exc())
+                            raise ex
             except Exception as ex:
                 self.logger.error(ex)
                 self.logger.error(traceback.format_exc())
+                try:
+                    req_parameters = {'status': RequestStatus.Transforming,
+                                      'locking': RequestLocking.Idle,
+                                      'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period)}
+                    core_requests.update_request_with_transforms(req['request_id'], req_parameters)
+                except Exception as ex:
+                    self.logger.error(ex)
+                    self.logger.error(traceback.format_exc())
 
     def get_running_requests(self):
         """
@@ -266,6 +305,19 @@ class Clerk(BaseAgent):
         self.logger.info("process_running_request: request_id: %s" % req['request_id'])
         wf = req['request_metadata']['workflow']
 
+        # current works
+        works = wf.get_all_works()
+        # print(works)
+        for work in works:
+            # print(work.get_work_id())
+            tf = core_transforms.get_transform(transform_id=work.get_work_id())
+            if tf:
+                transform_work = tf['transform_metadata']['work']
+                # work_status = WorkStatus(tf['status'].value)
+                # work.set_status(work_status)
+                work.sync_work_data(status=tf['status'], substatus=tf['substatus'], work=transform_work)
+        wf.refresh_works()
+
         new_transforms = []
         if req['status'] in [RequestStatus.Transforming]:
             # new works
@@ -277,18 +329,6 @@ class Clerk(BaseAgent):
                 new_transform = self.generate_transform(req, new_work)
                 new_transforms.append(new_transform)
             self.logger.debug("Processing request(%s): new transforms: %s" % (req['request_id'], str(new_transforms)))
-
-        # current works
-        works = wf.get_current_works()
-        # print(works)
-        for work in works:
-            # print(work.get_work_id())
-            tf = core_transforms.get_transform(transform_id=work.get_work_id())
-            transform_work = tf['transform_metadata']['work']
-            # work_status = WorkStatus(tf['status'].value)
-            # work.set_status(work_status)
-            work.sync_work_data(status=tf['status'], substatus=tf['substatus'], work=transform_work)
-        wf.refresh_works()
 
         is_operation = False
         if wf.is_terminated():
@@ -333,7 +373,7 @@ class Clerk(BaseAgent):
                       'locking': RequestLocking.Idle,
                       'next_poll_at': next_poll_at,
                       'request_metadata': req['request_metadata'],
-                      'errors': {'msg': req_msg}}
+                      'errors': {'msg': truncate_string(req_msg, 900)}}
 
         new_messages = []
         if req_status == RequestStatus.ToExpire:
@@ -377,11 +417,26 @@ class Clerk(BaseAgent):
                                       'errors': {'msg': '%s: %s' % (ex, traceback.format_exc())}}}
         return ret_req
 
+    def release_inputs(self, request_id):
+        contents = core_catalog.get_contents(request_id=request_id, status=ContentStatus.Available)
+        ret_contents = {}
+        for content in contents:
+            if content['content_relation_type'] == ContentRelationType.Output:   # InputDependency
+                if content['coll_id'] not in ret_contents:
+                    ret_contents[content['coll_id']] = []
+                ret_contents[content['coll_id']].append(content)
+
+        updated_contents = core_transforms.release_inputs_by_collection(ret_contents)
+
+        core_catalog.update_contents(updated_contents)
+
     def process_running_request(self, req):
         """
         process running request
         """
         try:
+            if self.release_helper:
+                self.release_inputs(req['request_id'])
             ret_req = self.process_running_request_real(req)
         except Exception as ex:
             self.logger.error(ex)
@@ -424,14 +479,13 @@ class Clerk(BaseAgent):
         new_messages = []
         tfs = core_transforms.get_transforms(request_id=req['request_id'])
         for tf in tfs:
-            # if tf['status'] not in [RequestStatus.Finished, RequestStatus.SubFinished,
-            #                         RequestStatus.Failed, RequestStatus.Cancelling,
-            #                         RequestStatus.Cancelled, RequestStatus.Suspending,
-            #                         RequestStatus.Suspended]:
             try:
                 # core_transforms.update_transform(transform_id=tf['transform_id'], parameters={'substatus': tf_status})
                 msg = self.get_message_for_update_transform(tf, tf_status)
                 new_messages.append(msg)
+                if tf_status in [TransformStatus.ToResume]:
+                    # duplicate the messages for ToResume
+                    new_messages.append(msg)
             except Exception as ex:
                 self.logger.warn("Failed to add messages for tranform %s, record it for later update: %s" % (tf['transform_id'], str(ex)))
 
@@ -514,15 +568,41 @@ class Clerk(BaseAgent):
                 else:
                     update_transforms = {}
 
-                core_requests.update_request_with_transforms(req['request_id'], req['parameters'],
-                                                             new_transforms=new_transforms,
-                                                             update_transforms=update_transforms,
-                                                             new_messages=req.get('new_messages', None),
-                                                             update_messages=req.get('update_messages', None))
+                retry = True
+                retry_num = 0
+                while retry:
+                    retry = False
+                    retry_num += 1
+                    try:
+                        core_requests.update_request_with_transforms(req['request_id'], req['parameters'],
+                                                                     new_transforms=new_transforms,
+                                                                     update_transforms=update_transforms,
+                                                                     new_messages=req.get('new_messages', None),
+                                                                     update_messages=req.get('update_messages', None))
 
+                    except exceptions.DatabaseException as ex:
+                        if 'ORA-00060' in str(ex):
+                            self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
+                            if retry_num < 5:
+                                retry = True
+                                time.sleep(60 * retry_num * 2)
+                            else:
+                                raise ex
+                        else:
+                            # self.logger.error(ex)
+                            # self.logger.error(traceback.format_exc())
+                            raise ex
             except Exception as ex:
                 self.logger.error(ex)
                 self.logger.error(traceback.format_exc())
+                try:
+                    req_parameters = {'status': RequestStatus.Transforming,
+                                      'locking': RequestLocking.Idle,
+                                      'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period)}
+                    core_requests.update_request_with_transforms(req['request_id'], req_parameters)
+                except Exception as ex:
+                    self.logger.error(ex)
+                    self.logger.error(traceback.format_exc())
 
     def clean_locks(self):
         self.logger.info("clean locking")

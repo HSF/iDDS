@@ -126,6 +126,15 @@ def retrieve_messages(bulk_size=1000, msg_type=None, status=None, source=None,
     messages = []
     try:
         query = session.query(models.Message)
+        if request_id is not None:
+            query = query.with_hint(models.Message, "INDEX(MESSAGES MESSAGES_TYPE_ST_IDX)", 'oracle')
+        elif transform_id:
+            query = query.with_hint(models.Message, "INDEX(MESSAGES MESSAGES_TYPE_ST_TF_IDX)", 'oracle')
+        elif processing_id is not None:
+            query = query.with_hint(models.Message, "INDEX(MESSAGES MESSAGES_TYPE_ST_PR_IDX)", 'oracle')
+        else:
+            query = query.with_hint(models.Message, "INDEX(MESSAGES MESSAGES_TYPE_ST_IDX)", 'oracle')
+
         if msg_type is not None:
             query = query.filter_by(msg_type=msg_type)
         if status is not None:

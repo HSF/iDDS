@@ -16,73 +16,505 @@ import random
 import time
 import uuid
 
+
+from idds.common import exceptions
+from idds.common.constants import IDDSEnum
 from idds.common.utils import json_dumps, setup_logging, get_proxy
 from idds.common.utils import str_to_date
 from .base import Base
+from .work import Work
 
 
 setup_logging(__name__)
 
 
-class Condition(Base):
-    def __init__(self, cond=None, current_work=None, true_work=None, false_work=None, logger=None):
-        """
-        Condition.
-        if cond() is true, return true_work, else return false_work.
+class ConditionOperator(IDDSEnum):
+    And = 0
+    Or = 1
 
-        :param cond: executable return true or false.
-        :param work: The current Work instance.
-        :param true_work: Work instance.
-        :param false_work: Work instance.
-        """
-        if cond and callable(cond):
+
+class ConditionTrigger(IDDSEnum):
+    NotTriggered = 0
+    ToTrigger = 1
+    Triggered = 2
+
+
+class CompositeCondition(Base):
+    def __init__(self, operator=ConditionOperator.And, conditions=[], true_works=None, false_works=None, logger=None):
+        self._conditions = []
+        self._true_works = []
+        self._false_works = []
+
+        super(CompositeCondition, self).__init__()
+
+        self.internal_id = str(uuid.uuid1())
+        self.template_id = self.internal_id
+
+        self.logger = logger
+        if self.logger is None:
+            self.setup_logger()
+
+        if conditions is None:
+            conditions = []
+        if true_works is None:
+            true_works = []
+        if false_works is None:
+            false_works = []
+        if conditions and type(conditions) not in [tuple, list]:
+            conditions = [conditions]
+        if true_works and type(true_works) not in [tuple, list]:
+            true_works = [true_works]
+        if false_works and type(false_works) not in [tuple, list]:
+            false_works = [false_works]
+        self.validate_conditions(conditions)
+
+        self.operator = operator
+        self.conditions = []
+        self.true_works = []
+        self.false_works = []
+
+        self.conditions = conditions
+        self.true_works = true_works
+        self.false_works = false_works
+
+        # real_conditions = []
+        # for cond in conditions:
+        #     # real_conditions.append({'condition': cond, 'current_work': cond.__self__})
+        #     real_conditions.append(cond)
+        #     self.conditions = real_conditions
+
+        # real_true_works, real_false_works = [], []
+        # for true_work in true_works:
+        #     # real_true_works.append({'work': true_work, 'triggered': False})
+        #     real_true_works.append(true_work)
+        #     self.true_works = real_true_works
+        # for false_work in false_works:
+        #     # real_false_works.append({'work': false_work, 'triggered': False})
+        #     real_false_works.append(false_work)
+        #     self.false_works = real_false_works
+
+        # self.set_class_metadata()
+
+    # def set_class_metadata(self):
+    #     self.add_metadata_item('class', {'class': self.__class__.__name__,
+    #                                      'module': self.__class__.__module__})
+    #     self.add_metadata_item('operator', self.operator.value)
+
+    def get_class_name(self):
+        return self.__class__.__name__
+
+    def get_internal_id(self):
+        return self.internal_id
+
+    def get_template_id(self):
+        return self.template_id
+
+    @property
+    def conditions(self):
+        # return self.get_metadata_item('true_works', [])
+        return self._conditions
+
+    @conditions.setter
+    def conditions(self, value):
+        self._conditions = value
+        new_value = []
+        for cond in value:
+            if cond is None:
+                continue
+            if inspect.ismethod(cond):
+                new_cond = {'idds_method': cond.__name__,
+                            'idds_method_class_id': cond.__self__.get_template_id()}
+            else:
+                new_cond = cond
+            new_value.append(new_cond)
+        self.add_metadata_item('conditions', new_value)
+
+    @property
+    def true_works(self):
+        # return self.get_metadata_item('true_works', [])
+        return self._true_works
+
+    @true_works.setter
+    def true_works(self, value):
+        self._true_works = value
+        true_work_meta = self.get_metadata_item('true_works', {})
+        for work in value:
+            if work is None:
+                continue
+            if isinstance(work, Work):
+                if work.get_template_id() not in true_work_meta:
+                    true_work_meta[work.get_template_id()] = {'triggered': False}
+            elif isinstance(work, CompositeCondition):
+                if work.get_template_id() not in true_work_meta:
+                    true_work_meta[work.get_template_id()] = {'triggered': False,
+                                                              'metadata': work.metadata}
+        self.add_metadata_item('true_works', true_work_meta)
+
+    @property
+    def false_works(self):
+        # return self.get_metadata_item('false_works', [])
+        return self._false_works
+
+    @false_works.setter
+    def false_works(self, value):
+        self._false_works = value
+        false_work_meta = self.get_metadata_item('false_works', {})
+        for work in value:
+            if work is None:
+                continue
+            if isinstance(work, Work):
+                if work.get_template_id() not in false_work_meta:
+                    false_work_meta[work.get_template_id()] = {'triggered': False}
+            elif isinstance(work, CompositeCondition):
+                if work.get_template_id() not in false_work_meta:
+                    false_work_meta[work.get_template_id()] = {'triggered': False,
+                                                               'metadata': work.metadata}
+        self.add_metadata_item('false_works', false_work_meta)
+
+    def validate_conditions(self, conditions):
+        if type(conditions) not in [tuple, list]:
+            raise exceptions.IDDSException("conditions must be list")
+        for cond in conditions:
             assert(inspect.ismethod(cond))
-            assert(cond.__self__ == current_work)
-        self.cond = cond
-        self.current_work = None
-        if current_work:
-            self.current_work = current_work.get_template_id()
-        self.true_work = None
-        if true_work:
-            self.true_work = true_work.get_template_id()
-        self.false_work = None
-        if false_work:
-            self.false_work = false_work.get_template_id()
+            assert(isinstance(cond.__self__, Work))
+            if (cond.__self__.is_template):
+                raise exceptions.IDDSException("Work class for CompositeCondition must not be a template")
+
+    def add_condition(self, cond):
+        assert(inspect.ismethod(cond))
+        assert(isinstance(cond.__self__, Work))
+        if (cond.__self__.is_template):
+            raise exceptions.IDDSException("Work class for CompositeCondition must not be a template")
+
+        # self.conditions.append({'condition': cond, 'current_work': cond.__self__})
+
+        self._conditions.append(cond)
+        new_value = self.get_metadata_item('conditions', [])
+        if inspect.ismethod(cond):
+            new_cond = {'idds_method': cond.__name__,
+                        'idds_method_class_id': cond.__self__.get_template_id()}
+        else:
+            new_cond = cond
+        new_value.append(new_cond)
+        self.add_metadata_item('conditions', new_value)
+
+    def load_metadata(self):
+        # conditions = self.get_metadata_item('conditions', [])
+        true_works_meta = self.get_metadata_item('true_works', {})
+        false_works_meta = self.get_metadata_item('false_works', {})
+
+        for work in self.true_works:
+            if isinstance(work, CompositeCondition):
+                if work.get_template_id() in true_works_meta:
+                    work.metadata = true_works_meta[work.get_template_id()]['metadata']
+        for work in self.false_works:
+            if isinstance(work, CompositeCondition):
+                if work.get_template_id() in false_works_meta:
+                    work.metadata = false_works_meta[work.get_template_id()]['metadata']
+
+    def to_dict(self):
+        # print('to_dict')
+        ret = {'class': self.__class__.__name__,
+               'module': self.__class__.__module__,
+               'attributes': {}}
+        for key, value in self.__dict__.items():
+            # print(key)
+            # print(value)
+            # if not key.startswith('__') and not key.startswith('_'):
+            if not key.startswith('__'):
+                if key == 'logger':
+                    value = None
+                elif key == '_conditions':
+                    new_value = []
+                    for cond in value:
+                        if inspect.ismethod(cond):
+                            new_cond = {'idds_method': cond.__name__,
+                                        'idds_method_class_id': cond.__self__.get_template_id()}
+                        else:
+                            new_cond = cond
+                        new_value.append(new_cond)
+                    value = new_value
+                elif key in ['_true_works', '_false_works']:
+                    new_value = []
+                    for w in value:
+                        if isinstance(w, Work):
+                            new_w = w.get_template_id()
+                        elif isinstance(w, CompositeCondition):
+                            new_w = w.to_dict()
+                        else:
+                            new_w = w
+                        new_value.append(new_w)
+                    value = new_value
+                else:
+                    value = self.to_dict_l(value)
+                ret['attributes'][key] = value
+        return ret
+
+    def get_work_from_id(self, work_id, works, works_template):
+        for w_id in works:
+            if works[w_id].get_template_id() == work_id:
+                return works[w_id]
+        for w_id in works_template:
+            if works_template[w_id].get_template_id() == work_id:
+                return works_template[w_id]
+        return None
+
+    def load_conditions(self, works, works_template):
+        new_conditions = []
+        for cond in self.conditions:
+            if 'idds_method' in cond and 'idds_method_class_id' in cond:
+                class_id = cond['idds_method_class_id']
+                work = self.get_work_from_id(class_id, works, works_template)
+                if work is not None:
+                    new_cond = getattr(work, cond['idds_method'])
+                else:
+                    self.logger.error("Work cannot be found for %s" % class_id)
+                    new_cond = cond
+            else:
+                new_cond = cond
+            new_conditions.append(new_cond)
+        self.conditions = new_conditions
+
+        new_true_works = []
+        for w in self.true_works:
+            if isinstance(w, CompositeCondition):
+                # work = w.load_conditions(works, works_template)
+                w.load_conditions(works, works_template)
+                work = w
+            elif type(w) in [str]:
+                work = self.get_work_from_id(w, works, works_template)
+                if work is None:
+                    self.logger.error("Work cannot be found for %s" % str(w))
+                    work = w
+            else:
+                self.logger.error("Work cannot be found for %s" % str(w))
+                work = w
+            new_true_works.append(work)
+        self.true_works = new_true_works
+
+        new_false_works = []
+        for w in self.false_works:
+            if isinstance(w, CompositeCondition):
+                # work = w.load_condtions(works, works_template)
+                w.load_conditions(works, works_template)
+                work = w
+            elif type(w) in [str]:
+                work = self.get_work_from_id(w, works, works_template)
+                if work is None:
+                    self.logger.error("Work cannot be found for %s" % str(w))
+                    work = w
+            else:
+                self.logger.error("Work cannot be found for %s" % str(w))
+                work = w
+            new_false_works.append(work)
+        self.false_works = new_false_works
 
     def all_works(self):
         works = []
-        works.append(self.current_work)
-        if self.true_work:
-            works.append(self.true_work)
-        if self.false_work:
-            works.append(self.false_work)
+        works = works + self.all_pre_works()
+        works = works + self.all_next_works()
+        return works
+
+    def all_condition_ids(self):
+        works = []
+        for cond in self.conditions:
+            if inspect.ismethod(cond):
+                works.append(cond.__self__.get_template_id())
+            else:
+                self.logger.error("cond cannot be recognized: %s" % str(cond))
+                works.append(cond)
+        for work in self.true_works + self.false_works:
+            if isinstance(work, CompositeCondition):
+                works = works + work.all_condition_ids()
+        return works
+
+    def all_pre_works(self):
+        works = []
+        for cond in self.conditions:
+            if inspect.ismethod(cond):
+                works.append(cond.__self__)
+            else:
+                self.logger.error("cond cannot be recognized: %s" % str(cond))
+                works.append(cond)
+        for work in self.true_works + self.false_works:
+            if isinstance(work, CompositeCondition):
+                works = works + work.all_pre_works()
         return works
 
     def all_next_works(self):
         works = []
-        if self.true_work:
-            works.append(self.true_work)
-        if self.false_work:
-            works.append(self.false_work)
+        for work in self.true_works + self.false_works:
+            if isinstance(work, CompositeCondition):
+                works = works + work.all_next_works()
+            else:
+                works.append(work)
         return works
 
-    def get_cond_status(self):
-        if callable(self.cond):
-            if self.cond():
+    def get_current_cond_status(self, cond):
+        if callable(cond):
+            if cond():
                 return True
             else:
                 return False
         else:
-            if self.cond:
+            if cond:
                 return True
             else:
                 return False
 
-    def get_next_work(self):
-        if self.get_cond_status():
-            return self.true_work
+    def get_cond_status(self):
+        if self.operator == ConditionOperator.And:
+            for cond in self.conditions:
+                if not self.get_current_cond_status(cond):
+                    return False
+            return True
         else:
-            return self.false_work
+            for cond in self.conditions:
+                if self.get_current_cond_status(cond):
+                    return True
+            return False
+
+    def get_condition_status(self):
+        return self.get_cond_status()
+
+    def is_condition_true(self):
+        if self.get_cond_status():
+            return True
+        return False
+
+    def is_condition_false(self):
+        if not self.get_cond_status():
+            return True
+        return False
+
+    def get_next_works(self, trigger=ConditionTrigger.NotTriggered):
+        works = []
+        if self.get_cond_status():
+            true_work_meta = self.get_metadata_item('true_works', {})
+            for work in self.true_works:
+                if isinstance(work, CompositeCondition):
+                    works = works + work.get_next_works(trigger=trigger)
+                else:
+                    if work.get_template_id() not in true_work_meta:
+                        true_work_meta[work.get_template_id()] = {'triggered': False}
+                    if trigger == ConditionTrigger.ToTrigger:
+                        if not true_work_meta[work.get_template_id()]['triggered']:
+                            true_work_meta[work.get_template_id()]['triggered'] = True
+                            works.append(work)
+                        elif work.get_is_template():
+                            # A template can be triggered many times.
+                            works.append(work)
+                    elif trigger == ConditionTrigger.NotTriggered:
+                        if not true_work_meta[work.get_template_id()]['triggered']:
+                            works.append(work)
+                    elif trigger == ConditionTrigger.Triggered:
+                        if true_work_meta[work.get_template_id()]['triggered']:
+                            works.append(work)
+            self.add_metadata_item('true_works', true_work_meta)
+        else:
+            false_work_meta = self.get_metadata_item('false_works', {})
+            for work in self.false_works:
+                if isinstance(work, CompositeCondition):
+                    works = works + work.get_next_works(trigger=trigger)
+                else:
+                    if work.get_template_id() not in false_work_meta:
+                        false_work_meta[work.get_template_id()] = {'triggered': False}
+                    if trigger == ConditionTrigger.ToTrigger:
+                        if not false_work_meta[work.get_template_id()]['triggered']:
+                            false_work_meta[work.get_template_id()]['triggered'] = True
+                            works.append(work)
+                        elif work.get_is_template():
+                            # A template can be triggered many times.
+                            works.append(work)
+                    elif trigger == ConditionTrigger.NotTriggered:
+                        if not false_work_meta[work.get_template_id()]['triggered']:
+                            works.append(work)
+                    elif trigger == ConditionTrigger.Triggered:
+                        if false_work_meta[work.get_template_id()]['triggered']:
+                            works.append(work)
+            self.add_metadata_item('false_works', false_work_meta)
+        return works
+
+
+class AndCondition(CompositeCondition):
+    def __init__(self, conditions=[], true_works=None, false_works=None, logger=None):
+        super(AndCondition, self).__init__(operator=ConditionOperator.And,
+                                           conditions=conditions,
+                                           true_works=true_works,
+                                           false_works=false_works,
+                                           logger=logger)
+
+
+class OrCondition(CompositeCondition):
+    def __init__(self, conditions=[], true_works=None, false_works=None, logger=None):
+        super(OrCondition, self).__init__(operator=ConditionOperator.Or,
+                                          conditions=conditions,
+                                          true_works=true_works,
+                                          false_works=false_works,
+                                          logger=logger)
+
+
+class Condition(CompositeCondition):
+    def __init__(self, cond=None, current_work=None, true_work=None, false_work=None, logger=None):
+        super(Condition, self).__init__(operator=ConditionOperator.And,
+                                        conditions=[cond] if cond else [],
+                                        true_works=[true_work] if true_work else [],
+                                        false_works=[false_work] if false_work else [],
+                                        logger=logger)
+
+    # to support load from old conditions
+    @property
+    def cond(self):
+        # return self.get_metadata_item('true_works', [])
+        return self.conditions[0] if len(self.conditions) >= 1 else None
+
+    @cond.setter
+    def cond(self, value):
+        self.conditions = [value]
+
+    @property
+    def true_work(self):
+        # return self.get_metadata_item('true_works', [])
+        return self.true_works if len(self.true_works) >= 1 else None
+
+    @true_work.setter
+    def true_work(self, value):
+        self.true_works = [value]
+
+    @property
+    def false_work(self):
+        # return self.get_metadata_item('true_works', [])
+        return self.false_works if len(self.false_works) >= 1 else None
+
+    @false_work.setter
+    def false_work(self, value):
+        self.false_works = [value]
+
+
+class TemplateCondition(CompositeCondition):
+    def __init__(self, cond=None, current_work=None, true_work=None, false_work=None, logger=None):
+        if true_work is not None and not isinstance(true_work, Work):
+            raise exceptions.IDDSException("true_work can only be set with Work class")
+        if false_work is not None and not isinstance(false_work, Work):
+            raise exceptions.IDDSException("false_work can only be set with Work class")
+
+        super(TemplateCondition, self).__init__(operator=ConditionOperator.And,
+                                                conditions=[cond] if cond else [],
+                                                true_works=[true_work] if true_work else [],
+                                                false_works=[false_work] if false_work else [],
+                                                logger=logger)
+
+    def validate_conditions(self, conditions):
+        if type(conditions) not in [tuple, list]:
+            raise exceptions.IDDSException("conditions must be list")
+        if len(conditions) > 1:
+            raise exceptions.IDDSException("Condition class can only support one condition. To support multiple condition, please use CompositeCondition.")
+        for cond in conditions:
+            assert(inspect.ismethod(cond))
+            assert(isinstance(cond.__self__, Work))
+
+    def add_condition(self, cond):
+        raise exceptions.IDDSException("Condition class doesn't support add_condition. To support multiple condition, please use CompositeCondition.")
 
 
 class Workflow(Base):
@@ -91,6 +523,8 @@ class Workflow(Base):
         """
         Init a workflow.
         """
+        self._conditions = {}
+        self._work_conds = {}
         super(Workflow, self).__init__()
 
         self.internal_id = str(uuid.uuid1())
@@ -121,7 +555,6 @@ class Workflow(Base):
         # if the primary initial_work is not set, it's the first initial work.
         self.primary_initial_work = None
         self.independent_works = []
-        self.work_conds = {}
 
         self.first_initial = False
         self.new_to_run_works = []
@@ -145,6 +578,8 @@ class Workflow(Base):
         # user defined Condition class
         self.user_defined_conditions = {}
 
+        self.username = None
+        self.userdn = None
         self.proxy = None
 
         """
@@ -285,6 +720,35 @@ class Workflow(Base):
                 self.last_updated_at = work.last_updated_at
 
     @property
+    def conditions(self):
+        return self._conditions
+
+    @conditions.setter
+    def conditions(self, value):
+        self._conditions = value
+        conditions_metadata = {}
+        if self._conditions:
+            for k in self._conditions:
+                conditions_metadata[k] = self._conditions[k].metadata
+        self.add_metadata_item('conditions', conditions_metadata)
+
+    @property
+    def work_conds(self):
+        return self._work_conds
+
+    @work_conds.setter
+    def work_conds(self, value):
+        self._work_conds = value
+        # self.add_metadata_item('work_conds', value)
+
+    def load_work_conditions(self):
+        conditions_metadata = self.get_metadata_item('conditions', {})
+        for cond_id in self.conditions:
+            self.conditions[cond_id].load_conditions(self.works, self.get_works_template())
+            if cond_id in conditions_metadata:
+                self.conditions[cond_id].metadata = conditions_metadata[cond_id]
+
+    @property
     def work_sequence(self):
         return self.get_metadata_item('work_sequence', {})
 
@@ -398,6 +862,7 @@ class Workflow(Base):
 
     def load_metadata(self):
         self.load_works()
+        self.load_work_conditions()
 
     def get_class_name(self):
         return self.__class__.__name__
@@ -494,7 +959,7 @@ class Workflow(Base):
         if initial:
             if primary:
                 self.primary_initial_work = work.get_template_id()
-            self.add_initial_works(work.get_template_id())
+            self.add_initial_works(work)
 
         self.independent_works.append(work.get_template_id())
 
@@ -502,18 +967,29 @@ class Workflow(Base):
         self.first_initial = False
         cond_works = cond.all_works()
         for cond_work in cond_works:
-            assert(cond_work in self.get_works_template())
+            assert(cond_work.get_template_id() in self.get_works_template())
 
-        if cond.current_work not in self.work_conds:
-            self.work_conds[cond.current_work] = []
-        self.work_conds[cond.current_work].append(cond)
+        if cond.get_template_id() not in self.conditions:
+            conditions = self.conditions
+            conditions[cond.get_template_id()] = cond
+            self.conditions = conditions
+
+        # if cond.current_work not in self.work_conds:
+        #     self.work_conds[cond.current_work] = []
+        # self.work_conds[cond.current_work].append(cond)
+        work_conds = self.work_conds
+        for work in cond.all_pre_works():
+            if work.get_template_id() not in work_conds:
+                work_conds[work.get_template_id()] = []
+            work_conds[work.get_template_id()].append(cond.get_template_id())
+        self.work_conds = work_conds
 
         # if a work is a true_work or false_work of a condition,
         # should remove it from independent_works
         cond_next_works = cond.all_next_works()
         for next_work in cond_next_works:
-            if next_work in self.independent_works:
-                self.independent_works.remove(next_work)
+            if next_work.get_template_id() in self.independent_works:
+                self.independent_works.remove(next_work.get_template_id())
 
     def add_initial_works(self, work):
         assert(work.get_template_id() in self.get_works_template())
@@ -521,21 +997,27 @@ class Workflow(Base):
         if self.primary_initial_work is None:
             self.primary_initial_work = work.get_template_id()
 
-    def enable_next_work(self, work, cond):
+    def enable_next_works(self, work, cond):
         self.log_debug("Checking Work %s condition: %s" % (work.get_internal_id(),
                                                            json_dumps(cond, sort_keys=True, indent=4)))
-        if cond and self.is_class_method(cond.cond):
-            # cond_work_id = self.works[cond.cond['idds_method_class_id']]
-            cond.cond = getattr(work, cond.cond['idds_method'])
-        self.log_info("Work %s condition: %s" % (work.get_internal_id(), cond.cond))
-        next_work = cond.get_next_work()
+        # load_conditions should cover it.
+        # if cond and self.is_class_method(cond.cond):
+        #     # cond_work_id = self.works[cond.cond['idds_method_class_id']]
+        #     cond.cond = getattr(work, cond.cond['idds_method'])
+
+        self.log_info("Work %s condition: %s" % (work.get_internal_id(), cond.conditions))
+        next_works = cond.get_next_works(trigger=ConditionTrigger.ToTrigger)
         self.log_info("Work %s condition status %s" % (work.get_internal_id(), cond.get_cond_status()))
-        self.log_info("Work %s next work %s" % (work.get_internal_id(), next_work))
-        if next_work is not None:
-            new_parameters = work.get_parameters_for_next_task()
-            next_work = self.get_new_work_from_template(next_work, new_parameters)
-            work.add_next_work(next_work.get_internal_id())
-            return next_work
+        self.log_info("Work %s next works %s" % (work.get_internal_id(), str(next_works)))
+        new_next_works = []
+        if next_works is not None:
+            for next_work in next_works:
+                new_parameters = work.get_parameters_for_next_task()
+                new_next_work = self.get_new_work_from_template(next_work.get_template_id(), new_parameters)
+                work.add_next_work(new_next_work.get_internal_id())
+                # cond.add_condition_work(new_next_work)   ####### TODO:
+                new_next_works.append(new_next_work)
+            return new_next_works
 
     def __str__(self):
         return str(json_dumps(self))
@@ -557,6 +1039,15 @@ class Workflow(Base):
         """
         self.sync_works()
         return [self.works[k] for k in self.current_running_works]
+
+    def get_all_works(self):
+        """
+        *** Function called by Marshaller agent.
+
+        Current running works
+        """
+        self.sync_works()
+        return [self.works[k] for k in self.works]
 
     def get_primary_initial_collection(self):
         """
@@ -644,12 +1135,25 @@ class Workflow(Base):
 
         self.refresh_works()
 
+        for k in self.works:
+            work = self.works[k]
+            self.log_debug("work %s is_terminated(%s:%s)" % (work.get_internal_id(), work.is_terminated(), work.get_status()))
+
         for work in [self.works[k] for k in self.new_to_run_works]:
             if work.transforming:
                 self.new_to_run_works.remove(work.get_internal_id())
                 self.current_running_works.append(work.get_internal_id())
 
         for work in [self.works[k] for k in self.current_running_works]:
+            if work.get_template_id() in self.work_conds:
+                self.log_debug("Work %s has condition dependencies %s" % (work.get_internal_id(),
+                                                                          json_dumps(self.work_conds[work.get_template_id()], sort_keys=True, indent=4)))
+                for cond_id in self.work_conds[work.get_template_id()]:
+                    cond = self.conditions[cond_id]
+                    self.log_debug("Work %s has condition dependencie %s" % (work.get_internal_id(),
+                                                                             json_dumps(cond, sort_keys=True, indent=4)))
+                    self.enable_next_works(work, cond)
+
             if work.is_terminated():
                 self.log_info("Work %s is terminated(%s)" % (work.get_internal_id(), work.get_status()))
                 self.log_debug("Work conditions: %s" % json_dumps(self.work_conds, sort_keys=True, indent=4))
@@ -659,10 +1163,10 @@ class Workflow(Base):
                     self.terminated_works.append(work.get_internal_id())
                     self.current_running_works.remove(work.get_internal_id())
                 else:
-                    self.log_debug("Work %s has condition dependencies %s" % (work.get_internal_id(),
-                                                                              json_dumps(self.work_conds[work.get_template_id()], sort_keys=True, indent=4)))
-                    for cond in self.work_conds[work.get_template_id()]:
-                        self.enable_next_work(work, cond)
+                    # self.log_debug("Work %s has condition dependencies %s" % (work.get_internal_id(),
+                    #                                                           json_dumps(self.work_conds[work.get_template_id()], sort_keys=True, indent=4)))
+                    # for cond in self.work_conds[work.get_template_id()]:
+                    #     self.enable_next_works(work, cond)
                     self.terminated_works.append(work.get_internal_id())
                     self.current_running_works.remove(work.get_internal_id())
 
@@ -767,6 +1271,9 @@ class Workflow(Base):
         return self.is_terminated() and (self.num_failed_works > 0) and (self.num_cancelled_works == 0) and (self.num_suspended_works == 0) and (self.num_expired_works == 0)
 
     def is_to_expire(self, expired_at=None, pending_time=None, request_id=None):
+        if self.expired:
+            # it's already expired. avoid sending duplicated messages again and again.
+            return False
         if expired_at:
             if type(expired_at) in [str]:
                 expired_at = str_to_date(expired_at)

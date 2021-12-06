@@ -28,6 +28,14 @@ idds.orm.contents module
    :undoc-members:
    :show-inheritance:
 
+idds.orm.health module
+----------------------
+
+.. automodule:: idds.orm.health
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 idds.orm.messages module
 ------------------------
 
@@ -56,6 +64,14 @@ idds.orm.transforms module
 --------------------------
 
 .. automodule:: idds.orm.transforms
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+idds.orm.workprogress module
+----------------------------
+
+.. automodule:: idds.orm.workprogress
    :members:
    :undoc-members:
    :show-inheritance:

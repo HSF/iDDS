@@ -34,7 +34,9 @@ class Monitor(IDDSController):
 
         if with_request:
             rets, ret_reqs = [], {}
-            reqs = get_requests(request_id=request_id, workload_id=workload_id, with_detail=True, with_processing=False, with_metadata=False)
+            reqs = get_requests(request_id=request_id, workload_id=workload_id,
+                                with_request=False, with_transform=True, with_processing=with_processing,
+                                with_detail=False, with_metadata=False)
             for req in reqs:
                 if req['request_id'] not in ret_reqs:
                     ret_reqs[req['request_id']] = {'request_id': req['request_id'],
@@ -80,7 +82,9 @@ class Monitor(IDDSController):
             return rets
         elif with_transform:
             rets = []
-            reqs = get_requests(request_id=request_id, workload_id=workload_id, with_detail=True, with_processing=False, with_metadata=False)
+            reqs = get_requests(request_id=request_id, workload_id=workload_id,
+                                with_request=with_request, with_transform=with_transform, with_processing=with_processing,
+                                with_detail=False, with_metadata=False)
             for req in reqs:
                 ret = {'request_id': req['request_id'],
                        'transform_id': req['transform_id'],
@@ -107,10 +111,12 @@ class Monitor(IDDSController):
             return rets
         elif with_processing:
             rets = []
-            reqs = get_requests(request_id=request_id, workload_id=workload_id, with_detail=False, with_processing=True, with_metadata=False)
+            reqs = get_requests(request_id=request_id, workload_id=workload_id,
+                                with_request=with_request, with_transform=with_transform, with_processing=with_processing,
+                                with_detail=False, with_metadata=False)
             for req in reqs:
                 ret = {'request_id': req['request_id'],
-                       'workload_id': req['workload_id'],
+                       'workload_id': req['processing_workload_id'],
                        'processing_id': req['processing_id'],
                        'processing_status': req['processing_status'].name if req['processing_status'] else req['processing_status'],
                        'processing_created_at': req['processing_created_at'],
@@ -202,7 +208,7 @@ class MonitorRequest(Monitor):
                 workload_id = None
 
             rets = self.get_requests(request_id=request_id, workload_id=workload_id,
-                                     with_request=False, with_transform=False,
+                                     with_request=True, with_transform=False,
                                      with_processing=False)
             status_dict = {'Total': {}}
             min_time, max_time = None, None
@@ -455,6 +461,47 @@ class MonitorProcessing(Monitor):
         return self.generate_http_response(HTTP_STATUS_CODE.OK, data=ret_status)
 
 
+class MonitorRequestRelation(Monitor):
+    """ Monitor Request """
+
+    def get(self, request_id, workload_id):
+        """ Get details about a specific Request with given id.
+        HTTP Success:
+            200 OK
+        HTTP Error:
+            404 Not Found
+            500 InternalError
+        :returns: dictionary of an request.
+        """
+
+        try:
+            if request_id == 'null':
+                request_id = None
+            if workload_id == 'null':
+                workload_id = None
+
+            reqs = get_requests(request_id=request_id, workload_id=workload_id,
+                                with_request=True, with_transform=False, with_processing=False,
+                                with_detail=False, with_metadata=True)
+
+            for req in reqs:
+                req['relation_map'] = []
+                workflow = req['request_metadata']['workflow']
+                if hasattr(workflow, 'get_relation_map'):
+                    req['relation_map'] = workflow.get_relation_map()
+            # return reqs
+        except exceptions.NoObject as error:
+            return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
+        except exceptions.IDDSException as error:
+            return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=error.__class__.__name__, exc_msg=error)
+        except Exception as error:
+            print(error)
+            print(format_exc())
+            return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
+
+        return self.generate_http_response(HTTP_STATUS_CODE.OK, data=reqs)
+
+
 """----------------------
    Web service url maps
 ----------------------"""
@@ -474,5 +521,8 @@ def get_blueprint():
 
     monitor_processing_view = MonitorProcessing.as_view('monitor_processing')
     bp.add_url_rule('/monitor_processing/<request_id>/<workload_id>', view_func=monitor_processing_view, methods=['get', ])
+
+    monitor_relation_view = MonitorRequestRelation.as_view('monitor_request_relation')
+    bp.add_url_rule('/monitor_request_relation/<request_id>/<workload_id>', view_func=monitor_relation_view, methods=['get', ])
 
     return bp

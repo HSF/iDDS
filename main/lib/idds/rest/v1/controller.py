@@ -50,7 +50,7 @@ class IDDSController(MethodView):
             return json_dumps(message)
 
     def generate_http_response(self, status_code, data=None, exc_cls=None, exc_msg=None):
-        resp = Response(response=json_dumps(data) if data is not None else data, status=status_code, content_type='application/json')
+        resp = Response(response=json_dumps(data, sort_keys=True, indent=4) if data is not None else data, status=status_code, content_type='application/json')
         if exc_cls:
             resp.headers['ExceptionClass'] = exc_cls
             resp.headers['ExceptionMessage'] = self.generate_message(exc_cls, exc_msg)

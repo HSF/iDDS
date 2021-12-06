@@ -36,10 +36,34 @@ idds.client.client module
    :undoc-members:
    :show-inheritance:
 
+idds.client.clientmanager module
+--------------------------------
+
+.. automodule:: idds.client.clientmanager
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 idds.client.hpoclient module
 ----------------------------
 
 .. automodule:: idds.client.hpoclient
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+idds.client.logsclient module
+-----------------------------
+
+.. automodule:: idds.client.logsclient
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+idds.client.messageclient module
+--------------------------------
+
+.. automodule:: idds.client.messageclient
    :members:
    :undoc-members:
    :show-inheritance:

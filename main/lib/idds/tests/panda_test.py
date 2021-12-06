@@ -3,11 +3,12 @@ import os   # noqa E402
 import sys
 import datetime
 
-os.environ['PANDA_URL'] = 'http://ai-idds-01.cern.ch:25080/server/panda'
-os.environ['PANDA_URL_SSL'] = 'https://ai-idds-01.cern.ch:25443/server/panda'
+os.environ['PANDA_URL'] = 'http://pandaserver-doma.cern.ch:25080/server/panda'
+os.environ['PANDA_URL_SSL'] = 'https://pandaserver-doma.cern.ch:25443/server/panda'
 
 from pandatools import Client  # noqa E402
 
+"""
 jobids = [1408118]
 jobs_list_status = Client.getJobStatus(jobids, verbose=0)
 print(jobs_list_status)
@@ -26,18 +27,18 @@ for job_info in jobs_list:
             print(f._attributes)
             print(f.values())
             print(f.type)
+"""
 
-
-jediTaskID = 3885
+jediTaskID = 7784
 ret = Client.getJediTaskDetails({'jediTaskID': jediTaskID}, True, True, verbose=False)
 print(ret)
 
 ret = Client.getTaskStatus(jediTaskID, verbose=False)
 print(ret)
 
-"""
 sys.exit(0)
 
+"""
 jediTaskID = 998
 ret = Client.getPandaIDsWithTaskID(jediTaskID, verbose=False)
 # print(ret)
@@ -66,10 +67,11 @@ task_ids = []
 # task_ids = [i for i in range(1840, 1850)] + [i for i in range(1990, 2000)]
 # task_ids = [2549, 2560]
 # task_ids = [i for i in range(3692, 3723)]
+# task_ids = [3834, 3835, 3836]
 task_ids = []
 for task_id in task_ids:
     print("Killing %s" % task_id)
-    Client.killTask(task_id)
+    # Client.killTask(task_id)
 
 """
 jobids = []
@@ -102,11 +104,10 @@ newOpts = {}
 # site = newOpts.get('site', None)
 # excludedSite = newOpts.get('excludedSite', None)
 # for JEDI
-"""
-taskID=26034796
-status, out = Client.retryTask(taskID, verbose=True, properErrorCode=True, newParams=newOpts)
-print(status)
-print(out)
-"""
+taskIDs = [7056, 7057]
+for taskID in taskIDs:
+    status, out = Client.retryTask(taskID, verbose=True, properErrorCode=True, newParams=newOpts)
+    print(status)
+    print(out)
 
 sys.exit(0)

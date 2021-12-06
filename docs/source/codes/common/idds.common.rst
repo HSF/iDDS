@@ -28,10 +28,26 @@ idds.common.constants module
    :undoc-members:
    :show-inheritance:
 
+idds.common.dict\_class module
+------------------------------
+
+.. automodule:: idds.common.dict_class
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 idds.common.exceptions module
 -----------------------------
 
 .. automodule:: idds.common.exceptions
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+idds.common.status\_utils module
+--------------------------------
+
+.. automodule:: idds.common.status_utils
    :members:
    :undoc-members:
    :show-inheritance:

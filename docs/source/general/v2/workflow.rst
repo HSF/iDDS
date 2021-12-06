@@ -21,8 +21,27 @@ converted back to Workflow or Work instance, which simplies the handings in the 
 Workflow
 ~~~~~~~~
 
+.. image:: ../../images/v2/workflow_subworkflow.jpg
+         :width: 45%
+         :alt: Sub Workflow
+
+.. image:: ../../images/v2/loopworkflow.jpg
+         :width: 45%
+         :alt: Loop Workflow
+
 A Workflow is designed to manage multiple Works(Transformations). It's a sub-class of DictClass.
 With Condition supports, the Workflow can support DAG management.
+
+SubWorkflow
+~~~~~~~~~~~~~~~
+
+A workflow can be added as a subworkflow of another workflow. In this case, it can be regarded as a Work.
+However, this work will generate new Works.
+
+LoopWorkflow
+~~~~~~~~~~~~~~~
+
+When adding a loop condition to a workflow, the workflow can be looped.
 
 Work
 ~~~~

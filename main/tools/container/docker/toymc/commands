@@ -1,0 +1,6 @@
+docker build --tag idds_hpo_nevergrad .
+docker run -v /tmp/wguan:/data idds_hpo_nevergrad python /opt/hyperparameteropt_nevergrad.py --max_points=20 --num_points=10 --input=/data/idds_input.json --output=/data/output.json
+docker login --username=wguanicedew
+docker images
+docker tag idds_hpo_nevergrad wguanicedew/idds_hpo_nevergrad
+docker push wguanicedew/idds_hpo_nevergrad

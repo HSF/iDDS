@@ -26,8 +26,10 @@ class DictClass(object):
         if hasattr(d, 'to_dict'):
             return d.to_dict()
         elif isinstance(d, dict):
+            new_d = {}
             for k, v in d.items():
-                d[k] = self.to_dict_l(v)
+                new_d[k] = self.to_dict_l(v)
+            return new_d
         elif isinstance(d, list):
             new_d = []
             for k in d:
@@ -48,10 +50,10 @@ class DictClass(object):
             # if not key.startswith('__') and not key.startswith('_'):
             if not key.startswith('__'):
                 if key == 'logger':
-                    value = None
+                    new_value = None
                 else:
-                    value = self.to_dict_l(value)
-                ret['attributes'][key] = value
+                    new_value = self.to_dict_l(value)
+                ret['attributes'][key] = new_value
         return ret
 
     @staticmethod
@@ -63,6 +65,12 @@ class DictClass(object):
     @staticmethod
     def is_class_method(d):
         if d and isinstance(d, dict) and 'idds_method' in d and 'idds_method_class_id' in d:
+            return True
+        return False
+
+    @staticmethod
+    def is_class_attribute(d):
+        if d and isinstance(d, dict) and 'idds_attribute' in d and 'idds_method_class_id' in d:
             return True
         return False
 
@@ -82,6 +90,11 @@ class DictClass(object):
         return d
 
     @staticmethod
+    def load_instance_attribute(d):
+        # not do anything. Will load the method in Workflow class.
+        return d
+
+    @staticmethod
     def from_dict(d):
         if not d:
             return d
@@ -91,12 +104,17 @@ class DictClass(object):
             for key, value in d['attributes'].items():
                 if key == 'logger':
                     continue
+                # elif key == 'output_data':
+                #     continue
                 else:
                     value = DictClass.from_dict(value)
                 setattr(impl, key, value)
             return impl
         elif DictClass.is_class_method(d):
             impl = DictClass.load_instance_method(d)
+            return impl
+        elif DictClass.is_class_attribute(d):
+            impl = DictClass.load_instance_attribute(d)
             return impl
         elif isinstance(d, dict):
             for k, v in d.items():

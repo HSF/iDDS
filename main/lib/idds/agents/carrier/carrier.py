@@ -6,9 +6,10 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2020
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2021
 
 import datetime
+import time
 import traceback
 try:
     # python 3
@@ -19,7 +20,8 @@ except ImportError:
 
 from idds.common import exceptions
 from idds.common.constants import (Sections, ProcessingStatus, ProcessingLocking,
-                                   MessageStatus)
+                                   MessageStatus, ContentStatus, ContentType,
+                                   ContentRelationType)
 from idds.common.utils import setup_logging
 from idds.core import (transforms as core_transforms,
                        processings as core_processings)
@@ -114,7 +116,8 @@ class Carrier(BaseAgent):
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
             ret = {'processing_id': processing['processing_id'],
-                   'status': ProcessingStatus.Failed}
+                   'status': ProcessingStatus.Running,
+                   'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period * 4)}
         return ret
 
     def process_new_processings(self):
@@ -146,10 +149,36 @@ class Carrier(BaseAgent):
                 del processing['processing_id']
                 processing['locking'] = ProcessingLocking.Idle
                 # self.logger.debug("wen: %s" % str(processing))
-                core_processings.update_processing(processing_id=processing_id, parameters=processing)
+
+                retry = True
+                retry_num = 0
+                while retry:
+                    retry = False
+                    retry_num += 1
+                    try:
+                        core_processings.update_processing(processing_id=processing_id, parameters=processing)
+                    except exceptions.DatabaseException as ex:
+                        if 'ORA-00060' in str(ex):
+                            self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
+                            if retry_num < 5:
+                                retry = True
+                                time.sleep(60 * retry_num * 2)
+                            else:
+                                raise ex
+                        else:
+                            # self.logger.error(ex)
+                            # self.logger.error(traceback.format_exc())
+                            raise ex
             except Exception as ex:
                 self.logger.error(ex)
                 self.logger.error(traceback.format_exc())
+                try:
+                    parameters = {'status': ProcessingStatus.Running,
+                                  'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period * 4)}
+                    core_processings.update_processing(processing_id=processing_id, parameters=parameters)
+                except Exception as ex:
+                    self.logger.error(ex)
+                    self.logger.error(traceback.format_exc())
 
     def get_running_processings(self):
         """
@@ -193,6 +222,109 @@ class Carrier(BaseAgent):
             coll_ids.append(coll.coll_id)
         return coll_ids
 
+    def get_new_contents(self, processing, new_input_output_maps):
+        new_input_contents, new_output_contents, new_log_contents = [], [], []
+        new_input_dependency_contents = []
+        for map_id in new_input_output_maps:
+            inputs = new_input_output_maps[map_id]['inputs'] if 'inputs' in new_input_output_maps[map_id] else []
+            inputs_dependency = new_input_output_maps[map_id]['inputs_dependency'] if 'inputs_dependency' in new_input_output_maps[map_id] else []
+            outputs = new_input_output_maps[map_id]['outputs'] if 'outputs' in new_input_output_maps[map_id] else []
+            logs = new_input_output_maps[map_id]['logs'] if 'logs' in new_input_output_maps[map_id] else []
+
+            for input_content in inputs:
+                content = {'transform_id': processing['transform_id'],
+                           'coll_id': input_content['coll_id'],
+                           'request_id': processing['request_id'],
+                           'workload_id': processing['workload_id'],
+                           'map_id': map_id,
+                           'scope': input_content['scope'],
+                           'name': input_content['name'],
+                           'min_id': input_content['min_id'] if 'min_id' in input_content else 0,
+                           'max_id': input_content['max_id'] if 'max_id' in input_content else 0,
+                           'status': input_content['status'] if 'status' in input_content and input_content['status'] is not None else ContentStatus.New,
+                           'substatus': input_content['substatus'] if 'substatus' in input_content and input_content['substatus'] is not None else ContentStatus.New,
+                           'path': input_content['path'] if 'path' in input_content else None,
+                           'content_type': input_content['content_type'] if 'content_type' in input_content else ContentType.File,
+                           'content_relation_type': ContentRelationType.Input,
+                           'bytes': input_content['bytes'],
+                           'adler32': input_content['adler32'],
+                           'content_metadata': input_content['content_metadata']}
+                if content['min_id'] is None:
+                    content['min_id'] = 0
+                if content['max_id'] is None:
+                    content['max_id'] = 0
+                new_input_contents.append(content)
+            for input_content in inputs_dependency:
+                content = {'transform_id': processing['transform_id'],
+                           'coll_id': input_content['coll_id'],
+                           'request_id': processing['request_id'],
+                           'workload_id': processing['workload_id'],
+                           'map_id': map_id,
+                           'scope': input_content['scope'],
+                           'name': input_content['name'],
+                           'min_id': input_content['min_id'] if 'min_id' in input_content else 0,
+                           'max_id': input_content['max_id'] if 'max_id' in input_content else 0,
+                           'status': input_content['status'] if 'status' in input_content and input_content['status'] is not None else ContentStatus.New,
+                           'substatus': input_content['substatus'] if 'substatus' in input_content and input_content['substatus'] is not None else ContentStatus.New,
+                           'path': input_content['path'] if 'path' in input_content else None,
+                           'content_type': input_content['content_type'] if 'content_type' in input_content else ContentType.File,
+                           'content_relation_type': ContentRelationType.InputDependency,
+                           'bytes': input_content['bytes'],
+                           'adler32': input_content['adler32'],
+                           'content_metadata': input_content['content_metadata']}
+                if content['min_id'] is None:
+                    content['min_id'] = 0
+                if content['max_id'] is None:
+                    content['max_id'] = 0
+                new_input_dependency_contents.append(content)
+            for output_content in outputs:
+                content = {'transform_id': processing['transform_id'],
+                           'coll_id': output_content['coll_id'],
+                           'request_id': processing['request_id'],
+                           'workload_id': processing['workload_id'],
+                           'map_id': map_id,
+                           'scope': output_content['scope'],
+                           'name': output_content['name'],
+                           'min_id': output_content['min_id'] if 'min_id' in output_content else 0,
+                           'max_id': output_content['max_id'] if 'max_id' in output_content else 0,
+                           'status': ContentStatus.New,
+                           'substatus': ContentStatus.New,
+                           'path': output_content['path'] if 'path' in output_content else None,
+                           'content_type': output_content['content_type'] if 'content_type' in output_content else ContentType.File,
+                           'content_relation_type': ContentRelationType.Output,
+                           'bytes': output_content['bytes'],
+                           'adler32': output_content['adler32'],
+                           'content_metadata': output_content['content_metadata']}
+                if content['min_id'] is None:
+                    content['min_id'] = 0
+                if content['max_id'] is None:
+                    content['max_id'] = 0
+                new_output_contents.append(content)
+            for log_content in logs:
+                content = {'transform_id': processing['transform_id'],
+                           'coll_id': log_content['coll_id'],
+                           'request_id': processing['request_id'],
+                           'workload_id': processing['workload_id'],
+                           'map_id': map_id,
+                           'scope': log_content['scope'],
+                           'name': log_content['name'],
+                           'min_id': log_content['min_id'] if 'min_id' in log_content else 0,
+                           'max_id': log_content['max_id'] if 'max_id' in log_content else 0,
+                           'status': ContentStatus.New,
+                           'substatus': ContentStatus.New,
+                           'path': log_content['path'] if 'path' in log_content else None,
+                           'content_type': log_content['content_type'] if 'content_type' in log_content else ContentType.File,
+                           'content_relation_type': ContentRelationType.Log,
+                           'bytes': log_content['bytes'],
+                           'adler32': log_content['adler32'],
+                           'content_metadata': log_content['content_metadata']}
+                if content['min_id'] is None:
+                    content['min_id'] = 0
+                if content['max_id'] is None:
+                    content['max_id'] = 0
+                new_output_contents.append(content)
+        return new_input_contents + new_output_contents + new_log_contents + new_input_dependency_contents
+
     def process_running_processing(self, processing):
         try:
             transform_id = processing['transform_id']
@@ -200,6 +332,9 @@ class Carrier(BaseAgent):
             # work = transform['transform_metadata']['work']
             # work = processing['processing_metadata']['work']
             # work.set_agent_attributes(self.agent_attributes)
+            if 'processing' not in processing['processing_metadata']:
+                raise exceptions.ProcessFormatNotSupported
+
             proc = processing['processing_metadata']['processing']
             work = proc.work
             work.set_agent_attributes(self.agent_attributes, processing)
@@ -246,8 +381,8 @@ class Carrier(BaseAgent):
 
             # work = processing['processing_metadata']['work']
             # outputs = work.poll_processing()
-            processing_update, content_updates = work.poll_processing_updates(processing, input_output_maps)
-
+            processing_update, content_updates, new_input_output_maps = work.poll_processing_updates(processing, input_output_maps)
+            new_contents = self.get_new_contents(processing, new_input_output_maps)
             if processing_update:
                 processing_update['parameters']['locking'] = ProcessingLocking.Idle
             else:
@@ -274,13 +409,25 @@ class Carrier(BaseAgent):
             processing_update['parameters']['processing_metadata'] = processing['processing_metadata']
 
             ret = {'processing_update': processing_update,
-                   'content_updates': content_updates}
-        except Exception as ex:
+                   'content_updates': content_updates,
+                   'new_contents': new_contents}
+
+        except exceptions.ProcessFormatNotSupported as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
             processing_update = {'processing_id': processing['processing_id'],
                                  'parameters': {'status': ProcessingStatus.Failed,
-                                                'locking': ProcessingLocking.Idle}}
+                                                'locking': ProcessingLocking.Idle,
+                                                'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period * 4)}}
+            ret = {'processing_update': processing_update,
+                   'content_updates': []}
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+            processing_update = {'processing_id': processing['processing_id'],
+                                 'parameters': {'status': ProcessingStatus.Running,
+                                                'locking': ProcessingLocking.Idle,
+                                                'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period * 4)}}
             ret = {'processing_update': processing_update,
                    'content_updates': []}
         return ret
@@ -354,12 +501,39 @@ class Carrier(BaseAgent):
                                                                                                 processing['processing_update']['parameters']))
 
                     # self.logger.info("Main thread finishing running processing %s" % str(processing))
-                    core_processings.update_processing_contents(processing_update=processing.get('processing_update', None),
-                                                                content_updates=processing.get('content_updates', None),
-                                                                update_messages=processing.get('update_messages', None))
+
+                    retry = True
+                    retry_num = 0
+                    while retry:
+                        retry = False
+                        retry_num += 1
+                        try:
+                            core_processings.update_processing_contents(processing_update=processing.get('processing_update', None),
+                                                                        content_updates=processing.get('content_updates', None),
+                                                                        update_messages=processing.get('update_messages', None),
+                                                                        new_contents=processing.get('new_contents', None))
+                        except exceptions.DatabaseException as ex:
+                            if 'ORA-00060' in str(ex):
+                                self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
+                                if retry_num < 5:
+                                    retry = True
+                                    time.sleep(60 * retry_num * 2)
+                                else:
+                                    raise ex
+                            else:
+                                # self.logger.error(ex)
+                                # self.logger.error(traceback.format_exc())
+                                raise ex
             except Exception as ex:
                 self.logger.error(ex)
                 self.logger.error(traceback.format_exc())
+                try:
+                    parameters = {'status': ProcessingStatus.Running,
+                                  'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period * 4)}
+                    core_processings.update_processing(processing_id=processing['processing_update']['processing_id'], parameters=parameters)
+                except Exception as ex:
+                    self.logger.error(ex)
+                    self.logger.error(traceback.format_exc())
 
     def clean_locks(self):
         self.logger.info("clean locking")

@@ -13,6 +13,8 @@
 operations related to Transform.
 """
 
+import logging
+
 # from idds.common import exceptions
 
 from idds.common.constants import (TransformStatus, ContentRelationType, ContentStatus,
@@ -428,7 +430,7 @@ def release_inputs(to_release_inputs):
     return update_contents
 
 
-def release_inputs_by_collection(to_release_inputs):
+def release_inputs_by_collection_old(to_release_inputs):
     update_contents = []
     for coll_id in to_release_inputs:
         to_release_contents = to_release_inputs[coll_id]
@@ -481,6 +483,123 @@ def release_inputs_by_collection(to_release_inputs):
                                           'substatus': ContentStatus.Missing,
                                           'status': ContentStatus.Missing}
                         update_contents.append(update_content)
+    return update_contents
+
+
+def release_inputs_by_collection(to_release_inputs, final=False):
+    update_contents = []
+    status_to_check = [ContentStatus.Available, ContentStatus.FakeAvailable, ContentStatus.FinalFailed, ContentStatus.Missing]
+    for coll_id in to_release_inputs:
+        to_release_contents = to_release_inputs[coll_id]
+        if to_release_contents:
+            to_release_status = {}
+            for to_release_content in to_release_contents:
+                if (to_release_content['status'] in status_to_check):
+                    to_release_status[to_release_content['name']] = to_release_content['status']
+                elif (to_release_content['substatus'] in status_to_check):
+                    to_release_status[to_release_content['name']] = to_release_content['substatus']
+
+            # print("to_release_status: %s" % str(to_release_status))
+
+            contents = orm_contents.get_input_contents(request_id=to_release_contents[0]['request_id'],
+                                                       coll_id=to_release_contents[0]['coll_id'],
+                                                       name=None)
+            # print("contents: %s" % str(contents))
+
+            unfinished_contents_dict = {}
+            for content in contents:
+                if (content['content_relation_type'] == ContentRelationType.InputDependency):    # noqa: W503
+                    if content['status'] not in status_to_check:
+                        if content['name'] not in unfinished_contents_dict:
+                            unfinished_contents_dict[content['name']] = []
+                        content_short = {'content_id': content['content_id'], 'status': content['status']}
+                        unfinished_contents_dict[content['name']].append(content_short)
+
+            intersection_keys = to_release_status.keys() & unfinished_contents_dict.keys()
+            intersection_keys = list(intersection_keys)
+            logging.debug("release_inputs_by_collection(coll_id: %s): intersection_keys[:10]: %s" % (coll_id, str(intersection_keys[:10])))
+
+            for name in intersection_keys:
+                matched_content_status = to_release_status[name]
+                matched_contents = unfinished_contents_dict[name]
+                for matched_content in matched_contents:
+                    if (matched_content['status'] != matched_content_status):
+                        update_content = {'content_id': matched_content['content_id'],
+                                          'substatus': matched_content_status,
+                                          'status': matched_content_status}
+                        update_contents.append(update_content)
+
+    return update_contents
+
+
+def poll_inputs_dependency_by_collection(unfinished_inputs):
+    update_contents = []
+    status_to_check = [ContentStatus.Available, ContentStatus.FakeAvailable, ContentStatus.FinalFailed, ContentStatus.Missing]
+    for coll_id in unfinished_inputs:
+        unfinished_contents = unfinished_inputs[coll_id]
+        contents = orm_contents.get_input_contents(request_id=unfinished_contents[0]['request_id'],
+                                                   coll_id=unfinished_contents[0]['coll_id'],
+                                                   name=None)
+
+        logging.debug("poll_inputs_dependency_by_collection(coll_id: %s): unfinished_contents[:10]: %s" % (coll_id, str(unfinished_contents[:10])))
+
+        to_release_status = {}
+        for content in contents:
+            if (content['content_relation_type'] == ContentRelationType.Output):    # noqa: W503
+                if content['status'] in status_to_check:
+                    to_release_status[content['name']] = content['status']
+                elif content['substatus'] in status_to_check:
+                    to_release_status[content['name']] = content['substatus']
+
+        unfinished_contents_dict = {}
+        for content in unfinished_contents:
+            if content['name'] not in unfinished_contents_dict:
+                unfinished_contents_dict[content['name']] = []
+            content_short = {'content_id': content['content_id'], 'status': content['status']}
+            unfinished_contents_dict[content['name']].append(content_short)
+
+        intersection_keys = to_release_status.keys() & unfinished_contents_dict.keys()
+        intersection_keys = list(intersection_keys)
+        logging.debug("poll_inputs_dependency_by_collection(coll_id: %s): intersection_keys[:10]: %s" % (coll_id, str(intersection_keys[:10])))
+
+        for name in intersection_keys:
+            matched_content_status = to_release_status[name]
+            matched_contents = unfinished_contents_dict[name]
+            for matched_content in matched_contents:
+                if (matched_content['status'] != matched_content_status):
+                    update_content = {'content_id': matched_content['content_id'],
+                                      'substatus': matched_content_status,
+                                      'status': matched_content_status}
+                    update_contents.append(update_content)
+
+        # if len(unfinished_contents_dict.keys()) < len(to_release_status.keys()):
+        #     for name, content in unfinished_contents_dict.items():
+        #         if name in to_release_status:
+        #             matched_content_status = to_release_status[name]
+        #             if (content['status'] != matched_content_status):
+        #                 update_content = {'content_id': content['content_id'],
+        #                                   'substatus': matched_content_status,
+        #                                   'status': matched_content_status}
+        #                 update_contents.append(update_content)
+        # else:
+        #     for name, status in to_release_status.items():
+        #         if name in unfinished_contents_dict:
+        #             matched_content = unfinished_contents_dict[name]
+        #             if (matched_content['status'] != status):
+        #                 update_content = {'content_id': matched_content['content_id'],
+        #                                   'substatus': status,
+        #                                   'status': status}
+        #                 update_contents.append(update_content)
+
+        # for content in unfinished_contents:
+        #     if content['name'] in to_release_status:
+        #         matched_content_status = to_release_status[content['name']]
+        #         if (content['status'] != matched_content_status):
+        #             update_content = {'content_id': content['content_id'],
+        #                               'substatus': matched_content_status,
+        #                               'status': matched_content_status}
+        #             update_contents.append(update_content)
+
     return update_contents
 
 

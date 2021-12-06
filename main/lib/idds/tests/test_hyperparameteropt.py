@@ -19,14 +19,17 @@ from idds.common.utils import get_rest_host
 
 
 def get_workflow():
-    from idds.workflow.workflow import Workflow
-    from idds.atlas.workflow.atlashpowork import ATLASHPOWork
+    from idds.workflowv2.workflow import Workflow
+    from idds.atlas.workflowv2.atlashpowork import ATLASHPOWork
 
     # request_metadata for predefined method 'nevergrad'
     request_metadata = {'workload_id': '20525135', 'sandbox': None, 'method': 'nevergrad', 'opt_space': {"A": {"type": "Choice", "params": {"choices": [1, 4]}}, "B": {"type": "Scalar", "bounds": [0, 5]}}, 'initial_points': [({'A': 1, 'B': 2}, 0.3), ({'A': 1, 'B': 3}, None)], 'max_points': 20, 'num_points_per_generation': 10}   # noqa E501
 
     # request_metadata for docker method
     request_metadata = {'workload_id': '20525134', 'sandbox': 'wguanicedew/idds_hpo_nevergrad', 'workdir': '/data', 'executable': 'docker', 'arguments': 'python /opt/hyperparameteropt_nevergrad.py --max_points=%MAX_POINTS --num_points=%NUM_POINTS --input=/data/%IN --output=/data/%OUT', 'output_json': 'output.json', 'opt_space': {"A": {"type": "Choice", "params": {"choices": [1, 4]}}, "B": {"type": "Scalar", "bounds": [0, 5]}}, 'initial_points': [({'A': 1, 'B': 2}, 0.3), ({'A': 1, 'B': 3}, None)], 'max_points': 20, 'num_points_per_generation': 10}  # noqa E501
+
+    # request_metadata for docker toymc method
+    request_metadata = {'workload_id': '20525147', 'sandbox': 'wguanicedew/idds_hpo_toymc', 'workdir': '/data', 'executable': 'docker', 'arguments': 'python /opt/hyperparameteropt_toymc.py --max_points=%MAX_POINTS --num_points=%NUM_POINTS --input=/data/%IN --output=/data/%OUT', 'output_json': 'output.json', 'opt_space': {"A": {}}, 'initial_points': [], 'max_points': 20, 'num_points_per_generation': 10}  # noqa E501
 
     work = ATLASHPOWork(executable=request_metadata.get('executable', None),
                         arguments=request_metadata.get('arguments', None),

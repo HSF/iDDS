@@ -1,0 +1,120 @@
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Authors:
+# - Wen Guan, <wen.guan@cern.ch>, 2019
+
+# TimeOut 600
+# KeepAliveTimeout 600
+
+# Built-in modules
+LoadModule ssl_module /usr/lib64/httpd/modules/mod_ssl.so
+
+# # LoadModule log_config_module    /usr/lib64/httpd/modules/mod_log_config.so
+# # LoadModule ssl_module           /usr/lib64/httpd/modules/mod_ssl.so
+# # LoadModule gridsite_module      /usr/lib64/httpd/modules/mod_gridsite.so
+# # LoadModule mime_module          /usr/lib64/httpd/modules/mod_mime.so
+# # LoadModule dir_module           /usr/lib64/httpd/modules/mod_dir.so
+# # LoadModule alias_module         /usr/lib64/httpd/modules/mod_alias.so
+# # LoadModule cgi_module           /usr/lib64/httpd/modules/mod_cgi.so
+
+# External modules
+LoadModule gridsite_module /usr/lib64/httpd/modules/mod_gridsite.so
+#LoadModule wsgi_module /usr/lib64/httpd/modules/mod_wsgi.so
+LoadModule wsgi_module {python_site_packages_path}/mod_wsgi/server/mod_wsgi-py36.cpython-36m-x86_64-linux-gnu.so
+LoadModule wsgi_module {python_site_packages_path}/mod_wsgi/server/mod_wsgi-py39.cpython-39-x86_64-linux-gnu.so
+
+WSGIPythonHome {python_site_home_path}
+WSGIPythonPath {python_site_packages_path}
+
+<IfModule mod_wsgi.c>
+    WSGIDaemonProcess idds_daemon processes=25 threads=2 request-timeout=600 queue-timeout=600 python-home={python_site_home_path} python-path={python_site_packages_path}
+    WSGIProcessGroup idds_daemon
+    WSGIApplicationGroup %{GLOBAL}
+    WSGIScriptAlias /idds {python_site_bin_path}/idds.wsgi
+    # WSGIScriptAliasMatch ^/idds/(.+)$ /opt/idds/etc/idds/rest/test.wsgi
+    WSGISocketPrefix /var/log/idds/wsgisocks/wsgi
+    WSGIPassAuthorization On
+</IfModule>
+
+Listen 443
+
+RewriteEngine on
+RewriteCond %{REQUEST_METHOD} ^(TRACE|TRACK)
+RewriteRule .* - [F]
+RedirectMatch 403 /\..*$
+TraceEnable off
+
+Alias "/website"     "/opt/idds/website"
+Alias "/monitor"     "/opt/idds/monitor"
+
+<VirtualHost *:443>
+    # ServerName aipanda182.cern.ch:443
+    ServerAdmin wguan@cern.ch
+
+    SSLEngine on
+    SSLCertificateFile /etc/grid-security/hostcert.pem
+    SSLCertificateKeyFile /etc/grid-security/hostkey.pem
+    SSLCACertificatePath /etc/grid-security/certificates
+    SSLCARevocationPath /etc/grid-security/certificates
+    SSLVerifyClient optional
+    SSLVerifyDepth 16
+    SSLOptions +StdEnvVars +ExportCertData
+
+    # CERN security recommendation to only allow the seven strongest ssl ciphers
+    SSLProtocol  all -SSLv2 -SSLv3
+    SSLCipherSuite HIGH:!CAMELLIA:!ADH:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!3DES
+    SSLHonorCipherOrder on
+
+    LogLevel debug
+    ErrorLog /var/log/idds/httpd_error_log
+    TransferLog /var/log/idds/httpd_access_log
+
+    # Proxy authentication via mod_gridsite
+    <LocationMatch /auth/x509_proxy>
+        GridSiteIndexes on
+        GridSiteAuth on
+        GridSiteDNlists /etc/grid-security/dn-lists/
+        GridSiteGSIProxyLimit 16
+        GridSiteEnvs on
+        GridSiteACLPath /opt/idds/etc/idds/rest/gacl
+    </LocationMatch>
+
+    <LocationMatch "^/idds">
+        GridSiteIndexes on
+        GridSiteAuth on
+        GridSiteDNlists /etc/grid-security/dn-lists/
+        GridSiteGSIProxyLimit 16
+        GridSiteEnvs on
+        GridSiteACLPath /opt/idds/etc/idds/rest/gacl
+        # GridSiteMethods GET
+    </LocationMatch>
+
+    <Directory {python_site_packages_path}>
+        Order deny,allow
+        Allow from all
+        Require all granted
+    </Directory>
+
+    <Directory {python_site_bin_path}>
+        Order deny,allow
+        Allow from all
+        Require all granted
+    </Directory>
+
+    <Directory /opt/idds/website>
+        Order deny,allow
+        Allow from all
+        Require all granted
+    </Directory>
+
+    <Directory /opt/idds/monitor>
+        Order deny,allow
+        Allow from all
+        Require all granted
+        DirectoryIndex dashboard.html
+        DirectoryIndex index.html
+    </Directory>
+</VirtualHost>

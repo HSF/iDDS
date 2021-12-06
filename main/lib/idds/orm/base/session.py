@@ -252,7 +252,9 @@ def read_session(function):
             session = get_session()
             try:
                 kwargs['session'] = session
-                return function(*args, **kwargs)
+                result = function(*args, **kwargs)
+                session.remove()
+                return result
             except TimeoutError as error:
                 session.rollback()  # pylint: disable=maybe-no-member
                 raise DatabaseException(str(error))

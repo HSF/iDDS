@@ -424,6 +424,8 @@ class ATLASHPOWork(ATLASCondorWork):
                     self.status = WorkStatus.Failed
             else:
                 self.status = WorkStatus.SubFinished
+        else:
+            self.status = WorkStatus.Transforming
 
     ####### functions for carrier ########     # noqa E266
     ######################################     # noqa E266
@@ -436,6 +438,11 @@ class ATLASHPOWork(ATLASCondorWork):
                         'NUM_POINTS': self.points_to_generate,
                         'IN': self.input_json,
                         'OUT': self.output_json}
+        if 'X509_USER_PROXY' in os.environ and os.environ['X509_USER_PROXY']:
+            proxy_filename = os.path.basename(os.environ['X509_USER_PROXY'])
+            param_values['X509_USER_PROXY_FULLNAME'] = os.environ['X509_USER_PROXY']
+            param_values['X509_USER_PROXY_BASENAME'] = proxy_filename
+
         arguments = replace_parameters_with_values(arguments, param_values)
 
         script = "#!/bin/bash\n\n"
@@ -471,6 +478,12 @@ class ATLASHPOWork(ATLASCondorWork):
                         'NUM_POINTS': self.points_to_generate,
                         'IN': self.input_json,
                         'OUT': self.output_json}
+        proxy_filename = 'x509up'
+        if 'X509_USER_PROXY' in os.environ and os.environ['X509_USER_PROXY']:
+            proxy_filename = os.path.basename(os.environ['X509_USER_PROXY'])
+            param_values['X509_USER_PROXY_FULLNAME'] = os.environ['X509_USER_PROXY']
+            param_values['X509_USER_PROXY_BASENAME'] = proxy_filename
+
         executable = replace_parameters_with_values(self.executable, param_values)
         arguments = replace_parameters_with_values(self.arguments, param_values)
 
@@ -490,7 +503,7 @@ class ATLASHPOWork(ATLASCondorWork):
         script += "\n"
 
         if self.sandbox and 'docker' in executable:
-            arguments = 'run --rm -v $(pwd):%s %s ' % (self.container_workdir, self.sandbox) + arguments
+            arguments = 'run --rm -v $(pwd):%s -v /cvmfs:/cvmfs -e X509_USER_PROXY=%s/%s %s ' % (self.container_workdir, self.container_workdir, proxy_filename, self.sandbox) + arguments
 
         script += "echo '%s' '%s'\n" % (str(executable), str(arguments))
         script += '%s %s\n' % (str(executable), str(arguments))
@@ -513,6 +526,11 @@ class ATLASHPOWork(ATLASCondorWork):
                         'NUM_POINTS': self.points_to_generate,
                         'IN': self.input_json,
                         'OUT': self.output_json}
+        if 'X509_USER_PROXY' in os.environ and os.environ['X509_USER_PROXY']:
+            proxy_filename = os.path.basename(os.environ['X509_USER_PROXY'])
+            param_values['X509_USER_PROXY_FULLNAME'] = os.environ['X509_USER_PROXY']
+            param_values['X509_USER_PROXY_BASENAME'] = proxy_filename
+
         executable = replace_parameters_with_values(self.executable, param_values)
         arguments = replace_parameters_with_values(self.arguments, param_values)
 
@@ -656,51 +674,60 @@ class ATLASHPOWork(ATLASCondorWork):
                 return None, 'Failed to load the content of %s: %s' % (str(full_output_json), str(ex))
 
     def poll_processing(self, processing):
-        proc = processing['processing_metadata']['processing']
-        job_status, job_err_msg = self.poll_condor_job_status(processing, proc.external_id)
-        processing_outputs = None
-        reset_expired_at = False
-        if job_status in [ProcessingStatus.Finished]:
-            job_outputs, parser_errors = self.parse_processing_outputs(processing)
-            if job_outputs:
-                processing_status = ProcessingStatus.Finished
+        try:
+            proc = processing['processing_metadata']['processing']
+            job_status, job_err_msg = self.poll_condor_job_status(processing, proc.external_id)
+            processing_outputs = None
+            reset_expired_at = False
+            if job_status in [ProcessingStatus.Finished]:
+                job_outputs, parser_errors = self.parse_processing_outputs(processing)
+                if job_outputs:
+                    processing_status = ProcessingStatus.Finished
+                    processing_err = None
+                    processing_outputs = job_outputs
+                else:
+                    processing_status = ProcessingStatus.Failed
+                    processing_err = parser_errors
+            elif job_status in [ProcessingStatus.Failed]:
+                processing_status = job_status
+                processing_err = job_err_msg
+            elif self.toexpire:
+                processing_status = ProcessingStatus.Expired
+                processing_err = "The processing is expired"
+            elif job_status in [ProcessingStatus.Cancelled]:
+                processing_status = job_status
+                processing_err = job_err_msg
+            elif self.tocancel:
+                self.cancelled_processings.append(proc.internal_id)
+                processing_status = ProcessingStatus.Cancelled
+                processing_outputs = None
+                processing_err = 'Cancelled'
+            elif self.tosuspend:
+                self.suspended_processings.append(proc.internal_id)
+                processing_status = ProcessingStatus.Suspended
+                processing_outputs = None
+                processing_err = 'Suspend'
+            elif self.toresume:
+                # self.old_processings.append(processing['processing_metadata']['internal_id'])
+                # self.active_processings.clear()
+                # self.active_processings.remove(processing['processing_metadata']['internal_id'])
+                processing['processing_metadata']['resuming_at'] = datetime.datetime.utcnow()
+                processing_status = ProcessingStatus.Running
+                reset_expired_at = True
+                processing_outputs = None
                 processing_err = None
-                processing_outputs = job_outputs
             else:
+                processing_status = job_status
+                processing_err = job_err_msg
+            return processing_status, processing_outputs, processing_err, reset_expired_at
+        except Exception as ex:
+            self.logger.error("processing_id %s exception: %s, %s" % (processing['processing_id'], str(ex), traceback.format_exc()))
+            proc.retries += 1
+            if proc.retries > 10:
                 processing_status = ProcessingStatus.Failed
-                processing_err = parser_errors
-        elif job_status in [ProcessingStatus.Failed]:
-            processing_status = job_status
-            processing_err = job_err_msg
-        elif self.toexpire:
-            processing_status = ProcessingStatus.Expired
-            processing_err = "The processing is expired"
-        elif job_status in [ProcessingStatus.Cancelled]:
-            processing_status = job_status
-            processing_err = job_err_msg
-        elif self.tocancel:
-            self.cancelled_processings.append(proc.internal_id)
-            processing_status = ProcessingStatus.Cancelled
-            processing_outputs = None
-            processing_err = 'Cancelled'
-        elif self.tosuspend:
-            self.suspended_processings.append(proc.internal_id)
-            processing_status = ProcessingStatus.Suspended
-            processing_outputs = None
-            processing_err = 'Suspend'
-        elif self.toresume:
-            # self.old_processings.append(processing['processing_metadata']['internal_id'])
-            # self.active_processings.clear()
-            # self.active_processings.remove(processing['processing_metadata']['internal_id'])
-            processing['processing_metadata']['resuming_at'] = datetime.datetime.utcnow()
-            processing_status = ProcessingStatus.Running
-            reset_expired_at = True
-            processing_outputs = None
-            processing_err = None
-        else:
-            processing_status = job_status
-            processing_err = job_err_msg
-        return processing_status, processing_outputs, processing_err, reset_expired_at
+            else:
+                processing_status = ProcessingStatus.Running
+            return processing_status, None, None, False
 
     def poll_processing_updates(self, processing, input_output_maps):
         processing_status, processing_outputs, processing_err, reset_expired_at = self.poll_processing(processing)
@@ -721,4 +748,4 @@ class ATLASHPOWork(ATLASCondorWork):
             update_processing['parameters']['expired_at'] = None
             processing['expired_at'] = None
         updated_contents = []
-        return update_processing, updated_contents
+        return update_processing, updated_contents, {}

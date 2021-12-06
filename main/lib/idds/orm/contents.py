@@ -347,7 +347,7 @@ def get_contents_by_transform(transform_id, to_json=False, session=None):
 
     try:
         query = session.query(models.Content)
-        query = query.with_hint(models.Content, "INDEX(CONTENTS CONTENTS_REQ_TF_COLL_IDX)", 'oracle')
+        query = query.with_hint(models.Content, "INDEX(CONTENTS CONTENT_ID_UQ)", 'oracle')
         query = query.filter(models.Content.transform_id == transform_id)
         query = query.order_by(asc(models.Content.map_id))
 
@@ -423,7 +423,7 @@ def get_content_status_statistics(coll_id=None, session=None):
     """
     try:
         query = session.query(models.Content.status, func.count(models.Content.content_id))
-        query = query.with_hint(models.Content, "INDEX(CONTENTS CONTENTS_REQ_TF_COLL_IDX)", 'oracle')
+        query = query.with_hint(models.Content, "INDEX(CONTENTS CONTENTS_ID_NAME_IDX)", 'oracle')
         if coll_id:
             query = query.filter(models.Content.coll_id == coll_id)
         query = query.group_by(models.Content.status)

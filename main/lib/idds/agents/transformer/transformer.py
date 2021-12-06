@@ -10,6 +10,7 @@
 
 import copy
 import datetime
+import time
 import traceback
 try:
     # python 3
@@ -45,6 +46,11 @@ class Transformer(BaseAgent):
         self.poll_time_period = int(poll_time_period)
         self.retrieve_bulk_size = int(retrieve_bulk_size)
         self.message_bulk_size = int(message_bulk_size)
+
+        if not hasattr(self, 'retries') or not self.retries:
+            self.retries = 100
+        else:
+            self.retries = int(self.retries)
 
         self.new_task_queue = Queue()
         self.new_output_queue = Queue()
@@ -204,6 +210,12 @@ class Transformer(BaseAgent):
                 return False
         return True
 
+    def is_input_dependency_terminated(self, input_dependency):
+        if input_dependency['status'] in [ContentStatus.Available, ContentStatus.FakeAvailable,
+                                          ContentStatus.FinalFailed, ContentStatus.Missing]:
+            return True
+        return False
+
     def get_updated_contents(self, transform, registered_input_output_maps):
         updated_contents = []
         updated_input_contents_full, updated_output_contents_full = [], []
@@ -214,7 +226,7 @@ class Transformer(BaseAgent):
             inputs_dependency = registered_input_output_maps[map_id]['inputs_dependency'] if 'inputs_dependency' in registered_input_output_maps[map_id] else []
 
             if self.is_all_inputs_dependency_available(inputs_dependency):
-                self.logger.debug("all input dependency available: %s, inputs: %s" % (str(inputs_dependency), str(inputs)))
+                # self.logger.debug("all input dependency available: %s, inputs: %s" % (str(inputs_dependency), str(inputs)))
                 for content in inputs:
                     content['substatus'] = ContentStatus.Available
                     if content['status'] != content['substatus']:
@@ -225,7 +237,7 @@ class Transformer(BaseAgent):
                         updated_contents.append(updated_content)
                         updated_input_contents_full.append(content)
             elif self.is_all_inputs_dependency_terminated(inputs_dependency):
-                self.logger.debug("all input dependency terminated: %s, inputs: %s, outputs: %s" % (str(inputs_dependency), str(inputs), str(outputs)))
+                # self.logger.debug("all input dependency terminated: %s, inputs: %s, outputs: %s" % (str(inputs_dependency), str(inputs), str(outputs)))
                 for content in inputs:
                     content['substatus'] = ContentStatus.Missing
                     if content['status'] != content['substatus']:
@@ -254,29 +266,7 @@ class Transformer(BaseAgent):
                     updated_output_contents_full.append(content)
         return updated_contents, updated_input_contents_full, updated_output_contents_full
 
-    def trigger_release_inputs_old(self, updated_output_contents, work, input_output_maps):
-        to_release_inputs = []
-        for content in updated_output_contents:
-            if (content['status'] in [ContentStatus.Available, ContentStatus.Available.value, ContentStatus.FakeAvailable, ContentStatus.FakeAvailable.value]
-                or content['substatus'] in [ContentStatus.Available, ContentStatus.Available.value, ContentStatus.FakeAvailable, ContentStatus.FakeAvailable.value]):  # noqa W503
-                to_release = {'request_id': content['request_id'],
-                              'coll_id': content['coll_id'],
-                              'name': content['name'],
-                              'status': content['status'],
-                              'substatus': content['substatus']}
-                to_release_inputs.append(to_release)
-
-        to_release_inputs_backup = work.get_backup_to_release_inputs()
-        work.add_backup_to_release_inputs(to_release_inputs)
-
-        # updated_contents = core_transforms.release_inputs(to_release_inputs)
-        self.logger.debug("trigger_release_inputs, to_release_inputs: %s" % str(to_release_inputs))
-        self.logger.debug("trigger_release_inputs, to_release_inputs_backup: %s" % str(to_release_inputs_backup))
-        updated_contents = core_transforms.release_inputs(to_release_inputs + to_release_inputs_backup)
-        self.logger.debug("trigger_release_inputs, updated_contents: %s" % str(updated_contents))
-        return updated_contents
-
-    def trigger_release_inputs(self, updated_output_contents, work, input_output_maps):
+    def trigger_release_inputs(self, updated_output_contents, work, input_output_maps, final=False):
         to_release_inputs = {}
         for map_id in input_output_maps:
             outputs = input_output_maps[map_id]['outputs'] if 'outputs' in input_output_maps[map_id] else []
@@ -288,9 +278,25 @@ class Transformer(BaseAgent):
                     to_release_inputs[content['coll_id']].append(content)
 
         # updated_contents = core_transforms.release_inputs(to_release_inputs)
-        updated_contents = core_transforms.release_inputs_by_collection(to_release_inputs)
-        self.logger.debug("trigger_release_inputs, to_release_inputs: %s" % str(to_release_inputs))
-        self.logger.debug("trigger_release_inputs, updated_contents: %s" % str(updated_contents))
+        updated_contents = core_transforms.release_inputs_by_collection(to_release_inputs, final=final)
+        # self.logger.debug("trigger_release_inputs, to_release_inputs: %s" % str(to_release_inputs))
+        self.logger.debug("trigger_release_inputs, updated_contents[:10]: %s" % str(updated_contents[:10]))
+        return updated_contents
+
+    def poll_inputs_dependency(self, transform, registered_input_output_maps):
+        unfinished_inputs = {}
+        for map_id in registered_input_output_maps:
+            inputs_dependency = registered_input_output_maps[map_id]['inputs_dependency'] if 'inputs_dependency' in registered_input_output_maps[map_id] else []
+            for content in inputs_dependency:
+                if (content['status'] not in [ContentStatus.Available, ContentStatus.FakeAvailable, ContentStatus.FinalFailed, ContentStatus.Missing]
+                    and content['substatus'] not in [ContentStatus.Available, ContentStatus.FakeAvailable, ContentStatus.FinalFailed, ContentStatus.Missing]):  # noqa W503
+                    if content['coll_id'] not in unfinished_inputs:
+                        unfinished_inputs[content['coll_id']] = []
+                    unfinished_inputs[content['coll_id']].append(content)
+
+        # updated_contents = core_transforms.release_inputs(to_release_inputs)
+        updated_contents = core_transforms.poll_inputs_dependency_by_collection(unfinished_inputs)
+        self.logger.debug("poll_inputs_dependency, updated_contents[:10]: %s" % str(updated_contents[:10]))
         return updated_contents
 
     def process_new_transform_real(self, transform):
@@ -381,7 +387,16 @@ class Transformer(BaseAgent):
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
-            transform_parameters = {'status': TransformStatus.Failed,
+            if transform['retries'] > self.retries:
+                tf_status = TransformStatus.Failed
+            else:
+                tf_status = TransformStatus.Transforming
+
+            wait_times = max(4, transform['retries'])
+
+            transform_parameters = {'status': tf_status,
+                                    'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period * wait_times),
+                                    'retries': transform['retries'] + 1,
                                     'locking': TransformLocking.Idle}
             ret = {'transform': transform, 'transform_parameters': transform_parameters}
         return ret
@@ -410,23 +425,51 @@ class Transformer(BaseAgent):
                 ret = self.new_output_queue.get()
                 self.logger.info("Main thread finishing processing transform: %s" % ret['transform'])
                 if ret:
-                    # self.logger.debug("wen: %s" % str(ret['output_contents']))
-                    core_transforms.add_transform_outputs(transform=ret['transform'],
-                                                          transform_parameters=ret['transform_parameters'],
-                                                          input_collections=ret.get('input_collections', None),
-                                                          output_collections=ret.get('output_collections', None),
-                                                          log_collections=ret.get('log_collections', None),
-                                                          new_contents=ret.get('new_contents', None),
-                                                          update_input_collections=ret.get('update_input_collections', None),
-                                                          update_output_collections=ret.get('update_output_collections', None),
-                                                          update_log_collections=ret.get('update_log_collections', None),
-                                                          update_contents=ret.get('update_contents', None),
-                                                          messages=ret.get('messages', None),
-                                                          new_processing=ret.get('new_processing', None),
-                                                          message_bulk_size=self.message_bulk_size)
+                    retry = True
+                    retry_num = 0
+                    while retry:
+                        retry = False
+                        retry_num += 1
+                        try:
+                            # self.logger.debug("wen: %s" % str(ret['output_contents']))
+                            core_transforms.add_transform_outputs(transform=ret['transform'],
+                                                                  transform_parameters=ret['transform_parameters'],
+                                                                  input_collections=ret.get('input_collections', None),
+                                                                  output_collections=ret.get('output_collections', None),
+                                                                  log_collections=ret.get('log_collections', None),
+                                                                  new_contents=ret.get('new_contents', None),
+                                                                  update_input_collections=ret.get('update_input_collections', None),
+                                                                  update_output_collections=ret.get('update_output_collections', None),
+                                                                  update_log_collections=ret.get('update_log_collections', None),
+                                                                  update_contents=ret.get('update_contents', None),
+                                                                  messages=ret.get('messages', None),
+                                                                  new_processing=ret.get('new_processing', None),
+                                                                  message_bulk_size=self.message_bulk_size)
+                        except exceptions.DatabaseException as ex:
+                            if 'ORA-00060' in str(ex):
+                                self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
+                                if retry_num < 5:
+                                    retry = True
+                                    time.sleep(60 * retry_num * 2)
+                                else:
+                                    raise ex
+                            else:
+                                raise ex
+                                # self.logger.error(ex)
+                                # self.logger.error(traceback.format_exc())
             except Exception as ex:
                 self.logger.error(ex)
                 self.logger.error(traceback.format_exc())
+                try:
+                    transform_parameters = {'status': TransformStatus.Transforming,
+                                            'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period),
+                                            'retries': ret['transform']['retries'] + 1,
+                                            'locking': TransformLocking.Idle}
+                    core_transforms.add_transform_outputs(transform=ret['transform'],
+                                                          transform_parameters=transform_parameters)
+                except Exception as ex:
+                    self.logger.error(ex)
+                    self.logger.error(traceback.format_exc())
 
     def get_running_transforms(self):
         """
@@ -549,13 +592,18 @@ class Transformer(BaseAgent):
                            'error': work.get_terminated_msg()}
             num_msg_content = 1
         elif msg_type == 'collection':
+            # fix for old requests
+            coll_name = collection.name
+            if coll_name.endswith(".idds.stagein"):
+                coll_name = coll_name.replace(".idds.stagein", "")
+
             i_msg_type, i_msg_type_str = self.get_message_type(transform['transform_type'], input_type='collection')
             msg_content = {'msg_type': i_msg_type_str,
                            'request_id': request_id,
                            'workload_id': workload_id,
                            'relation_type': relation_type,
                            'collections': [{'scope': collection.scope,
-                                            'name': collection.name,
+                                            'name': coll_name,
                                             'status': collection.status.name}],
                            'output': work.get_output_data(),
                            'error': work.get_terminated_msg()}
@@ -692,11 +740,17 @@ class Transformer(BaseAgent):
                     break
 
             if not all_outputs_available:
-                for content in inputs + outputs + inputs_dependency:
+                for content in inputs + outputs:
                     update_content = {'content_id': content['content_id'],
                                       'status': ContentStatus.New,
                                       'substatus': ContentStatus.New}
                     updated_contents.append(update_content)
+                for content in inputs_dependency:
+                    if content['status'] not in [ContentStatus.Available]:
+                        update_content = {'content_id': content['content_id'],
+                                          'status': ContentStatus.New,
+                                          'substatus': ContentStatus.New}
+                        updated_contents.append(update_content)
         return updated_contents
 
     def process_running_transform_real(self, transform):
@@ -825,8 +879,11 @@ class Transformer(BaseAgent):
             updated_contents, updated_input_contents_full, updated_output_contents_full = self.get_updated_contents(transform, registered_input_output_maps)
             # if work.use_dependency_to_release_jobs() and (updated_output_contents_full or work.has_to_release_inputs()):
             if work.use_dependency_to_release_jobs():
+                pass
                 self.logger.info("trigger_release_inputs: %s" % transform['transform_id'])
                 to_release_input_contents = self.trigger_release_inputs(updated_output_contents_full, work, registered_input_output_maps)
+                if not to_release_input_contents:
+                    to_release_input_contents = self.poll_inputs_dependency(transform, registered_input_output_maps)
 
         self.logger.info("generate_message: %s" % transform['transform_id'])
         if new_input_contents:
@@ -849,6 +906,13 @@ class Transformer(BaseAgent):
 
         self.logger.info("syn_work_status: %s, transform status: %s" % (transform['transform_id'], transform['status']))
         work.syn_work_status(registered_input_output_maps, all_updates_flushed, output_statistics, to_release_input_contents)
+        if work.is_terminated():
+            self.logger.info("Transform(%s) work is terminated, trigger to release all final status files" % (transform['transform_id']))
+            if work.use_dependency_to_release_jobs():
+                pass
+                self.logger.info("trigger_release_inputs: %s" % transform['transform_id'])
+                to_release_input_contents1 = self.trigger_release_inputs(updated_output_contents_full, work, registered_input_output_maps, final=True)
+                to_release_input_contents = to_release_input_contents + to_release_input_contents1
 
         to_resume_transform = False
         reactivated_contents = []
@@ -860,9 +924,17 @@ class Transformer(BaseAgent):
             work.tosuspend = True
         elif transform['status'] in [TransformStatus.ToResume]:
             transform['status'] = TransformStatus.Resuming
+            transform['retries'] = 0
             work.toresume = True
             to_resume_transform = True
             reactivated_contents = self.reactive_contents(registered_input_output_maps)
+            # reactive collections
+            for coll in input_collections:
+                coll.status = CollectionStatus.Open
+            for coll in output_collections:
+                coll.status = CollectionStatus.Open
+            for coll in log_collections:
+                coll.status = CollectionStatus.Open
         elif transform['status'] in [TransformStatus.ToExpire]:
             transform['status'] = TransformStatus.Expiring
             work.toexpire = True
@@ -876,73 +948,97 @@ class Transformer(BaseAgent):
             transform['status'] = TransformStatus.Finished
             msg = self.generate_message(transform, work=work, msg_type='work')
             msgs.append(msg)
+            for coll in input_collections:
+                coll.status = CollectionStatus.Closed
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='input')
+                msgs.append(msg)
             for coll in output_collections:
                 coll.status = CollectionStatus.Closed
-                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='output')
                 msgs.append(msg)
             for coll in log_collections:
                 coll.status = CollectionStatus.Closed
-                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='log')
                 msgs.append(msg)
         elif work.is_subfinished():
             transform['status'] = TransformStatus.SubFinished
             msg = self.generate_message(transform, work=work, msg_type='work')
             msgs.append(msg)
+            for coll in input_collections:
+                coll.status = CollectionStatus.SubClosed
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='input')
+                msgs.append(msg)
             for coll in output_collections:
                 coll.status = CollectionStatus.SubClosed
-                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='output')
                 msgs.append(msg)
             for coll in log_collections:
                 coll.status = CollectionStatus.SubClosed
-                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='log')
                 msgs.append(msg)
         elif work.is_failed():
             transform['status'] = TransformStatus.Failed
             msg = self.generate_message(transform, work=work, msg_type='work')
             msgs.append(msg)
+            for coll in input_collections:
+                coll.status = CollectionStatus.Failed
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='input')
+                msgs.append(msg)
             for coll in output_collections:
                 coll.status = CollectionStatus.Failed
-                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='output')
                 msgs.append(msg)
             for coll in log_collections:
                 coll.status = CollectionStatus.Failed
-                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='log')
                 msgs.append(msg)
         elif work.is_expired():
             transform['status'] = TransformStatus.Expired
             msg = self.generate_message(transform, work=work, msg_type='work')
             msgs.append(msg)
+            for coll in input_collections:
+                coll.status = CollectionStatus.SubClosed
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='input')
+                msgs.append(msg)
             for coll in output_collections:
                 coll.status = CollectionStatus.SubClosed
-                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='output')
                 msgs.append(msg)
             for coll in log_collections:
                 coll.status = CollectionStatus.SubClosed
-                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='log')
                 msgs.append(msg)
         elif work.is_cancelled():
             transform['status'] = TransformStatus.Cancelled
             msg = self.generate_message(transform, work=work, msg_type='work')
             msgs.append(msg)
+            for coll in input_collections:
+                coll.status = CollectionStatus.Cancelled
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='input')
+                msgs.append(msg)
             for coll in output_collections:
                 coll.status = CollectionStatus.Cancelled
-                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='output')
                 msgs.append(msg)
             for coll in log_collections:
                 coll.status = CollectionStatus.Cancelled
-                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='log')
                 msgs.append(msg)
         elif work.is_suspended():
             transform['status'] = TransformStatus.Suspended
             msg = self.generate_message(transform, work=work, msg_type='work')
             msgs.append(msg)
+            for coll in input_collections:
+                coll.status = CollectionStatus.Suspended
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='input')
+                msgs.append(msg)
             for coll in output_collections:
                 coll.status = CollectionStatus.Suspended
-                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='output')
                 msgs.append(msg)
             for coll in log_collections:
                 coll.status = CollectionStatus.Suspended
-                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection')
+                msg = self.generate_message(transform, work=work, collection=coll, msg_type='collection', relation_type='log')
                 msgs.append(msg)
         else:
             transform['status'] = TransformStatus.Transforming
@@ -955,10 +1051,14 @@ class Transformer(BaseAgent):
             else:
                 next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_operation_time_period)
 
+        # reset retries to 0 when it succeed
+        transform['retries'] = 0
+
         transform_parameters = {'status': transform['status'],
                                 'locking': TransformLocking.Idle,
                                 'workload_id': transform['workload_id'],
                                 'next_poll_at': next_poll_at,
+                                'retries': transform['retries'],
                                 'transform_metadata': transform['transform_metadata']}
         # if transform_substatus:
         #     transform_parameters['substatus'] = transform_substatus
@@ -1007,9 +1107,18 @@ class Transformer(BaseAgent):
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
+            if transform['retries'] > self.retries:
+                tf_status = TransformStatus.Failed
+            else:
+                tf_status = TransformStatus.Transforming
+
+            wait_times = max(4, transform['retries'])
+
             ret = {'transform': transform,
-                   'transform_parameters': {'status': TransformStatus.Failed,
+                   'transform_parameters': {'status': tf_status,
+                                            'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period * wait_times),
                                             'locking': TransformLocking.Idle,
+                                            'retries': transform['retries'] + 1,
                                             'errors': {'msg': '%s: %s' % (ex, traceback.format_exc())}}}
         return ret
 
@@ -1028,7 +1137,16 @@ class Transformer(BaseAgent):
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
-            transform_parameters = {'status': TransformStatus.Failed,
+            if transform['retries'] > self.retries:
+                tf_status = TransformStatus.Failed
+            else:
+                tf_status = TransformStatus.Transforming
+
+            wait_times = max(4, transform['retries'])
+
+            transform_parameters = {'status': tf_status,
+                                    'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period * wait_times),
+                                    'retries': transform['retries'] + 1,
                                     'locking': TransformLocking.Idle}
             ret = {'transform': transform, 'transform_parameters': transform_parameters}
         return ret
@@ -1060,26 +1178,54 @@ class Transformer(BaseAgent):
                 self.logger.info("Main thread finishing running transform(%s): %s" % (ret['transform']['transform_id'],
                                                                                       ret['transform_parameters']))
                 if ret:
-                    # self.logger.debug("wen: %s" % str(ret['output_contents']))
-                    core_transforms.add_transform_outputs(transform=ret['transform'],
-                                                          transform_parameters=ret['transform_parameters'],
-                                                          input_collections=ret.get('input_collections', None),
-                                                          output_collections=ret.get('output_collections', None),
-                                                          log_collections=ret.get('log_collections', None),
-                                                          new_contents=ret.get('new_contents', None),
-                                                          update_input_collections=ret.get('update_input_collections', None),
-                                                          update_output_collections=ret.get('update_output_collections', None),
-                                                          update_log_collections=ret.get('update_log_collections', None),
-                                                          update_contents=ret.get('update_contents', None),
-                                                          messages=ret.get('messages', None),
-                                                          update_messages=ret.get('update_messages', None),
-                                                          new_processing=ret.get('new_processing', None),
-                                                          update_processing=ret.get('update_processing', None),
-                                                          message_bulk_size=self.message_bulk_size)
+                    retry = True
+                    retry_num = 0
+                    while retry:
+                        retry = False
+                        retry_num += 1
+                        try:
+                            # self.logger.debug("wen: %s" % str(ret['output_contents']))
+                            core_transforms.add_transform_outputs(transform=ret['transform'],
+                                                                  transform_parameters=ret['transform_parameters'],
+                                                                  input_collections=ret.get('input_collections', None),
+                                                                  output_collections=ret.get('output_collections', None),
+                                                                  log_collections=ret.get('log_collections', None),
+                                                                  new_contents=ret.get('new_contents', None),
+                                                                  update_input_collections=ret.get('update_input_collections', None),
+                                                                  update_output_collections=ret.get('update_output_collections', None),
+                                                                  update_log_collections=ret.get('update_log_collections', None),
+                                                                  update_contents=ret.get('update_contents', None),
+                                                                  messages=ret.get('messages', None),
+                                                                  update_messages=ret.get('update_messages', None),
+                                                                  new_processing=ret.get('new_processing', None),
+                                                                  update_processing=ret.get('update_processing', None),
+                                                                  message_bulk_size=self.message_bulk_size)
 
+                        except exceptions.DatabaseException as ex:
+                            if 'ORA-00060' in str(ex):
+                                self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
+                                if retry_num < 5:
+                                    retry = True
+                                    time.sleep(60 * retry_num * 2)
+                                else:
+                                    raise ex
+                            else:
+                                # self.logger.error(ex)
+                                # self.logger.error(traceback.format_exc())
+                                raise ex
             except Exception as ex:
                 self.logger.error(ex)
                 self.logger.error(traceback.format_exc())
+                try:
+                    transform_parameters = {'status': TransformStatus.Transforming,
+                                            'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period),
+                                            'retries': ret['transform']['retries'] + 1,
+                                            'locking': TransformLocking.Idle}
+                    core_transforms.add_transform_outputs(transform=ret['transform'],
+                                                          transform_parameters=transform_parameters)
+                except Exception as ex:
+                    self.logger.error(ex)
+                    self.logger.error(traceback.format_exc())
 
     def clean_locks(self):
         self.logger.info("clean locking")

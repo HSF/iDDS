@@ -11,9 +11,9 @@
 from idds.common.constants import RequestType
 from idds.common.utils import get_rest_host
 from idds.core.requests import get_requests
-from idds.workflow.workflow import Workflow
+from idds.workflowv2.workflow import Workflow
 
-from idds.atlas.workflow.atlasstageinwork import ATLASStageinWork
+from idds.atlas.workflowv2.atlasstageinwork import ATLASStageinWork
 
 from idds.client.clientmanager import ClientManager
 
