@@ -6,9 +6,10 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2021
 
 import datetime
+import time
 import traceback
 try:
     # python 3
@@ -71,6 +72,8 @@ class Clerk(BaseAgent):
 
     def generate_transform(self, req, work):
         wf = req['request_metadata']['workflow']
+
+        work.set_request_id(req['request_id'])
 
         new_transform = {'request_id': req['request_id'],
                          'workload_id': req['workload_id'],
@@ -138,6 +141,7 @@ class Clerk(BaseAgent):
                 # new_work = work.copy()
                 new_work = work
                 new_work.add_proxy(wf.get_proxy())
+                # new_work.set_request_id(req['request_id'])
                 # new_work.create_processing()
 
                 transform = self.generate_transform(req, work)
@@ -201,12 +205,38 @@ class Clerk(BaseAgent):
                 else:
                     update_transforms = {}
 
-                core_requests.update_request_with_transforms(req['request_id'], req['parameters'],
-                                                             new_transforms=new_transforms,
-                                                             update_transforms=update_transforms)
+                retry = True
+                retry_num = 0
+                while retry:
+                    retry = False
+                    retry_num += 1
+                    try:
+                        core_requests.update_request_with_transforms(req['request_id'], req['parameters'],
+                                                                     new_transforms=new_transforms,
+                                                                     update_transforms=update_transforms)
+                    except exceptions.DatabaseException as ex:
+                        if 'ORA-00060' in str(ex):
+                            self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
+                            if retry_num < 5:
+                                retry = True
+                                time.sleep(60 * retry_num * 2)
+                            else:
+                                raise ex
+                        else:
+                            # self.logger.error(ex)
+                            # self.logger.error(traceback.format_exc())
+                            raise ex
             except Exception as ex:
                 self.logger.error(ex)
                 self.logger.error(traceback.format_exc())
+                try:
+                    req_parameters = {'status': RequestStatus.Transforming,
+                                      'locking': RequestLocking.Idle,
+                                      'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period)}
+                    core_requests.update_request_with_transforms(req['request_id'], req_parameters)
+                except Exception as ex:
+                    self.logger.error(ex)
+                    self.logger.error(traceback.format_exc())
 
     def get_running_requests(self):
         """
@@ -275,18 +305,6 @@ class Clerk(BaseAgent):
         self.logger.info("process_running_request: request_id: %s" % req['request_id'])
         wf = req['request_metadata']['workflow']
 
-        new_transforms = []
-        if req['status'] in [RequestStatus.Transforming]:
-            # new works
-            works = wf.get_new_works()
-            for work in works:
-                # new_work = work.copy()
-                new_work = work
-                new_work.add_proxy(wf.get_proxy())
-                new_transform = self.generate_transform(req, new_work)
-                new_transforms.append(new_transform)
-            self.logger.debug("Processing request(%s): new transforms: %s" % (req['request_id'], str(new_transforms)))
-
         # current works
         works = wf.get_all_works()
         # print(works)
@@ -299,6 +317,18 @@ class Clerk(BaseAgent):
                 # work.set_status(work_status)
                 work.sync_work_data(status=tf['status'], substatus=tf['substatus'], work=transform_work)
         wf.refresh_works()
+
+        new_transforms = []
+        if req['status'] in [RequestStatus.Transforming]:
+            # new works
+            works = wf.get_new_works()
+            for work in works:
+                # new_work = work.copy()
+                new_work = work
+                new_work.add_proxy(wf.get_proxy())
+                new_transform = self.generate_transform(req, new_work)
+                new_transforms.append(new_transform)
+            self.logger.debug("Processing request(%s): new transforms: %s" % (req['request_id'], str(new_transforms)))
 
         is_operation = False
         if wf.is_terminated():
@@ -538,15 +568,41 @@ class Clerk(BaseAgent):
                 else:
                     update_transforms = {}
 
-                core_requests.update_request_with_transforms(req['request_id'], req['parameters'],
-                                                             new_transforms=new_transforms,
-                                                             update_transforms=update_transforms,
-                                                             new_messages=req.get('new_messages', None),
-                                                             update_messages=req.get('update_messages', None))
+                retry = True
+                retry_num = 0
+                while retry:
+                    retry = False
+                    retry_num += 1
+                    try:
+                        core_requests.update_request_with_transforms(req['request_id'], req['parameters'],
+                                                                     new_transforms=new_transforms,
+                                                                     update_transforms=update_transforms,
+                                                                     new_messages=req.get('new_messages', None),
+                                                                     update_messages=req.get('update_messages', None))
 
+                    except exceptions.DatabaseException as ex:
+                        if 'ORA-00060' in str(ex):
+                            self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
+                            if retry_num < 5:
+                                retry = True
+                                time.sleep(60 * retry_num * 2)
+                            else:
+                                raise ex
+                        else:
+                            # self.logger.error(ex)
+                            # self.logger.error(traceback.format_exc())
+                            raise ex
             except Exception as ex:
                 self.logger.error(ex)
                 self.logger.error(traceback.format_exc())
+                try:
+                    req_parameters = {'status': RequestStatus.Transforming,
+                                      'locking': RequestLocking.Idle,
+                                      'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period)}
+                    core_requests.update_request_with_transforms(req['request_id'], req_parameters)
+                except Exception as ex:
+                    self.logger.error(ex)
+                    self.logger.error(traceback.format_exc())
 
     def clean_locks(self):
         self.logger.info("clean locking")

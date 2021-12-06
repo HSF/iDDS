@@ -405,6 +405,82 @@ class TestWorkflowCondtion(unittest.TestCase):
         work5.status = WorkStatus.New
         work1.status = WorkStatus.New
 
+        # multiple conditions
+        # cond8 = Condition(cond=work1.is_finished, true_work=work2, false_work=work3)
+        cond8 = Condition(cond=work1.is_finished)
+        cond9 = CompositeCondition(conditions=[work4.is_finished, cond8.is_condition_true], true_works=[work6], false_works=work7)
+
+        works = cond9.all_works()
+        works.sort(key=lambda x: x.work_id)
+        assert(works == [work1, work4, work6, work7])
+        works = cond9.all_pre_works()
+        works.sort(key=lambda x: x.work_id)
+        assert(works == [work1, work4])
+        works = cond9.all_next_works()
+        works.sort(key=lambda x: x.work_id)
+        # print([w.work_id for w in works])
+        assert(works == [work6, work7])
+        cond_status = cond9.get_condition_status()
+        assert(cond_status is False)
+
+        work4.status = WorkStatus.Finished
+        cond_status = cond9.get_condition_status()
+        assert(cond_status is False)
+        work1.status = WorkStatus.Finished
+        cond_status = cond9.get_condition_status()
+        assert(cond_status is True)
+        work4.status = WorkStatus.New
+        work1.status = WorkStatus.New
+
+        works = cond9.get_next_works(trigger=ConditionTrigger.NotTriggered)
+        assert(works == [work7])
+        work4.status = WorkStatus.Finished
+        work1.status = WorkStatus.Finished
+        works = cond9.get_next_works(trigger=ConditionTrigger.NotTriggered)
+        works.sort(key=lambda x: x.work_id)
+        assert(works == [work6])
+        work1.status = WorkStatus.Finished
+        works = cond9.get_next_works(trigger=ConditionTrigger.NotTriggered)
+        works.sort(key=lambda x: x.work_id)
+        assert(works == [work6])
+        work4.status = WorkStatus.New
+        work1.status = WorkStatus.New
+
+        works = cond9.get_next_works(trigger=ConditionTrigger.ToTrigger)
+        assert(works == [work7])
+        works = cond9.get_next_works(trigger=ConditionTrigger.ToTrigger)
+        assert(works == [])
+        work4.status = WorkStatus.Finished
+        work1.status = WorkStatus.Finished
+        works = cond9.get_next_works(trigger=ConditionTrigger.ToTrigger)
+        works.sort(key=lambda x: x.work_id)
+        assert(works == [work6])
+        works = cond9.get_next_works(trigger=ConditionTrigger.ToTrigger)
+        assert(works == [])
+        work1.status = WorkStatus.Finished
+        works = cond9.get_next_works(trigger=ConditionTrigger.ToTrigger)
+        works.sort(key=lambda x: x.work_id)
+        assert(works == [])
+        works = cond9.get_next_works(trigger=ConditionTrigger.ToTrigger)
+        works.sort(key=lambda x: x.work_id)
+        assert(works == [])
+        work4.status = WorkStatus.New
+        work1.status = WorkStatus.New
+
+        works = cond9.get_next_works(trigger=ConditionTrigger.Triggered)
+        assert(works == [work7])
+        work4.status = WorkStatus.Finished
+        work1.status = WorkStatus.Finished
+        works = cond9.get_next_works(trigger=ConditionTrigger.Triggered)
+        works.sort(key=lambda x: x.work_id)
+        assert(works == [work6])
+        work1.status = WorkStatus.Finished
+        works = cond9.get_next_works(trigger=ConditionTrigger.Triggered)
+        works.sort(key=lambda x: x.work_id)
+        assert(works == [work6])
+        work4.status = WorkStatus.New
+        work1.status = WorkStatus.New
+
         return workflow
 
     def print_workflow(self, workflow):
@@ -458,7 +534,13 @@ class TestWorkflowCondtion(unittest.TestCase):
         cond6 = Condition(cond=work1.is_finished, true_work=work2, false_work=work3)
         cond7 = CompositeCondition(conditions=[work4.is_finished, work5.is_finished], true_works=[work6, cond6], false_works=work7)
 
+        # multiple conditions
+        # cond8 = Condition(cond=work1.is_finished, true_work=work2, false_work=work3)
+        cond8 = Condition(cond=work1.is_finished)
+        cond9 = CompositeCondition(conditions=[work4.is_finished, cond8.is_condition_true], true_works=[work6], false_works=work7)
+
         workflow.add_condition(cond7)
+        workflow.add_condition(cond9)
         id_works = workflow.independent_works
         # print(id_works)
         id_works.sort()
@@ -553,6 +635,82 @@ class TestWorkflowCondtion(unittest.TestCase):
         work5.status = WorkStatus.New
         work1.status = WorkStatus.New
 
+        # multiple conditions
+        # cond8 = Condition(cond=work1.is_finished, true_work=work2, false_work=work3)
+        # cond8 = Condition(cond=work1.is_finished)
+        # cond9 = CompositeCondition(conditions=[work4.is_finished, cond8.is_condition_true], true_works=[work6], false_works=work7)
+
+        works = cond9.all_works()
+        works.sort(key=lambda x: x.work_id)
+        assert(works == [work1, work4, work6, work7])
+        works = cond9.all_pre_works()
+        works.sort(key=lambda x: x.work_id)
+        assert(works == [work1, work4])
+        works = cond9.all_next_works()
+        works.sort(key=lambda x: x.work_id)
+        # print([w.work_id for w in works])
+        assert(works == [work6, work7])
+        cond_status = cond9.get_condition_status()
+        assert(cond_status is False)
+
+        work4.status = WorkStatus.Finished
+        cond_status = cond9.get_condition_status()
+        assert(cond_status is False)
+        work1.status = WorkStatus.Finished
+        cond_status = cond9.get_condition_status()
+        assert(cond_status is True)
+        work4.status = WorkStatus.New
+        work1.status = WorkStatus.New
+
+        works = cond9.get_next_works(trigger=ConditionTrigger.NotTriggered)
+        assert(works == [work7])
+        work4.status = WorkStatus.Finished
+        work1.status = WorkStatus.Finished
+        works = cond9.get_next_works(trigger=ConditionTrigger.NotTriggered)
+        works.sort(key=lambda x: x.work_id)
+        assert(works == [work6])
+        work1.status = WorkStatus.Finished
+        works = cond9.get_next_works(trigger=ConditionTrigger.NotTriggered)
+        works.sort(key=lambda x: x.work_id)
+        assert(works == [work6])
+        work4.status = WorkStatus.New
+        work1.status = WorkStatus.New
+
+        works = cond9.get_next_works(trigger=ConditionTrigger.ToTrigger)
+        assert(works == [work7])
+        works = cond9.get_next_works(trigger=ConditionTrigger.ToTrigger)
+        assert(works == [])
+        work4.status = WorkStatus.Finished
+        work1.status = WorkStatus.Finished
+        works = cond9.get_next_works(trigger=ConditionTrigger.ToTrigger)
+        works.sort(key=lambda x: x.work_id)
+        assert(works == [work6])
+        works = cond9.get_next_works(trigger=ConditionTrigger.ToTrigger)
+        assert(works == [])
+        work1.status = WorkStatus.Finished
+        works = cond9.get_next_works(trigger=ConditionTrigger.ToTrigger)
+        works.sort(key=lambda x: x.work_id)
+        assert(works == [])
+        works = cond9.get_next_works(trigger=ConditionTrigger.ToTrigger)
+        works.sort(key=lambda x: x.work_id)
+        assert(works == [])
+        work4.status = WorkStatus.New
+        work1.status = WorkStatus.New
+
+        works = cond9.get_next_works(trigger=ConditionTrigger.Triggered)
+        assert(works == [work7])
+        work4.status = WorkStatus.Finished
+        work1.status = WorkStatus.Finished
+        works = cond9.get_next_works(trigger=ConditionTrigger.Triggered)
+        works.sort(key=lambda x: x.work_id)
+        assert(works == [work6])
+        work1.status = WorkStatus.Finished
+        works = cond9.get_next_works(trigger=ConditionTrigger.Triggered)
+        works.sort(key=lambda x: x.work_id)
+        assert(works == [work6])
+        work4.status = WorkStatus.New
+        work1.status = WorkStatus.New
+
         return workflow
 
     def test_workflow_condition_reload(self):
@@ -589,7 +747,13 @@ class TestWorkflowCondtion(unittest.TestCase):
         cond6 = Condition(cond=work1.is_finished, true_work=work2, false_work=work3)
         cond7 = CompositeCondition(conditions=[work4.is_finished, work5.is_finished], true_works=[work6, cond6], false_works=work7)
 
+        # multiple conditions
+        # cond8 = Condition(cond=work1.is_finished, true_work=work2, false_work=work3)
+        cond8 = Condition(cond=work1.is_finished)
+        cond9 = CompositeCondition(conditions=[work4.is_finished, cond8.is_condition_true], true_works=[work6], false_works=work7)
+
         workflow.add_condition(cond7)
+        workflow.add_condition(cond9)
 
         workflow_str = json_dumps(workflow, sort_keys=True, indent=4)
         # print(workflow_str)
@@ -637,6 +801,42 @@ class TestWorkflowCondtion(unittest.TestCase):
         assert(works == [work2, work6])
         work4.status = WorkStatus.New
         work5.status = WorkStatus.New
+        work1.status = WorkStatus.New
+
+        # cond9
+        works = cond9.get_next_works(trigger=ConditionTrigger.ToTrigger)
+        assert(works == [work7])
+        works = cond9.get_next_works(trigger=ConditionTrigger.ToTrigger)
+        assert(works == [])
+        work4.status = WorkStatus.Finished
+        work1.status = WorkStatus.Finished
+        works = cond9.get_next_works(trigger=ConditionTrigger.ToTrigger)
+        works.sort(key=lambda x: x.work_id)
+        assert(works == [work6])
+        works = cond9.get_next_works(trigger=ConditionTrigger.ToTrigger)
+        assert(works == [])
+        work1.status = WorkStatus.Finished
+        works = cond9.get_next_works(trigger=ConditionTrigger.ToTrigger)
+        works.sort(key=lambda x: x.work_id)
+        assert(works == [])
+        works = cond9.get_next_works(trigger=ConditionTrigger.ToTrigger)
+        works.sort(key=lambda x: x.work_id)
+        assert(works == [])
+        work4.status = WorkStatus.New
+        work1.status = WorkStatus.New
+
+        works = cond9.get_next_works(trigger=ConditionTrigger.Triggered)
+        assert(works == [work7])
+        work4.status = WorkStatus.Finished
+        work1.status = WorkStatus.Finished
+        works = cond9.get_next_works(trigger=ConditionTrigger.Triggered)
+        works.sort(key=lambda x: x.work_id)
+        assert(works == [work6])
+        work1.status = WorkStatus.Finished
+        works = cond9.get_next_works(trigger=ConditionTrigger.Triggered)
+        works.sort(key=lambda x: x.work_id)
+        assert(works == [work6])
+        work4.status = WorkStatus.New
         work1.status = WorkStatus.New
 
         return workflow

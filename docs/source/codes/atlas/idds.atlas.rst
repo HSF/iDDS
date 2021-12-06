@@ -11,6 +11,8 @@ Subpackages
    idds.atlas.processing
    idds.atlas.rucio
    idds.atlas.transformer
+   idds.atlas.workflow
+   idds.atlas.workflowv2
 
 Submodules
 ----------

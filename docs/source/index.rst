@@ -32,7 +32,6 @@ For documentation specific to any of these three, please see the subsequent sect
    general/v2/architecture
    general/v2/workflow
    general/v2/dag
-   general/v1/index
 
 Use Cases
 =========
@@ -65,7 +64,7 @@ Source Codes
 =============
 
 .. toctree::
-   :maxdepth: 1
+      :maxdepth: 1
 
    codes/libraries
 

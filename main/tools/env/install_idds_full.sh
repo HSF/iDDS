@@ -2,6 +2,10 @@
 
 # as root
 yum install -y httpd.x86_64 conda gridsite mod_ssl.x86_64 httpd-devel.x86_64 gcc.x86_64 supervisor.noarch
+# yum install -y gfal2-plugin-gridftp gfal2-plugin-file.x86_64  gfal2-plugin-http.x86_64   gfal2-plugin-xrootd.x86_64  gfal2-python.x86_64 gfal2-python3.x86_64 gfal2-all.x86_64
+conda install -c conda-forge python-gfal2
+pip install requests SQLAlchemy urllib3 retrying mod_wsgi flask futures stomp.py cx-Oracle  unittest2 pep8 flake8 pytest nose sphinx recommonmark sphinx-rtd-theme nevergrad
+
 mkdir /opt/idds
 mkdir /opt/idds_source
 mkdir /opt/idds
@@ -75,8 +79,9 @@ pip install --upgrade sphinx-rtd-theme
 sphinx-quickstart
 make clean
 make html
-sphinx-apidoc -o ./source/codes/main/ ../main/lib/idds
-sphinx-apidoc -o ./source/codes/common/ ../common/lib/idds
-sphinx-apidoc -o ./source/codes/client/ ../client/lib/idds
-sphinx-apidoc -o ./source/codes/atlas/ ../atlas/lib/idds
-
+sphinx-apidoc -f -o ./source/codes/main/ ../main/lib/idds
+sphinx-apidoc -f -o ./source/codes/common/ ../common/lib/idds
+sphinx-apidoc -f -o ./source/codes/client/ ../client/lib/idds
+sphinx-apidoc -f -o ./source/codes/workflow/ ../workflow/lib/idds
+sphinx-apidoc -f -o ./source/codes/atlas/ ../atlas/lib/idds
+sphinx-apidoc -f -o ./source/codes/doma/ ../doma/lib/idds

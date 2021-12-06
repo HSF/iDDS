@@ -12,6 +12,14 @@ idds.core.catalog module
    :undoc-members:
    :show-inheritance:
 
+idds.core.health module
+-----------------------
+
+.. automodule:: idds.core.health
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 idds.core.messages module
 -------------------------
 
@@ -40,6 +48,14 @@ idds.core.transforms module
 ---------------------------
 
 .. automodule:: idds.core.transforms
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+idds.core.workprogress module
+-----------------------------
+
+.. automodule:: idds.core.workprogress
    :members:
    :undoc-members:
    :show-inheritance:

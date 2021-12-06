@@ -69,6 +69,12 @@ class DictClass(object):
         return False
 
     @staticmethod
+    def is_class_attribute(d):
+        if d and isinstance(d, dict) and 'idds_attribute' in d and 'idds_method_class_id' in d:
+            return True
+        return False
+
+    @staticmethod
     def load_instance(d):
         module = __import__(d['module'], fromlist=[None])
         cls = getattr(module, d['class'])
@@ -84,6 +90,11 @@ class DictClass(object):
         return d
 
     @staticmethod
+    def load_instance_attribute(d):
+        # not do anything. Will load the method in Workflow class.
+        return d
+
+    @staticmethod
     def from_dict(d):
         if not d:
             return d
@@ -93,12 +104,17 @@ class DictClass(object):
             for key, value in d['attributes'].items():
                 if key == 'logger':
                     continue
+                # elif key == 'output_data':
+                #     continue
                 else:
                     value = DictClass.from_dict(value)
                 setattr(impl, key, value)
             return impl
         elif DictClass.is_class_method(d):
             impl = DictClass.load_instance_method(d)
+            return impl
+        elif DictClass.is_class_attribute(d):
+            impl = DictClass.load_instance_attribute(d)
             return impl
         elif isinstance(d, dict):
             for k, v in d.items():

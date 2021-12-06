@@ -397,7 +397,7 @@ class Processing(Base):
 class Work(Base):
 
     def __init__(self, executable=None, arguments=None, parameters=None, setup=None, work_type=None,
-                 work_tag=None, exec_type='local', sandbox=None, work_id=None, work_name=None,
+                 work_tag=None, exec_type='local', sandbox=None, request_id=None, work_id=None, work_name=None,
                  primary_input_collection=None, other_input_collections=None, input_collections=None,
                  primary_output_collection=None, other_output_collections=None, output_collections=None,
                  log_collections=None, release_inputs_after_submitting=False,
@@ -449,6 +449,7 @@ class Work(Base):
         self.work_tag = work_tag
         self.exec_type = exec_type
         self.sandbox = sandbox
+        self.request_id = request_id
         self.work_id = work_id
         self.work_name = work_name
         if not self.work_name:
@@ -518,7 +519,7 @@ class Work(Base):
         self.suspended_processings = []
         self.old_processings = []
         self.terminated_msg = ""
-        self.output_data = None
+        self.output_data = {}
         self.parameters_for_next_task = None
 
         self.status_statistics = {}
@@ -626,6 +627,18 @@ class Work(Base):
     @parameters.setter
     def parameters(self, value):
         self.add_metadata_item('parameters', value)
+
+    @property
+    def output_data(self):
+        return self.get_metadata_item('output_data', {})
+
+    @output_data.setter
+    def output_data(self, value):
+        self.add_metadata_item('output_data', value)
+        if value and type(value) in [dict]:
+            for key in value:
+                new_key = "user_" + str(key)
+                setattr(self, new_key, value[key])
 
     @property
     def work_id(self):
@@ -951,7 +964,10 @@ class Work(Base):
 
     @property
     def input_collections(self):
-        keys = [self._primary_input_collection] + self._other_input_collections
+        if self._primary_input_collection:
+            keys = [self._primary_input_collection] + self._other_input_collections
+        else:
+            keys = self._other_input_collections
         return [self.collections[k] for k in keys]
 
     @input_collections.setter
@@ -973,7 +989,10 @@ class Work(Base):
 
     @property
     def output_collections(self):
-        keys = [self._primary_output_collection] + self._other_output_collections
+        if self._primary_output_collection:
+            keys = [self._primary_output_collection] + self._other_output_collections
+        else:
+            keys = self._other_output_collections
         return [self.collections[k] for k in keys]
 
     @output_collections.setter
@@ -1002,6 +1021,26 @@ class Work(Base):
     def get_is_template(self):
         self.is_template
 
+    def sync_global_parameters(self, global_parameters):
+        if global_parameters:
+            for key in global_parameters:
+                setattr(self, key, global_parameters[key])
+
+    def get_global_parameter_from_output_data(self, key):
+        self.logger.debug("get_global_parameter_from_output_data, key: %s, output_data: %s" % (key, str(self.output_data)))
+        gp_output_data = {}
+        if self.output_data and type(self.output_data) in [dict]:
+            for key in self.output_data:
+                new_key = "user_" + str(key)
+                gp_output_data[new_key] = self.output_data[key]
+        if key in gp_output_data:
+            return True, gp_output_data[key]
+        else:
+            return False, None
+
+    def renew_parameters_from_attributes(self):
+        pass
+
     def setup_logger(self):
         """
         Setup logger
@@ -1016,7 +1055,7 @@ class Work(Base):
 
     def set_work_id(self, work_id, transforming=True):
         """
-        *** Function called by Marshaller agent.
+        *** Function called by Marshaller and clerk agent.
         *** It's the transform_id set by core_workprogresses
         """
         self.work_id = work_id
@@ -1024,9 +1063,22 @@ class Work(Base):
 
     def get_work_id(self):
         """
-        *** Function called by Marshaller agent.
+        *** Function called by Marshaller and clerk agent.
         """
         return self.work_id
+
+    def set_request_id(self, request_id):
+        """
+        *** Function called by Marshaller and clerk agent.
+        *** It's the transform_id set by core_workprogresses
+        """
+        self.request_id = request_id
+
+    def get_request_id(self):
+        """
+        *** Function called by Marshaller and clerk agent.
+        """
+        return self.request_id
 
     # def set_workflow(self, workflow):
     #     self.workflow = workflow
@@ -1038,7 +1090,7 @@ class Work(Base):
         self.suspended_processings = []
         self.old_processings = []
         self.terminated_msg = ""
-        self.output_data = None
+        self.output_data = {}
         self.parameters_for_next_task = None
 
     def set_agent_attributes(self, attrs, req_attributes=None):
@@ -1936,6 +1988,7 @@ class Work(Base):
 
         self.status_statistics = work.status_statistics
         self.processings = work.processings
+        self.output_data = work.output_data
 
         """
         self.status = WorkStatus(status.value)

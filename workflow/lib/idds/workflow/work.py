@@ -872,6 +872,19 @@ class Work(Base):
         """
         return self.work_id
 
+    def set_request_id(self, request_id):
+        """
+        *** Function called by Marshaller and clerk agent.
+        *** It's the transform_id set by core_workprogresses
+        """
+        self.request_id = request_id
+
+    def get_request_id(self):
+        """
+        *** Function called by Marshaller and clerk agent.
+        """
+        return self.request_id
+
     # def set_workflow(self, workflow):
     #     self.workflow = workflow
 

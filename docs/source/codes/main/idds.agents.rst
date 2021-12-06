@@ -11,6 +11,7 @@ Subpackages
    idds.agents.clerk
    idds.agents.common
    idds.agents.conductor
+   idds.agents.marshaller
    idds.agents.transformer
    idds.agents.transporter
 

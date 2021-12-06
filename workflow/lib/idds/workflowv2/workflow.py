@@ -199,10 +199,24 @@ class CompositeCondition(Base):
                     new_value = []
                     for cond in value:
                         if inspect.ismethod(cond):
-                            new_cond = {'idds_method': cond.__name__,
-                                        'idds_method_internal_id': cond.__self__.get_internal_id()}
+                            if isinstance(cond.__self__, Work):
+                                new_cond = {'idds_method': cond.__name__,
+                                            'idds_method_internal_id': cond.__self__.get_internal_id()}
+                            elif isinstance(cond.__self__, CompositeCondition):
+                                new_cond = {'idds_method': cond.__name__,
+                                            'idds_method_condition': cond.__self__.to_dict()}
+                            elif isinstance(cond.__self__, Workflow):
+                                new_cond = {'idds_method': cond.__name__,
+                                            'idds_method_internal_id': cond.__self__.get_internal_id()}
+                            else:
+                                new_cond = {'idds_method': cond.__name__,
+                                            'idds_method_internal_id': cond.__self__.get_internal_id()}
                         else:
-                            new_cond = cond
+                            if hasattr(cond, '__self__'):
+                                new_cond = {'idds_attribute': cond.__name__,
+                                            'idds_method_internal_id': cond.__self__.get_internal_id()}
+                            else:
+                                new_cond = cond
                         new_value.append(new_cond)
                     value = new_value
                 elif key in ['_true_works', '_false_works']:
@@ -240,6 +254,17 @@ class CompositeCondition(Base):
                     else:
                         self.logger.error("Work cannot be found for %s" % (internal_id))
                         new_cond = cond
+                elif 'idds_attribute' in cond and 'idds_method_internal_id' in cond:
+                    internal_id = cond['idds_method_internal_id']
+                    work = self.get_work_from_id(internal_id, works)
+                    if work is not None:
+                        new_cond = getattr(work, cond['idds_attribute'])
+                    else:
+                        self.logger.error("Work cannot be found for %s" % (internal_id))
+                        new_cond = cond
+                elif 'idds_method' in cond and 'idds_method_condition' in cond:
+                    new_cond = cond['idds_method_condition']
+                    new_cond = getattr(new_cond, cond['idds_method'])
                 else:
                     new_cond = cond
                 new_conditions.append(new_cond)
@@ -289,7 +314,10 @@ class CompositeCondition(Base):
         works = []
         for cond in self.conditions:
             if inspect.ismethod(cond):
-                works.append(cond.__self__.get_internal_id())
+                if isinstance(cond.__self__, Work) or isinstance(cond.__self__, Workflow):
+                    works.append(cond.__self__.get_internal_id())
+                elif isinstance(cond.__self__, CompositeCondition):
+                    works = works + cond.__self__.all_condition_ids()
             else:
                 self.logger.error("cond cannot be recognized: %s" % str(cond))
                 works.append(cond)
@@ -302,7 +330,10 @@ class CompositeCondition(Base):
         works = []
         for cond in self.conditions:
             if inspect.ismethod(cond):
-                works.append(cond.__self__)
+                if isinstance(cond.__self__, Work) or isinstance(cond.__self__, Workflow):
+                    works.append(cond.__self__)
+                elif isinstance(cond.__self__, CompositeCondition):
+                    works = works + cond.__self__.all_pre_works()
             else:
                 self.logger.error("cond cannot be recognized: %s" % str(cond))
                 works.append(cond)
@@ -549,6 +580,8 @@ class WorkflowBase(Base):
         self.parameter_links_source = {}
         self.parameter_links_destination = {}
 
+        self._global_parameters = {}
+
         super(WorkflowBase, self).__init__()
 
         self.internal_id = str(uuid.uuid4())[:8]
@@ -610,6 +643,8 @@ class WorkflowBase(Base):
         self.loop_condition = None
 
         self.num_run = None
+
+        self.global_parameters = {}
 
         """
         self._running_data_names = []
@@ -789,6 +824,38 @@ class WorkflowBase(Base):
 
         # work_conds = self.get_metadata_item('work_conds', {})
         # self._work_conds = work_conds
+
+    @property
+    def global_parameters(self):
+        self._global_parameters = self.get_metadata_item('gp', {})
+        return self._global_parameters
+
+    @global_parameters.setter
+    def global_parameters(self, value):
+        self._global_parameters = value
+        gp_metadata = {}
+        if self._global_parameters:
+            for key in self._global_parameters:
+                if key.startswith("user_"):
+                    gp_metadata[key] = self._global_parameters[key]
+                else:
+                    self.logger.warn("Only parameters start with 'user_' can be set as global parameters. The parameter '%s' will be ignored." % (key))
+        self.add_metadata_item('gp', gp_metadata)
+
+    def set_global_parameters(self, value):
+        self.global_parameters = value
+
+    def sync_global_parameters_from_work(self, work):
+        self.log_debug("work %s is_terminated, global_parameters: %s" % (work.get_internal_id(), str(self.global_parameters)))
+        if self.global_parameters:
+            for key in self.global_parameters:
+                status, value = work.get_global_parameter_from_output_data(key)
+                self.log_debug("work %s get_global_parameter_from_output_data(key: %s) results(%s:%s)" % (work.get_internal_id(), key, status, value))
+                if status:
+                    self.global_parameters[key] = value
+                elif hasattr(work, key):
+                    self.global_parameters[key] = getattr(work, key)
+        self.set_global_parameters(self.global_parameters)
 
     @property
     def loop_condition(self):
@@ -1005,6 +1072,8 @@ class WorkflowBase(Base):
             work.sequence_id = self.num_total_works
 
             work.initialize_work()
+            work.sync_global_parameters(self.global_parameters)
+            work.renew_parameters_from_attributes()
             work.num_run = self.num_run
             works = self.works
             self.works = works
@@ -1014,6 +1083,19 @@ class WorkflowBase(Base):
             self.new_to_run_works.append(work.get_internal_id())
             self.last_work = work.get_internal_id()
 
+        return work
+
+    def get_new_parameters_for_work(self, work):
+        new_parameters = self.get_destination_parameters(work.get_internal_id())
+        if new_parameters:
+            work.set_parameters(new_parameters)
+        work.sequence_id = self.num_total_works
+
+        work.initialize_work()
+        work.sync_global_parameters(self.global_parameters)
+        work.renew_parameters_from_attributes()
+        works = self.works
+        self.works = works
         return work
 
     def register_user_defined_condition(self, condition):
@@ -1221,6 +1303,7 @@ class WorkflowBase(Base):
         works = []
         for k in self.new_to_run_works:
             if isinstance(self.works[k], Work):
+                self.works[k] = self.get_new_parameters_for_work(self.works[k])
                 works.append(self.works[k])
             if isinstance(self.works[k], Workflow):
                 works = works + self.works[k].get_new_works()
@@ -1266,14 +1349,26 @@ class WorkflowBase(Base):
         """
 
         if self.primary_initial_work:
-            return self.get_works()[self.primary_initial_work].get_primary_input_collection()
+            if isinstance(self.get_works()[self.primary_initial_work], Workflow):
+                return self.get_works()[self.primary_initial_work].get_primary_initial_collection()
+            else:
+                return self.get_works()[self.primary_initial_work].get_primary_input_collection()
         elif self.initial_works:
-            return self.get_works()[self.initial_works[0]].get_primary_input_collection()
+            if isinstance(self.get_works()[self.initial_works[0]], Workflow):
+                return self.get_works()[self.initial_works[0]].get_primary_initial_collection()
+            else:
+                return self.get_works()[self.initial_works[0]].get_primary_input_collection()
         elif self.independent_works:
-            return self.get_works()[self.independent_works[0]].get_primary_input_collection()
+            if isinstance(self.get_works()[self.independent_works[0]], Workflow):
+                return self.get_works()[self.independent_works[0]].get_primary_initial_collection()
+            else:
+                return self.get_works()[self.independent_works[0]].get_primary_input_collection()
         else:
             keys = self.get_works().keys()
-            return self.get_works()[keys[0]].get_primary_input_collection()
+            if isinstance(self.get_works()[keys[0]], Workflow):
+                return self.get_works()[keys[0]].get_primary_initial_collection()
+            else:
+                return self.get_works()[keys[0]].get_primary_input_collection()
         return None
 
     def get_dependency_works(self, work_id, depth, max_depth):
@@ -1363,7 +1458,9 @@ class WorkflowBase(Base):
                 work.sync_works()
 
             if work.is_terminated():
+                self.log_debug("work %s is_terminated, sync_global_parameters_from_work" % (work.get_internal_id()))
                 self.set_source_parameters(work.get_internal_id())
+                self.sync_global_parameters_from_work(work)
 
             if work.get_internal_id() in self.work_conds:
                 self.log_debug("Work %s has condition dependencies %s" % (work.get_internal_id(),
@@ -1794,6 +1891,14 @@ class Workflow(Base):
         if self.runs:
             self.runs[str(self.num_run)].refresh_parameter_links()
 
+    def set_global_parameters(self, value):
+        self.template.set_global_parameters(value)
+
+    def sync_global_parameters_from_work(self, work):
+        if self.runs:
+            return self.runs[str(self.num_run)].sync_global_parameters_from_work(work)
+        return self.template.sync_global_parameters_from_work(work)
+
     def get_new_works(self):
         self.sync_works()
         if self.runs:
@@ -1822,8 +1927,11 @@ class Workflow(Base):
             self.runs[str(self.num_run)].resume_works()
 
     def clean_works(self):
-        if self.runs:
-            self.runs[str(self.num_run)].clean_works()
+        # if self.runs:
+        #     self.runs[str(self.num_run)].clean_works()
+        self.parent_num_run = None
+        self._num_run = 0
+        self.runs = {}
 
     def is_to_expire(self, expired_at=None, pending_time=None, request_id=None):
         if self.runs:

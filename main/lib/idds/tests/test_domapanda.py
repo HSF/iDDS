@@ -37,6 +37,7 @@ from idds.doma.workflowv2.domapandawork import DomaPanDAWork
 
 
 task_queue = 'DOMA_LSST_GOOGLE_TEST'
+task_queue = 'DOMA_LSST_GOOGLE_MERGE'
 
 
 def randStr(chars=string.ascii_lowercase + string.digits, N=10):

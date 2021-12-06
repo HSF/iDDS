@@ -105,7 +105,10 @@ def get_data_files(dest, src):
     data.append((dest, get_files(src)))
     for root, dirs, files in os.walk(src):
         if 'dist' in root or 'build' in root or 'egg-info' in root:
-            continue
+            # continue
+            pass
+        if root.endswith('monitor/dist') or root.endswith('monitor/build') or 'egg-info' in root:
+            # continue
             pass
         for idir in dirs:
             if idir == 'dist' or idir == 'build' or idir.endswith('.egg-info'):
