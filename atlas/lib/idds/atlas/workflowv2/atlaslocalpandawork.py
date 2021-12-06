@@ -11,6 +11,7 @@
 
 import json
 import os
+import re
 import traceback
 
 # from rucio.client.client import Client as RucioClient
@@ -36,6 +37,9 @@ class ATLASLocalPandaWork(ATLASPandaWork):
                  num_retries=5,
                  ):
 
+        self.work_dir = "/tmp"
+        self.output_files = []
+
         super(ATLASLocalPandaWork, self).__init__(task_parameters=task_parameters,
                                                   work_tag=work_tag,
                                                   exec_type=exec_type,
@@ -49,8 +53,6 @@ class ATLASLocalPandaWork(ATLASPandaWork):
                                                   log_collections=log_collections,
                                                   logger=logger,
                                                   num_retries=num_retries)
-        self.work_dir = "/tmp"
-        self.output_files = []
 
     def set_agent_attributes(self, attrs, req_attributes=None):
         if self.class_name not in attrs or 'life_time' not in attrs[self.class_name] or int(attrs[self.class_name]['life_time']) <= 0:
@@ -59,14 +61,13 @@ class ATLASLocalPandaWork(ATLASPandaWork):
         if self.agent_attributes and 'num_retries' in self.agent_attributes and self.agent_attributes['num_retries']:
             self.num_retries = int(self.agent_attributes['num_retries'])
         if self.agent_attributes and 'work_dir' in self.agent_attributes and self.agent_attributes['work_dir']:
-            self.work_dir = int(self.agent_attributes['work_dir'])
+            self.work_dir = self.agent_attributes['work_dir']
 
     def parse_task_parameters(self, task_parameters):
         super(ATLASLocalPandaWork, self).parse_task_parameters(task_parameters)
 
         try:
-
-            if 'jobParameters' in self.task_parameters:
+            if self.task_parameters and 'jobParameters' in self.task_parameters:
                 jobParameters = self.task_parameters['jobParameters']
                 for jobP in jobParameters:
                     if type(jobP) in [dict]:
@@ -122,48 +123,73 @@ class ATLASLocalPandaWork(ATLASPandaWork):
 
     def set_output_data(self, data):
         self.output_data = data
-        if type(data) in [dict]:
+        if data and type(data) in [dict]:
             for key in data:
                 new_key = "user_" + str(key)
                 setattr(self, new_key, data[key])
+
+    def match_pattern_file(self, pattern, lfn):
+        pattern1 = "\\$[_a-zA-Z0-9]+"
+        pattern2 = "\\$\\{[_a-zA-Z0-9\\/]+\\}"
+        while True:
+            m = re.search(pattern1, pattern)
+            if m:
+                pattern = pattern.replace(m.group(0), "*")
+            else:
+                break
+        while True:
+            m = re.search(pattern2, pattern)
+            if m:
+                pattern = pattern.replace(m.group(0), "*")
+            else:
+                break
+
+        pattern = pattern.replace(".", "\\.")
+        pattern = pattern.replace("*", ".*")
+        pattern = pattern + "$"
+
+        m = re.search(pattern, lfn)
+        if m:
+            return True
+        return False
 
     def ping_output_files(self):
         try:
             rucio_client = self.get_rucio_client()
             for output_i in range(len(self.output_files)):
                 output_file = self.output_files[output_i]
-                f_parts = output_file['file'].split(".")
-                pos = output_file['file'].find("$")
-                begin_part = output_file['file'][:pos]
-                i = 0
-                for i in range(len(f_parts) - 1, -1, -1):
-                    if "$" in f_parts[i]:
-                        break
-                end_parts = f_parts[i + 1:]
-                end_part = '.'.join(end_parts)
-
                 files = rucio_client.list_files(scope=output_file['scope'],
                                                 name=output_file['name'])
+                files = [f for f in files]
+                self.logger.debug("ping_output_files found files for dataset(%s:%s): %s" % (output_file['scope'],
+                                                                                            output_file['name'],
+                                                                                            str([f['name'] for f in files])))
                 for f in files:
-                    if ((not begin_part) or f['name'].startswith(begin_part)) and ((not end_part) or f['name'].endswith(end_part)):
+                    if self.match_pattern_file(output_file['file'], f['name']):
                         self.output_files[output_i]['lfn'] = f['name']
+            return True
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
-            raise exceptions.IDDSException('%s: %s' % (str(ex), traceback.format_exc()))
+            # raise exceptions.IDDSException('%s: %s' % (str(ex), traceback.format_exc()))
+        return False
 
-    def download_output_file_rucio(self, file_items):
+    def download_output_files_rucio(self, file_items):
         try:
-            client = self.get_rucio_download_client()
-            outputs = client.download_dids(file_items)
             ret = {}
-            for output in outputs:
-                if 'dest_file_paths' in output and output['dest_file_paths']:
-                    ret[output['name']] = output['dest_file_paths'][0]
+            self.logger.debug("download_output_files_rucio: %s" % str(file_items))
+            if file_items:
+                client = self.get_rucio_download_client()
+                outputs = client.download_dids(file_items)
+                for output in outputs:
+                    if 'dest_file_paths' in output and output['dest_file_paths']:
+                        ret[output['name']] = output['dest_file_paths'][0]
+            return ret
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
-            raise exceptions.IDDSException('%s: %s' % (str(ex), traceback.format_exc()))
+            # raise exceptions.IDDSException('%s: %s' % (str(ex), traceback.format_exc()))
+        return {}
 
     def get_download_dir(self, processing):
         req_dir = 'request_%s_%s/transform_%s' % (processing['request_id'],
@@ -176,6 +202,7 @@ class ATLASLocalPandaWork(ATLASPandaWork):
 
     def download_output_files(self, processing):
         try:
+            failed_items = []
             file_items = []
             for output_i in range(len(self.output_files)):
                 if 'lfn' in self.output_files[output_i]:
@@ -193,15 +220,22 @@ class ATLASLocalPandaWork(ATLASPandaWork):
             pfn_items = self.download_output_files_rucio(file_items)
             for output_i in range(len(self.output_files)):
                 if 'lfn' in self.output_files[output_i]:
-                    pfn = pfn_items[self.output_files[output_i]['lfn']]
-                    self.output_files[output_i]['pfn'] = pfn
-                    self.logger.info("download_output_files, Processing (%s) pfn for %s: %s" % (processing['processing_id'],
-                                                                                                self.output_files[output_i]['file'],
-                                                                                                self.output_files[output_i]['pfn']))
+                    if self.output_files[output_i]['lfn'] in pfn_items:
+                        pfn = pfn_items[self.output_files[output_i]['lfn']]
+                        self.output_files[output_i]['pfn'] = pfn
+                        self.logger.info("download_output_files, Processing (%s) pfn for %s: %s" % (processing['processing_id'],
+                                                                                                    self.output_files[output_i]['file'],
+                                                                                                    self.output_files[output_i]['pfn']))
+                    else:
+                        self.logger.info("download_output_files, Processing (%s) pfn cannot be found for %s" % (processing['processing_id'],
+                                                                                                                self.output_files[output_i]['file']))
+                        failed_items.append(self.output_files[output_i])
+            return failed_items
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
-            raise exceptions.IDDSException('%s: %s' % (str(ex), traceback.format_exc()))
+            # raise exceptions.IDDSException('%s: %s' % (str(ex), traceback.format_exc()))
+        return []
 
     def parse_output_file(self, pfn):
         try:
@@ -214,8 +248,8 @@ class ATLASLocalPandaWork(ATLASPandaWork):
                 outputs = json.loads(data)
                 return outputs
         except Exception as ex:
-            self.logger.error(ex)
-            self.logger.error(traceback.format_exc())
+            # self.logger.error(ex)
+            # self.logger.error(traceback.format_exc())
             raise exceptions.IDDSException('%s: %s' % (str(ex), traceback.format_exc()))
         return {}
 
@@ -227,15 +261,26 @@ class ATLASLocalPandaWork(ATLASPandaWork):
                     data = self.parse_output_file(self.output_files[output_i]['pfn'])
                     if type(data) in [dict]:
                         output_data.update(data)
+            return True, output_data
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
-            raise exceptions.IDDSException('%s: %s' % (str(ex), traceback.format_exc()))
+            # raise exceptions.IDDSException('%s: %s' % (str(ex), traceback.format_exc()))
+        return False, output_data
 
     def process_outputs(self, processing):
-        self.download_output_files(processing)
-        output_data = self.parse_output_files(processing)
-        return output_data
+        ping_status = self.ping_output_files()
+        self.logger.debug("ping_output_files(Processing_id: %s), status: %s" % (processing['processing_id'], ping_status))
+
+        failed_items = self.download_output_files(processing)
+        self.logger.debug("download_output_files(Processing_id: %s), failed_items: %s" % (processing['processing_id'], str(failed_items)))
+
+        parse_status, output_data = self.parse_output_files(processing)
+        self.logger.debug("parse_output_files(Processing_id: %s), parse_status: %s, output_data: %s" % (processing['processing_id'], parse_status, str(output_data)))
+
+        if ping_status and not failed_items and parse_status:
+            return True, output_data
+        return False, output_data
 
     def get_rucio_download_client(self):
         try:
@@ -277,9 +322,14 @@ class ATLASLocalPandaWork(ATLASPandaWork):
                             processing_status = ProcessingStatus.Submitted
                             self.retry_number += 1
                     if processing_status in [ProcessingStatus.SubFinished, ProcessingStatus.Finished]:
-                        output_metdata = self.process_outputs(processing)
+                        output_status, output_metadata = self.process_outputs(processing)
+                        if not output_status:
+                            err = "Failed to process processing(processing_id: %s, task_id: %s) outputs" % (processing['processing_id'], task_id)
+                            self.logger.error(err)
+                            self.add_errors(err)
+                            processing_status = ProcessingStatus.Failed
 
-                    return processing_status, [], {}, output_metdata
+                    return processing_status, [], {}, output_metadata
                 else:
                     return ProcessingStatus.Failed, [], {}, output_metadata
         except Exception as ex:
