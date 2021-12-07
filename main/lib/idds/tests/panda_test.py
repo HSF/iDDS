@@ -29,7 +29,7 @@ for job_info in jobs_list:
             print(f.type)
 """
 
-jediTaskID = 7784
+jediTaskID = 8378
 ret = Client.getJediTaskDetails({'jediTaskID': jediTaskID}, True, True, verbose=False)
 print(ret)
 
