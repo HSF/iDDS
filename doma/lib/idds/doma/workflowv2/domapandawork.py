@@ -809,6 +809,9 @@ class DomaPanDAWork(Work):
 
     def get_update_contents(self, inputnames, inputname_mapid_map, inputname_jobid_map):
         self.logger.debug("get_update_contents, inputnames[:5]: %s" % str(inputnames[:5]))
+        self.logger.debug("get_update_contents, inputname_mapid_map[:5]: %s" % str({k: inputname_mapid_map[k] for k in inputnames[:5]}))
+        self.logger.debug("get_update_contents, inputname_jobid_map[:5]: %s" % str({k: inputname_jobid_map[k] for k in inputnames[:5]}))
+
         update_contents = []
         num_updated_contents, num_unupdated_contents = 0, 0
         for inputname in inputnames:
@@ -840,12 +843,16 @@ class DomaPanDAWork(Work):
                             pass
                             # content['content_metadata']['panda_id'] = panda_id
                             content['substatus'] = panda_status
+                    else:
+                        content['content_metadata']['panda_id'] = panda_id
+                        content['substatus'] = panda_status
 
                     update_contents.append(content)
                     num_updated_contents += 1
                 else:
                     num_unupdated_contents += 1
         self.logger.debug("get_update_contents, num_updated_contents: %s, num_unupdated_contents: %s" % (num_updated_contents, num_unupdated_contents))
+        self.logger.debug("get_update_contents, update_contents[:5]: %s" % (str(update_contents[:5])))
         return update_contents
 
     def poll_panda_task(self, processing=None, input_output_maps=None):
