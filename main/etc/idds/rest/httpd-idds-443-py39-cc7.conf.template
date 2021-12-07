@@ -6,8 +6,8 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2019
 
-# TimeOut 600
-# KeepAliveTimeout 600
+TimeOut 600
+KeepAliveTimeout 600
 
 # Built-in modules
 LoadModule ssl_module /usr/lib64/httpd/modules/mod_ssl.so
@@ -23,7 +23,6 @@ LoadModule ssl_module /usr/lib64/httpd/modules/mod_ssl.so
 # External modules
 LoadModule gridsite_module /usr/lib64/httpd/modules/mod_gridsite.so
 #LoadModule wsgi_module /usr/lib64/httpd/modules/mod_wsgi.so
-LoadModule wsgi_module {python_site_packages_path}/mod_wsgi/server/mod_wsgi-py36.cpython-36m-x86_64-linux-gnu.so
 LoadModule wsgi_module {python_site_packages_path}/mod_wsgi/server/mod_wsgi-py39.cpython-39-x86_64-linux-gnu.so
 
 WSGIPythonHome {python_site_home_path}
@@ -93,9 +92,9 @@ Alias "/monitor"     "/opt/idds/monitor"
     </LocationMatch>
 
     <Directory {python_site_packages_path}>
-        Order deny,allow
-        Allow from all
-        Require all granted
+        # Order deny,allow
+        # Allow from all
+        # Require all granted
     </Directory>
 
     <Directory {python_site_bin_path}>
