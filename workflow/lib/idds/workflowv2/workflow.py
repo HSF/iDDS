@@ -990,12 +990,11 @@ class WorkflowBase(Base):
 
     @property
     def num_run(self):
-        return self.get_metadata_item('num_run', None)
+        return self.get_metadata_item('num_run', 0)
 
     @num_run.setter
     def num_run(self, value):
-        if value is not None:
-            self.add_metadata_item('num_run', value)
+        self.add_metadata_item('num_run', value)
 
     def load_metadata(self):
         self.load_works()
@@ -1071,10 +1070,10 @@ class WorkflowBase(Base):
                 work.set_parameters(new_parameters)
             work.sequence_id = self.num_total_works
 
+            work.num_run = self.num_run
             work.initialize_work()
             work.sync_global_parameters(self.global_parameters)
             work.renew_parameters_from_attributes()
-            work.num_run = self.num_run
             works = self.works
             self.works = works
             # self.work_sequence.append(new_work.get_internal_id())
@@ -2030,6 +2029,8 @@ class Workflow(Base):
                     self.runs[str(self.num_run)].num_run = self._num_run
                     p_metadata = self.runs[str(self.num_run - 1)].get_metadata_item('parameter_links')
                     self.runs[str(self.num_run)].add_metadata_item('parameter_links', p_metadata)
+
+                    self.runs[str(self.num_run)].global_parameters = self.runs[str(self.num_run - 1)].global_parameters
 
     def get_relation_map(self):
         if not self.runs:

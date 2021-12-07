@@ -542,7 +542,7 @@ class Work(Base):
 
         self.backup_to_release_inputs = {'0': [], '1': [], '2': []}
 
-        self.num_run = None
+        self.num_run = 0
 
         """
         self._running_data_names = []
@@ -930,16 +930,16 @@ class Work(Base):
 
     @property
     def num_run(self):
-        return self.get_metadata_item('num_run', None)
+        return self.get_metadata_item('num_run', 0)
 
     @num_run.setter
     def num_run(self, value):
-        if value is not None:
-            self.add_metadata_item('num_run', value)
-            if value > 1:
-                # for k in self._collections:
-                for coll in self.output_collections:
-                    if type(coll) in [Collection]:
+        self.add_metadata_item('num_run', value)
+        if value is not None and value > 1:
+            # for k in self._collections:
+            for coll in self.output_collections:
+                if type(coll) in [Collection]:
+                    if "___idds___" not in coll.name:
                         coll.name = coll.name + "." + str(value)
 
     @property
