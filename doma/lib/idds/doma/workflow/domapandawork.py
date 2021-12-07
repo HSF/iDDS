@@ -759,21 +759,24 @@ class DomaPanDAWork(Work):
         chunks = [job_ids[i:i + chunksize] for i in range(0, len(job_ids), chunksize)]
         for chunk in chunks:
             jobs_list = Client.getJobStatus(chunk, verbose=0)[1]
-            self.logger.debug("poll_panda_jobs, input jobs: %s, output_jobs: %s" % (len(chunk), len(jobs_list)))
-            for job_info in jobs_list:
-                job_status = self.get_content_status_from_panda_status(job_info)
-                if job_info and job_info.Files and len(job_info.Files) > 0:
-                    for job_file in job_info.Files:
-                        # if job_file.type in ['log']:
-                        if job_file.type not in ['pseudo_input']:
-                            continue
-                        if ':' in job_file.lfn:
-                            pos = job_file.lfn.find(":")
-                            input_file = job_file.lfn[pos + 1:]
-                            # input_file = job_file.lfn.split(':')[1]
-                        else:
-                            input_file = job_file.lfn
-                        inputname_jobid_map[input_file] = {'panda_id': job_info.PandaID, 'status': job_status}
+            if jobs_list:
+                self.logger.debug("poll_panda_jobs, input jobs: %s, output_jobs: %s" % (len(chunk), len(jobs_list)))
+                for job_info in jobs_list:
+                    job_status = self.get_content_status_from_panda_status(job_info)
+                    if job_info and job_info.Files and len(job_info.Files) > 0:
+                        for job_file in job_info.Files:
+                            # if job_file.type in ['log']:
+                            if job_file.type not in ['pseudo_input']:
+                                continue
+                            if ':' in job_file.lfn:
+                                pos = job_file.lfn.find(":")
+                                input_file = job_file.lfn[pos + 1:]
+                                # input_file = job_file.lfn.split(':')[1]
+                            else:
+                                input_file = job_file.lfn
+                            inputname_jobid_map[input_file] = {'panda_id': job_info.PandaID, 'status': job_status}
+            else:
+                self.logger.warn("poll_panda_jobs, input jobs: %s, output_jobs: %s" % (len(chunk), jobs_list))
         return inputname_jobid_map
 
     def get_job_maps(self, input_output_maps):
