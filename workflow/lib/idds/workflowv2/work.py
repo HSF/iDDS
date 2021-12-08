@@ -544,6 +544,9 @@ class Work(Base):
 
         self.num_run = 0
 
+        self.or_custom_conditions = {}
+        self.and_custom_conditions = {}
+
         """
         self._running_data_names = []
         for name in ['internal_id', 'template_work_id', 'initialized', 'sequence_id', 'parameters', 'work_id', 'transforming', 'workdir',
@@ -1040,6 +1043,60 @@ class Work(Base):
 
     def renew_parameters_from_attributes(self):
         pass
+
+    def add_custom_condition(self, key, value, op='and'):
+        # op in ['and', 'or']
+        if op and op == 'or':
+            op = 'or'
+        else:
+            op = 'and'
+        if op == 'and':
+            self.and_custom_conditions[key] = value
+        else:
+            self.or_custom_conditions[key] = value
+
+    def get_custom_condition_status_value_bool(self, key):
+        if hasattr(self, key) and getattr(self, key):
+            value = getattr(self, key)
+            if type(value) in [str]:
+                value = value.lower()
+                if value == 'true':
+                    return True
+                else:
+                    return False
+            elif type(value) in [bool]:
+                return value
+            elif type(value) in [int]:
+                if value > 0:
+                    return True
+                else:
+                    return False
+            else:
+                return value
+        else:
+            return False
+
+    def get_custom_condition_status_value(self, key):
+        if hasattr(self, key) and getattr(self, key):
+            return getattr(self, key)
+        else:
+            return None
+
+    def get_custom_condition_status(self):
+        if self.or_custom_conditions:
+            for key in self.or_custom_conditions:
+                value = self.get_custom_condition_status_value(key)
+                if value == self.or_custom_conditions[key]:
+                    return True
+
+        if self.and_custom_conditions:
+            for key in self.and_custom_conditions:
+                value = self.get_custom_condition_status_value(key)
+                if not (value == self.and_custom_conditions[key]):
+                    return False
+            return True
+
+        return False
 
     def setup_logger(self):
         """
