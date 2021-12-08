@@ -1098,6 +1098,9 @@ class Work(Base):
 
         return False
 
+    def get_not_custom_condition_status(self):
+        return not self.get_custom_condition_status()
+
     def setup_logger(self):
         """
         Setup logger

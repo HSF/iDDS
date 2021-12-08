@@ -46,6 +46,7 @@ Here are examples how to define custom conditions with work attributes
     work1.to_exit2 = False
     work1.to_exit = True
     assert(work1.get_custom_condition_status() is True)
+    assert(work1.get_not_custom_condition_status() is False)
 
 
 2. condtions combination

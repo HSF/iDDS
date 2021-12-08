@@ -105,6 +105,7 @@ class TestWorkflowCondtion(unittest.TestCase):
         work1.to_exit2 = False
         work1.to_exit = True
         assert(work1.get_custom_condition_status() is True)
+        assert(work1.get_not_custom_condition_status() is False)
 
     def test_condition(self):
         # init_p = Parameter({'input_dataset': 'data17:data17.test.raw.1'})
