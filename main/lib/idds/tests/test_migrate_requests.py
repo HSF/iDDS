@@ -31,7 +31,7 @@ def migrate():
 
     cm1 = ClientManager(host=dev_host)
     # reqs = cm1.get_requests(request_id=290)
-    old_request_id = 237
+    old_request_id = 241
     # for old_request_id in [152]:
     # for old_request_id in [60]:    # noqa E115
     # for old_request_id in [200]:    # noqa E115
@@ -41,7 +41,7 @@ def migrate():
         cm2 = ClientManager(host=dev_host)
         # print(reqs)
 
-        for req in reqs:
+        for req in reqs[:1]:
             req = convert_old_req_2_workflow_req(req)
             workflow = req['request_metadata']['workflow']
             workflow.clean_works()

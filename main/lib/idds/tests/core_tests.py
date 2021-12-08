@@ -102,15 +102,15 @@ def show_works(req):
     print(work_ids)
 
 
-reqs = get_requests(request_id=237, with_detail=True, with_metadata=True)
+reqs = get_requests(request_id=241, with_detail=True, with_metadata=True)
 for req in reqs:
     # print(req['request_id'])
     # print(rets)
-    print(json_dumps(req, sort_keys=True, indent=4))
+    # print(json_dumps(req, sort_keys=True, indent=4))
     # show_works(req)
     pass
 
-sys.exit(0)
+# sys.exit(0)
 
 """
 # reqs = get_requests()
@@ -126,7 +126,7 @@ sys.exit(0)
 
 """
 
-tfs = get_transforms(request_id=238)
+tfs = get_transforms(request_id=241)
 for tf in tfs:
     # print(tf)
     # print(tf['transform_metadata']['work'].to_dict())

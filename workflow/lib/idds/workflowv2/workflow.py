@@ -1286,6 +1286,7 @@ class WorkflowBase(Base):
     def get_loop_condition_status(self):
         if self.has_loop_condition():
             self.loop_condition.load_conditions(self.works)
+            # self.logger.debug("Loop condition %s" % (json_dumps(self.loop_condition, sort_keys=True, indent=4)))
             return self.loop_condition.get_condition_status()
         return False
 
@@ -2023,6 +2024,7 @@ class Workflow(Base):
         if self.runs[str(self.num_run)].is_terminated():
             if self.runs[str(self.num_run)].has_loop_condition():
                 if self.runs[str(self.num_run)].get_loop_condition_status():
+                    self.logger.info("num_run %s get_loop_condition_status %s, start next run" % (self.num_run, self.runs[str(self.num_run)].get_loop_condition_status()))
                     self._num_run += 1
                     self.runs[str(self.num_run)] = self.template.copy()
 
@@ -2031,6 +2033,8 @@ class Workflow(Base):
                     self.runs[str(self.num_run)].add_metadata_item('parameter_links', p_metadata)
 
                     self.runs[str(self.num_run)].global_parameters = self.runs[str(self.num_run - 1)].global_parameters
+                else:
+                    self.logger.info("num_run %s get_loop_condition_status %s, terminated loop" % (self.num_run, self.runs[str(self.num_run)].get_loop_condition_status()))
 
     def get_relation_map(self):
         if not self.runs:

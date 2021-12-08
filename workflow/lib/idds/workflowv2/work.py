@@ -1056,6 +1056,10 @@ class Work(Base):
             self.or_custom_conditions[key] = value
 
     def get_custom_condition_status_value_bool(self, key):
+        user_key = "user_" + key
+        if hasattr(self, user_key):
+            key = user_key
+
         if hasattr(self, key) and getattr(self, key):
             value = getattr(self, key)
             if type(value) in [str]:
@@ -1077,12 +1081,16 @@ class Work(Base):
             return False
 
     def get_custom_condition_status_value(self, key):
+        user_key = "user_" + key
+        if hasattr(self, user_key):
+            key = user_key
+
         if hasattr(self, key) and getattr(self, key):
             return getattr(self, key)
         else:
             return None
 
-    def get_custom_condition_status(self):
+    def get_custom_condition_status_real(self):
         if self.or_custom_conditions:
             for key in self.or_custom_conditions:
                 value = self.get_custom_condition_status_value(key)
@@ -1097,6 +1105,15 @@ class Work(Base):
             return True
 
         return False
+
+    def get_custom_condition_status(self):
+        # self.logger.debug("get_custom_condition_status, or_custom_conditions: %s" % str(self.or_custom_conditions))
+        # self.logger.debug("get_custom_condition_status, and_custom_conditions: %s" % str(self.and_custom_conditions))
+        # self.logger.debug("get_custom_condition_status, work: %s" % (json_dumps(self, sort_keys=True, indent=4)))
+
+        status = self.get_custom_condition_status_real()
+        self.logger.debug("get_custom_condition_status, status: %s" % (status))
+        return status
 
     def get_not_custom_condition_status(self):
         return not self.get_custom_condition_status()
