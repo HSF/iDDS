@@ -41,6 +41,7 @@ def migrate():
         cm2 = ClientManager(host=dev_host)
         # print(reqs)
 
+        print("num requests: %s" % len(reqs))
         for req in reqs[:1]:
             req = convert_old_req_2_workflow_req(req)
             workflow = req['request_metadata']['workflow']

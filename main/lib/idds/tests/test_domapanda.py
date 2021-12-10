@@ -16,6 +16,7 @@ Test client.
 
 import string
 import random
+import time
 
 # import traceback
 
@@ -163,6 +164,7 @@ def setup_workflow():
     workflow.add_work(work1)
     workflow.add_work(work2)
     workflow.add_work(work3)
+    workflow.name = 'test_workflow.idds.%s.test' % time.time()
     return workflow
 
 
@@ -171,5 +173,5 @@ if __name__ == '__main__':
     workflow = setup_workflow()
 
     wm = ClientManager(host=host)
-    request_id = wm.submit(workflow)
+    request_id = wm.submit(workflow, use_dataset_name=False)
     print(request_id)

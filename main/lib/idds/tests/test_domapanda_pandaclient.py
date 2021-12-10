@@ -16,6 +16,7 @@ Test client.
 
 import string
 import random
+import time
 
 # import traceback
 
@@ -168,6 +169,7 @@ def setup_workflow():
     workflow.add_work(work1)
     workflow.add_work(work2)
     workflow.add_work(work3)
+    workflow.name = 'test_workflow.idds.%s' % time.time()
     return workflow
 
 
