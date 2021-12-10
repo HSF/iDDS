@@ -11,5 +11,5 @@ dependencies:
   - nose             # nose test tools
   - rucio-clients
   - rucio-clients-atlas
-  - idds-common==0.9.3
-  - idds-workflow==0.9.3
+  - idds-common==0.9.4
+  - idds-workflow==0.9.4
