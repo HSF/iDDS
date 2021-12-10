@@ -38,7 +38,7 @@ class ClientManager:
         self.client = Client(host=self.host)
 
     @exception_handler
-    def submit(self, workflow, username=None, userdn=None):
+    def submit(self, workflow, username=None, userdn=None, use_dataset_name=True):
         """
         Submit the workflow as a request to iDDS server.
 
@@ -59,14 +59,16 @@ class ClientManager:
             'request_metadata': {'version': release_version, 'workload_id': workflow.get_workload_id(), 'workflow': workflow}
         }
         workflow.add_proxy()
-        primary_init_work = workflow.get_primary_initial_collection()
-        if primary_init_work:
-            if type(primary_init_work) in [Collection]:
-                props['scope'] = primary_init_work.scope
-                props['name'] = primary_init_work.name
-            else:
-                props['scope'] = primary_init_work['scope']
-                props['name'] = primary_init_work['name']
+
+        if use_dataset_name:
+            primary_init_work = workflow.get_primary_initial_collection()
+            if primary_init_work:
+                if type(primary_init_work) in [Collection]:
+                    props['scope'] = primary_init_work.scope
+                    props['name'] = primary_init_work.name
+                else:
+                    props['scope'] = primary_init_work['scope']
+                    props['name'] = primary_init_work['name']
 
         # print(props)
         request_id = self.client.add_request(**props)
