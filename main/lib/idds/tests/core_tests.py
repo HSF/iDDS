@@ -110,6 +110,10 @@ for req in reqs:
     print(json_dumps(req, sort_keys=True, indent=4))
     # show_works(req)
     pass
+    workflow = req['request_metadata']['workflow']
+    if hasattr(workflow, 'get_relation_map'):
+        # print(json_dumps(workflow.get_relation_map(), sort_keys=True, indent=4))
+        pass
 
 sys.exit(0)
 
