@@ -1261,6 +1261,9 @@ class Work(Base):
     def get_arguments(self):
         return self.arguments
 
+    def get_ancestry_works(self):
+        return []
+
     def has_to_release_inputs(self):
         if self.backup_to_release_inputs['0'] or self.backup_to_release_inputs['1'] or self.backup_to_release_inputs['2']:
             return True
