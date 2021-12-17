@@ -165,6 +165,17 @@ class DomaPanDAWork(Work):
                     return True
         return False
 
+    def get_ancestry_works(self):
+        tasks = set([])
+        for job in self.dependency_map:
+            inputs_dependency = job["dependencies"]
+
+            for input_d in inputs_dependency:
+                task_name = input_d['task']
+                if task_name not in tasks:
+                    tasks.add(task_name)
+        return list(tasks)
+
     def poll_external_collection(self, coll):
         try:
             if coll.status in [CollectionStatus.Closed]:
@@ -876,7 +887,7 @@ class DomaPanDAWork(Work):
                     self.logger.debug("poll_panda_task, task_info[0]: %s" % str(task_info[0]))
                     if task_info[0] != 0:
                         self.logger.warn("poll_panda_task %s, error getting task status, task_info: %s" % (task_id, str(task_info)))
-                        return ProcessingStatus.Submitting, {}
+                        return ProcessingStatus.Submitting, []
 
                     task_info = task_info[1]
 
