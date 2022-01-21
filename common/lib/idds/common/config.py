@@ -126,9 +126,10 @@ else:
             break
 
 if not __HAS_CONFIG:
-    raise Exception("Could not load configuration file."
-                    "IDDS looks for a configuration file, in order:"
-                    "\n\t${IDDS_CONFIG}"
-                    "\n\t${IDDS_HOME}/etc/idds/idds.cfg"
-                    "\n\t/etc/idds/idds.cfg"
-                    "\n\t${VIRTUAL_ENV}/etc/idds/idds.cfg")
+    pass
+    # raise Exception("Could not load configuration file."
+    #                 "IDDS looks for a configuration file, in order:"
+    #                 "\n\t${IDDS_CONFIG}"
+    #                 "\n\t${IDDS_HOME}/etc/idds/idds.cfg"
+    #                 "\n\t/etc/idds/idds.cfg"
+    #                 "\n\t${VIRTUAL_ENV}/etc/idds/idds.cfg")
