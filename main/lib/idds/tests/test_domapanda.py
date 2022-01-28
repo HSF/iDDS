@@ -40,7 +40,7 @@ from idds.doma.workflowv2.domapandawork import DomaPanDAWork
 task_queue = 'DOMA_LSST_GOOGLE_TEST'
 task_queue = 'DOMA_LSST_GOOGLE_MERGE'
 task_queue = 'SLAC_TEST'
-task_queue = 'DOMA_LSST_SLAC_TEST'
+# task_queue = 'DOMA_LSST_SLAC_TEST'
 
 
 def randStr(chars=string.ascii_lowercase + string.digits, N=10):

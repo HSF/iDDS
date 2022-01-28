@@ -3,6 +3,7 @@ dependencies:
 - python==3.9.7 
 - pip
 - pip:
+  - argcomplete
   - requests                         # requests
   - SQLAlchemy                       # db orm
   - urllib3                          # url connections
