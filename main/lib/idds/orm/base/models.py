@@ -33,7 +33,7 @@ from idds.common.constants import (RequestType, RequestStatus, RequestLocking,
                                    MessageSource, MessageDestination)
 from idds.common.utils import date_to_str
 from idds.orm.base.enum import EnumSymbol
-from idds.orm.base.types import JSON, EnumWithValue
+from idds.orm.base.types import JSON, JSONString, EnumWithValue
 from idds.orm.base.session import BASE, DEFAULT_SCHEMA_NAME
 from idds.common.constants import (SCOPE_LENGTH, NAME_LENGTH)
 
@@ -148,7 +148,7 @@ class Request(BASE, ModelBase):
     next_poll_at = Column("next_poll_at", DateTime, default=datetime.datetime.utcnow)
     accessed_at = Column("accessed_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     expired_at = Column("expired_at", DateTime)
-    errors = Column(String(1024))
+    errors = Column(JSONString(1024))
     _request_metadata = Column('request_metadata', JSON())
     _processing_metadata = Column('processing_metadata', JSON())
 
@@ -234,7 +234,7 @@ class Workprogress(BASE, ModelBase):
     next_poll_at = Column("next_poll_at", DateTime, default=datetime.datetime.utcnow)
     accessed_at = Column("accessed_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     expired_at = Column("expired_at", DateTime)
-    errors = Column(String(1024))
+    errors = Column(JSONString(1024))
     workprogress_metadata = Column(JSON())
     processing_metadata = Column(JSON())
 
@@ -491,7 +491,7 @@ class Content(BASE, ModelBase):
     updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     accessed_at = Column("accessed_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     expired_at = Column("expired_at", DateTime)
-    content_metadata = Column(String(100))
+    content_metadata = Column(JSONString(100))
 
     _table_args = (PrimaryKeyConstraint('content_id', name='CONTENTS_PK'),
                    # UniqueConstraint('name', 'scope', 'coll_id', 'content_type', 'min_id', 'max_id', name='CONTENT_SCOPE_NAME_UQ'),
