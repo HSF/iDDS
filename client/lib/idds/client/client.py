@@ -34,7 +34,7 @@ class Client(RequestClient, CatalogClient, CacherClient, HPOClient, LogsClient, 
 
     """Main client class for IDDS rest callings."""
 
-    def __init__(self, host=None, timeout=600):
+    def __init__(self, host=None, timeout=600, client_proxy=None):
         """
         Constructor for the IDDS main client class.
 
@@ -42,7 +42,8 @@ class Client(RequestClient, CatalogClient, CacherClient, HPOClient, LogsClient, 
         :param timeout: the timeout of the request (in seconds).
         """
 
-        client_proxy = self.get_user_proxy()
+        # if client_proxy is None:
+        #     client_proxy = self.get_user_proxy()
         super(Client, self).__init__(host=host, client_proxy=client_proxy, timeout=timeout)
 
     def get_user_proxy(sellf):

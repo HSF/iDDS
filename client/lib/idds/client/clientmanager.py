@@ -12,15 +12,23 @@
 """
 Workflow manager.
 """
+import os
 import logging
 import tabulate
 
-from idds.common.utils import setup_logging
+try:
+    import ConfigParser
+except ImportError:
+    import configparser as ConfigParser
+
+from idds.common.utils import setup_logging, get_proxy_path
 
 from idds.client.version import release_version
 from idds.client.client import Client
+from idds.common.config import get_local_cfg_file, get_local_config_root, get_local_config_value
 from idds.common.constants import RequestType, RequestStatus
-from idds.common.utils import get_rest_host, exception_handler
+# from idds.common.utils import get_rest_host, exception_handler
+from idds.common.utils import exception_handler
 
 # from idds.workflowv2.work import Work, Parameter, WorkStatus
 # from idds.workflowv2.workflow import Condition, Workflow
@@ -33,9 +41,142 @@ setup_logging(__name__)
 class ClientManager:
     def __init__(self, host=None):
         self.host = host
+        # if self.host is None:
+        #     self.host = get_rest_host()
+        # self.client = Client(host=self.host)
+
+        self.local_config_root = None,
+        self.config = None,
+        self.auth_type = None,
+        self.x509_proxy = None,
+
+        self.oidc_refresh_lifetime = None,
+        self.oidc_issuer = None,
+        self.oidc_audience = None,
+        self.oidc_token = None,
+        self.oidc_auto = None,
+        self.oidc_username = None,
+        self.oidc_password = None,
+        self.oidc_scope = None,
+        self.oidc_polling = None
+
+        self.configuration = ConfigParser.SafeConfigParser()
+        self.setup_local_configuration(host=host)
         if self.host is None:
-            self.host = get_rest_host()
-        self.client = Client(host=self.host)
+            local_cfg = self.get_local_cfg_file()
+            self.host = self.get_config_value(local_cfg, 'rest', 'host', current=self.host, default=None)
+
+        self.client = Client(host=self.host, client_proxy=self.x509_proxy)
+
+    def get_local_config_root(self):
+        local_cfg_root = get_local_config_root(self.local_config_root)
+        return local_cfg_root
+
+    def get_local_cfg_file(self):
+        local_cfg = get_local_cfg_file(self.local_config_root)
+        return local_cfg
+
+    def get_config_value(self, configuration, section, name, current, default):
+        if type(configuration) in [str]:
+            config = ConfigParser.SafeConfigParser()
+            config.read(configuration)
+            configuration = config
+        value = get_local_config_value(configuration, section, name, current, default)
+        return value
+
+    @exception_handler
+    def get_local_configuration(self):
+        local_cfg = self.get_local_cfg_file()
+        config = ConfigParser.SafeConfigParser()
+        if os.path.exists(local_cfg):
+            config.read(local_cfg)
+
+        self.config = self.get_config_value(config, section='common', name='config', current=self.config,
+                                            default=os.path.join(self.get_local_config_root(), 'idds.cfg'))
+        self.auth_type = self.get_config_value(config, 'common', 'auth_type', current=self.auth_type, default='x509_proxy')
+
+        self.host = self.get_config_value(config, 'rest', 'host', current=self.host, default=None)
+
+        self.x509_proxy = self.get_config_value(config, 'x509', 'x509_proxy', current=self.x509_proxy,
+                                                default='/tmp/x509up_u%d' % os.geteuid())
+        if not self.x509_proxy or not os.path.exists(self.x509_proxy):
+            proxy = get_proxy_path()
+            if proxy:
+                self.x509_proxy = proxy
+
+        self.oidc_refresh_lifetime = self.get_config_value(config, 'oidc', 'oidc_refresh_lifetime',
+                                                           current=self.oidc_refresh_lifetime, default=None)
+        self.oidc_issuer = self.get_config_value(config, 'oidc', 'oidc_issuer', current=self.oidc_audience, default=None)
+        self.oidc_audience = self.get_config_value(config, 'oidc', 'oidc_audience', current=self.oidc_audience, default=None)
+        self.oidc_token = self.get_config_value(config, 'oidc', 'oidc_token', current=self.oidc_token,
+                                                default=os.path.join(self.get_local_config_root(), '.oidc_token'))
+        self.oidc_auto = self.get_config_value(config, 'oidc', 'oidc_auto', current=self.oidc_auto, default=False)
+        self.oidc_username = self.get_config_value(config, 'oidc', 'oidc_username', current=self.oidc_username, default=None)
+        self.oidc_password = self.get_config_value(config, 'oidc', 'oidc_password', current=self.oidc_password, default=None)
+        self.oidc_scope = self.get_config_value(config, 'oidc', 'oidc_scope', current=self.oidc_scope, default='openid profile')
+        self.oidc_polling = self.get_config_value(config, 'oidc', 'oidc_polling', current=self.oidc_polling, default=False)
+
+        self.configuration = config
+
+    @exception_handler
+    def save_local_configuration(self):
+        local_cfg = self.get_local_cfg_file()
+        with open(local_cfg, 'w') as configfile:
+            self.configuration.write(configfile)
+
+    @exception_handler
+    def setup_local_configuration(self, local_config_root=None, config=None, host=None,
+                                  auth_type=None, x509_proxy=None,
+                                  oidc_refresh_lifetime=None, oidc_issuer=None,
+                                  oidc_audience=None, oidc_token=None,
+                                  oidc_auto=None, oidc_username=None, oidc_password=None,
+                                  oidc_scope=None, oidc_polling=None):
+
+        if 'IDDS_CONFIG' in os.environ and os.environ['IDDS_CONFIG']:
+            if config is None:
+                print("IDDS_CONFIG is set. Will use it.")
+                config = os.environ['IDDS_CONFIG']
+            else:
+                print("config is set to %s. Ignore IDDS_CONFIG" % config)
+
+        self.local_config_root = local_config_root
+        self.config = config
+        self.host = host
+        self.auth_type = auth_type
+        self.x509_proxy = x509_proxy
+        self.oidc_refresh_lifetime = oidc_refresh_lifetime
+        self.oidc_issuer = oidc_issuer
+        self.oidc_audience = oidc_audience
+        self.oidc_token = oidc_token
+        self.oidc_auto = oidc_auto
+        self.oidc_username = oidc_username
+        self.oidc_password = oidc_password
+        self.oidc_scope = oidc_scope
+        self.oidc_polling = oidc_polling
+
+        self.get_local_configuration()
+        self.save_local_configuration()
+
+    @exception_handler
+    def setup_oidc_token(self):
+        """"
+        Setup oidc token
+        """
+        pass
+
+    @exception_handler
+    def clean_oidc_token(self):
+        """"
+        Clean oidc token
+        """
+        pass
+
+    @exception_handler
+    def check_oidc_token_status(self):
+        """"
+        Check oidc token status
+        """
+        pass
 
     @exception_handler
     def submit(self, workflow, username=None, userdn=None, use_dataset_name=True):
