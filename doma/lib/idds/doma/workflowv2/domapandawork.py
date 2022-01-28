@@ -66,6 +66,9 @@ class DomaPanDAWork(Work):
         self.panda_url = None
         self.panda_url_ssl = None
         self.panda_monitor = None
+        self.panda_auth = None
+        self.panda_auth_vo = None
+        self.panda_config_root = None
 
         self.dependency_map = dependency_map
         self.dependency_map_deleted = []
@@ -121,6 +124,9 @@ class DomaPanDAWork(Work):
         self.panda_url = None
         self.panda_url_ssl = None
         self.panda_monitor = None
+        self.panda_auth = None
+        self.panda_auth_vo = None
+        self.panda_config_root = None
 
         if panda_config.has_section('panda'):
             if panda_config.has_option('panda', 'panda_monitor_url'):
@@ -135,6 +141,15 @@ class DomaPanDAWork(Work):
                 self.panda_url_ssl = panda_config.get('panda', 'panda_url_ssl')
                 os.environ['PANDA_URL_SSL'] = self.panda_url_ssl
                 # self.logger.debug("Panda url ssl: %s" % str(self.panda_url_ssl))
+            if panda_config.has_option('panda', 'panda_auth'):
+                self.panda_auth = panda_config.get('panda', 'panda_auth')
+                os.environ['PANDA_AUTH'] = self.panda_auth
+            if panda_config.has_option('panda', 'panda_auth_vo'):
+                self.panda_auth_vo = panda_config.get('panda', 'panda_auth_vo')
+                os.environ['PANDA_AUTH_VO'] = self.panda_auth_vo
+            if panda_config.has_option('panda', 'panda_config_root'):
+                self.panda_config_root = panda_config.get('panda', 'panda_config_root')
+                os.environ['PANDA_CONFIG_ROOT'] = self.panda_config_root
 
         if not self.panda_monitor and 'PANDA_MONITOR_URL' in os.environ and os.environ['PANDA_MONITOR_URL']:
             self.panda_monitor = os.environ['PANDA_MONITOR_URL']
@@ -145,6 +160,12 @@ class DomaPanDAWork(Work):
         if not self.panda_url_ssl and 'PANDA_URL_SSL' in os.environ and os.environ['PANDA_URL_SSL']:
             self.panda_url_ssl = os.environ['PANDA_URL_SSL']
             # self.logger.debug("Panda url ssl: %s" % str(self.panda_url_ssl))
+        if not self.panda_auth and 'PANDA_AUTH' in os.environ and os.environ['PANDA_AUTH']:
+            self.panda_auth = os.environ['PANDA_AUTH']
+        if not self.panda_auth_vo and 'PANDA_AUTH_VO' in os.environ and os.environ['PANDA_AUTH_VO']:
+            self.panda_auth_vo = os.environ['PANDA_AUTH_VO']
+        if not self.panda_config_root and 'PANDA_CONFIG_ROOT' in os.environ and os.environ['PANDA_CONFIG_ROOT']:
+            self.panda_config_root = os.environ['PANDA_CONFIG_ROOT']
 
     def set_agent_attributes(self, attrs, req_attributes=None):
         if 'life_time' not in attrs[self.class_name] or int(attrs[self.class_name]['life_time']) <= 0:
