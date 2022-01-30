@@ -48,7 +48,7 @@ class DomaPanDAWork(Work):
                  num_retries=5,
                  task_log=None,
                  task_cloud=None,
-                 task_rss=0):
+                 task_rss=1000):
 
         super(DomaPanDAWork, self).__init__(executable=executable, arguments=arguments,
                                             parameters=parameters, setup=setup, work_type=TransformType.Processing,
