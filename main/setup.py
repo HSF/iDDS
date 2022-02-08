@@ -118,6 +118,7 @@ data_files = [
     # config and cron files
     ('etc/idds/', glob.glob('etc/idds/*.template')),
     ('etc/idds/rest', glob.glob('etc/idds/rest/*template')),
+    ('etc/idds/auth', glob.glob('etc/idds/auth/*template')),
     ('tools/env/', glob.glob('tools/env/*')),
 ]
 scripts = glob.glob('bin/*')

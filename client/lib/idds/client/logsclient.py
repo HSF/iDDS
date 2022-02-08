@@ -26,7 +26,7 @@ class LogsClient(BaseRestClient):
 
     LOGS_BASEURL = 'logs'
 
-    def __init__(self, host=None, client_proxy=None, timeout=None):
+    def __init__(self, host=None, auth=None, timeout=None):
         """
         Constructor of the BaseRestClient.
 
@@ -34,7 +34,7 @@ class LogsClient(BaseRestClient):
         :param client_proxy: the client certificate proxy.
         :param timeout: timeout in seconds.
         """
-        super(LogsClient, self).__init__(host=host, client_proxy=client_proxy, timeout=timeout)
+        super(LogsClient, self).__init__(host=host, auth=auth, timeout=timeout)
 
     def download_logs(self, workload_id=None, request_id=None, dest_dir='./', filename=None):
         """

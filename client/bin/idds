@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2021
+# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2022
 
 """
 iDDS CLI
@@ -31,23 +31,15 @@ def setup(args):
     cm.setup_local_configuration(local_config_root=args.local_config_root,
                                  config=args.config, host=args.host,
                                  auth_type=args.auth_type,
-                                 x509_proxy=args.x509_proxy)
+                                 auth_type_host=args.auth_type_host,
+                                 x509_proxy=args.x509_proxy,
+                                 vo=args.vo,
+                                 oidc_token=args.oidc_token)
     return cm
 
 
 def setup_oidc_token(args):
     cm = ClientManager(host=args.host)
-    cm.setup_local_configuration(local_config_root=args.local_config_root,
-                                 config=args.config, host=args.host,
-                                 oidc_refresh_lifetime=args.oidc_refresh_lifetime,
-                                 oidc_issuer=args.oidc_issuer,
-                                 oidc_audience=args.oidc_audience,
-                                 oidc_token=args.oidc_token,
-                                 oidc_auto=args.oidc_auto,
-                                 oidc_username=args.oidc_username,
-                                 oidc_password=args.oidc_password,
-                                 oidc_scope=args.oidc_scope,
-                                 oidc_polling=args.oidc_polling)
     cm.setup_oidc_token()
 
 
@@ -146,22 +138,24 @@ def get_parser():
     # setup
     setup_parser = subparsers.add_parser('setup', help='Setup local configuration')
     setup_parser.set_defaults(function=setup)
-    setup_parser.add_argument('-H', '--host', dest="host", metavar="ADDRESS", help="The iDDS Rest host. For example: https://hostname:443/idds")
-    setup_parser.add_argument('--auth_type', dest='auth_type', action='store', default=None, help='The auth_type in [x509_proxy, oidc, saml]. Default is x509_proxy.')
+    setup_parser.add_argument('--host', dest="auth_type_host", metavar="ADDRESS", help="The iDDS Rest host for the current auth type. For example: https://hostname:443/idds")
+    setup_parser.add_argument('--auth_type', dest='auth_type', action='store', default=None, help='The auth_type in [x509_proxy, oidc]. Default is x509_proxy.')
     setup_parser.add_argument('--x509_proxy', dest='x509_proxy', action='store', default=None, help='The x509 proxy path. Default is /tmp/x509up_u%d.' % os.geteuid())
+    setup_parser.add_argument('--vo', dest='vo', action='store', default=None, help='The virtual organization for authentication.')
+    setup_parser.add_argument('--oidc_token', dest='oidc_token', default=None, help='The oidc token path. Default is {local_config_root}/.oidc_token.')
 
     # setup token
     token_setup_parser = subparsers.add_parser('setup_oidc_token', help='Setup authentication token')
     token_setup_parser.set_defaults(function=setup_oidc_token)
-    token_setup_parser.add_argument('--oidc_refresh_lifetime', dest='oidc_refresh_lifetime', default=None, help='The oidc refresh lifetime')
-    token_setup_parser.add_argument('--oidc_issuer', dest='oidc_issuer', default=None, help='The oidc issuer')
-    token_setup_parser.add_argument('--oidc_audience', dest='oidc_audience', default=None, help='The oidc audience')
-    token_setup_parser.add_argument('--oidc_token', dest='oidc_token', default=None, help='The oidc token path. Default is {local_config_root}/.oidc_token.')
-    token_setup_parser.add_argument('--oidc_auto', dest='oidc_auto', default=False, action='store_true', help='Get oidc token automatically, requiring oidc_username and oidc_password')
-    token_setup_parser.add_argument('--oidc_username', dest='oidc_username', default=None, help='The oidc username for getting oidc token, with --oidc_auto')
-    token_setup_parser.add_argument('--oidc_password', dest='oidc_password', default=None, help='The oidc password for getting oidc token, with --oidc_auto')
-    token_setup_parser.add_argument('--oidc_scope', dest='oidc_scope', default=None, help='The oidc scope. Default is openid profile.')
-    token_setup_parser.add_argument('--oidc_polling', dest='oidc_polling', default=False, help='whether polling oidc')
+    # token_setup_parser.add_argument('--oidc_refresh_lifetime', dest='oidc_refresh_lifetime', default=None, help='The oidc refresh lifetime')
+    # token_setup_parser.add_argument('--oidc_issuer', dest='oidc_issuer', default=None, help='The oidc issuer')
+    # token_setup_parser.add_argument('--oidc_audience', dest='oidc_audience', default=None, help='The oidc audience')
+    # token_setup_parser.add_argument('--oidc_token', dest='oidc_token', default=None, help='The oidc token path. Default is {local_config_root}/.oidc_token.')
+    # token_setup_parser.add_argument('--oidc_auto', dest='oidc_auto', default=False, action='store_true', help='Get oidc token automatically, requiring oidc_username and oidc_password')
+    # token_setup_parser.add_argument('--oidc_username', dest='oidc_username', default=None, help='The oidc username for getting oidc token, with --oidc_auto')
+    # token_setup_parser.add_argument('--oidc_password', dest='oidc_password', default=None, help='The oidc password for getting oidc token, with --oidc_auto')
+    # token_setup_parser.add_argument('--oidc_scope', dest='oidc_scope', default=None, help='The oidc scope. Default is openid profile.')
+    # token_setup_parser.add_argument('--oidc_polling', dest='oidc_polling', default=False, help='whether polling oidc')
     # token_setup_parser.add_argument('--saml_username', dest='saml_username', default=None, help='The SAML username')
     # token_setup_parser.add_argument('--saml_password', dest='saml_password', default=None, help='The saml password')
 

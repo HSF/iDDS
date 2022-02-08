@@ -25,7 +25,7 @@ class CatalogClient(BaseRestClient):
 
     CATALOG_BASEURL = 'catalog'
 
-    def __init__(self, host=None, client_proxy=None, timeout=None):
+    def __init__(self, host=None, auth=None, timeout=None):
         """
         Constructor of the BaseRestClient.
 
@@ -33,7 +33,7 @@ class CatalogClient(BaseRestClient):
         :param client_proxy: the client certificate proxy.
         :param timeout: timeout in seconds.
         """
-        super(CatalogClient, self).__init__(host=host, client_proxy=client_proxy, timeout=timeout)
+        super(CatalogClient, self).__init__(host=host, auth=auth, timeout=timeout)
 
     def get_collections(self, scope=None, name=None, request_id=None, workload_id=None, relation_type=None):
         """
