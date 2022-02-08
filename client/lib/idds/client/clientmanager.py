@@ -12,15 +12,26 @@
 """
 Workflow manager.
 """
+import datetime
 import os
+import sys
 import logging
 import tabulate
+import time
 
 try:
     import ConfigParser
 except ImportError:
     import configparser as ConfigParser
 
+try:
+    from urllib import urlencode        # noqa F401
+except ImportError:
+    from urllib.parse import urlencode  # noqa F401
+    raw_input = input
+
+
+from idds.common.authentication import OIDCAuthenticationUtil
 from idds.common.utils import setup_logging, get_proxy_path
 
 from idds.client.version import release_version
@@ -39,34 +50,35 @@ setup_logging(__name__)
 
 
 class ClientManager:
-    def __init__(self, host=None):
+    def __init__(self, host=None, timeout=600):
         self.host = host
+        self.timeout = timeout
         # if self.host is None:
         #     self.host = get_rest_host()
         # self.client = Client(host=self.host)
 
-        self.local_config_root = None,
-        self.config = None,
-        self.auth_type = None,
-        self.x509_proxy = None,
-
-        self.oidc_refresh_lifetime = None,
-        self.oidc_issuer = None,
-        self.oidc_audience = None,
-        self.oidc_token = None,
-        self.oidc_auto = None,
-        self.oidc_username = None,
-        self.oidc_password = None,
-        self.oidc_scope = None,
-        self.oidc_polling = None
+        self.local_config_root = None
+        self.config = None
+        self.auth_type = None
+        self.auth_type_host = None
+        self.x509_proxy = None
+        self.oidc_token = None
+        self.vo = None
 
         self.configuration = ConfigParser.SafeConfigParser()
         self.setup_local_configuration(host=host)
         if self.host is None:
             local_cfg = self.get_local_cfg_file()
-            self.host = self.get_config_value(local_cfg, 'rest', 'host', current=self.host, default=None)
+            self.host = self.get_config_value(local_cfg, self.auth_type, 'host', current=self.host, default=None)
+            if self.host is None:
+                self.host = self.get_config_value(local_cfg, 'rest', 'host', current=self.host, default=None)
 
-        self.client = Client(host=self.host, client_proxy=self.x509_proxy)
+        self.client = Client(host=self.host,
+                             auth={'auth_type': self.auth_type,
+                                   'client_proxy': self.x509_proxy,
+                                   'oidc_token': self.oidc_token,
+                                   'vo': self.vo},
+                             timeout=self.timeout)
 
     def get_local_config_root(self):
         local_cfg_root = get_local_config_root(self.local_config_root)
@@ -84,7 +96,6 @@ class ClientManager:
         value = get_local_config_value(configuration, section, name, current, default)
         return value
 
-    @exception_handler
     def get_local_configuration(self):
         local_cfg = self.get_local_cfg_file()
         config = ConfigParser.SafeConfigParser()
@@ -96,29 +107,21 @@ class ClientManager:
         self.auth_type = self.get_config_value(config, 'common', 'auth_type', current=self.auth_type, default='x509_proxy')
 
         self.host = self.get_config_value(config, 'rest', 'host', current=self.host, default=None)
+        self.auth_type_host = self.get_config_value(config, self.auth_type, 'host', current=self.auth_type_host, default=None)
 
-        self.x509_proxy = self.get_config_value(config, 'x509', 'x509_proxy', current=self.x509_proxy,
+        self.x509_proxy = self.get_config_value(config, 'x509_proxy', 'x509_proxy', current=self.x509_proxy,
                                                 default='/tmp/x509up_u%d' % os.geteuid())
         if not self.x509_proxy or not os.path.exists(self.x509_proxy):
             proxy = get_proxy_path()
             if proxy:
                 self.x509_proxy = proxy
 
-        self.oidc_refresh_lifetime = self.get_config_value(config, 'oidc', 'oidc_refresh_lifetime',
-                                                           current=self.oidc_refresh_lifetime, default=None)
-        self.oidc_issuer = self.get_config_value(config, 'oidc', 'oidc_issuer', current=self.oidc_audience, default=None)
-        self.oidc_audience = self.get_config_value(config, 'oidc', 'oidc_audience', current=self.oidc_audience, default=None)
         self.oidc_token = self.get_config_value(config, 'oidc', 'oidc_token', current=self.oidc_token,
                                                 default=os.path.join(self.get_local_config_root(), '.oidc_token'))
-        self.oidc_auto = self.get_config_value(config, 'oidc', 'oidc_auto', current=self.oidc_auto, default=False)
-        self.oidc_username = self.get_config_value(config, 'oidc', 'oidc_username', current=self.oidc_username, default=None)
-        self.oidc_password = self.get_config_value(config, 'oidc', 'oidc_password', current=self.oidc_password, default=None)
-        self.oidc_scope = self.get_config_value(config, 'oidc', 'oidc_scope', current=self.oidc_scope, default='openid profile')
-        self.oidc_polling = self.get_config_value(config, 'oidc', 'oidc_polling', current=self.oidc_polling, default=False)
+        self.vo = self.get_config_value(config, self.auth_type, 'vo', current=self.vo, default=None)
 
         self.configuration = config
 
-    @exception_handler
     def save_local_configuration(self):
         local_cfg = self.get_local_cfg_file()
         with open(local_cfg, 'w') as configfile:
@@ -126,11 +129,8 @@ class ClientManager:
 
     @exception_handler
     def setup_local_configuration(self, local_config_root=None, config=None, host=None,
-                                  auth_type=None, x509_proxy=None,
-                                  oidc_refresh_lifetime=None, oidc_issuer=None,
-                                  oidc_audience=None, oidc_token=None,
-                                  oidc_auto=None, oidc_username=None, oidc_password=None,
-                                  oidc_scope=None, oidc_polling=None):
+                                  auth_type=None, auth_type_host=None, x509_proxy=None,
+                                  oidc_token=None, vo=None):
 
         if 'IDDS_CONFIG' in os.environ and os.environ['IDDS_CONFIG']:
             if config is None:
@@ -143,16 +143,10 @@ class ClientManager:
         self.config = config
         self.host = host
         self.auth_type = auth_type
+        self.auth_type_host = auth_type_host
         self.x509_proxy = x509_proxy
-        self.oidc_refresh_lifetime = oidc_refresh_lifetime
-        self.oidc_issuer = oidc_issuer
-        self.oidc_audience = oidc_audience
         self.oidc_token = oidc_token
-        self.oidc_auto = oidc_auto
-        self.oidc_username = oidc_username
-        self.oidc_password = oidc_password
-        self.oidc_scope = oidc_scope
-        self.oidc_polling = oidc_polling
+        self.vo = vo
 
         self.get_local_configuration()
         self.save_local_configuration()
@@ -162,21 +156,112 @@ class ClientManager:
         """"
         Setup oidc token
         """
-        pass
+        sign_url = self.client.get_oidc_sign_url(self.vo)
+        logging.info(("Please go to {0} and sign in. "
+                      "Waiting until authentication is completed").format(sign_url['verification_uri_complete']))
+
+        logging.info('Ready to get ID token?')
+        while True:
+            sys.stdout.write("[y/n] \n")
+            choice = raw_input().lower()
+            if choice == 'y':
+                break
+            elif choice == 'n':
+                logging.info('aborted')
+                return
+
+        if 'interval' in sign_url:
+            interval = sign_url['interval']
+        else:
+            interval = 5
+
+        if 'expires_in' in sign_url:
+            expires_in = sign_url['expires_in']
+        else:
+            expires_in = 60
+
+        token = None
+        start_time = datetime.datetime.utcnow()
+        while datetime.datetime.utcnow() - start_time < datetime.timedelta(seconds=expires_in):
+            try:
+                status, output = self.client.get_id_token(self.vo, sign_url['device_code'])
+                logging.debug("get_id_token: status: %s, output: %s" % (status, output))
+                if status:
+                    token = output
+                    break
+                else:
+                    if type(output) in [dict] and 'error' in output and output['error'] == 'authorization_pending':
+                        logging.debug("get_id_token: pending: %s" % str(output))
+                        time.sleep(interval)
+                    else:
+                        logging.error("get_id_token: unknown error: %s" % str(output))
+                        break
+            except Exception as error:
+                logging.error("get_id_token: exception: %s" % str(error))
+                break
+
+        if not token:
+            logging.error("Failed to get token.")
+        else:
+            oidc_util = OIDCAuthenticationUtil()
+            status, output = oidc_util.save_token(self.oidc_token, token)
+            if status:
+                logging.info("Token is saved to %s" % (self.oidc_token))
+            else:
+                logging.info("Failed to save token to %s: (status: %s, output: %s)" % (self.oidc_token, status, output))
+
+    @exception_handler
+    def refresh_oidc_token(self):
+        """"
+        refresh oidc token
+        """
+        oidc_util = OIDCAuthenticationUtil()
+        status, token = oidc_util.load_token(self.oidc_token)
+        if not status:
+            logging.error("Token %s cannot be loaded: %s" % (status, token))
+            return
+
+        is_expired, output = oidc_util.is_token_expired(token)
+        if is_expired:
+            logging.error("Token %s is already expired(%s). Cannot refresh." % self.oidc_token, output)
+        else:
+            new_token = self.client.refresh_id_token(self.vo, token['refresh_token'])
+            status, data = oidc_util.save_token(self.oidc_token, new_token)
+            if status:
+                logging.info("New token saved to %s" % self.oidc_token)
+            else:
+                logging.info("Failed to save token to %s: %s" % (self.oidc_token, data))
 
     @exception_handler
     def clean_oidc_token(self):
         """"
         Clean oidc token
         """
-        pass
+        oidc_util = OIDCAuthenticationUtil()
+        status, output = oidc_util.clean_token(self.oidc_token)
+        if status:
+            logging.info("Token %s is cleaned" % self.oidc_token)
+        else:
+            logging.error("Failed to clean token %s: status: %s, output: %s" % (self.oidc_token, status, output))
 
     @exception_handler
     def check_oidc_token_status(self):
         """"
         Check oidc token status
         """
-        pass
+        oidc_util = OIDCAuthenticationUtil()
+        status, token = oidc_util.load_token(self.oidc_token)
+        if not status:
+            logging.error("Token %s cannot be loaded: %s" % (status, token))
+            return
+
+        status, token_info = oidc_util.get_token_info(token)
+        if status:
+            logging.info("Token path: %s" % self.oidc_token)
+            for k in token_info:
+                logging.info("Token %s: %s" % (k, token_info[k]))
+        else:
+            logging.error("Failed to parse token information: %s" % str(token_info))
 
     @exception_handler
     def submit(self, workflow, username=None, userdn=None, use_dataset_name=True):
