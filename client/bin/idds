@@ -21,13 +21,14 @@ import logging
 import os
 import sys
 import time
+# import traceback
 
 from idds.client.version import release_version
 from idds.client.clientmanager import ClientManager
 
 
 def setup(args):
-    cm = ClientManager(host=args.host)
+    cm = ClientManager(host=args.host, setup_client=False)
     cm.setup_local_configuration(local_config_root=args.local_config_root,
                                  config=args.config, host=args.host,
                                  auth_type=args.auth_type,
@@ -39,68 +40,79 @@ def setup(args):
 
 
 def setup_oidc_token(args):
-    cm = ClientManager(host=args.host)
+    cm = ClientManager(host=args.host, setup_client=True)
     cm.setup_oidc_token()
 
 
 def clean_oidc_token(args):
-    cm = ClientManager(host=args.host)
+    cm = ClientManager(host=args.host, setup_client=False)
     cm.clean_oidc_token()
 
 
 def check_oidc_token_status(args):
-    cm = ClientManager(host=args.host)
+    cm = ClientManager(host=args.host, setup_client=False)
     cm.check_oidc_token_status()
 
 
+def refresh_oidc_token(args):
+    cm = ClientManager(host=args.host, setup_client=False)
+    cm.refresh_oidc_token()
+
+
+def ping(args):
+    cm = ClientManager(host=args.host, setup_client=False)
+    status = cm.ping()
+    print(status)
+
+
 def get_requests_status(args):
-    wm = ClientManager(host=args.host)
+    wm = ClientManager(host=args.host, setup_client=True)
     ret = wm.get_status(request_id=args.request_id, workload_id=args.workload_id, with_detail=args.with_detail)
     print(ret)
 
 
 def abort_requests(args):
-    wm = ClientManager(host=args.host)
+    wm = ClientManager(host=args.host, setup_client=True)
     wm.abort(request_id=args.request_id, workload_id=args.workload_id)
 
 
 def suspend_requests(args):
-    wm = ClientManager(host=args.host)
+    wm = ClientManager(host=args.host, setup_client=True)
     wm.suspend(request_id=args.request_id, workload_id=args.workload_id)
 
 
 def resume_requests(args):
-    wm = ClientManager(host=args.host)
+    wm = ClientManager(host=args.host, setup_client=True)
     wm.resume(request_id=args.request_id, workload_id=args.workload_id)
 
 
 def retry_requests(args):
-    wm = ClientManager(host=args.host)
+    wm = ClientManager(host=args.host, setup_client=True)
     wm.retry(request_id=args.request_id, workload_id=args.workload_id)
 
 
 def finish_requests(args):
-    wm = ClientManager(host=args.host)
+    wm = ClientManager(host=args.host, setup_client=True)
     wm.finish(request_id=args.request_id, workload_id=args.workload_id, set_all_finished=args.set_all_finished)
 
 
 def download_logs(args):
-    wm = ClientManager(host=args.host)
+    wm = ClientManager(host=args.host, setup_client=True)
     wm.download_logs(request_id=args.request_id, workload_id=args.workload_id, dest_dir=args.dest_dir, filename=args.dest_filename)
 
 
 def upload_to_cacher(args):
-    wm = ClientManager(host=args.host)
+    wm = ClientManager(host=args.host, setup_client=True)
     wm.upload_to_cacher(args.filename)
 
 
 def download_from_cacher(args):
-    wm = ClientManager(host=args.host)
+    wm = ClientManager(host=args.host, setup_client=True)
     wm.download_from_cacher(args.filename)
 
 
 def get_hyperparameters(args):
-    wm = ClientManager(host=args.host)
+    wm = ClientManager(host=args.host, setup_client=True)
     ret = wm.get_hyperparameters(workload_id=args.workload_id, request_id=args.request_id, id=args.id, status=args.status, limit=args.limit)
     # print(json.dumps(ret, sort_keys=True, indent=4))
     for k in ret:
@@ -108,13 +120,13 @@ def get_hyperparameters(args):
 
 
 def update_hyperparameter(args):
-    wm = ClientManager(host=args.host)
+    wm = ClientManager(host=args.host, setup_client=True)
     ret = wm.update_hyperparameter(workload_id=args.workload_id, request_id=args.request_id, id=args.id, loss=args.loss)
     print(ret)
 
 
 def get_messages(args):
-    wm = ClientManager(host=args.host)
+    wm = ClientManager(host=args.host, setup_client=True)
     ret = wm.get_messages(request_id=args.request_id, workload_id=args.workload_id)
     status, msgs = ret
     print("status: %s" % status)
@@ -139,7 +151,7 @@ def get_parser():
     setup_parser = subparsers.add_parser('setup', help='Setup local configuration')
     setup_parser.set_defaults(function=setup)
     setup_parser.add_argument('--host', dest="auth_type_host", metavar="ADDRESS", help="The iDDS Rest host for the current auth type. For example: https://hostname:443/idds")
-    setup_parser.add_argument('--auth_type', dest='auth_type', action='store', default=None, help='The auth_type in [x509_proxy, oidc]. Default is x509_proxy.')
+    setup_parser.add_argument('--auth_type', dest='auth_type', action='store', choices=['x509_proxy', 'oidc'], default=None, help='The auth_type in [x509_proxy, oidc]. Default is x509_proxy.')
     setup_parser.add_argument('--x509_proxy', dest='x509_proxy', action='store', default=None, help='The x509 proxy path. Default is /tmp/x509up_u%d.' % os.geteuid())
     setup_parser.add_argument('--vo', dest='vo', action='store', default=None, help='The virtual organization for authentication.')
     setup_parser.add_argument('--oidc_token', dest='oidc_token', default=None, help='The oidc token path. Default is {local_config_root}/.oidc_token.')
@@ -164,8 +176,16 @@ def get_parser():
     token_clean_parser.set_defaults(function=clean_oidc_token)
 
     # check token status
-    token_check_parser = subparsers.add_parser('oidc_token_info', help='Check authentication token information')
+    token_check_parser = subparsers.add_parser('get_oidc_token_info', help='Check authentication token information')
     token_check_parser.set_defaults(function=check_oidc_token_status)
+
+    # refresh token
+    token_refresh_parser = subparsers.add_parser('refresh_oidc_token', help='Refresh authentication token')
+    token_refresh_parser.set_defaults(function=refresh_oidc_token)
+
+    # ping
+    ping_parser = subparsers.add_parser('ping', help='Ping idds server')
+    ping_parser.set_defaults(function=ping)
 
     # get request status
     req_status_parser = subparsers.add_parser('get_requests_status', help='Get the requests status')
@@ -277,4 +297,5 @@ if __name__ == '__main__':
         sys.exit(0)
     except Exception as error:
         logging.error("Strange error: {0}".format(error))
+        # logging.error(traceback.format_exc())
         sys.exit(-1)
