@@ -160,7 +160,7 @@ def setup_workflow():
                                     "value": "log.tgz"},
                           task_cloud='LSST')
 
-    pending_time = 0.5
+    pending_time = 12
     # pending_time = None
     workflow = Workflow(pending_time=pending_time)
     workflow.add_work(work1)
