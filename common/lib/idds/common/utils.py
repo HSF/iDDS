@@ -405,11 +405,11 @@ def exception_handler(function):
             return function(*args, **kwargs)
         except IDDSException as ex:
             logging.error(ex)
-            print(traceback.format_exc())
+            # print(traceback.format_exc())
             return str(ex)
         except Exception as ex:
             logging.error(ex)
-            print(traceback.format_exc())
+            # print(traceback.format_exc())
             return str(ex)
     return new_funct
 

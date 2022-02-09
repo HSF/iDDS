@@ -232,3 +232,23 @@ class AgentPluginError(AgentException):
         super(AgentPluginError, self).__init__(*args, **kwargs)
         self._message = "Agent plugin exception."
         self.error_code = 502
+
+
+class AuthenticationException(IDDSException):
+    """
+    AuthenticationException
+    """
+    def __init__(self, *args, **kwargs):
+        super(AuthenticationException, self).__init__(*args, **kwargs)
+        self._message = "Authentication exception."
+        self.error_code = 600
+
+
+class AuthenticationPending(IDDSException):
+    """
+    Authentication pending
+    """
+    def __init__(self, *args, **kwargs):
+        super(AuthenticationPending, self).__init__(*args, **kwargs)
+        self._message = "Authentication pending."
+        self.error_code = 601
