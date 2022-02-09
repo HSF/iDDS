@@ -31,11 +31,12 @@ except ImportError:
     raw_input = input
 
 
-from idds.common.authentication import OIDCAuthenticationUtil
+from idds.common.authentication import OIDCAuthenticationUtils
 from idds.common.utils import setup_logging, get_proxy_path
 
 from idds.client.version import release_version
 from idds.client.client import Client
+from idds.common import exceptions
 from idds.common.config import get_local_cfg_file, get_local_config_root, get_local_config_value
 from idds.common.constants import RequestType, RequestStatus
 # from idds.common.utils import get_rest_host, exception_handler
@@ -50,7 +51,7 @@ setup_logging(__name__)
 
 
 class ClientManager:
-    def __init__(self, host=None, timeout=600):
+    def __init__(self, host=None, timeout=600, setup_client=False):
         self.host = host
         self.timeout = timeout
         # if self.host is None:
@@ -66,19 +67,29 @@ class ClientManager:
         self.vo = None
 
         self.configuration = ConfigParser.SafeConfigParser()
-        self.setup_local_configuration(host=host)
+
+        self.client = None
+        # if setup_client:
+        #     self.setup_client()
+
+    def setup_client(self, auth_setup=False):
+        self.setup_local_configuration(host=self.host)
         if self.host is None:
             local_cfg = self.get_local_cfg_file()
+            if self.auth_type is None:
+                self.auth_type = 'x509_proxy'
             self.host = self.get_config_value(local_cfg, self.auth_type, 'host', current=self.host, default=None)
             if self.host is None:
                 self.host = self.get_config_value(local_cfg, 'rest', 'host', current=self.host, default=None)
 
-        self.client = Client(host=self.host,
-                             auth={'auth_type': self.auth_type,
-                                   'client_proxy': self.x509_proxy,
-                                   'oidc_token': self.oidc_token,
-                                   'vo': self.vo},
-                             timeout=self.timeout)
+        if self.client is None:
+            self.client = Client(host=self.host,
+                                 auth={'auth_type': self.auth_type,
+                                       'client_proxy': self.x509_proxy,
+                                       'oidc_token': self.oidc_token,
+                                       'vo': self.vo,
+                                       'auth_setup': auth_setup},
+                                 timeout=self.timeout)
 
     def get_local_config_root(self):
         local_cfg_root = get_local_config_root(self.local_config_root)
@@ -127,7 +138,6 @@ class ClientManager:
         with open(local_cfg, 'w') as configfile:
             self.configuration.write(configfile)
 
-    @exception_handler
     def setup_local_configuration(self, local_config_root=None, config=None, host=None,
                                   auth_type=None, auth_type_host=None, x509_proxy=None,
                                   oidc_token=None, vo=None):
@@ -151,11 +161,12 @@ class ClientManager:
         self.get_local_configuration()
         self.save_local_configuration()
 
-    @exception_handler
     def setup_oidc_token(self):
         """"
         Setup oidc token
         """
+        self.setup_client(auth_setup=True)
+
         sign_url = self.client.get_oidc_sign_url(self.vo)
         logging.info(("Please go to {0} and sign in. "
                       "Waiting until authentication is completed").format(sign_url['verification_uri_complete']))
@@ -181,21 +192,20 @@ class ClientManager:
             expires_in = 60
 
         token = None
+        count = 0
         start_time = datetime.datetime.utcnow()
         while datetime.datetime.utcnow() - start_time < datetime.timedelta(seconds=expires_in):
             try:
-                status, output = self.client.get_id_token(self.vo, sign_url['device_code'])
-                logging.debug("get_id_token: status: %s, output: %s" % (status, output))
-                if status:
-                    token = output
-                    break
-                else:
-                    if type(output) in [dict] and 'error' in output and output['error'] == 'authorization_pending':
-                        logging.debug("get_id_token: pending: %s" % str(output))
-                        time.sleep(interval)
-                    else:
-                        logging.error("get_id_token: unknown error: %s" % str(output))
-                        break
+                output = self.client.get_id_token(self.vo, sign_url['device_code'])
+                logging.debug("get_id_token: %s" % (output))
+                token = output
+                break
+            except exceptions.AuthenticationPending as error:
+                logging.debug("Authentication pending: %s" % str(error))
+                time.sleep(interval)
+                count += 1
+                # if count % 5 == 0:
+                logging.info("Authentication is still pending. Please follow the link to authorize it.")
             except Exception as error:
                 logging.error("get_id_token: exception: %s" % str(error))
                 break
@@ -203,19 +213,20 @@ class ClientManager:
         if not token:
             logging.error("Failed to get token.")
         else:
-            oidc_util = OIDCAuthenticationUtil()
+            oidc_util = OIDCAuthenticationUtils()
             status, output = oidc_util.save_token(self.oidc_token, token)
             if status:
                 logging.info("Token is saved to %s" % (self.oidc_token))
             else:
                 logging.info("Failed to save token to %s: (status: %s, output: %s)" % (self.oidc_token, status, output))
 
-    @exception_handler
     def refresh_oidc_token(self):
         """"
         refresh oidc token
         """
-        oidc_util = OIDCAuthenticationUtil()
+        self.setup_client(auth_setup=True)
+
+        oidc_util = OIDCAuthenticationUtils()
         status, token = oidc_util.load_token(self.oidc_token)
         if not status:
             logging.error("Token %s cannot be loaded: %s" % (status, token))
@@ -237,7 +248,9 @@ class ClientManager:
         """"
         Clean oidc token
         """
-        oidc_util = OIDCAuthenticationUtil()
+        self.setup_client(auth_setup=True)
+
+        oidc_util = OIDCAuthenticationUtils()
         status, output = oidc_util.clean_token(self.oidc_token)
         if status:
             logging.info("Token %s is cleaned" % self.oidc_token)
@@ -249,10 +262,12 @@ class ClientManager:
         """"
         Check oidc token status
         """
-        oidc_util = OIDCAuthenticationUtil()
+        self.setup_client(auth_setup=True)
+
+        oidc_util = OIDCAuthenticationUtils()
         status, token = oidc_util.load_token(self.oidc_token)
         if not status:
-            logging.error("Token %s cannot be loaded: %s" % (status, token))
+            logging.error("Token %s cannot be loaded: status: %s, error: %s" % (self.oidc_token, status, token))
             return
 
         status, token_info = oidc_util.get_token_info(token)
@@ -264,12 +279,24 @@ class ClientManager:
             logging.error("Failed to parse token information: %s" % str(token_info))
 
     @exception_handler
+    def ping(self):
+        """
+        Ping the idds server
+        """
+        self.setup_client()
+        status = self.client.ping()
+        # logging.info("Ping idds server: %s" % str(status))
+        return status
+
+    @exception_handler
     def submit(self, workflow, username=None, userdn=None, use_dataset_name=True):
         """
         Submit the workflow as a request to iDDS server.
 
         :param workflow: The workflow to be submitted.
         """
+        self.setup_client()
+
         props = {
             'scope': 'workflow',
             'name': workflow.name,
@@ -308,6 +335,8 @@ class ClientManager:
         :param workload_id: the workload id.
         :param request_id: the request.
         """
+        self.setup_client()
+
         if request_id is None and workload_id is None:
             logging.error("Both request_id and workload_id are None. One of them should not be None")
             return (-1, "Both request_id and workload_id are None. One of them should not be None")
@@ -334,6 +363,8 @@ class ClientManager:
         :param workload_id: the workload id.
         :param request_id: the request.
         """
+        self.setup_client()
+
         if request_id is None and workload_id is None:
             logging.error("Both request_id and workload_id are None. One of them should not be None")
             return (-1, "Both request_id and workload_id are None. One of them should not be None")
@@ -360,6 +391,8 @@ class ClientManager:
         :param workload_id: the workload id.
         :param request_id: the request.
         """
+        self.setup_client()
+
         if request_id is None and workload_id is None:
             logging.error("Both request_id and workload_id are None. One of them should not be None")
             return (-1, "Both request_id and workload_id are None. One of them should not be None")
@@ -386,6 +419,8 @@ class ClientManager:
         :param workload_id: the workload id.
         :param request_id: the request.
         """
+        self.setup_client()
+
         if request_id is None and workload_id is None:
             logging.error("Both request_id and workload_id are None. One of them should not be None")
             return (-1, "Both request_id and workload_id are None. One of them should not be None")
@@ -412,6 +447,8 @@ class ClientManager:
         :param workload_id: the workload id.
         :param request_id: the request.
         """
+        self.setup_client()
+
         if request_id is None and workload_id is None:
             logging.error("Both request_id and workload_id are None. One of them should not be None")
             return (-1, "Both request_id and workload_id are None. One of them should not be None")
@@ -443,6 +480,8 @@ class ClientManager:
         :param request_id: the request.
         :param with_detail: Whether to show detail info.
         """
+        self.setup_client()
+
         reqs = self.client.get_requests(request_id=request_id, workload_id=workload_id, with_detail=with_detail, with_metadata=with_metadata)
         return reqs
 
@@ -455,6 +494,8 @@ class ClientManager:
         :param request_id: the request.
         :param with_detail: Whether to show detail info.
         """
+        self.setup_client()
+
         reqs = self.client.get_requests(request_id=request_id, workload_id=workload_id, with_detail=with_detail, with_metadata=with_metadata)
         if with_detail:
             table = []
@@ -483,6 +524,8 @@ class ClientManager:
         :param dest_dir: The destination directory.
         :param filename: The destination filename to be saved. If it's None, default filename will be saved.
         """
+        self.setup_client()
+
         filename = self.client.download_logs(request_id=request_id, workload_id=workload_id, dest_dir=dest_dir, filename=filename)
         if filename:
             logging.info("Logs are downloaded to %s" % filename)
@@ -496,6 +539,8 @@ class ClientManager:
         """
         Upload file to iDDS cacher: On the cacher, the filename will be the basename of the file.
         """
+        self.setup_client()
+
         return self.client.upload(filename)
 
     @exception_handler
@@ -503,6 +548,8 @@ class ClientManager:
         """
         Download file from iDDS cacher: On the cacher, the filename will be the basename of the file.
         """
+        self.setup_client()
+
         return self.client.download(filename)
 
     @exception_handler
@@ -517,6 +564,8 @@ class ClientManager:
 
         :raise exceptions if it's not got successfully.
         """
+        self.setup_client()
+
         return self.client.get_hyperparameters(workload_id=workload_id, request_id=request_id, id=id, status=status, limit=limit)
 
     @exception_handler
@@ -531,6 +580,8 @@ class ClientManager:
 
         :raise exceptions if it's not updated successfully.
         """
+        self.setup_client()
+
         return self.client.update_hyperparameter(workload_id=workload_id, request_id=request_id, id=id, loss=loss)
 
     @exception_handler
@@ -541,6 +592,8 @@ class ClientManager:
         :param workload_id: the workload id.
         :param request_id: the request.
         """
+        self.setup_client()
+
         if request_id is None and workload_id is None:
             logging.error("Both request_id and workload_id are None. One of them should not be None")
             return (-1, "Both request_id and workload_id are None. One of them should not be None")
