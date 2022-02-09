@@ -35,9 +35,12 @@ class OIDCAuthenticationSignURL(IDDSController):
         try:
             if auth_type == 'oidc':
                 oidc = OIDCAuthentication()
-                sign_url = oidc.get_oidc_sign_url()
-                rets = sign_url
-                return self.generate_http_response(HTTP_STATUS_CODE.OK, data=rets)
+                status, sign_url = oidc.get_oidc_sign_url(vo)
+                if status:
+                    rets = sign_url
+                    return self.generate_http_response(HTTP_STATUS_CODE.OK, data=rets)
+                else:
+                    raise exceptions.IDDSException("Failed to get oidc sign url: %s" % str(sign_url))
             else:
                 raise exceptions.NotSupportedAuthentication("auth_type %s is not supported." % str(auth_type))
         except exceptions.NoObject as error:
@@ -65,8 +68,14 @@ class OIDCAuthenticationToken(IDDSController):
 
         try:
             oidc = OIDCAuthentication()
-            id_token = oidc.get_id_token(vo, device_code, interval, expires_in)
-            return self.generate_http_response(HTTP_STATUS_CODE.OK, data=id_token)
+            status, id_token = oidc.get_id_token(vo, device_code, interval, expires_in)
+            if status:
+                return self.generate_http_response(HTTP_STATUS_CODE.OK, data=id_token)
+            else:
+                if 'error' in id_token and 'authorization_pending' in id_token['error']:
+                    raise exceptions.AuthenticationPending(str(id_token))
+                else:
+                    raise exceptions.IDDSException("Failed to get oidc token: %s" % str(id_token))
         except exceptions.NoObject as error:
             return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
         except exceptions.IDDSException as error:
@@ -89,8 +98,11 @@ class OIDCAuthenticationToken(IDDSController):
             refresh_token = parameters['refresh_token']
 
             oidc = OIDCAuthentication()
-            id_token = oidc.refresh_id_token(refresh_token)
-            return self.generate_http_response(HTTP_STATUS_CODE.OK, data=id_token)
+            status, id_token = oidc.refresh_id_token(vo, refresh_token)
+            if status:
+                return self.generate_http_response(HTTP_STATUS_CODE.OK, data=id_token)
+            else:
+                raise exceptions.IDDSException("Failed to refresh oidc token: %s" % str(id_token))
         except exceptions.NoObject as error:
             return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
         except exceptions.IDDSException as error:
@@ -113,7 +125,7 @@ class OIDCAuthenticationToken(IDDSController):
 
 
 def get_blueprint():
-    bp = Blueprint('message', __name__)
+    bp = Blueprint('auth', __name__)
 
     url_view = OIDCAuthenticationSignURL.as_view('url')
     bp.add_url_rule('/auth/url/<vo>', view_func=url_view, methods=['get'])
