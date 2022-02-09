@@ -18,7 +18,7 @@ import requests
 import subprocess
 import sys
 import tarfile
-import traceback
+# import traceback
 
 from enum import Enum
 from functools import wraps
