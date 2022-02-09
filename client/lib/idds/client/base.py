@@ -53,6 +53,7 @@ class BaseRestClient(object):
         self.auth_type = None
         self.oidc_token = None
         self.vo = None
+        self.auth_setup = False
         if self.auth:
             if 'auth_type' in self.auth:
                 self.auth_type = self.auth['auth_type']
@@ -62,6 +63,8 @@ class BaseRestClient(object):
                 self.oidc_token = self.auth['oidc_token']
             if 'vo' in self.auth:
                 self.vo = self.auth['vo']
+            if 'auth_setup' in self.auth:
+                self.auth_setup = self.auth['auth_setup']
 
         self.check_auth()
 
@@ -77,10 +80,11 @@ class BaseRestClient(object):
             if not self.client_proxy or not os.path.exists(self.client_proxy):
                 raise exceptions.RestException("Cannot find a valid x509 proxy.")
         elif self.auth_type in ['oidc']:
-            if not self.oidc_token or not os.path.exists(self.oidc_token):
-                raise exceptions.RestException("Cannot find oidc token.")
-            if not self.vo:
-                raise exceptions.RestException("vo is not defined for oidc authentication.")
+            if not self.auth_setup:
+                if not self.oidc_token or not os.path.exists(self.oidc_token):
+                    raise exceptions.RestException("Cannot find oidc token.")
+                if not self.vo:
+                    raise exceptions.RestException("vo is not defined for oidc authentication.")
         else:
             logging.error("auth_type %s is not supported." % str(self.auth_type))
 
@@ -150,10 +154,13 @@ class BaseRestClient(object):
                         else:
                             return
                     else:
-                        token = OIDCAuthenticationUtils.load_token(self.oidc_token)
-                        is_expired = OIDCAuthenticationUtils.is_token_expired(token)
+                        oidc_utils = OIDCAuthenticationUtils()
+                        status, token = oidc_utils.load_token(self.oidc_token)
+                        if not status:
+                            raise exceptions.IDDSException("Token %s cannot be loaded: %s" % (self.oidc_token, str(token)))
+                        is_expired, errors = oidc_utils.is_token_expired(token)
                         if is_expired:
-                            raise exceptions.IDDSException("Token is already expired.")
+                            raise exceptions.IDDSException("Token is already expired: %s" % errors)
                         headers['X-IDDS-Auth-Token'] = token['id_token']
 
                         if type == 'GET':
@@ -173,19 +180,35 @@ class BaseRestClient(object):
 
             if result is not None:
                 # print(result.text)
-                if result.status_code in [HTTP_STATUS_CODE.BadRequest,
-                                          HTTP_STATUS_CODE.Unauthorized,
-                                          HTTP_STATUS_CODE.Forbidden,
-                                          HTTP_STATUS_CODE.NotFound,
-                                          HTTP_STATUS_CODE.NoMethod,
-                                          HTTP_STATUS_CODE.InternalError]:
-                    raise exceptions.IDDSException(result.text)
-                elif result.status_code == HTTP_STATUS_CODE.OK:
+                # print(result.headers)
+                # print(result.status_code)
+                if result.status_code == HTTP_STATUS_CODE.OK:
                     # print(result.text)
                     if result.text:
                         return json_loads(result.text)
                     else:
                         return None
+                elif result.headers and 'ExceptionClass' in result.headers:
+                    try:
+                        if result.headers and 'ExceptionClass' in result.headers:
+                            cls = getattr(exceptions, result.headers['ExceptionClass'])
+                            msg = result.headers['ExceptionMessage']
+                            raise cls(msg)
+                        else:
+                            if result.text:
+                                data = json_loads(result.text)
+                                raise exceptions.IDDSException(**data)
+                            else:
+                                raise exceptions.IDDSException("Unknow exception: %s" % (result.text))
+                    except AttributeError:
+                        raise exceptions.IDDSException(result.text)
+                elif result.status_code in [HTTP_STATUS_CODE.BadRequest,
+                                            HTTP_STATUS_CODE.Unauthorized,
+                                            HTTP_STATUS_CODE.Forbidden,
+                                            HTTP_STATUS_CODE.NotFound,
+                                            HTTP_STATUS_CODE.NoMethod,
+                                            HTTP_STATUS_CODE.InternalError]:
+                    raise exceptions.IDDSException(result.text)
                 else:
                     try:
                         if result.headers and 'ExceptionClass' in result.headers:

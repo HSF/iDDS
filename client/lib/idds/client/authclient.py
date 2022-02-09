@@ -35,7 +35,7 @@ class AuthClient(BaseRestClient):
         """
         super(AuthClient, self).__init__(host=host, auth=auth, timeout=timeout)
 
-    def get_sign_url(self, vo):
+    def get_oidc_sign_url(self, vo):
         """
         Get url from the Head service for users to sign in.
 

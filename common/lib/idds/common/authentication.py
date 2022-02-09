@@ -393,6 +393,6 @@ def authenticate_oidc(vo, token):
     oidc_auth = OIDCAuthentication()
     status, data = oidc_auth.verify_id_token(vo, token)
     if status:
-        return status, None
+        return status, data
     else:
         return status, data
