@@ -17,7 +17,7 @@ Install via pip
 
 When ``pip`` is available, the distribution can be downloaded from the iDDS PyPI server and installed in one step::
 
-   $> pip install idds-common idds-client
+   $> pip install idds-common idds-client idds-workflow idds-doma
 
 This command will download the latest version of Rucio and install it to your system.
 
@@ -26,22 +26,6 @@ Upgrade via pip
 ~~~~~~~~~~~~~~~~
 
 To upgrade via pip::
-
-   $> pip install --upgrade idds-common idds-client
-
-
-ATLAS Users
-~~~~~~~~~~~~~~~
-
-To install via pip::
-
-   $> pip install --upgrade idds-common idds-client idds-workflow idds-atlas
-
-
-DOMA Users
-~~~~~~~~~~~~~~
-
-To install via pip::
 
    $> pip install --upgrade idds-common idds-client idds-workflow idds-doma
 
