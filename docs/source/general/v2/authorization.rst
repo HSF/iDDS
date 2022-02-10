@@ -3,10 +3,6 @@ Authorization
 
 The iDDS currently supports both x509_proxy and oidc based authroization.
 
-<!--.. image:: ../../images/v2/architecture_daemon_flow.png -->
-.. image:: ../../images/v2/idds_authentication.jpg
-      :alt: iDDS Architecture
-
 509_proxy
 ~~~~~~~~~~
 

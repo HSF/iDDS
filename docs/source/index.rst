@@ -74,7 +74,7 @@ Source Codes
 =============
 
 .. toctree::
-      :maxdepth: 1
+      :maxdepth: 0
 
    source_codes
 
