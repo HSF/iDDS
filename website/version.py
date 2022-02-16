@@ -9,4 +9,4 @@
 # - Wen Guan, <wen.guan@cern.ch>, 2019 - 2021
 
 
-release_version = "0.10.0"
+release_version = "0.10.1"
