@@ -336,6 +336,16 @@ class X509Authentication(BaseAuthentication):
                 return users
         return []
 
+    def get_allow_user_list(self):
+        section = "Users"
+        option = "allow_users"
+        if self.config and self.config.has_section(section):
+            if self.config.has_option(option):
+                users = self.config.get(option)
+                users = users.split(",")
+                return users
+        return []
+
 
 def get_user_name_from_dn(dn):
     try:
@@ -382,10 +392,23 @@ def authenticate_x509(vo, dn, client_cert):
     # print(certDecoded.issuer)
     # for ext in certDecoded.extensions:
     #     print(ext)
-    username = get_user_name_from_dn(dn)
-    ban_user_list = X509Authentication().get_ban_user_list()
-    if username in ban_user_list:
-        return False, "User %s is banned" % username
+    allow_user_list = X509Authentication().get_allow_user_list()
+    matched = False
+    for allow_user in allow_user_list:
+        pat = re.compile(allow_user)
+        mat = pat.match(dn)
+        if mat:
+            matched = True
+            break
+
+    if matched:
+        # username = get_user_name_from_dn(dn)
+        ban_user_list = X509Authentication().get_ban_user_list()
+        for ban_user in ban_user_list:
+            pat = re.compile(ban_user)
+            mat = pat.match(dn)
+            if mat:
+                return False, "User %s is banned" % str(dn)
     return True, None
 
 
