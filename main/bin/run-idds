@@ -9,8 +9,9 @@ echo $SITE_PACKAGES_PATH
 
 [ -z "$IDDS_CONFIG" ] && export IDDS_CONFIG=${RootDir}/etc/idds/idds.cfg
 
-#PROGRAM=${RootDir}/lib/idds/agents/main.py
-PROGRAM=${RootDir}/lib/python3.6/site-packages/idds/agents/main.py
+# PROGRAM=${RootDir}/lib/idds/agents/main.py
+# PROGRAM=${RootDir}/lib/python3.6/site-packages/idds/agents/main.py
+PROGRAM=${SITE_PACKAGES_PATH}/idds/agents/main.py
 
 which python
 python $PROGRAM

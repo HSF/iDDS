@@ -1,0 +1,21 @@
+#!/bin/bash
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0OA
+#
+# Authors:
+# - Wen Guan, <wen.guan@cern.ch>, 2022
+
+export PANDA_AUTH=oidc
+export PANDA_URL_SSL=https://pandaserver-doma.cern.ch:25443/server/panda
+export PANDA_URL=http://pandaserver-doma.cern.ch:25080/server/panda
+export PANDAMON_URL=https://panda-doma.cern.ch
+export PANDA_AUTH_VO=panda_dev
+
+export PANDA_CONFIG_ROOT=~/.panda/
+
+CurrentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+python ${CurrentDir}/setup_panda_token.py $@

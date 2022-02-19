@@ -159,7 +159,7 @@ def setup_workflow():
     cond1 = Condition(cond=work1.is_finished, true_work=work2)
     cond2 = Condition(cond=work2.is_finished, true_work=work3)
 
-    pending_time = 0.5
+    pending_time = 12
     # pending_time = None
     workflow = Workflow(pending_time=pending_time)
     workflow.add_work(work1)

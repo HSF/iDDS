@@ -25,16 +25,18 @@ from idds.client.cacherclient import CacherClient
 from idds.client.hpoclient import HPOClient
 from idds.client.logsclient import LogsClient
 from idds.client.messageclient import MessageClient
+from idds.client.pingclient import PingClient
+from idds.client.authclient import AuthClient
 
 
 warnings.filterwarnings("ignore")
 
 
-class Client(RequestClient, CatalogClient, CacherClient, HPOClient, LogsClient, MessageClient):
+class Client(RequestClient, CatalogClient, CacherClient, HPOClient, LogsClient, MessageClient, PingClient, AuthClient):
 
     """Main client class for IDDS rest callings."""
 
-    def __init__(self, host=None, timeout=600):
+    def __init__(self, host=None, timeout=600, auth=None, client_proxy=None):
         """
         Constructor for the IDDS main client class.
 
@@ -42,8 +44,9 @@ class Client(RequestClient, CatalogClient, CacherClient, HPOClient, LogsClient, 
         :param timeout: the timeout of the request (in seconds).
         """
 
-        client_proxy = self.get_user_proxy()
-        super(Client, self).__init__(host=host, client_proxy=client_proxy, timeout=timeout)
+        # if client_proxy is None:
+        #     client_proxy = self.get_user_proxy()
+        super(Client, self).__init__(host=host, auth=auth, timeout=timeout)
 
     def get_user_proxy(sellf):
         """

@@ -46,7 +46,7 @@ class DomaPanDAWork(Work):
                  num_retries=5,
                  task_log=None,
                  task_cloud=None,
-                 task_rss=0):
+                 task_rss=1000):
 
         super(DomaPanDAWork, self).__init__(executable=executable, arguments=arguments,
                                             parameters=parameters, setup=setup, work_type=TransformType.Processing,
@@ -61,6 +61,9 @@ class DomaPanDAWork(Work):
         self.panda_url = None
         self.panda_url_ssl = None
         self.panda_monitor = None
+        self.panda_auth = None
+        self.panda_auth_vo = None
+        self.panda_config_root = None
 
         self.dependency_map = dependency_map
         self.dependency_map_deleted = []
@@ -130,6 +133,15 @@ class DomaPanDAWork(Work):
                 self.panda_url_ssl = panda_config.get('panda', 'panda_url_ssl')
                 os.environ['PANDA_URL_SSL'] = self.panda_url_ssl
                 # self.logger.debug("Panda url ssl: %s" % str(self.panda_url_ssl))
+            if panda_config.has_option('panda', 'panda_auth'):
+                self.panda_auth = panda_config.get('panda', 'panda_auth')
+                os.environ['PANDA_AUTH'] = self.panda_auth
+            if panda_config.has_option('panda', 'panda_auth_vo'):
+                self.panda_auth_vo = panda_config.get('panda', 'panda_auth_vo')
+                os.environ['PANDA_AUTH_VO'] = self.panda_auth_vo
+            if panda_config.has_option('panda', 'panda_config_root'):
+                self.panda_config_root = panda_config.get('panda', 'panda_config_root')
+                os.environ['PANDA_CONFIG_ROOT'] = self.panda_config_root
 
         if not self.panda_monitor and 'PANDA_MONITOR_URL' in os.environ and os.environ['PANDA_MONITOR_URL']:
             self.panda_monitor = os.environ['PANDA_MONITOR_URL']
@@ -140,6 +152,12 @@ class DomaPanDAWork(Work):
         if not self.panda_url_ssl and 'PANDA_URL_SSL' in os.environ and os.environ['PANDA_URL_SSL']:
             self.panda_url_ssl = os.environ['PANDA_URL_SSL']
             # self.logger.debug("Panda url ssl: %s" % str(self.panda_url_ssl))
+        if not self.panda_auth and 'PANDA_AUTH' in os.environ and os.environ['PANDA_AUTH']:
+            self.panda_auth = os.environ['PANDA_AUTH']
+        if not self.panda_auth_vo and 'PANDA_AUTH_VO' in os.environ and os.environ['PANDA_AUTH_VO']:
+            self.panda_auth_vo = os.environ['PANDA_AUTH_VO']
+        if not self.panda_config_root and 'PANDA_CONFIG_ROOT' in os.environ and os.environ['PANDA_CONFIG_ROOT']:
+            self.panda_config_root = os.environ['PANDA_CONFIG_ROOT']
 
     def set_agent_attributes(self, attrs, req_attributes=None):
         if 'life_time' not in attrs[self.class_name] or int(attrs[self.class_name]['life_time']) <= 0:
@@ -759,21 +777,24 @@ class DomaPanDAWork(Work):
         chunks = [job_ids[i:i + chunksize] for i in range(0, len(job_ids), chunksize)]
         for chunk in chunks:
             jobs_list = Client.getJobStatus(chunk, verbose=0)[1]
-            self.logger.debug("poll_panda_jobs, input jobs: %s, output_jobs: %s" % (len(chunk), len(jobs_list)))
-            for job_info in jobs_list:
-                job_status = self.get_content_status_from_panda_status(job_info)
-                if job_info and job_info.Files and len(job_info.Files) > 0:
-                    for job_file in job_info.Files:
-                        # if job_file.type in ['log']:
-                        if job_file.type not in ['pseudo_input']:
-                            continue
-                        if ':' in job_file.lfn:
-                            pos = job_file.lfn.find(":")
-                            input_file = job_file.lfn[pos + 1:]
-                            # input_file = job_file.lfn.split(':')[1]
-                        else:
-                            input_file = job_file.lfn
-                        inputname_jobid_map[input_file] = {'panda_id': job_info.PandaID, 'status': job_status}
+            if jobs_list:
+                self.logger.debug("poll_panda_jobs, input jobs: %s, output_jobs: %s" % (len(chunk), len(jobs_list)))
+                for job_info in jobs_list:
+                    job_status = self.get_content_status_from_panda_status(job_info)
+                    if job_info and job_info.Files and len(job_info.Files) > 0:
+                        for job_file in job_info.Files:
+                            # if job_file.type in ['log']:
+                            if job_file.type not in ['pseudo_input']:
+                                continue
+                            if ':' in job_file.lfn:
+                                pos = job_file.lfn.find(":")
+                                input_file = job_file.lfn[pos + 1:]
+                                # input_file = job_file.lfn.split(':')[1]
+                            else:
+                                input_file = job_file.lfn
+                            inputname_jobid_map[input_file] = {'panda_id': job_info.PandaID, 'status': job_status}
+            else:
+                self.logger.warn("poll_panda_jobs, input jobs: %s, output_jobs: %s" % (len(chunk), jobs_list))
         return inputname_jobid_map
 
     def get_job_maps(self, input_output_maps):
@@ -804,6 +825,9 @@ class DomaPanDAWork(Work):
 
     def get_update_contents(self, inputnames, inputname_mapid_map, inputname_jobid_map):
         self.logger.debug("get_update_contents, inputnames[:5]: %s" % str(inputnames[:5]))
+        self.logger.debug("get_update_contents, inputname_mapid_map[:5]: %s" % str({k: inputname_mapid_map[k] for k in inputnames[:5]}))
+        self.logger.debug("get_update_contents, inputname_jobid_map[:5]: %s" % str({k: inputname_jobid_map[k] for k in inputnames[:5]}))
+
         update_contents = []
         num_updated_contents, num_unupdated_contents = 0, 0
         for inputname in inputnames:
@@ -835,12 +859,16 @@ class DomaPanDAWork(Work):
                             pass
                             # content['content_metadata']['panda_id'] = panda_id
                             content['substatus'] = panda_status
+                    else:
+                        content['content_metadata']['panda_id'] = panda_id
+                        content['substatus'] = panda_status
 
                     update_contents.append(content)
                     num_updated_contents += 1
                 else:
                     num_unupdated_contents += 1
         self.logger.debug("get_update_contents, num_updated_contents: %s, num_unupdated_contents: %s" % (num_updated_contents, num_unupdated_contents))
+        self.logger.debug("get_update_contents, update_contents[:5]: %s" % (str(update_contents[:5])))
         return update_contents
 
     def poll_panda_task(self, processing=None, input_output_maps=None):
@@ -861,7 +889,7 @@ class DomaPanDAWork(Work):
                     self.logger.debug("poll_panda_task, task_info[0]: %s" % str(task_info[0]))
                     if task_info[0] != 0:
                         self.logger.warn("poll_panda_task %s, error getting task status, task_info: %s" % (task_id, str(task_info)))
-                        return ProcessingStatus.Submitting, {}
+                        return ProcessingStatus.Submitting, []
 
                     task_info = task_info[1]
 

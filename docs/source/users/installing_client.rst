@@ -30,24 +30,25 @@ To upgrade via pip::
    $> pip install --upgrade idds-common idds-client
 
 
+ATLAS Users
+~~~~~~~~~~~~~~~
+
+To install via pip::
+
+   $> pip install --upgrade idds-common idds-client idds-workflow idds-atlas
+
+
+DOMA Users
+~~~~~~~~~~~~~~
+
+To install via pip::
+
+   $> pip install --upgrade idds-common idds-client idds-workflow idds-doma
+
+
 config client
 ~~~~~~~~~~~~~
 
-To use iDDS client to access the iDDS server, a config file is needed. Below is an example of the config file.
+To use iDDS client to access the iDDS server, a config file is needed. Below is an example of the config file::
 
-.. code-block:: python
-
-    [common]
-    loglevel = INFO
-
-    [rest]
-    host = https://<hostname>:<port>/idds
-
-iDDS will look for this config file in order of:
-
-.. code-block:: python
-
-    ${IDDS_CONFIG}
-    ${IDDS_HOME}/etc/idds/idds.cfg
-    /etc/idds/idds.cfg
-    ${VIRTUAL_ENV}/etc/idds/idds.cfg
+   $> idds setup --auth_type oidc --host https://<hostname or ip>:443/idds --vo Rubin

@@ -126,16 +126,20 @@ class JSONString(TypeDecorator):
 
     impl = types.JSON
 
+    def __init__(self, length=1024, *args, **kwargs):
+        super(JSONString, self).__init__(*args, **kwargs)
+        self._length = length
+
     def load_dialect_impl(self, dialect):
         if dialect.name == 'postgresql':
-            return dialect.type_descriptor(JSONB())
+            return dialect.type_descriptor(String(self._length))
         elif dialect.name == 'mysql':
-            return dialect.type_descriptor(String(255))
+            return dialect.type_descriptor(String(self._length))
             # return dialect.type_descriptor(types.JSON())
         elif dialect.name == 'oracle':
-            return dialect.type_descriptor(String(255))
+            return dialect.type_descriptor(String(self._length))
         else:
-            return dialect.type_descriptor(String(255))
+            return dialect.type_descriptor(String(self._length))
 
     def process_bind_param(self, value, dialect):
         if value is None:

@@ -17,6 +17,8 @@ CondaDir=${RootDir}/../.conda/iDDS
 echo 'Root dir: ' $RootDir
 export IDDS_HOME=$RootDir
 
+source /afs/cern.ch/user/w/wguan/workdisk/conda/setup.sh
+
 conda activate $CondaDir
 #export PYTHONPATH=${IDDS_HOME}/lib:$PYTHONPATH
 

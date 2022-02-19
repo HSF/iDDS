@@ -25,7 +25,7 @@ class HPOClient(BaseRestClient):
 
     HPO_BASEURL = 'hpo'
 
-    def __init__(self, host=None, client_proxy=None, timeout=None):
+    def __init__(self, host=None, auth=None, timeout=None):
         """
         Constructor of the BaseRestClient.
 
@@ -33,7 +33,7 @@ class HPOClient(BaseRestClient):
         :param client_proxy: the client certificate proxy.
         :param timeout: timeout in seconds.
         """
-        super(HPOClient, self).__init__(host=host, client_proxy=client_proxy, timeout=timeout)
+        super(HPOClient, self).__init__(host=host, auth=auth, timeout=timeout)
 
     def update_hyperparameter(self, workload_id, request_id, id, loss):
         """

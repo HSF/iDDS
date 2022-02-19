@@ -105,6 +105,54 @@ def config_get_bool(section, option):
     return __CONFIG.getboolean(section, option)
 
 
+def get_local_config_root(local_config_root=None):
+    if 'IDDS_LOCAL_CONFIG_ROOT' in os.environ and os.environ['IDDS_LOCAL_CONFIG_ROOT']:
+        if local_config_root is None:
+            print("IDDS_LOCAL_CONFIG_ROOT is set. Will use it.")
+            local_config_root = os.environ['IDDS_LOCAL_CONFIG_ROOT']
+        else:
+            print("local_config_root is set to %s. Ignore IDDS_LOCAL_CONFIG_ROOT" % local_config_root)
+
+    if local_config_root is None:
+        # local_config_root = "~/.idds"
+        local_config_root = os.path.join(os.path.expanduser("~"), ".idds")
+
+    if not os.path.exists(local_config_root):
+        os.makedirs(local_config_root)
+    return local_config_root
+
+
+def get_local_cfg_file(local_config_root=None):
+    local_config_root = get_local_config_root(local_config_root)
+    local_cfg = os.path.join(local_config_root, 'idds_local.cfg')
+    return local_cfg
+
+
+def get_local_config_value(configuration, section, name, current, default):
+    value = None
+    if configuration.has_section(section) and configuration.has_option(section, name):
+        if name in ['oidc_refresh_lifetime']:
+            value = configuration.getint(section, name)
+        elif name in ['oidc_auto', 'oidc_polling']:
+            value = configuration.getboolean(section, name)
+        else:
+            value = configuration.get(section, name)
+    if current is not None:
+        value = current
+    elif value is None:
+        value = default
+
+    if not configuration.has_section(section):
+        configuration.add_section(section)
+    if value is not None:
+        if name in ['oidc_refresh_lifetime']:
+            value = str(value)
+        elif name in ['oidc_auto', 'oidc_polling']:
+            value = str(value).lower()
+        configuration.set(section, name, value)
+    return value
+
+
 __CONFIG = ConfigParser.SafeConfigParser()
 
 __HAS_CONFIG = False
@@ -126,9 +174,15 @@ else:
             break
 
 if not __HAS_CONFIG:
-    raise Exception("Could not load configuration file."
-                    "IDDS looks for a configuration file, in order:"
-                    "\n\t${IDDS_CONFIG}"
-                    "\n\t${IDDS_HOME}/etc/idds/idds.cfg"
-                    "\n\t/etc/idds/idds.cfg"
-                    "\n\t${VIRTUAL_ENV}/etc/idds/idds.cfg")
+    local_cfg = get_local_cfg_file()
+    if os.path.exists(local_cfg):
+        __CONFIG.read(local_cfg)
+        __HAS_CONFIG = True
+    else:
+        raise Exception("Could not load configuration file."
+                        "For iDDS client, please run 'idds setup' to create local config file."
+                        "For an iDDS server, IDDS looks for a configuration file, in order:"
+                        "\n\t${IDDS_CONFIG}"
+                        "\n\t${IDDS_HOME}/etc/idds/idds.cfg"
+                        "\n\t/etc/idds/idds.cfg"
+                        "\n\t${VIRTUAL_ENV}/etc/idds/idds.cfg")

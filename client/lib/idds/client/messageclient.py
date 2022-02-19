@@ -25,7 +25,7 @@ class MessageClient(BaseRestClient):
 
     MESSAGE_BASEURL = 'message'
 
-    def __init__(self, host=None, client_proxy=None, timeout=None):
+    def __init__(self, host=None, auth=None, timeout=None):
         """
         Constructor of the BaseRestClient.
 
@@ -33,7 +33,7 @@ class MessageClient(BaseRestClient):
         :param client_proxy: the client certificate proxy.
         :param timeout: timeout in seconds.
         """
-        super(MessageClient, self).__init__(host=host, client_proxy=client_proxy, timeout=timeout)
+        super(MessageClient, self).__init__(host=host, auth=auth, timeout=timeout)
 
     def send_message(self, request_id=None, workload_id=None, msg=None):
         """
