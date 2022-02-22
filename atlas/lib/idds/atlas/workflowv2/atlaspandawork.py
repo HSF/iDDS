@@ -207,9 +207,14 @@ class ATLASPandaWork(Work):
             return
 
         try:
+            for key in self.task_parameters:
+                if self.task_parameters[key] and type(self.task_parameters[key]) in [str]:
+                    self.task_parameters[key] = self.renew_parameter(self.task_parameters[key])
+
             if 'taskName' in self.task_parameters:
                 self.task_name = self.task_parameters['taskName']
                 self.task_name = self.renew_parameter(self.task_name)
+                self.task_parameters['taskName'] = self.task_name
                 self.set_work_name(self.task_name)
 
             if 'prodSourceLabel' in self.task_parameters:
@@ -222,6 +227,13 @@ class ATLASPandaWork(Work):
                         for key in jobP:
                             if jobP[key] and type(jobP[key]) in [str]:
                                 jobP[key] = self.renew_parameter(jobP[key])
+
+            if 'log' in self.task_parameters:
+                log = self.task_parameters['log']
+                for key in log:
+                    if log[key] and type(log[key]) in [str]:
+                        self.task_parameters['log'][key] = self.renew_parameter(log[key])
+
             for coll_id in self.collections:
                 coll_name = self.collections[coll_id].name
                 self.collections[coll_id].name = self.renew_parameter(coll_name)

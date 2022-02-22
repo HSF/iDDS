@@ -591,7 +591,8 @@ class WorkflowBase(Base):
         self.pending_time = pending_time
 
         if name:
-            self._name = name + "." + datetime.datetime.utcnow().strftime("%Y_%m_%d_%H_%M_%S_%f") + str(random.randint(1, 1000))
+            # self._name = name + "." + datetime.datetime.utcnow().strftime("%Y_%m_%d_%H_%M_%S_%f") + str(random.randint(1, 1000))
+            self._name = name
         else:
             self._name = 'idds.workflow.' + datetime.datetime.utcnow().strftime("%Y_%m_%d_%H_%M_%S_%f") + str(random.randint(1, 1000))
 
@@ -990,12 +991,11 @@ class WorkflowBase(Base):
 
     @property
     def num_run(self):
-        return self.get_metadata_item('num_run', None)
+        return self.get_metadata_item('num_run', 0)
 
     @num_run.setter
     def num_run(self, value):
-        if value is not None:
-            self.add_metadata_item('num_run', value)
+        self.add_metadata_item('num_run', value)
 
     def load_metadata(self):
         self.load_works()
@@ -1071,10 +1071,10 @@ class WorkflowBase(Base):
                 work.set_parameters(new_parameters)
             work.sequence_id = self.num_total_works
 
+            work.num_run = self.num_run
             work.initialize_work()
             work.sync_global_parameters(self.global_parameters)
             work.renew_parameters_from_attributes()
-            work.num_run = self.num_run
             works = self.works
             self.works = works
             # self.work_sequence.append(new_work.get_internal_id())
@@ -1287,6 +1287,7 @@ class WorkflowBase(Base):
     def get_loop_condition_status(self):
         if self.has_loop_condition():
             self.loop_condition.load_conditions(self.works)
+            # self.logger.debug("Loop condition %s" % (json_dumps(self.loop_condition, sort_keys=True, indent=4)))
             return self.loop_condition.get_condition_status()
         return False
 
@@ -1536,7 +1537,11 @@ class WorkflowBase(Base):
 
     def get_relation_data(self, work):
         ret = {'work': {'workload_id': work.workload_id,
-                        'external_id': work.external_id}}
+                        'external_id': work.external_id,
+                        'work_name': work.get_work_name()}}
+        if hasattr(work, 'get_ancestry_works'):
+            ret['work']['ancestry_works'] = work.get_ancestry_works()
+
         next_works = work.next_works
         if next_works:
             next_works_data = []
@@ -1550,12 +1555,64 @@ class WorkflowBase(Base):
             ret['next_works'] = next_works_data
         return ret
 
+    def organzie_based_on_ancestry_works(self, works):
+        new_ret = []
+
+        ordered_items = {}
+        left_items = []
+        for item in works:
+            if type(item) in [dict]:
+                if 'ancestry_works' not in item['work'] or not item['work']['ancestry_works']:
+                    new_ret.append(item)
+                    ordered_items[item['work']['work_name']] = item
+                else:
+                    # ancestry_works = item['work']['ancestry_works']
+                    left_items.append(item)
+            elif type(item) in [list]:
+                # subworkflow
+                # work_names, ancestry_works = self.get_workflow_ancestry_works(item)
+                # if not ancestry_works:
+                #     new_ret.append(item)
+                # currently now support to use dependency_map to depend_on a workflow.
+                # depending on a workflow should use Condition. It's already processed.
+                new_ret.append(item)
+        while True:
+            new_left_items = left_items
+            left_items = []
+            has_updates = False
+            for item in new_left_items:
+                ancestry_works = item['work']['ancestry_works']
+                all_ancestry_ready = True
+                for work_name in ancestry_works:
+                    if work_name not in ordered_items and work_name != item['work']['work_name']:
+                        all_ancestry_ready = False
+                if all_ancestry_ready:
+                    for work_name in ancestry_works:
+                        if work_name != item['work']['work_name']:
+                            if 'next_works' not in ordered_items[work_name]:
+                                ordered_items[work_name]['next_works'] = [item]
+                            else:
+                                ordered_items[work_name]['next_works'].append(item)
+                            has_updates = True
+                            ordered_items[item['work']['work_name']] = item
+                else:
+                    left_items.append(item)
+            if not has_updates or not left_items:
+                break
+        for item in left_items:
+            new_ret.append(item)
+        return new_ret
+
     def get_relation_map(self):
         ret = []
         init_works = self.init_works
         for internal_id in init_works:
-            work_data = self.get_relation_data(self.works[internal_id])
+            if isinstance(self.works[internal_id], Workflow):
+                work_data = self.works[internal_id].get_relation_map()
+            else:
+                work_data = self.get_relation_data(self.works[internal_id])
             ret.append(work_data)
+        ret = self.organzie_based_on_ancestry_works(ret)
         return ret
 
     def clean_works(self):
@@ -2024,12 +2081,17 @@ class Workflow(Base):
         if self.runs[str(self.num_run)].is_terminated():
             if self.runs[str(self.num_run)].has_loop_condition():
                 if self.runs[str(self.num_run)].get_loop_condition_status():
+                    self.logger.info("num_run %s get_loop_condition_status %s, start next run" % (self.num_run, self.runs[str(self.num_run)].get_loop_condition_status()))
                     self._num_run += 1
                     self.runs[str(self.num_run)] = self.template.copy()
 
                     self.runs[str(self.num_run)].num_run = self._num_run
                     p_metadata = self.runs[str(self.num_run - 1)].get_metadata_item('parameter_links')
                     self.runs[str(self.num_run)].add_metadata_item('parameter_links', p_metadata)
+
+                    self.runs[str(self.num_run)].global_parameters = self.runs[str(self.num_run - 1)].global_parameters
+                else:
+                    self.logger.info("num_run %s get_loop_condition_status %s, terminated loop" % (self.num_run, self.runs[str(self.num_run)].get_loop_condition_status()))
 
     def get_relation_map(self):
         if not self.runs:

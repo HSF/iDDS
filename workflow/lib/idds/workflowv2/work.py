@@ -542,7 +542,10 @@ class Work(Base):
 
         self.backup_to_release_inputs = {'0': [], '1': [], '2': []}
 
-        self.num_run = None
+        self.num_run = 0
+
+        self.or_custom_conditions = {}
+        self.and_custom_conditions = {}
 
         """
         self._running_data_names = []
@@ -930,16 +933,16 @@ class Work(Base):
 
     @property
     def num_run(self):
-        return self.get_metadata_item('num_run', None)
+        return self.get_metadata_item('num_run', 0)
 
     @num_run.setter
     def num_run(self, value):
-        if value is not None:
-            self.add_metadata_item('num_run', value)
-            if value > 1:
-                # for k in self._collections:
-                for coll in self.output_collections:
-                    if type(coll) in [Collection]:
+        self.add_metadata_item('num_run', value)
+        if value is not None and value > 1:
+            # for k in self._collections:
+            for coll in self.output_collections:
+                if type(coll) in [Collection]:
+                    if "___idds___" not in coll.name:
                         coll.name = coll.name + "." + str(value)
 
     @property
@@ -1040,6 +1043,80 @@ class Work(Base):
 
     def renew_parameters_from_attributes(self):
         pass
+
+    def add_custom_condition(self, key, value, op='and'):
+        # op in ['and', 'or']
+        if op and op == 'or':
+            op = 'or'
+        else:
+            op = 'and'
+        if op == 'and':
+            self.and_custom_conditions[key] = value
+        else:
+            self.or_custom_conditions[key] = value
+
+    def get_custom_condition_status_value_bool(self, key):
+        user_key = "user_" + key
+        if hasattr(self, user_key):
+            key = user_key
+
+        if hasattr(self, key) and getattr(self, key):
+            value = getattr(self, key)
+            if type(value) in [str]:
+                value = value.lower()
+                if value == 'true':
+                    return True
+                else:
+                    return False
+            elif type(value) in [bool]:
+                return value
+            elif type(value) in [int]:
+                if value > 0:
+                    return True
+                else:
+                    return False
+            else:
+                return value
+        else:
+            return False
+
+    def get_custom_condition_status_value(self, key):
+        user_key = "user_" + key
+        if hasattr(self, user_key):
+            key = user_key
+
+        if hasattr(self, key) and getattr(self, key):
+            return getattr(self, key)
+        else:
+            return None
+
+    def get_custom_condition_status_real(self):
+        if self.or_custom_conditions:
+            for key in self.or_custom_conditions:
+                value = self.get_custom_condition_status_value(key)
+                if value == self.or_custom_conditions[key]:
+                    return True
+
+        if self.and_custom_conditions:
+            for key in self.and_custom_conditions:
+                value = self.get_custom_condition_status_value(key)
+                if not (value == self.and_custom_conditions[key]):
+                    return False
+            return True
+
+        return False
+
+    def get_custom_condition_status(self):
+        # self.logger.debug("get_custom_condition_status, or_custom_conditions: %s" % str(self.or_custom_conditions))
+        # self.logger.debug("get_custom_condition_status, and_custom_conditions: %s" % str(self.and_custom_conditions))
+        # self.logger.debug("get_custom_condition_status, work: %s" % (json_dumps(self, sort_keys=True, indent=4)))
+
+        status = self.get_custom_condition_status_real()
+        self.logger.debug("get_custom_condition_status, status: %s" % (status))
+        return status
+
+    def get_not_custom_condition_status(self):
+        return not self.get_custom_condition_status()
 
     def setup_logger(self):
         """
@@ -1183,6 +1260,9 @@ class Work(Base):
 
     def get_arguments(self):
         return self.arguments
+
+    def get_ancestry_works(self):
+        return []
 
     def has_to_release_inputs(self):
         if self.backup_to_release_inputs['0'] or self.backup_to_release_inputs['1'] or self.backup_to_release_inputs['2']:

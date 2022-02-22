@@ -81,6 +81,8 @@ poll_time_period = 5
 retrieve_bulk_size = 10
 message_bulk_size = 2000
 
+atlaslocalpandawork.work_dir = /data/idds_processing
+
 [conductor]
 retrieve_bulk_size = 10
 plugin.notifier = idds.atlas.notifier.messaging.MessagingSender

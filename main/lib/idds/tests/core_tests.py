@@ -102,15 +102,20 @@ def show_works(req):
     print(work_ids)
 
 
-reqs = get_requests(request_id=229, with_detail=True, with_metadata=True)
+# reqs = get_requests(request_id=599, with_detail=True, with_metadata=True)
+reqs = get_requests(request_id=599, with_request=True, with_detail=False, with_metadata=True)
 for req in reqs:
     # print(req['request_id'])
     # print(rets)
-    # print(json_dumps(req, sort_keys=True, indent=4))
+    print(json_dumps(req, sort_keys=True, indent=4))
     # show_works(req)
     pass
+    workflow = req['request_metadata']['workflow']
+    if hasattr(workflow, 'get_relation_map'):
+        # print(json_dumps(workflow.get_relation_map(), sort_keys=True, indent=4))
+        pass
 
-# sys.exit(0)
+sys.exit(0)
 
 """
 # reqs = get_requests()
@@ -126,7 +131,7 @@ sys.exit(0)
 
 """
 
-tfs = get_transforms(request_id=230)
+tfs = get_transforms(request_id=241)
 for tf in tfs:
     # print(tf)
     # print(tf['transform_metadata']['work'].to_dict())

@@ -18,10 +18,11 @@ import requests
 import subprocess
 import sys
 import tarfile
-import traceback
+# import traceback
 
 from enum import Enum
 from functools import wraps
+from packaging import version as packaging_version
 
 from idds.common.config import (config_has_section, config_has_option,
                                 config_get, config_get_bool)
@@ -405,11 +406,11 @@ def exception_handler(function):
             return function(*args, **kwargs)
         except IDDSException as ex:
             logging.error(ex)
-            print(traceback.format_exc())
+            # print(traceback.format_exc())
             return str(ex)
         except Exception as ex:
             logging.error(ex)
-            print(traceback.format_exc())
+            # print(traceback.format_exc())
             return str(ex)
     return new_funct
 
@@ -452,7 +453,7 @@ def get_proxy():
 
 
 def is_new_version(version1, version2):
-    return version1 > version2
+    return packaging_version.parse(version1) > packaging_version.parse(version2)
 
 
 def extract_scope_atlas(did, scopes):

@@ -4,7 +4,7 @@ Architecture
 The iDDS is implemented in a distributed architecture. It composed of Daemons Agents,
 RESTful serivces, User Interface and External Plugins.
 
-.. image:: ../../images/v2/architecture_daemon_flow.png
+.. image:: ../../images/v2/idds_structure.jpg
       :alt: iDDS Architecture
 
 Layers

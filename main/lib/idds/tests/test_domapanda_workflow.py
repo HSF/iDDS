@@ -25,7 +25,7 @@ import random
 # from idds.client.client import Client
 from idds.client.clientmanager import ClientManager
 # from idds.common.constants import RequestType, RequestStatus
-from idds.common.utils import get_rest_host
+# from idds.common.utils import get_rest_host
 # from idds.tests.common import get_example_real_tape_stagein_request
 # from idds.tests.common import get_example_prodsys2_tape_stagein_request
 
@@ -159,7 +159,7 @@ def setup_workflow():
     cond1 = Condition(cond=work1.is_finished, true_work=work2)
     cond2 = Condition(cond=work2.is_finished, true_work=work3)
 
-    pending_time = 0.5
+    pending_time = 12
     # pending_time = None
     workflow = Workflow(pending_time=pending_time)
     workflow.add_work(work1)
@@ -171,9 +171,9 @@ def setup_workflow():
 
 
 if __name__ == '__main__':
-    host = get_rest_host()
+    # host = get_rest_host()
     workflow = setup_workflow()
 
-    wm = ClientManager(host=host)
+    wm = ClientManager(host=None)
     request_id = wm.submit(workflow)
     print(request_id)

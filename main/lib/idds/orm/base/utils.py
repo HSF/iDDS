@@ -14,72 +14,89 @@ Utils to create the database or destroy the database
 """
 
 import traceback
+from typing import Union
 
-from sqlalchemy.engine import reflection
-from sqlalchemy.schema import DropTable, DropConstraint, ForeignKeyConstraint, MetaData, Table
+import sqlalchemy
+# from sqlalchemy.engine import reflection
+from sqlalchemy.engine import Inspector
+from sqlalchemy import inspect
+from sqlalchemy.dialects.postgresql.base import PGInspector
+from sqlalchemy.schema import CreateSchema, MetaData, Table, DropTable, ForeignKeyConstraint, DropConstraint
+from sqlalchemy.sql.ddl import DropSchema
 
+from idds.common.config import config_has_option, config_get
 from idds.orm.base import session, models
 
 
 def build_database(echo=True, tests=False):
     """Build the database. """
     engine = session.get_engine(echo=echo)
+
+    if config_has_option('database', 'schema'):
+        schema = config_get('database', 'schema')
+        if schema:
+            print('Schema set in config, trying to create schema:', schema)
+            try:
+                engine.execute(CreateSchema(schema))
+            except Exception as e:
+                print('Cannot create schema, please validate manually if schema creation is needed, continuing:', e)
+                print(traceback.format_exc())
+
     models.register_models(engine)
 
 
 def destroy_database(echo=True):
     """Destroy the database"""
     engine = session.get_engine(echo=echo)
-    models.unregister_models(engine)
+
+    try:
+        models.unregister_models(engine)
+    except Exception as e:
+        print('Cannot destroy schema -- assuming already gone, continuing:', e)
+        print(traceback.format_exc())
 
 
-def destory_everything(echo=True):
+def destroy_everything(echo=True):
     """ Using metadata.reflect() to get all constraints and tables.
         metadata.drop_all() as it handles cyclical constraints between tables.
         Ref. http://www.sqlalchemy.org/trac/wiki/UsageRecipes/DropEverything
     """
     engine = session.get_engine(echo=echo)
-    conn = engine.connect()
 
-    # the transaction only applies if the DB supports
-    # transactional DDL, i.e. Postgresql, MS SQL Server
-    trans = conn.begin()
+    try:
+        # the transaction only applies if the DB supports
+        # transactional DDL, i.e. Postgresql, MS SQL Server
+        with engine.begin() as conn:
 
-    inspector = reflection.Inspector.from_engine(engine)
+            inspector = inspect(conn)  # type: Union[Inspector, PGInspector]
 
-    # gather all data first before dropping anything.
-    # some DBs lock after things have been dropped in
-    # a transaction.
-    metadata = MetaData()
+            for tname, fkcs in reversed(
+                    inspector.get_sorted_table_and_fkc_names(schema='*')):
+                if tname:
+                    drop_table_stmt = DropTable(Table(tname, MetaData(), schema='*'))
+                    conn.execute(drop_table_stmt)
+                elif fkcs:
+                    if not engine.dialect.supports_alter:
+                        continue
+                    for tname, fkc in fkcs:
+                        fk_constraint = ForeignKeyConstraint((), (), name=fkc)
+                        Table(tname, MetaData(), fk_constraint)
+                        drop_constraint_stmt = DropConstraint(fk_constraint)
+                        conn.execute(drop_constraint_stmt)
 
-    tbs = []
-    all_fks = []
+            if config_has_option('database', 'schema'):
+                schema = config_get('database', 'schema')
+                if schema:
+                    conn.execute(DropSchema(schema, cascade=True))
 
-    for table_name in inspector.get_table_names():
-        fks = []
-        for fk in inspector.get_foreign_keys(table_name):
-            if not fk['name']:
-                continue
-            fks.append(ForeignKeyConstraint((), (), name=fk['name']))
-        t = Table(table_name, metadata, *fks)
-        tbs.append(t)
-        all_fks.extend(fks)
+            if engine.dialect.name == 'postgresql':
+                assert isinstance(inspector, PGInspector), 'expected a PGInspector'
+                for enum in inspector.get_enums(schema='*'):
+                    sqlalchemy.Enum(**enum).drop(bind=conn)
 
-    for fkc in all_fks:
-        try:
-            print(str(DropConstraint(fkc)) + ';')
-            conn.execute(DropConstraint(fkc))
-        except:  # noqa: B901
-            print(traceback.format_exc())
-
-    for table in tbs:
-        try:
-            print(str(DropTable(table)).strip() + ';')
-            conn.execute(DropTable(table))
-        except:  # noqa: B901
-            print(traceback.format_exc())
-
-    trans.commit()
+    except Exception as e:
+        print('Cannot destroy db:', e)
+        print(traceback.format_exc())
 
 
 def dump_schema():

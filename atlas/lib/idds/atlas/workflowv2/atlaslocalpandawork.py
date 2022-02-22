@@ -86,6 +86,7 @@ class ATLASLocalPandaWork(ATLASPandaWork):
             self.add_errors(str(ex))
 
     def renew_parameters_from_attributes(self):
+        super(ATLASLocalPandaWork, self).renew_parameters_from_attributes()
         if not self.task_parameters:
             return
 

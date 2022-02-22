@@ -16,6 +16,7 @@ Test client.
 
 import string
 import random
+import time
 
 # import traceback
 
@@ -37,7 +38,9 @@ from idds.doma.workflowv2.domapandawork import DomaPanDAWork
 
 
 task_queue = 'DOMA_LSST_GOOGLE_TEST'
-task_queue = 'DOMA_LSST_GOOGLE_MERGE'
+# task_queue = 'DOMA_LSST_GOOGLE_MERGE'
+# task_queue = 'SLAC_TEST'
+# task_queue = 'DOMA_LSST_SLAC_TEST'
 
 
 def randStr(chars=string.ascii_lowercase + string.digits, N=10):
@@ -157,12 +160,13 @@ def setup_workflow():
                                     "value": "log.tgz"},
                           task_cloud='LSST')
 
-    pending_time = 0.5
+    pending_time = 12
     # pending_time = None
     workflow = Workflow(pending_time=pending_time)
     workflow.add_work(work1)
     workflow.add_work(work2)
     workflow.add_work(work3)
+    workflow.name = 'test_workflow.idds.%s.test' % time.time()
     return workflow
 
 
@@ -171,5 +175,5 @@ if __name__ == '__main__':
     workflow = setup_workflow()
 
     wm = ClientManager(host=host)
-    request_id = wm.submit(workflow)
+    request_id = wm.submit(workflow, use_dataset_name=False)
     print(request_id)

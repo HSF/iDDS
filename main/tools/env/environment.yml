@@ -3,6 +3,7 @@ dependencies:
 - python==3.9.7 
 - pip
 - pip:
+  - argcomplete
   - requests                         # requests
   - SQLAlchemy                       # db orm
   - urllib3                          # url connections
@@ -22,6 +23,7 @@ dependencies:
   - recommonmark                     # use Markdown with Sphinx
   - sphinx-rtd-theme                 # sphinx readthedoc theme
   - nevergrad                        # nevergrad hyper parameter optimization
-  - idds-common==0.9.1
-  - idds-workflow==0.9.1
-  - idds-client==0.9.1
+  - psycopg2-binary 
+  - idds-common==0.10.2
+  - idds-workflow==0.10.2
+  - idds-client==0.10.2

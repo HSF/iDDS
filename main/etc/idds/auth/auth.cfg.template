@@ -1,0 +1,27 @@
+[common]
+allow_vos = panda_dev,Rubin,Rubin:production
+
+[panda_dev]
+client_secret = <>
+audience = https://pandaserver-doma.cern.ch
+client_id = <>
+oidc_config_url = https://panda-iam-doma.cern.ch/.well-known/openid-configuration
+vo = panda_dev
+
+[Rubin]
+client_secret = <>
+audience = https://pandaserver-doma.cern.ch
+client_id = <>
+oidc_config_url = https://panda-iam-doma.cern.ch/.well-known/openid-configuration
+vo = Rubin
+
+[Rubin:production]
+client_secret = <>
+audience = https://pandaserver-doma.cern.ch
+client_id = <>
+oidc_config_url = https://panda-iam-doma.cern.ch/.well-known/openid-configuration
+vo = Rubin
+
+[Users]
+allow_users = *
+ban_users = testuser

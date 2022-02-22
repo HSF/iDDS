@@ -160,9 +160,15 @@ class Request(IDDSController):
                 with_metadata = True
             else:
                 with_metadata = False
+            if with_detail:
+                with_request = False
+            else:
+                with_request = True
 
             # reqs = get_requests(request_id=request_id, workload_id=workload_id, to_json=True)
-            reqs = get_requests(request_id=request_id, workload_id=workload_id, with_detail=with_detail, with_metadata=with_metadata)
+            reqs = get_requests(request_id=request_id, workload_id=workload_id,
+                                with_request=with_request, with_detail=with_detail,
+                                with_metadata=with_metadata)
         except exceptions.NoObject as error:
             return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
         except exceptions.IDDSException as error:

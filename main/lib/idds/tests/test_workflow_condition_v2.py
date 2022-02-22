@@ -29,6 +29,84 @@ setup_logging(__name__)
 
 class TestWorkflowCondtion(unittest.TestCase):
 
+    def test_work_custom_condition(self):
+        # init_p = Parameter({'input_dataset': 'data17:data17.test.raw.1'})
+        work1 = Work(executable='/bin/hostname', arguments=None, sandbox=None, work_id=1)
+        work1.add_custom_condition('to_exit', True)
+        assert(work1.get_custom_condition_status() is False)
+        work1.to_exit = False
+        assert(work1.get_custom_condition_status() is False)
+        work1.to_exit = 'False'
+        assert(work1.get_custom_condition_status() is False)
+        work1.to_exit = True
+        assert(work1.get_custom_condition_status() is True)
+
+        work1 = Work(executable='/bin/hostname', arguments=None, sandbox=None, work_id=1)
+        work1.add_custom_condition('to_exit', 'true')
+        assert(work1.get_custom_condition_status() is False)
+        work1.to_exit = False
+        assert(work1.get_custom_condition_status() is False)
+        work1.to_exit = 'False'
+        assert(work1.get_custom_condition_status() is False)
+        work1.to_exit = True
+        assert(work1.get_custom_condition_status() is False)
+        work1.to_exit = 'true'
+        assert(work1.get_custom_condition_status() is True)
+
+        work1 = Work(executable='/bin/hostname', arguments=None, sandbox=None, work_id=1)
+        work1.add_custom_condition('to_exit1', True)
+        work1.add_custom_condition('to_exit2', True)
+        assert(work1.get_custom_condition_status() is False)
+        work1.to_exit1 = False
+        assert(work1.get_custom_condition_status() is False)
+        work1.to_exit1 = 'False'
+        assert(work1.get_custom_condition_status() is False)
+        work1.to_exit1 = True
+        assert(work1.get_custom_condition_status() is False)
+        work1.to_exit2 = 'true'
+        assert(work1.get_custom_condition_status() is False)
+        work1.to_exit2 = True
+        assert(work1.get_custom_condition_status() is True)
+
+        work1 = Work(executable='/bin/hostname', arguments=None, sandbox=None, work_id=1)
+        work1.add_custom_condition('to_exit1', True, op='or')
+        work1.add_custom_condition('to_exit2', True, op='or')
+        assert(work1.get_custom_condition_status() is False)
+        work1.to_exit1 = False
+        assert(work1.get_custom_condition_status() is False)
+        work1.to_exit1 = 'False'
+        assert(work1.get_custom_condition_status() is False)
+        work1.to_exit1 = True
+        assert(work1.get_custom_condition_status() is True)
+        work1.to_exit1 = False
+        work1.to_exit2 = 'true'
+        assert(work1.get_custom_condition_status() is False)
+        work1.to_exit2 = True
+        assert(work1.get_custom_condition_status() is True)
+
+        work1 = Work(executable='/bin/hostname', arguments=None, sandbox=None, work_id=1)
+        # to_exit or (to_exit1 or to_exit2)
+        work1.add_custom_condition('to_exit', True, op='and')
+        work1.add_custom_condition('to_exit1', True, op='or')
+        work1.add_custom_condition('to_exit2', True, op='or')
+        assert(work1.get_custom_condition_status() is False)
+        work1.to_exit1 = False
+        assert(work1.get_custom_condition_status() is False)
+        work1.to_exit1 = 'False'
+        assert(work1.get_custom_condition_status() is False)
+        work1.to_exit1 = True
+        assert(work1.get_custom_condition_status() is True)
+        work1.to_exit1 = False
+        work1.to_exit2 = 'true'
+        assert(work1.get_custom_condition_status() is False)
+        work1.to_exit2 = True
+        assert(work1.get_custom_condition_status() is True)
+        work1.to_exit1 = False
+        work1.to_exit2 = False
+        work1.to_exit = True
+        assert(work1.get_custom_condition_status() is True)
+        assert(work1.get_not_custom_condition_status() is False)
+
     def test_condition(self):
         # init_p = Parameter({'input_dataset': 'data17:data17.test.raw.1'})
         work1 = Work(executable='/bin/hostname', arguments=None, sandbox=None, work_id=1)

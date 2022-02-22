@@ -148,7 +148,7 @@ class Request(BASE, ModelBase):
     next_poll_at = Column("next_poll_at", DateTime, default=datetime.datetime.utcnow)
     accessed_at = Column("accessed_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     expired_at = Column("expired_at", DateTime)
-    errors = Column(JSON())
+    errors = Column(JSONString(1024))
     _request_metadata = Column('request_metadata', JSON())
     _processing_metadata = Column('processing_metadata', JSON())
 
@@ -209,8 +209,8 @@ class Request(BASE, ModelBase):
     _table_args = (PrimaryKeyConstraint('request_id', name='REQUESTS_PK'),
                    CheckConstraint('status IS NOT NULL', name='REQUESTS_STATUS_ID_NN'),
                    # UniqueConstraint('name', 'scope', 'requester', 'request_type', 'transform_tag', 'workload_id', name='REQUESTS_NAME_SCOPE_UQ '),
-                   Index('REQUESTS_SCOPE_NAME_IDX', 'workload_id', 'request_id', 'name', 'scope'),
-                   Index('REQUESTS_STATUS_PRIO_IDX', 'status', 'priority', 'workload_id', 'request_id', 'locking', 'updated_at', 'next_poll_at', 'created_at'))
+                   Index('REQUESTS_SCOPE_NAME_IDX', 'name', 'scope', 'workload_id'),
+                   Index('REQUESTS_STATUS_PRIO_IDX', 'status', 'priority', 'request_id', 'locking', 'updated_at', 'next_poll_at', 'created_at'))
 
 
 class Workprogress(BASE, ModelBase):
@@ -234,7 +234,7 @@ class Workprogress(BASE, ModelBase):
     next_poll_at = Column("next_poll_at", DateTime, default=datetime.datetime.utcnow)
     accessed_at = Column("accessed_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     expired_at = Column("expired_at", DateTime)
-    errors = Column(JSON())
+    errors = Column(JSONString(1024))
     workprogress_metadata = Column(JSON())
     processing_metadata = Column(JSON())
 
@@ -242,7 +242,7 @@ class Workprogress(BASE, ModelBase):
                    ForeignKeyConstraint(['request_id'], ['requests.request_id'], name='REQ2WORKPROGRESS_REQ_ID_FK'),
                    CheckConstraint('status IS NOT NULL', name='WORKPROGRESS_STATUS_ID_NN'),
                    # UniqueConstraint('name', 'scope', 'requester', 'request_type', 'transform_tag', 'workload_id', name='REQUESTS_NAME_SCOPE_UQ '),
-                   Index('WORKPROGRESS_SCOPE_NAME_IDX', 'workprogress_id', 'request_id', 'name', 'scope'),
+                   Index('WORKPROGRESS_SCOPE_NAME_IDX', 'name', 'scope', 'workprogress_id'),
                    Index('WORKPROGRESS_STATUS_PRIO_IDX', 'status', 'priority', 'workprogress_id', 'locking', 'updated_at', 'next_poll_at', 'created_at'))
 
 
@@ -325,7 +325,7 @@ class Transform(BASE, ModelBase):
     _table_args = (PrimaryKeyConstraint('transform_id', name='TRANSFORMS_PK'),
                    CheckConstraint('status IS NOT NULL', name='TRANSFORMS_STATUS_ID_NN'),
                    Index('TRANSFORMS_TYPE_TAG_IDX', 'transform_type', 'transform_tag', 'transform_id'),
-                   Index('TRANSFORMS_STATUS_UPDATED_IDX', 'status', 'locking', 'updated_at', 'next_poll_at', 'created_at'))
+                   Index('TRANSFORMS_STATUS_UPDATED_AT_IDX', 'status', 'locking', 'updated_at', 'next_poll_at', 'created_at'))
 
 
 class Workprogress2transform(BASE, ModelBase):
@@ -470,14 +470,13 @@ class Content(BASE, ModelBase):
     coll_id = Column(BigInteger().with_variant(Integer, "sqlite"))
     request_id = Column(BigInteger().with_variant(Integer, "sqlite"))
     workload_id = Column(Integer())
-    transform_id = Column(BigInteger().with_variant(Integer, "sqlite"))
     map_id = Column(BigInteger().with_variant(Integer, "sqlite"), default=0)
     scope = Column(String(SCOPE_LENGTH))
     name = Column(String(NAME_LENGTH))
-    min_id = Column(Integer())
-    max_id = Column(Integer())
+    min_id = Column(Integer(), default=0)
+    max_id = Column(Integer(), default=0)
     content_type = Column(EnumWithValue(ContentType))
-    content_relation_type = Column(EnumWithValue(ContentRelationType))
+    content_relation_type = Column(EnumWithValue(ContentRelationType), default=0)
     status = Column(EnumWithValue(ContentStatus))
     substatus = Column(EnumWithValue(ContentStatus))
     locking = Column(EnumWithValue(ContentLocking))
@@ -492,13 +491,13 @@ class Content(BASE, ModelBase):
     updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     accessed_at = Column("accessed_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     expired_at = Column("expired_at", DateTime)
-    content_metadata = Column(JSONString())
+    content_metadata = Column(JSONString(100))
 
     _table_args = (PrimaryKeyConstraint('content_id', name='CONTENTS_PK'),
                    # UniqueConstraint('name', 'scope', 'coll_id', 'content_type', 'min_id', 'max_id', name='CONTENT_SCOPE_NAME_UQ'),
                    # UniqueConstraint('name', 'scope', 'coll_id', 'min_id', 'max_id', name='CONTENT_SCOPE_NAME_UQ'),
                    # UniqueConstraint('content_id', 'coll_id', name='CONTENTS_UQ'),
-                   UniqueConstraint('transform_id', 'coll_id', 'map_id', 'name', name='CONTENT_ID_UQ'),
+                   UniqueConstraint('transform_id', 'coll_id', 'map_id', 'name', 'min_id', 'max_id', name='CONTENT_ID_UQ'),
                    ForeignKeyConstraint(['transform_id'], ['transforms.transform_id'], name='CONTENTS_TRANSFORM_ID_FK'),
                    ForeignKeyConstraint(['coll_id'], ['collections.coll_id'], name='CONTENTS_COLL_ID_FK'),
                    CheckConstraint('status IS NOT NULL', name='CONTENTS_STATUS_ID_NN'),
@@ -548,7 +547,9 @@ class Message(BASE, ModelBase):
     msg_content = Column(JSON())
 
     _table_args = (PrimaryKeyConstraint('msg_id', name='MESSAGES_PK'),
-                   Index('MESSAGES_TYPE_ST_IDX', 'msg_type', 'status', 'destination', 'request_id'))
+                   Index('MESSAGES_TYPE_ST_IDX', 'msg_type', 'status', 'destination', 'request_id'),
+                   Index('MESSAGES_TYPE_ST_TF_IDX', 'msg_type', 'status', 'destination', 'transform_id'),
+                   Index('MESSAGES_TYPE_ST_PR_IDX', 'msg_type', 'status', 'destination', 'processing_id'))
 
 
 def register_models(engine):
@@ -556,7 +557,8 @@ def register_models(engine):
     Creates database tables for all models with the given engine
     """
 
-    models = (Request, Workprogress, Transform, Workprogress2transform, Processing, Collection, Content, Health, Message)
+    # models = (Request, Workprogress, Transform, Workprogress2transform, Processing, Collection, Content, Health, Message)
+    models = (Request, Transform, Processing, Collection, Content, Health, Message)
 
     for model in models:
         model.metadata.create_all(engine)   # pylint: disable=maybe-no-member
@@ -567,7 +569,8 @@ def unregister_models(engine):
     Drops database tables for all models with the given engine
     """
 
-    models = (Request, Workprogress, Transform, Workprogress2transform, Processing, Collection, Content, Health, Message)
+    # models = (Request, Workprogress, Transform, Workprogress2transform, Processing, Collection, Content, Health, Message)
+    models = (Request, Transform, Processing, Collection, Content, Health, Message)
 
     for model in models:
         model.metadata.drop_all(engine)   # pylint: disable=maybe-no-member
