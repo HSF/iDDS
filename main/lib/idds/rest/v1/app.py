@@ -61,7 +61,7 @@ def get_normal_blueprints():
     bps.append(cacher.get_blueprint())
     bps.append(hyperparameteropt.get_blueprint())
     bps.append(logs.get_blueprint())
-    bps.append(monitor.get_blueprint())
+    # bps.append(monitor.get_blueprint())
     bps.append(messages.get_blueprint())
     bps.append(ping.get_blueprint())
 
@@ -71,6 +71,7 @@ def get_normal_blueprints():
 def get_auth_blueprints():
     bps = []
     bps.append(auth.get_blueprint())
+    bps.append(monitor.get_blueprint())
     return bps
 
 

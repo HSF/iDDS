@@ -22,6 +22,7 @@ import tarfile
 
 from enum import Enum
 from functools import wraps
+from packaging import version as packaging_version
 
 from idds.common.config import (config_has_section, config_has_option,
                                 config_get, config_get_bool)
@@ -452,7 +453,7 @@ def get_proxy():
 
 
 def is_new_version(version1, version2):
-    return version1 > version2
+    return packaging_version.parse(version1) > packaging_version.parse(version2)
 
 
 def extract_scope_atlas(did, scopes):

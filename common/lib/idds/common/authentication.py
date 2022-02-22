@@ -330,8 +330,8 @@ class X509Authentication(BaseAuthentication):
         section = "Users"
         option = "ban_users"
         if self.config and self.config.has_section(section):
-            if self.config.has_option(option):
-                users = self.config.get(option)
+            if self.config.has_option(section, option):
+                users = self.config.get(section, option)
                 users = users.split(",")
                 return users
         return []
@@ -340,8 +340,8 @@ class X509Authentication(BaseAuthentication):
         section = "Users"
         option = "allow_users"
         if self.config and self.config.has_section(section):
-            if self.config.has_option(option):
-                users = self.config.get(option)
+            if self.config.has_option(section, option):
+                users = self.config.get(section, option)
                 users = users.split(",")
                 return users
         return []
@@ -395,11 +395,15 @@ def authenticate_x509(vo, dn, client_cert):
     allow_user_list = X509Authentication().get_allow_user_list()
     matched = False
     for allow_user in allow_user_list:
-        pat = re.compile(allow_user)
-        mat = pat.match(dn)
-        if mat:
+        # pat = re.compile(allow_user)
+        # mat = pat.match(dn)
+        mat = dn.find(allow_user)
+        if mat > -1:
             matched = True
             break
+
+    if not matched:
+        return False, "User %s is not allowed" % str(dn)
 
     if matched:
         # username = get_user_name_from_dn(dn)

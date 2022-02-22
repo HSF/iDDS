@@ -83,7 +83,11 @@ class ClientManager:
                 self.host = self.get_config_value(local_cfg, 'rest', 'host', current=self.host, default=None)
 
         if self.client is None:
-            self.client = Client(host=self.host,
+            if self.auth_type_host is not None:
+                client_host = self.auth_type_host
+            else:
+                client_host = self.host
+            self.client = Client(host=client_host,
                                  auth={'auth_type': self.auth_type,
                                        'client_proxy': self.x509_proxy,
                                        'oidc_token': self.oidc_token,
@@ -311,7 +315,9 @@ class ClientManager:
             'workload_id': workflow.get_workload_id(),
             'request_metadata': {'version': release_version, 'workload_id': workflow.get_workload_id(), 'workflow': workflow}
         }
-        workflow.add_proxy()
+
+        if self.auth_type == 'x509_proxy':
+            workflow.add_proxy()
 
         if use_dataset_name:
             primary_init_work = workflow.get_primary_initial_collection()
