@@ -11,7 +11,7 @@ os.environ['PANDA_AUTH'] = 'oidc'
 os.environ['PANDA_URL_SSL'] = 'https://pandaserver-doma.cern.ch:25443/server/panda'
 os.environ['PANDA_URL'] = 'http://pandaserver-doma.cern.ch:25080/server/panda'
 os.environ['PANDA_AUTH_VO'] = 'Rubin'
-os.environ['PANDA_CONFIG_ROOT'] = '~/.panda/'
+# os.environ['PANDA_CONFIG_ROOT'] = '~/.panda/'
 
 from idds.common.constants import RequestStatus, ProcessingStatus
 import idds.common.utils as idds_utils
