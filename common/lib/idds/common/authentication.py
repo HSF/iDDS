@@ -241,7 +241,7 @@ class OIDCAuthentication(BaseAuthentication):
         try:
             allow_vos = self.get_allow_vos()
             if vo not in allow_vos:
-                return False, "VO %s is not allowed." % vo
+                return False, "VO %s is not allowed." % vo, None
 
             auth_config = self.get_auth_config(vo)
             endpoint_config = self.get_endpoint_config(auth_config)
@@ -251,16 +251,20 @@ class OIDCAuthentication(BaseAuthentication):
             audience = decoded_token['aud']
             if auth_config['client_id'] != audience:
                 # discovery_endpoint = auth_config['oidc_config_url']
-                return False, "The audience of the token doesn't match vo configuration."
+                return False, "The audience of the token doesn't match vo configuration.", None
 
             public_key = self.get_public_key(token, endpoint_config['jwks_uri'])
             # decode token only with RS256
             decoded = jwt.decode(token, public_key, verify=True, algorithms='RS256',
                                  audience=audience, issuer=endpoint_config['issuer'])
             decoded['vo'] = vo
-            return True, decoded
+            if 'name' in decoded:
+                username = decoded['name']
+            else:
+                username = None
+            return True, decoded, username
         except Exception as error:
-            return False, 'Failed to verify oidc token: ' + str(error)
+            return False, 'Failed to verify oidc token: ' + str(error), None
 
 
 class OIDCAuthenticationUtils(object):
@@ -384,9 +388,9 @@ def get_user_name_from_dn(dn):
 
 def authenticate_x509(vo, dn, client_cert):
     if not dn:
-        return False, "User DN cannot be found."
+        return False, "User DN cannot be found.", None
     if not client_cert:
-        return False, "Client certificate proxy cannot be found."
+        return False, "Client certificate proxy cannot be found.", None
 
     # certDecoded = x509.load_pem_x509_certificate(str.encode(client_cert), default_backend())
     # print(certDecoded.issuer)
@@ -403,7 +407,7 @@ def authenticate_x509(vo, dn, client_cert):
             break
 
     if not matched:
-        return False, "User %s is not allowed" % str(dn)
+        return False, "User %s is not allowed" % str(dn), None
 
     if matched:
         # username = get_user_name_from_dn(dn)
@@ -412,14 +416,15 @@ def authenticate_x509(vo, dn, client_cert):
             pat = re.compile(ban_user)
             mat = pat.match(dn)
             if mat:
-                return False, "User %s is banned" % str(dn)
-    return True, None
+                return False, "User %s is banned" % str(dn), None
+    username = get_user_name_from_dn(dn)
+    return True, None, username
 
 
 def authenticate_oidc(vo, token):
     oidc_auth = OIDCAuthentication()
-    status, data = oidc_auth.verify_id_token(vo, token)
+    status, data, username = oidc_auth.verify_id_token(vo, token)
     if status:
-        return status, data
+        return status, data, username
     else:
-        return status, data
+        return status, data, username

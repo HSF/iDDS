@@ -88,14 +88,16 @@ def before_request_auth():
     if auth_type in ['x509_proxy']:
         dn = flask.request.environ.get('SSL_CLIENT_S_DN', None)
         client_cert = flask.request.environ.get('SSL_CLIENT_CERT', None)
-        is_authenticated, errors = authenticate_x509(vo, dn, client_cert)
+        is_authenticated, errors, username = authenticate_x509(vo, dn, client_cert)
         if not is_authenticated:
             return generate_failed_auth_response(errors)
+        flask.request.environ['username'] = username
     elif auth_type in ['oidc']:
         token = flask.request.headers.get('X-IDDS-Auth-Token', default=None)
-        is_authenticated, errors = authenticate_oidc(vo, token)
+        is_authenticated, errors, username = authenticate_oidc(vo, token)
         if not is_authenticated:
             return generate_failed_auth_response(errors)
+        flask.request.environ['username'] = username
     else:
         errors = "Authentication method %s is not supported" % auth_type
         return generate_failed_auth_response(errors)
