@@ -404,7 +404,7 @@ class DomaPanDAWork(Work):
         task_param_map['noInput'] = True
         task_param_map['pfnList'] = in_files
         task_param_map['taskName'] = self.task_name
-        task_param_map['userName'] = 'iDDS'
+        task_param_map['userName'] = self.username if self.username else 'iDDS'
         task_param_map['taskPriority'] = 900
         task_param_map['architecture'] = ''
         task_param_map['transUses'] = ''

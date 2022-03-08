@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2021
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
 
 import datetime
 import time
@@ -76,6 +76,7 @@ class Clerk(BaseAgent):
         wf = req['request_metadata']['workflow']
 
         work.set_request_id(req['request_id'])
+        work.username = req['username']
 
         new_transform = {'request_id': req['request_id'],
                          'workload_id': req['workload_id'],
