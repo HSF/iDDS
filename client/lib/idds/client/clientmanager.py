@@ -362,6 +362,39 @@ class ClientManager:
             return (-1, 'No matching requests')
 
     @exception_handler
+    def abort_tasks(self, request_id=None, workload_id=None, task_id=None):
+        """
+        Abort tasks.
+
+        :param workload_id: the workload id.
+        :param request_id: the request.
+        :param task_id: The task id.
+        """
+        self.setup_client()
+
+        if request_id is None and workload_id is None:
+            logging.error("Both request_id and workload_id are None. One of them should not be None")
+            return (-1, "Both request_id and workload_id are None. One of them should not be None")
+        if task_id is None:
+            logging.error("The task_id is required for killing tasks. If you want to kill the whole workflow, please try another API.")
+            return (-1, "The task_id is required for killing tasks")
+
+        reqs = self.client.get_requests(request_id=request_id, workload_id=workload_id, with_processing=True)
+        if reqs:
+            rets = []
+            for req in reqs:
+                if str(req['processing_workload_id']) == str(task_id):
+                    logging.info("Aborting task: (request_id: %s, task_id: %s)" % (req['request_id'], task_id))
+                    self.client.send_message(request_id=req['request_id'], msg={'command': 'update_processing',
+                                                                                'parameters': {'status': ProcessingStatus.ToCancel, 'workload_id': task_id}})
+                    logging.info("Abort task registered successfully: (request_id %s, task_id: %s)" % (req['request_id'], task_id))
+                    ret = (0, "Abort task registered successfully: (request_id %s, task_id: %s)" % (req['request_id'], task_id))
+                    rets.append(ret)
+            return rets
+        else:
+            return (-1, 'No matching requests')
+
+    @exception_handler
     def suspend(self, request_id=None, workload_id=None):
         """
         Suspend requests.
