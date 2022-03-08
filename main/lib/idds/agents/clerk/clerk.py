@@ -21,11 +21,13 @@ except ImportError:
 from idds.common import exceptions
 from idds.common.constants import (Sections, RequestStatus, RequestLocking,
                                    TransformStatus, MessageType, MessageStatus,
+                                   ProcessingStatus,
                                    MessageSource, MessageDestination,
                                    ContentStatus, ContentRelationType)
 from idds.common.utils import setup_logging, truncate_string
 from idds.core import (requests as core_requests,
                        transforms as core_transforms,
+                       processings as core_processings,
                        catalog as core_catalog)
 from idds.agents.common.baseagent import BaseAgent
 
@@ -298,6 +300,55 @@ class Clerk(BaseAgent):
                'msg_content': msg_content}
         return msg
 
+    def get_message_for_update_processing(self, processing, processing_status):
+        msg_content = {'command': 'update_processing',
+                       'parameters': {'status': processing_status}}
+        msg = {'msg_type': MessageType.IDDSCommunication,
+               'status': MessageStatus.New,
+               'destination': MessageDestination.Carrier,
+               'source': MessageSource.Clerk,
+               'request_id': processing['request_id'],
+               'workload_id': processing['workload_id'],
+               'transform_id': processing['transform_id'],
+               'processing_id': processing['processing_id'],
+               'num_contents': 1,
+               'msg_content': msg_content}
+        return msg
+
+    def get_update_processing_messages(self, msg_id, request_id, parameters):
+        self.logger.info("get_update_processing_messages: msg_id: %s, request_id: %s, parameters: %s" % (msg_id, request_id, str(parameters)))
+        processings = core_processings.get_processings(request_id=request_id)
+        if not processings:
+            self.logger.error("get_update_processing_messages: msg_id: %s, request_id: %s, no processings. return" % (msg_id, request_id))
+            return []
+        processing_map = {}
+        processing_wids = []
+        for processing in processings:
+            processing_map[processing['workload_id']] = processing
+            processing_wids.append(processing['workload_id'])
+
+        msgs = []
+        if type(parameters) in [list, tuple]:
+            for param in parameters:
+                workload_id, status = None, None
+                if 'workload_id' in param:
+                    try:
+                        workload_id = int(param['workload_id'])
+                    except:
+                        pass
+                if 'status' in param:
+                    status = param['status']
+
+                if workload_id is None or status is None or status not in [ProcessingStatus.ToCancel, ProcessingStatus.ToSuspend, ProcessingStatus.ToResume]:
+                    self.logger.error("get_update_processing_messages: msg_id %s, workload_id (%s) is None or status is None or status(%s) is not in [ToCancel, ToSuspend, ToResume], ignore." % (msg_id, workload_id, status))
+                    continue
+                if workload_id not in processing_map:
+                    self.logger.error("get_update_processing_messages: msg_id %s, workload_id %s cannot be found in request %s(processings: %s)" % (msg_id, workload_id, request_id, str(processing_wids)))
+                    continue
+                msg = self.get_message_for_update_processing(processing_map[workload_id], status)
+                msgs.append(msg)
+        return msgs
+
     def process_running_request_real(self, req):
         """
         process running request
@@ -396,10 +447,23 @@ class Clerk(BaseAgent):
             msg = messages[0]
             message = messages[0]['msg_content']
             if message['command'] == 'update_request':
-                parameters = message['parameters']
+                parameters_temp = message['parameters']
+                parameters = {}
+                if 'status' not in parameters_temp or parameters_temp['status'] not in [RequestStatus.ToCancel, RequestStatus.ToSuspend, RequestStatus.ToResume]:
+                    self.logger.error("process_running_request_message: message %s parameters cannot be accepted: %s" % (msg['msg_id'], parameters_temp))
+                else:
+                    parameters['status'] = parameters_temp['status']
                 parameters['locking'] = RequestLocking.Idle
                 ret_req = {'request_id': req['request_id'],
                            'parameters': parameters,
+                           'update_messages': [{'msg_id': msg['msg_id'], 'status': MessageStatus.Delivered}]
+                           }
+            elif message['command'] == 'update_processing':
+                parameters = message['parameters']
+                update_processing_messages = self.get_update_processing_messages(msg['msg_id'], req['request_id'], parameters)
+                ret_req = {'request_id': req['request_id'],
+                           'parameters': {'locking': RequestLocking.Idle},
+                           'new_messages': update_processing_messages,
                            'update_messages': [{'msg_id': msg['msg_id'], 'status': MessageStatus.Delivered}]
                            }
             else:
