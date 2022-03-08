@@ -13,9 +13,9 @@ os.environ['PANDA_URL'] = 'http://pandaserver-doma.cern.ch:25080/server/panda'
 os.environ['PANDA_AUTH_VO'] = 'Rubin'
 # os.environ['PANDA_CONFIG_ROOT'] = '~/.panda/'
 
-from idds.common.constants import RequestStatus, ProcessingStatus
-import idds.common.utils as idds_utils
-import pandaclient.idds_api
+from idds.common.constants import RequestStatus, ProcessingStatus    # noqa E402
+import idds.common.utils as idds_utils                               # noqa E402
+import pandaclient.idds_api                                          # noqa E402
 
 
 parser = argparse.ArgumentParser()
