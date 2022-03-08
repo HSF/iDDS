@@ -272,9 +272,11 @@ class CompositeCondition(Base):
 
         new_true_works = []
         for w in self.true_works:
-            if isinstance(w, CompositeCondition) or isinstance(w, Workflow):
+            if isinstance(w, CompositeCondition):
                 # work = w.load_conditions(works, works_template)
                 w.load_conditions(works)
+                work = w
+            elif isinstance(w, Workflow):
                 work = w
             elif type(w) in [str]:
                 work = self.get_work_from_id(w, works)
@@ -821,8 +823,15 @@ class WorkflowBase(Base):
         for cond_internal_id in self._conditions:
             if cond_internal_id in conditions_metadata:
                 self.conditions[cond_internal_id].metadata = conditions_metadata[cond_internal_id]
-            self.conditions[cond_internal_id].load_conditions(self.works)
-
+            if isinstance(self.conditions[cond_internal_id], Workflow):
+                # self.conditions[cond_internal_id].load_conditions(self.works)
+                pass
+            elif isinstance(self.conditions[cond_internal_id], Work):
+                # self.conditions[cond_internal_id].load_conditions(self.works)
+                pass
+            elif isinstance(self.conditions[cond_internal_id], CompositeCondition):
+                self.conditions[cond_internal_id].load_conditions(self.works)
+                pass
         # work_conds = self.get_metadata_item('work_conds', {})
         # self._work_conds = work_conds
 
