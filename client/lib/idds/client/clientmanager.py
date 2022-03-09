@@ -388,7 +388,7 @@ class ClientManager:
                 if str(req['processing_workload_id']) == str(task_id):
                     logging.info("Aborting task: (request_id: %s, task_id: %s)" % (req['request_id'], task_id))
                     self.client.send_message(request_id=req['request_id'], msg={'command': 'update_processing',
-                                                                                'parameters': {'status': ProcessingStatus.ToCancel, 'workload_id': task_id}})
+                                                                                'parameters': [{'status': ProcessingStatus.ToCancel, 'workload_id': task_id}]})
                     logging.info("Abort task registered successfully: (request_id %s, task_id: %s)" % (req['request_id'], task_id))
                     ret = (0, "Abort task registered successfully: (request_id %s, task_id: %s)" % (req['request_id'], task_id))
                     rets.append(ret)
