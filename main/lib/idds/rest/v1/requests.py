@@ -177,7 +177,6 @@ class Request(IDDSController):
             else:
                 with_request = True
 
-
             # reqs = get_requests(request_id=request_id, workload_id=workload_id, to_json=True)
             reqs = get_requests(request_id=request_id, workload_id=workload_id,
                                 with_request=with_request, with_detail=with_detail,
