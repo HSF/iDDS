@@ -76,6 +76,10 @@ def abort_requests(args):
     wm.abort(request_id=args.request_id, workload_id=args.workload_id)
 
 
+def abort_tasks(args):
+    wm = ClientManager(host=args.host, setup_client=True)
+    wm.abort_tasks(request_id=args.request_id, workload_id=args.workload_id, task_id=args.task_id)
+
 def suspend_requests(args):
     wm = ClientManager(host=args.host, setup_client=True)
     wm.suspend(request_id=args.request_id, workload_id=args.workload_id)
@@ -199,6 +203,13 @@ def get_parser():
     abort_parser.set_defaults(function=abort_requests)
     abort_parser.add_argument('--request_id', dest='request_id', action='store', type=int, help='The request id')
     abort_parser.add_argument('--workload_id', dest='workload_id', action='store', type=int, help='The workload id')
+
+    # abort tasks
+    abort_tasks_parser = subparsers.add_parser('abort_tasks', help='Abort tasks')
+    abort_tasks_parser.set_defaults(function=abort_tasks)
+    abort_tasks_parser.add_argument('--request_id', dest='request_id', action='store', type=int, help='The request id')
+    abort_tasks_parser.add_argument('--workload_id', dest='workload_id', action='store', type=int, help='The workload id')
+    abort_tasks_parser.add_argument('--task_id', dest='task_id', action='store', type=int, help='The task id')
 
     # suspend requests
     suspend_parser = subparsers.add_parser('suspend_requests', help='Suspend requests')

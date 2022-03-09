@@ -167,6 +167,8 @@ class Processing(Base):
         self.operation_time = datetime.datetime.utcnow()
         self.submitted_at = None
 
+        self.username = None
+
         self.external_id = None
         self.errors = None
 
@@ -400,7 +402,7 @@ class Work(Base):
                  work_tag=None, exec_type='local', sandbox=None, request_id=None, work_id=None, work_name=None,
                  primary_input_collection=None, other_input_collections=None, input_collections=None,
                  primary_output_collection=None, other_output_collections=None, output_collections=None,
-                 log_collections=None, release_inputs_after_submitting=False,
+                 log_collections=None, release_inputs_after_submitting=False, username=None,
                  agent_attributes=None, is_template=False,
                  logger=None):
         """
@@ -445,6 +447,7 @@ class Work(Base):
         self.arguments = arguments
         self.parameters = parameters
 
+        self.username = username
         self.work_type = work_type
         self.work_tag = work_tag
         self.exec_type = exec_type

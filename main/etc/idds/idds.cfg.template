@@ -85,6 +85,8 @@ atlaslocalpandawork.work_dir = /data/idds_processing
 
 [conductor]
 retrieve_bulk_size = 10
+threshold_to_release_messages = 1000
+random_delay = 60
 plugin.notifier = idds.atlas.notifier.messaging.MessagingSender
 # plugin.notifier.brokers = atlas-test-mb.cern.ch
 plugin.notifier.brokers = atlas-mb.cern.ch

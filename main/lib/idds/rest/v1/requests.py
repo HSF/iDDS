@@ -79,6 +79,9 @@ class Request(IDDSController):
                 parameters['priority'] = 0
             # if 'lifetime' not in parameters:
             #     parameters['lifetime'] = 30
+            if 'username' not in parameters or not parameters['username']:
+                if 'username' in self.get_request().environ and self.get_request().environ['username']:
+                    parameters['username'] = self.get_request().environ['username']
         except ValueError:
             return self.generate_http_response(HTTP_STATUS_CODE.BadRequest, exc_cls=exceptions.BadRequest.__name__, exc_msg='Cannot decode json parameter dictionary')
 
@@ -137,7 +140,7 @@ class Request(IDDSController):
 
         return self.generate_http_response(HTTP_STATUS_CODE.OK, data={'status': 0, 'message': 'update successfully'})
 
-    def get(self, request_id, workload_id, with_detail, with_metadata=False):
+    def get(self, request_id, workload_id, with_detail, with_metadata=False, with_transform=False, with_processing=False):
         """ Get details about a specific Request with given id.
         HTTP Success:
             200 OK
@@ -152,15 +155,24 @@ class Request(IDDSController):
                 request_id = None
             if workload_id == 'null':
                 workload_id = None
-            if with_detail and with_detail.lower() in ['true']:
+            if with_detail and (type(with_detail) in [bool] or type(with_detail) in [str] and with_detail.lower() in ['true']):
                 with_detail = True
             else:
                 with_detail = False
-            if with_metadata and with_metadata.lower() in ['true']:
+            if with_metadata and (type(with_metadata) in [bool] or type(with_metadata) in [str] and with_metadata.lower() in ['true']):
                 with_metadata = True
             else:
                 with_metadata = False
-            if with_detail:
+            if with_transform and (type(with_transform) in [bool] or type(with_transform) in [str] and with_transform.lower() in ['true']):
+                with_transform = True
+            else:
+                with_transform = False
+            if with_processing and (type(with_processing) in [bool] or type(with_processing) in [str] and with_processing.lower() in ['true']):
+                with_processing = True
+            else:
+                with_processing = False
+
+            if with_detail or with_transform or with_processing:
                 with_request = False
             else:
                 with_request = True
@@ -168,7 +180,8 @@ class Request(IDDSController):
             # reqs = get_requests(request_id=request_id, workload_id=workload_id, to_json=True)
             reqs = get_requests(request_id=request_id, workload_id=workload_id,
                                 with_request=with_request, with_detail=with_detail,
-                                with_metadata=with_metadata)
+                                with_metadata=with_metadata, with_transform=with_transform,
+                                with_processing=with_processing)
         except exceptions.NoObject as error:
             return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
         except exceptions.IDDSException as error:
@@ -200,4 +213,6 @@ def get_blueprint():
     bp.add_url_rule('/request/<request_id>', view_func=request_view, methods=['put', ])
     bp.add_url_rule('/request/<request_id>/<workload_id>/<with_detail>', view_func=request_view, methods=['get', ])
     bp.add_url_rule('/request/<request_id>/<workload_id>/<with_detail>/<with_metadata>', view_func=request_view, methods=['get', ])
+    bp.add_url_rule('/request/<request_id>/<workload_id>/<with_detail>/<with_metadata>/<with_transform>', view_func=request_view, methods=['get', ])
+    bp.add_url_rule('/request/<request_id>/<workload_id>/<with_detail>/<with_metadata>/<with_transform>/<with_processing>', view_func=request_view, methods=['get', ])
     return bp
