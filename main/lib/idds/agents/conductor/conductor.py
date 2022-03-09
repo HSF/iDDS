@@ -8,6 +8,7 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2019
 
+import random
 import time
 import traceback
 try:
@@ -32,12 +33,23 @@ class Conductor(BaseAgent):
     Conductor works to notify workload management that the data is available.
     """
 
-    def __init__(self, num_threads=1, retrieve_bulk_size=None, **kwargs):
+    def __init__(self, num_threads=1, retrieve_bulk_size=1000, threshold_to_release_messages=None,
+                 random_delay=None, **kwargs):
         super(Conductor, self).__init__(num_threads=num_threads, **kwargs)
         self.config_section = Sections.Conductor
         self.retrieve_bulk_size = int(retrieve_bulk_size)
         self.message_queue = Queue()
         self.output_message_queue = Queue()
+        if threshold_to_release_messages is None:
+            self.threshold_to_release_messages = None
+        else:
+            self.threshold_to_release_messages = int(threshold_to_release_messages)
+        if random_delay is None:
+            self.random_delay = None
+        else:
+            self.random_delay = int(random_delay)
+            if self.random_delay < 5:
+                self.random_delay = 5
 
     def __del__(self):
         self.stop_notifier()
@@ -106,10 +118,16 @@ class Conductor(BaseAgent):
                 # execute timer task
                 self.execute_once()
 
+                reach_threshold = False
                 try:
+                    num_contents = 0
                     messages = self.get_messages()
                     for message in messages:
+                        num_contents += message['num_contents']
                         self.message_queue.put(message)
+                        if self.threshold_to_release_messages and num_contents > self.threshold_to_release_messages:
+                            reach_threshold = True
+                            break
                     while not self.message_queue.empty():
                         time.sleep(1)
                     output_messages = self.get_output_messages()
@@ -118,7 +136,10 @@ class Conductor(BaseAgent):
                     self.logger.error("Main thread IDDSException: %s" % str(error))
                 except Exception as error:
                     self.logger.critical("Main thread exception: %s\n%s" % (str(error), traceback.format_exc()))
-                time.sleep(5)
+                if self.random_delay is None or not reach_threshold:
+                    time.sleep(5)
+                else:
+                    time.sleep(random.randint(5, self.random_delay))
         except KeyboardInterrupt:
             self.stop()
 

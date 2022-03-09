@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2021
+# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2022
 # - Sergey Padolski, <spadolski@bnl.gov>, 2020
 
 
@@ -48,6 +48,7 @@ class DomaPanDAWork(Work):
                  num_retries=5,
                  task_log=None,
                  task_cloud=None,
+                 task_site=None,
                  task_rss=1000):
 
         super(DomaPanDAWork, self).__init__(executable=executable, arguments=arguments,
@@ -89,6 +90,7 @@ class DomaPanDAWork(Work):
 
         self.encode_command_line = encode_command_line
         self.task_cloud = task_cloud
+        self.task_site = task_site
         self.task_rss = task_rss
 
         self.retry_number = 0
@@ -402,7 +404,7 @@ class DomaPanDAWork(Work):
         task_param_map['noInput'] = True
         task_param_map['pfnList'] = in_files
         task_param_map['taskName'] = self.task_name
-        task_param_map['userName'] = 'iDDS'
+        task_param_map['userName'] = self.username if self.username else 'iDDS'
         task_param_map['taskPriority'] = 900
         task_param_map['architecture'] = ''
         task_param_map['transUses'] = ''
@@ -420,6 +422,7 @@ class DomaPanDAWork(Work):
         task_param_map['coreCount'] = self.core_count
         task_param_map['skipScout'] = True
         task_param_map['cloud'] = self.task_cloud
+        task_param_map['PandaSite'] = self.task_site
         if self.task_rss and self.task_rss > 0:
             task_param_map['ramCount'] = self.task_rss
             task_param_map['ramUnit'] = 'MB'

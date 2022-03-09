@@ -80,7 +80,7 @@ class RequestClient(BaseRestClient):
         r = self.get_request_response(url, type='PUT', data=data)
         return r
 
-    def get_requests(self, request_id=None, workload_id=None, with_detail=False, with_metadata=False):
+    def get_requests(self, request_id=None, workload_id=None, with_detail=False, with_metadata=False, with_transform=False, with_processing=False):
         """
         Get request from the Head service.
 
@@ -94,7 +94,7 @@ class RequestClient(BaseRestClient):
             request_id = 'null'
         if workload_id is None:
             workload_id = 'null'
-        url = self.build_url(self.host, path=os.path.join(path, str(request_id), str(workload_id), str(with_detail), str(with_metadata)))
+        url = self.build_url(self.host, path=os.path.join(path, str(request_id), str(workload_id), str(with_detail), str(with_metadata), str(with_transform), str(with_processing)))
 
         requests = self.get_request_response(url, type='GET')
 

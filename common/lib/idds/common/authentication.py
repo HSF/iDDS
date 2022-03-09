@@ -241,7 +241,7 @@ class OIDCAuthentication(BaseAuthentication):
         try:
             allow_vos = self.get_allow_vos()
             if vo not in allow_vos:
-                return False, "VO %s is not allowed." % vo
+                return False, "VO %s is not allowed." % vo, None
 
             auth_config = self.get_auth_config(vo)
             endpoint_config = self.get_endpoint_config(auth_config)
@@ -251,16 +251,20 @@ class OIDCAuthentication(BaseAuthentication):
             audience = decoded_token['aud']
             if auth_config['client_id'] != audience:
                 # discovery_endpoint = auth_config['oidc_config_url']
-                return False, "The audience of the token doesn't match vo configuration."
+                return False, "The audience of the token doesn't match vo configuration.", None
 
             public_key = self.get_public_key(token, endpoint_config['jwks_uri'])
             # decode token only with RS256
             decoded = jwt.decode(token, public_key, verify=True, algorithms='RS256',
                                  audience=audience, issuer=endpoint_config['issuer'])
             decoded['vo'] = vo
-            return True, decoded
+            if 'name' in decoded:
+                username = decoded['name']
+            else:
+                username = None
+            return True, decoded, username
         except Exception as error:
-            return False, 'Failed to verify oidc token: ' + str(error)
+            return False, 'Failed to verify oidc token: ' + str(error), None
 
 
 class OIDCAuthenticationUtils(object):
@@ -347,7 +351,8 @@ class X509Authentication(BaseAuthentication):
         return []
 
 
-def get_user_name_from_dn(dn):
+# "/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=wguan/CN=667815/CN=Wen Guan/CN=1883443395"
+def get_user_name_from_dn1(dn):
     try:
         up = re.compile('/(DC|O|OU|C|L)=[^\/]+')        # noqa W605
         username = up.sub('', dn)
@@ -382,11 +387,53 @@ def get_user_name_from_dn(dn):
         return dn
 
 
+# 'CN=203633261,CN=Wen Guan,CN=667815,CN=wguan,OU=Users,OU=Organic Units,DC=cern,DC=ch'
+def get_user_name_from_dn2(dn):
+    try:
+        up = re.compile(',(DC|O|OU|C|L)=[^\,]+')        # noqa W605
+        username = up.sub('', dn)
+        up2 = re.compile(',CN=[0-9]+')
+        username = up2.sub('', username)
+        up3 = re.compile(' [0-9]+')
+        username = up3.sub('', username)
+        up4 = re.compile('_[0-9]+')
+        username = up4.sub('', username)
+        username = username.replace(',CN=proxy', '')
+        username = username.replace(',CN=limited proxy', '')
+        username = username.replace('limited proxy', '')
+        username = re.sub(',CN=Robot:[^/]+', '', username)
+        username = re.sub(',CN=nickname:[^/]+', '', username)
+        pat = re.compile('.*,CN=([^\,]+),CN=([^\,]+)')         # noqa W605
+        mat = pat.match(username)
+        if mat:
+            username = mat.group(1)
+        else:
+            username = username.replace(',CN=', '')
+        if username.lower().find(',email') > 0:
+            username = username[:username.lower().find(',email')]
+        pat = re.compile('.*(limited.*proxy).*')
+        mat = pat.match(username)
+        if mat:
+            username = mat.group(1)
+        username = username.replace('(', '')
+        username = username.replace(')', '')
+        username = username.replace("'", '')
+        return username
+    except Exception:
+        return dn
+
+
+def get_user_name_from_dn(dn):
+    dn = get_user_name_from_dn1(dn)
+    dn = get_user_name_from_dn2(dn)
+    return dn
+
+
 def authenticate_x509(vo, dn, client_cert):
     if not dn:
-        return False, "User DN cannot be found."
+        return False, "User DN cannot be found.", None
     if not client_cert:
-        return False, "Client certificate proxy cannot be found."
+        return False, "Client certificate proxy cannot be found.", None
 
     # certDecoded = x509.load_pem_x509_certificate(str.encode(client_cert), default_backend())
     # print(certDecoded.issuer)
@@ -403,7 +450,7 @@ def authenticate_x509(vo, dn, client_cert):
             break
 
     if not matched:
-        return False, "User %s is not allowed" % str(dn)
+        return False, "User %s is not allowed" % str(dn), None
 
     if matched:
         # username = get_user_name_from_dn(dn)
@@ -412,14 +459,15 @@ def authenticate_x509(vo, dn, client_cert):
             pat = re.compile(ban_user)
             mat = pat.match(dn)
             if mat:
-                return False, "User %s is banned" % str(dn)
-    return True, None
+                return False, "User %s is banned" % str(dn), None
+    username = get_user_name_from_dn(dn)
+    return True, None, username
 
 
 def authenticate_oidc(vo, token):
     oidc_auth = OIDCAuthentication()
-    status, data = oidc_auth.verify_id_token(vo, token)
+    status, data, username = oidc_auth.verify_id_token(vo, token)
     if status:
-        return status, data
+        return status, data, username
     else:
-        return status, data
+        return status, data, username

@@ -12,6 +12,7 @@
 """
 performance test to insert contents.
 """
+import json
 import cx_Oracle
 
 
@@ -26,18 +27,23 @@ def get_subfinished_requests(db_pool):
     # sql = """select request_id from atlas_IDDS.requests where status in (4,5) and scope!='hpo'"""
     sql = """select request_id from atlas_IDDS.requests where scope!='hpo' and ( status in (4,5) or request_id in (select request_id from atlas_idds.transforms where status in (4, 5) and transform_type=2)) order by request_id"""
     sql = """select request_id from atlas_idds.collections where status=4 and total_files > processed_files order by request_id asc"""
+    sql = """select request_metadata, processing_metadata from atlas_idds.requests where request_id in (283511)"""
 
     cursor = connection.cursor()
     cursor.execute(sql)
     rows = cursor.fetchall()
     for row in rows:
         # print(row)
+        # print(row[0])
+        data = json.loads(row[0].read())
+        print(json.dumps(data, sort_keys=True, indent=4))
         req_ids.append(row[0])
     cursor.close()
 
     connection.commit()
     db_pool.release(connection)
     print(len(req_ids))
+
     print(req_ids)
 
 
