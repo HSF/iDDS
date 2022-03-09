@@ -38,7 +38,7 @@ from idds.client.version import release_version
 from idds.client.client import Client
 from idds.common import exceptions
 from idds.common.config import get_local_cfg_file, get_local_config_root, get_local_config_value
-from idds.common.constants import RequestType, RequestStatus
+from idds.common.constants import RequestType, RequestStatus, ProcessingStatus
 # from idds.common.utils import get_rest_host, exception_handler
 from idds.common.utils import exception_handler
 
@@ -87,6 +87,8 @@ class ClientManager:
                 client_host = self.auth_type_host
             else:
                 client_host = self.host
+            if self.auth_type is None:
+                self.auth_type = 'x509_proxy'
             self.client = Client(host=client_host,
                                  auth={'auth_type': self.auth_type,
                                        'client_proxy': self.x509_proxy,
