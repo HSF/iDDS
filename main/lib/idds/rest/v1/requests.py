@@ -213,6 +213,6 @@ def get_blueprint():
     bp.add_url_rule('/request/<request_id>', view_func=request_view, methods=['put', ])
     bp.add_url_rule('/request/<request_id>/<workload_id>/<with_detail>', view_func=request_view, methods=['get', ])
     bp.add_url_rule('/request/<request_id>/<workload_id>/<with_detail>/<with_metadata>', view_func=request_view, methods=['get', ])
-    bp.add_url_rule('/request/<request_id>/<workload_id>/<with_detail>/<with_metadata>/with_transform', view_func=request_view, methods=['get', ])
-    bp.add_url_rule('/request/<request_id>/<workload_id>/<with_detail>/<with_metadata>/with_transform/with_processing', view_func=request_view, methods=['get', ])
+    bp.add_url_rule('/request/<request_id>/<workload_id>/<with_detail>/<with_metadata>/<with_transform>', view_func=request_view, methods=['get', ])
+    bp.add_url_rule('/request/<request_id>/<workload_id>/<with_detail>/<with_metadata>/<with_transform>/<with_processing>', view_func=request_view, methods=['get', ])
     return bp
