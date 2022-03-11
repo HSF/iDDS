@@ -12,7 +12,7 @@ from idds.orm.contents import get_input_contents             # noqa F401
 
 
 request_ids = [368, 369, 370, 371, 372, 373, 374, 375, 376]
-request_ids = [475]
+request_ids = [898]
 for request_id in request_ids:
     contents = get_contents(request_id=request_id, status=ContentStatus.Available)
     ret_contents = {}
@@ -23,12 +23,12 @@ for request_id in request_ids:
             ret_contents[content['coll_id']].append(content)
 
     for ret_content in ret_contents:
-        print(ret_content)
-        break
+        print("coll_id: %s, num_contents: %s" % (ret_content, len(ret_contents[ret_content])))
+        # break
 
     updated_contents = core_transforms.release_inputs_by_collection(ret_contents)
     for update_content in updated_contents:
         print(update_content)
         # break
 
-    update_contents(updated_contents)
+    # update_contents(updated_contents)
