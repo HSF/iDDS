@@ -76,6 +76,7 @@ class DomaPanDAWork(Work):
         # self.logger.setLevel(logging.DEBUG)
 
         self.task_name = task_name
+        self.real_task_name = None
         self.set_work_name(task_name)
         self.queue = task_queue
         self.dep_tasks_id_names_map = {}
@@ -483,6 +484,18 @@ class DomaPanDAWork(Work):
             if task_id:
                 proc.submitted_at = datetime.datetime.utcnow()
 
+    def resubmit_processing(self, processing):
+        proc = processing['processing_metadata']['processing']
+        proc.workload_id = None
+        task_param = proc.processing_metadata['task_param']
+        if self.retry_number > 0:
+            proc.task_name = self.task_name + "_" + str(self.retry_number)
+            task_param['taskName'] = proc.task_name
+        task_id = self.submit_panda_task(processing)
+        proc.workload_id = task_id
+        if task_id:
+            proc.submitted_at = datetime.datetime.utcnow()
+
     def get_panda_task_id(self, processing):
         from pandatools import Client
 
@@ -497,7 +510,10 @@ class DomaPanDAWork(Work):
         task_id = None
         for req_id in results:
             task_name = results[req_id]['taskName']
-            if proc.workload_id is None and task_name == self.task_name:
+            local_task_name = proc.task_name
+            if not local_task_name:
+                local_task_name = self.task_name
+            if proc.workload_id is None and task_name == local_task_name:
                 task_id = results[req_id]['jediTaskID']
                 # processing['processing_metadata']['task_id'] = task_id
                 # processing['processing_metadata']['workload_id'] = task_id
@@ -531,9 +547,11 @@ class DomaPanDAWork(Work):
         elif task_status in ['finished', 'paused']:
             # finished, finishing, waiting it to be done
             processing_status = ProcessingStatus.SubFinished
-        elif task_status in ['failed', 'aborted', 'broken', 'exhausted']:
+        elif task_status in ['failed', 'aborted', 'exhausted']:
             # aborting, tobroken
             processing_status = ProcessingStatus.Failed
+        elif task_status in ['broken']:
+            processing_status = ProcessingStatus.Broken
         else:
             # finished, finishing, aborting, topreprocess, preprocessing, tobroken
             # toretry, toincexec, rerefine, paused, throttled, passed
@@ -922,7 +940,15 @@ class DomaPanDAWork(Work):
                             self.reactivate_processing(processing)
                             processing_status = ProcessingStatus.Submitted
                             self.retry_number += 1
-
+                    if processing_status in [ProcessingStatus.Broken]:
+                        self.logger.error("poll_panda_task, task_id: %s is broken. retry_number: %s, num_retries: %s" % (str(task_id), self.retry_number, self.num_retries))
+                        if self.num_retries == 0:
+                            self.num_retries = 1
+                        if self.retry_number < self.num_retries:
+                            self.retry_number += 1
+                            self.logger.error("poll_panda_task, task_id: %s is broken. resubmit the task. retry_number: %s, num_retries: %s" % (str(task_id), self.retry_number, self.num_retries))
+                            self.resubmit_processing(processing)
+                            return ProcessingStatus.Submitting, []
                     all_jobs_ids = task_info['PandaID']
 
                     terminated_jobs, inputname_mapid_map = self.get_job_maps(input_output_maps)

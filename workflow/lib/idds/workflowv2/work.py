@@ -152,6 +152,7 @@ class Processing(Base):
         self.processing = None
 
         self.internal_id = str(uuid.uuid4())[:8]
+        self.task_name = None
         self.processing_id = None
         self.workload_id = None
         self.status = ProcessingStatus.New
@@ -367,6 +368,14 @@ class Processing(Base):
     @external_id.setter
     def external_id(self, value):
         self.add_metadata_item('external_id', value)
+
+    @property
+    def task_name(self):
+        return self.get_metadata_item('task_name', None)
+
+    @task_name.setter
+    def task_name(self, value):
+        self.add_metadata_item('task_name', value)
 
     @property
     def processing(self):
