@@ -1079,8 +1079,8 @@ class DomaPanDAWork(Work):
                 proc.polling_retries = 0
             elif proc.tosuspend:
                 self.logger.info("Suspending processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], proc.workload_id))
-                self.kill_processing_force(processing)
-                # self.kill_processing(processing)
+                # self.kill_processing_force(processing)
+                self.kill_processing(processing)
                 proc.tosuspend = False
                 proc.polling_retries = 0
             elif proc.toresume:
