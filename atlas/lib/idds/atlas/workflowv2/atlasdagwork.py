@@ -347,7 +347,7 @@ class DomaLSSTWork(Work):
 
     def submit_panda_task(self, processing):
         try:
-            from pandatools import Client
+            from pandaclient import Client
 
             task_param = processing['processing_metadata']['task_param']
             return_code = Client.insertTaskParams(task_param, verbose=True)

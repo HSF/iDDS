@@ -453,7 +453,7 @@ class DomaPanDAWork(Work):
 
     def submit_panda_task(self, processing):
         try:
-            from pandatools import Client
+            from pandaclient import Client
 
             proc = processing['processing_metadata']['processing']
             task_param = proc.processing_metadata['task_param']
@@ -497,7 +497,7 @@ class DomaPanDAWork(Work):
             proc.submitted_at = datetime.datetime.utcnow()
 
     def get_panda_task_id(self, processing):
-        from pandatools import Client
+        from pandaclient import Client
 
         start_time = datetime.datetime.utcnow() - datetime.timedelta(hours=10)
         start_time = start_time.strftime('%Y-%m-%d %H:%M:%S')
@@ -525,7 +525,7 @@ class DomaPanDAWork(Work):
 
     def poll_panda_task_status(self, processing):
         if 'processing' in processing['processing_metadata']:
-            from pandatools import Client
+            from pandaclient import Client
 
             proc = processing['processing_metadata']['processing']
             status, task_status = Client.getTaskStatus(proc.workload_id)
@@ -681,7 +681,7 @@ class DomaPanDAWork(Work):
 
     def map_panda_ids(self, unregistered_job_ids, input_output_maps):
         self.logger.debug("map_panda_ids, unregistered_job_ids[:10]: %s" % str(unregistered_job_ids[:10]))
-        from pandatools import Client
+        from pandaclient import Client
 
         # updated_map_ids = []
         full_update_contents = []
@@ -709,7 +709,7 @@ class DomaPanDAWork(Work):
 
     def get_status_changed_contents(self, unterminated_job_ids, input_output_maps, panda_id_to_map_ids):
         self.logger.debug("get_status_changed_contents, unterminated_job_ids[:10]: %s" % str(unterminated_job_ids[:10]))
-        from pandatools import Client
+        from pandaclient import Client
 
         full_update_contents = []
         chunksize = 2000
@@ -738,7 +738,7 @@ class DomaPanDAWork(Work):
     def poll_panda_task_old(self, processing=None, input_output_maps=None):
         task_id = None
         try:
-            from pandatools import Client
+            from pandaclient import Client
 
             jobs_ids = None
             if processing:
@@ -809,7 +809,7 @@ class DomaPanDAWork(Work):
     def poll_panda_jobs(self, job_ids):
         job_ids = list(job_ids)
         self.logger.debug("poll_panda_jobs, poll_panda_jobs_chunk_size: %s, job_ids[:10]: %s" % (self.poll_panda_jobs_chunk_size, str(job_ids[:10])))
-        from pandatools import Client
+        from pandaclient import Client
 
         # updated_map_ids = []
         inputname_jobid_map = {}
@@ -914,7 +914,7 @@ class DomaPanDAWork(Work):
     def poll_panda_task(self, processing=None, input_output_maps=None):
         task_id = None
         try:
-            from pandatools import Client
+            from pandaclient import Client
 
             if processing:
                 proc = processing['processing_metadata']['processing']
@@ -1019,7 +1019,7 @@ class DomaPanDAWork(Work):
     def kill_processing(self, processing):
         try:
             if processing:
-                from pandatools import Client
+                from pandaclient import Client
                 proc = processing['processing_metadata']['processing']
                 task_id = proc.workload_id
                 # task_id = processing['processing_metadata']['task_id']
@@ -1032,7 +1032,7 @@ class DomaPanDAWork(Work):
     def kill_processing_force(self, processing):
         try:
             if processing:
-                from pandatools import Client
+                from pandaclient import Client
                 proc = processing['processing_metadata']['processing']
                 task_id = proc.workload_id
                 # task_id = processing['processing_metadata']['task_id']
@@ -1045,7 +1045,7 @@ class DomaPanDAWork(Work):
     def reactivate_processing(self, processing):
         try:
             if processing:
-                from pandatools import Client
+                from pandaclient import Client
                 # task_id = processing['processing_metadata']['task_id']
                 proc = processing['processing_metadata']['processing']
                 task_id = proc.workload_id
