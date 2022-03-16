@@ -679,16 +679,37 @@ class DomaPanDAWork(Work):
             update_contents.append(content)
         return update_contents
 
+    def get_panda_job_status(self, jobids):
+        self.logger.debug("get_panda_job_status, jobids[:10]: %s" % str(jobids[:10]))
+        from pandaclient import Client
+        ret = Client.getJobStatus(jobids, verbose=0)
+        if ret[0] == 0:
+            left_jobids = []
+            ret_jobs = []
+            jobs_list = ret[1]
+            for jobid, jobinfo in zip(jobids, jobs_list):
+                if jobinfo is None:
+                    left_jobids.append(jobid)
+                else:
+                    ret_jobs.append(jobinfo)
+            if left_jobids:
+                ret1 = Client.getFullJobStatus(ids=left_jobids, verbose=False)
+                if ret1[0] == 0:
+                    left_jobs_list = ret1[1]
+                ret_jobs = ret_jobs + left_jobs_list
+            return ret_jobs
+        return []
+
     def map_panda_ids(self, unregistered_job_ids, input_output_maps):
         self.logger.debug("map_panda_ids, unregistered_job_ids[:10]: %s" % str(unregistered_job_ids[:10]))
-        from pandaclient import Client
 
         # updated_map_ids = []
         full_update_contents = []
         chunksize = 2000
         chunks = [unregistered_job_ids[i:i + chunksize] for i in range(0, len(unregistered_job_ids), chunksize)]
         for chunk in chunks:
-            jobs_list = Client.getJobStatus(chunk, verbose=0)[1]
+            # jobs_list = Client.getJobStatus(chunk, verbose=0)[1]
+            jobs_list = self.get_panda_job_status(chunk)
             for job_info in jobs_list:
                 if job_info and job_info.Files and len(job_info.Files) > 0:
                     for job_file in job_info.Files:
@@ -709,13 +730,13 @@ class DomaPanDAWork(Work):
 
     def get_status_changed_contents(self, unterminated_job_ids, input_output_maps, panda_id_to_map_ids):
         self.logger.debug("get_status_changed_contents, unterminated_job_ids[:10]: %s" % str(unterminated_job_ids[:10]))
-        from pandaclient import Client
 
         full_update_contents = []
         chunksize = 2000
         chunks = [unterminated_job_ids[i:i + chunksize] for i in range(0, len(unterminated_job_ids), chunksize)]
         for chunk in chunks:
-            jobs_list = Client.getJobStatus(chunk, verbose=0)[1]
+            # jobs_list = Client.getJobStatus(chunk, verbose=0)[1]
+            jobs_list = self.get_panda_job_status(chunk)
             for job_info in jobs_list:
                 panda_id = job_info.PandaID
                 map_id = panda_id_to_map_ids[panda_id]
@@ -809,14 +830,14 @@ class DomaPanDAWork(Work):
     def poll_panda_jobs(self, job_ids):
         job_ids = list(job_ids)
         self.logger.debug("poll_panda_jobs, poll_panda_jobs_chunk_size: %s, job_ids[:10]: %s" % (self.poll_panda_jobs_chunk_size, str(job_ids[:10])))
-        from pandaclient import Client
 
         # updated_map_ids = []
         inputname_jobid_map = {}
         chunksize = self.poll_panda_jobs_chunk_size
         chunks = [job_ids[i:i + chunksize] for i in range(0, len(job_ids), chunksize)]
         for chunk in chunks:
-            jobs_list = Client.getJobStatus(chunk, verbose=0)[1]
+            # jobs_list = Client.getJobStatus(chunk, verbose=0)[1]
+            jobs_list = self.get_panda_job_status(chunk)
             if jobs_list:
                 self.logger.debug("poll_panda_jobs, input jobs: %s, output_jobs: %s" % (len(chunk), len(jobs_list)))
                 for job_info in jobs_list:
