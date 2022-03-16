@@ -22,7 +22,7 @@ try:
 except ImportError:
     from urllib.parse import quote
 
-from pandatools import Client
+from pandaclient import Client
 
 # from idds.client.client import Client
 from idds.client.clientmanager import ClientManager
@@ -120,7 +120,7 @@ def test_panda_work():
     # print('output_collections: %s' % str(test_work.get_output_collections()))
     # print(json_dumps(test_work, sort_keys=True, indent=4))
 
-    # from pandatools import Client
+    # from pandaclient import Client
     # Client.getJediTaskDetails(taskDict,fullFlag,withTaskInfo,verbose=False)
     # ret = Client.getJediTaskDetails({'jediTaskID': panda_task_id},False,True)
     # print(ret)

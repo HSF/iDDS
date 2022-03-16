@@ -6,7 +6,7 @@ import datetime
 os.environ['PANDA_URL'] = 'http://pandaserver-doma.cern.ch:25080/server/panda'
 os.environ['PANDA_URL_SSL'] = 'https://pandaserver-doma.cern.ch:25443/server/panda'
 
-from pandatools import Client  # noqa E402
+from pandaclient import Client  # noqa E402
 
 """
 jobids = [1408118]
@@ -29,11 +29,16 @@ for job_info in jobs_list:
             print(f.type)
 """
 
-jediTaskID = 8378
+jediTaskID = 10517 # 10607
 ret = Client.getJediTaskDetails({'jediTaskID': jediTaskID}, True, True, verbose=False)
 print(ret)
 
-ret = Client.getTaskStatus(jediTaskID, verbose=False)
+# ret = Client.getTaskStatus(jediTaskID, verbose=False)
+# print(ret)
+
+task_info = ret[1]
+jobids = task_info['PandaID']
+ret = Client.getJobStatus(ids=jobids, verbose=False)
 print(ret)
 
 sys.exit(0)
@@ -104,7 +109,7 @@ newOpts = {}
 # site = newOpts.get('site', None)
 # excludedSite = newOpts.get('excludedSite', None)
 # for JEDI
-taskIDs = [7056, 7057]
+taskIDs = [10624]
 for taskID in taskIDs:
     status, out = Client.retryTask(taskID, verbose=True, properErrorCode=True, newParams=newOpts)
     print(status)

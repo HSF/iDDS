@@ -454,7 +454,7 @@ class ATLASPandaWork(Work):
 
     def submit_panda_task(self, processing):
         try:
-            from pandatools import Client
+            from pandaclient import Client
 
             proc = processing['processing_metadata']['processing']
             task_param = proc.processing_metadata['task_param']
@@ -498,7 +498,7 @@ class ATLASPandaWork(Work):
 
     def poll_panda_task_status(self, processing):
         if 'processing' in processing['processing_metadata']:
-            from pandatools import Client
+            from pandaclient import Client
 
             proc = processing['processing_metadata']['processing']
             status, task_status = Client.getTaskStatus(proc.workload_id)
@@ -530,7 +530,7 @@ class ATLASPandaWork(Work):
         return processing_status
 
     def get_panda_task_id(self, processing):
-        from pandatools import Client
+        from pandaclient import Client
 
         start_time = datetime.datetime.utcnow() - datetime.timedelta(hours=10)
         start_time = start_time.strftime('%Y-%m-%d %H:%M:%S')
@@ -556,7 +556,7 @@ class ATLASPandaWork(Work):
     def poll_panda_task(self, processing=None, input_output_maps=None):
         task_id = None
         try:
-            from pandatools import Client
+            from pandaclient import Client
 
             if processing:
                 proc = processing['processing_metadata']['processing']
@@ -596,7 +596,7 @@ class ATLASPandaWork(Work):
     def kill_processing(self, processing):
         try:
             if processing:
-                from pandatools import Client
+                from pandaclient import Client
                 proc = processing['processing_metadata']['processing']
                 task_id = proc.workload_id
                 # task_id = processing['processing_metadata']['task_id']
@@ -609,7 +609,7 @@ class ATLASPandaWork(Work):
     def kill_processing_force(self, processing):
         try:
             if processing:
-                from pandatools import Client
+                from pandaclient import Client
                 proc = processing['processing_metadata']['processing']
                 task_id = proc.workload_id
                 # task_id = processing['processing_metadata']['task_id']
@@ -622,7 +622,7 @@ class ATLASPandaWork(Work):
     def reactivate_processing(self, processing):
         try:
             if processing:
-                from pandatools import Client
+                from pandaclient import Client
                 # task_id = processing['processing_metadata']['task_id']
                 proc = processing['processing_metadata']['processing']
                 task_id = proc.workload_id

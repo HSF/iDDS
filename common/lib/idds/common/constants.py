@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2020
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
 
 """
 Constants.
@@ -314,6 +314,7 @@ class ProcessingStatus(IDDSEnum):
     TimeOut = 23
     ToFinish = 24
     ToForceFinish = 25
+    Broken = 26
 
 
 class ProcessingLocking(IDDSEnum):
