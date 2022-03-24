@@ -227,7 +227,8 @@ class CompositeCondition(Base):
                         elif isinstance(w, CompositeCondition):
                             new_w = w.to_dict()
                         elif isinstance(w, Workflow):
-                            new_w = w.to_dict()
+                            # new_w = w.to_dict()
+                            new_w = w.get_internal_id()
                         else:
                             new_w = w
                         new_value.append(new_w)
@@ -610,6 +611,8 @@ class WorkflowBase(Base):
         self.works = {}
         self.work_sequence = {}  # order list
 
+        self.next_works = []
+
         self.terminated_works = []
         self.initial_works = []
         # if the primary initial_work is not set, it's the first initial work.
@@ -795,6 +798,14 @@ class WorkflowBase(Base):
             work = self._works[k]
             if work.last_updated_at and (not self.last_updated_at or work.last_updated_at > self.last_updated_at):
                 self.last_updated_at = work.last_updated_at
+
+    @property
+    def next_works(self):
+        return self.get_metadata_item('next_works', [])
+
+    @next_works.setter
+    def next_works(self, value):
+        self.add_metadata_item('next_works', value)
 
     @property
     def conditions(self):
@@ -1261,6 +1272,11 @@ class WorkflowBase(Base):
         for p_id in self.parameter_links:
             if p_id in p_metadata:
                 self.parameter_links[p_id].metadata = p_metadata[p_id]
+
+    def add_next_work(self, work_id):
+        next_works = self.next_works
+        next_works.append(work_id)
+        self.next_works = next_works
 
     def enable_next_works(self, work, cond):
         self.log_debug("Checking Work %s condition: %s" % (work.get_internal_id(),
@@ -1808,6 +1824,9 @@ class Workflow(Base):
         result.logger = logger
         return result
 
+    def get_template_id(self):
+        return self.template.get_template_id()
+
     @property
     def metadata(self):
         run_metadata = {'parent_num_run': self.parent_num_run,
@@ -1821,6 +1840,7 @@ class Workflow(Base):
 
     @metadata.setter
     def metadata(self, value):
+        self.template.load_metadata()
         run_metadata = value
         self.parent_num_run = run_metadata['parent_num_run']
         self._num_run = run_metadata['num_run']
@@ -1844,6 +1864,12 @@ class Workflow(Base):
         if self.runs:
             self.runs[str(self.num_run)].independent_works = value
         self.template.independent_works = value
+
+    def add_next_work(self, work_id):
+        if self.runs:
+            self.runs[str(self.num_run)].add_next_work(work_id)
+        else:
+            raise Exception("There are no runs. It should not have next work")
 
     @property
     def last_updated_at(self):
