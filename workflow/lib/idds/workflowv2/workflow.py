@@ -248,12 +248,18 @@ class CompositeCondition(Base):
                 new_conditions.append(cond)
             else:
                 if 'idds_method' in cond and 'idds_method_internal_id' in cond:
+                    self.logger.debug("idds_method_internal_id: %s" % cond['idds_method_internal_id'])
+                    self.logger.debug("idds_method: %s" % cond['idds_method'])
+
                     internal_id = cond['idds_method_internal_id']
                     work = self.get_work_from_id(internal_id, works)
+
+                    self.logger.debug("get_work_from_id: %s: %s" % (internal_id, str(work)))
+
                     if work is not None:
                         new_cond = getattr(work, cond['idds_method'])
                     else:
-                        self.logger.error("Work cannot be found for %s" % (internal_id))
+                        self.logger.error("Condition method work cannot be found for %s" % (internal_id))
                         new_cond = cond
                 elif 'idds_attribute' in cond and 'idds_method_internal_id' in cond:
                     internal_id = cond['idds_method_internal_id']
@@ -261,7 +267,7 @@ class CompositeCondition(Base):
                     if work is not None:
                         new_cond = getattr(work, cond['idds_attribute'])
                     else:
-                        self.logger.error("Work cannot be found for %s" % (internal_id))
+                        self.logger.error("Condition attribute work cannot be found for %s" % (internal_id))
                         new_cond = cond
                 elif 'idds_method' in cond and 'idds_method_condition' in cond:
                     new_cond = cond['idds_method_condition']
@@ -272,37 +278,46 @@ class CompositeCondition(Base):
         self.conditions = new_conditions
 
         new_true_works = []
+        self.logger.debug("true_works: %s" % str(self.true_works))
+
         for w in self.true_works:
+            self.logger.debug("true_work: %s" % str(w))
             if isinstance(w, CompositeCondition):
                 # work = w.load_conditions(works, works_template)
                 w.load_conditions(works)
                 work = w
             elif isinstance(w, Workflow):
                 work = w
+            elif isinstance(w, Work):
+                work = w
             elif type(w) in [str]:
                 work = self.get_work_from_id(w, works)
                 if work is None:
-                    self.logger.error("Work cannot be found for %s" % str(w))
+                    self.logger.error("True work cannot be found for %s" % str(w))
                     work = w
             else:
-                self.logger.error("Work cannot be found for %s" % str(w))
+                self.logger.error("True work cannot be found for type(%s): %s" % (type(w), str(w)))
                 work = w
             new_true_works.append(work)
         self.true_works = new_true_works
 
         new_false_works = []
         for w in self.false_works:
-            if isinstance(w, CompositeCondition) or isinstance(w, Workflow):
+            if isinstance(w, CompositeCondition):
                 # work = w.load_condtions(works, works_template)
                 w.load_conditions(works)
+                work = w
+            elif isinstance(w, Workflow):
+                work = w
+            elif isinstance(w, Work):
                 work = w
             elif type(w) in [str]:
                 work = self.get_work_from_id(w, works)
                 if work is None:
-                    self.logger.error("Work cannot be found for %s" % str(w))
+                    self.logger.error("False work cannot be found for type(%s): %s" % (type(w), str(w)))
                     work = w
             else:
-                self.logger.error("Work cannot be found for %s" % str(w))
+                self.logger.error("False work cannot be found for %s" % str(w))
                 work = w
             new_false_works.append(work)
         self.false_works = new_false_works
