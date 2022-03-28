@@ -12,5 +12,5 @@ dependencies:
   - stomp.py
   - rucio-clients
   - rucio-clients-atlas
-  - idds-common==0.10.4
-  - idds-workflow==0.10.4
+  - idds-common==0.10.5
+  - idds-workflow==0.10.5
