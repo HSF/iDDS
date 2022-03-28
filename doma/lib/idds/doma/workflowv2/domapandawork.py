@@ -76,6 +76,7 @@ class DomaPanDAWork(Work):
         # self.logger.setLevel(logging.DEBUG)
 
         self.task_name = task_name
+        self.real_task_name = None
         self.set_work_name(task_name)
         self.queue = task_queue
         self.dep_tasks_id_names_map = {}
@@ -452,7 +453,7 @@ class DomaPanDAWork(Work):
 
     def submit_panda_task(self, processing):
         try:
-            from pandatools import Client
+            from pandaclient import Client
 
             proc = processing['processing_metadata']['processing']
             task_param = proc.processing_metadata['task_param']
@@ -483,8 +484,20 @@ class DomaPanDAWork(Work):
             if task_id:
                 proc.submitted_at = datetime.datetime.utcnow()
 
+    def resubmit_processing(self, processing):
+        proc = processing['processing_metadata']['processing']
+        proc.workload_id = None
+        task_param = proc.processing_metadata['task_param']
+        if self.retry_number > 0:
+            proc.task_name = self.task_name + "_" + str(self.retry_number)
+            task_param['taskName'] = proc.task_name
+        task_id = self.submit_panda_task(processing)
+        proc.workload_id = task_id
+        if task_id:
+            proc.submitted_at = datetime.datetime.utcnow()
+
     def get_panda_task_id(self, processing):
-        from pandatools import Client
+        from pandaclient import Client
 
         start_time = datetime.datetime.utcnow() - datetime.timedelta(hours=10)
         start_time = start_time.strftime('%Y-%m-%d %H:%M:%S')
@@ -497,7 +510,10 @@ class DomaPanDAWork(Work):
         task_id = None
         for req_id in results:
             task_name = results[req_id]['taskName']
-            if proc.workload_id is None and task_name == self.task_name:
+            local_task_name = proc.task_name
+            if not local_task_name:
+                local_task_name = self.task_name
+            if proc.workload_id is None and task_name == local_task_name:
                 task_id = results[req_id]['jediTaskID']
                 # processing['processing_metadata']['task_id'] = task_id
                 # processing['processing_metadata']['workload_id'] = task_id
@@ -509,7 +525,7 @@ class DomaPanDAWork(Work):
 
     def poll_panda_task_status(self, processing):
         if 'processing' in processing['processing_metadata']:
-            from pandatools import Client
+            from pandaclient import Client
 
             proc = processing['processing_metadata']['processing']
             status, task_status = Client.getTaskStatus(proc.workload_id)
@@ -531,9 +547,11 @@ class DomaPanDAWork(Work):
         elif task_status in ['finished', 'paused']:
             # finished, finishing, waiting it to be done
             processing_status = ProcessingStatus.SubFinished
-        elif task_status in ['failed', 'aborted', 'broken', 'exhausted']:
+        elif task_status in ['failed', 'aborted', 'exhausted']:
             # aborting, tobroken
             processing_status = ProcessingStatus.Failed
+        elif task_status in ['broken']:
+            processing_status = ProcessingStatus.Broken
         else:
             # finished, finishing, aborting, topreprocess, preprocessing, tobroken
             # toretry, toincexec, rerefine, paused, throttled, passed
@@ -661,16 +679,37 @@ class DomaPanDAWork(Work):
             update_contents.append(content)
         return update_contents
 
+    def get_panda_job_status(self, jobids):
+        self.logger.debug("get_panda_job_status, jobids[:10]: %s" % str(jobids[:10]))
+        from pandaclient import Client
+        ret = Client.getJobStatus(jobids, verbose=0)
+        if ret[0] == 0:
+            left_jobids = []
+            ret_jobs = []
+            jobs_list = ret[1]
+            for jobid, jobinfo in zip(jobids, jobs_list):
+                if jobinfo is None:
+                    left_jobids.append(jobid)
+                else:
+                    ret_jobs.append(jobinfo)
+            if left_jobids:
+                ret1 = Client.getFullJobStatus(ids=left_jobids, verbose=False)
+                if ret1[0] == 0:
+                    left_jobs_list = ret1[1]
+                ret_jobs = ret_jobs + left_jobs_list
+            return ret_jobs
+        return []
+
     def map_panda_ids(self, unregistered_job_ids, input_output_maps):
         self.logger.debug("map_panda_ids, unregistered_job_ids[:10]: %s" % str(unregistered_job_ids[:10]))
-        from pandatools import Client
 
         # updated_map_ids = []
         full_update_contents = []
         chunksize = 2000
         chunks = [unregistered_job_ids[i:i + chunksize] for i in range(0, len(unregistered_job_ids), chunksize)]
         for chunk in chunks:
-            jobs_list = Client.getJobStatus(chunk, verbose=0)[1]
+            # jobs_list = Client.getJobStatus(chunk, verbose=0)[1]
+            jobs_list = self.get_panda_job_status(chunk)
             for job_info in jobs_list:
                 if job_info and job_info.Files and len(job_info.Files) > 0:
                     for job_file in job_info.Files:
@@ -691,13 +730,13 @@ class DomaPanDAWork(Work):
 
     def get_status_changed_contents(self, unterminated_job_ids, input_output_maps, panda_id_to_map_ids):
         self.logger.debug("get_status_changed_contents, unterminated_job_ids[:10]: %s" % str(unterminated_job_ids[:10]))
-        from pandatools import Client
 
         full_update_contents = []
         chunksize = 2000
         chunks = [unterminated_job_ids[i:i + chunksize] for i in range(0, len(unterminated_job_ids), chunksize)]
         for chunk in chunks:
-            jobs_list = Client.getJobStatus(chunk, verbose=0)[1]
+            # jobs_list = Client.getJobStatus(chunk, verbose=0)[1]
+            jobs_list = self.get_panda_job_status(chunk)
             for job_info in jobs_list:
                 panda_id = job_info.PandaID
                 map_id = panda_id_to_map_ids[panda_id]
@@ -720,7 +759,7 @@ class DomaPanDAWork(Work):
     def poll_panda_task_old(self, processing=None, input_output_maps=None):
         task_id = None
         try:
-            from pandatools import Client
+            from pandaclient import Client
 
             jobs_ids = None
             if processing:
@@ -791,14 +830,14 @@ class DomaPanDAWork(Work):
     def poll_panda_jobs(self, job_ids):
         job_ids = list(job_ids)
         self.logger.debug("poll_panda_jobs, poll_panda_jobs_chunk_size: %s, job_ids[:10]: %s" % (self.poll_panda_jobs_chunk_size, str(job_ids[:10])))
-        from pandatools import Client
 
         # updated_map_ids = []
         inputname_jobid_map = {}
         chunksize = self.poll_panda_jobs_chunk_size
         chunks = [job_ids[i:i + chunksize] for i in range(0, len(job_ids), chunksize)]
         for chunk in chunks:
-            jobs_list = Client.getJobStatus(chunk, verbose=0)[1]
+            # jobs_list = Client.getJobStatus(chunk, verbose=0)[1]
+            jobs_list = self.get_panda_job_status(chunk)
             if jobs_list:
                 self.logger.debug("poll_panda_jobs, input jobs: %s, output_jobs: %s" % (len(chunk), len(jobs_list)))
                 for job_info in jobs_list:
@@ -896,7 +935,7 @@ class DomaPanDAWork(Work):
     def poll_panda_task(self, processing=None, input_output_maps=None):
         task_id = None
         try:
-            from pandatools import Client
+            from pandaclient import Client
 
             if processing:
                 proc = processing['processing_metadata']['processing']
@@ -922,7 +961,15 @@ class DomaPanDAWork(Work):
                             self.reactivate_processing(processing)
                             processing_status = ProcessingStatus.Submitted
                             self.retry_number += 1
-
+                    if processing_status in [ProcessingStatus.Broken]:
+                        self.logger.error("poll_panda_task, task_id: %s is broken. retry_number: %s, num_retries: %s" % (str(task_id), self.retry_number, self.num_retries))
+                        if self.num_retries == 0:
+                            self.num_retries = 1
+                        if self.retry_number < self.num_retries:
+                            self.retry_number += 1
+                            self.logger.error("poll_panda_task, task_id: %s is broken. resubmit the task. retry_number: %s, num_retries: %s" % (str(task_id), self.retry_number, self.num_retries))
+                            self.resubmit_processing(processing)
+                            return ProcessingStatus.Submitting, []
                     all_jobs_ids = task_info['PandaID']
 
                     terminated_jobs, inputname_mapid_map = self.get_job_maps(input_output_maps)
@@ -993,7 +1040,7 @@ class DomaPanDAWork(Work):
     def kill_processing(self, processing):
         try:
             if processing:
-                from pandatools import Client
+                from pandaclient import Client
                 proc = processing['processing_metadata']['processing']
                 task_id = proc.workload_id
                 # task_id = processing['processing_metadata']['task_id']
@@ -1006,7 +1053,7 @@ class DomaPanDAWork(Work):
     def kill_processing_force(self, processing):
         try:
             if processing:
-                from pandatools import Client
+                from pandaclient import Client
                 proc = processing['processing_metadata']['processing']
                 task_id = proc.workload_id
                 # task_id = processing['processing_metadata']['task_id']
@@ -1019,7 +1066,7 @@ class DomaPanDAWork(Work):
     def reactivate_processing(self, processing):
         try:
             if processing:
-                from pandatools import Client
+                from pandaclient import Client
                 # task_id = processing['processing_metadata']['task_id']
                 proc = processing['processing_metadata']['processing']
                 task_id = proc.workload_id
@@ -1053,8 +1100,8 @@ class DomaPanDAWork(Work):
                 proc.polling_retries = 0
             elif proc.tosuspend:
                 self.logger.info("Suspending processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], proc.workload_id))
-                self.kill_processing_force(processing)
-                # self.kill_processing(processing)
+                # self.kill_processing_force(processing)
+                self.kill_processing(processing)
                 proc.tosuspend = False
                 proc.polling_retries = 0
             elif proc.toresume:

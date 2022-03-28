@@ -167,7 +167,7 @@ class Clerk(BaseAgent):
             ret_req = {'request_id': req['request_id'],
                        'parameters': {'status': RequestStatus.Failed,
                                       'locking': RequestLocking.Idle,
-                                      'errors': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=900)}}}
+                                      'errors': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=800)}}}
         return ret_req
 
     def process_new_requests(self):
@@ -425,7 +425,7 @@ class Clerk(BaseAgent):
                       'locking': RequestLocking.Idle,
                       'next_poll_at': next_poll_at,
                       'request_metadata': req['request_metadata'],
-                      'errors': {'msg': truncate_string(req_msg, 900)}}
+                      'errors': {'msg': truncate_string(req_msg, 800)}}
 
         new_messages = []
         if req_status == RequestStatus.ToExpire:
@@ -479,7 +479,7 @@ class Clerk(BaseAgent):
             ret_req = {'request_id': req['request_id'],
                        'parameters': {'status': RequestStatus.Failed,
                                       'locking': RequestLocking.Idle,
-                                      'errors': {'msg': '%s: %s' % (ex, traceback.format_exc())}}}
+                                      'errors': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=800)}}}
         return ret_req
 
     def release_inputs(self, request_id):
@@ -509,7 +509,7 @@ class Clerk(BaseAgent):
             ret_req = {'request_id': req['request_id'],
                        'parameters': {'status': RequestStatus.Failed,
                                       'locking': RequestLocking.Idle,
-                                      'errors': {'msg': '%s: %s' % (ex, traceback.format_exc())}}}
+                                      'errors': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=800)}}}
         return ret_req
 
     def process_operating_request_real(self, req):
@@ -580,7 +580,7 @@ class Clerk(BaseAgent):
             ret_req = {'request_id': req['request_id'],
                        'parameters': {'status': RequestStatus.Failed,
                                       'locking': RequestLocking.Idle,
-                                      'errors': {'msg': '%s: %s' % (ex, traceback.format_exc())}}}
+                                      'errors': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=800)}}}
         return ret_req
 
     def process_running_requests(self):

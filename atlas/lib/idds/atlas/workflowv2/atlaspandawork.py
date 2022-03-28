@@ -173,6 +173,17 @@ class ATLASPandaWork(Work):
                 log_col = {'scope': scope, 'name': name}
                 self.add_log_collections(log_col)
 
+            if not self.get_primary_output_collection():
+                all_colls = self.get_collections()
+                if all_colls:
+                    one_coll = all_colls[0]
+                    output_coll_scope = one_coll.scope
+                else:
+                    output_coll_scope = 'pseudo.scope'
+                name = 'pseudo_output.' + datetime.datetime.utcnow().strftime("%Y_%m_%d_%H_%M_%S_%f") + str(random.randint(1, 1000))
+                output_coll = {'scope': output_coll_scope, 'name': name, 'type': CollectionType.PseudoDataset}
+                self.set_primary_output_collection(output_coll)
+
             if not self.get_primary_input_collection():
                 output_colls = self.get_output_collections()
                 output_coll = output_colls[0]
@@ -454,7 +465,7 @@ class ATLASPandaWork(Work):
 
     def submit_panda_task(self, processing):
         try:
-            from pandatools import Client
+            from pandaclient import Client
 
             proc = processing['processing_metadata']['processing']
             task_param = proc.processing_metadata['task_param']
@@ -498,7 +509,7 @@ class ATLASPandaWork(Work):
 
     def poll_panda_task_status(self, processing):
         if 'processing' in processing['processing_metadata']:
-            from pandatools import Client
+            from pandaclient import Client
 
             proc = processing['processing_metadata']['processing']
             status, task_status = Client.getTaskStatus(proc.workload_id)
@@ -530,7 +541,7 @@ class ATLASPandaWork(Work):
         return processing_status
 
     def get_panda_task_id(self, processing):
-        from pandatools import Client
+        from pandaclient import Client
 
         start_time = datetime.datetime.utcnow() - datetime.timedelta(hours=10)
         start_time = start_time.strftime('%Y-%m-%d %H:%M:%S')
@@ -556,7 +567,7 @@ class ATLASPandaWork(Work):
     def poll_panda_task(self, processing=None, input_output_maps=None):
         task_id = None
         try:
-            from pandatools import Client
+            from pandaclient import Client
 
             if processing:
                 proc = processing['processing_metadata']['processing']
@@ -596,7 +607,7 @@ class ATLASPandaWork(Work):
     def kill_processing(self, processing):
         try:
             if processing:
-                from pandatools import Client
+                from pandaclient import Client
                 proc = processing['processing_metadata']['processing']
                 task_id = proc.workload_id
                 # task_id = processing['processing_metadata']['task_id']
@@ -609,7 +620,7 @@ class ATLASPandaWork(Work):
     def kill_processing_force(self, processing):
         try:
             if processing:
-                from pandatools import Client
+                from pandaclient import Client
                 proc = processing['processing_metadata']['processing']
                 task_id = proc.workload_id
                 # task_id = processing['processing_metadata']['task_id']
@@ -622,7 +633,7 @@ class ATLASPandaWork(Work):
     def reactivate_processing(self, processing):
         try:
             if processing:
-                from pandatools import Client
+                from pandaclient import Client
                 # task_id = processing['processing_metadata']['task_id']
                 proc = processing['processing_metadata']['processing']
                 task_id = proc.workload_id
@@ -774,7 +785,8 @@ class ATLASPandaWork(Work):
         self.logger.debug("syn_work_status(%s): has_to_release_inputs: %s" % (str(self.get_processing_ids()), str(self.has_to_release_inputs())))
         self.logger.debug("syn_work_status(%s): to_release_input_contents: %s" % (str(self.get_processing_ids()), str(to_release_input_contents)))
 
-        if self.is_processings_terminated() and self.is_input_collections_closed() and not self.has_new_inputs and not self.has_to_release_inputs() and not to_release_input_contents:
+        # if self.is_processings_terminated() and self.is_input_collections_closed() and not self.has_new_inputs and not self.has_to_release_inputs() and not to_release_input_contents:
+        if self.is_processings_terminated():
             # if not self.is_all_outputs_flushed(registered_input_output_maps):
             if not all_updates_flushed:
                 self.logger.warn("The work processings %s is terminated. but not all outputs are flushed. Wait to flush the outputs then finish the transform" % str(self.get_processing_ids()))

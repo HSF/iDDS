@@ -42,7 +42,7 @@ class OIDCAuthenticationSignURL(IDDSController):
                 else:
                     raise exceptions.IDDSException("Failed to get oidc sign url: %s" % str(sign_url))
             else:
-                raise exceptions.NotSupportedAuthentication("auth_type %s is not supported." % str(auth_type))
+                raise exceptions.AuthenticationNotSupported("auth_type %s is not supported to call this function." % str(auth_type))
         except exceptions.NoObject as error:
             return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
         except exceptions.IDDSException as error:

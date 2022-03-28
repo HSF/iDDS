@@ -9,7 +9,8 @@ dependencies:
   - flake8           # Wrapper around PyFlakes&pep8
   - pytest           # python testing tool
   - nose             # nose test tools
+  - stomp.py
   - rucio-clients
   - rucio-clients-atlas
-  - idds-common==0.10.3
-  - idds-workflow==0.10.3
+  - idds-common==0.10.5
+  - idds-workflow==0.10.5

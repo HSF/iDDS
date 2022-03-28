@@ -6,7 +6,7 @@ import datetime
 os.environ['PANDA_URL'] = 'http://pandaserver-doma.cern.ch:25080/server/panda'
 os.environ['PANDA_URL_SSL'] = 'https://pandaserver-doma.cern.ch:25443/server/panda'
 
-from pandatools import Client  # noqa E402
+from pandaclient import Client  # noqa E402
 
 """
 jobids = [1408118]
@@ -29,12 +29,36 @@ for job_info in jobs_list:
             print(f.type)
 """
 
-jediTaskID = 8378
+jediTaskID = 10517    # 10607
+jediTaskID = 10607
 ret = Client.getJediTaskDetails({'jediTaskID': jediTaskID}, True, True, verbose=False)
 print(ret)
 
-ret = Client.getTaskStatus(jediTaskID, verbose=False)
+# ret = Client.getTaskStatus(jediTaskID, verbose=False)
+# print(ret)
+
+task_info = ret[1]
+jobids = task_info['PandaID']
+ret = Client.getJobStatus(ids=jobids, verbose=False)
 print(ret)
+
+if ret[0] == 0:
+    jobs = ret[1]
+    left_jobids = []
+    ret_jobs = []
+    print(len(jobs))
+    for jobid, jobinfo in zip(jobids, jobs):
+        if jobinfo is None:
+            left_jobids.append(jobid)
+        else:
+            ret_jobs.append(jobinfo)
+    if left_jobids:
+        print(len(left_jobids))
+        ret = Client.getFullJobStatus(ids=left_jobids, verbose=False)
+        print(ret)
+        print(len(ret[1]))
+    ret_jobs = ret_jobs + ret[1]
+    print(len(ret_jobs))
 
 sys.exit(0)
 
@@ -104,7 +128,7 @@ newOpts = {}
 # site = newOpts.get('site', None)
 # excludedSite = newOpts.get('excludedSite', None)
 # for JEDI
-taskIDs = [7056, 7057]
+taskIDs = [10624]
 for taskID in taskIDs:
     status, out = Client.retryTask(taskID, verbose=True, properErrorCode=True, newParams=newOpts)
     print(status)

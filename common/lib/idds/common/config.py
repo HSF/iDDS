@@ -35,6 +35,7 @@ def config_has_section(section):
 .
     :returns: True/False.
     """
+    __CONFIG = get_config()
     return __CONFIG.has_section(section)
 
 
@@ -47,6 +48,7 @@ def config_has_option(section, option):
 .
     :returns: True/False.
     """
+    __CONFIG = get_config()
     return __CONFIG.has_option(section, option)
 
 
@@ -58,6 +60,7 @@ def config_list_options(section):
 .
     :returns: list of (name, value).
     """
+    __CONFIG = get_config()
     return __CONFIG.items(section)
 
 
@@ -69,6 +72,7 @@ def config_get(section, option):
 .
     :returns: the configuration value.
     """
+    __CONFIG = get_config()
     return __CONFIG.get(section, option)
 
 
@@ -80,6 +84,7 @@ def config_get_int(section, option):
 .
     :returns: the integer configuration value.
     """
+    __CONFIG = get_config()
     return __CONFIG.getint(section, option)
 
 
@@ -91,6 +96,7 @@ def config_get_float(section, option):
 .
     :returns: the float configuration value.
     """
+    __CONFIG = get_config()
     return __CONFIG.getfloat(section, option)
 
 
@@ -102,6 +108,7 @@ def config_get_bool(section, option):
 .
     :returns: the boolean configuration value.
     """
+    __CONFIG = get_config()
     return __CONFIG.getboolean(section, option)
 
 
@@ -153,36 +160,38 @@ def get_local_config_value(configuration, section, name, current, default):
     return value
 
 
-__CONFIG = ConfigParser.SafeConfigParser()
+def get_config():
+    __CONFIG = ConfigParser.SafeConfigParser()
 
-__HAS_CONFIG = False
-if os.environ.get('IDDS_CONFIG', None):
-    configfile = os.environ['IDDS_CONFIG']
-    if not __CONFIG.read(configfile) == [configfile]:
-        raise Exception('IDDS_CONFIG is defined as %s, ' % configfile,
-                        'but could not load configurations from it.')
-    __HAS_CONFIG = True
-else:
-    configfiles = ['%s/etc/idds/idds.cfg' % os.environ.get('IDDS_HOME', ''),
-                   '/etc/idds/idds.cfg',
-                   '%s/etc/idds/idds.cfg' % os.environ.get('VIRTUAL_ENV', '')]
-
-    for configfile in configfiles:
-        if __CONFIG.read(configfile) == [configfile]:
-            __HAS_CONFIG = True
-            # print("Configuration file %s is used" % configfile)
-            break
-
-if not __HAS_CONFIG:
-    local_cfg = get_local_cfg_file()
-    if os.path.exists(local_cfg):
-        __CONFIG.read(local_cfg)
+    __HAS_CONFIG = False
+    if os.environ.get('IDDS_CONFIG', None):
+        configfile = os.environ['IDDS_CONFIG']
+        if not __CONFIG.read(configfile) == [configfile]:
+            raise Exception('IDDS_CONFIG is defined as %s, ' % configfile,
+                            'but could not load configurations from it.')
         __HAS_CONFIG = True
     else:
-        raise Exception("Could not load configuration file."
-                        "For iDDS client, please run 'idds setup' to create local config file."
-                        "For an iDDS server, IDDS looks for a configuration file, in order:"
-                        "\n\t${IDDS_CONFIG}"
-                        "\n\t${IDDS_HOME}/etc/idds/idds.cfg"
-                        "\n\t/etc/idds/idds.cfg"
-                        "\n\t${VIRTUAL_ENV}/etc/idds/idds.cfg")
+        configfiles = ['%s/etc/idds/idds.cfg' % os.environ.get('IDDS_HOME', ''),
+                       '/etc/idds/idds.cfg',
+                       '%s/etc/idds/idds.cfg' % os.environ.get('VIRTUAL_ENV', '')]
+
+        for configfile in configfiles:
+            if __CONFIG.read(configfile) == [configfile]:
+                __HAS_CONFIG = True
+                # print("Configuration file %s is used" % configfile)
+                break
+
+    if not __HAS_CONFIG:
+        local_cfg = get_local_cfg_file()
+        if os.path.exists(local_cfg):
+            __CONFIG.read(local_cfg)
+            __HAS_CONFIG = True
+        else:
+            raise Exception("Could not load configuration file."
+                            "For iDDS client, please run 'idds setup' to create local config file."
+                            "For an iDDS server, IDDS looks for a configuration file, in order:"
+                            "\n\t${IDDS_CONFIG}"
+                            "\n\t${IDDS_HOME}/etc/idds/idds.cfg"
+                            "\n\t/etc/idds/idds.cfg"
+                            "\n\t${VIRTUAL_ENV}/etc/idds/idds.cfg")
+    return __CONFIG

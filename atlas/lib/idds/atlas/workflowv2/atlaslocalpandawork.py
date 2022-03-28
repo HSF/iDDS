@@ -296,7 +296,7 @@ class ATLASLocalPandaWork(ATLASPandaWork):
     def poll_panda_task_output(self, processing=None, input_output_maps=None):
         task_id = None
         try:
-            from pandatools import Client
+            from pandaclient import Client
 
             if processing:
                 output_metadata = {}

@@ -404,6 +404,9 @@ class Carrier(BaseAgent):
                 if not processing['submitted_at'] or processing['submitted_at'] < proc.submitted_at:
                     processing_update['parameters']['submitted_at'] = proc.submitted_at
 
+            if proc.workload_id:
+                processing_update['parameters']['workload_id'] = proc.workload_id
+
             processing_update['parameters']['next_poll_at'] = next_poll_at
             # processing_update['parameters']['expired_at'] = work.get_expired_at(processing)
             processing_update['parameters']['processing_metadata'] = processing['processing_metadata']
