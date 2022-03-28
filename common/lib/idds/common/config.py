@@ -27,6 +27,19 @@ except ImportError:
     import configparser as ConfigParser
 
 
+def is_client():
+    if 'IDDS_CLIENT_MODE' in os.environ and os.environ['IDDS_CLIENT_MODE']:
+        client_mode = True
+    else:
+        client_mode = False
+        try:
+            import idds.agents.common                # noqa F401
+        except ModuleNotFoundError as ex:            # noqa F841
+            client_mode = True
+
+    return client_mode
+
+
 def config_has_section(section):
     """
     Return where there is a section
@@ -187,11 +200,12 @@ def get_config():
             __CONFIG.read(local_cfg)
             __HAS_CONFIG = True
         else:
-            raise Exception("Could not load configuration file."
-                            "For iDDS client, please run 'idds setup' to create local config file."
-                            "For an iDDS server, IDDS looks for a configuration file, in order:"
-                            "\n\t${IDDS_CONFIG}"
-                            "\n\t${IDDS_HOME}/etc/idds/idds.cfg"
-                            "\n\t/etc/idds/idds.cfg"
-                            "\n\t${VIRTUAL_ENV}/etc/idds/idds.cfg")
+            if not is_client():
+                raise Exception("Could not load configuration file."
+                                "For iDDS client, please run 'idds setup' to create local config file."
+                                "For an iDDS server, IDDS looks for a configuration file, in order:"
+                                "\n\t${IDDS_CONFIG}"
+                                "\n\t${IDDS_HOME}/etc/idds/idds.cfg"
+                                "\n\t/etc/idds/idds.cfg"
+                                "\n\t${VIRTUAL_ENV}/etc/idds/idds.cfg")
     return __CONFIG
