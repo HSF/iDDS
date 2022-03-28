@@ -173,6 +173,17 @@ class ATLASPandaWork(Work):
                 log_col = {'scope': scope, 'name': name}
                 self.add_log_collections(log_col)
 
+            if not self.get_primary_output_collection():
+                all_colls = self.get_collections()
+                if all_colls:
+                    one_coll = all_colls[0]
+                    output_coll_scope = one_coll.scope
+                else:
+                    output_coll_scope = 'pseudo.scope'
+                name = 'pseudo_output.' + datetime.datetime.utcnow().strftime("%Y_%m_%d_%H_%M_%S_%f") + str(random.randint(1, 1000))
+                output_coll = {'scope': output_coll_scope, 'name': name, 'type': CollectionType.PseudoDataset}
+                self.set_primary_output_collection(output_coll)
+
             if not self.get_primary_input_collection():
                 output_colls = self.get_output_collections()
                 output_coll = output_colls[0]
