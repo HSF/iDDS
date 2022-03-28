@@ -1524,6 +1524,9 @@ class Work(Base):
             keys = self._other_output_collections
         return [self.collections[k] for k in keys]
 
+    def get_collections(self):
+        return [self.collections[k] for k in self.collections[k].keys()]
+
     def is_input_collections_closed(self):
         colls = self.get_input_collections()
         for coll in colls:

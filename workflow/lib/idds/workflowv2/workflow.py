@@ -254,7 +254,7 @@ class CompositeCondition(Base):
                     internal_id = cond['idds_method_internal_id']
                     work = self.get_work_from_id(internal_id, works)
 
-                    self.logger.debug("get_work_from_id: %s: %s" % (internal_id, str(work)))
+                    self.logger.debug("get_work_from_id: %s: [%s]" % (internal_id, [work]))
 
                     if work is not None:
                         new_cond = getattr(work, cond['idds_method'])
@@ -281,7 +281,7 @@ class CompositeCondition(Base):
         self.logger.debug("true_works: %s" % str(self.true_works))
 
         for w in self.true_works:
-            self.logger.debug("true_work: %s" % str(w))
+            # self.logger.debug("true_work: %s" % str(w))
             if isinstance(w, CompositeCondition):
                 # work = w.load_conditions(works, works_template)
                 w.load_conditions(works)
