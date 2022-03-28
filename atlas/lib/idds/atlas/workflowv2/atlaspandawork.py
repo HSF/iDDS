@@ -173,6 +173,17 @@ class ATLASPandaWork(Work):
                 log_col = {'scope': scope, 'name': name}
                 self.add_log_collections(log_col)
 
+            if not self.get_primary_output_collection():
+                all_colls = self.get_collections()
+                if all_colls:
+                    one_coll = all_colls[0]
+                    output_coll_scope = one_coll.scope
+                else:
+                    output_coll_scope = 'pseudo.scope'
+                name = 'pseudo_output.' + datetime.datetime.utcnow().strftime("%Y_%m_%d_%H_%M_%S_%f") + str(random.randint(1, 1000))
+                output_coll = {'scope': output_coll_scope, 'name': name, 'type': CollectionType.PseudoDataset}
+                self.set_primary_output_collection(output_coll)
+
             if not self.get_primary_input_collection():
                 output_colls = self.get_output_collections()
                 output_coll = output_colls[0]
@@ -774,7 +785,8 @@ class ATLASPandaWork(Work):
         self.logger.debug("syn_work_status(%s): has_to_release_inputs: %s" % (str(self.get_processing_ids()), str(self.has_to_release_inputs())))
         self.logger.debug("syn_work_status(%s): to_release_input_contents: %s" % (str(self.get_processing_ids()), str(to_release_input_contents)))
 
-        if self.is_processings_terminated() and self.is_input_collections_closed() and not self.has_new_inputs and not self.has_to_release_inputs() and not to_release_input_contents:
+        # if self.is_processings_terminated() and self.is_input_collections_closed() and not self.has_new_inputs and not self.has_to_release_inputs() and not to_release_input_contents:
+        if self.is_processings_terminated():
             # if not self.is_all_outputs_flushed(registered_input_output_maps):
             if not all_updates_flushed:
                 self.logger.warn("The work processings %s is terminated. but not all outputs are flushed. Wait to flush the outputs then finish the transform" % str(self.get_processing_ids()))

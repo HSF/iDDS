@@ -252,3 +252,13 @@ class AuthenticationPending(IDDSException):
         super(AuthenticationPending, self).__init__(*args, **kwargs)
         self._message = "Authentication pending."
         self.error_code = 601
+
+
+class AuthenticationNotSupported(IDDSException):
+    """
+    Authentication not supported
+    """
+    def __init__(self, *args, **kwargs):
+        super(AuthenticationNotSupported, self).__init__(*args, **kwargs)
+        self._message = "Authentication not supported."
+        self.error_code = 602

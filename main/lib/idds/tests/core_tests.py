@@ -104,7 +104,12 @@ def show_works(req):
 
 # 283511, 283517
 # reqs = get_requests(request_id=599, with_detail=True, with_metadata=True)
-reqs = get_requests(request_id=283511, with_request=True, with_detail=False, with_metadata=True)
+# reqs = get_requests(request_id=283511, with_request=True, with_detail=False, with_metadata=True)
+# reqs = get_requests(request_id=298163, with_request=True, with_detail=False, with_metadata=True)
+# reqs = get_requests(request_id=298557, with_request=True, with_detail=False, with_metadata=True)
+# reqs = get_requests(request_id=299111, with_request=True, with_detail=False, with_metadata=True)
+# reqs = get_requests(request_id=299235, with_request=True, with_detail=False, with_metadata=True)
+reqs = get_requests(request_id=965, with_request=True, with_detail=False, with_metadata=True)
 for req in reqs:
     # print(req['request_id'])
     # print(rets)
@@ -132,7 +137,9 @@ sys.exit(0)
 
 """
 
-tfs = get_transforms(request_id=241)
+"""
+# tfs = get_transforms(request_id=241)
+tfs = get_transforms(transform_id=176320)
 for tf in tfs:
     # print(tf)
     # print(tf['transform_metadata']['work'].to_dict())
@@ -140,6 +147,7 @@ for tf in tfs:
     pass
 
 sys.exit(0)
+"""
 
 """
 msgs = retrieve_messages(workload_id=25972557)
@@ -160,7 +168,8 @@ print(number_contents)
 sys.exit(0)
 """
 
-prs = get_processings(request_id=219)
+# prs = get_processings(request_id=219)
+prs = get_processings(transform_id=176320)
 i = 0
 for pr in prs:
     # if pr['request_id'] == 91:

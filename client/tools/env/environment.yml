@@ -14,5 +14,6 @@ dependencies:
   - pytest           # python testing tool
   - nose             # nose test tools
   - tabulate
-  - idds-common==0.10.4
-  - idds-workflow==0.10.4
+  - argcomplete
+  - idds-common==0.10.5
+  - idds-workflow==0.10.5

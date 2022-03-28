@@ -227,7 +227,8 @@ class CompositeCondition(Base):
                         elif isinstance(w, CompositeCondition):
                             new_w = w.to_dict()
                         elif isinstance(w, Workflow):
-                            new_w = w.to_dict()
+                            # new_w = w.to_dict()
+                            new_w = w.get_internal_id()
                         else:
                             new_w = w
                         new_value.append(new_w)
@@ -247,12 +248,18 @@ class CompositeCondition(Base):
                 new_conditions.append(cond)
             else:
                 if 'idds_method' in cond and 'idds_method_internal_id' in cond:
+                    self.logger.debug("idds_method_internal_id: %s" % cond['idds_method_internal_id'])
+                    self.logger.debug("idds_method: %s" % cond['idds_method'])
+
                     internal_id = cond['idds_method_internal_id']
                     work = self.get_work_from_id(internal_id, works)
+
+                    self.logger.debug("get_work_from_id: %s: [%s]" % (internal_id, [work]))
+
                     if work is not None:
                         new_cond = getattr(work, cond['idds_method'])
                     else:
-                        self.logger.error("Work cannot be found for %s" % (internal_id))
+                        self.logger.error("Condition method work cannot be found for %s" % (internal_id))
                         new_cond = cond
                 elif 'idds_attribute' in cond and 'idds_method_internal_id' in cond:
                     internal_id = cond['idds_method_internal_id']
@@ -260,7 +267,7 @@ class CompositeCondition(Base):
                     if work is not None:
                         new_cond = getattr(work, cond['idds_attribute'])
                     else:
-                        self.logger.error("Work cannot be found for %s" % (internal_id))
+                        self.logger.error("Condition attribute work cannot be found for %s" % (internal_id))
                         new_cond = cond
                 elif 'idds_method' in cond and 'idds_method_condition' in cond:
                     new_cond = cond['idds_method_condition']
@@ -271,37 +278,46 @@ class CompositeCondition(Base):
         self.conditions = new_conditions
 
         new_true_works = []
+        self.logger.debug("true_works: %s" % str(self.true_works))
+
         for w in self.true_works:
+            # self.logger.debug("true_work: %s" % str(w))
             if isinstance(w, CompositeCondition):
                 # work = w.load_conditions(works, works_template)
                 w.load_conditions(works)
                 work = w
             elif isinstance(w, Workflow):
                 work = w
+            elif isinstance(w, Work):
+                work = w
             elif type(w) in [str]:
                 work = self.get_work_from_id(w, works)
                 if work is None:
-                    self.logger.error("Work cannot be found for %s" % str(w))
+                    self.logger.error("True work cannot be found for %s" % str(w))
                     work = w
             else:
-                self.logger.error("Work cannot be found for %s" % str(w))
+                self.logger.error("True work cannot be found for type(%s): %s" % (type(w), str(w)))
                 work = w
             new_true_works.append(work)
         self.true_works = new_true_works
 
         new_false_works = []
         for w in self.false_works:
-            if isinstance(w, CompositeCondition) or isinstance(w, Workflow):
+            if isinstance(w, CompositeCondition):
                 # work = w.load_condtions(works, works_template)
                 w.load_conditions(works)
+                work = w
+            elif isinstance(w, Workflow):
+                work = w
+            elif isinstance(w, Work):
                 work = w
             elif type(w) in [str]:
                 work = self.get_work_from_id(w, works)
                 if work is None:
-                    self.logger.error("Work cannot be found for %s" % str(w))
+                    self.logger.error("False work cannot be found for type(%s): %s" % (type(w), str(w)))
                     work = w
             else:
-                self.logger.error("Work cannot be found for %s" % str(w))
+                self.logger.error("False work cannot be found for %s" % str(w))
                 work = w
             new_false_works.append(work)
         self.false_works = new_false_works
@@ -610,6 +626,8 @@ class WorkflowBase(Base):
         self.works = {}
         self.work_sequence = {}  # order list
 
+        self.next_works = []
+
         self.terminated_works = []
         self.initial_works = []
         # if the primary initial_work is not set, it's the first initial work.
@@ -795,6 +813,14 @@ class WorkflowBase(Base):
             work = self._works[k]
             if work.last_updated_at and (not self.last_updated_at or work.last_updated_at > self.last_updated_at):
                 self.last_updated_at = work.last_updated_at
+
+    @property
+    def next_works(self):
+        return self.get_metadata_item('next_works', [])
+
+    @next_works.setter
+    def next_works(self, value):
+        self.add_metadata_item('next_works', value)
 
     @property
     def conditions(self):
@@ -1261,6 +1287,11 @@ class WorkflowBase(Base):
         for p_id in self.parameter_links:
             if p_id in p_metadata:
                 self.parameter_links[p_id].metadata = p_metadata[p_id]
+
+    def add_next_work(self, work_id):
+        next_works = self.next_works
+        next_works.append(work_id)
+        self.next_works = next_works
 
     def enable_next_works(self, work, cond):
         self.log_debug("Checking Work %s condition: %s" % (work.get_internal_id(),
@@ -1808,6 +1839,9 @@ class Workflow(Base):
         result.logger = logger
         return result
 
+    def get_template_id(self):
+        return self.template.get_template_id()
+
     @property
     def metadata(self):
         run_metadata = {'parent_num_run': self.parent_num_run,
@@ -1821,6 +1855,7 @@ class Workflow(Base):
 
     @metadata.setter
     def metadata(self, value):
+        self.template.load_metadata()
         run_metadata = value
         self.parent_num_run = run_metadata['parent_num_run']
         self._num_run = run_metadata['num_run']
@@ -1844,6 +1879,12 @@ class Workflow(Base):
         if self.runs:
             self.runs[str(self.num_run)].independent_works = value
         self.template.independent_works = value
+
+    def add_next_work(self, work_id):
+        if self.runs:
+            self.runs[str(self.num_run)].add_next_work(work_id)
+        else:
+            raise Exception("There are no runs. It should not have next work")
 
     @property
     def last_updated_at(self):

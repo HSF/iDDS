@@ -1,5 +1,12 @@
 [common]
-allow_vos = panda_dev,Rubin,Rubin:production
+allow_vos = atlas,panda_dev,Rubin,Rubin:production
+
+[atlas]
+client_secret = <>
+audience = https://pandaserver-doma.cern.ch
+client_id = <>
+oidc_config_url = https://panda-iam-doma.cern.ch/.well-known/openid-configuration
+vo = atlas
 
 [panda_dev]
 client_secret = <>
