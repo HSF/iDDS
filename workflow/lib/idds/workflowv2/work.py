@@ -1525,7 +1525,7 @@ class Work(Base):
         return [self.collections[k] for k in keys]
 
     def get_collections(self):
-        return [self.collections[k] for k in self.collections[k].keys()]
+        return [self.collections[k] for k in self.collections.keys()]
 
     def is_input_collections_closed(self):
         colls = self.get_input_collections()
