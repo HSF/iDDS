@@ -116,11 +116,18 @@ class ClientManager:
     def get_local_configuration(self):
         local_cfg = self.get_local_cfg_file()
         config = ConfigParser.SafeConfigParser()
-        if os.path.exists(local_cfg):
+        if not local_cfg:
+            logging.debug("local configuration file does not exist, will only load idds default value.")
+        if local_cfg and os.path.exists(local_cfg):
             config.read(local_cfg)
 
-        self.config = self.get_config_value(config, section='common', name='config', current=self.config,
-                                            default=os.path.join(self.get_local_config_root(), 'idds.cfg'))
+        if self.get_local_config_root():
+            self.config = self.get_config_value(config, section='common', name='config', current=self.config,
+                                                default=os.path.join(self.get_local_config_root(), 'idds.cfg'))
+        else:
+            self.config = self.get_config_value(config, section='common', name='config', current=self.config,
+                                                default=None)
+
         self.auth_type = self.get_config_value(config, 'common', 'auth_type', current=self.auth_type, default='x509_proxy')
 
         self.host = self.get_config_value(config, 'rest', 'host', current=self.host, default=None)
@@ -133,16 +140,24 @@ class ClientManager:
             if proxy:
                 self.x509_proxy = proxy
 
-        self.oidc_token = self.get_config_value(config, 'oidc', 'oidc_token', current=self.oidc_token,
-                                                default=os.path.join(self.get_local_config_root(), '.oidc_token'))
+        if self.get_local_config_root():
+            self.oidc_token = self.get_config_value(config, 'oidc', 'oidc_token', current=self.oidc_token,
+                                                    default=os.path.join(self.get_local_config_root(), '.oidc_token'))
+        else:
+            self.oidc_token = self.get_config_value(config, 'oidc', 'oidc_token', current=self.oidc_token,
+                                                    default=None)
+
         self.vo = self.get_config_value(config, self.auth_type, 'vo', current=self.vo, default=None)
 
         self.configuration = config
 
     def save_local_configuration(self):
         local_cfg = self.get_local_cfg_file()
-        with open(local_cfg, 'w') as configfile:
-            self.configuration.write(configfile)
+        if not local_cfg:
+            logging.debug("local configuration file does not exist, will not store current setup.")
+        else:
+            with open(local_cfg, 'w') as configfile:
+                self.configuration.write(configfile)
 
     def setup_local_configuration(self, local_config_root=None, config=None, host=None,
                                   auth_type=None, auth_type_host=None, x509_proxy=None,

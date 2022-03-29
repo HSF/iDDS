@@ -135,17 +135,28 @@ def get_local_config_root(local_config_root=None):
 
     if local_config_root is None:
         # local_config_root = "~/.idds"
-        local_config_root = os.path.join(os.path.expanduser("~"), ".idds")
+        home_dir = os.path.expanduser("~")
+        if os.access(home_dir, os.W_OK):
+            local_config_root = os.path.join(home_dir, ".idds")
+        else:
+            # username = os.getlogin()
+            # if username == 'root':
+            #     local_config_root = os.path.join('/tmp', ".idds")
+            # else:
+            #     local_config_root = os.path.join(os.path.join("/tmp", username), ".idds")
+            pass
 
-    if not os.path.exists(local_config_root):
+    if local_config_root and not os.path.exists(local_config_root):
         os.makedirs(local_config_root)
     return local_config_root
 
 
 def get_local_cfg_file(local_config_root=None):
     local_config_root = get_local_config_root(local_config_root)
-    local_cfg = os.path.join(local_config_root, 'idds_local.cfg')
-    return local_cfg
+    if local_config_root:
+        local_cfg = os.path.join(local_config_root, 'idds_local.cfg')
+        return local_cfg
+    return None
 
 
 def get_local_config_value(configuration, section, name, current, default):

@@ -298,7 +298,7 @@ if __name__ == '__main__':
 
     try:
         if args.verbose:
-            logging.setLevel(logging.DEBUG)
+            logging.getLogger().setLevel(logging.DEBUG)
         start_time = time.time()
 
         result = args.function(args)
