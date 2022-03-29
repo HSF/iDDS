@@ -24,6 +24,6 @@ dependencies:
   - sphinx-rtd-theme                 # sphinx readthedoc theme
   - nevergrad                        # nevergrad hyper parameter optimization
   - psycopg2-binary 
-  - idds-common==0.10.5
-  - idds-workflow==0.10.5
-  - idds-client==0.10.5
+  - idds-common==0.10.6
+  - idds-workflow==0.10.6
+  - idds-client==0.10.6
