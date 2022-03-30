@@ -49,7 +49,9 @@ class DomaPanDAWork(Work):
                  task_log=None,
                  task_cloud=None,
                  task_site=None,
-                 task_rss=1000):
+                 task_rss=1000,
+                 vo='wlcg',
+                 working_group='lsst'):
 
         super(DomaPanDAWork, self).__init__(executable=executable, arguments=arguments,
                                             parameters=parameters, setup=setup, work_type=TransformType.Processing,
@@ -78,7 +80,7 @@ class DomaPanDAWork(Work):
         self.task_name = task_name
         self.real_task_name = None
         self.set_work_name(task_name)
-        self.queue = task_queue
+        self.task_queue = task_queue
         self.dep_tasks_id_names_map = {}
         self.executable = executable
         self.processingType = processing_type
@@ -93,6 +95,9 @@ class DomaPanDAWork(Work):
         self.task_cloud = task_cloud
         self.task_site = task_site
         self.task_rss = task_rss
+
+        self.vo = vo
+        self.working_group = working_group
 
         self.retry_number = 0
         self.num_retries = num_retries
@@ -396,10 +401,10 @@ class DomaPanDAWork(Work):
             in_files.append(job['name'])
 
         task_param_map = {}
-        task_param_map['vo'] = 'wlcg'
-        if self.queue and len(self.queue) > 0:
-            task_param_map['site'] = self.queue
-        task_param_map['workingGroup'] = 'lsst'
+        task_param_map['vo'] = self.vo
+        if self.task_queue and len(self.task_queue) > 0:
+            task_param_map['site'] = self.task_queue
+        task_param_map['workingGroup'] = self.working_group
         task_param_map['nFilesPerJob'] = 1
         task_param_map['nFiles'] = len(in_files)
         task_param_map['noInput'] = True
