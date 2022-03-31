@@ -161,7 +161,7 @@ def get_local_cfg_file(local_config_root=None):
 
 def get_local_config_value(configuration, section, name, current, default):
     value = None
-    if configuration.has_section(section) and configuration.has_option(section, name):
+    if configuration and configuration.has_section(section) and configuration.has_option(section, name):
         if name in ['oidc_refresh_lifetime']:
             value = configuration.getint(section, name)
         elif name in ['oidc_auto', 'oidc_polling']:
@@ -173,14 +173,15 @@ def get_local_config_value(configuration, section, name, current, default):
     elif value is None:
         value = default
 
-    if not configuration.has_section(section):
+    if configuration and not configuration.has_section(section):
         configuration.add_section(section)
     if value is not None:
         if name in ['oidc_refresh_lifetime']:
             value = str(value)
         elif name in ['oidc_auto', 'oidc_polling']:
             value = str(value).lower()
-        configuration.set(section, name, value)
+        if configuration:
+            configuration.set(section, name, value)
     return value
 
 

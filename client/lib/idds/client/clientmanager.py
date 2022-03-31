@@ -106,7 +106,7 @@ class ClientManager:
         return local_cfg
 
     def get_config_value(self, configuration, section, name, current, default):
-        if type(configuration) in [str]:
+        if configuration and type(configuration) in [str]:
             config = ConfigParser.SafeConfigParser()
             config.read(configuration)
             configuration = config
