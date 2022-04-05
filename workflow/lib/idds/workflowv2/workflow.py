@@ -1425,7 +1425,9 @@ class WorkflowBase(Base):
         return deps
 
     def order_independent_works(self):
+        self.log_debug("ordering independent works")
         ind_work_ids = self.independent_works
+        self.log_debug("independent works: %s" % (str(ind_work_ids)))
         self.independent_works = []
         self.work_dependencies = {}
         for ind_work_id in ind_work_ids:
@@ -1447,23 +1449,39 @@ class WorkflowBase(Base):
         self.log_debug('work dependencies 2: %s' % str(self.work_dependencies))
 
         while True:
+            # self.log_debug('independent_works N: %s' % str(self.independent_works))
+            # self.log_debug('work dependencies N: %s' % str(self.work_dependencies))
+            has_changes = False
             for work_id in self.work_dependencies:
                 if work_id not in self.independent_works and len(self.work_dependencies[work_id]) == 0:
                     self.independent_works.append(work_id)
+                    has_changes = True
             for work_id in self.independent_works:
                 if work_id in self.work_dependencies:
                     del self.work_dependencies[work_id]
+                    has_changes = True
             for work_id in self.work_dependencies:
                 for in_work_id in self.independent_works:
                     if in_work_id in self.work_dependencies[work_id]:
                         self.work_dependencies[work_id].remove(in_work_id)
+                        has_changes = True
             if not self.work_dependencies:
                 break
+            if not has_changes:
+                self.log_debug("There are loop dependencies between works.")
+                self.log_debug('independent_works N: %s' % str(self.independent_works))
+                self.log_debug('work dependencies N: %s' % str(self.work_dependencies))
+                for work_id in self.work_dependencies:
+                    if work_id not in self.independent_works:
+                        self.independent_works.append(work_id)
+                break
         self.log_debug('independent_works: %s' % str(self.independent_works))
+        self.log_debug("ordered independent works")
 
     def first_initialize(self):
         # set new_to_run works
         if not self.first_initial:
+            self.log_debug("first initializing")
             self.first_initial = True
             self.order_independent_works()
             if self.initial_works:
@@ -1479,8 +1497,10 @@ class WorkflowBase(Base):
                 self.get_new_work_to_run(work_id)
                 init_works.append(work_id)
             self.init_works = init_works
+            self.log_debug("first initialized")
 
     def sync_works(self):
+        self.log_debug("synchroning works")
         self.first_initialize()
 
         self.refresh_works()
@@ -1555,6 +1575,7 @@ class WorkflowBase(Base):
         self.log_debug(log_str)
 
         self.refresh_works()
+        self.log_debug("synchronized works")
 
     def resume_works(self):
         self.num_subfinished_works = 0
@@ -1822,6 +1843,16 @@ class Workflow(Base):
         # Setup logger
         self.logger = logging.getLogger(self.get_class_name())
 
+    def log_info(self, info):
+        if self.logger is None:
+            self.setup_logger()
+        self.logger.info(info)
+
+    def log_debug(self, info):
+        if self.logger is None:
+            self.setup_logger()
+        self.logger.debug(info)
+
     def __deepcopy__(self, memo):
         logger = self.logger
         self.logger = None
@@ -2007,7 +2038,9 @@ class Workflow(Base):
         return self.template.sync_global_parameters_from_work(work)
 
     def get_new_works(self):
+        self.log_debug("synchronizing works")
         self.sync_works()
+        self.log_debug("synchronized works")
         if self.runs:
             return self.runs[str(self.num_run)].get_new_works()
         return []
