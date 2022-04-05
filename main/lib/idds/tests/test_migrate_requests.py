@@ -28,11 +28,13 @@ def migrate():
     doma_host = 'https://aipanda015.cern.ch:443/idds'   # noqa F841
     # atlas
     atlas_host = 'https://aipanda181.cern.ch:443/idds'  # noqa F841
+    # doma google
+    doma_google_host = 'https://34.133.138.229:443/idds'  # noqa F841
 
     cm1 = ClientManager(host=doma_host)
     # reqs = cm1.get_requests(request_id=290)
     # old_request_id = 298163
-    old_request_id = 965
+    old_request_id = 988
     # for old_request_id in [152]:
     # for old_request_id in [60]:    # noqa E115
     # for old_request_id in [200]:    # noqa E115

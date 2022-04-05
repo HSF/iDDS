@@ -39,21 +39,26 @@ from idds.common.exceptions import IDDSException
 DATE_FORMAT = '%a, %d %b %Y %H:%M:%S UTC'
 
 
-def setup_logging(name):
+def setup_logging(name, stream=None, loglevel=None):
     """
     Setup logging
     """
-    if config_has_section('common') and config_has_option('common', 'loglevel'):
-        loglevel = getattr(logging, config_get('common', 'loglevel').upper())
-    else:
-        loglevel = logging.INFO
+    if loglevel is None:
+        if config_has_section('common') and config_has_option('common', 'loglevel'):
+            loglevel = getattr(logging, config_get('common', 'loglevel').upper())
+        else:
+            loglevel = logging.INFO
 
-    if config_has_section('common') and config_has_option('common', 'logdir'):
-        logging.basicConfig(filename=os.path.join(config_get('common', 'logdir'), name),
-                            level=loglevel,
-                            format='%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s')
+    if stream is None:
+        if config_has_section('common') and config_has_option('common', 'logdir'):
+            logging.basicConfig(filename=os.path.join(config_get('common', 'logdir'), name),
+                                level=loglevel,
+                                format='%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s')
+        else:
+            logging.basicConfig(stream=sys.stdout, level=loglevel,
+                                format='%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s')
     else:
-        logging.basicConfig(stream=sys.stdout, level=loglevel,
+        logging.basicConfig(stream=stream, level=loglevel,
                             format='%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s')
 
 
