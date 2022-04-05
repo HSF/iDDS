@@ -106,6 +106,8 @@ class DomaPanDAWork(Work):
 
         self.load_panda_urls()
 
+        self.dependency_tasks = None
+
     def my_condition(self):
         if self.is_finished():
             return True
@@ -185,14 +187,24 @@ class DomaPanDAWork(Work):
             self.poll_panda_jobs_chunk_size = int(self.agent_attributes['poll_panda_jobs_chunk_size'])
 
     def depend_on(self, work):
-        for job in self.dependency_map:
-            inputs_dependency = job["dependencies"]
+        self.logger.debug("checking depending on")
+        if self.dependency_tasks is None:
+            self.logger.debug("constructing dependency_tasks set")
+            dependency_tasks = set([])
+            for job in self.dependency_map:
+                inputs_dependency = job["dependencies"]
 
-            for input_d in inputs_dependency:
-                task_name = input_d['task']
-                if task_name == work.task_name:
-                    return True
-        return False
+                for input_d in inputs_dependency:
+                    task_name = input_d['task']
+                    dependency_tasks.add(task_name)
+            self.dependency_tasks = list(dependency_tasks)
+
+        if work.task_name in self.dependency_tasks:
+            self.logger.debug("finished checking depending on")
+            return True
+        else:
+            self.logger.debug("finished checking depending on")
+            return False
 
     def get_ancestry_works(self):
         tasks = set([])
