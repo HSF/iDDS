@@ -38,6 +38,11 @@ def add_message(msg_type, status, source, request_id, workload_id, transform_id,
                                     bulk_size=bulk_size, msg_content=msg_content, session=session)
 
 
+@transactional_session
+def add_messages(messages, bulk_size=1000, session=None):
+    return orm_messages.add_messages(messages, bulk_size=bulk_size, session=session)
+
+
 @read_session
 def retrieve_messages(bulk_size=None, msg_type=None, status=None, destination=None,
                       source=None, request_id=None, workload_id=None, transform_id=None,
