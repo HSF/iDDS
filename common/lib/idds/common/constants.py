@@ -17,6 +17,7 @@ from enum import Enum
 
 SCOPE_LENGTH = 25
 NAME_LENGTH = 255
+LONG_NAME_LENGTH = 4000
 
 
 class Sections:
