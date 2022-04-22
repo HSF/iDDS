@@ -34,14 +34,14 @@ def migrate():
     cm1 = ClientManager(host=doma_host)
     # reqs = cm1.get_requests(request_id=290)
     # old_request_id = 298163
-    old_request_id = 988
+    old_request_id = 901
     # for old_request_id in [152]:
     # for old_request_id in [60]:    # noqa E115
     # for old_request_id in [200]:    # noqa E115
     for old_request_id in [old_request_id]:    # noqa E115  # doma 183
         reqs = cm1.get_requests(request_id=old_request_id, with_metadata=True)
 
-        cm2 = ClientManager(host=dev_host)
+        cm2 = ClientManager(host=doma_google_host)
         # print(reqs)
 
         print("num requests: %s" % len(reqs))

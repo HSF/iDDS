@@ -41,11 +41,12 @@ class DomaPanDAWork(Work):
                  primary_output_collection=None, other_output_collections=None,
                  output_collections=None, log_collections=None,
                  logger=None, dependency_map=None, task_name="",
-                 task_queue=None, processing_type=None,
+                 task_queue=None, queue=None, processing_type=None,
                  prodSourceLabel='test', task_type='test',
                  maxwalltime=90000, maxattempt=5, core_count=1,
                  encode_command_line=False,
                  num_retries=5,
+                 task_priority=900,
                  task_log=None,
                  task_cloud=None,
                  task_site=None,
@@ -81,6 +82,7 @@ class DomaPanDAWork(Work):
         self.real_task_name = None
         self.set_work_name(task_name)
         self.task_queue = task_queue
+        self.queue = queue
         self.dep_tasks_id_names_map = {}
         self.executable = executable
         self.processingType = processing_type
@@ -95,6 +97,7 @@ class DomaPanDAWork(Work):
         self.task_cloud = task_cloud
         self.task_site = task_site
         self.task_rss = task_rss
+        self.task_priority = task_priority
 
         self.vo = vo
         self.working_group = working_group
@@ -416,6 +419,8 @@ class DomaPanDAWork(Work):
         task_param_map['vo'] = self.vo
         if self.task_queue and len(self.task_queue) > 0:
             task_param_map['site'] = self.task_queue
+        elif self.queue and len(self.queue) > 0:
+            task_param_map['site'] = self.queue
         task_param_map['workingGroup'] = self.working_group
         task_param_map['nFilesPerJob'] = 1
         task_param_map['nFiles'] = len(in_files)
@@ -423,7 +428,7 @@ class DomaPanDAWork(Work):
         task_param_map['pfnList'] = in_files
         task_param_map['taskName'] = self.task_name
         task_param_map['userName'] = self.username if self.username else 'iDDS'
-        task_param_map['taskPriority'] = 900
+        task_param_map['taskPriority'] = self.task_priority
         task_param_map['architecture'] = ''
         task_param_map['transUses'] = ''
         task_param_map['transHome'] = None
@@ -474,7 +479,7 @@ class DomaPanDAWork(Work):
 
             proc = processing['processing_metadata']['processing']
             task_param = proc.processing_metadata['task_param']
-            return_code = Client.insertTaskParams(task_param, verbose=False)
+            return_code = Client.insertTaskParams(task_param, verbose=True)
             if return_code[0] == 0:
                 return return_code[1][1]
             else:
