@@ -30,5 +30,5 @@ oidc_config_url = https://panda-iam-doma.cern.ch/.well-known/openid-configuratio
 vo = Rubin
 
 [Users]
-allow_users = *
+allow_users = DC=cern,DC=slac
 ban_users = testuser

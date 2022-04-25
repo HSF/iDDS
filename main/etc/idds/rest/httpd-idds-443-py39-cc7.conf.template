@@ -68,7 +68,8 @@ Alias "/monitor"     "/opt/idds/monitor"
         WSGIApplicationGroup %{GLOBAL}
         WSGIScriptAlias /idds {python_site_bin_path}/idds.wsgi
         # WSGIScriptAliasMatch ^/idds/(.+)$ /opt/idds/etc/idds/rest/test.wsgi
-        WSGISocketPrefix /var/log/idds/wsgisocks/wsgi
+        # WSGISocketPrefix /var/log/idds/wsgisocks/wsgi
+        WSGISocketPrefix /tmp/idds/wsgisocks/wsgi
         WSGIPassAuthorization On
     </IfModule>
 
