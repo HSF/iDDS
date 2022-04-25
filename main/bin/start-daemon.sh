@@ -7,7 +7,7 @@ if [ -f /opt/idds/config/idds/idds.cfg ]; then
     echo "idds.cfg already mounted."
 else
     echo "idds.cfg not found. will generate one."
-    python3 /opt/idds/tools/merge_idds_configs.py \
+    python3 /opt/idds/tools/env/merge_idds_configs.py \
         -s /opt/idds/config_default/idds.cfg $IDDS_OVERRIDE_IDDS_CONFIGS \
         --use-env \
         --prefix IDDS_CFG_IDDS
@@ -18,7 +18,7 @@ if [ -f /opt/idds/config/idds/auth.cfg ]; then
     echo "auth.cfg already mounted."
 else
     echo "auth.cfg not found. will generate one."
-    python3 /opt/idds/tools/merge_idds_configs.py \
+    python3 /opt/idds/tools/env/merge_idds_configs.py \
         -s /opt/idds/config_default/auth.cfg $IDDS_OVERRIDE_AUTH_CONFIGS \
         --use-env \
         --prefix IDDS_CFG_AUTH
@@ -29,7 +29,7 @@ if [ -f /opt/idds/config/idds/gacl ]; then
     echo "gacl already mounted."
 else
     echo "gacl not found. will generate one."
-    python3 /opt/idds/tools/merge_idds_configs.py \
+    python3 /opt/idds/tools/env/merge_idds_configs.py \
         -s /opt/idds/config_default/gacl $IDDS_OVERRIDE_GACL_CONFIGS \
         --use-env \
         --env-string IDDS_CFG_GACL
@@ -41,7 +41,7 @@ if [ -f /opt/idds/config/panda.cfg ]; then
     echo "panda.cfg already mounted."
 else
     echo "panda.cfg not found. will generate one."
-    python3 /opt/idds/tools/merge_idds_configs.py \
+    python3 /opt/idds/tools/env/merge_idds_configs.py \
         -s /opt/idds/config_default/panda.cfg $IDDS_OVERRIDE_PANDA_CONFIGS \
         --use-env \
         --prefix IDDS_CFG_PANDA
@@ -52,7 +52,7 @@ if [ -f /opt/idds/config/rucio.cfg ]; then
     echo "rucio.cfg already mounted."
 else 
     echo "rucio.cfg not found. will generate one."
-    python3 /opt/idds/tools/merge_idds_configs.py \
+    python3 /opt/idds/tools/env/merge_idds_configs.py \
         -s /opt/idds/config_default/rucio.cfg $IDDS_OVERRIDE_RUCIO_CONFIGS \
         --use-env \
         --prefix IDDS_CFG_RUCIO
