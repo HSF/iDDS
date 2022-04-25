@@ -1,5 +1,8 @@
 #!/bin/sh
 
+source /etc/profile.d/conda.sh
+conda activate /opt/idds;
+
 if [ -f /opt/idds/config/idds/idds.cfg ]; then
     echo "idds.cfg already mounted."
 else

@@ -81,7 +81,7 @@ def get_full_hostname():
     return socket.getfqdn()
 
 
-def config_api_host(conf_file_template="conf.js.template", conf_file='conf.js', hostname=None):
+def config_api_host(conf_file_template="data/conf.js.template", conf_file='data/conf.js', hostname=None):
     with open(conf_file_template, 'r') as f:
         template = f.read()
     template = template.format(api_host_name=hostname)
@@ -138,7 +138,7 @@ install_requires = parse_requirements(requirements_files=requirements_files)
 install_requires = install_requires
 
 hostname = get_full_hostname()
-config_api_host(conf_file_template="conf.js.template", conf_file='conf.js', hostname=hostname)
+config_api_host(conf_file_template="data/conf.js.template", conf_file='data/conf.js', hostname=hostname)
 
 data_files = [
     # config and cron files
@@ -148,7 +148,7 @@ data_files = [
     # ('monitor/', glob.glob('*', recursive=True))
     # ('monitor/', get_all_files('.')),
 ]
-data_files += get_data_files('monitor/', '.')
+data_files += get_data_files('monitor/', './data')
 
 scripts = glob.glob('bin/*')
 

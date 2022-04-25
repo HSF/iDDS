@@ -127,7 +127,7 @@ data_files = [
     # ('website/', glob.glob('*', recursive=True))
     # ('website/', get_all_files('.')),
 ]
-data_files += get_data_files('website/', '.')
+data_files += get_data_files('website/', './data')
 
 scripts = glob.glob('bin/*')
 
