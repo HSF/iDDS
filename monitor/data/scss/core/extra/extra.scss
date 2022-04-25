@@ -1,0 +1,73 @@
+ct-visits {
+    position: relative;
+}
+#ct-visits .ct-series-a .ct-line,
+#ct-visits .ct-series-a .ct-point {
+    stroke: #98a6ad;
+}
+#ct-visits .ct-series-b .ct-line,
+#ct-visits .ct-series-b .ct-point {
+    stroke: #41b3f9;
+}
+#ct-visits .ct-series-a .ct-area {
+    fill: #98a6ad;
+    fill-opacity: 0.05;
+}
+#ct-visits .ct-series-b .ct-area {
+    fill: #41b3f9;
+    fill-opacity: 0.1;
+}
+#ct-visits .ct-line {
+    stroke-width: 2px;
+} 
+
+// view chart
+#view_chartist {
+    position: relative;
+}
+#view_chartist .ct-series-a .ct-line,
+#view_chartist .ct-series-a .ct-point {
+    stroke: #98a6ad;
+}
+#view_chartist .ct-series-b .ct-line,
+#view_chartist .ct-series-b .ct-point {
+    stroke: #41b3f9;
+}
+#view_chartist .ct-series-a .ct-area {
+    fill: #98a6ad;
+    fill-opacity: 0.05;
+}
+#view_chartist .ct-series-b .ct-area {
+    fill: #41b3f9;
+    fill-opacity: 0.1;
+}
+#view_chartist .ct-line {
+    stroke-width: 2px;
+}
+
+.icon-list-demo {
+    .col-sm-6 {
+        cursor: pointer;
+        line-height: 60px;
+        white-space: nowrap;
+        background-color: transparent;
+        &.f-icon {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        i {
+            font-size: 18px;
+            margin: 0 15px 0 10px;
+            width: auto;
+            transition: all .3s ease 0s;
+        }
+        &:hover {
+            background-color: #f7fafc;
+            color: #263238;
+            i {
+                font-size: 2em;
+            }
+        }
+    }
+}

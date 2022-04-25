@@ -1,0 +1,284 @@
+<!DOCTYPE HTML>
+<!--
+	Hielo by TEMPLATED
+	templated.co @templatedco
+	Released for free under the Creative Commons Attribution 3.0 license (templated.co/license)
+-->
+<html>
+	<head>
+		<title>iDDS</title>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<link rel="stylesheet" href="assets/css/main.css" />
+	</head>
+	<body>
+
+		<!-- Header -->
+			<header id="header" class="alt">
+				<div class="logo"><a href="index.html">iDDS <span>intelligent Data Delivery Serivce</span></a></div>
+				<a href="#menu">Menu</a>
+			</header>
+
+		<!-- Nav -->
+			<nav id="menu">
+				<ul class="links">
+					<li><a href="index.html">Home</a></li>
+                                        <li><a href="https://github.com/HSF/iDDS">Github Codes</a></li>
+                                        <li><a href="https://idds.readthedocs.io">Documents</a></li>
+					<!-- <li><a href="generic.html">Generic</a></li> -->
+					<!-- <li><a href="elements.html">Elements</a></li> -->
+				</ul>
+			</nav>
+
+		<!-- Banner -->
+			<section class="banner full">
+				<article>
+					<!-- <img src="images/slide01.jpg" alt="" /> -->
+                                        <img src="images/idds_main.jpg" alt="" />
+					<div class="inner">
+						<header>
+							<p><b>Intelligent</b></p>
+                                                        <p><b>Transformation</b></p>
+                                                        <p><b>Delivery</b></p>
+                                                        <p><b>Orchestration</b></p>
+							<h2>iDDS</h2>
+						</header>
+					</div>
+				</article>
+                               <article>
+                                        <!-- <img src="images/slide02.jpg" alt="" /> -->
+                                        <img src="images/idds_intelligent.jpg" alt="" />
+                                        <div class="inner">
+                                                <header>
+                                                        <p><b>Intelligent optimize the workflow</b></p>
+                                                        <h2>Intelligent</h2>
+                                                </header>
+                                        </div>
+                                </article>
+				<article>
+					<!-- <img src="images/slide02.jpg" alt="" /> -->
+                                        <img src="images/idds_transform.jpg" alt="" />
+					<div class="inner">
+						<header>
+							<p><b>Fine grained data transformation</b></p>
+                                                        <p><b>Remtoe data transformation/reduction</b></p>
+                                                        <p><b>On-demand production of analysis format data transformation</b></p>
+							<h2>Transformation</h2>
+						</header>
+					</div>
+				</article>
+				<article>
+					<!-- <img src="images/slide03.jpg"  alt="" /> -->
+                                        <img src="images/idds_delivery.jpg" alt="" />
+					<div class="inner">
+						<header>
+							<p><b>Deliver only when needed</b></p>
+                                                        <p><b>Fine grained tape carousel</b></p>
+							<h2>Delivery</h2>
+						</header>
+					</div>
+				</article>
+				<article>
+					<!-- <img src="images/slide04.jpg"  alt="" /> -->
+                                        <img src="images/idds_orchestration.jpg" alt="" />
+					<div class="inner">
+						<header>
+							<p><b>Orchestration of <a href="https://bigpanda.cern.ch">WFMS</a> and <a href="https://rucio.cern.ch">DDMS</a> with generalized workflows</b></p>
+							<h2>Orchestration</h2>
+						</header>
+					</div>
+				</article>
+                                <!--
+				<article>
+					<img src="images/slide05.jpg"  alt="" />
+					<div class="inner">
+						<header>
+							<p>Ipsum dolor sed magna veroeros lorem ipsum</p>
+							<h2>Lorem adipiscing</h2>
+						</header>
+					</div>
+				</article>
+                                -->
+			</section>
+
+                <!-- zero -->
+                        <section id="zero" class="wrapper style3">
+                                <div class="inner">
+                                        <header class="align-center">
+                                                <p><b>A general service to extract and abstract common functions of <a href="https://bigpanda.cern.ch">WFMS</a> and <a href="https://rucio.cern.ch">DDMS</a></b></p>
+                                                <p><b>Flexibility to experiment agnostic</b></p>
+                                                <p><b>Flexibility to support different use-cases and backends with plugin structure</b></p>
+                                                <h2>Intelligent to transform and deliver needed data to consumers </h2>
+                                        </header>
+                                </div>
+                        </section>
+
+		<!-- One -->
+			<section id="one" class="wrapper style1">
+				<div class="inner">
+                                        <header class="align-center">
+                                                <p class="special"><b>Components structure and Layers Architecture</b></p>
+                                                <h2>Architecture</h2>
+                                        </header>
+
+					<div class="grid-style">
+
+						<div>
+							<div class="box">
+								<div class="image fit">
+									<!-- <img src="images/pic02.jpg" alt="" /> -->
+                                                                        <img src="images/idds_components.png" alt="" />
+								</div>
+								<div class="content" color="inherit" background-color="inherit">
+									<header class="align-center">
+										<p>Main Components</p>
+										<h2>Components</h2>
+									</header>
+									<p> 
+                                                                             <b>Transformer</b> To transform input data from one collection to another collection. With plugin structure to support different transform type and different backends.<br>
+                                                                            <b>Transporter</b> To manage collections with DDM backend.<br>
+                                                                            <b>Conductor</b> To notify/schedule consumers to consume new transformed data in a fine-grained granularity.
+                                                                        </p>
+
+									<footer class="align-center">
+										<a href="#" class="button alt">Learn More</a>
+									</footer>
+								</div>
+							</div>
+						</div>
+
+						<div>
+							<div class="box">
+								<div class="image fit">
+									<!-- <img src="images/pic03.jpg" alt="" /> -->
+                                                                        <img src="images/idds_architecture.png" alt="" />
+								</div>
+								<div class="content">
+									<header class="align-center">
+										<p>Layer and Plugin Architecture</p>
+										<h2>Layers and Plugins</h2>
+									</header>
+									<p>
+                                                                                <b>Abstract Layers</b> Hide the complexity of different logics to implement general API<br>
+                                                                                <b>Plugins</b> To support different transforms and backends<br>
+                                                                                <b>Restful interface</b> Interface to communicate with clients<br>
+                                                                        </p>
+									<footer class="align-center">
+										<a href="#" class="button alt">Learn More</a>
+									</footer>
+								</div>
+							</div>
+						</div>
+
+					</div>
+				</div>
+			</section>
+
+		<!-- Two -->
+			<section id="two" class="wrapper style3">
+				<div class="inner">
+					<header class="align-center">
+						<p><b>Experiment agnostic based on generation</b></p>
+                                                <p><b>Abstract for ochestration</b></p>
+                                                <p><b>Maintainability and extensibility with plugins</b></p>
+						<h2>Features</h2>
+					</header>
+				</div>
+			</section>
+
+		<!-- Three -->
+			<section id="three" class="wrapper style2">
+				<div class="inner">
+					<header class="align-center">
+						<p class="special"><b>Applications that iDDS would like to serve</b></p>
+						<h2>Potential Applications</h2>
+					</header>
+
+					<ul class="features">
+						<li class="icon fa-lightbulb-o">
+							<h3>Event Streaming Service</h3>
+							<p>Split files into fine grained events and stream the events as inputs for EventService.</p>
+						</li>
+						<li class="icon fa-cloud">
+							<h3>Fine grained tape carousel</h3>
+							<p>Aggregate tape stage-in requests and immediate processing of partially staged data.</p>
+						</li>
+						<li class="icon fa-cogs">
+							<h3>On-demand DAOD production</h3>
+							<p>Passive creation of analysis format data rather than proactively keeing them on DISK, reduction of expensive disk usage while increaing of cheap CPU usage.</p>
+						</li>
+						<li class="icon fa-lock">
+							<h3>Fine grained remoted data transformation/reduction</h3>
+							<p>Remotely transform/reduce data and then deliver only needed data to consumers.</p>
+						</li>
+                                                <!--
+						<li class="icon fa-bar-chart">
+							<h3></h3>
+							<p></p>
+						</li>
+						<li class="icon fa-code">
+							<h3></h3>
+							<p></p>
+						</li>
+						<li class="icon fa-wrench">
+							<h3></h3>
+							<p></p>
+						</li>
+						<li class="icon fa-heart">
+							<h3></h3>
+							<p></p>
+						</li>
+                                                -->
+					</ul>
+                                        <!--
+					<div class="gallery">
+						<div>
+							<div class="image fit">
+								<a href="#"><img src="images/pic01.jpg" alt="" /></a>
+							</div>
+						</div>
+						<div>
+							<div class="image fit">
+								<a href="#"><img src="images/pic02.jpg" alt="" /></a>
+							</div>
+						</div>
+						<div>
+							<div class="image fit">
+								<a href="#"><img src="images/pic03.jpg" alt="" /></a>
+							</div>
+						</div>
+						<div>
+							<div class="image fit">
+								<a href="#"><img src="images/pic04.jpg" alt="" /></a>
+							</div>
+						</div>
+					</div>
+                                        -->
+				</div>
+			</section>
+
+
+		<!-- Footer -->
+			<footer id="footer">
+				<div class="container">
+					<ul class="icons">
+						<li><a href="#" class="icon fa-twitter"><span class="label">Twitter</span></a></li>
+						<li><a href="#" class="icon fa-facebook"><span class="label">Facebook</span></a></li>
+						<li><a href="#" class="icon fa-instagram"><span class="label">Instagram</span></a></li>
+						<li><a href="#" class="icon fa-envelope-o"><span class="label">Email</span></a></li>
+					</ul>
+				</div>
+				<div class="copyright">
+					&copy; iDDS. All rights reserved.
+				</div>
+			</footer>
+
+		<!-- Scripts -->
+			<script src="assets/js/jquery.min.js"></script>
+			<script src="assets/js/jquery.scrollex.min.js"></script>
+			<script src="assets/js/skel.min.js"></script>
+			<script src="assets/js/util.js"></script>
+			<script src="assets/js/main.js"></script>
+
+	</body>
+</html>
