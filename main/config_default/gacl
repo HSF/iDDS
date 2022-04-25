@@ -1,0 +1,29 @@
+>
+  <entry>
+    <person>
+      <dn>/DC=ch/DC=cern/OU=Organic+Units/OU=Users/CN=wguan/CN=667815/CN=Wen Guan</dn>
+    </person>
+    <allow><read/><list/><write/></allow>
+  </entry>
+  <entry>
+    <any-user/>
+    <allow><read/><list/></allow>
+  </entry>
+  <entry>
+    <voms><fqan>/atlas/Role=production/Capability=NULL</fqan></voms>
+    <allow><read/><list/><write/></allow>
+  </entry>
+  <entry>
+    <voms><fqan>/atlas/Role=NULL/Capability=NULL</fqan></voms>
+    <allow><read/><list/><write/></allow>
+  </entry>
+  <entry>
+    <voms><fqan>/atlas/lcg1/Role=NULL/Capability=NULL</fqan></voms>
+    <allow><read/><list/><write/></allow>
+  </entry>
+  <entry>
+    <voms><fqan>/atlas/usatlas/Role=NULL/Capability=NULL</fqan></voms>
+    <allow><read/><list/><write/></allow>
+  </entry>
+</gacl>
+
