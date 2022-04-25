@@ -17,7 +17,7 @@ import sys
 import shutil
 import socket
 from distutils.sysconfig import get_python_lib
-from setuptools import setup, Distribution
+from setuptools import setup, find_packages, Distribution
 from setuptools.command.install import install
 
 
@@ -162,8 +162,8 @@ setup(
     author='IRIS-HEP Team',
     author_email='atlas-adc-panda@cern.ch',
     python_requires='>=3.6',
-    # packages=find_packages('lib/'),
-    # package_dir={'': 'lib'},
+    packages=find_packages('lib/'),
+    package_dir={'': 'lib'},
     install_requires=install_requires,
     include_package_data=True,
     data_files=data_files,
