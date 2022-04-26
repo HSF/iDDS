@@ -15,5 +15,5 @@ dependencies:
   - nose             # nose test tools
   - tabulate
   - argcomplete
-  - idds-common==0.10.16
-  - idds-workflow==0.10.16
+  - idds-common==0.10.17
+  - idds-workflow==0.10.17
