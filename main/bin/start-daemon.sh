@@ -10,7 +10,7 @@ else
     python3 /opt/idds/tools/env/merge_idds_configs.py \
         -s /opt/idds/config_default/idds.cfg $IDDS_OVERRIDE_IDDS_CONFIGS \
         --use-env \
-        --prefix IDDS_CFG_IDDS
+        --prefix IDDS_CFG_IDDS \
         -d /opt/idds/config/idds/idds.cfg
 fi
 
@@ -21,7 +21,7 @@ else
     python3 /opt/idds/tools/env/merge_idds_configs.py \
         -s /opt/idds/config_default/auth.cfg $IDDS_OVERRIDE_AUTH_CONFIGS \
         --use-env \
-        --prefix IDDS_CFG_AUTH
+        --prefix IDDS_CFG_AUTH \
         -d /opt/idds/config/idds/auth.cfg
 fi
 
@@ -32,8 +32,8 @@ else
     python3 /opt/idds/tools/env/merge_idds_configs.py \
         -s /opt/idds/config_default/gacl $IDDS_OVERRIDE_GACL_CONFIGS \
         --use-env \
-        --env-string IDDS_CFG_GACL
-        --replace-whole-file
+        --env-string IDDS_CFG_GACL \
+        --replace-whole-file \
         -d /opt/idds/config/idds/gacl
 fi
 
@@ -44,7 +44,7 @@ else
     python3 /opt/idds/tools/env/merge_idds_configs.py \
         -s /opt/idds/config_default/panda.cfg $IDDS_OVERRIDE_PANDA_CONFIGS \
         --use-env \
-        --prefix IDDS_CFG_PANDA
+        --prefix IDDS_CFG_PANDA \
         -d /opt/idds/config/panda.cfg
 fi
 
@@ -55,9 +55,24 @@ else
     python3 /opt/idds/tools/env/merge_idds_configs.py \
         -s /opt/idds/config_default/rucio.cfg $IDDS_OVERRIDE_RUCIO_CONFIGS \
         --use-env \
-        --prefix IDDS_CFG_RUCIO
+        --prefix IDDS_CFG_RUCIO \
         -d /opt/idds/config/rucio.cfg
 fi
+
+if [ -f /opt/idds/config/idds/httpd-idds-443-py39-cc7.conf ]; then
+    echo "httpd conf already mounted."
+else
+    echo "httpd conf not found. will use the default one."
+    cp /opt/idds/config_default/httpd-idds-443-py39-cc7.conf /opt/idds/config/idds/httpd-idds-443-py39-cc7.conf
+fi
+
+if [ -f /opt/idds/config/idds/supervisord_idds.ini ]; then
+    echo "supervisord conf already mounted."
+else
+    echo "supervisord conf not found. will use the default one."
+    cp /opt/idds/config_default/supervisord_idds.ini /opt/idds/config/idds/supervisord_idds.ini
+fi
+
 
 if [ ! -z "$IDDS_PRINT_CFG" ]; then
     echo "=================== /opt/idds/etc/idds.cfg ============================"
@@ -71,6 +86,9 @@ if [ ! -z "$IDDS_PRINT_CFG" ]; then
     echo ""
     echo "=================== /etc/httpd/conf.d/httpd-idds-443-py39-cc7.conf ============================"
     cat /etc/httpd/conf.d/httpd-idds-443-py39-cc7.conf
+    echo ""
+    echo "=================== /opt/idds/config/idds/supervisord_idds.ini ============================"
+    cat /opt/idds/config/idds/supervisord_idds.ini
     echo ""
     echo "=================== /opt/idds/etc/panda/panda.cfg ============================"
     cat /opt/idds/etc/panda/panda.cfg
