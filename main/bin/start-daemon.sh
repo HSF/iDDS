@@ -73,6 +73,16 @@ else
     cp /opt/idds/config_default/supervisord_idds.ini /opt/idds/config/idds/supervisord_idds.ini
 fi
 
+if [ -f /opt/idds/config/hostkey.pem ]; then
+    echo "Host certificate already mounted."
+else
+    echo "Host certificate not found. will generate a self-signed one."
+    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+        -subj "/C=US/DC=IDDS/OU=computers/CN=$(hostname -f)" \
+        -keyout /opt/idds/config/hostkey.pem \
+        -out /opt/idds/config/hostcert.pem
+fi
+
 
 if [ ! -z "$IDDS_PRINT_CFG" ]; then
     echo "=================== /opt/idds/etc/idds.cfg ============================"
@@ -100,24 +110,22 @@ fi
 
 if [ "${IDDS_SERVICE}" == "rest" ]; then
   echo "starting iDDS ${IDDS_SERVICE} service"
-  systemctl restart httpd.service
-  systemctl enable httpd.service
-  systemctl status httpd.service
+  # systemctl restart httpd.service
+  # systemctl enable httpd.service
+  # systemctl status httpd.service
+  /usr/sbin/httpd
 elif [ "${IDDS_SERVICE}" == "daemon" ];then
   echo "starting iDDS ${IDDS_SERVICE} service"
-  systemctl enable supervisord
-  systemctl start supervisord
-  systemctl status supervisord
+  # systemctl enable supervisord
+  # systemctl start supervisord
+  # systemctl status supervisord
+  /usr/bin/supervisord -c /etc/supervisord.conf
 else
   echo "starting iDDS rest service"
-  systemctl restart httpd.service
-  systemctl enable httpd.service
-  systemctl status httpd.service
+  /usr/sbin/httpd
 
   echo "starting iDDS daemon service"
-  systemctl enable supervisord
-  systemctl start supervisord
-  systemctl status supervisord
+  /usr/bin/supervisord -c /etc/supervisord.conf
 fi
 
 trap : TERM INT; sleep infinity & wait
