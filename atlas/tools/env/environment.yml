@@ -13,5 +13,5 @@ dependencies:
   - panda-client     # panda client
   - rucio-clients
   - rucio-clients-atlas
-  - idds-common==0.10.15
-  - idds-workflow==0.10.15
+  - idds-common==0.10.16
+  - idds-workflow==0.10.16
