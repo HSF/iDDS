@@ -1,0 +1,26 @@
+name: iDDS
+dependencies:
+- python==3.9.7 
+- pip
+- pip:
+  - argcomplete
+  - requests                         # requests
+  - SQLAlchemy                       # db orm
+  - urllib3                          # url connections
+  - retrying                         # retrying behavior
+  # - mysqlclient                      # mysql python client
+  - mod_wsgi                         # apache wsgi module
+  - flask                            # web service
+  - futures                          # multiple process/threads
+  - stomp.py                         # Messaging broker client
+  - cx-Oracle                        # Oralce client
+  - unittest2                        # unit test tool
+  - pep8                             # checks for PEP8 code style compliance
+  - flake8                           # Wrapper around PyFlakes&pep8
+  - pytest                           # python testing tool
+  - nose                             # nose test tools
+  - sphinx                           # sphinx documentation
+  - recommonmark                     # use Markdown with Sphinx
+  - sphinx-rtd-theme                 # sphinx readthedoc theme
+  - nevergrad                        # nevergrad hyper parameter optimization
+  - psycopg2-binary 
