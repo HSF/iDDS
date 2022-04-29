@@ -12,6 +12,9 @@ else
         --use-env \
         --prefix IDDS_CFG_IDDS \
         -d /opt/idds/config/idds/idds.cfg
+    python3 /opt/idds/tools/env/merge_configmap.py \
+        -s /opt/idds/config/idds_configmap.json \
+        -d /opt/idds/config/idds/idds.cfg
 fi
 
 if [ -f /opt/idds/config/idds/auth.cfg ]; then
@@ -22,6 +25,9 @@ else
         -s /opt/idds/config_default/auth.cfg $IDDS_OVERRIDE_AUTH_CONFIGS \
         --use-env \
         --prefix IDDS_CFG_AUTH \
+        -d /opt/idds/config/idds/auth.cfg
+    python3 /opt/idds/tools/env/merge_configmap.py \
+        -s /opt/idds/config/idds_configmap.json \
         -d /opt/idds/config/idds/auth.cfg
 fi
 
@@ -46,6 +52,9 @@ else
         --use-env \
         --prefix IDDS_CFG_PANDA \
         -d /opt/idds/config/panda.cfg
+    python3 /opt/idds/tools/env/merge_configmap.py \
+        -s /opt/idds/config/idds_configmap.json \
+        -d /opt/idds/config/panda.cfg
 fi
 
 if [ -f /opt/idds/config/rucio.cfg ]; then
@@ -56,6 +65,9 @@ else
         -s /opt/idds/config_default/rucio.cfg $IDDS_OVERRIDE_RUCIO_CONFIGS \
         --use-env \
         --prefix IDDS_CFG_RUCIO \
+        -d /opt/idds/config/rucio.cfg
+    python3 /opt/idds/tools/env/merge_configmap.py \
+        -s /opt/idds/config/idds_configmap.json \
         -d /opt/idds/config/rucio.cfg
 fi
 
@@ -83,6 +95,7 @@ else
         -out /opt/idds/config/hostcert.pem
 fi
 
+mkdir -p /opt/idds/config/.panda/
 
 if [ ! -z "$IDDS_PRINT_CFG" ]; then
     echo "=================== /opt/idds/etc/idds.cfg ============================"
