@@ -147,7 +147,10 @@ def get_local_config_root(local_config_root=None):
             pass
 
     if local_config_root and not os.path.exists(local_config_root):
-        os.makedirs(local_config_root)
+        try:
+            os.makedirs(local_config_root)
+        except Exception as ex:
+            print("Failed to create %s: %s", local_config_root, str(ex))
     return local_config_root
 
 
