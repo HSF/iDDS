@@ -116,7 +116,7 @@ class Carrier(BaseAgent):
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
             ret = {'processing_id': processing['processing_id'],
-                   'status': ProcessingStatus.Running,
+                   'status': ProcessingStatus.New,
                    'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period * 4)}
         return ret
 

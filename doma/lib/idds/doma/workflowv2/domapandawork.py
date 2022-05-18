@@ -1050,7 +1050,7 @@ class DomaPanDAWork(Work):
                                 processing_status = ProcessingStatus.Running
                     return processing_status, updated_contents + final_update_contents
                 else:
-                    return ProcessingStatus.Failed, []
+                    return ProcessingStatus.New, []
         except Exception as ex:
             msg = "Failed to check the processing (%s) status: %s" % (str(processing['processing_id']), str(ex))
             self.logger.error(msg)
