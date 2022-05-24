@@ -102,7 +102,7 @@ def get_files(idir):
 
 def get_data_files(dest, src):
     data = []
-    data.append((dest, get_files(src)))
+    # data.append((dest, get_files(src)))
     for root, dirs, files in os.walk(src):
         if 'dist' in root or 'build' in root or 'egg-info' in root:
             # continue
@@ -110,16 +110,11 @@ def get_data_files(dest, src):
         if root.endswith('monitor/dist') or root.endswith('monitor/build') or 'egg-info' in root:
             # continue
             pass
-        for idir in dirs:
-            if idir == 'dist' or idir == 'build' or idir.endswith('.egg-info'):
-                # continue
-                pass
-            idir = os.path.join(root, idir)
-            if idir.startswith("./"):
-                idir = idir[2:]
-            dest_dir = os.path.join(dest, idir)
-            i_data = (dest_dir, get_files(idir))
-            data.append(i_data)
+        dest_dir = os.path.join(dest, root)
+        src_files = [os.path.join(root, f) for f in files]
+        i_data = (dest_dir, src_files)
+        data.append(i_data)
+    # print(data)
     return data
 
 
