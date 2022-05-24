@@ -14,7 +14,8 @@ export PANDA_URL=http://pandaserver-doma.cern.ch:25080/server/panda
 export PANDAMON_URL=https://panda-doma.cern.ch
 export PANDA_AUTH_VO=Rubin:production
 
-export PANDA_CONFIG_ROOT=/opt/idds/config/.panda/
+# export PANDA_CONFIG_ROOT=/opt/idds/config/.panda/
+export PANDA_CONFIG_ROOT=${IDDS_HOME}/config/
 
 CurrentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
