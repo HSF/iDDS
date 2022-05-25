@@ -22,11 +22,13 @@ RUN yum upgrade -y && \
     yum clean all && \
     rm -rf /var/cache/yum
 
-RUN yum install -y httpd.x86_64 conda gridsite mod_ssl.x86_64 httpd-devel.x86_64 gcc.x86_64 supervisor.noarch fetch-crl.noarch lcg-CA && \
+RUN yum install -y httpd.x86_64 conda gridsite mod_ssl.x86_64 httpd-devel.x86_64 gcc.x86_64 supervisor.noarch fetch-crl.noarch lcg-CA postgresql postgresql-contrib postgresql-static postgresql-libs postgresql-devel && \
     yum clean all && \
     rm -rf /var/cache/yum
 
-RUN curl http://repository.egi.eu/sw/production/cas/1/current/repo-files/EGI-trustanchors.repo -o /etc/yum.repos.d/EGI-trustanchors.repo
+# RUN curl http://repository.egi.eu/sw/production/cas/1/current/repo-files/EGI-trustanchors.repo -o /etc/yum.repos.d/EGI-trustanchors.repo
+RUN curl https://repository.egi.eu/sw/production/cas/1/current/repo-files/EGI-trustanchors.repo -o /etc/yum.repos.d/EGI-trustanchors.repo
+
 RUN yum install -y fetch-crl.noarch lcg-CA ca-policy-egi-core && \
     yum clean all && \
     rm -rf /var/cache/yum
@@ -39,13 +41,12 @@ RUN usermod -a -G zp atlpan
 RUN mkdir /opt/idds
 RUN mkdir /var/log/idds
 RUN mkdir /var/log/idds/wsgisocks/
-RUN mkdir /tmp/idds
-RUN mkdir /tmp/idds/wsgisocks
+RUN mkdir /var/idds
+RUN mkdir /var/idds/wsgisocks
 RUN chown atlpan -R /opt/idds
 # RUN chown atlpan -R /opt/idds_source
 RUN chown atlpan /var/log/idds
-RUN chown apache -R /tmp/idds/wsgisocks/
-RUN chown apache -R /var/log/idds/wsgisocks/
+RUN chown apache -R /var/idds/wsgisocks/
 
 # setup conda virtual env
 ADD requirements.yaml /opt/idds/
@@ -64,7 +65,7 @@ RUN source /etc/profile.d/conda.sh; conda activate /opt/idds; python3 -m pip ins
 RUN source /etc/profile.d/conda.sh; conda activate /opt/idds; python3 -m pip install --no-cache-dir --upgrade requests SQLAlchemy urllib3 retrying mod_wsgi flask futures stomp.py cx-Oracle  unittest2 pep8 flake8 pytest nose sphinx recommonmark sphinx-rtd-theme nevergrad
 RUN source /etc/profile.d/conda.sh; conda activate /opt/idds; python3 -m pip install --no-cache-dir --upgrade psycopg2-binary
 RUN source /etc/profile.d/conda.sh; conda activate /opt/idds; python3 -m pip install --no-cache-dir --upgrade rucio-clients-atlas rucio-clients panda-client
-RUN source /etc/profile.d/conda.sh; conda activate /opt/idds; python3 -m pip install --no-cache-dir --upgrade idds-common idds-workflow idds-server idds-client idds-doma idds-atlas idds-website idds-monitor
+RUN source /etc/profile.d/conda.sh; conda activate /opt/idds; python3 -m pip install --no-cache-dir --upgrade idds-common==$TAG idds-workflow==$TAG idds-server==$TAG idds-client==$TAG idds-doma==$TAG idds-atlas==$TAG idds-website==$TAG idds-monitor==$TAG
 
 RUN mkdir /opt/idds/config
 RUN mkdir /opt/idds/config/idds
@@ -76,8 +77,8 @@ RUN mkdir /opt/idds/config/idds
 # RUN ls /opt/idds/config; ls /opt/idds/config/idds;
 
 # for rest service
-RUN ln -fs /opt/idds/config/hostkey.pem /etc/grid-security/hostkey.pem
-RUN ln -fs /opt/idds/config/hostcert.pem /etc/grid-security/hostcert.pem
+# RUN ln -fs /opt/idds/config/hostkey.pem /etc/grid-security/hostkey.pem
+# RUN ln -fs /opt/idds/config/hostcert.pem /etc/grid-security/hostcert.pem
 
 # to authenticate to rucio
 RUN ln -fs /opt/idds/config/ca.crt /opt/idds/etc/ca.crt
@@ -106,5 +107,5 @@ ENTRYPOINT ["start-daemon.sh"]
 
 STOPSIGNAL SIGINT
 
-EXPOSE 8443
-CMD ["start-daemon.sh"]
+EXPOSE 443
+CMD ["all"]
