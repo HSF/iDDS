@@ -26,7 +26,7 @@ except ImportError:
 
 from idds.common import exceptions
 from idds.common.constants import HTTP_STATUS_CODE
-from idds.common.utils import json_dumps, json_loads
+from idds.common.utils import json_dumps, json_loads, get_proxy_path
 from idds.common.authentication import OIDCAuthenticationUtils
 
 
@@ -68,6 +68,20 @@ class BaseRestClient(object):
 
         self.check_auth()
 
+    def get_user_proxy(sellf):
+        """
+        Get the user proxy.
+
+        :returns: the path of the user proxy.
+        """
+
+        client_proxy = get_proxy_path()
+
+        if not client_proxy or not os.path.exists(client_proxy):
+            raise exceptions.RestException("Cannot find a valid x509 proxy.")
+
+        return client_proxy
+
     def check_auth(self):
         """
         To check whether the auth type is supported and the input for the auth is available.
@@ -77,6 +91,8 @@ class BaseRestClient(object):
             self.auth_type = 'x509_proxy'
 
         if self.auth_type in ['x509_proxy']:
+            if not self.client_proxy:
+                self.client_proxy = self.get_user_proxy()
             if not self.client_proxy or not os.path.exists(self.client_proxy):
                 raise exceptions.RestException("Cannot find a valid x509 proxy.")
         elif self.auth_type in ['oidc']:
