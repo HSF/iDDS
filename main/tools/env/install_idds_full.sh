@@ -11,10 +11,12 @@ mkdir /opt/idds_source
 mkdir /opt/idds
 mkdir /var/log/idds
 mkdir /var/log/idds/wsgisocks
+mkdir /tmp/idds/wsgisocks
 chown atlpilo1 -R /opt/idds
 chown atlpilo1 -R /opt/idds_source
 chown atlpilo1 /var/log/idds
 chown apache -R /var/log/idds/wsgisocks
+chown apache -R /tmp/idds/wsgisocks
 
 cd /opt/idds_source
 #  rm -fr *; cp -r /afs/cern.ch/user/w/wguan/workdisk/iDDS/* .;python setup.py install --old-and-unmanageable

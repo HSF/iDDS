@@ -41,15 +41,18 @@ class DomaPanDAWork(Work):
                  primary_output_collection=None, other_output_collections=None,
                  output_collections=None, log_collections=None,
                  logger=None, dependency_map=None, task_name="",
-                 task_queue=None, processing_type=None,
+                 task_queue=None, queue=None, processing_type=None,
                  prodSourceLabel='test', task_type='test',
                  maxwalltime=90000, maxattempt=5, core_count=1,
                  encode_command_line=False,
                  num_retries=5,
+                 task_priority=900,
                  task_log=None,
                  task_cloud=None,
                  task_site=None,
-                 task_rss=1000):
+                 task_rss=1000,
+                 vo='wlcg',
+                 working_group='lsst'):
 
         super(DomaPanDAWork, self).__init__(executable=executable, arguments=arguments,
                                             parameters=parameters, setup=setup, work_type=TransformType.Processing,
@@ -78,7 +81,8 @@ class DomaPanDAWork(Work):
         self.task_name = task_name
         self.real_task_name = None
         self.set_work_name(task_name)
-        self.queue = task_queue
+        self.task_queue = task_queue
+        self.queue = queue
         self.dep_tasks_id_names_map = {}
         self.executable = executable
         self.processingType = processing_type
@@ -93,6 +97,10 @@ class DomaPanDAWork(Work):
         self.task_cloud = task_cloud
         self.task_site = task_site
         self.task_rss = task_rss
+        self.task_priority = task_priority
+
+        self.vo = vo
+        self.working_group = working_group
 
         self.retry_number = 0
         self.num_retries = num_retries
@@ -100,6 +108,8 @@ class DomaPanDAWork(Work):
         self.poll_panda_jobs_chunk_size = 2000
 
         self.load_panda_urls()
+
+        self.dependency_tasks = None
 
     def my_condition(self):
         if self.is_finished():
@@ -180,14 +190,24 @@ class DomaPanDAWork(Work):
             self.poll_panda_jobs_chunk_size = int(self.agent_attributes['poll_panda_jobs_chunk_size'])
 
     def depend_on(self, work):
-        for job in self.dependency_map:
-            inputs_dependency = job["dependencies"]
+        self.logger.debug("checking depending on")
+        if self.dependency_tasks is None:
+            self.logger.debug("constructing dependency_tasks set")
+            dependency_tasks = set([])
+            for job in self.dependency_map:
+                inputs_dependency = job["dependencies"]
 
-            for input_d in inputs_dependency:
-                task_name = input_d['task']
-                if task_name == work.task_name:
-                    return True
-        return False
+                for input_d in inputs_dependency:
+                    task_name = input_d['task']
+                    dependency_tasks.add(task_name)
+            self.dependency_tasks = list(dependency_tasks)
+
+        if work.task_name in self.dependency_tasks:
+            self.logger.debug("finished checking depending on")
+            return True
+        else:
+            self.logger.debug("finished checking depending on")
+            return False
 
     def get_ancestry_works(self):
         tasks = set([])
@@ -396,17 +416,19 @@ class DomaPanDAWork(Work):
             in_files.append(job['name'])
 
         task_param_map = {}
-        task_param_map['vo'] = 'wlcg'
-        if self.queue and len(self.queue) > 0:
+        task_param_map['vo'] = self.vo
+        if self.task_queue and len(self.task_queue) > 0:
+            task_param_map['site'] = self.task_queue
+        elif self.queue and len(self.queue) > 0:
             task_param_map['site'] = self.queue
-        task_param_map['workingGroup'] = 'lsst'
+        task_param_map['workingGroup'] = self.working_group
         task_param_map['nFilesPerJob'] = 1
         task_param_map['nFiles'] = len(in_files)
         task_param_map['noInput'] = True
         task_param_map['pfnList'] = in_files
         task_param_map['taskName'] = self.task_name
         task_param_map['userName'] = self.username if self.username else 'iDDS'
-        task_param_map['taskPriority'] = 900
+        task_param_map['taskPriority'] = self.task_priority
         task_param_map['architecture'] = ''
         task_param_map['transUses'] = ''
         task_param_map['transHome'] = None
@@ -457,8 +479,8 @@ class DomaPanDAWork(Work):
 
             proc = processing['processing_metadata']['processing']
             task_param = proc.processing_metadata['task_param']
-            return_code = Client.insertTaskParams(task_param, verbose=False)
-            if return_code[0] == 0:
+            return_code = Client.insertTaskParams(task_param, verbose=True)
+            if return_code[0] == 0 and return_code[1][0] is True:
                 return return_code[1][1]
             else:
                 self.logger.warn("submit_panda_task, return_code: %s" % str(return_code))
@@ -1028,7 +1050,7 @@ class DomaPanDAWork(Work):
                                 processing_status = ProcessingStatus.Running
                     return processing_status, updated_contents + final_update_contents
                 else:
-                    return ProcessingStatus.Failed, []
+                    return ProcessingStatus.New, []
         except Exception as ex:
             msg = "Failed to check the processing (%s) status: %s" % (str(processing['processing_id']), str(ex))
             self.logger.error(msg)

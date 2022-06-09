@@ -35,7 +35,7 @@ from idds.common.utils import date_to_str
 from idds.orm.base.enum import EnumSymbol
 from idds.orm.base.types import JSON, JSONString, EnumWithValue
 from idds.orm.base.session import BASE, DEFAULT_SCHEMA_NAME
-from idds.common.constants import (SCOPE_LENGTH, NAME_LENGTH)
+from idds.common.constants import (SCOPE_LENGTH, NAME_LENGTH, LONG_NAME_LENGTH)
 
 
 @compiles(Boolean, "oracle")
@@ -472,7 +472,7 @@ class Content(BASE, ModelBase):
     workload_id = Column(Integer())
     map_id = Column(BigInteger().with_variant(Integer, "sqlite"), default=0)
     scope = Column(String(SCOPE_LENGTH))
-    name = Column(String(NAME_LENGTH))
+    name = Column(String(LONG_NAME_LENGTH))
     min_id = Column(Integer(), default=0)
     max_id = Column(Integer(), default=0)
     content_type = Column(EnumWithValue(ContentType))
