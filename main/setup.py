@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
 
 
 import glob
@@ -119,8 +119,17 @@ data_files = [
     ('etc/idds/', glob.glob('etc/idds/*.template')),
     ('etc/idds/rest', glob.glob('etc/idds/rest/*template')),
     ('etc/idds/auth', glob.glob('etc/idds/auth/*template')),
+    ('etc/idds/website', glob.glob('etc/idds/website/*')),
+    ('etc/idds/supervisord.d', glob.glob('etc/idds/supervisord.d/*')),
+    ('etc/idds/condor/client', glob.glob('etc/idds/condor/client/*')),
+    ('etc/idds/condor/server', glob.glob('etc/idds/condor/server/*')),
+    ('etc/condor/client', glob.glob('etc/condor/client/*')),
+    ('etc/condor/server', glob.glob('etc/condor/server/*')),
+    ('etc/sql', glob.glob('etc/sql/*')),
+    ('config_default/', glob.glob('config_default/*')),
     ('tools/env/', glob.glob('tools/env/*')),
 ]
+
 scripts = glob.glob('bin/*')
 
 setup(

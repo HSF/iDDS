@@ -98,6 +98,11 @@ plugin.notifier.username = atlasidds
 plugin.notifier.password = ******
 plugin.notifier.broker_timeout = 10
 
+# to receive messages from panda to update job status.
+# It's good that the value is smaller than the carrier poll_time_period
+# With it enabled, the carrier poll_time_period can be higher.
+receiver_delay_period = 60
+
 [consumer]
 retrieve_bulk_size = 10
 plugin.receiver = idds.atlas.notifier.messaging.MessagingReceiver

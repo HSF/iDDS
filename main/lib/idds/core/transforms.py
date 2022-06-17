@@ -330,9 +330,10 @@ def add_transform_outputs(transform, transform_parameters, input_collections=Non
         #                              msg_content=message['msg_content'],
         #                              bulk_size=message_bulk_size,
         #                              session=session)
-        orm_messages.add_messages(messages, session=session)
+        logging.debug("message_bulk_size: %s" % str(message_bulk_size))
+        orm_messages.add_messages(messages, bulk_size=message_bulk_size, session=session)
     if update_messages:
-        orm_messages.update_messages(update_messages, session=session)
+        orm_messages.update_messages(update_messages, bulk_size=message_bulk_size, session=session)
 
     if transform:
         if processing_id:

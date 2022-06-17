@@ -27,6 +27,19 @@ except ImportError:
     import configparser as ConfigParser
 
 
+def is_client():
+    if 'IDDS_CLIENT_MODE' in os.environ and os.environ['IDDS_CLIENT_MODE']:
+        client_mode = True
+    else:
+        client_mode = False
+        try:
+            import idds.agents.common                # noqa F401
+        except ModuleNotFoundError as ex:            # noqa F841
+            client_mode = True
+
+    return client_mode
+
+
 def config_has_section(section):
     """
     Return where there is a section
@@ -122,22 +135,36 @@ def get_local_config_root(local_config_root=None):
 
     if local_config_root is None:
         # local_config_root = "~/.idds"
-        local_config_root = os.path.join(os.path.expanduser("~"), ".idds")
+        home_dir = os.path.expanduser("~")
+        if os.access(home_dir, os.W_OK):
+            local_config_root = os.path.join(home_dir, ".idds")
+        else:
+            # username = os.getlogin()
+            # if username == 'root':
+            #     local_config_root = os.path.join('/tmp', ".idds")
+            # else:
+            #     local_config_root = os.path.join(os.path.join("/tmp", username), ".idds")
+            pass
 
-    if not os.path.exists(local_config_root):
-        os.makedirs(local_config_root)
+    if local_config_root and not os.path.exists(local_config_root):
+        try:
+            os.makedirs(local_config_root, exist_ok=True)
+        except Exception as ex:
+            print("Failed to create %s: %s", local_config_root, str(ex))
     return local_config_root
 
 
 def get_local_cfg_file(local_config_root=None):
     local_config_root = get_local_config_root(local_config_root)
-    local_cfg = os.path.join(local_config_root, 'idds_local.cfg')
-    return local_cfg
+    if local_config_root:
+        local_cfg = os.path.join(local_config_root, 'idds_local.cfg')
+        return local_cfg
+    return None
 
 
 def get_local_config_value(configuration, section, name, current, default):
     value = None
-    if configuration.has_section(section) and configuration.has_option(section, name):
+    if configuration and configuration.has_section(section) and configuration.has_option(section, name):
         if name in ['oidc_refresh_lifetime']:
             value = configuration.getint(section, name)
         elif name in ['oidc_auto', 'oidc_polling']:
@@ -149,14 +176,15 @@ def get_local_config_value(configuration, section, name, current, default):
     elif value is None:
         value = default
 
-    if not configuration.has_section(section):
+    if configuration and not configuration.has_section(section):
         configuration.add_section(section)
     if value is not None:
         if name in ['oidc_refresh_lifetime']:
             value = str(value)
         elif name in ['oidc_auto', 'oidc_polling']:
             value = str(value).lower()
-        configuration.set(section, name, value)
+        if configuration:
+            configuration.set(section, name, value)
     return value
 
 
@@ -187,11 +215,12 @@ def get_config():
             __CONFIG.read(local_cfg)
             __HAS_CONFIG = True
         else:
-            raise Exception("Could not load configuration file."
-                            "For iDDS client, please run 'idds setup' to create local config file."
-                            "For an iDDS server, IDDS looks for a configuration file, in order:"
-                            "\n\t${IDDS_CONFIG}"
-                            "\n\t${IDDS_HOME}/etc/idds/idds.cfg"
-                            "\n\t/etc/idds/idds.cfg"
-                            "\n\t${VIRTUAL_ENV}/etc/idds/idds.cfg")
+            if not is_client():
+                raise Exception("Could not load configuration file."
+                                "For iDDS client, please run 'idds setup' to create local config file."
+                                "For an iDDS server, IDDS looks for a configuration file, in order:"
+                                "\n\t${IDDS_CONFIG}"
+                                "\n\t${IDDS_HOME}/etc/idds/idds.cfg"
+                                "\n\t/etc/idds/idds.cfg"
+                                "\n\t${VIRTUAL_ENV}/etc/idds/idds.cfg")
     return __CONFIG

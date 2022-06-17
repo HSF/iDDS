@@ -28,6 +28,17 @@ LoadModule wsgi_module {python_site_packages_path}/mod_wsgi/server/mod_wsgi-py39
 WSGIPythonHome {python_site_home_path}
 WSGIPythonPath {python_site_packages_path}
 
+<IfModule mod_wsgi.c>
+    WSGIDaemonProcess idds_daemon processes=25 threads=2 request-timeout=600 queue-timeout=600 python-home={python_site_home_path} python-path={python_site_packages_path}
+    WSGIProcessGroup idds_daemon
+    WSGIApplicationGroup %{GLOBAL}
+    WSGIScriptAlias /idds {python_site_bin_path}/idds.wsgi
+    # WSGIScriptAliasMatch ^/idds/(.+)$ /opt/idds/etc/idds/rest/test.wsgi
+    WSGISocketPrefix /var/log/idds/wsgisocks/wsgi
+    # WSGISocketPrefix /tmp/idds/wsgisocks/wsgi
+    WSGIPassAuthorization On
+</IfModule>
+
 Listen 443
 Listen 8443
 
@@ -37,8 +48,8 @@ RewriteRule .* - [F]
 RedirectMatch 403 /\..*$
 TraceEnable off
 
-Alias "/website"     "/opt/idds/website"
-Alias "/monitor"     "/opt/idds/monitor"
+Alias "/website"     "/opt/idds/website/data"
+Alias "/monitor"     "/opt/idds/monitor/data"
 
 <VirtualHost *:443>
     # ServerName aipanda182.cern.ch:443
@@ -68,7 +79,8 @@ Alias "/monitor"     "/opt/idds/monitor"
         WSGIApplicationGroup %{GLOBAL}
         WSGIScriptAlias /idds {python_site_bin_path}/idds.wsgi
         # WSGIScriptAliasMatch ^/idds/(.+)$ /opt/idds/etc/idds/rest/test.wsgi
-        WSGISocketPrefix /var/log/idds/wsgisocks/wsgi
+        # WSGISocketPrefix /var/log/idds/wsgisocks/wsgi
+        WSGISocketPrefix /tmp/idds/wsgisocks/wsgi
         WSGIPassAuthorization On
     </IfModule>
 
@@ -104,13 +116,13 @@ Alias "/monitor"     "/opt/idds/monitor"
         Require all granted
     </Directory>
 
-    <Directory /opt/idds/website>
+    <Directory /opt/idds/website/data>
         Order deny,allow
         Allow from all
         Require all granted
     </Directory>
 
-    <Directory /opt/idds/monitor>
+    <Directory /opt/idds/monitor/data>
         Order deny,allow
         Allow from all
         Require all granted

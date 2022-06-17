@@ -16,7 +16,7 @@ import re
 import sys
 import shutil
 from distutils.sysconfig import get_python_lib
-from setuptools import setup, Distribution
+from setuptools import setup, find_packages, Distribution
 from setuptools.command.install import install
 
 
@@ -25,7 +25,7 @@ working_dir = os.path.dirname(os.path.realpath(__file__))
 os.chdir(working_dir)
 
 
-with io.open('./version.py', "rt", encoding="utf8") as f:
+with io.open('lib/idds/website/version.py', "rt", encoding="utf8") as f:
     version = re.search(r'release_version = "(.*?)"', f.read()).group(1)
 
 
@@ -89,19 +89,15 @@ def get_files(idir):
 
 def get_data_files(dest, src):
     data = []
-    data.append((dest, get_files(src)))
+    # data.append((dest, get_files(src)))
     for root, dirs, files in os.walk(src):
         if 'dist' in root or 'build' in root or 'egg-info' in root:
             continue
-        for idir in dirs:
-            if idir == 'dist' or idir == 'build' or idir.endswith('.egg-info'):
-                continue
-            idir = os.path.join(root, idir)
-            if idir.startswith("./"):
-                idir = idir[2:]
-            dest_dir = os.path.join(dest, idir)
-            i_data = (dest_dir, get_files(idir))
-            data.append(i_data)
+
+        dest_dir = os.path.join(dest, root)
+        src_files = [os.path.join(root, f) for f in files]
+        i_data = (dest_dir, src_files)
+        data.append(i_data)
     return data
 
 
@@ -127,7 +123,7 @@ data_files = [
     # ('website/', glob.glob('*', recursive=True))
     # ('website/', get_all_files('.')),
 ]
-data_files += get_data_files('website/', '.')
+data_files += get_data_files('website/', './data')
 
 scripts = glob.glob('bin/*')
 
@@ -141,8 +137,8 @@ setup(
     author='IRIS-HEP Team',
     author_email='atlas-adc-panda@cern.ch',
     python_requires='>=3.6',
-    # packages=find_packages('lib/'),
-    # package_dir={'': 'lib'},
+    packages=find_packages('lib/'),
+    package_dir={'': 'lib'},
     install_requires=install_requires,
     include_package_data=True,
     data_files=data_files,

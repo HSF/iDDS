@@ -6,7 +6,7 @@ data for High Energy Physics workloads.
 
 Home page
 ---------
-https://idds.cern.ch
+https://iddsserver.cern.ch/website/
 
 
 Documents

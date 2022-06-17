@@ -46,8 +46,8 @@ RewriteRule .* - [F]
 RedirectMatch 403 /\..*$
 TraceEnable off
 
-Alias "/website"     "/opt/idds/website"
-Alias "/monitor"     "/opt/idds/monitor"
+Alias "/website"     "/opt/idds/website/data"
+Alias "/monitor"     "/opt/idds/monitor/data"
 
 <VirtualHost *:443>
     # ServerName aipanda182.cern.ch:443
@@ -103,13 +103,13 @@ Alias "/monitor"     "/opt/idds/monitor"
         Require all granted
     </Directory>
 
-    <Directory /opt/idds/website>
+    <Directory /opt/idds/website/data>
         Order deny,allow
         Allow from all
         Require all granted
     </Directory>
 
-    <Directory /opt/idds/monitor>
+    <Directory /opt/idds/monitor/data>
         Order deny,allow
         Allow from all
         Require all granted

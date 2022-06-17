@@ -56,6 +56,9 @@ def add_message(msg_type, status, source, request_id, workload_id, transform_id,
                     new_num_contents = len(chunk)
                     num_contents_list.append(new_num_contents)
                     msg_content_list.append(new_msg_content)
+            else:
+                num_contents_list.append(num_contents)
+                msg_content_list.append(msg_content)
         else:
             num_contents_list.append(num_contents)
             msg_content_list.append(msg_content)
@@ -81,9 +84,11 @@ def add_message(msg_type, status, source, request_id, workload_id, transform_id,
 
 
 @transactional_session
-def add_messages(messages, session=None):
+def add_messages(messages, bulk_size=1000, session=None):
     try:
-        session.bulk_insert_mappings(models.Message, messages)
+        # session.bulk_insert_mappings(models.Message, messages)
+        for msg in messages:
+            add_message(**msg, bulk_size=bulk_size, session=session)
     except TypeError as e:
         raise exceptions.DatabaseException('Invalid JSON for msg_content: %s' % str(e))
     except DatabaseError as e:
@@ -95,7 +100,7 @@ def add_messages(messages, session=None):
 
 
 @transactional_session
-def update_messages(messages, session=None):
+def update_messages(messages, bulk_size=1000, session=None):
     try:
         session.bulk_update_mappings(models.Message, messages)
     except TypeError as e:
