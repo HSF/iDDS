@@ -104,7 +104,6 @@ class MessagingSender(PluginBase, threading.Thread):
                                       vhost=self.vhost,
                                       keepalive=True,
                                       timeout=self.broker_timeout)
-            conn.set_listener('message-sender', MessagingListener(conn.transport._Transport__host_and_ports[0]))
             self.conns.append(conn)
 
     def send_message(self, msg):

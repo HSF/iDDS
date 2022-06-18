@@ -34,7 +34,7 @@ def build_database(echo=True, tests=False):
 
     if config_has_option('database', 'schema'):
         schema = config_get('database', 'schema')
-        if schema:
+        if schema and not engine.dialect.has_schema(engine, schema):
             print('Schema set in config, trying to create schema:', schema)
             try:
                 engine.execute(CreateSchema(schema))
