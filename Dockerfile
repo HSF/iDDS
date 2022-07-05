@@ -73,14 +73,10 @@ COPY . .
 RUN source /etc/profile.d/conda.sh; conda activate /opt/idds; \
   if [[ -z "$TAG" ]] ; then \
   python3 setup.py sdist && \
-  python3 -m pip install `ls common/dist/*.tar.gz` && \
-  python3 -m pip install `ls workflow/dist/*.tar.gz` && \
-  python3 -m pip install `ls main/dist/*.tar.gz` && \
-  python3 -m pip install `ls client/dist/*.tar.gz` && \
-  python3 -m pip install `ls doma/dist/*.tar.gz` && \
-  python3 -m pip install `ls atlas/dist/*.tar.gz` && \
-  python3 -m pip install `ls website/dist/*.tar.gz` && \
-  python3 -m pip install `ls monitor/dist/*.tar.gz` ; \
+  for package in common main client workflow doma atlas website monitor ; \
+  do \
+  python3 -m pip install `ls $package/dist/*.tar.gz` \
+  done ; \
   else \
   python3 -m pip install --no-cache-dir --upgrade idds-common==$TAG idds-workflow==$TAG idds-server==$TAG idds-client==$TAG idds-doma==$TAG idds-atlas==$TAG idds-website==$TAG idds-monitor==$TAG ; \
   fi
