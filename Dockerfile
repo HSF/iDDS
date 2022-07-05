@@ -95,11 +95,11 @@ RUN rm -rf /tmp/src
 
 RUN mkdir /opt/idds/config
 RUN mkdir /opt/idds/config/idds
+RUN mkdir /opt/idds/config_default
 
 # to run with non-root PID
 RUN chmod -R 777 /opt/idds/config
-
-# RUN mkdir /opt/idds/config_default
+RUN chmod -R 777 /opt/idds/config_default
 
 # ADD idds.cfg.default /opt/idds/config
 
