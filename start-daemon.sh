@@ -9,10 +9,12 @@ export IDDS_HOME=/opt/idds
 
 if [ -f /etc/grid-security/hostkey.pem ]; then
     echo "host certificate is already created."
+    chmod 600 /etc/grid-security/hostkey.pem
 elif [ -f /opt/idds/configmap/hostkey.pem ]; then
     echo "mount /opt/idds/configmap/hostkey.pem to /etc/grid-security/hostkey.pem"
     ln -fs /opt/idds/configmap/hostkey.pem /etc/grid-security/hostkey.pem
     ln -fs /opt/idds/configmap/hostcert.pem /etc/grid-security/hostcert.pem
+    chmod 600 /etc/grid-security/hostkey.pem
 fi
 
 if [ -f /opt/idds/config/idds/idds.cfg ]; then
@@ -82,7 +84,6 @@ if [ -f /opt/idds/config/idds/httpd-idds-443-py39-cc7.conf ]; then
     echo "httpd conf already mounted."
 else
     echo "httpd conf not found. will use the default one."
-    sed -i "s/WSGISocketPrefix\ \/var\/log\/idds\/wsgisocks\/wsgi/WSGISocketPrefix\ \/var\/idds\/wsgisocks\/wsgi/g" /opt/idds/config_default/httpd-idds-443-py39-cc7.conf 
     cp /opt/idds/config_default/httpd-idds-443-py39-cc7.conf /opt/idds/config/idds/httpd-idds-443-py39-cc7.conf
 fi
 
@@ -103,6 +104,7 @@ else
         -out /opt/idds/config/hostcert.pem
     ln -fs /opt/idds/config/hostcert.pem /etc/grid-security/hostcert.pem
     ln -fs /opt/idds/config/hostkey.pem /etc/grid-security/hostkey.pem
+    chmod 600 /etc/grid-security/hostkey.pem
 fi
 
 mkdir -p /opt/idds/config/.panda/
@@ -131,11 +133,16 @@ if [ ! -z "$IDDS_PRINT_CFG" ]; then
     echo ""
 fi
 
-sed -i 's/Listen\ 443/#\ Listen\ 443/g' /etc/httpd/conf.d/ssl.conf
 # create database if not exists
 python /opt/idds/tools/env/create_database.py
 python /opt/idds/tools/env/config_monitor.py -s ${IDDS_HOME}/monitor/data/conf.js.template -d ${IDDS_HOME}/monitor/data/conf.js  --host ${IDDS_SERVER}
-ln -s /opt/idds/configmap/idds2panda_token /opt/idds/config/.token
+
+if ! [ -f /opt/idds/config/.token ]; then
+    echo "/opt/idds/config/.token does not exist."
+    if [ -f /opt/idds/configmap/idds2panda_token ]; then
+        ln -s /opt/idds/configmap/idds2panda_token /opt/idds/config/.token
+    fi
+fi
 
 if [ "${IDDS_SERVICE}" == "rest" ]; then
   echo "starting iDDS ${IDDS_SERVICE} service"

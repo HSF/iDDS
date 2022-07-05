@@ -45,7 +45,7 @@ RUN mkdir /var/idds
 RUN mkdir /var/idds/wsgisocks
 RUN chown atlpan -R /opt/idds
 # RUN chown atlpan -R /opt/idds_source
-RUN chown atlpan /var/log/idds
+RUN chown atlpan -R /var/log/idds
 RUN chown apache -R /var/idds/wsgisocks/
 
 # to run with non-root PID
@@ -93,6 +93,8 @@ RUN source /etc/profile.d/conda.sh; conda activate /opt/idds; \
 WORKDIR /tmp
 RUN rm -rf /tmp/src
 
+RUN chmod 777 /opt/idds/monitor/data
+RUN chmod 777 /opt/idds/monitor/data/conf.js
 RUN mkdir /opt/idds/config
 RUN mkdir /opt/idds/config/idds
 
@@ -131,12 +133,31 @@ RUN ln -fs /opt/idds/config/idds/auth.cfg /opt/idds/etc/idds/auth/auth.cfg
 RUN ln -fs /opt/idds/config/idds/gacl /opt/idds/etc/idds/rest/gacl
 RUN ln -fs /opt/idds/config/idds/httpd-idds-443-py39-cc7.conf /etc/httpd/conf.d/httpd-idds-443-py39-cc7.conf
 
+# update http config
+RUN sed -i 's/Listen\ 443/#\ Listen\ 443/g' /etc/httpd/conf.d/ssl.conf
+RUN sed -i 's/Listen\ 80/#\ Listen\ 80/g' /etc/httpd/conf/httpd.conf
+RUN sed -i "s/WSGISocketPrefix\ \/var\/log\/idds\/wsgisocks\/wsgi/WSGISocketPrefix\ \/var\/idds\/wsgisocks\/wsgi/g" /opt/idds/config_default/httpd-idds-443-py39-cc7.conf
+
 # for idds daemons
 RUN ln -fs /opt/idds/config/idds/supervisord_idds.ini /etc/supervisord.d/idds.ini
+
+RUN chmod -R 777 /opt/idds/config
+RUN chmod -R 777 /var/log/idds
+RUN chmod 777 /etc/grid-security
+RUN chmod 777 /etc/httpd/conf.d
+RUN chmod 777 /etc/httpd/conf/httpd.conf
+RUN chmod 777 /etc/httpd/conf
+RUN chmod 777 /run/httpd
+RUN chmod 777 /var/log/supervisor/
+RUN chmod 777 /var/run/supervisor
+RUN chmod 777 /var/run
+RUN chmod 777 /etc/httpd/logs
 
 ENV PATH /opt/idds/bin/:$PATH
 
 ADD start-daemon.sh /opt/idds/bin/
+RUN mv /etc/httpd/conf.d/ssl.conf /etc/httpd/conf.d/ssl.conf.back
+ADD ssl.conf /etc/httpd/conf.d/ssl.conf
 
 VOLUME /var/log/idds
 VOLUME /opt/idds/config
