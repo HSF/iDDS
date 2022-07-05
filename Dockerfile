@@ -107,8 +107,7 @@ RUN chmod -R 777 /etc/grid-security
 
 # to grant low-numbered port to non-root
 RUN setcap CAP_NET_BIND_SERVICE=+eip /usr/sbin/httpd
-RUN chmod a+r /etc/pki/tls/certs/localhost.crt
-RUN chmod a+r /etc/pki/tls/private/localhost.key
+RUN rm /etc/httpd/conf.d/ssl.conf
 
 # RUN ln -fs /opt/idds/config/hostkey.pem /etc/grid-security/hostkey.pem
 # RUN ln -fs /opt/idds/config/hostcert.pem /etc/grid-security/hostcert.pem
