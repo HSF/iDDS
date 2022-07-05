@@ -51,6 +51,7 @@ RUN chmod -R 777 /var/log/idds
 RUN chmod -R 777 /var/idds
 RUN chmod -R 777 /etc/httpd/conf.d
 RUN chmod -R 777 /run/httpd
+RUN chmod -R 777 /var/log/httpd
 
 # setup conda virtual env
 ADD requirements.yaml /opt/idds/
@@ -103,6 +104,9 @@ RUN chmod -R 777 /opt/idds/config
 # for rest service
 
 RUN chmod -R 777 /etc/grid-security
+
+# to grant low-numbered port to non-root
+RUN setcap CAP_NET_BIND_SERVICE=+eip /usr/sbin/httpd
 
 # RUN ln -fs /opt/idds/config/hostkey.pem /etc/grid-security/hostkey.pem
 # RUN ln -fs /opt/idds/config/hostcert.pem /etc/grid-security/hostcert.pem
