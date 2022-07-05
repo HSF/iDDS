@@ -47,6 +47,8 @@ RUN chown atlpan -R /opt/idds
 # RUN chown atlpan -R /opt/idds_source
 RUN chown atlpan /var/log/idds
 RUN chown apache -R /var/idds/wsgisocks/
+
+# to run with non-root PID
 RUN chmod -R 777 /var/log/idds
 RUN chmod -R 777 /var/idds
 RUN chmod -R 777 /etc/httpd/conf.d
@@ -93,7 +95,10 @@ RUN rm -rf /tmp/src
 
 RUN mkdir /opt/idds/config
 RUN mkdir /opt/idds/config/idds
+
+# to run with non-root PID
 RUN chmod -R 777 /opt/idds/config
+
 # RUN mkdir /opt/idds/config_default
 
 # ADD idds.cfg.default /opt/idds/config
@@ -103,10 +108,11 @@ RUN chmod -R 777 /opt/idds/config
 
 # for rest service
 
+# to grant low-numbered port access to non-root
+RUN setcap CAP_NET_BIND_SERVICE=+eip /usr/sbin/httpd
 RUN chmod -R 777 /etc/grid-security
 
-# to grant low-numbered port to non-root
-RUN setcap CAP_NET_BIND_SERVICE=+eip /usr/sbin/httpd
+# required for ssl.conf to run with non-root PID
 RUN chmod a+r /etc/pki/tls/certs/localhost.crt
 RUN chmod a+r /etc/pki/tls/private/localhost.key
 
