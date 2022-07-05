@@ -99,7 +99,8 @@ RUN chmod -R 777 /opt/idds/config
 # RUN ls /opt/idds/config; ls /opt/idds/config/idds;
 
 # for rest service
-RUN chmod -r 777 /etc/grid-security
+
+RUN mkdir /etc/grid-security && chmod -r 777 /etc/grid-security
 
 # RUN ln -fs /opt/idds/config/hostkey.pem /etc/grid-security/hostkey.pem
 # RUN ln -fs /opt/idds/config/hostcert.pem /etc/grid-security/hostcert.pem
