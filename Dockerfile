@@ -49,6 +49,8 @@ RUN chown atlpan /var/log/idds
 RUN chown apache -R /var/idds/wsgisocks/
 RUN chmod -R 777 /var/log/idds
 RUN chmod -R 777 /var/idds
+RUN chmod -R 777 /etc/httpd/conf.d
+RUN chmod -R 777 /run/httpd
 
 # setup conda virtual env
 ADD requirements.yaml /opt/idds/
