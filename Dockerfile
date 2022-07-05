@@ -85,7 +85,7 @@ RUN source /etc/profile.d/conda.sh; conda activate /opt/idds; \
   python3 -m pip install --no-cache-dir --upgrade idds-common==$TAG idds-workflow==$TAG idds-server==$TAG idds-client==$TAG idds-doma==$TAG idds-atlas==$TAG idds-website==$TAG idds-monitor==$TAG ; \
   fi
 
-WORKDIR /tmp/src
+WORKDIR /tmp
 RUN rm -rf /tmp/src
 
 RUN mkdir /opt/idds/config
