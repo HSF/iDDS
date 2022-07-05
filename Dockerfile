@@ -47,6 +47,8 @@ RUN chown atlpan -R /opt/idds
 # RUN chown atlpan -R /opt/idds_source
 RUN chown atlpan /var/log/idds
 RUN chown apache -R /var/idds/wsgisocks/
+RUN chmod -R 777 /var/log/idds
+RUN chmod -R 777 /var/idds
 
 # setup conda virtual env
 ADD requirements.yaml /opt/idds/
@@ -65,10 +67,30 @@ RUN source /etc/profile.d/conda.sh; conda activate /opt/idds; python3 -m pip ins
 RUN source /etc/profile.d/conda.sh; conda activate /opt/idds; python3 -m pip install --no-cache-dir --upgrade requests SQLAlchemy urllib3 retrying mod_wsgi flask futures stomp.py cx-Oracle  unittest2 pep8 flake8 pytest nose sphinx recommonmark sphinx-rtd-theme nevergrad
 RUN source /etc/profile.d/conda.sh; conda activate /opt/idds; python3 -m pip install --no-cache-dir --upgrade psycopg2-binary
 RUN source /etc/profile.d/conda.sh; conda activate /opt/idds; python3 -m pip install --no-cache-dir --upgrade rucio-clients-atlas rucio-clients panda-client
-RUN source /etc/profile.d/conda.sh; conda activate /opt/idds; python3 -m pip install --no-cache-dir --upgrade idds-common==$TAG idds-workflow==$TAG idds-server==$TAG idds-client==$TAG idds-doma==$TAG idds-atlas==$TAG idds-website==$TAG idds-monitor==$TAG
+
+WORKDIR /tmp/src
+COPY . .
+RUN source /etc/profile.d/conda.sh; conda activate /opt/idds; \
+  if [[ -z "$TAG" ]] ; then \
+  cd - && cd common && python3 setup.py sdist; python3 -m pip install `ls dist/i*.tar.gz` && \
+  cd - && cd workflow && python3 setup.py sdist; python3 -m pip install `ls dist/i*.tar.gz` && \
+  cd - && cd server && python3 setup.py sdist; python3 -m pip install `ls dist/i*.tar.gz` && \
+  cd - && cd client && python3 setup.py sdist; python3 -m pip install `ls dist/i*.tar.gz` && \
+  cd - && cd doma && python3 setup.py sdist; python3 -m pip install `ls dist/i*.tar.gz` && \
+  cd - && cd atlas && python3 setup.py sdist; python3 -m pip install `ls dist/i*.tar.gz` && \
+  cd - && cd website && python3 setup.py sdist; python3 -m pip install `ls dist/i*.tar.gz` && \
+  cd - && cd monitor && python3 setup.py sdist; python3 -m pip install `ls dist/i*.tar.gz` && \
+  cd - ; \
+  else \
+  python3 -m pip install --no-cache-dir --upgrade idds-common==$TAG idds-workflow==$TAG idds-server==$TAG idds-client==$TAG idds-doma==$TAG idds-atlas==$TAG idds-website==$TAG idds-monitor==$TAG ; \
+  fi
+
+WORKDIR /tmp/src
+RUN rm -rf /tmp/src
 
 RUN mkdir /opt/idds/config
 RUN mkdir /opt/idds/config/idds
+RUN chmod -R 777 /opt/idds/config
 # RUN mkdir /opt/idds/config_default
 
 # ADD idds.cfg.default /opt/idds/config
@@ -77,6 +99,8 @@ RUN mkdir /opt/idds/config/idds
 # RUN ls /opt/idds/config; ls /opt/idds/config/idds;
 
 # for rest service
+RUN chmod -r 777 /etc/grid-security
+
 # RUN ln -fs /opt/idds/config/hostkey.pem /etc/grid-security/hostkey.pem
 # RUN ln -fs /opt/idds/config/hostcert.pem /etc/grid-security/hostcert.pem
 
