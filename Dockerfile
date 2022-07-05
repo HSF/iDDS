@@ -72,15 +72,15 @@ WORKDIR /tmp/src
 COPY . .
 RUN source /etc/profile.d/conda.sh; conda activate /opt/idds; \
   if [[ -z "$TAG" ]] ; then \
-  cd - && cd common && python3 setup.py sdist; python3 -m pip install `ls dist/i*.tar.gz` && \
-  cd - && cd workflow && python3 setup.py sdist; python3 -m pip install `ls dist/i*.tar.gz` && \
-  cd - && cd server && python3 setup.py sdist; python3 -m pip install `ls dist/i*.tar.gz` && \
-  cd - && cd client && python3 setup.py sdist; python3 -m pip install `ls dist/i*.tar.gz` && \
-  cd - && cd doma && python3 setup.py sdist; python3 -m pip install `ls dist/i*.tar.gz` && \
-  cd - && cd atlas && python3 setup.py sdist; python3 -m pip install `ls dist/i*.tar.gz` && \
-  cd - && cd website && python3 setup.py sdist; python3 -m pip install `ls dist/i*.tar.gz` && \
-  cd - && cd monitor && python3 setup.py sdist; python3 -m pip install `ls dist/i*.tar.gz` && \
-  cd - ; \
+  python3 setup.py sdist && \
+  python3 -m pip install `ls common/dist/*.tar.gz` && \
+  python3 -m pip install `ls workflow/dist/*.tar.gz` && \
+  python3 -m pip install `ls server/dist/*.tar.gz` && \
+  python3 -m pip install `ls client/dist/*.tar.gz` && \
+  python3 -m pip install `ls doma/dist/*.tar.gz` && \
+  python3 -m pip install `ls atlas/dist/*.tar.gz` && \
+  python3 -m pip install `ls website/dist/*.tar.gz` && \
+  python3 -m pip install `ls monitor/dist/*.tar.gz` ; \
   else \
   python3 -m pip install --no-cache-dir --upgrade idds-common==$TAG idds-workflow==$TAG idds-server==$TAG idds-client==$TAG idds-doma==$TAG idds-atlas==$TAG idds-website==$TAG idds-monitor==$TAG ; \
   fi
