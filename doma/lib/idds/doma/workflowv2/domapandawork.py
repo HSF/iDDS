@@ -89,7 +89,7 @@ class DomaPanDAWork(Work):
         self.prodSourceLabel = prodSourceLabel
         self.task_type = task_type
         self.maxWalltime = maxwalltime
-        self.maxAttempt = maxattempt
+        self.maxAttempt = maxattempt if maxattempt else 5
         self.core_count = core_count
         self.task_log = task_log
 
