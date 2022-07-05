@@ -70,13 +70,17 @@ RUN source /etc/profile.d/conda.sh; conda activate /opt/idds; python3 -m pip ins
 
 WORKDIR /tmp/src
 COPY . .
+
+RUN echo $'#!/bin/bash \n\
+set -m \n\
+for package in common main client workflow doma atlas website monitor ; \n\
+do \n\
+  python3 -m pip install `ls $package/dist/*.tar.gz` \n\
+done \n ' > inst_packages.sh
+
 RUN source /etc/profile.d/conda.sh; conda activate /opt/idds; \
   if [[ -z "$TAG" ]] ; then \
-  python3 setup.py sdist && \
-  for package in common main client workflow doma atlas website monitor ; \
-  do \
-  python3 -m pip install `ls $package/dist/*.tar.gz` \
-  done ; \
+  python3 setup.py sdist && chmod +x inst_packages.sh && ./inst_packages.sh ; \
   else \
   python3 -m pip install --no-cache-dir --upgrade idds-common==$TAG idds-workflow==$TAG idds-server==$TAG idds-client==$TAG idds-doma==$TAG idds-atlas==$TAG idds-website==$TAG idds-monitor==$TAG ; \
   fi
