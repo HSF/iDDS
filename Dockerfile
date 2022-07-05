@@ -75,7 +75,7 @@ RUN source /etc/profile.d/conda.sh; conda activate /opt/idds; \
   python3 setup.py sdist && \
   python3 -m pip install `ls common/dist/*.tar.gz` && \
   python3 -m pip install `ls workflow/dist/*.tar.gz` && \
-  python3 -m pip install `ls server/dist/*.tar.gz` && \
+  python3 -m pip install `ls main/dist/*.tar.gz` && \
   python3 -m pip install `ls client/dist/*.tar.gz` && \
   python3 -m pip install `ls doma/dist/*.tar.gz` && \
   python3 -m pip install `ls atlas/dist/*.tar.gz` && \
