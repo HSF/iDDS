@@ -138,7 +138,8 @@ def get_processings_with_messaging(locking=False, bulk_size=None, session=None):
 
 
 @transactional_session
-def get_processings_by_status(status, time_period=None, locking=False, bulk_size=None, to_json=False, by_substatus=False, with_messaging=False, session=None):
+def get_processings_by_status(status, time_period=None, locking=False, bulk_size=None, to_json=False, by_substatus=False,
+                              with_messaging=False, for_poller=False, session=None):
     """
     Get processing or raise a NoObject exception.
 
@@ -163,12 +164,14 @@ def get_processings_by_status(status, time_period=None, locking=False, bulk_size
             # then select with locking.
             proc_ids = orm_processings.get_processings_by_status(status=status, period=time_period, locking=locking,
                                                                  bulk_size=bulk_size * 2, to_json=False, locking_for_update=False,
-                                                                 by_substatus=by_substatus, only_return_id=True, session=session)
+                                                                 by_substatus=by_substatus, only_return_id=True,
+                                                                 for_poller=for_poller, session=session)
             if proc_ids:
                 processing2s = orm_processings.get_processings_by_status(status=status, period=time_period, locking=locking,
                                                                          processing_ids=proc_ids,
                                                                          bulk_size=None, to_json=to_json, locking_for_update=True,
-                                                                         by_substatus=by_substatus, session=session)
+                                                                         by_substatus=by_substatus,
+                                                                         for_poller=for_poller, session=session)
                 if processing2s:
                     # reqs = req2s[:bulk_size]
                     # order requests
@@ -188,7 +191,7 @@ def get_processings_by_status(status, time_period=None, locking=False, bulk_size
         else:
             processings = orm_processings.get_processings_by_status(status=status, period=time_period, locking=locking,
                                                                     bulk_size=bulk_size, to_json=to_json, locking_for_update=locking,
-                                                                    by_substatus=by_substatus, session=session)
+                                                                    by_substatus=by_substatus, for_poller=for_poller, session=session)
 
         parameters = {'locking': ProcessingLocking.Locking}
         for processing in processings:
@@ -196,7 +199,7 @@ def get_processings_by_status(status, time_period=None, locking=False, bulk_size
     else:
         processings = orm_processings.get_processings_by_status(status=status, period=time_period, locking=locking,
                                                                 bulk_size=bulk_size, to_json=to_json,
-                                                                by_substatus=by_substatus, session=session)
+                                                                by_substatus=by_substatus, for_poller=for_poller, session=session)
     return processings
 
 

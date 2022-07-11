@@ -89,7 +89,7 @@ class DomaPanDAWork(Work):
         self.prodSourceLabel = prodSourceLabel
         self.task_type = task_type
         self.maxWalltime = maxwalltime
-        self.maxAttempt = maxattempt
+        self.maxAttempt = maxattempt if maxattempt else 5
         self.core_count = core_count
         self.task_log = task_log
 
@@ -150,6 +150,14 @@ class DomaPanDAWork(Work):
                 self.panda_url = panda_config.get('panda', 'panda_url')
                 os.environ['PANDA_URL'] = self.panda_url
                 # self.logger.debug("Panda url: %s" % str(self.panda_url))
+            if panda_config.has_option('panda', 'pandacache_url'):
+                self.pandacache_url = panda_config.get('panda', 'pandacache_url')
+                os.environ['PANDACACHE_URL'] = self.pandacache_url
+                # self.logger.debug("Pandacache url: %s" % str(self.pandacache_url))
+            if panda_config.has_option('panda', 'panda_verify_host'):
+                self.panda_verify_host = panda_config.get('panda', 'panda_verify_host')
+                os.environ['PANDA_VERIFY_HOST'] = self.panda_verify_host
+                # self.logger.debug("Panda verify host: %s" % str(self.panda_verify_host))
             if panda_config.has_option('panda', 'panda_url_ssl'):
                 self.panda_url_ssl = panda_config.get('panda', 'panda_url_ssl')
                 os.environ['PANDA_URL_SSL'] = self.panda_url_ssl
@@ -173,6 +181,12 @@ class DomaPanDAWork(Work):
         if not self.panda_url_ssl and 'PANDA_URL_SSL' in os.environ and os.environ['PANDA_URL_SSL']:
             self.panda_url_ssl = os.environ['PANDA_URL_SSL']
             # self.logger.debug("Panda url ssl: %s" % str(self.panda_url_ssl))
+        if not self.pandacache_url and 'PANDACACHE_URL' in os.environ and os.environ['PANDACACHE_URL']:
+            self.pandacache_url = os.environ['PANDACACHE_URL']
+            # self.logger.debug("Pandacache url: %s" % str(self.pandacache_url))
+        if not self.panda_verify_host and 'PANDA_VERIFY_HOST' in os.environ and os.environ['PANDA_VERIFY_HOST']:
+            self.panda_verify_host = os.environ['PANDA_VERIFY_HOST']
+            # self.logger.debug("Panda verify host: %s" % str(self.panda_verify_host))
         if not self.panda_auth and 'PANDA_AUTH' in os.environ and os.environ['PANDA_AUTH']:
             self.panda_auth = os.environ['PANDA_AUTH']
         if not self.panda_auth_vo and 'PANDA_AUTH_VO' in os.environ and os.environ['PANDA_AUTH_VO']:

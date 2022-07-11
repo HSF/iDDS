@@ -14,8 +14,11 @@
 Test client.
 """
 
+import logging
 import string
 import random
+
+logging.basicConfig(level=logging.DEBUG)
 
 # import traceback
 
@@ -130,7 +133,8 @@ def setup_workflow():
                                     "token": "local",
                                     "type": "template",
                                     "value": "log.tgz"},
-                          task_cloud='LSST')
+                          task_cloud='LSST',
+                          task_priority=None)
     work2 = DomaPanDAWork(executable='echo',
                           primary_input_collection={'scope': 'pseudo_dataset', 'name': 'pseudo_input_collection#2'},
                           output_collections=[{'scope': 'pseudo_dataset', 'name': 'pseudo_output_collection#2'}],

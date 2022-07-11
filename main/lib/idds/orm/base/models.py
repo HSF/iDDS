@@ -356,6 +356,7 @@ class Processing(BASE, ModelBase):
     created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow)
     updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     next_poll_at = Column("next_poll_at", DateTime, default=datetime.datetime.utcnow)
+    poller_updated_at = Column("poller_updated_at", DateTime, default=datetime.datetime.utcnow)
     submitted_at = Column("submitted_at", DateTime)
     finished_at = Column("finished_at", DateTime)
     expired_at = Column("expired_at", DateTime)
@@ -561,7 +562,8 @@ def register_models(engine):
     models = (Request, Transform, Processing, Collection, Content, Health, Message)
 
     for model in models:
-        model.metadata.create_all(engine)   # pylint: disable=maybe-no-member
+        if not engine.has_table(model.__tablename__, model.metadata.schema):
+            model.metadata.create_all(engine)   # pylint: disable=maybe-no-member
 
 
 def unregister_models(engine):

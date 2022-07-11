@@ -202,7 +202,8 @@ def get_processings_by_transform_id(transform_id=None, to_json=False, session=No
 
 @transactional_session
 def get_processings_by_status(status, period=None, processing_ids=[], locking=False, locking_for_update=False,
-                              bulk_size=None, submitter=None, to_json=False, by_substatus=False, only_return_id=False, session=None):
+                              bulk_size=None, submitter=None, to_json=False, by_substatus=False, only_return_id=False,
+                              for_poller=False, session=None):
     """
     Get processing or raise a NoObject exception.
 
@@ -248,7 +249,9 @@ def get_processings_by_status(status, period=None, processing_ids=[], locking=Fa
         if submitter:
             query = query.filter(models.Processing.submitter == submitter)
 
-        if locking_for_update:
+        if for_poller:
+            query = query.order_by(asc(models.Processing.poller_updated_at))
+        elif locking_for_update:
             query = query.with_for_update(skip_locked=True)
         else:
             query = query.order_by(asc(models.Processing.updated_at))
