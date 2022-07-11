@@ -45,6 +45,12 @@ def decode_value(val):
     return int.from_bytes(decoded, 'big')
 
 
+def should_verify():
+    if os.environ.get('IDDS_AUTH_NO_VERIFY', None):
+        return False
+    return True
+
+
 class BaseAuthentication(object):
     def __init__(self, timeout=None):
         self.timeout = timeout
@@ -98,7 +104,7 @@ class OIDCAuthentication(BaseAuthentication):
 
     def get_http_content(self, url):
         try:
-            r = requests.get(url, allow_redirects=True)
+            r = requests.get(url, allow_redirects=True, verify=should_verify())
             return r.content
         except Exception as error:
             return False, 'Failed to get http content for %s: %s' (str(url), str(error))
@@ -128,6 +134,7 @@ class OIDCAuthentication(BaseAuthentication):
                                              # data=json.dumps(data),
                                              urlencode(data).encode(),
                                              timeout=self.timeout,
+                                             verify=should_verify(),
                                              headers=headers)
 
             if result is not None:
@@ -172,6 +179,7 @@ class OIDCAuthentication(BaseAuthentication):
                                              # data=json.dumps(data),
                                              urlencode(data).encode(),
                                              timeout=self.timeout,
+                                             verify=should_verify(),
                                              headers=headers)
             if result is not None:
                 if result.status_code == HTTP_STATUS_CODE.OK and result.text:
@@ -203,6 +211,7 @@ class OIDCAuthentication(BaseAuthentication):
                                              # data=json.dumps(data),
                                              urlencode(data).encode(),
                                              timeout=self.timeout,
+                                             verify=should_verify(),
                                              headers=headers)
 
             if result is not None:
