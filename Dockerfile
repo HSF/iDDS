@@ -86,6 +86,13 @@ done \n ' > inst_packages.sh
 RUN source /etc/profile.d/conda.sh; conda activate /opt/idds; \
   if [[ -z "$TAG" ]] ; then \
   python3 setup.py sdist && chmod +x inst_packages.sh && ./inst_packages.sh ; \
+
+WORKDIR /tmp/src
+COPY . .
+
+RUN source /etc/profile.d/conda.sh; conda activate /opt/idds; \
+  if [[ -z "$TAG" ]] ; then \
+  python3 setup.py sdist bdist_wheel && main/tools/env/install_packages.sh ; \
   else \
   python3 -m pip install --no-cache-dir --upgrade idds-common==$TAG idds-workflow==$TAG idds-server==$TAG idds-client==$TAG idds-doma==$TAG idds-atlas==$TAG idds-website==$TAG idds-monitor==$TAG ; \
   fi
@@ -157,7 +164,8 @@ ENV PATH /opt/idds/bin/:$PATH
 
 ADD start-daemon.sh /opt/idds/bin/
 RUN mv /etc/httpd/conf.d/ssl.conf /etc/httpd/conf.d/ssl.conf.back
-ADD ssl.conf /etc/httpd/conf.d/ssl.conf
+# ADD ssl.conf /etc/httpd/conf.d/ssl.conf
+RUN ln -s /opt/idds/etc/idds/rest/ssl.conf /etc/httpd/conf.d/ssl.conf
 
 VOLUME /var/log/idds
 VOLUME /opt/idds/config
