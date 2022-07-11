@@ -65,7 +65,20 @@ RUN source /etc/profile.d/conda.sh; conda activate /opt/idds; python3 -m pip ins
 RUN source /etc/profile.d/conda.sh; conda activate /opt/idds; python3 -m pip install --no-cache-dir --upgrade requests SQLAlchemy urllib3 retrying mod_wsgi flask futures stomp.py cx-Oracle  unittest2 pep8 flake8 pytest nose sphinx recommonmark sphinx-rtd-theme nevergrad
 RUN source /etc/profile.d/conda.sh; conda activate /opt/idds; python3 -m pip install --no-cache-dir --upgrade psycopg2-binary
 RUN source /etc/profile.d/conda.sh; conda activate /opt/idds; python3 -m pip install --no-cache-dir --upgrade rucio-clients-atlas rucio-clients panda-client
-RUN source /etc/profile.d/conda.sh; conda activate /opt/idds; python3 -m pip install --no-cache-dir --upgrade idds-common==$TAG idds-workflow==$TAG idds-server==$TAG idds-client==$TAG idds-doma==$TAG idds-atlas==$TAG idds-website==$TAG idds-monitor==$TAG
+
+
+WORKDIR /tmp/src
+COPY . .
+
+RUN source /etc/profile.d/conda.sh; conda activate /opt/idds; \
+  if [[ -z "$TAG" ]] ; then \
+  python3 setup.py sdist bdist_wheel && main/tools/env/install_packages.sh ; \
+  else \
+  python3 -m pip install --no-cache-dir --upgrade idds-common==$TAG idds-workflow==$TAG idds-server==$TAG idds-client==$TAG idds-doma==$TAG idds-atlas==$TAG idds-website==$TAG idds-monitor==$TAG ; \
+  fi
+
+WORKDIR /tmp
+RUN rm -rf /tmp/src
 
 RUN chmod 777 /opt/idds/monitor/data
 RUN chmod 777 /opt/idds/monitor/data/conf.js
@@ -119,7 +132,8 @@ ENV PATH /opt/idds/bin/:$PATH
 
 ADD start-daemon.sh /opt/idds/bin/
 RUN mv /etc/httpd/conf.d/ssl.conf /etc/httpd/conf.d/ssl.conf.back
-ADD ssl.conf /etc/httpd/conf.d/ssl.conf
+# ADD ssl.conf /etc/httpd/conf.d/ssl.conf
+RUN ln -s /opt/idds/etc/idds/rest/ssl.conf /etc/httpd/conf.d/ssl.conf
 
 VOLUME /var/log/idds
 VOLUME /opt/idds/config
