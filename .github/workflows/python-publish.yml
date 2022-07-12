@@ -43,6 +43,8 @@ jobs:
         TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
       run: |
         version_tag=${GITHUB_REF/refs\/tags\//}
-        python main/tools/pypi/update_version.py ${version_tag}
-        python setup.py sdist bdist_wheel
-        twine upload  */dist/idds*-${version}.tar.gz
+        echo ${GITHUB_REF}
+        echo ${version_tag}
+        # python main/tools/pypi/update_version.py ${version_tag}
+        # python setup.py sdist bdist_wheel
+        # twine upload  */dist/idds*-${version}.tar.gz
