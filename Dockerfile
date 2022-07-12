@@ -13,6 +13,9 @@ FROM docker.io/centos:7
 
 ARG TAG
 
+ENV LC_ALL en_US.UTF-8
+ENV LANG en_US.UTF-8
+
 WORKDIR /tmp
 
 RUN yum install -y epel-release.noarch && \
