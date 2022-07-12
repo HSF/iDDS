@@ -106,7 +106,8 @@ RUN ln -fs /opt/idds/config/rucio.cfg /opt/idds/etc/rucio.cfg
 RUN ln -fs /opt/idds/config/panda.cfg /opt/idds/etc/panda/panda.cfg
 
 # for idds rest service
-RUN mkdir -p /opt/idds/etc/idds
+RUN mkdir -p /opt/idds/etc/idds/auth
+RUN mkdir /opt/idds/etc/idds/rest
 RUN ln -fs /opt/idds/config/idds/idds.cfg /opt/idds/etc/idds/idds.cfg
 RUN ln -fs /opt/idds/config/idds/auth.cfg /opt/idds/etc/idds/auth/auth.cfg
 RUN ln -fs /opt/idds/config/idds/gacl /opt/idds/etc/idds/rest/gacl
