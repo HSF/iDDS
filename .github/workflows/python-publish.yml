@@ -48,4 +48,4 @@ jobs:
         # echo ${version_tag}
         python main/tools/pypi/update_version.py ${version_tag}
         python setup.py sdist bdist_wheel
-        twine upload  */dist/idds*-${version}.tar.gz
+        twine upload  */dist/idds*-${version_tag}.tar.gz
