@@ -1,4 +1,4 @@
-$'#!/bin/bash
+#!/bin/bash
 set -m
 for package in common main client workflow doma atlas website monitor ;
 do
