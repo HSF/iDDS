@@ -16,9 +16,6 @@ ENV LC_ALL en_US.UTF-8
 
 ARG TAG
 
-ENV LC_ALL en_US.UTF-8
-ENV LANG en_US.UTF-8
-
 WORKDIR /tmp
 
 RUN yum install -y epel-release.noarch && \
@@ -78,7 +75,7 @@ COPY . .
 
 RUN source /etc/profile.d/conda.sh; conda activate /opt/idds; \
   if [[ -z "$TAG" ]] ; then \
-  python3 setup.py sdist bdist_wheel && bash main/tools/env/install_packages.sh ; \
+  python3 setup.py sdist bdist_wheel && main/tools/env/install_packages.sh ; \
   else \
   python3 -m pip install --no-cache-dir --upgrade idds-common==$TAG idds-workflow==$TAG idds-server==$TAG idds-client==$TAG idds-doma==$TAG idds-atlas==$TAG idds-website==$TAG idds-monitor==$TAG ; \
   fi
