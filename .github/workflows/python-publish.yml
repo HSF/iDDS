@@ -26,6 +26,9 @@ jobs:
       uses: actions/setup-python@v3
       with:
         python-version: '3.x'
+    - name: Get the version
+      id: get_version
+      run: echo ::set-output name=${GITHUB_REF/refs\/tags\//}
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
@@ -37,5 +40,7 @@ jobs:
         TWINE_USERNAME: __token__
         TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
       run: |
+        version_tag=${GITHUB_REF/refs\/tags\//}
+        python main/tools/pypi/update_version.py ${version_tag}
         python setup.py sdist bdist_wheel
         twine upload  */dist/idds*-${version}.tar.gz
