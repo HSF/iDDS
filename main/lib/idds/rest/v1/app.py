@@ -92,6 +92,12 @@ def before_request_auth():
     if auth_type in ['x509_proxy']:
         dn = flask.request.environ.get('SSL_CLIENT_S_DN', None)
         client_cert = flask.request.environ.get('SSL_CLIENT_CERT', None)
+        dn = dn.strip()
+        client_cert = client_cert.strip()
+        if not dn or len(dn) == 0:
+            dn = flask.request.headers.get('SSL_CLIENT_S_DN', default=None)
+        if not client_cert or len(client_cert) == 0:
+            client_cert = flask.request.headers.get('SSL_CLIENT_CERT', default=None)
         is_authenticated, errors, username = authenticate_x509(vo, dn, client_cert)
         if not is_authenticated:
             return generate_failed_auth_response(errors)
