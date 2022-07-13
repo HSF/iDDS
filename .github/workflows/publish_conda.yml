@@ -2,7 +2,7 @@ name: publish_conda
 
 on:
   release:
-    types: [published]
+    types: [disabled]
     
 jobs:
   publish:
