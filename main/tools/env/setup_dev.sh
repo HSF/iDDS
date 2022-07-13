@@ -8,6 +8,8 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2019
 
+# export LANG=en_US.UTF-8
+# export LC_ALL=en_US.UTF-8
 
 CurrentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 ToolsDir="$( dirname "$CurrentDir" )"

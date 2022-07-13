@@ -16,7 +16,7 @@ import os
 import pprint
 os.environ['IDDS_CONFIG'] = '/opt/idds/etc/idds/idds.cfg'  # noqa: E402
 
-from idds.rest.v1.app import create_app
+from idds.rest.v1.app import create_app    # noqa E402
 
 application = create_app()
 

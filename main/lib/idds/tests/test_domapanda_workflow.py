@@ -26,7 +26,7 @@ logging.basicConfig(level=logging.DEBUG)
 # from rucio.common.exception import CannotAuthenticate
 
 # from idds.client.client import Client
-from idds.client.clientmanager import ClientManager
+from idds.client.clientmanager import ClientManager   # noqa E402
 # from idds.common.constants import RequestType, RequestStatus
 # from idds.common.utils import get_rest_host
 # from idds.tests.common import get_example_real_tape_stagein_request
@@ -34,9 +34,9 @@ from idds.client.clientmanager import ClientManager
 
 # from idds.workflowv2.work import Work, Parameter, WorkStatus
 # from idds.workflowv2.workflow import Condition, Workflow
-from idds.workflowv2.workflow import Workflow, Condition
+from idds.workflowv2.workflow import Workflow, Condition     # noqa E402
 # from idds.atlas.workflowv2.atlasstageinwork import ATLASStageinWork
-from idds.doma.workflowv2.domapandawork import DomaPanDAWork
+from idds.doma.workflowv2.domapandawork import DomaPanDAWork   # noqa E402
 
 
 task_queue = 'DOMA_LSST_GOOGLE_TEST'
