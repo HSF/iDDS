@@ -121,6 +121,7 @@ RUN ln -fs /opt/idds/config/idds/supervisord_idds.ini /etc/supervisord.d/idds.in
 
 RUN chmod -R 777 /opt/idds/config
 RUN chmod -R 777 /var/log/idds
+RUN chmod -R 777 /var/idds
 RUN chmod 777 /etc/grid-security
 RUN chmod 777 /etc/httpd/conf.d
 RUN chmod 777 /etc/httpd/conf/httpd.conf
