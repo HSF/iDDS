@@ -66,7 +66,7 @@ class ClientManager:
         self.oidc_token = None
         self.vo = None
 
-        self.configuration = ConfigParser.SafeConfigParser()
+        self.configuration = ConfigParser.ConfigParser()
 
         self.client = None
         # if setup_client:
@@ -112,7 +112,7 @@ class ClientManager:
                 return env_value
 
         if configuration and type(configuration) in [str]:
-            config = ConfigParser.SafeConfigParser()
+            config = ConfigParser.ConfigParser()
             config.read(configuration)
             configuration = config
 
@@ -122,7 +122,7 @@ class ClientManager:
     def get_local_configuration(self):
         local_cfg = self.get_local_cfg_file()
         main_cfg = get_main_config_file()
-        config = ConfigParser.SafeConfigParser()
+        config = ConfigParser.ConfigParser()
         if local_cfg and os.path.exists(local_cfg) and main_cfg:
             config.read((main_cfg, local_cfg))
         else:

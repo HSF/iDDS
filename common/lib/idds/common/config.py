@@ -183,7 +183,7 @@ def get_local_config_value(configuration, section, name, current, default):
 
 
 def get_main_config_file():
-    __CONFIG = ConfigParser.SafeConfigParser()
+    __CONFIG = ConfigParser.ConfigParser()
     if os.environ.get('IDDS_CONFIG', None):
         configfile = os.environ['IDDS_CONFIG']
         if __CONFIG.read(configfile) == [configfile]:
@@ -199,7 +199,7 @@ def get_main_config_file():
 
 
 def get_main_config():
-    __CONFIG = ConfigParser.SafeConfigParser()
+    __CONFIG = ConfigParser.ConfigParser()
 
     __HAS_CONFIG = False
     if os.environ.get('IDDS_CONFIG', None):

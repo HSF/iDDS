@@ -61,7 +61,7 @@ class BaseAuthentication(object):
                 self.max_expires_in = self.config.getint('common', 'max_expires_in')
 
     def load_auth_server_config(self):
-        config = ConfigParser.SafeConfigParser()
+        config = ConfigParser.ConfigParser()
         if os.environ.get('IDDS_AUTH_CONFIG', None):
             configfile = os.environ['IDDS_AUTH_CONFIG']
             if config.read(configfile) == [configfile]:

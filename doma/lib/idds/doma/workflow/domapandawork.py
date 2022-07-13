@@ -99,7 +99,7 @@ class DomaPanDAWork(Work):
         return False
 
     def load_panda_config(self):
-        panda_config = ConfigParser.SafeConfigParser()
+        panda_config = ConfigParser.ConfigParser()
         if os.environ.get('IDDS_PANDA_CONFIG', None):
             configfile = os.environ['IDDS_PANDA_CONFIG']
             if panda_config.read(configfile) == [configfile]:
