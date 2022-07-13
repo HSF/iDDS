@@ -269,6 +269,6 @@ class AuthenticationNoPermission(IDDSException):
     Authentication No Permission
     """
     def __init__(self, *args, **kwargs):
-        super(AuthenticationNotSupported, self).__init__(*args, **kwargs)
+        super(AuthenticationNoPermission, self).__init__(*args, **kwargs)
         self._message = "Authentication no permission."
         self.error_code = 603

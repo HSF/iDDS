@@ -128,7 +128,7 @@ def config_get_bool(section, option):
 def get_local_config_root(local_config_root=None):
     if 'IDDS_LOCAL_CONFIG_ROOT' in os.environ and os.environ['IDDS_LOCAL_CONFIG_ROOT']:
         if local_config_root is None:
-            print("IDDS_LOCAL_CONFIG_ROOT is set. Will use it.")
+            # print("IDDS_LOCAL_CONFIG_ROOT is set. Will use it.")
             local_config_root = os.environ['IDDS_LOCAL_CONFIG_ROOT']
         else:
             print("local_config_root is set to %s. Ignore IDDS_LOCAL_CONFIG_ROOT" % local_config_root)
