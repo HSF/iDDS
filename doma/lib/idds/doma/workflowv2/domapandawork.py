@@ -92,7 +92,7 @@ class DomaPanDAWork(Work):
         self.task_type = task_type
         self.maxWalltime = maxwalltime
         self.maxAttempt = maxattempt if maxattempt else 5
-        self.core_count = core_count
+        self.core_count = core_count if core_count else 1
         self.task_log = task_log
 
         self.encode_command_line = encode_command_line
@@ -154,25 +154,25 @@ class DomaPanDAWork(Work):
                 self.panda_url = panda_config.get('panda', 'panda_url')
                 os.environ['PANDA_URL'] = self.panda_url
                 # self.logger.debug("Panda url: %s" % str(self.panda_url))
-            if  'PANDACACHE_URL' not in os.environ and panda_config.has_option('panda', 'pandacache_url'):
+            if 'PANDACACHE_URL' not in os.environ and panda_config.has_option('panda', 'pandacache_url'):
                 self.pandacache_url = panda_config.get('panda', 'pandacache_url')
                 os.environ['PANDACACHE_URL'] = self.pandacache_url
                 # self.logger.debug("Pandacache url: %s" % str(self.pandacache_url))
-            if  'PANDA_VERIFY_HOST' not in os.environ and panda_config.has_option('panda', 'panda_verify_host'):
+            if 'PANDA_VERIFY_HOST' not in os.environ and panda_config.has_option('panda', 'panda_verify_host'):
                 self.panda_verify_host = panda_config.get('panda', 'panda_verify_host')
                 os.environ['PANDA_VERIFY_HOST'] = self.panda_verify_host
                 # self.logger.debug("Panda verify host: %s" % str(self.panda_verify_host))
-            if  'PANDA_URL_SSL' not in os.environ and panda_config.has_option('panda', 'panda_url_ssl'):
+            if 'PANDA_URL_SSL' not in os.environ and panda_config.has_option('panda', 'panda_url_ssl'):
                 self.panda_url_ssl = panda_config.get('panda', 'panda_url_ssl')
                 os.environ['PANDA_URL_SSL'] = self.panda_url_ssl
                 # self.logger.debug("Panda url ssl: %s" % str(self.panda_url_ssl))
-            if  'PANDA_AUTH' not in os.environ and panda_config.has_option('panda', 'panda_auth'):
+            if 'PANDA_AUTH' not in os.environ and panda_config.has_option('panda', 'panda_auth'):
                 self.panda_auth = panda_config.get('panda', 'panda_auth')
                 os.environ['PANDA_AUTH'] = self.panda_auth
-            if  'PANDA_AUTH_VO' not in os.environ and panda_config.has_option('panda', 'panda_auth_vo'):
+            if 'PANDA_AUTH_VO' not in os.environ and panda_config.has_option('panda', 'panda_auth_vo'):
                 self.panda_auth_vo = panda_config.get('panda', 'panda_auth_vo')
                 os.environ['PANDA_AUTH_VO'] = self.panda_auth_vo
-            if  'PANDA_CONFIG_ROOT' not in os.environ and panda_config.has_option('panda', 'panda_config_root'):
+            if 'PANDA_CONFIG_ROOT' not in os.environ and panda_config.has_option('panda', 'panda_config_root'):
                 self.panda_config_root = panda_config.get('panda', 'panda_config_root')
                 os.environ['PANDA_CONFIG_ROOT'] = self.panda_config_root
 
@@ -304,8 +304,8 @@ class DomaPanDAWork(Work):
         for input_d in inputs_dependency:
             task_name = input_d['task']
             if (task_name not in task_name_to_coll_map                    # noqa: W503
-                or 'outputs' not in task_name_to_coll_map[task_name]      # noqa: W503
-                or not task_name_to_coll_map[task_name]['outputs']):      # noqa: W503
+               or 'outputs' not in task_name_to_coll_map[task_name]      # noqa: W503
+               or not task_name_to_coll_map[task_name]['outputs']):      # noqa: W503
                 return False
         return True
 
