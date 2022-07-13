@@ -140,6 +140,8 @@ class DomaPanDAWork(Work):
         self.panda_auth = None
         self.panda_auth_vo = None
         self.panda_config_root = None
+        self.pandacache_url = None
+        self.panda_verify_host = None
 
         if panda_config.has_section('panda'):
             if panda_config.has_option('panda', 'panda_monitor_url'):
