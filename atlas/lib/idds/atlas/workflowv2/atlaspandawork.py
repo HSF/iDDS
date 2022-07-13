@@ -103,6 +103,11 @@ class ATLASPandaWork(Work):
         self.panda_url = None
         self.panda_url_ssl = None
         self.panda_monitor = None
+        self.pandacache_url = None
+        self.panda_verify_host = None
+        self.panda_auth = None
+        self.panda_auth_vo = None
+        self.panda_config_root = None
 
         if panda_config.has_section('panda'):
             if panda_config.has_option('panda', 'panda_monitor_url'):
