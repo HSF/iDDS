@@ -73,6 +73,8 @@ class DomaPanDAWork(Work):
         self.panda_auth = None
         self.panda_auth_vo = None
         self.panda_config_root = None
+        self.pandacache_url = None
+        self.panda_verify_host = None
 
         self.dependency_map = dependency_map
         self.dependency_map_deleted = []
@@ -90,7 +92,7 @@ class DomaPanDAWork(Work):
         self.task_type = task_type
         self.maxWalltime = maxwalltime
         self.maxAttempt = maxattempt if maxattempt else 5
-        self.core_count = core_count
+        self.core_count = core_count if core_count else 1
         self.task_log = task_log
 
         self.encode_command_line = encode_command_line
@@ -117,7 +119,7 @@ class DomaPanDAWork(Work):
         return False
 
     def load_panda_config(self):
-        panda_config = ConfigParser.SafeConfigParser()
+        panda_config = ConfigParser.ConfigParser()
         if os.environ.get('IDDS_PANDA_CONFIG', None):
             configfile = os.environ['IDDS_PANDA_CONFIG']
             if panda_config.read(configfile) == [configfile]:
@@ -140,59 +142,39 @@ class DomaPanDAWork(Work):
         self.panda_auth = None
         self.panda_auth_vo = None
         self.panda_config_root = None
+        self.pandacache_url = None
+        self.panda_verify_host = None
 
         if panda_config.has_section('panda'):
-            if panda_config.has_option('panda', 'panda_monitor_url'):
+            if 'PANDA_MONITOR_URL' not in os.environ and panda_config.has_option('panda', 'panda_monitor_url'):
                 self.panda_monitor = panda_config.get('panda', 'panda_monitor_url')
                 os.environ['PANDA_MONITOR_URL'] = self.panda_monitor
                 # self.logger.debug("Panda monitor url: %s" % str(self.panda_monitor))
-            if panda_config.has_option('panda', 'panda_url'):
+            if 'PANDA_URL' not in os.environ and panda_config.has_option('panda', 'panda_url'):
                 self.panda_url = panda_config.get('panda', 'panda_url')
                 os.environ['PANDA_URL'] = self.panda_url
                 # self.logger.debug("Panda url: %s" % str(self.panda_url))
-            if panda_config.has_option('panda', 'pandacache_url'):
+            if 'PANDACACHE_URL' not in os.environ and panda_config.has_option('panda', 'pandacache_url'):
                 self.pandacache_url = panda_config.get('panda', 'pandacache_url')
                 os.environ['PANDACACHE_URL'] = self.pandacache_url
                 # self.logger.debug("Pandacache url: %s" % str(self.pandacache_url))
-            if panda_config.has_option('panda', 'panda_verify_host'):
+            if 'PANDA_VERIFY_HOST' not in os.environ and panda_config.has_option('panda', 'panda_verify_host'):
                 self.panda_verify_host = panda_config.get('panda', 'panda_verify_host')
                 os.environ['PANDA_VERIFY_HOST'] = self.panda_verify_host
                 # self.logger.debug("Panda verify host: %s" % str(self.panda_verify_host))
-            if panda_config.has_option('panda', 'panda_url_ssl'):
+            if 'PANDA_URL_SSL' not in os.environ and panda_config.has_option('panda', 'panda_url_ssl'):
                 self.panda_url_ssl = panda_config.get('panda', 'panda_url_ssl')
                 os.environ['PANDA_URL_SSL'] = self.panda_url_ssl
                 # self.logger.debug("Panda url ssl: %s" % str(self.panda_url_ssl))
-            if panda_config.has_option('panda', 'panda_auth'):
+            if 'PANDA_AUTH' not in os.environ and panda_config.has_option('panda', 'panda_auth'):
                 self.panda_auth = panda_config.get('panda', 'panda_auth')
                 os.environ['PANDA_AUTH'] = self.panda_auth
-            if panda_config.has_option('panda', 'panda_auth_vo'):
+            if 'PANDA_AUTH_VO' not in os.environ and panda_config.has_option('panda', 'panda_auth_vo'):
                 self.panda_auth_vo = panda_config.get('panda', 'panda_auth_vo')
                 os.environ['PANDA_AUTH_VO'] = self.panda_auth_vo
-            if panda_config.has_option('panda', 'panda_config_root'):
+            if 'PANDA_CONFIG_ROOT' not in os.environ and panda_config.has_option('panda', 'panda_config_root'):
                 self.panda_config_root = panda_config.get('panda', 'panda_config_root')
                 os.environ['PANDA_CONFIG_ROOT'] = self.panda_config_root
-
-        if not self.panda_monitor and 'PANDA_MONITOR_URL' in os.environ and os.environ['PANDA_MONITOR_URL']:
-            self.panda_monitor = os.environ['PANDA_MONITOR_URL']
-            # self.logger.debug("Panda monitor url: %s" % str(self.panda_monitor))
-        if not self.panda_url and 'PANDA_URL' in os.environ and os.environ['PANDA_URL']:
-            self.panda_url = os.environ['PANDA_URL']
-            # self.logger.debug("Panda url: %s" % str(self.panda_url))
-        if not self.panda_url_ssl and 'PANDA_URL_SSL' in os.environ and os.environ['PANDA_URL_SSL']:
-            self.panda_url_ssl = os.environ['PANDA_URL_SSL']
-            # self.logger.debug("Panda url ssl: %s" % str(self.panda_url_ssl))
-        if not self.pandacache_url and 'PANDACACHE_URL' in os.environ and os.environ['PANDACACHE_URL']:
-            self.pandacache_url = os.environ['PANDACACHE_URL']
-            # self.logger.debug("Pandacache url: %s" % str(self.pandacache_url))
-        if not self.panda_verify_host and 'PANDA_VERIFY_HOST' in os.environ and os.environ['PANDA_VERIFY_HOST']:
-            self.panda_verify_host = os.environ['PANDA_VERIFY_HOST']
-            # self.logger.debug("Panda verify host: %s" % str(self.panda_verify_host))
-        if not self.panda_auth and 'PANDA_AUTH' in os.environ and os.environ['PANDA_AUTH']:
-            self.panda_auth = os.environ['PANDA_AUTH']
-        if not self.panda_auth_vo and 'PANDA_AUTH_VO' in os.environ and os.environ['PANDA_AUTH_VO']:
-            self.panda_auth_vo = os.environ['PANDA_AUTH_VO']
-        if not self.panda_config_root and 'PANDA_CONFIG_ROOT' in os.environ and os.environ['PANDA_CONFIG_ROOT']:
-            self.panda_config_root = os.environ['PANDA_CONFIG_ROOT']
 
     def set_agent_attributes(self, attrs, req_attributes=None):
         if 'life_time' not in attrs[self.class_name] or int(attrs[self.class_name]['life_time']) <= 0:
@@ -322,8 +304,8 @@ class DomaPanDAWork(Work):
         for input_d in inputs_dependency:
             task_name = input_d['task']
             if (task_name not in task_name_to_coll_map                    # noqa: W503
-                or 'outputs' not in task_name_to_coll_map[task_name]      # noqa: W503
-                or not task_name_to_coll_map[task_name]['outputs']):      # noqa: W503
+               or 'outputs' not in task_name_to_coll_map[task_name]      # noqa: W503
+               or not task_name_to_coll_map[task_name]['outputs']):      # noqa: W503
                 return False
         return True
 
@@ -1137,7 +1119,7 @@ class DomaPanDAWork(Work):
             elif proc.tosuspend:
                 self.logger.info("Suspending processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], proc.workload_id))
                 # self.kill_processing_force(processing)
-                self.kill_processing(processing)
+                self.kill_processing_force(processing)
                 proc.tosuspend = False
                 proc.polling_retries = 0
             elif proc.toresume:

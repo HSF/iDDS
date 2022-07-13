@@ -17,6 +17,7 @@ from idds.common import exceptions
 from idds.common.constants import (HTTP_STATUS_CODE, MessageType, MessageStatus,
                                    MessageSource, MessageDestination)
 from idds.common.utils import json_loads
+from idds.core.requests import get_requests
 from idds.core.messages import add_message, retrieve_messages
 from idds.rest.v1.controller import IDDSController
 
@@ -40,6 +41,27 @@ class Message(IDDSController):
             if workload_id == 'null':
                 workload_id = None
 
+            if request_id is None:
+                raise Exception("request_id should not be None")
+        except Exception as error:
+            print(error)
+            print(format_exc())
+            return self.generate_http_response(HTTP_STATUS_CODE.BadRequest, exc_cls=exceptions.BadRequest.__name__, exc_msg=str(error))
+
+        try:
+            username = self.get_username()
+            reqs = get_requests(request_id=request_id, workload_id=workload_id, with_request=True)
+            for req in reqs:
+                if req['username'] and req['username'] != username:
+                    raise exceptions.AuthenticationNoPermission("User %s has no permission to update request %s" % (username, req['request_id']))
+        except exceptions.AuthenticationNoPermission as error:
+            return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=error.__class__.__name__, exc_msg=error)
+        except Exception as error:
+            print(error)
+            print(format_exc())
+            return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
+
+        try:
             msgs = retrieve_messages(request_id=request_id, workload_id=workload_id)
             rets = []
             for msg in msgs:
@@ -74,6 +96,19 @@ class Message(IDDSController):
             print(error)
             print(format_exc())
             return self.generate_http_response(HTTP_STATUS_CODE.BadRequest, exc_cls=exceptions.BadRequest.__name__, exc_msg=str(error))
+
+        try:
+            username = self.get_username()
+            reqs = get_requests(request_id=request_id, workload_id=workload_id, with_request=True)
+            for req in reqs:
+                if req['username'] and req['username'] != username:
+                    raise exceptions.AuthenticationNoPermission("User %s has no permission to update request %s" % (username, req['request_id']))
+        except exceptions.AuthenticationNoPermission as error:
+            return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=error.__class__.__name__, exc_msg=error)
+        except Exception as error:
+            print(error)
+            print(format_exc())
+            return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
 
         try:
             msg = self.get_request().data and json_loads(self.get_request().data)

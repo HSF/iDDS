@@ -117,7 +117,7 @@ extras_requires = dict(mysql=['mysqlclient'])
 data_files = [
     # config and cron files
     ('etc/idds/', glob.glob('etc/idds/*.template')),
-    ('etc/idds/rest', glob.glob('etc/idds/rest/*template')),
+    ('etc/idds/rest', glob.glob('etc/idds/rest/*')),
     ('etc/idds/auth', glob.glob('etc/idds/auth/*template')),
     ('etc/idds/website', glob.glob('etc/idds/website/*')),
     ('etc/idds/supervisord.d', glob.glob('etc/idds/supervisord.d/*')),
