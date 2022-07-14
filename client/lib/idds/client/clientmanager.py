@@ -106,6 +106,9 @@ class ClientManager:
                      'vo': 'IDDS_VO',
                      'auth_no_verify': 'IDDS_AUTH_NO_VERIFY'}
 
+        if not section:
+            section = self.get_section(name)
+
         if name in name_envs:
             env_value = os.environ.get(name_envs[name], None)
             if env_value and len(env_value.strip()) > 0:
@@ -118,6 +121,17 @@ class ClientManager:
 
         value = get_local_config_value(configuration, section, name, current, default)
         return value
+
+    def get_section(self, name):
+        name_sections = {'config': 'common',
+                         'auth_type': 'common',
+                         'host': 'rest',
+                         'x509_proxy': 'x509_proxy',
+                         'oidc_token': 'oidc',
+                         'vo': 'oidc'}
+        if name in name_sections:
+            return name_sections[name]
+        return 'common'
 
     def get_local_configuration(self):
         local_cfg = self.get_local_cfg_file()
@@ -134,17 +148,17 @@ class ClientManager:
                 logging.debug("No local configuration nor IDDS_CONFIG, will only load idds default value.")
 
         if self.get_local_config_root():
-            self.config = self.get_config_value(config, section='common', name='config', current=self.config,
+            self.config = self.get_config_value(config, section=None, name='config', current=self.config,
                                                 default=os.path.join(self.get_local_config_root(), 'idds.cfg'))
         else:
-            self.config = self.get_config_value(config, section='common', name='config', current=self.config,
+            self.config = self.get_config_value(config, section=None, name='config', current=self.config,
                                                 default=None)
 
-        self.auth_type = self.get_config_value(config, 'common', 'auth_type', current=self.auth_type, default='x509_proxy')
+        self.auth_type = self.get_config_value(config, None, 'auth_type', current=self.auth_type, default='x509_proxy')
 
-        self.host = self.get_config_value(config, 'rest', 'host', current=self.host, default=None)
+        self.host = self.get_config_value(config, None, 'host', current=self.host, default=None)
 
-        self.x509_proxy = self.get_config_value(config, 'x509_proxy', 'x509_proxy', current=self.x509_proxy,
+        self.x509_proxy = self.get_config_value(config, None, 'x509_proxy', current=self.x509_proxy,
                                                 default='/tmp/x509up_u%d' % os.geteuid())
         if not self.x509_proxy or not os.path.exists(self.x509_proxy):
             proxy = get_proxy_path()
@@ -152,21 +166,40 @@ class ClientManager:
                 self.x509_proxy = proxy
 
         if self.get_local_config_root():
-            self.oidc_token = self.get_config_value(config, 'oidc', 'oidc_token', current=self.oidc_token,
+            self.oidc_token = self.get_config_value(config, None, 'oidc_token', current=self.oidc_token,
                                                     default=os.path.join(self.get_local_config_root(), '.token'))
         else:
-            self.oidc_token = self.get_config_value(config, 'oidc', 'oidc_token', current=self.oidc_token,
+            self.oidc_token = self.get_config_value(config, None, 'oidc_token', current=self.oidc_token,
                                                     default=None)
 
-        self.vo = self.get_config_value(config, self.auth_type, 'vo', current=self.vo, default=None)
+        self.vo = self.get_config_value(config, None, 'vo', current=self.vo, default=None)
 
         self.configuration = config
+
+    def set_local_configuration(self, name, value):
+        if value:
+            section = self.get_section(name)
+            if self.configuration and not self.configuration.has_section(section):
+                self.configuration.add_section(section)
+            if name in ['oidc_refresh_lifetime']:
+                value = str(value)
+            elif name in ['oidc_auto', 'oidc_polling']:
+                value = str(value).lower()
+            if self.configuration:
+                self.configuration.set(section, name, value)
 
     def save_local_configuration(self):
         local_cfg = self.get_local_cfg_file()
         if not local_cfg:
             logging.debug("local configuration file does not exist, will not store current setup.")
         else:
+            self.set_local_configuration(name='config', value=self.config)
+            self.set_local_configuration(name='auth_type', value=self.auth_type)
+            self.set_local_configuration(name='host', value=self.host)
+            self.set_local_configuration(name='x509_proxy', value=self.x509_proxy)
+            self.set_local_configuration(name='oidc_token', value=self.oidc_token)
+            self.set_local_configuration(name='vo', value=self.vo)
+
             with open(local_cfg, 'w') as configfile:
                 self.configuration.write(configfile)
 
