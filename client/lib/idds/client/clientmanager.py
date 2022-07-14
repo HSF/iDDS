@@ -126,9 +126,9 @@ class ClientManager:
         name_sections = {'config': 'common',
                          'auth_type': 'common',
                          'host': 'rest',
-                         'x509_proxy': 'common',
-                         'oidc_token': 'common',
-                         'vo': 'common'}
+                         'x509_proxy': 'x509_proxy',
+                         'oidc_token': 'oidc',
+                         'vo': 'oidc'}
         if name in name_sections:
             return name_sections[name]
         return 'common'
