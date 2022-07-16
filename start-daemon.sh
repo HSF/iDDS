@@ -80,6 +80,10 @@ else
         -d /opt/idds/config/rucio.cfg
 fi
 
+# generate oidc token from environment
+echo "generate oidc token from environment PANDA_AUTH_ID_TOKEN if it exists."
+python3 /opt/idds/tools/env/merge_configmap.py --create_oidc_token
+
 if [ -f /opt/idds/config/idds/httpd-idds-443-py39-cc7.conf ]; then
     echo "httpd conf already mounted."
 else
