@@ -128,7 +128,7 @@ def config_get_bool(section, option):
 def get_local_config_root(local_config_root=None):
     if 'IDDS_LOCAL_CONFIG_ROOT' in os.environ and os.environ['IDDS_LOCAL_CONFIG_ROOT']:
         if local_config_root is None:
-            print("IDDS_LOCAL_CONFIG_ROOT is set. Will use it.")
+            # print("IDDS_LOCAL_CONFIG_ROOT is set. Will use it.")
             local_config_root = os.environ['IDDS_LOCAL_CONFIG_ROOT']
         else:
             print("local_config_root is set to %s. Ignore IDDS_LOCAL_CONFIG_ROOT" % local_config_root)
@@ -151,6 +151,10 @@ def get_local_config_root(local_config_root=None):
             os.makedirs(local_config_root, exist_ok=True)
         except Exception as ex:
             print("Failed to create %s: %s", local_config_root, str(ex))
+            local_config_root = None
+    if local_config_root and not os.access(local_config_root, os.W_OK):
+        print("No write permission on local config root %s, set it to None" % (local_config_root))
+        local_config_root = None
     return local_config_root
 
 
@@ -175,21 +179,27 @@ def get_local_config_value(configuration, section, name, current, default):
         value = current
     elif value is None:
         value = default
-
-    if configuration and not configuration.has_section(section):
-        configuration.add_section(section)
-    if value is not None:
-        if name in ['oidc_refresh_lifetime']:
-            value = str(value)
-        elif name in ['oidc_auto', 'oidc_polling']:
-            value = str(value).lower()
-        if configuration:
-            configuration.set(section, name, value)
     return value
 
 
-def get_config():
-    __CONFIG = ConfigParser.SafeConfigParser()
+def get_main_config_file():
+    __CONFIG = ConfigParser.ConfigParser()
+    if os.environ.get('IDDS_CONFIG', None):
+        configfile = os.environ['IDDS_CONFIG']
+        if __CONFIG.read(configfile) == [configfile]:
+            return configfile
+    else:
+        configfiles = ['%s/etc/idds/idds.cfg' % os.environ.get('IDDS_HOME', ''),
+                       '/etc/idds/idds.cfg',
+                       '%s/etc/idds/idds.cfg' % os.environ.get('VIRTUAL_ENV', '')]
+        for configfile in configfiles:
+            if __CONFIG.read(configfile) == [configfile]:
+                return configfile
+    return None
+
+
+def get_main_config():
+    __CONFIG = ConfigParser.ConfigParser()
 
     __HAS_CONFIG = False
     if os.environ.get('IDDS_CONFIG', None):
@@ -208,6 +218,11 @@ def get_config():
                 __HAS_CONFIG = True
                 # print("Configuration file %s is used" % configfile)
                 break
+    return __CONFIG, __HAS_CONFIG
+
+
+def get_config():
+    __CONFIG, __HAS_CONFIG = get_main_config()
 
     if not __HAS_CONFIG:
         local_cfg = get_local_cfg_file()

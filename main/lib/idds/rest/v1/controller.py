@@ -38,6 +38,11 @@ class IDDSController(MethodView):
     def get_request(sel):
         return request
 
+    def get_username(self):
+        if 'username' in request.environ and request.environ['username']:
+            return request.environ['username']
+        return None
+
     def generate_message(self, exc_cls=None, exc_msg=None):
         if exc_cls is None and exc_msg is None:
             return None

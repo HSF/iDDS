@@ -61,7 +61,7 @@ class BaseAuthentication(object):
                 self.max_expires_in = self.config.getint('common', 'max_expires_in')
 
     def load_auth_server_config(self):
-        config = ConfigParser.SafeConfigParser()
+        config = ConfigParser.ConfigParser()
         if os.environ.get('IDDS_AUTH_CONFIG', None):
             configfile = os.environ['IDDS_AUTH_CONFIG']
             if config.read(configfile) == [configfile]:
@@ -239,7 +239,7 @@ class OIDCAuthentication(BaseAuthentication):
             if j.get('kid') == kid:
                 jwk = j
         if jwk is None:
-            raise jwt.exceptions.InvalidTokenError('JWK not found for kid={0}'.format(kid, str(jwks)))
+            raise jwt.exceptions.InvalidTokenError('JWK not found for kid={0}: {1}'.format(kid, str(jwks)))
 
         public_num = RSAPublicNumbers(n=decode_value(jwk['n']), e=decode_value(jwk['e']))
         public_key = public_num.public_key(default_backend())

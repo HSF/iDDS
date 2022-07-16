@@ -1,5 +1,3 @@
-import sys
-import datetime
 
 from idds.common.utils import json_dumps                 # noqa F401
 from idds.common.constants import ContentStatus, ContentType, ContentRelationType, ContentLocking          # noqa F401
@@ -10,7 +8,7 @@ from idds.core.workprogress import get_workprogresses    # noqa F401
 from idds.core.processings import get_processings        # noqa F401
 from idds.core import transforms as core_transforms      # noqa F401
 from idds.core import catalog as core_catalog            # noqa F401
-from idds.orm.contents import get_input_contents
+from idds.orm.contents import get_input_contents         # noqa F401
 from idds.core.transforms import release_inputs_by_collection, release_inputs_by_collection_old     # noqa F401
 
 

@@ -116,6 +116,19 @@ class Request(IDDSController):
             return self.generate_http_response(HTTP_STATUS_CODE.BadRequest, exc_cls=exceptions.BadRequest.__name__, exc_msg='Cannot decode json parameter dictionary')
 
         try:
+            username = self.get_username()
+            reqs = get_requests(request_id=request_id, with_request=True)
+            for req in reqs:
+                if req['username'] and req['username'] != username:
+                    raise exceptions.AuthenticationNoPermission("User %s has no permission to update request %s" % (username, req['request_id']))
+        except exceptions.AuthenticationNoPermission as error:
+            return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=error.__class__.__name__, exc_msg=error)
+        except Exception as error:
+            print(error)
+            print(format_exc())
+            return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
+
+        try:
             # update_request(request_id, parameters)
             # msg = {'command': 'update_request', 'parameters': {'status': RequestStatus.ToSuspend}})
             msg = {'command': 'update_request', 'parameters': parameters}

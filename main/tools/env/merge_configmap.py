@@ -13,9 +13,37 @@ import argparse
 import logging
 
 import os
+import re
 import json
 
 import configparser
+
+
+is_unicode_defined = True
+try:
+    _ = unicode('test')
+except NameError:
+    is_unicode_defined = False
+
+
+def is_string(value):
+    if is_unicode_defined and type(value) in [str, unicode] or type(value) in [str]:   # noqa F821
+        return True
+    else:
+        return False
+
+
+def as_parse_env(dct):
+    for key in dct:
+        value = dct[key]
+        if is_string(value) and value.startswith('$'):
+            env_match = re.search('\$\{*([^\}]+)\}*', value)     # noqa W605
+            env_name = env_match.group(1)
+            if env_name not in os.environ:
+                print("Error: %s is defined in configmap but is not defined in environments" % env_name)
+            else:
+                dct[key] = os.environ[env_name]
+    return dct
 
 
 def merge_configs(source_file_path, dest_file_path):
@@ -26,7 +54,7 @@ def merge_configs(source_file_path, dest_file_path):
     if source_file_path and dest_file_path:
         if os.path.exists(source_file_path) and os.path.exists(dest_file_path):
             with open(source_file_path, 'r') as f:
-                data = json.load(f)
+                data = json.load(f, object_hook=as_parse_env)
                 if dest_file_path in data:
                     data_conf = data[dest_file_path]
                     parser = configparser.ConfigParser()
@@ -36,10 +64,24 @@ def merge_configs(source_file_path, dest_file_path):
                         parser.write(dest_file)
 
 
+def create_oidc_token():
+    if 'PANDA_AUTH_ID_TOKEN' in os.environ:
+        config_root = os.environ.get('PANDA_CONFIG_ROOT', '/tmp')
+        token_file = os.path.join(config_root, '.token')
+        token = {"id_token": os.environ.get('PANDA_AUTH_ID_TOKEN', ""),
+                 "token_type": "Bearer"}
+
+        with open(token_file, 'w') as f:
+            f.write(json.dumps(token))
+
+
 logging.getLogger().setLevel(logging.INFO)
 parser = argparse.ArgumentParser(description="Merge configuration file from configmap")
 parser.add_argument('-s', '--source', default=None, help='Source config file path (in .json format)')
 parser.add_argument('-d', '--destination', default=None, help='Destination file path')
+parser.add_argument('-c', '--create_oidc_token', default=False, action='store_true', help='Create the oidc token based on environment')
 args = parser.parse_args()
 
 merge_configs(args.source, args.destination)
+if args.create_oidc_token:
+    create_oidc_token()

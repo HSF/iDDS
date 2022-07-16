@@ -23,7 +23,7 @@ import datetime
 import sys
 import time
 
-import unittest2 as unittest
+import unittest2 as unittest      # noqa F401
 # from nose.tools import assert_equal
 from idds.common.utils import setup_logging
 from idds.common.authentication import OIDCAuthentication

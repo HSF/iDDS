@@ -32,7 +32,6 @@ def setup(args):
     cm.setup_local_configuration(local_config_root=args.local_config_root,
                                  config=args.config, host=args.host,
                                  auth_type=args.auth_type,
-                                 auth_type_host=args.auth_type_host,
                                  x509_proxy=args.x509_proxy,
                                  vo=args.vo,
                                  oidc_token=args.oidc_token)
@@ -154,7 +153,7 @@ def get_parser():
     # setup
     setup_parser = subparsers.add_parser('setup', help='Setup local configuration')
     setup_parser.set_defaults(function=setup)
-    setup_parser.add_argument('--host', dest="auth_type_host", metavar="ADDRESS", help="The iDDS Rest host for the current auth type. For example: https://hostname:443/idds")
+    setup_parser.add_argument('--host', dest="host", metavar="ADDRESS", help="The iDDS Rest host. For example: https://hostname:443/idds")
     setup_parser.add_argument('--auth_type', dest='auth_type', action='store', choices=['x509_proxy', 'oidc'], default=None, help='The auth_type in [x509_proxy, oidc]. Default is x509_proxy.')
     setup_parser.add_argument('--x509_proxy', dest='x509_proxy', action='store', default=None, help='The x509 proxy path. Default is /tmp/x509up_u%d.' % os.geteuid())
     setup_parser.add_argument('--vo', dest='vo', action='store', default=None, help='The virtual organization for authentication.')

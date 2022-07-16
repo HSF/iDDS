@@ -1367,11 +1367,11 @@ class Work(Base):
 
             processing_model = processing.processing
             if (processing_model and processing_model['submitted_at']                                                 # noqa: W503
-                and processing_model['submitted_at'] + datetime.timedelta(seconds=int(poll_operation_time_period))    # noqa: W503
-                < datetime.datetime.utcnow()):                                                                        # noqa: W503
+               and processing_model['submitted_at'] + datetime.timedelta(seconds=int(poll_operation_time_period))    # noqa: W503
+               < datetime.datetime.utcnow()):                                                                        # noqa: W503
 
                 if (processing and processing.status
-                    and processing.status not in [ProcessingStatus.New, ProcessingStatus.New.value]):                   # noqa: W503
+                   and processing.status not in [ProcessingStatus.New, ProcessingStatus.New.value]):                   # noqa: W503
                     # and processing.status not in [ProcessingStatus.New, ProcessingStatus.New.value,                   # noqa: W503
                     #                               ProcessingStatus.Submitting, ProcessingStatus.Submitting.value]):   # noqa: W503
                     return True

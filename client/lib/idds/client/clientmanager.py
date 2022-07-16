@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2021
+# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2022
 
 
 """
@@ -37,7 +37,8 @@ from idds.common.utils import setup_logging, get_proxy_path
 from idds.client.version import release_version
 from idds.client.client import Client
 from idds.common import exceptions
-from idds.common.config import get_local_cfg_file, get_local_config_root, get_local_config_value
+from idds.common.config import (get_local_cfg_file, get_local_config_root,
+                                get_local_config_value, get_main_config_file)
 from idds.common.constants import RequestType, RequestStatus, ProcessingStatus
 # from idds.common.utils import get_rest_host, exception_handler
 from idds.common.utils import exception_handler
@@ -61,35 +62,26 @@ class ClientManager:
         self.local_config_root = None
         self.config = None
         self.auth_type = None
-        self.auth_type_host = None
         self.x509_proxy = None
         self.oidc_token = None
         self.vo = None
 
-        self.configuration = ConfigParser.SafeConfigParser()
+        self.configuration = ConfigParser.ConfigParser()
 
         self.client = None
         # if setup_client:
         #     self.setup_client()
 
     def setup_client(self, auth_setup=False):
-        self.setup_local_configuration(host=self.host)
+        self.get_local_configuration()
         if self.host is None:
             local_cfg = self.get_local_cfg_file()
-            if self.auth_type is None:
-                self.auth_type = 'x509_proxy'
-            self.host = self.get_config_value(local_cfg, self.auth_type, 'host', current=self.host, default=None)
-            if self.host is None:
-                self.host = self.get_config_value(local_cfg, 'rest', 'host', current=self.host, default=None)
+            self.host = self.get_config_value(local_cfg, 'rest', 'host', current=self.host, default=None)
 
         if self.client is None:
-            if self.auth_type_host is not None:
-                client_host = self.auth_type_host
-            else:
-                client_host = self.host
             if self.auth_type is None:
                 self.auth_type = 'x509_proxy'
-            self.client = Client(host=client_host,
+            self.client = Client(host=self.host,
                                  auth={'auth_type': self.auth_type,
                                        'client_proxy': self.x509_proxy,
                                        'oidc_token': self.oidc_token,
@@ -106,34 +98,67 @@ class ClientManager:
         return local_cfg
 
     def get_config_value(self, configuration, section, name, current, default):
+        name_envs = {'host': 'IDDS_HOST',
+                     'local_config_root': 'IDDS_LOCAL_CONFIG_ROOT',
+                     'config': 'IDDS_CONFIG',
+                     'auth_type': 'IDDS_AUTH_TYPE',
+                     'oidc_token': 'IDDS_OIDC_TOKEN',
+                     'vo': 'IDDS_VO',
+                     'auth_no_verify': 'IDDS_AUTH_NO_VERIFY'}
+
+        if not section:
+            section = self.get_section(name)
+
+        if name in name_envs:
+            env_value = os.environ.get(name_envs[name], None)
+            if env_value and len(env_value.strip()) > 0:
+                return env_value
+
         if configuration and type(configuration) in [str]:
-            config = ConfigParser.SafeConfigParser()
+            config = ConfigParser.ConfigParser()
             config.read(configuration)
             configuration = config
+
         value = get_local_config_value(configuration, section, name, current, default)
         return value
 
+    def get_section(self, name):
+        name_sections = {'config': 'common',
+                         'auth_type': 'common',
+                         'host': 'rest',
+                         'x509_proxy': 'x509_proxy',
+                         'oidc_token': 'oidc',
+                         'vo': 'oidc'}
+        if name in name_sections:
+            return name_sections[name]
+        return 'common'
+
     def get_local_configuration(self):
         local_cfg = self.get_local_cfg_file()
-        config = ConfigParser.SafeConfigParser()
-        if not local_cfg:
-            logging.debug("local configuration file does not exist, will only load idds default value.")
-        if local_cfg and os.path.exists(local_cfg):
-            config.read(local_cfg)
+        main_cfg = get_main_config_file()
+        config = ConfigParser.ConfigParser()
+        if local_cfg and os.path.exists(local_cfg) and main_cfg:
+            config.read((main_cfg, local_cfg))
+        else:
+            if main_cfg:
+                config.read(main_cfg)
+            elif local_cfg and os.path.exists(local_cfg):
+                config.read(local_cfg)
+            else:
+                logging.debug("No local configuration nor IDDS_CONFIG, will only load idds default value.")
 
         if self.get_local_config_root():
-            self.config = self.get_config_value(config, section='common', name='config', current=self.config,
+            self.config = self.get_config_value(config, section=None, name='config', current=self.config,
                                                 default=os.path.join(self.get_local_config_root(), 'idds.cfg'))
         else:
-            self.config = self.get_config_value(config, section='common', name='config', current=self.config,
+            self.config = self.get_config_value(config, section=None, name='config', current=self.config,
                                                 default=None)
 
-        self.auth_type = self.get_config_value(config, 'common', 'auth_type', current=self.auth_type, default='x509_proxy')
+        self.auth_type = self.get_config_value(config, None, 'auth_type', current=self.auth_type, default='x509_proxy')
 
-        self.host = self.get_config_value(config, 'rest', 'host', current=self.host, default=None)
-        self.auth_type_host = self.get_config_value(config, self.auth_type, 'host', current=self.auth_type_host, default=None)
+        self.host = self.get_config_value(config, None, 'host', current=self.host, default=None)
 
-        self.x509_proxy = self.get_config_value(config, 'x509_proxy', 'x509_proxy', current=self.x509_proxy,
+        self.x509_proxy = self.get_config_value(config, None, 'x509_proxy', current=self.x509_proxy,
                                                 default='/tmp/x509up_u%d' % os.geteuid())
         if not self.x509_proxy or not os.path.exists(self.x509_proxy):
             proxy = get_proxy_path()
@@ -141,26 +166,45 @@ class ClientManager:
                 self.x509_proxy = proxy
 
         if self.get_local_config_root():
-            self.oidc_token = self.get_config_value(config, 'oidc', 'oidc_token', current=self.oidc_token,
-                                                    default=os.path.join(self.get_local_config_root(), '.oidc_token'))
+            self.oidc_token = self.get_config_value(config, None, 'oidc_token', current=self.oidc_token,
+                                                    default=os.path.join(self.get_local_config_root(), '.token'))
         else:
-            self.oidc_token = self.get_config_value(config, 'oidc', 'oidc_token', current=self.oidc_token,
+            self.oidc_token = self.get_config_value(config, None, 'oidc_token', current=self.oidc_token,
                                                     default=None)
 
-        self.vo = self.get_config_value(config, self.auth_type, 'vo', current=self.vo, default=None)
+        self.vo = self.get_config_value(config, None, 'vo', current=self.vo, default=None)
 
         self.configuration = config
+
+    def set_local_configuration(self, name, value):
+        if value:
+            section = self.get_section(name)
+            if self.configuration and not self.configuration.has_section(section):
+                self.configuration.add_section(section)
+            if name in ['oidc_refresh_lifetime']:
+                value = str(value)
+            elif name in ['oidc_auto', 'oidc_polling']:
+                value = str(value).lower()
+            if self.configuration:
+                self.configuration.set(section, name, value)
 
     def save_local_configuration(self):
         local_cfg = self.get_local_cfg_file()
         if not local_cfg:
             logging.debug("local configuration file does not exist, will not store current setup.")
         else:
+            self.set_local_configuration(name='config', value=self.config)
+            self.set_local_configuration(name='auth_type', value=self.auth_type)
+            self.set_local_configuration(name='host', value=self.host)
+            self.set_local_configuration(name='x509_proxy', value=self.x509_proxy)
+            self.set_local_configuration(name='oidc_token', value=self.oidc_token)
+            self.set_local_configuration(name='vo', value=self.vo)
+
             with open(local_cfg, 'w') as configfile:
                 self.configuration.write(configfile)
 
     def setup_local_configuration(self, local_config_root=None, config=None, host=None,
-                                  auth_type=None, auth_type_host=None, x509_proxy=None,
+                                  auth_type=None, x509_proxy=None,
                                   oidc_token=None, vo=None):
 
         if 'IDDS_CONFIG' in os.environ and os.environ['IDDS_CONFIG']:
@@ -174,7 +218,6 @@ class ClientManager:
         self.config = config
         self.host = host
         self.auth_type = auth_type
-        self.auth_type_host = auth_type_host
         self.x509_proxy = x509_proxy
         self.oidc_token = oidc_token
         self.vo = vo

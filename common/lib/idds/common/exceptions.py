@@ -262,3 +262,13 @@ class AuthenticationNotSupported(IDDSException):
         super(AuthenticationNotSupported, self).__init__(*args, **kwargs)
         self._message = "Authentication not supported."
         self.error_code = 602
+
+
+class AuthenticationNoPermission(IDDSException):
+    """
+    Authentication No Permission
+    """
+    def __init__(self, *args, **kwargs):
+        super(AuthenticationNoPermission, self).__init__(*args, **kwargs)
+        self._message = "Authentication no permission."
+        self.error_code = 603
