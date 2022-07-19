@@ -36,13 +36,16 @@ def is_string(value):
 def as_parse_env(dct):
     for key in dct:
         value = dct[key]
-        if is_string(value) and value.startswith('$'):
-            env_match = re.search('\$\{*([^\}]+)\}*', value)     # noqa W605
-            env_name = env_match.group(1)
-            if env_name not in os.environ:
-                print("Error: %s is defined in configmap but is not defined in environments" % env_name)
-            else:
-                dct[key] = os.environ[env_name]
+        if is_string(value) and '$' in value:
+            env_matches = re.findall('\$\{*([^\}]+)\}*', value)     # noqa W605
+            for env_name in env_matches:
+                if env_name not in os.environ:
+                    print("Error: %s is defined in configmap but is not defined in environments" % env_name)
+                else:
+                    env_name1 = r'${%s}' % env_name
+                    env_name2 = r'$%s' % env_name
+                    value = value.replace(env_name1, os.environ.get(env_name)).replace(env_name2, os.environ.get(env_name))
+        dct[key] = value
     return dct
 
 
