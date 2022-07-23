@@ -10,10 +10,10 @@ export IDDS_HOME=/opt/idds
 if [ -f /etc/grid-security/hostkey.pem ]; then
     echo "host certificate is already created."
     chmod 600 /etc/grid-security/hostkey.pem
-elif [ -f /opt/idds/configmap/hostkey.pem ]; then
-    echo "mount /opt/idds/configmap/hostkey.pem to /etc/grid-security/hostkey.pem"
-    ln -fs /opt/idds/configmap/hostkey.pem /etc/grid-security/hostkey.pem
-    ln -fs /opt/idds/configmap/hostcert.pem /etc/grid-security/hostcert.pem
+elif [ -f /opt/idds/certs/hostkey.pem ]; then
+    echo "mount /opt/idds/certs/hostkey.pem to /etc/grid-security/hostkey.pem"
+    ln -fs /opt/idds/certs/hostkey.pem /etc/grid-security/hostkey.pem
+    ln -fs /opt/idds/certs/hostcert.pem /etc/grid-security/hostcert.pem
     chmod 600 /etc/grid-security/hostkey.pem
 fi
 
