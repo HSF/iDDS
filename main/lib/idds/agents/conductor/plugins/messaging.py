@@ -90,17 +90,22 @@ class MessagingSender(PluginBase, threading.Thread):
         broker_addresses = []
         for b in self.brokers:
             try:
+                if ":" in b:
+                    b, port = b.split(":")
+                else:
+                    port = self.port
+
                 addrinfos = socket.getaddrinfo(b, 0, socket.AF_INET, 0, socket.IPPROTO_TCP)
                 for addrinfo in addrinfos:
                     b_addr = addrinfo[4][0]
-                    broker_addresses.append(b_addr)
+                    broker_addresses.append((b_addr, port))
             except socket.gaierror as error:
                 self.logger.error('Cannot resolve hostname %s: %s' % (b, str(error)))
 
         self.logger.info("Resolved broker addresses: %s" % broker_addresses)
 
-        for broker in broker_addresses:
-            conn = stomp.Connection12(host_and_ports=[(broker, self.port)],
+        for broker, port in broker_addresses:
+            conn = stomp.Connection12(host_and_ports=[(broker, port)],
                                       vhost=self.vhost,
                                       keepalive=True,
                                       timeout=self.broker_timeout)
@@ -157,17 +162,22 @@ class MessagingReceiver(MessagingSender):
         broker_addresses = []
         for b in self.brokers:
             try:
+                if ":" in b:
+                    b, port = b.split(":")
+                else:
+                    port = self.port
+
                 addrinfos = socket.getaddrinfo(b, 0, socket.AF_INET, 0, socket.IPPROTO_TCP)
                 for addrinfo in addrinfos:
                     b_addr = addrinfo[4][0]
-                    broker_addresses.append(b_addr)
+                    broker_addresses.append((b_addr, port))
             except socket.gaierror as error:
                 self.logger.error('Cannot resolve hostname %s: %s' % (b, str(error)))
 
         self.logger.info("Resolved broker addresses: %s" % broker_addresses)
 
-        for broker in broker_addresses:
-            conn = stomp.Connection12(host_and_ports=[(broker, self.port)],
+        for broker, port in broker_addresses:
+            conn = stomp.Connection12(host_and_ports=[(broker, port)],
                                       vhost=self.vhost,
                                       keepalive=True)
             conn.set_listener('message-receiver', self.get_listener(conn.transport._Transport__host_and_ports[0]))

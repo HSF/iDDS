@@ -146,6 +146,8 @@ def get_rest_host():
     """
     Function to get rest host
     """
+    if "IDDS_HOST" in os.environ:
+        return os.environ.get("IDDS_HOST")
     host = config_get('rest', 'host')
     url_prefix = get_rest_url_prefix()
     while host.endswith("/"):
