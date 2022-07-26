@@ -42,11 +42,9 @@ else
         -d /opt/idds/config/idds/auth.cfg
     
     if [ -f /opt/idds/configmap/auth.cfg ]; then
-        python3 /opt/idds/tools/env/merge_idds_configs.py \
-        -s /opt/idds/configmap/auth.cfg $IDDS_OVERRIDE_AUTH_CONFIGS \
-        --use-env \
-        --prefix IDDS_CFG_AUTH \
-        -d /opt/idds/config/idds/auth.cfg
+        python3 /opt/idds/tools/env/merge_configmap.py \
+            -s /opt/idds/configmap/auth.cfg.json \
+	    -d /opt/idds/config/idds/auth.cfg
     fi
 
     python3 /opt/idds/tools/env/merge_configmap.py \
