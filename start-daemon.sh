@@ -41,7 +41,7 @@ else
         --prefix IDDS_CFG_AUTH \
         -d /opt/idds/config/idds/auth.cfg
     
-    if [ -f /opt/idds/configmap/auth.cfg ]; then
+    if [ -f /opt/idds/configmap/auth.cfg.json ]; then
         python3 /opt/idds/tools/env/merge_configmap.py \
             -s /opt/idds/configmap/auth.cfg.json \
 	    -d /opt/idds/config/idds/auth.cfg
