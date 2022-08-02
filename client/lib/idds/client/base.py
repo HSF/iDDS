@@ -169,7 +169,7 @@ class BaseRestClient(object):
         if self.original_user_cert:
             headers['X-IDDS-Auth-Usercert-Original'] = self.original_user_cert
         if self.original_user_token:
-            headers['X-IDDS-Auth-Username-Original'] = self.original_user_token
+            headers['X-IDDS-Auth-Usertoken-Original'] = self.original_user_token
 
         for retry in range(self.retries):
             try:
