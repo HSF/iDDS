@@ -451,8 +451,8 @@ class DomaPanDAWork(Work):
         task_param_map['nChunksToWait'] = 1
         task_param_map['maxCpuCount'] = self.maxWalltime
         task_param_map['maxWalltime'] = self.maxWalltime
-        task_param_map['maxFailure'] = self.maxAttempt
-        task_param_map['maxAttempt'] = self.maxAttempt
+        task_param_map['maxFailure'] = self.maxAttempt if self.maxAttempt else 5
+        task_param_map['maxAttempt'] = self.maxAttempt if self.maxAttempt else 5
         task_param_map['log'] = self.task_log
         task_param_map['jobParameters'] = [
             {'type': 'constant',
