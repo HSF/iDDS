@@ -342,6 +342,16 @@ class ClientManager:
         else:
             logging.error("Failed to parse token information: %s" % str(token_info))
 
+    def set_original_user(self, user_name=None, user_dn=None, user_cert=None, user_token=None):
+        """
+        Set original user
+        """
+        self.setup_client()
+        self.client.set_original_user(user_name=user_name,
+                                      user_dn=user_dn,
+                                      user_cert=user_cert,
+                                      user_token=user_token)
+
     @exception_handler
     def ping(self):
         """
@@ -375,6 +385,11 @@ class ClientManager:
             'workload_id': workflow.get_workload_id(),
             'request_metadata': {'version': release_version, 'workload_id': workflow.get_workload_id(), 'workflow': workflow}
         }
+
+        if self.client.original_user_name:
+            props['username'] = self.client.original_user_name
+        if self.client.original_user_dn:
+            props['userdn'] = self.client.original_user_dn
 
         if self.auth_type == 'x509_proxy':
             workflow.add_proxy()
