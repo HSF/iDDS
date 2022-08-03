@@ -16,7 +16,7 @@ import flask
 from flask import Flask, Response
 
 from idds.common import exceptions
-from idds.common.authentication import authenticate_x509, authenticate_oidc
+from idds.common.authentication import authenticate_x509, authenticate_oidc, authenticate_is_super_user
 from idds.common.constants import HTTP_STATUS_CODE
 from idds.common.utils import get_rest_debug
 # from idds.common.utils import get_rest_url_prefix
@@ -95,18 +95,46 @@ def before_request_auth():
         dn = dn.strip()
         client_cert = client_cert.strip()
         if not dn or len(dn) == 0:
-            dn = flask.request.headers.get('SSL_CLIENT_S_DN', default=None)
+            dn = flask.request.headers.get('SSL-CLIENT-S-DN', default=None)
         if not client_cert or len(client_cert) == 0:
-            client_cert = flask.request.headers.get('SSL_CLIENT_CERT', default=None)
+            client_cert = flask.request.headers.get('SSL-CLIENT-CERT', default=None)
+
         is_authenticated, errors, username = authenticate_x509(vo, dn, client_cert)
         if not is_authenticated:
             return generate_failed_auth_response(errors)
+
+        # allow commands relayed from panda server
+        is_super_user = authenticate_is_super_user(username, dn)
+        if is_super_user:
+            original_username = flask.request.headers.get('X-IDDS-Auth-Username-Original', default=None)
+            original_usercert = flask.request.headers.get('X-IDDS-Auth-Usercert-Original', default=None)
+            original_userdn = flask.request.headers.get('X-IDDS-Auth-Userdn-Original', default=None)
+            if original_userdn and original_usercert:
+                is_authenticated, errors, username = authenticate_x509(vo, original_userdn, original_usercert)
+                if not is_authenticated:
+                    return generate_failed_auth_response(errors)
+            elif original_username:
+                username = original_username
+
         flask.request.environ['username'] = username
     elif auth_type in ['oidc']:
         token = flask.request.headers.get('X-IDDS-Auth-Token', default=None)
         is_authenticated, errors, username = authenticate_oidc(vo, token)
         if not is_authenticated:
             return generate_failed_auth_response(errors)
+
+        # allow commands relayed from panda server
+        is_super_user = authenticate_is_super_user(username)
+        if is_super_user:
+            original_username = flask.request.headers.get('X-IDDS-Auth-Username-Original', default=None)
+            original_usertoken = flask.request.headers.get('X-IDDS-Auth-Usertoken-Original', default=None)
+            if original_usertoken:
+                is_authenticated, errors, username = authenticate_oidc(vo, original_usertoken)
+                if not is_authenticated:
+                    return generate_failed_auth_response(errors)
+            elif original_username:
+                username = original_username
+
         flask.request.environ['username'] = username
     else:
         errors = "Authentication method %s is not supported" % auth_type
