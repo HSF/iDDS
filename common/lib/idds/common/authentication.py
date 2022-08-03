@@ -359,6 +359,16 @@ class X509Authentication(BaseAuthentication):
                 return users
         return []
 
+    def get_super_user_list(self):
+        section = "Users"
+        option = "super_users"
+        if self.config and self.config.has_section(section):
+            if self.config.has_option(section, option):
+                users = self.config.get(section, option)
+                users = users.split(",")
+                return users
+        return []
+
 
 # "/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=wguan/CN=667815/CN=Wen Guan/CN=1883443395"
 def get_user_name_from_dn1(dn):
@@ -480,3 +490,13 @@ def authenticate_oidc(vo, token):
         return status, data, username
     else:
         return status, data, username
+
+
+def authenticate_is_super_user(username, dn=None):
+    super_user_list = X509Authentication().get_super_user_list()
+    for super_user in super_user_list:
+        if username == super_user:
+            return True
+        if dn and super_user in dn:
+            return True
+    return False

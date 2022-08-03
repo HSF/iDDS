@@ -68,6 +68,11 @@ class BaseRestClient(object):
 
         self.check_auth()
 
+        self.original_user_name = None
+        self.original_user_dn = None
+        self.original_user_cert = None
+        self.original_user_token = None
+
     def get_user_proxy(sellf):
         """
         Get the user proxy.
@@ -81,6 +86,19 @@ class BaseRestClient(object):
             raise exceptions.RestException("Cannot find a valid x509 proxy.")
 
         return client_proxy
+
+    def set_original_user(self, user_name=None, user_dn=None, user_cert=None, user_token=None):
+        """
+        Set original user information.
+        """
+        if user_name:
+            self.original_user_name = user_name
+        if user_dn:
+            self.original_user_dn = user_dn
+        if user_cert:
+            self.original_user_cert = user_cert
+        if user_token:
+            self.original_user_token = user_token
 
     def check_auth(self):
         """
@@ -143,6 +161,15 @@ class BaseRestClient(object):
             headers = {}
         headers['X-IDDS-Auth-Type'] = self.auth_type
         headers['X-IDDS-Auth-VO'] = self.vo
+
+        if self.original_user_name:
+            headers['X-IDDS-Auth-Username-Original'] = self.original_user_name
+        if self.original_user_dn:
+            headers['X-IDDS-Auth-Userdn-Original'] = self.original_user_dn
+        if self.original_user_cert:
+            headers['X-IDDS-Auth-Usercert-Original'] = self.original_user_cert
+        if self.original_user_token:
+            headers['X-IDDS-Auth-Usertoken-Original'] = self.original_user_token
 
         for retry in range(self.retries):
             try:
