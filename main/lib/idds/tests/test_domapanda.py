@@ -177,5 +177,6 @@ if __name__ == '__main__':
     workflow = setup_workflow()
 
     wm = ClientManager(host=host)
+    # wm.set_original_user(user_name="wguandev")
     request_id = wm.submit(workflow, use_dataset_name=False)
     print(request_id)
