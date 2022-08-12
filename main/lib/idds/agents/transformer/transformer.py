@@ -6,18 +6,12 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2021
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 202
 
 import copy
 import datetime
 import time
 import traceback
-try:
-    # python 3
-    from queue import Queue
-except ImportError:
-    # Python 2
-    from Queue import Queue
 
 from idds.common import exceptions
 from idds.common.constants import (Sections, TransformStatus, TransformLocking, TransformType,
@@ -30,6 +24,15 @@ from idds.core import (transforms as core_transforms,
                        processings as core_processings,
                        catalog as core_catalog)
 from idds.agents.common.baseagent import BaseAgent
+from idds.agents.common.eventbus.event import (NewTransformEvent,
+                                               UpdateTransformEvent,
+                                               AbortTransformEvent,
+                                               ResumeTransformEvent,
+                                               AbortProcessingEvent,
+                                               ResumeProcessingEvent,
+                                               UpdateRequestEvent,
+                                               NewProcessingEvent,
+                                               UpdateProcessingEvent)
 
 setup_logging(__name__)
 
@@ -52,20 +55,19 @@ class Transformer(BaseAgent):
         else:
             self.retries = int(self.retries)
 
-        self.new_task_queue = Queue()
-        self.new_output_queue = Queue()
-        self.running_task_queue = Queue()
-        self.running_output_queue = Queue()
-        self.new_processing_size = 0
-        self.running_processing_size = 0
+        self.number_workers = 0
+        if not hasattr(self, 'max_number_workers') or not self.max_number_workers:
+            self.max_number_workers = 3
+        else:
+            self.max_number_workers = int(self.max_number_workers)
+
+    def is_ok_to_run_more_requests(self):
+        if self.number_workers >= self.max_number_workers:
+            return False
+        return True
 
     def show_queue_size(self):
-        q_str = "new queue size: %s, processing size: %s, output queue size: %s, " % (self.new_task_queue.qsize(),
-                                                                                      self.new_processing_size,
-                                                                                      self.new_output_queue.qsize())
-        q_str += "running queue size: %s, processing size: %s,  output queue size: %s" % (self.running_task_queue.qsize(),
-                                                                                          self.running_processing_size,
-                                                                                          self.running_output_queue.qsize())
+        q_str = "number of transforms: %s, max number of transforms: %s" % (self.number_workers, self.max_number_workers)
         self.logger.debug(q_str)
 
     def get_new_transforms(self):
@@ -73,17 +75,25 @@ class Transformer(BaseAgent):
         Get new transforms to process
         """
         try:
-            if self.new_task_queue.qsize() > 0 or self.new_output_queue.qsize() > 0:
+            if not self.is_ok_to_run_more_requests():
                 return []
 
             self.show_queue_size()
 
             transform_status = [TransformStatus.New, TransformStatus.Ready, TransformStatus.Extend]
-            transforms_new = core_transforms.get_transforms_by_status(status=transform_status, locking=True, bulk_size=self.retrieve_bulk_size)
+            next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period)
+            transforms_new = core_transforms.get_transforms_by_status(status=transform_status, locking=True,
+                                                                      not_lock=True, next_poll_at=next_poll_at,
+                                                                      bulk_size=self.retrieve_bulk_size)
 
             self.logger.debug("Main thread get %s New+Ready+Extend transforms to process" % len(transforms_new))
             if transforms_new:
                 self.logger.info("Main thread get %s New+Ready+Extend transforms to process" % len(transforms_new))
+
+            for tf in transforms_new:
+                event = NewTransformEvent(publisher_id=self.id, transform_id=tf.transform_id)
+                self.event_bus.send(event)
+
             return transforms_new
         except exceptions.DatabaseException as ex:
             if 'ORA-00060' in str(ex):
@@ -93,6 +103,58 @@ class Transformer(BaseAgent):
                 self.logger.error(ex)
                 self.logger.error(traceback.format_exc())
         return []
+
+    def get_running_transforms(self):
+        """
+        Get running transforms
+        """
+        try:
+            if not self.is_ok_to_run_more_requests():
+                return []
+
+            self.show_queue_size()
+
+            transform_status = [TransformStatus.Transforming,
+                                TransformStatus.ToCancel, TransformStatus.Cancelling,
+                                TransformStatus.ToSuspend, TransformStatus.Suspending,
+                                TransformStatus.ToExpire, TransformStatus.Expiring,
+                                TransformStatus.ToResume, TransformStatus.Resuming,
+                                TransformStatus.ToFinish, TransformStatus.ToForceFinish]
+            next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period)
+            transforms = core_transforms.get_transforms_by_status(status=transform_status,
+                                                                  period=None,
+                                                                  locking=True,
+                                                                  not_lock=True, next_poll_at=next_poll_at,
+                                                                  bulk_size=self.retrieve_bulk_size)
+
+            self.logger.debug("Main thread get %s transforming transforms to process" % len(transforms))
+            if transforms:
+                self.logger.info("Main thread get %s transforming transforms to process" % len(transforms))
+
+            for tf in transforms:
+                event = UpdateTransformEvent(publisher_id=self.id, transform_id=tf.transform_id)
+                self.event_bus.send(event)
+
+            return transforms
+        except exceptions.DatabaseException as ex:
+            if 'ORA-00060' in str(ex):
+                self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
+            else:
+                self.logger.error(ex)
+                self.logger.error(traceback.format_exc())
+        return []
+
+    def get_request(self, transform_id, status=None, locking=False):
+        try:
+            return core_transforms.get_transform_by_id_status(transfrom_id=transform_id, status=status, locking=locking)
+        except exceptions.DatabaseException as ex:
+            if 'ORA-00060' in str(ex):
+                self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
+            else:
+                # raise ex
+                self.logger.error(ex)
+                self.logger.error(traceback.format_exc())
+        return None
 
     def get_new_contents(self, transform, new_input_output_maps):
         new_input_contents, new_output_contents, new_log_contents = [], [], []
@@ -299,11 +361,11 @@ class Transformer(BaseAgent):
         self.logger.debug("poll_inputs_dependency, updated_contents[:10]: %s" % str(updated_contents[:10]))
         return updated_contents
 
-    def process_new_transform_real(self, transform):
+    def handle_new_transform_real(self, transform):
         """
         Process new transform
         """
-        self.logger.info("process_new_transform: transform_id: %s" % transform['transform_id'])
+        self.logger.info("handle_new_transform: transform_id: %s" % transform['transform_id'])
 
         work = transform['transform_metadata']['work']
         work.set_work_id(transform['transform_id'])
@@ -378,12 +440,12 @@ class Transformer(BaseAgent):
                }
         return ret
 
-    def process_new_transform(self, transform):
+    def handle_new_transform(self, transform):
         """
         Process new transform
         """
         try:
-            ret = self.process_new_transform_real(transform)
+            ret = self.handle_new_transform_real(transform)
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
@@ -401,109 +463,79 @@ class Transformer(BaseAgent):
             ret = {'transform': transform, 'transform_parameters': transform_parameters}
         return ret
 
-    def process_new_transforms(self):
-        ret = []
-        while not self.new_task_queue.empty():
-            try:
-                transform = self.new_task_queue.get()
-                if transform:
-                    self.new_processing_size += 1
-                    self.logger.info("Main thread processing new transform: %s" % transform)
-                    ret_transform = self.process_new_transform(transform)
-                    self.new_processing_size -= 1
-                    if ret_transform:
-                        self.new_output_queue.put(ret_transform)
-                        # ret.append(ret_transform)
-            except Exception as ex:
-                self.logger.error(ex)
-                self.logger.error(traceback.format_exc())
-        return ret
-
-    def finish_new_transforms(self):
-        while not self.new_output_queue.empty():
-            try:
-                ret = self.new_output_queue.get()
-                self.logger.info("Main thread finishing processing transform: %s" % ret['transform'])
-                if ret:
-                    retry = True
-                    retry_num = 0
-                    while retry:
-                        retry = False
-                        retry_num += 1
-                        try:
-                            # self.logger.debug("wen: %s" % str(ret['output_contents']))
-                            core_transforms.add_transform_outputs(transform=ret['transform'],
-                                                                  transform_parameters=ret['transform_parameters'],
-                                                                  input_collections=ret.get('input_collections', None),
-                                                                  output_collections=ret.get('output_collections', None),
-                                                                  log_collections=ret.get('log_collections', None),
-                                                                  new_contents=ret.get('new_contents', None),
-                                                                  update_input_collections=ret.get('update_input_collections', None),
-                                                                  update_output_collections=ret.get('update_output_collections', None),
-                                                                  update_log_collections=ret.get('update_log_collections', None),
-                                                                  update_contents=ret.get('update_contents', None),
-                                                                  messages=ret.get('messages', None),
-                                                                  new_processing=ret.get('new_processing', None),
-                                                                  message_bulk_size=self.message_bulk_size)
-                        except exceptions.DatabaseException as ex:
-                            if 'ORA-00060' in str(ex):
-                                self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
-                                if retry_num < 5:
-                                    retry = True
-                                    time.sleep(60 * retry_num * 2)
-                                else:
-                                    raise ex
+    def update_transform(self, ret):
+        new_pr_ids, update_pr_ids = [], []
+        try:
+            self.logger.info("Main thread finishing processing transform: %s" % ret['transform'])
+            if ret:
+                retry = True
+                retry_num = 0
+                while retry:
+                    retry = False
+                    retry_num += 1
+                    try:
+                        # self.logger.debug("wen: %s" % str(ret['output_contents']))
+                        new_pr_ids, update_pr_ids = core_transforms.add_transform_outputs(transform=ret['transform'],
+                                                                                          transform_parameters=ret['transform_parameters'],
+                                                                                          input_collections=ret.get('input_collections', None),
+                                                                                          output_collections=ret.get('output_collections', None),
+                                                                                          log_collections=ret.get('log_collections', None),
+                                                                                          new_contents=ret.get('new_contents', None),
+                                                                                          update_input_collections=ret.get('update_input_collections', None),
+                                                                                          update_output_collections=ret.get('update_output_collections', None),
+                                                                                          update_log_collections=ret.get('update_log_collections', None),
+                                                                                          update_contents=ret.get('update_contents', None),
+                                                                                          messages=ret.get('messages', None),
+                                                                                          update_messages=ret.get('update_messages', None),
+                                                                                          new_processing=ret.get('new_processing', None),
+                                                                                          update_processing=ret.get('update_processing', None),
+                                                                                          message_bulk_size=self.message_bulk_size)
+                    except exceptions.DatabaseException as ex:
+                        if 'ORA-00060' in str(ex):
+                            self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
+                            if retry_num < 5:
+                                retry = True
+                                time.sleep(60 * retry_num * 2)
                             else:
                                 raise ex
-                                # self.logger.error(ex)
-                                # self.logger.error(traceback.format_exc())
+                        else:
+                            raise ex
+                            # self.logger.error(ex)
+                            # self.logger.error(traceback.format_exc())
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+            try:
+                transform_parameters = {'status': TransformStatus.Transforming,
+                                        'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period),
+                                        'retries': ret['transform']['retries'] + 1,
+                                        'locking': TransformLocking.Idle}
+                new_pr_ids, update_pr_ids = core_transforms.add_transform_outputs(transform=ret['transform'],
+                                                                                  transform_parameters=transform_parameters)
             except Exception as ex:
                 self.logger.error(ex)
                 self.logger.error(traceback.format_exc())
-                try:
-                    transform_parameters = {'status': TransformStatus.Transforming,
-                                            'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period),
-                                            'retries': ret['transform']['retries'] + 1,
-                                            'locking': TransformLocking.Idle}
-                    core_transforms.add_transform_outputs(transform=ret['transform'],
-                                                          transform_parameters=transform_parameters)
-                except Exception as ex:
-                    self.logger.error(ex)
-                    self.logger.error(traceback.format_exc())
+        return new_pr_ids, update_pr_ids
 
-    def get_running_transforms(self):
-        """
-        Get running transforms
-        """
+    def process_new_transform(self, event):
+        self.number_workers += 1
         try:
-            if self.running_task_queue.qsize() > 0 or self.running_output_queue.qsize() > 0:
-                return []
-
-            self.show_queue_size()
-
-            transform_status = [TransformStatus.Transforming,
-                                TransformStatus.ToCancel, TransformStatus.Cancelling,
-                                TransformStatus.ToSuspend, TransformStatus.Suspending,
-                                TransformStatus.ToExpire, TransformStatus.Expiring,
-                                TransformStatus.ToResume, TransformStatus.Resuming,
-                                TransformStatus.ToFinish, TransformStatus.ToForceFinish]
-            transforms = core_transforms.get_transforms_by_status(status=transform_status,
-                                                                  period=None,
-                                                                  locking=True,
-                                                                  with_messaging=True,
-                                                                  bulk_size=self.retrieve_bulk_size)
-
-            self.logger.debug("Main thread get %s transforming transforms to process" % len(transforms))
-            if transforms:
-                self.logger.info("Main thread get %s transforming transforms to process" % len(transforms))
-            return transforms
-        except exceptions.DatabaseException as ex:
-            if 'ORA-00060' in str(ex):
-                self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
-            else:
-                self.logger.error(ex)
-                self.logger.error(traceback.format_exc())
-        return []
+            if event:
+                tf_status = [TransformStatus.New, TransformStatus.Ready, TransformStatus.Extend]
+                tf = self.get_transform(transform_id=event.transform_id, status=tf_status, locking=True)
+                if tf:
+                    ret = self.handle_new_transform(tf)
+                    new_pr_ids, update_pr_ids = self.update_transform(ret)
+                    for pr_id in new_pr_ids:
+                        event = NewProcessingEvent(publisher_id=self.id, processing_id=pr_id)
+                        self.event_bus.send(event)
+                    for pr_id in update_pr_ids:
+                        event = UpdateProcessingEvent(publisher_id=self.id, processing_id=pr_id)
+                        self.event_bus.send(event)
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+        self.number_workers -= 1
 
     def get_collection_ids(self, collections):
         coll_ids = []
@@ -711,21 +743,6 @@ class Transformer(BaseAgent):
 
         return all_updates_flushed, output_statistics
 
-    def get_message_for_update_processing(self, processing, processing_status):
-        msg_content = {'command': 'update_processing',
-                       'parameters': {'status': processing_status}}
-        msg = {'msg_type': MessageType.IDDSCommunication,
-               'status': MessageStatus.New,
-               'destination': MessageDestination.Carrier,
-               'source': MessageSource.Transformer,
-               'request_id': processing['request_id'],
-               'workload_id': processing['workload_id'],
-               'transform_id': processing['transform_id'],
-               'processing_id': processing['processing_id'],
-               'num_contents': 1,
-               'msg_content': msg_content}
-        return msg
-
     def reactive_contents(self, input_output_maps):
         updated_contents = []
         for map_id in input_output_maps:
@@ -753,11 +770,11 @@ class Transformer(BaseAgent):
                         updated_contents.append(update_content)
         return updated_contents
 
-    def process_running_transform_real(self, transform):
+    def handle_update_transform_real(self, transform):
         """
         process running transforms
         """
-        self.logger.info("process_running_transform: transform_id: %s" % transform['transform_id'])
+        self.logger.info("handle_update_transform: transform_id: %s" % transform['transform_id'])
 
         msgs, update_msgs = [], []
 
@@ -826,9 +843,6 @@ class Transformer(BaseAgent):
             # work.set_processing_output_metadata(processing, processing_model['output_metadata'])
             work.set_output_data(processing.output_data)
             transform['workload_id'] = processing_model['workload_id']
-            if t_processing_status is not None:
-                msg = self.get_message_for_update_processing(processing_model, t_processing_status)
-                msgs.append(msg)
 
         # check contents
         new_input_output_maps = work.get_new_input_output_maps(registered_input_output_maps)
@@ -1122,7 +1136,7 @@ class Transformer(BaseAgent):
                                             'errors': {'msg': '%s: %s' % (ex, traceback.format_exc())}}}
         return ret
 
-    def process_running_transform(self, transform):
+    def handle_update_transform(self, transform):
         """
         Process running transform
         """
@@ -1151,85 +1165,200 @@ class Transformer(BaseAgent):
             ret = {'transform': transform, 'transform_parameters': transform_parameters}
         return ret
 
-    def process_running_transforms(self):
-        ret = []
-        while not self.running_task_queue.empty():
-            try:
-                transform = self.running_task_queue.get()
-                if transform:
-                    self.running_processing_size += 1
-                    self.logger.info("Main thread processing running transform: %s" % transform)
-                    ret_transform = self.process_running_transform(transform)
-                    self.logger.debug("Main thread processing running transform finished: %s" % transform)
-                    self.running_processing_size -= 1
-                    if ret_transform:
-                        self.running_output_queue.put(ret_transform)
-                        # ret.append(ret_transform)
-            except Exception as ex:
-                self.logger.error(ex)
-                self.logger.error(traceback.format_exc())
-        return ret
+    def process_update_transform(self, event):
+        self.number_workers += 1
+        try:
+            if event:
+                tf_status = [TransformStatus.Transforming,
+                             TransformStatus.ToCancel, TransformStatus.Cancelling,
+                             TransformStatus.ToSuspend, TransformStatus.Suspending,
+                             TransformStatus.ToExpire, TransformStatus.Expiring,
+                             TransformStatus.ToResume, TransformStatus.Resuming,
+                             TransformStatus.ToFinish, TransformStatus.ToForceFinish]
+                tf = self.get_transform(transform_id=event.transform_id, status=tf_status, locking=True)
+                if tf:
+                    ret = self.handle_update_transform(tf)
+                    event = UpdateRequestEvent(publisher_id=self.id, request_id=tf['request_id'])
+                    self.event_bus.send(event)
+                    new_pr_ids, update_pr_ids = self.update_transform(ret)
+                    for pr_id in new_pr_ids:
+                        event = NewProcessingEvent(publisher_id=self.id, processing_id=pr_id)
+                        self.event_bus.send(event)
+                    for pr_id in update_pr_ids:
+                        event = UpdateProcessingEvent(publisher_id=self.id, processing_id=pr_id)
+                        self.event_bus.send(event)
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+        self.number_workers -= 1
 
-    def finish_running_transforms(self):
-        while not self.running_output_queue.empty():
-            try:
-                ret = self.running_output_queue.get()
-                self.logger.debug("Main thread finishing running transform: %s" % ret['transform'])
-                self.logger.info("Main thread finishing running transform(%s): %s" % (ret['transform']['transform_id'],
-                                                                                      ret['transform_parameters']))
-                if ret:
-                    retry = True
-                    retry_num = 0
-                    while retry:
-                        retry = False
-                        retry_num += 1
-                        try:
-                            # self.logger.debug("wen: %s" % str(ret['output_contents']))
-                            core_transforms.add_transform_outputs(transform=ret['transform'],
-                                                                  transform_parameters=ret['transform_parameters'],
-                                                                  input_collections=ret.get('input_collections', None),
-                                                                  output_collections=ret.get('output_collections', None),
-                                                                  log_collections=ret.get('log_collections', None),
-                                                                  new_contents=ret.get('new_contents', None),
-                                                                  update_input_collections=ret.get('update_input_collections', None),
-                                                                  update_output_collections=ret.get('update_output_collections', None),
-                                                                  update_log_collections=ret.get('update_log_collections', None),
-                                                                  update_contents=ret.get('update_contents', None),
-                                                                  messages=ret.get('messages', None),
-                                                                  update_messages=ret.get('update_messages', None),
-                                                                  new_processing=ret.get('new_processing', None),
-                                                                  update_processing=ret.get('update_processing', None),
-                                                                  message_bulk_size=self.message_bulk_size)
+    def handle_abort_transform(self, transform):
+        """
+        process abort transform
+        """
+        try:
+            work = transform['transform_metadata']['work']
+            work.to_cancel = True
+            tf_status = TransformStatus.Cancelling
+            next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_operation_time_period)
 
-                        except exceptions.DatabaseException as ex:
-                            if 'ORA-00060' in str(ex):
-                                self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
-                                if retry_num < 5:
-                                    retry = True
-                                    time.sleep(60 * retry_num * 2)
-                                else:
-                                    raise ex
-                            else:
-                                # self.logger.error(ex)
-                                # self.logger.error(traceback.format_exc())
-                                raise ex
-            except Exception as ex:
-                self.logger.error(ex)
-                self.logger.error(traceback.format_exc())
-                try:
-                    transform_parameters = {'status': TransformStatus.Transforming,
-                                            'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period),
-                                            'retries': ret['transform']['retries'] + 1,
-                                            'locking': TransformLocking.Idle}
-                    core_transforms.add_transform_outputs(transform=ret['transform'],
-                                                          transform_parameters=transform_parameters)
-                except Exception as ex:
-                    self.logger.error(ex)
-                    self.logger.error(traceback.format_exc())
+            transform_parameters = {'status': tf_status,
+                                    'locking': TransformLocking.Idle,
+                                    'next_poll_at': next_poll_at}
+            ret = {'transform': transform, 'transform_parameters': transform_parameters}
+            return ret
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+        return None
+
+    def process_abort_transform(self, event):
+        self.number_workers += 1
+        try:
+            if event:
+                tf = self.get_transform(transform_id=event.transform_id, locking=True)
+                if tf['status'] in [TransformStatus.Finished, TransformStatus.SubFinished,
+                                    TransformStatus.Failed, TransformStatus.Cancelled,
+                                    TransformStatus.Suspended, TransformStatus.Expired]:
+                    ret = {'transform': tf,
+                           'transform_parameters': {'locking': TransformLocking.Idle,
+                                                    'errors': {'extra_msg': "Transform is already terminated. Cannot be aborted"}}}
+                    if 'msg' in tf['errors']:
+                        ret['parameters']['errors']['msg'] = tf['errors']['msg']
+                    self.update_transform(ret)
+                else:
+                    ret = self.handle_abort_transform(tf)
+                    if ret:
+                        self.update_transform(ret)
+
+                    work = tf['transform_metadata']['work']
+                    work.set_work_id(tf['transform_id'])
+                    work.set_agent_attributes(self.agent_attributes, tf)
+
+                    processing = work.get_processing(input_output_maps=[], without_creating=True)
+                    if processing and processing.processing_id:
+                        event = AbortProcessingEvent(publisher_id=self.id, processing_id=processing.processing_id)
+                        self.event_bus.send(event)
+                    else:
+                        event = UpdateTransformEvent(publisher_id=self.id, transform_id=tf['transform_id'])
+                        self.event_bus.send(event)
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+        self.number_workers -= 1
+
+    def handle_resume_transform(self, transform):
+        """
+        process resume transform
+        """
+        try:
+            work = transform['transform_metadata']['work']
+            work.set_work_id(transform['transform_id'])
+            work.set_agent_attributes(self.agent_attributes, transform)
+
+            # link collections
+            input_collections = work.get_input_collections()
+            output_collections = work.get_output_collections()
+            log_collections = work.get_log_collections()
+
+            for coll in input_collections + output_collections + log_collections:
+                coll_model = core_catalog.get_collection(coll_id=coll.coll_id)
+                coll.collection = coll_model
+
+            input_coll_ids = self.get_collection_ids(input_collections)
+            output_coll_ids = self.get_collection_ids(output_collections)
+            log_coll_ids = self.get_collection_ids(log_collections)
+
+            registered_input_output_maps = core_transforms.get_transform_input_output_maps(transform['transform_id'],
+                                                                                           input_coll_ids=input_coll_ids,
+                                                                                           output_coll_ids=output_coll_ids,
+                                                                                           log_coll_ids=log_coll_ids)
+
+            work.toresume = True
+            reactivated_contents = self.reactive_contents(registered_input_output_maps)
+            # reactive collections
+            for coll in input_collections:
+                coll.status = CollectionStatus.Open
+            for coll in output_collections:
+                coll.status = CollectionStatus.Open
+            for coll in log_collections:
+                coll.status = CollectionStatus.Open
+
+            tf_status = TransformStatus.Resuming
+            next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_operation_time_period)
+
+            transform_parameters = {'status': tf_status,
+                                    'retries': 0,
+                                    'locking': TransformLocking.Idle,
+                                    'next_poll_at': next_poll_at}
+            ret = {'transform': transform,
+                   'transform_parameters': transform_parameters,
+                   'update_input_collections': input_collections,
+                   'update_output_collections': output_collections,
+                   'update_log_collections': log_collections,
+                   'update_contents': reactivated_contents}
+            return ret
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+        return None
+
+    def process_resume_transform(self, event):
+        self.number_workers += 1
+        try:
+            if event:
+                tf = self.get_transform(transform_id=event.transform_id, locking=True)
+                if tf['status'] in [TransformStatus.Finished]:
+                    ret = {'transform': tf,
+                           'transform_parameters': {'locking': TransformLocking.Idle,
+                                                    'errors': {'extra_msg': "Transform is already finished. Cannot be resumed"}}}
+                    if 'msg' in tf['errors']:
+                        ret['parameters']['errors']['msg'] = tf['errors']['msg']
+                    self.update_transform(ret)
+                else:
+                    ret = self.handle_abort_transform(tf)
+                    if ret:
+                        self.update_transform(ret)
+
+                    work = tf['transform_metadata']['work']
+                    work.set_work_id(tf['transform_id'])
+                    work.set_agent_attributes(self.agent_attributes, tf)
+
+                    processing = work.get_processing(input_output_maps=[], without_creating=True)
+                    if processing and processing.processing_id:
+                        event = ResumeProcessingEvent(publisher_id=self.id, processing_id=processing.processing_id)
+                        self.event_bus.send(event)
+                    else:
+                        event = UpdateTransformEvent(publisher_id=self.id, transform_id=tf['transform_id'])
+                        self.event_bus.send(event)
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+        self.number_workers -= 1
 
     def clean_locks(self):
         self.logger.info("clean locking")
         core_transforms.clean_locking()
+
+    def init_event_function_map(self):
+        self.event_func_map = {
+            NewTransformEvent._event_type: {
+                'pre_check': self.is_ok_to_run_more_requests,
+                'exec_func': self.process_new_request
+            },
+            UpdateTransformEvent._event_type: {
+                'pre_check': self.is_ok_to_run_more_requests,
+                'exec_func': self.process_update_request
+            },
+            AbortTransformEvent._event_type: {
+                'pre_check': self.is_ok_to_run_more_requests,
+                'exec_func': self.process_abort_request
+            },
+            ResumeTransformEvent._event_type: {
+                'pre_check': self.is_ok_to_run_more_requests,
+                'exec_func': self.process_resume_request
+            }
+        }
 
     def run(self):
         """
@@ -1242,24 +1371,12 @@ class Transformer(BaseAgent):
 
             self.add_default_tasks()
 
-            task = self.create_task(task_func=self.get_new_transforms, task_output_queue=self.new_task_queue, task_args=tuple(), task_kwargs={}, delay_time=60, priority=1)
-            self.add_task(task)
-            for _ in range(self.num_threads):
-                # task = self.create_task(task_func=self.process_new_transforms, task_output_queue=self.new_output_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
-                task = self.create_task(task_func=self.process_new_transforms, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
-                self.add_task(task)
-            task = self.create_task(task_func=self.finish_new_transforms, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=2, priority=1)
-            self.add_task(task)
+            self.init_event_function_map()
 
-            task = self.create_task(task_func=self.get_running_transforms, task_output_queue=self.running_task_queue, task_args=tuple(), task_kwargs={}, delay_time=60, priority=1)
+            task = self.create_task(task_func=self.get_new_transforms, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=60, priority=1)
             self.add_task(task)
-            for _ in range(self.num_threads):
-                # task = self.create_task(task_func=self.process_running_transforms, task_output_queue=self.running_output_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
-                task = self.create_task(task_func=self.process_running_transforms, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
-                self.add_task(task)
-            task = self.create_task(task_func=self.finish_running_transforms, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
+            task = self.create_task(task_func=self.get_running_transforms, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=60, priority=1)
             self.add_task(task)
-
             task = self.create_task(task_func=self.clean_locks, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1800, priority=1)
             self.add_task(task)
 
