@@ -16,7 +16,8 @@ operations related to Requests.
 import copy
 
 from idds.common.constants import (RequestStatus, RequestLocking, WorkStatus,
-                                   CollectionType, CollectionStatus, CollectionRelationType)
+                                   CollectionType, CollectionStatus, CollectionRelationType,
+                                   MessageStatus)
 from idds.orm.base.session import read_session, transactional_session
 from idds.orm import requests as orm_requests
 from idds.orm import transforms as orm_transforms
@@ -111,6 +112,16 @@ def get_request_ids_by_workload_id(workload_id, session=None):
     :returns: Request ids.
     """
     return orm_requests.get_request_ids_by_workload_id(workload_id, session=session)
+
+
+@transactional_session
+def get_request_by_id_status(request_id, status=None, locking=False, session=None):
+    req = orm_requests.get_request_by_id_status(request_id=request_id, status=status, locking=locking, session=session)
+    if req is not None and locking:
+        parameters = {}
+        parameters['locking'] = RequestLocking.Locking
+        orm_requests.update_request(request_id=req['request_id'], parameters=parameters, session=session)
+    return req
 
 
 @read_session
@@ -232,6 +243,7 @@ def update_request_with_transforms(request_id, parameters,
     :param new_transforms: list of transforms
     :param update_transforms: list of transforms
     """
+    new_tf_ids, update_tf_ids = [], []
     if new_transforms:
         for tf in new_transforms:
             # tf_id = orm_transforms.add_transform(**tf, session=session)
@@ -266,16 +278,17 @@ def update_request_with_transforms(request_id, parameters,
             orm_transforms.update_transform(transform_id=tf_id,
                                             parameters={'transform_metadata': tf['transform_metadata']},
                                             session=session)
-
+            new_tf_ids.append(tf_id)
     if update_transforms:
         for tr_id in update_transforms:
             orm_transforms.update_transform(transform_id=tr_id, parameters=update_transforms[tr_id], session=session)
+            update_tf_ids.append(tf_id)
 
     if new_messages:
         orm_messages.add_messages(new_messages, session=session)
     if update_messages:
         orm_messages.update_messages(update_messages, session=session)
-    return orm_requests.update_request(request_id, parameters, session=session)
+    return orm_requests.update_request(request_id, parameters, session=session), new_tf_ids, update_tf_ids
 
 
 @transactional_session
@@ -293,6 +306,19 @@ def update_request_with_workprogresses(request_id, parameters, new_workprogresse
         for workprogress_id in update_workprogresses:
             orm_workprogresses.update_workprogress(workprogress_id, update_workprogresses[workprogress_id], session=session)
     return orm_requests.update_request(request_id, parameters, session=session)
+
+
+@transactional_session
+def get_operation_request_msgs(locking=False, bulk_size=None, session=None):
+    msgs = core_messages.retrieve_request_messages(request_id=None, bulk_size=bulk_size, session=session)
+    if msgs:
+        # req_ids = [msg['request_id'] for msg in msgs]
+        to_updates = []
+        for msg in msgs:
+            to_updates.append({'msg_id': msg['msg_id'],
+                               'status': MessageStatus.Delivered})
+        core_messages.update_messages(to_updates)
+    return msgs
 
 
 @transactional_session
@@ -330,7 +356,7 @@ def get_requests_with_messaging(locking=False, bulk_size=None, session=None):
 
 
 @transactional_session
-def get_requests_by_status_type(status, request_type=None, time_period=None, locking=False, bulk_size=None, to_json=False, by_substatus=False, with_messaging=False, session=None):
+def get_requests_by_status_type(status, request_type=None, time_period=None, locking=False, bulk_size=None, to_json=False, by_substatus=False, with_messaging=False, not_lock=False, next_poll_at=None, session=None):
     """
     Get requests by status and type
 
@@ -380,9 +406,14 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, loc
                                                             bulk_size=bulk_size,
                                                             to_json=to_json, by_substatus=by_substatus, session=session)
 
-        parameters = {'locking': RequestLocking.Locking}
-        for req in reqs:
-            orm_requests.update_request(request_id=req['request_id'], parameters=parameters, session=session)
+        parameters = {}
+        if not not_lock:
+            parameters['locking'] = RequestLocking.Locking
+        if next_poll_at:
+            parameters['next_poll_at'] = next_poll_at
+        if parameters:
+            for req in reqs:
+                orm_requests.update_request(request_id=req['request_id'], parameters=parameters, session=session)
     else:
         reqs = orm_requests.get_requests_by_status_type(status, request_type, time_period, locking=locking, bulk_size=bulk_size,
                                                         to_json=to_json, by_substatus=by_substatus, session=session)

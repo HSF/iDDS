@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2020
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
 
 
 """
@@ -164,6 +164,46 @@ def get_transform(transform_id, to_json=False, session=None):
                                   (transform_id, error))
     except Exception as error:
         raise error
+
+
+@read_session
+def get_transform_by_id_status(transform_id, status=None, locking=False, session=None):
+    """
+    Get a transform or raise a NoObject exception.
+
+    :param transform_id: The id of the transform.
+    :param status: request status.
+    :param locking: the locking status.
+
+    :param session: The database session in use.
+
+    :raises NoObject: If no request is founded.
+
+    :returns: Transform.
+    """
+
+    try:
+        query = session.query(models.Transform).with_hint(models.Transform, "INDEX(TRANSFORMS TRANSFORMS_PK)", 'oracle')\
+                                               .filter(models.Transform.transform_id == transform_id)
+
+        if status:
+            if not isinstance(status, (list, tuple)):
+                status = [status]
+            if len(status) == 1:
+                status = [status[0], status[0]]
+            query = query.filter(models.Transform.status.in_(status))
+
+        if locking:
+            query = query.filter(models.Transform.locking == TransformLocking.Idle)
+            query = query.with_for_update(skip_locked=True)
+
+        ret = query.first()
+        if not ret:
+            return None
+        else:
+            return ret.to_dict()
+    except sqlalchemy.orm.exc.NoResultFound as error:
+        raise exceptions.NoObject('transform transform_id: %s cannot be found: %s' % (transform_id, error))
 
 
 @read_session

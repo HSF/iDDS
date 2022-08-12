@@ -206,6 +206,46 @@ def get_request(request_id, to_json=False, session=None):
 
 
 @read_session
+def get_request_by_id_status(request_id, status=None, locking=False, session=None):
+    """
+    Get a request or raise a NoObject exception.
+
+    :param request_id: The id of the request.
+    :param status: request status.
+    :param locking: the locking status.
+
+    :param session: The database session in use.
+
+    :raises NoObject: If no request is founded.
+
+    :returns: Request.
+    """
+
+    try:
+        query = session.query(models.Request).with_hint(models.Request, "INDEX(REQUESTS REQUESTS_PK)", 'oracle')\
+                                             .filter(models.Request.request_id == request_id)
+
+        if status:
+            if not isinstance(status, (list, tuple)):
+                status = [status]
+            if len(status) == 1:
+                status = [status[0], status[0]]
+            query = query.filter(models.Request.status.in_(status))
+
+        if locking:
+            query = query.filter(models.Request.locking == RequestLocking.Idle)
+            query = query.with_for_update(skip_locked=True)
+
+        ret = query.first()
+        if not ret:
+            return None
+        else:
+            return ret.to_dict()
+    except sqlalchemy.orm.exc.NoResultFound as error:
+        raise exceptions.NoObject('request request_id: %s cannot be found: %s' % (request_id, error))
+
+
+@read_session
 def get_requests(request_id=None, workload_id=None, with_detail=False, with_metadata=False,
                  with_request=False, with_transform=False, with_processing=False, to_json=False, session=None):
     """

@@ -76,6 +76,16 @@ def get_transform(transform_id, to_json=False, session=None):
     return orm_transforms.get_transform(transform_id=transform_id, to_json=to_json, session=session)
 
 
+@transactional_session
+def get_transform_by_id_status(transform_id, status=None, locking=False, session=None):
+    tf = orm_transforms.get_transform_by_id_status(transform_id=transform_id, status=status, locking=locking, session=session)
+    if tf is not None and locking:
+        parameters = {}
+        parameters['locking'] = TransformLocking.Locking
+        orm_transforms.update_transform(transform_id=tf['transform_id'], parameters=parameters, session=session)
+    return tf
+
+
 @read_session
 def get_transforms_with_input_collection(transform_type, transform_tag, coll_scope, coll_name, to_json=False, session=None):
     """
@@ -166,7 +176,7 @@ def get_transforms_with_messaging(locking=False, bulk_size=None, session=None):
 
 
 @transactional_session
-def get_transforms_by_status(status, period=None, locking=False, bulk_size=None, to_json=False, by_substatus=False, with_messaging=False, session=None):
+def get_transforms_by_status(status, period=None, locking=False, bulk_size=None, to_json=False, by_substatus=False, with_messaging=False, not_lock=False, next_poll_at=None, session=None):
     """
     Get transforms or raise a NoObject exception.
 
@@ -219,9 +229,14 @@ def get_transforms_by_status(status, period=None, locking=False, bulk_size=None,
                                                                  bulk_size=bulk_size, to_json=to_json,
                                                                  by_substatus=by_substatus, session=session)
 
-        parameters = {'locking': TransformLocking.Locking}
-        for transform in transforms:
-            orm_transforms.update_transform(transform_id=transform['transform_id'], parameters=parameters, session=session)
+        parameters = []
+        if not not_lock:
+            parameters['locking'] = TransformLocking.Locking
+        if next_poll_at:
+            parameters['next_poll_at'] = next_poll_at
+        if parameters:
+            for transform in transforms:
+                orm_transforms.update_transform(transform_id=transform['transform_id'], parameters=parameters, session=session)
     else:
         transforms = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking,
                                                              bulk_size=bulk_size, to_json=to_json,
@@ -271,6 +286,8 @@ def add_transform_outputs(transform, transform_parameters, input_collections=Non
     """
     work = transform['transform_metadata']['work']
 
+    new_pr_ids, update_pr_ids = [], []
+
     if input_collections:
         for coll in input_collections:
             collection = coll['collection']
@@ -312,9 +329,11 @@ def add_transform_outputs(transform, transform_parameters, input_collections=Non
     if new_processing:
         # print(new_processing)
         processing_id = orm_processings.add_processing(**new_processing, session=session)
+        new_pr_ids.append(processing_id)
     if update_processing:
         for proc_id in update_processing:
             orm_processings.update_processing(processing_id=proc_id, parameters=update_processing[proc_id], session=session)
+            update_pr_ids.append(proc_id)
 
     if messages:
         if not type(messages) in [list, tuple]:
@@ -343,6 +362,7 @@ def add_transform_outputs(transform, transform_parameters, input_collections=Non
         orm_transforms.update_transform(transform_id=transform['transform_id'],
                                         parameters=transform_parameters,
                                         session=session)
+    return new_pr_ids, update_pr_ids
 
 
 @transactional_session

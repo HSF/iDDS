@@ -124,6 +124,46 @@ def get_processing(processing_id, to_json=False, session=None):
 
 
 @read_session
+def get_processing_by_id_status(processing_id, status=None, locking=False, session=None):
+    """
+    Get a processing or raise a NoObject exception.
+
+    :param processing_id: The id of the processing.
+    :param status: request status.
+    :param locking: the locking status.
+
+    :param session: The database session in use.
+
+    :raises NoObject: If no request is founded.
+
+    :returns: Processing.
+    """
+
+    try:
+        query = session.query(models.Processing).with_hint(models.Processing, "INDEX(PROCESSINGS PROCESSINGS_PK)", 'oracle')\
+                                                .filter(models.Processing.processing_id == processing_id)
+
+        if status:
+            if not isinstance(status, (list, tuple)):
+                status = [status]
+            if len(status) == 1:
+                status = [status[0], status[0]]
+            query = query.filter(models.Processing.status.in_(status))
+
+        if locking:
+            query = query.filter(models.Processing.locking == ProcessingLocking.Idle)
+            query = query.with_for_update(skip_locked=True)
+
+        ret = query.first()
+        if not ret:
+            return None
+        else:
+            return ret.to_dict()
+    except sqlalchemy.orm.exc.NoResultFound as error:
+        raise exceptions.NoObject('processing processing_id: %s cannot be found: %s' % (processing_id, error))
+
+
+@read_session
 def get_processings(request_id=None, workload_id=None, transform_id=None, to_json=False, session=None):
     """
     Get processing or raise a NoObject exception.

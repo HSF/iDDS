@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2020
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
 
 
 """
@@ -104,6 +104,16 @@ def get_processings_by_transform_id(transform_id=None, to_json=False, session=No
 
 
 @transactional_session
+def get_processing_by_id_status(processing_id, status=None, locking=False, session=None):
+    pr = orm_processings.get_processing_by_id_status(processing_id=processing_id, status=status, locking=locking, session=session)
+    if pr is not None and locking:
+        parameters = {}
+        parameters['locking'] = ProcessingLocking.Locking
+        orm_processings.update_processing(processing_id=pr['processing_id'], parameters=parameters, session=session)
+    return pr
+
+
+@transactional_session
 def get_processings_with_messaging(locking=False, bulk_size=None, session=None):
     msgs = core_messages.retrieve_processing_messages(processing_id=None, bulk_size=bulk_size, session=session)
     if msgs:
@@ -139,7 +149,7 @@ def get_processings_with_messaging(locking=False, bulk_size=None, session=None):
 
 @transactional_session
 def get_processings_by_status(status, time_period=None, locking=False, bulk_size=None, to_json=False, by_substatus=False,
-                              with_messaging=False, for_poller=False, session=None):
+                              with_messaging=False, not_lock=False, next_poll_at=None, for_poller=False, session=None):
     """
     Get processing or raise a NoObject exception.
 
@@ -193,9 +203,14 @@ def get_processings_by_status(status, time_period=None, locking=False, bulk_size
                                                                     bulk_size=bulk_size, to_json=to_json, locking_for_update=locking,
                                                                     by_substatus=by_substatus, for_poller=for_poller, session=session)
 
-        parameters = {'locking': ProcessingLocking.Locking}
-        for processing in processings:
-            orm_processings.update_processing(processing['processing_id'], parameters=parameters, session=session)
+        parameters = []
+        if not not_lock:
+            parameters['locking'] = ProcessingLocking.Locking
+        if next_poll_at:
+            parameters['next_poll_at'] = next_poll_at
+        if parameters:
+            for processing in processings:
+                orm_processings.update_processing(processing['processing_id'], parameters=parameters, session=session)
     else:
         processings = orm_processings.get_processings_by_status(status=status, period=time_period, locking=locking,
                                                                 bulk_size=bulk_size, to_json=to_json,
