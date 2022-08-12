@@ -6,26 +6,25 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2021
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
 
 import datetime
 import time
 import traceback
-try:
-    # python 3
-    from queue import Queue
-except ImportError:
-    # Python 2
-    from Queue import Queue
 
 from idds.common import exceptions
 from idds.common.constants import (Sections, ProcessingStatus, ProcessingLocking,
-                                   MessageStatus, ContentStatus, ContentType,
+                                   ContentStatus, ContentType,
                                    ContentRelationType)
 from idds.common.utils import setup_logging
 from idds.core import (transforms as core_transforms,
                        processings as core_processings)
 from idds.agents.common.baseagent import BaseAgent
+from idds.agents.common.eventbus.event import (NewProcessingEvent,
+                                               UpdateProcessingEvent,
+                                               AbortProcessingEvent,
+                                               ResumeProcessingEvent,
+                                               UpdateTransformEvent)
 
 setup_logging(__name__)
 
@@ -43,20 +42,19 @@ class Carrier(BaseAgent):
         self.retrieve_bulk_size = int(retrieve_bulk_size)
         self.message_bulk_size = int(message_bulk_size)
 
-        self.new_task_queue = Queue()
-        self.new_output_queue = Queue()
-        self.running_task_queue = Queue()
-        self.running_output_queue = Queue()
-        self.new_processing_size = 0
-        self.running_processing_size = 0
+        self.number_workers = 0
+        if not hasattr(self, 'max_number_workers') or not self.max_number_workers:
+            self.max_number_workers = 3
+        else:
+            self.max_number_workers = int(self.max_number_workers)
+
+    def is_ok_to_run_more_requests(self):
+        if self.number_workers >= self.max_number_workers:
+            return False
+        return True
 
     def show_queue_size(self):
-        q_str = "new queue size: %s, processing size: %s, output queue size: %s, " % (self.new_task_queue.qsize(),
-                                                                                      self.new_processing_size,
-                                                                                      self.new_output_queue.qsize())
-        q_str += "running queue size: %s, processing size: %s,  output queue size: %s" % (self.running_task_queue.qsize(),
-                                                                                          self.running_processing_size,
-                                                                                          self.running_output_queue.qsize())
+        q_str = "number of processings: %s, max number of processings: %s" % (self.number_workers, self.max_number_workers)
         self.logger.debug(q_str)
 
     def init(self):
@@ -69,17 +67,25 @@ class Carrier(BaseAgent):
         Get new processing
         """
         try:
-            if self.new_task_queue.qsize() > 0 or self.new_output_queue.qsize() > 0:
+            if not self.is_ok_to_run_more_requests():
                 return []
 
             self.show_queue_size()
 
             processing_status = [ProcessingStatus.New]
-            processings = core_processings.get_processings_by_status(status=processing_status, locking=True, bulk_size=self.retrieve_bulk_size)
+            next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period)
+            processings = core_processings.get_processings_by_status(status=processing_status, locking=True,
+                                                                     not_lock=True, next_poll_at=next_poll_at,
+                                                                     bulk_size=self.retrieve_bulk_size)
 
             self.logger.debug("Main thread get %s [new] processings to process" % len(processings))
             if processings:
                 self.logger.info("Main thread get %s [new] processings to process" % len(processings))
+
+            for pr in processings:
+                event = NewProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'])
+                self.event_bus.send(event)
+
             return processings
         except exceptions.DatabaseException as ex:
             if 'ORA-00060' in str(ex):
@@ -90,7 +96,62 @@ class Carrier(BaseAgent):
                 self.logger.error(traceback.format_exc())
         return []
 
-    def process_new_processing(self, processing):
+    def get_running_processings(self):
+        """
+        Get running processing
+        """
+        try:
+            if not self.is_ok_to_run_more_requests():
+                return []
+
+            self.show_queue_size()
+
+            processing_status = [ProcessingStatus.Submitting, ProcessingStatus.Submitted,
+                                 ProcessingStatus.Running, ProcessingStatus.FinishedOnExec,
+                                 ProcessingStatus.ToCancel, ProcessingStatus.Cancelling,
+                                 ProcessingStatus.ToSuspend, ProcessingStatus.Suspending,
+                                 ProcessingStatus.ToResume, ProcessingStatus.Resuming,
+                                 ProcessingStatus.ToExpire, ProcessingStatus.Expiring,
+                                 ProcessingStatus.ToFinish, ProcessingStatus.ToForceFinish]
+            next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period)
+            processings = core_processings.get_processings_by_status(status=processing_status,
+                                                                     # time_period=self.poll_time_period,
+                                                                     locking=True,
+                                                                     with_messaging=True,
+                                                                     not_lock=True, next_poll_at=next_poll_at,
+                                                                     bulk_size=self.retrieve_bulk_size)
+
+            self.logger.debug("Main thread get %s [submitting + submitted + running] processings to process: %s" % (len(processings), str([processing['processing_id'] for processing in processings])))
+            if processings:
+                self.logger.info("Main thread get %s [submitting + submitted + running] processings to process: %s" % (len(processings), str([processing['processing_id'] for processing in processings])))
+
+            for pr in processings:
+                event = UpdateProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'])
+                self.event_bus.send(event)
+
+            return processings
+        except exceptions.DatabaseException as ex:
+            if 'ORA-00060' in str(ex):
+                self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
+            else:
+                # raise ex
+                self.logger.error(ex)
+                self.logger.error(traceback.format_exc())
+        return []
+
+    def get_processing(self, processing_id, status=None, locking=False):
+        try:
+            return core_processings.get_processing_by_id_status(processing_id=processing_id, status=status, locking=locking)
+        except exceptions.DatabaseException as ex:
+            if 'ORA-00060' in str(ex):
+                self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
+            else:
+                # raise ex
+                self.logger.error(ex)
+                self.logger.error(traceback.format_exc())
+        return None
+
+    def handle_new_processing(self, processing):
         try:
             # transform_id = processing['transform_id']
             # transform = core_transforms.get_transform(transform_id=transform_id)
@@ -100,54 +161,40 @@ class Carrier(BaseAgent):
             work.set_agent_attributes(self.agent_attributes, processing)
 
             work.submit_processing(processing)
-            ret = {'processing_id': processing['processing_id'],
-                   'status': ProcessingStatus.Submitting,
-                   'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period),
-                   # 'expired_at': work.get_expired_at(processing),
-                   'processing_metadata': processing['processing_metadata']}
+            parameters = {'status': ProcessingStatus.Submitting,
+                          'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period),
+                          'processing_metadata': processing['processing_metadata']}
             if proc.submitted_at:
                 if not processing['submitted_at'] or processing['submitted_at'] < proc.submitted_at:
-                    ret['submitted_at'] = proc.submitted_at
+                    parameters['submitted_at'] = proc.submitted_at
 
             # if processing['processing_metadata'] and 'processing' in processing['processing_metadata']:
             if proc.workload_id:
-                ret['workload_id'] = proc.workload_id
+                parameters['workload_id'] = proc.workload_id
+
+            processing_update = {'processing_id': processing['processing_id'],
+                                 'parameters': parameters}
+            ret = {'processing_update': processing_update,
+                   'content_updates': []}
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
-            ret = {'processing_id': processing['processing_id'],
-                   'status': ProcessingStatus.New,
-                   'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period * 4)}
+            parameters = {'status': ProcessingStatus.New,
+                          'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period * 4)}
+            processing_update = {'processing_id': processing['processing_id'],
+                                 'parameters': parameters}
+            ret = {'processing_update': processing_update,
+                   'content_updates': []}
         return ret
 
-    def process_new_processings(self):
-        ret = []
-        while not self.new_task_queue.empty():
-            try:
-                processing = self.new_task_queue.get()
-                if processing:
-                    self.new_processing_size += 1
-                    self.logger.info("Main thread processing new processing: %s" % processing)
-                    ret_processing = self.process_new_processing(processing)
-                    self.new_processing_size -= 1
-                    if ret_processing:
-                        # ret.append(ret_processing)
-                        self.new_output_queue.put(ret_processing)
-            except Exception as ex:
-                self.logger.error(ex)
-                self.logger.error(traceback.format_exc())
-        return ret
-
-    def finish_new_processings(self):
-        while not self.new_output_queue.empty():
-            try:
-                processing = self.new_output_queue.get()
-                self.logger.info("Main thread submitted new processing: %s" % (processing['processing_id']))
-                processing_id = processing['processing_id']
-                if 'next_poll_at' not in processing:
-                    processing['next_poll_at'] = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period)
-                del processing['processing_id']
-                processing['locking'] = ProcessingLocking.Idle
+    def update_processing(self, processing):
+        try:
+            if processing:
+                self.logger.info("Main thread processing(processing_id: %s) updates: %s" % (processing['processing_update']['processing_id'],
+                                                                                            processing['processing_update']['parameters']))
+                if 'next_poll_at' not in processing['processing_update']['parameters']:
+                    processing['processing_update']['parameters']['next_poll_at'] = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period)
+                processing['processing_update']['parameters']['locking'] = ProcessingLocking.Idle
                 # self.logger.debug("wen: %s" % str(processing))
 
                 retry = True
@@ -156,7 +203,10 @@ class Carrier(BaseAgent):
                     retry = False
                     retry_num += 1
                     try:
-                        core_processings.update_processing(processing_id=processing_id, parameters=processing)
+                        core_processings.update_processing_contents(processing_update=processing.get('processing_update', None),
+                                                                    content_updates=processing.get('content_updates', None),
+                                                                    update_messages=processing.get('update_messages', None),
+                                                                    new_contents=processing.get('new_contents', None))
                     except exceptions.DatabaseException as ex:
                         if 'ORA-00060' in str(ex):
                             self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
@@ -169,52 +219,33 @@ class Carrier(BaseAgent):
                             # self.logger.error(ex)
                             # self.logger.error(traceback.format_exc())
                             raise ex
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+            try:
+                processing_id = processing['processing_update']['processing_id']
+                parameters = {'status': ProcessingStatus.Running,
+                              'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period * 4)}
+                core_processings.update_processing(processing_id=processing_id, parameters=parameters)
             except Exception as ex:
                 self.logger.error(ex)
                 self.logger.error(traceback.format_exc())
-                try:
-                    parameters = {'status': ProcessingStatus.Running,
-                                  'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period * 4)}
-                    core_processings.update_processing(processing_id=processing_id, parameters=parameters)
-                except Exception as ex:
-                    self.logger.error(ex)
-                    self.logger.error(traceback.format_exc())
 
-    def get_running_processings(self):
-        """
-        Get running processing
-        """
+    def process_new_processing(self, event):
+        self.number_workers += 1
         try:
-            if self.running_task_queue.qsize() > 0 or self.running_output_queue.qsize() > 0:
-                return []
-
-            self.show_queue_size()
-
-            processing_status = [ProcessingStatus.Submitting, ProcessingStatus.Submitted,
-                                 ProcessingStatus.Running, ProcessingStatus.FinishedOnExec,
-                                 ProcessingStatus.ToCancel, ProcessingStatus.Cancelling,
-                                 ProcessingStatus.ToSuspend, ProcessingStatus.Suspending,
-                                 ProcessingStatus.ToResume, ProcessingStatus.Resuming,
-                                 ProcessingStatus.ToExpire, ProcessingStatus.Expiring,
-                                 ProcessingStatus.ToFinish, ProcessingStatus.ToForceFinish]
-            processings = core_processings.get_processings_by_status(status=processing_status,
-                                                                     # time_period=self.poll_time_period,
-                                                                     locking=True,
-                                                                     with_messaging=True,
-                                                                     bulk_size=self.retrieve_bulk_size)
-
-            self.logger.debug("Main thread get %s [submitting + submitted + running] processings to process: %s" % (len(processings), str([processing['processing_id'] for processing in processings])))
-            if processings:
-                self.logger.info("Main thread get %s [submitting + submitted + running] processings to process: %s" % (len(processings), str([processing['processing_id'] for processing in processings])))
-            return processings
-        except exceptions.DatabaseException as ex:
-            if 'ORA-00060' in str(ex):
-                self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
-            else:
-                # raise ex
-                self.logger.error(ex)
-                self.logger.error(traceback.format_exc())
-        return []
+            if event:
+                pr_status = [ProcessingStatus.New]
+                pr = self.get_processing(processing_id=event.processing_id, status=pr_status, locking=True)
+                if pr:
+                    ret = self.handle_new_processing(pr)
+                    self.update_processing(ret)
+                    event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['processing_id'])
+                    self.event_bus.send(event)
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+        self.number_workers -= 1
 
     def get_collection_ids(self, collections):
         coll_ids = []
@@ -325,7 +356,7 @@ class Carrier(BaseAgent):
                 new_output_contents.append(content)
         return new_input_contents + new_output_contents + new_log_contents + new_input_dependency_contents
 
-    def process_running_processing(self, processing):
+    def handle_update_processing(self, processing):
         try:
             transform_id = processing['transform_id']
             # transform = core_transforms.get_transform(transform_id=transform_id)
@@ -435,112 +466,155 @@ class Carrier(BaseAgent):
                    'content_updates': []}
         return ret
 
-    def process_running_processing_message(self, processing, messages):
+    def process_update_processing(self, event):
+        self.number_workers += 1
+        try:
+            if event:
+                processing_status = [ProcessingStatus.Submitting, ProcessingStatus.Submitted,
+                                     ProcessingStatus.Running, ProcessingStatus.FinishedOnExec,
+                                     ProcessingStatus.ToCancel, ProcessingStatus.Cancelling,
+                                     ProcessingStatus.ToSuspend, ProcessingStatus.Suspending,
+                                     ProcessingStatus.ToResume, ProcessingStatus.Resuming,
+                                     ProcessingStatus.ToExpire, ProcessingStatus.Expiring,
+                                     ProcessingStatus.ToFinish, ProcessingStatus.ToForceFinish]
+
+                pr = self.get_processing(processing_id=event.processing_id, status=processing_status, locking=True)
+                if pr:
+                    ret = self.handle_update_processing(pr)
+                    self.update_processing(ret)
+                    event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['processing_id'])
+                    self.event_bus.send(event)
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+        self.number_workers -= 1
+
+    def handle_abort_processing(self, processing):
         """
-        process running processing message
+        process abort processing
         """
         try:
-            self.logger.info("process_running_processing_message: processing_id: %s, messages: %s" % (processing['processing_id'], str(messages) if messages else messages))
-            msg = messages[0]
-            message = messages[0]['msg_content']
-            if message['command'] == 'update_processing':
-                parameters = message['parameters']
-                parameters['locking'] = ProcessingLocking.Idle
-                processing_update = {'processing_id': processing['processing_id'],
-                                     'parameters': parameters,
-                                     }
-                update_messages = [{'msg_id': msg['msg_id'], 'status': MessageStatus.Delivered}]
-            else:
-                self.logger.error("Unknown message: %s" % str(msg))
-                processing_update = {'processing_id': processing['processing_id'],
-                                     'parameters': {'locking': ProcessingLocking.Idle}
-                                     }
-                update_messages = [{'msg_id': msg['msg_id'], 'status': MessageStatus.Failed}]
+            proc = processing['processing_metadata']['processing']
+            work = proc.work
+            work.set_agent_attributes(self.agent_attributes, processing)
+            work.abort_processing(processing)
 
-            ret = {'processing_update': processing_update,
-                   'content_updates': [],
-                   'update_messages': update_messages}
+            processing_update = {'processing_id': processing['processing_id'],
+                                 'parameters': {'status': ProcessingStatus.Cancelling,
+                                                'locking': ProcessingLocking.Idle,
+                                                'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period * 4)}}
+            ret = {'processing_update': processing_update}
+            return ret
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
             processing_update = {'processing_id': processing['processing_id'],
-                                 'parameters': {'status': ProcessingStatus.Failed,
+                                 'parameters': {'status': ProcessingStatus.ToCancel,
                                                 'locking': ProcessingLocking.Idle,
-                                                'errors': {'msg': '%s: %s' % (ex, traceback.format_exc())}}}
-            ret = {'processing_update': processing_update,
-                   'content_updates': []}
-        return ret
+                                                'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period * 4)}}
+            ret = {'processing_update': processing_update}
+            return ret
+        return None
 
-    def process_running_processings(self):
-        ret = []
-        while not self.running_task_queue.empty():
-            try:
-                processing = self.running_task_queue.get()
-                if processing:
-                    self.running_processing_size += 1
-                    self.logger.debug("Main thread processing running processing: %s" % processing)
-                    self.logger.info("Main thread processing running processing: %s" % processing['processing_id'])
+    def process_abort_processing(self, event):
+        self.number_workers += 1
+        try:
+            if event:
+                processing_status = [ProcessingStatus.Finished, ProcessingStatus.Failed,
+                                     ProcessingStatus.Lost, ProcessingStatus.Cancelled,
+                                     ProcessingStatus.Suspended, ProcessingStatus.Expired,
+                                     ProcessingStatus.Broken]
 
-                    msgs = self.get_processing_message(processing_id=processing['processing_id'], bulk_size=1)
-                    if msgs:
-                        ret_processing = self.process_running_processing_message(processing, msgs)
-                    else:
-                        ret_processing = self.process_running_processing(processing)
-                    self.running_processing_size -= 1
-                    if ret_processing:
-                        # ret.append(ret_processing)
-                        self.running_output_queue.put(ret_processing)
-            except Exception as ex:
-                self.logger.error(ex)
-                self.logger.error(traceback.format_exc())
-        return ret
+                pr = self.get_processing(processing_id=event.processing_id, status=processing_status, locking=True)
+                if pr and pr['status'] in processing_status:
+                    processing_update = {'processing_id': pr['processing_id'],
+                                         'parameters': {'locking': ProcessingLocking.Idle,
+                                                        'running_metadata': {'extra_err_msg': "Processing is already terminated. Cannot be aborted"}}}
+                    ret = {'processing_update': processing_update}
+                    self.update_processing(ret)
+                elif pr:
+                    ret = self.handle_abort_processing(pr)
+                    self.update_processing(ret)
+                    event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['processing_id'])
+                    self.event_bus.send(event)
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+        self.number_workers -= 1
 
-    def finish_running_processings(self):
-        while not self.running_output_queue.empty():
-            try:
-                processing = self.running_output_queue.get()
-                if processing:
-                    self.logger.info("Main thread processing(processing_id: %s) updates: %s" % (processing['processing_update']['processing_id'],
-                                                                                                processing['processing_update']['parameters']))
+    def handle_resume_processing(self, processing):
+        """
+        process resume processing
+        """
+        try:
+            proc = processing['processing_metadata']['processing']
+            work = proc.work
+            work.set_agent_attributes(self.agent_attributes, processing)
+            work.resume_processing(processing)
 
-                    # self.logger.info("Main thread finishing running processing %s" % str(processing))
+            processing_update = {'processing_id': processing['processing_id'],
+                                 'parameters': {'status': ProcessingStatus.Resuming,
+                                                'locking': ProcessingLocking.Idle,
+                                                'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period * 4)}}
+            ret = {'processing_update': processing_update}
+            return ret
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+            processing_update = {'processing_id': processing['processing_id'],
+                                 'parameters': {'status': ProcessingStatus.ToResume,
+                                                'locking': ProcessingLocking.Idle,
+                                                'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period * 4)}}
+            ret = {'processing_update': processing_update}
+            return ret
+        return None
 
-                    retry = True
-                    retry_num = 0
-                    while retry:
-                        retry = False
-                        retry_num += 1
-                        try:
-                            core_processings.update_processing_contents(processing_update=processing.get('processing_update', None),
-                                                                        content_updates=processing.get('content_updates', None),
-                                                                        update_messages=processing.get('update_messages', None),
-                                                                        new_contents=processing.get('new_contents', None))
-                        except exceptions.DatabaseException as ex:
-                            if 'ORA-00060' in str(ex):
-                                self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
-                                if retry_num < 5:
-                                    retry = True
-                                    time.sleep(60 * retry_num * 2)
-                                else:
-                                    raise ex
-                            else:
-                                # self.logger.error(ex)
-                                # self.logger.error(traceback.format_exc())
-                                raise ex
-            except Exception as ex:
-                self.logger.error(ex)
-                self.logger.error(traceback.format_exc())
-                try:
-                    parameters = {'status': ProcessingStatus.Running,
-                                  'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period * 4)}
-                    core_processings.update_processing(processing_id=processing['processing_update']['processing_id'], parameters=parameters)
-                except Exception as ex:
-                    self.logger.error(ex)
-                    self.logger.error(traceback.format_exc())
+    def process_resume_processing(self, event):
+        self.number_workers += 1
+        try:
+            if event:
+                processing_status = [ProcessingStatus.Finished]
+
+                pr = self.get_processing(processing_id=event.processing_id, status=processing_status, locking=True)
+                if pr and pr['status'] in processing_status:
+                    processing_update = {'processing_id': pr['processing_id'],
+                                         'parameters': {'locking': ProcessingLocking.Idle,
+                                                        'running_metadata': {'extra_err_msg': "Processing is already finished. Cannot be aborted"}}}
+                    ret = {'processing_update': processing_update}
+                    self.update_processing(ret)
+                elif pr:
+                    ret = self.handle_resume_processing(pr)
+                    self.update_processing(ret)
+                    event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['processing_id'])
+                    self.event_bus.send(event)
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+        self.number_workers -= 1
 
     def clean_locks(self):
         self.logger.info("clean locking")
         core_processings.clean_locking()
+
+    def init_event_function_map(self):
+        self.event_func_map = {
+            NewProcessingEvent._event_type: {
+                'pre_check': self.is_ok_to_run_more_requests,
+                'exec_func': self.process_new_processing
+            },
+            UpdateProcessingEvent._event_type: {
+                'pre_check': self.is_ok_to_run_more_requests,
+                'exec_func': self.process_update_processing
+            },
+            AbortProcessingEvent._event_type: {
+                'pre_check': self.is_ok_to_run_more_requests,
+                'exec_func': self.process_abort_processing
+            },
+            ResumeProcessingEvent._event_type: {
+                'pre_check': self.is_ok_to_run_more_requests,
+                'exec_func': self.process_resume_processing
+            }
+        }
 
     def run(self):
         """
@@ -554,22 +628,10 @@ class Carrier(BaseAgent):
 
             self.add_default_tasks()
 
-            task = self.create_task(task_func=self.get_new_processings, task_output_queue=self.new_task_queue, task_args=tuple(), task_kwargs={}, delay_time=60, priority=1)
-            self.add_task(task)
-            for _ in range(self.num_threads):
-                # task = self.create_task(task_func=self.process_new_processings, task_output_queue=self.new_output_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
-                task = self.create_task(task_func=self.process_new_processings, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
-                self.add_task(task)
-            task = self.create_task(task_func=self.finish_new_processings, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
+            task = self.create_task(task_func=self.get_new_processings, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=60, priority=1)
             self.add_task(task)
 
-            task = self.create_task(task_func=self.get_running_processings, task_output_queue=self.running_task_queue, task_args=tuple(), task_kwargs={}, delay_time=60, priority=1)
-            self.add_task(task)
-            for _ in range(self.num_threads):
-                # task = self.create_task(task_func=self.process_running_processings, task_output_queue=self.running_output_queue, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
-                task = self.create_task(task_func=self.process_running_processings, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
-                self.add_task(task)
-            task = self.create_task(task_func=self.finish_running_processings, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1, priority=1)
+            task = self.create_task(task_func=self.get_running_processings, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=60, priority=1)
             self.add_task(task)
 
             task = self.create_task(task_func=self.clean_locks, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1800, priority=1)
