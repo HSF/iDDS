@@ -100,6 +100,18 @@ class UpdateTransformEvent(Event):
         self._transform_id = transform_id
 
 
+class AbortTransformEvent(Event):
+    def __init__(self, publisher_id, transform_id):
+        super(AbortTransformEvent).__init__(publisher_id, event_type=EventType.AbortRequest)
+        self._transform_id = transform_id
+
+
+class ResumeTransformEvent(Event):
+    def __init__(self, publisher_id, transform_id):
+        super(ResumeTransformEvent).__init__(publisher_id, event_type=EventType.ResumeRequest)
+        self._transform_id = transform_id
+
+
 class NewProcessingEvent(Event):
     def __init__(self, publisher_id, processing_id):
         super(NewProcessingEvent).__init__(publisher_id, event_type=EventType.NewProcessing)
@@ -109,4 +121,16 @@ class NewProcessingEvent(Event):
 class UpdateProcessingEvent(Event):
     def __init__(self, publisher_id, processing_id):
         super(UpdateProcessingEvent).__init__(publisher_id, event_type=EventType.UpdateProcessing)
+        self._processing_id = processing_id
+
+
+class AbortProcessingEvent(Event):
+    def __init__(self, publisher_id, processing_id):
+        super(AbortProcessingEvent).__init__(publisher_id, event_type=EventType.AbortProcessing)
+        self._processing_id = processing_id
+
+
+class ResumeProcessingEvent(Event):
+    def __init__(self, publisher_id, processing_id):
+        super(ResumeProcessingEvent).__init__(publisher_id, event_type=EventType.ResumeProcessing)
         self._processing_id = processing_id
