@@ -30,6 +30,7 @@ class Sections:
     Carrier = 'carrier'
     Conductor = 'conductor'
     Consumer = 'consumer'
+    EventBus = 'eventbus'
 
 
 class HTTP_STATUS_CODE:

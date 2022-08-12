@@ -90,3 +90,11 @@ class TimerScheduler(threading.Thread):
                 self.executors.submit(self.execute_task, task)
         except Exception as error:
             self.logger.critical("Caught an exception: %s\n%s" % (str(error), traceback.format_exc()))
+
+    def execute_timer_schedule(self):
+        try:
+            task = self.get_ready_task()
+            if task:
+                self.executors.submit(self.execute_task, task)
+        except Exception as error:
+            self.logger.critical("Caught an exception: %s\n%s" % (str(error), traceback.format_exc()))
