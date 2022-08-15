@@ -62,6 +62,20 @@ class Clerk(BaseAgent):
         else:
             self.update_poll_time_period = int(self.update_poll_time_period)
 
+        if hasattr(self, 'poll_period_increase_rate'):
+            self.poll_period_increase_rate = float(self.poll_period_increase_rate)
+        else:
+            self.poll_period_increase_rate = 2
+
+        if hasattr(self, 'max_new_poll_period'):
+            self.max_new_poll_period = int(self.max_new_poll_period)
+        else:
+            self.max_new_poll_period = 3600 * 6
+        if hasattr(self, 'max_update_poll_period'):
+            self.max_update_poll_period = int(self.max_update_poll_period)
+        else:
+            self.max_update_poll_period = 3600 * 6
+
         if hasattr(self, 'max_new_retries'):
             self.max_new_retries = int(self.max_new_retries)
         else:
@@ -293,12 +307,19 @@ class Clerk(BaseAgent):
                 req_status = req['status']
             else:
                 req_status = RequestStatus.Failed
+
+            # increase poll period
+            new_poll_period = int(req['new_poll_period'] * self.poll_period_increase_rate)
+            if new_poll_period > self.max_new_poll_period:
+                new_poll_period = self.max_new_poll_period
+
             error = {'submit_err': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=200)}}
 
             ret_req = {'request_id': req['request_id'],
                        'parameters': {'status': req_status,
                                       'locking': RequestLocking.Idle,
                                       'new_retries': retries,
+                                      'new_poll_period': new_poll_period,
                                       'errors': req['errors'] if req['errors'] else {}}}
             ret_req['parameters'].update(error)
         return ret_req
@@ -484,10 +505,16 @@ class Clerk(BaseAgent):
                 req_status = RequestStatus.Failed
             error = {'submit_err': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=200)}}
 
+            # increase poll period
+            update_poll_period = int(req['update_poll_period'] * self.poll_period_increase_rate)
+            if update_poll_period > self.max_update_poll_period:
+                update_poll_period = self.max_update_poll_period
+
             ret_req = {'request_id': req['request_id'],
                        'parameters': {'status': req_status,
                                       'locking': RequestLocking.Idle,
                                       'update_retries': retries,
+                                      'update_poll_period': update_poll_period,
                                       'errors': req['errors'] if req['errors'] else {}}}
             ret_req['parameters'].update(error)
 

@@ -59,6 +59,29 @@ class Transformer(BaseAgent):
         else:
             self.update_poll_time_period = int(self.update_poll_time_period)
 
+        if not hasattr(self, 'new_poll_time_period') or not self.new_poll_time_period:
+            self.new_poll_time_period = self.poll_time_period
+        else:
+            self.new_poll_time_period = int(self.new_poll_time_period)
+        if not hasattr(self, 'update_poll_time_period') or not self.update_poll_time_period:
+            self.update_poll_time_period = self.poll_time_period
+        else:
+            self.update_poll_time_period = int(self.update_poll_time_period)
+
+        if hasattr(self, 'poll_period_increase_rate'):
+            self.poll_period_increase_rate = float(self.poll_period_increase_rate)
+        else:
+            self.poll_period_increase_rate = 2
+
+        if hasattr(self, 'max_new_poll_period'):
+            self.max_new_poll_period = int(self.max_new_poll_period)
+        else:
+            self.max_new_poll_period = 3600 * 6
+        if hasattr(self, 'max_update_poll_period'):
+            self.max_update_poll_period = int(self.max_update_poll_period)
+        else:
+            self.max_update_poll_period = 3600 * 6
+
         self.number_workers = 0
         if not hasattr(self, 'max_number_workers') or not self.max_number_workers:
             self.max_number_workers = 3
@@ -445,8 +468,6 @@ class Transformer(BaseAgent):
         transform_parameters = {'status': TransformStatus.Transforming,
                                 'locking': TransformLocking.Idle,
                                 'workload_id': transform['workload_id'],
-                                # 'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period),
-                                # 'next_poll_at': datetime.datetime.utcnow(),
                                 'transform_metadata': transform['transform_metadata']}
 
         transform_parameters = self.load_poll_period(transform, transform_parameters)
@@ -487,10 +508,17 @@ class Transformer(BaseAgent):
                 tf_status = transform['status']
             else:
                 tf_status = TransformStatus.Failed
+
+            # increase poll period
+            new_poll_period = int(transform['new_poll_period'] * self.poll_period_increase_rate)
+            if new_poll_period > self.max_new_poll_period:
+                new_poll_period = self.max_new_poll_period
+
             error = {'submit_err': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=200)}}
 
             transform_parameters = {'status': tf_status,
                                     'new_retries': retries,
+                                    'new_poll_period': new_poll_period,
                                     'errors': transform['errors'] if transform['errors'] else {},
                                     'locking': TransformLocking.Idle}
             transform_parameters['errors'].update(error)
@@ -1146,13 +1174,18 @@ class Transformer(BaseAgent):
             retries = transform['update_retries'] + 1
             if not transform['max_update_retries'] or retries < transform['max_update_retries']:
                 tf_status = transform['status']
-                error = None
             else:
                 tf_status = TransformStatus.Failed
-                error = {'submit_err': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=200)}}
+            error = {'submit_err': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=200)}}
+
+            # increase poll period
+            update_poll_period = int(transform['update_poll_period'] * self.poll_period_increase_rate)
+            if update_poll_period > self.max_update_poll_period:
+                update_poll_period = self.max_update_poll_period
 
             transform_parameters = {'status': tf_status,
                                     'update_retries': retries,
+                                    'update_poll_period': update_poll_period,
                                     'errors': transform['errors'] if transform['errors'] else {},
                                     'locking': TransformLocking.Idle}
             transform_parameters['errors'].update(error)

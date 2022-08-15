@@ -51,15 +51,28 @@ class Carrier(BaseAgent):
         else:
             self.update_poll_time_period = int(self.update_poll_time_period)
 
-        if hasattr(self, 'max_new_retries'):
-            self.max_new_retries = int(self.max_new_retries)
+        if not hasattr(self, 'new_poll_time_period') or not self.new_poll_time_period:
+            self.new_poll_time_period = self.poll_time_period
         else:
-            self.max_new_retries = 3
-        if hasattr(self, 'max_update_retries'):
-            self.max_update_retries = int(self.max_update_retries)
+            self.new_poll_time_period = int(self.new_poll_time_period)
+        if not hasattr(self, 'update_poll_time_period') or not self.update_poll_time_period:
+            self.update_poll_time_period = self.poll_time_period
         else:
-            # 0 or None means no limitations.
-            self.max_update_retries = 0
+            self.update_poll_time_period = int(self.update_poll_time_period)
+
+        if hasattr(self, 'poll_period_increase_rate'):
+            self.poll_period_increase_rate = float(self.poll_period_increase_rate)
+        else:
+            self.poll_period_increase_rate = 2
+
+        if hasattr(self, 'max_new_poll_period'):
+            self.max_new_poll_period = int(self.max_new_poll_period)
+        else:
+            self.max_new_poll_period = 3600 * 6
+        if hasattr(self, 'max_update_poll_period'):
+            self.max_update_poll_period = int(self.max_update_poll_period)
+        else:
+            self.max_update_poll_period = 3600 * 6
 
         self.number_workers = 0
         if not hasattr(self, 'max_number_workers') or not self.max_number_workers:
@@ -209,15 +222,19 @@ class Carrier(BaseAgent):
 
             retries = processing['new_retries'] + 1
             if not processing['max_new_retries'] or retries < processing['max_new_retries']:
-                parameters = {'status': ProcessingStatus.New,
-                              'new_retries': retries}
+                pr_status = processing['status']
             else:
-                error = {'submit_err': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=200)}}
-                parameters = {'status': ProcessingStatus.Failed,
-                              'errors': processing['errors'] if processing['errors'] else {},
-                              'new_retries': retries}
-                parameters['errors'].update(error)
-            parameters = self.load_poll_period(processing, parameters)
+                pr_status = ProcessingStatus.Failed
+            # increase poll period
+            new_poll_period = int(processing['new_poll_period'] * self.poll_period_increase_rate)
+            if new_poll_period > self.max_new_poll_period:
+                new_poll_period = self.max_new_poll_period
+
+            error = {'submit_err': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=200)}}
+            parameters = {'status': pr_status,
+                          'errors': processing['errors'] if processing['errors'] else {},
+                          'new_retries': retries}
+            parameters['errors'].update(error)
 
             processing_update = {'processing_id': processing['processing_id'],
                                  'parameters': parameters}
@@ -489,13 +506,19 @@ class Carrier(BaseAgent):
             else:
                 proc_status = ProcessingStatus.Failed
             error = {'update_err': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=200)}}
+
+            # increase poll period
+            update_poll_period = int(processing['update_poll_period'] * self.poll_period_increase_rate)
+            if update_poll_period > self.max_update_poll_period:
+                update_poll_period = self.max_update_poll_period
+
             processing_update = {'processing_id': processing['processing_id'],
                                  'parameters': {'status': proc_status,
                                                 'locking': ProcessingLocking.Idle,
                                                 'update_retries': retries,
+                                                'update_poll_period': update_poll_period,
                                                 'errors': processing['errors'] if processing['errors'] else {}}}
             processing_update['parameters']['errors'].update(error)
-            processing_update['parameters'] = self.load_poll_period(processing, processing_update['parameters'])
 
             ret = {'processing_update': processing_update,
                    'content_updates': []}
