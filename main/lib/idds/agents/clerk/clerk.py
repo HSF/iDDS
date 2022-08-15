@@ -8,7 +8,6 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
 
-import datetime
 import time
 import traceback
 
@@ -54,6 +53,25 @@ class Clerk(BaseAgent):
         else:
             self.release_helper = False
 
+        if not hasattr(self, 'new_poll_time_period') or not self.new_poll_time_period:
+            self.new_poll_time_period = self.poll_time_period
+        else:
+            self.new_poll_time_period = int(self.new_poll_time_period)
+        if not hasattr(self, 'update_poll_time_period') or not self.update_poll_time_period:
+            self.update_poll_time_period = self.poll_time_period
+        else:
+            self.update_poll_time_period = int(self.update_poll_time_period)
+
+        if hasattr(self, 'max_new_retries'):
+            self.max_new_retries = int(self.max_new_retries)
+        else:
+            self.max_new_retries = 3
+        if hasattr(self, 'max_update_retries'):
+            self.max_update_retries = int(self.max_update_retries)
+        else:
+            # 0 or None means no limitations.
+            self.max_update_retries = 0
+
         self.number_workers = 0
         if not hasattr(self, 'max_number_workers') or not self.max_number_workers:
             self.max_number_workers = 3
@@ -84,9 +102,9 @@ class Clerk(BaseAgent):
             self.show_queue_size()
 
             req_status = [RequestStatus.New, RequestStatus.Extend]
-            next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period)
             reqs_new = core_requests.get_requests_by_status_type(status=req_status, locking=True,
-                                                                 not_lock=True, next_poll_at=next_poll_at,
+                                                                 not_lock=True,
+                                                                 new_poll=True, only_return_id=True,
                                                                  bulk_size=self.retrieve_bulk_size)
 
             self.logger.debug("Main thread get %s [New+Extend] requests to process" % len(reqs_new))
@@ -122,10 +140,9 @@ class Clerk(BaseAgent):
                           RequestStatus.ToExpire, RequestStatus.Expiring,
                           RequestStatus.ToFinish, RequestStatus.ToForceFinish,
                           RequestStatus.ToResume, RequestStatus.Resuming]
-            next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period)
             reqs = core_requests.get_requests_by_status_type(status=req_status, time_period=None,
                                                              locking=True, bulk_size=self.retrieve_bulk_size,
-                                                             not_lock=True, next_poll_at=next_poll_at)
+                                                             not_lock=True, update_poll=True, only_return_id=True)
 
             self.logger.debug("Main thread get %s Transforming requests to running" % len(reqs))
             if reqs:
@@ -198,6 +215,15 @@ class Clerk(BaseAgent):
                 self.logger.error(traceback.format_exc())
         return None
 
+    def load_poll_period(self, req, parameters):
+        if self.new_poll_period and req['new_poll_period'] != self.new_poll_period:
+            parameters['new_poll_period'] = self.new_poll_period
+        if self.update_poll_period and req['update_poll_period'] != self.update_poll_period:
+            parameters['update_poll_period'] = self.update_poll_period
+        parameters['max_new_retries'] = req['max_new_retries'] if req['max_new_retries'] is not None else self.max_new_retries
+        parameters['max_update_retries'] = req['max_update_retries'] if req['max_update_retries'] is not None else self.max_update_retries
+        return parameters
+
     def generate_transform(self, req, work):
         wf = req['request_metadata']['workflow']
 
@@ -211,6 +237,10 @@ class Clerk(BaseAgent):
                          'priority': req['priority'],
                          'status': TransformStatus.New,
                          'retries': 0,
+                         'new_poll_period': self.new_poll_period,
+                         'update_poll_period': self.update_poll_period,
+                         'max_new_retries': req['max_new_retries'] if req['max_new_retries'] is not None else self.max_new_retries,
+                         'max_update_retries': req['max_update_retries'] if req['max_update_retries'] is not None else self.max_update_retries,
                          # 'expired_at': req['expired_at'],
                          'expired_at': None,
                          'transform_metadata': {'internal_id': work.get_internal_id(),
@@ -251,17 +281,26 @@ class Clerk(BaseAgent):
             ret_req = {'request_id': req['request_id'],
                        'parameters': {'status': RequestStatus.Transforming,
                                       'locking': RequestLocking.Idle,
-                                      'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period),
                                       # 'processing_metadata': processing_metadata,
                                       'request_metadata': req['request_metadata']},
                        'new_transforms': transforms}
+            ret_req['parameters'] = self.load_poll_period(req, ret_req['parameters'])
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
+            retries = req['new_retries'] + 1
+            if not req['max_new_retries'] or retries < req['max_new_retries']:
+                req_status = req['status']
+            else:
+                req_status = RequestStatus.Failed
+            error = {'submit_err': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=200)}}
+
             ret_req = {'request_id': req['request_id'],
-                       'parameters': {'status': RequestStatus.Failed,
+                       'parameters': {'status': req_status,
                                       'locking': RequestLocking.Idle,
-                                      'errors': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=800)}}}
+                                      'new_retries': retries,
+                                      'errors': req['errors'] if req['errors'] else {}}}
+            ret_req['parameters'].update(error)
         return ret_req
 
     def update_request(self, req):
@@ -306,8 +345,13 @@ class Clerk(BaseAgent):
             self.logger.error(traceback.format_exc())
             try:
                 req_parameters = {'status': RequestStatus.Transforming,
-                                  'locking': RequestLocking.Idle,
-                                  'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period)}
+                                  'locking': RequestLocking.Idle}
+                if 'new_retries' in req['parameters']:
+                    req_parameters['new_retries'] = req['parameters']['new_retries']
+                if 'update_retries' in req['parameters']:
+                    req_parameters['update_retries'] = req['parameters']['update_retries']
+                if 'errors' in req['parameters']:
+                    req_parameters['errors'] = req['parameters']['errors']
                 core_requests.update_request_with_transforms(req['request_id'], req_parameters)
             except Exception as ex:
                 self.logger.error(ex)
@@ -366,7 +410,7 @@ class Clerk(BaseAgent):
                 new_transforms.append(new_transform)
             self.logger.debug("Processing request(%s): new transforms: %s" % (req['request_id'], str(new_transforms)))
 
-        is_operation = False
+        # is_operation = False
         if wf.is_terminated():
             if wf.is_finished():
                 req_status = RequestStatus.Finished
@@ -382,38 +426,32 @@ class Clerk(BaseAgent):
                 req_status = RequestStatus.Suspended
             else:
                 req_status = RequestStatus.Failed
-            req_msg = wf.get_terminated_msg()
+            # req_msg = wf.get_terminated_msg()
         else:
-            req_msg = None
+            # req_msg = None
             if req['status'] in [RequestStatus.ToSuspend, RequestStatus.Suspending]:
                 req_status = RequestStatus.Suspending
-                is_operation = True
+                # is_operation = True
             elif req['status'] in [RequestStatus.ToCancel, RequestStatus.Cancelling]:
                 req_status = RequestStatus.Cancelling
-                is_operation = True
+                # is_operation = True
             elif wf.is_to_expire(req['expired_at'], self.pending_time, request_id=req['request_id']) and req['status'] not in [RequestStatus.ToExpire, RequestStatus.Expiring]:
                 wf.expired = True
                 req_status = RequestStatus.ToExpire
-                is_operation = True
-                req_msg = "Workflow expired"
+                # is_operation = True
+                # req_msg = "Workflow expired"
             elif req['status'] in [RequestStatus.ToExpire, RequestStatus.Expiring]:
                 req_status = RequestStatus.Expiring
-                is_operation = True
-                req_msg = "Workflow expired"
+                # is_operation = True
+                # req_msg = "Workflow expired"
             else:
                 req_status = RequestStatus.Transforming
 
-        # processing_metadata['workflow_data'] = wf.get_running_data()
-        if not is_operation:
-            next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period)
-        else:
-            next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_operation_time_period)
-
         parameters = {'status': req_status,
                       'locking': RequestLocking.Idle,
-                      'next_poll_at': next_poll_at,
-                      'request_metadata': req['request_metadata'],
-                      'errors': {'msg': truncate_string(req_msg, 800)}}
+                      'request_metadata': req['request_metadata']
+                      }
+        parameters = self.load_poll_period(req, parameters)
 
         if req_status == RequestStatus.ToExpire:
             # parameters['substatus'] = req_status
@@ -439,10 +477,20 @@ class Clerk(BaseAgent):
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
+            retries = req['update_retries'] + 1
+            if not req['max_update_retries'] or retries < req['max_update_retries']:
+                req_status = req['status']
+            else:
+                req_status = RequestStatus.Failed
+            error = {'submit_err': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=200)}}
+
             ret_req = {'request_id': req['request_id'],
-                       'parameters': {'status': RequestStatus.Failed,
+                       'parameters': {'status': req_status,
                                       'locking': RequestLocking.Idle,
-                                      'errors': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=800)}}}
+                                      'update_retries': retries,
+                                      'errors': req['errors'] if req['errors'] else {}}}
+            ret_req['parameters'].update(error)
+
         return ret_req
 
     def process_update_request(self, event):
@@ -475,21 +523,22 @@ class Clerk(BaseAgent):
         process abort request
         """
         try:
-            req_status = RequestStatus.ToCancel
+            req_status = RequestStatus.Cancelling
 
             ret_req = {'request_id': req['request_id'],
                        'parameters': {'status': req_status,
-                                      'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_operation_time_period),
                                       'locking': RequestLocking.Idle},
                        }
             return ret_req
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
+            error = {'abort_err': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=200)}}
             ret_req = {'request_id': req['request_id'],
-                       'parameters': {'status': RequestStatus.Failed,
+                       'parameters': {'status': RequestStatus.ToCancel,
                                       'locking': RequestLocking.Idle,
-                                      'errors': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=800)}}}
+                                      'errors': req['errors'] if req['errors'] else {}}}
+            ret_req['parameters']['errors'].update(error)
         return ret_req
 
     def process_abort_request(self, event):
@@ -539,7 +588,6 @@ class Clerk(BaseAgent):
 
             ret_req = {'request_id': req['request_id'],
                        'parameters': {'status': req_status,
-                                      'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_operation_time_period),
                                       'request_metadata': req['request_metadata'],
                                       'processing_metadata': processing_metadata,
                                       'locking': RequestLocking.Idle},
@@ -548,10 +596,12 @@ class Clerk(BaseAgent):
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
+            error = {'abort_err': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=200)}}
             ret_req = {'request_id': req['request_id'],
-                       'parameters': {'status': RequestStatus.Failed,
+                       'parameters': {'status': RequestStatus.ToResume,
                                       'locking': RequestLocking.Idle,
-                                      'errors': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=800)}}}
+                                      'errors': req['errors'] if req['errors'] else {}}}
+            ret_req['parameters']['errors'].update(error)
         return ret_req
 
     def process_resume_request(self, event):

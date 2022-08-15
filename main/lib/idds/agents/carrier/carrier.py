@@ -8,7 +8,6 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
 
-import datetime
 import time
 import traceback
 
@@ -16,7 +15,7 @@ from idds.common import exceptions
 from idds.common.constants import (Sections, ProcessingStatus, ProcessingLocking,
                                    ContentStatus, ContentType,
                                    ContentRelationType)
-from idds.common.utils import setup_logging
+from idds.common.utils import setup_logging, truncate_string
 from idds.core import (transforms as core_transforms,
                        processings as core_processings)
 from idds.agents.common.baseagent import BaseAgent
@@ -34,13 +33,33 @@ class Carrier(BaseAgent):
     Carrier works to submit and running tasks to WFMS.
     """
 
-    def __init__(self, num_threads=1, poll_time_period=10, retrieve_bulk_size=None,
+    def __init__(self, num_threads=1, poll_time_period=10, retries=3, retrieve_bulk_size=None,
                  message_bulk_size=1000, **kwargs):
         super(Carrier, self).__init__(num_threads=num_threads, **kwargs)
         self.config_section = Sections.Carrier
         self.poll_time_period = int(poll_time_period)
+        self.retries = int(retries)
         self.retrieve_bulk_size = int(retrieve_bulk_size)
         self.message_bulk_size = int(message_bulk_size)
+
+        if not hasattr(self, 'new_poll_time_period') or not self.new_poll_time_period:
+            self.new_poll_time_period = self.poll_time_period
+        else:
+            self.new_poll_time_period = int(self.new_poll_time_period)
+        if not hasattr(self, 'update_poll_time_period') or not self.update_poll_time_period:
+            self.update_poll_time_period = self.poll_time_period
+        else:
+            self.update_poll_time_period = int(self.update_poll_time_period)
+
+        if hasattr(self, 'max_new_retries'):
+            self.max_new_retries = int(self.max_new_retries)
+        else:
+            self.max_new_retries = 3
+        if hasattr(self, 'max_update_retries'):
+            self.max_update_retries = int(self.max_update_retries)
+        else:
+            # 0 or None means no limitations.
+            self.max_update_retries = 0
 
         self.number_workers = 0
         if not hasattr(self, 'max_number_workers') or not self.max_number_workers:
@@ -73,9 +92,9 @@ class Carrier(BaseAgent):
             self.show_queue_size()
 
             processing_status = [ProcessingStatus.New]
-            next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period)
             processings = core_processings.get_processings_by_status(status=processing_status, locking=True,
-                                                                     not_lock=True, next_poll_at=next_poll_at,
+                                                                     not_lock=True,
+                                                                     new_poll=True, only_return_id=True,
                                                                      bulk_size=self.retrieve_bulk_size)
 
             self.logger.debug("Main thread get %s [new] processings to process" % len(processings))
@@ -113,12 +132,11 @@ class Carrier(BaseAgent):
                                  ProcessingStatus.ToResume, ProcessingStatus.Resuming,
                                  ProcessingStatus.ToExpire, ProcessingStatus.Expiring,
                                  ProcessingStatus.ToFinish, ProcessingStatus.ToForceFinish]
-            next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period)
+            # next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period)
             processings = core_processings.get_processings_by_status(status=processing_status,
-                                                                     # time_period=self.poll_time_period,
-                                                                     locking=True,
-                                                                     with_messaging=True,
-                                                                     not_lock=True, next_poll_at=next_poll_at,
+                                                                     locking=True, update_poll=True,
+                                                                     not_lock=True,
+                                                                     only_return_id=True,
                                                                      bulk_size=self.retrieve_bulk_size)
 
             self.logger.debug("Main thread get %s [submitting + submitted + running] processings to process: %s" % (len(processings), str([processing['processing_id'] for processing in processings])))
@@ -151,6 +169,13 @@ class Carrier(BaseAgent):
                 self.logger.error(traceback.format_exc())
         return None
 
+    def load_poll_period(self, processing, parameters):
+        if self.new_poll_period and processing['new_poll_period'] != self.new_poll_period:
+            parameters['new_poll_period'] = self.new_poll_period
+        if self.update_poll_period and processing['update_poll_period'] != self.update_poll_period:
+            parameters['update_poll_period'] = self.update_poll_period
+        return parameters
+
     def handle_new_processing(self, processing):
         try:
             # transform_id = processing['transform_id']
@@ -162,8 +187,10 @@ class Carrier(BaseAgent):
 
             work.submit_processing(processing)
             parameters = {'status': ProcessingStatus.Submitting,
-                          'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period),
+                          'locking': ProcessingLocking.Idle,
                           'processing_metadata': processing['processing_metadata']}
+            parameters = self.load_poll_period(processing, parameters)
+
             if proc.submitted_at:
                 if not processing['submitted_at'] or processing['submitted_at'] < proc.submitted_at:
                     parameters['submitted_at'] = proc.submitted_at
@@ -179,8 +206,19 @@ class Carrier(BaseAgent):
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
-            parameters = {'status': ProcessingStatus.New,
-                          'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period * 4)}
+
+            retries = processing['new_retries'] + 1
+            if not processing['max_new_retries'] or retries < processing['max_new_retries']:
+                parameters = {'status': ProcessingStatus.New,
+                              'new_retries': retries}
+            else:
+                error = {'submit_err': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=200)}}
+                parameters = {'status': ProcessingStatus.Failed,
+                              'errors': processing['errors'] if processing['errors'] else {},
+                              'new_retries': retries}
+                parameters['errors'].update(error)
+            parameters = self.load_poll_period(processing, parameters)
+
             processing_update = {'processing_id': processing['processing_id'],
                                  'parameters': parameters}
             ret = {'processing_update': processing_update,
@@ -192,8 +230,6 @@ class Carrier(BaseAgent):
             if processing:
                 self.logger.info("Main thread processing(processing_id: %s) updates: %s" % (processing['processing_update']['processing_id'],
                                                                                             processing['processing_update']['parameters']))
-                if 'next_poll_at' not in processing['processing_update']['parameters']:
-                    processing['processing_update']['parameters']['next_poll_at'] = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period)
                 processing['processing_update']['parameters']['locking'] = ProcessingLocking.Idle
                 # self.logger.debug("wen: %s" % str(processing))
 
@@ -224,8 +260,15 @@ class Carrier(BaseAgent):
             self.logger.error(traceback.format_exc())
             try:
                 processing_id = processing['processing_update']['processing_id']
-                parameters = {'status': ProcessingStatus.Running,
-                              'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period * 4)}
+
+                parameters = {'status': processing['processing_update']['status'],
+                              'locking': ProcessingLocking.Idle}
+                if 'new_retries' in processing['processing_update']:
+                    parameters['new_retries'] = processing['processing_update']['new_retries']
+                if 'update_retries' in processing['processing_update']:
+                    parameters['update_retries'] = processing['processing_update']['update_retries']
+                if 'errors' in processing['processing_update']:
+                    parameters['errors'] = processing['processing_update']['errors']
                 core_processings.update_processing(processing_id=processing_id, parameters=parameters)
             except Exception as ex:
                 self.logger.error(ex)
@@ -384,30 +427,30 @@ class Carrier(BaseAgent):
                                                                                 log_coll_ids=log_coll_ids)
 
             # processing_substatus = None
-            is_operation = False
+            # is_operation = False
             if processing['status'] in [ProcessingStatus.ToCancel]:
                 work.abort_processing(processing)
-                is_operation = True
+                # is_operation = True
                 # processing_substatus = ProcessingStatus.Cancelling
             if processing['status'] in [ProcessingStatus.ToSuspend]:
                 work.suspend_processing(processing)
-                is_operation = True
+                # is_operation = True
                 # processing_substatus = ProcessingStatus.Suspending
             if processing['status'] in [ProcessingStatus.ToResume]:
                 work.resume_processing(processing)
-                is_operation = True
+                # is_operation = True
                 # processing_substatus = ProcessingStatus.Resuming
             if processing['status'] in [ProcessingStatus.ToExpire]:
                 work.expire_processing(processing)
-                is_operation = True
+                # is_operation = True
                 # processing_substatus = ProcessingStatus.Expiring
             if processing['status'] in [ProcessingStatus.ToFinish]:
                 work.finish_processing(processing)
-                is_operation = True
+                # is_operation = True
                 # processing_substatus = ProcessingStatus.Running
             if processing['status'] in [ProcessingStatus.ToForceFinish]:
                 work.finish_processing(processing, forcing=True)
-                is_operation = True
+                # is_operation = True
                 # processing_substatus = ProcessingStatus.Running
 
             # work = processing['processing_metadata']['work']
@@ -420,16 +463,7 @@ class Carrier(BaseAgent):
                 processing_update = {'processing_id': processing['processing_id'],
                                      'parameters': {'locking': ProcessingLocking.Idle}}
 
-            # if processing_substatus:
-            #     processing_update['parameters']['substatus'] = processing_substatus
-
-            if not is_operation:
-                next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period)
-            else:
-                if processing['status'] in [ProcessingStatus.ToResume]:
-                    next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_operation_time_period * 5)
-                else:
-                    next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_operation_time_period)
+            processing_update['parameters'] = self.load_poll_period(processing, processing_update['parameters'])
 
             if proc.submitted_at:
                 if not processing['submitted_at'] or processing['submitted_at'] < proc.submitted_at:
@@ -438,7 +472,6 @@ class Carrier(BaseAgent):
             if proc.workload_id:
                 processing_update['parameters']['workload_id'] = proc.workload_id
 
-            processing_update['parameters']['next_poll_at'] = next_poll_at
             # processing_update['parameters']['expired_at'] = work.get_expired_at(processing)
             processing_update['parameters']['processing_metadata'] = processing['processing_metadata']
 
@@ -449,19 +482,41 @@ class Carrier(BaseAgent):
         except exceptions.ProcessFormatNotSupported as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
+
+            retries = processing['update_retries'] + 1
+            if not processing['max_update_retries'] or retries < processing['max_update_retries']:
+                proc_status = ProcessingStatus.Running
+            else:
+                proc_status = ProcessingStatus.Failed
+            error = {'update_err': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=200)}}
             processing_update = {'processing_id': processing['processing_id'],
-                                 'parameters': {'status': ProcessingStatus.Failed,
+                                 'parameters': {'status': proc_status,
                                                 'locking': ProcessingLocking.Idle,
-                                                'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period * 4)}}
+                                                'update_retries': retries,
+                                                'errors': processing['errors'] if processing['errors'] else {}}}
+            processing_update['parameters']['errors'].update(error)
+            processing_update['parameters'] = self.load_poll_period(processing, processing_update['parameters'])
+
             ret = {'processing_update': processing_update,
                    'content_updates': []}
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
+
+            retries = processing['update_retries'] + 1
+            if not processing['max_update_retries'] or retries < processing['max_update_retries']:
+                proc_status = ProcessingStatus.Running
+            else:
+                proc_status = ProcessingStatus.Failed
+            error = {'update_err': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=200)}}
             processing_update = {'processing_id': processing['processing_id'],
-                                 'parameters': {'status': ProcessingStatus.Running,
+                                 'parameters': {'status': proc_status,
                                                 'locking': ProcessingLocking.Idle,
-                                                'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period * 4)}}
+                                                'update_retries': retries,
+                                                'errors': processing['errors'] if processing['errors'] else {}}}
+            processing_update['parameters']['errors'].update(error)
+            processing_update['parameters'] = self.load_poll_period(processing, processing_update['parameters'])
+
             ret = {'processing_update': processing_update,
                    'content_updates': []}
         return ret
@@ -501,17 +556,18 @@ class Carrier(BaseAgent):
 
             processing_update = {'processing_id': processing['processing_id'],
                                  'parameters': {'status': ProcessingStatus.Cancelling,
-                                                'locking': ProcessingLocking.Idle,
-                                                'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period * 4)}}
+                                                'locking': ProcessingLocking.Idle}}
             ret = {'processing_update': processing_update}
             return ret
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
+            error = {'abort_err': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=200)}}
             processing_update = {'processing_id': processing['processing_id'],
                                  'parameters': {'status': ProcessingStatus.ToCancel,
                                                 'locking': ProcessingLocking.Idle,
-                                                'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period * 4)}}
+                                                'errors': processing['errors'] if processing['errors'] else {}}}
+            processing_update['parameters']['errors'].update(error)
             ret = {'processing_update': processing_update}
             return ret
         return None
@@ -529,7 +585,7 @@ class Carrier(BaseAgent):
                 if pr and pr['status'] in processing_status:
                     processing_update = {'processing_id': pr['processing_id'],
                                          'parameters': {'locking': ProcessingLocking.Idle,
-                                                        'running_metadata': {'extra_err_msg': "Processing is already terminated. Cannot be aborted"}}}
+                                                        'errors': {'abort_err': {'msg': truncate_string("Processing is already terminated. Cannot be aborted", length=200)}}}}
                     ret = {'processing_update': processing_update}
                     self.update_processing(ret)
                 elif pr:
@@ -554,17 +610,18 @@ class Carrier(BaseAgent):
 
             processing_update = {'processing_id': processing['processing_id'],
                                  'parameters': {'status': ProcessingStatus.Resuming,
-                                                'locking': ProcessingLocking.Idle,
-                                                'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period * 4)}}
+                                                'locking': ProcessingLocking.Idle}}
             ret = {'processing_update': processing_update}
             return ret
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
+            error = {'abort_err': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=200)}}
             processing_update = {'processing_id': processing['processing_id'],
                                  'parameters': {'status': ProcessingStatus.ToResume,
                                                 'locking': ProcessingLocking.Idle,
-                                                'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period * 4)}}
+                                                'errors': processing['errors'] if processing['errors'] else {}}}
+            processing_update['parameters']['errors'].update(error)
             ret = {'processing_update': processing_update}
             return ret
         return None
@@ -579,7 +636,7 @@ class Carrier(BaseAgent):
                 if pr and pr['status'] in processing_status:
                     processing_update = {'processing_id': pr['processing_id'],
                                          'parameters': {'locking': ProcessingLocking.Idle,
-                                                        'running_metadata': {'extra_err_msg': "Processing is already finished. Cannot be aborted"}}}
+                                                        'errors': {'abort_err': {'msg': truncate_string("Processing has already finished. Cannot be resumed", length=200)}}}}
                     ret = {'processing_update': processing_update}
                     self.update_processing(ret)
                 elif pr:

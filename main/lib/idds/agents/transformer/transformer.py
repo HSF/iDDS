@@ -9,7 +9,6 @@
 # - Wen Guan, <wen.guan@cern.ch>, 2019 - 202
 
 import copy
-import datetime
 import time
 import traceback
 
@@ -19,7 +18,7 @@ from idds.common.constants import (Sections, TransformStatus, TransformLocking, 
                                    ContentType, ContentStatus,
                                    ProcessingStatus, MessageType, MessageTypeStr,
                                    MessageStatus, MessageSource, MessageDestination)
-from idds.common.utils import setup_logging
+from idds.common.utils import setup_logging, truncate_string
 from idds.core import (transforms as core_transforms,
                        processings as core_processings,
                        catalog as core_catalog)
@@ -42,18 +41,23 @@ class Transformer(BaseAgent):
     Transformer works to process transforms.
     """
 
-    def __init__(self, num_threads=1, poll_time_period=1800, retrieve_bulk_size=10,
+    def __init__(self, num_threads=1, poll_time_period=1800, retries=3, retrieve_bulk_size=10,
                  message_bulk_size=10000, **kwargs):
         super(Transformer, self).__init__(num_threads=num_threads, **kwargs)
         self.config_section = Sections.Transformer
         self.poll_time_period = int(poll_time_period)
+        self.retries = int(retries)
         self.retrieve_bulk_size = int(retrieve_bulk_size)
         self.message_bulk_size = int(message_bulk_size)
 
-        if not hasattr(self, 'retries') or not self.retries:
-            self.retries = 100
+        if not hasattr(self, 'new_poll_time_period') or not self.new_poll_time_period:
+            self.new_poll_time_period = self.poll_time_period
         else:
-            self.retries = int(self.retries)
+            self.new_poll_time_period = int(self.new_poll_time_period)
+        if not hasattr(self, 'update_poll_time_period') or not self.update_poll_time_period:
+            self.update_poll_time_period = self.poll_time_period
+        else:
+            self.update_poll_time_period = int(self.update_poll_time_period)
 
         self.number_workers = 0
         if not hasattr(self, 'max_number_workers') or not self.max_number_workers:
@@ -81,9 +85,10 @@ class Transformer(BaseAgent):
             self.show_queue_size()
 
             transform_status = [TransformStatus.New, TransformStatus.Ready, TransformStatus.Extend]
-            next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period)
+            # next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period)
             transforms_new = core_transforms.get_transforms_by_status(status=transform_status, locking=True,
-                                                                      not_lock=True, next_poll_at=next_poll_at,
+                                                                      not_lock=True,
+                                                                      new_poll=True, only_return_id=True,
                                                                       bulk_size=self.retrieve_bulk_size)
 
             self.logger.debug("Main thread get %s New+Ready+Extend transforms to process" % len(transforms_new))
@@ -120,11 +125,11 @@ class Transformer(BaseAgent):
                                 TransformStatus.ToExpire, TransformStatus.Expiring,
                                 TransformStatus.ToResume, TransformStatus.Resuming,
                                 TransformStatus.ToFinish, TransformStatus.ToForceFinish]
-            next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period)
             transforms = core_transforms.get_transforms_by_status(status=transform_status,
                                                                   period=None,
                                                                   locking=True,
-                                                                  not_lock=True, next_poll_at=next_poll_at,
+                                                                  not_lock=True,
+                                                                  update_poll=True, only_return_id=True,
                                                                   bulk_size=self.retrieve_bulk_size)
 
             self.logger.debug("Main thread get %s transforming transforms to process" % len(transforms))
@@ -361,6 +366,28 @@ class Transformer(BaseAgent):
         self.logger.debug("poll_inputs_dependency, updated_contents[:10]: %s" % str(updated_contents[:10]))
         return updated_contents
 
+    def load_poll_period(self, transform, parameters):
+        if self.new_poll_period and transform['new_poll_period'] != self.new_poll_period:
+            parameters['new_poll_period'] = self.new_poll_period
+        if self.update_poll_period and transform['update_poll_period'] != self.update_poll_period:
+            parameters['update_poll_period'] = self.update_poll_period
+        return parameters
+
+    def generate_processing_model(self, transform):
+        new_processing_model = {}
+        new_processing_model['transform_id'] = transform['transform_id']
+        new_processing_model['request_id'] = transform['request_id']
+        new_processing_model['workload_id'] = transform['workload_id']
+        new_processing_model['status'] = ProcessingStatus.New
+        # new_processing_model['expired_at'] = work.get_expired_at(None)
+        new_processing_model['expired_at'] = transform['expired_at']
+
+        new_processing_model['new_poll_period'] = transform['new_poll_period']
+        new_processing_model['update_poll_period'] = transform['update_poll_period']
+        new_processing_model['max_new_retries'] = transform['max_new_retries']
+        new_processing_model['max_update_retries'] = transform['max_update_retries']
+        return new_processing_model
+
     def handle_new_transform_real(self, transform):
         """
         Process new transform
@@ -393,13 +420,7 @@ class Transformer(BaseAgent):
         processing = work.get_processing(new_input_output_maps, without_creating=False)
         self.logger.debug("work get_processing with creating: %s" % processing)
         if processing and not processing.processing_id:
-            new_processing_model = {}
-            new_processing_model['transform_id'] = transform['transform_id']
-            new_processing_model['request_id'] = transform['request_id']
-            new_processing_model['workload_id'] = transform['workload_id']
-            new_processing_model['status'] = ProcessingStatus.New
-            # new_processing_model['expired_at'] = work.get_expired_at(None)
-            new_processing_model['expired_at'] = transform['expired_at']
+            new_processing_model = self.generate_processing_model(transform)
 
             # if 'processing_metadata' not in processing:
             #     processing['processing_metadata'] = {}
@@ -424,9 +445,21 @@ class Transformer(BaseAgent):
         transform_parameters = {'status': TransformStatus.Transforming,
                                 'locking': TransformLocking.Idle,
                                 'workload_id': transform['workload_id'],
-                                'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period),
+                                # 'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period),
                                 # 'next_poll_at': datetime.datetime.utcnow(),
                                 'transform_metadata': transform['transform_metadata']}
+
+        transform_parameters = self.load_poll_period(transform, transform_parameters)
+
+        if new_processing_model is not None:
+            if 'new_poll_period' in transform_parameters:
+                new_processing_model['new_poll_period'] = transform_parameters['new_poll_period']
+            if 'update_poll_period' in transform_parameters:
+                new_processing_model['update_poll_period'] = transform_parameters['update_poll_period']
+            if 'max_new_retries' in transform_parameters:
+                new_processing_model['max_new_retries'] = transform_parameters['max_new_retries']
+            if 'max_update_retries' in transform_parameters:
+                new_processing_model['max_update_retries'] = transform_parameters['max_update_retries']
 
         if new_contents:
             work.has_new_updates()
@@ -449,25 +482,27 @@ class Transformer(BaseAgent):
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
-            if transform['retries'] > self.retries:
-                tf_status = TransformStatus.Failed
+            retries = transform['new_retries'] + 1
+            if not transform['max_new_retries'] or retries < transform['max_new_retries']:
+                tf_status = transform['status']
             else:
-                tf_status = TransformStatus.Transforming
-
-            wait_times = max(4, transform['retries'])
+                tf_status = TransformStatus.Failed
+            error = {'submit_err': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=200)}}
 
             transform_parameters = {'status': tf_status,
-                                    'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period * wait_times),
-                                    'retries': transform['retries'] + 1,
+                                    'new_retries': retries,
+                                    'errors': transform['errors'] if transform['errors'] else {},
                                     'locking': TransformLocking.Idle}
+            transform_parameters['errors'].update(error)
             ret = {'transform': transform, 'transform_parameters': transform_parameters}
         return ret
 
     def update_transform(self, ret):
         new_pr_ids, update_pr_ids = [], []
         try:
-            self.logger.info("Main thread finishing processing transform: %s" % ret['transform'])
             if ret:
+                self.logger.info("Main thread finishing processing transform: %s" % ret['transform'])
+                ret['transform_parameters']['locking'] = TransformLocking.Idle
                 retry = True
                 retry_num = 0
                 while retry:
@@ -507,9 +542,13 @@ class Transformer(BaseAgent):
             self.logger.error(traceback.format_exc())
             try:
                 transform_parameters = {'status': TransformStatus.Transforming,
-                                        'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period),
-                                        'retries': ret['transform']['retries'] + 1,
                                         'locking': TransformLocking.Idle}
+                if 'new_retries' in ret['transform_parameters']:
+                    transform_parameters['new_retries'] = ret['transform_parameters']['new_retries']
+                if 'update_retries' in ret['transform_parameters']:
+                    transform_parameters['update_retries'] = ret['transform_parameters']['update_retries']
+                if 'errors' in ret['transform_parameters']:
+                    transform_parameters['errors'] = ret['transform_parameters']['errors']
                 new_pr_ids, update_pr_ids = core_transforms.add_transform_outputs(transform=ret['transform'],
                                                                                   transform_parameters=transform_parameters)
             except Exception as ex:
@@ -780,11 +819,11 @@ class Transformer(BaseAgent):
 
         # transform_substatus = None
         t_processing_status = None
-        is_operation = False
+        # is_operation = False
         if transform['status'] in [TransformStatus.ToCancel, TransformStatus.ToSuspend,
                                    TransformStatus.ToResume, TransformStatus.ToExpire,
                                    TransformStatus.ToFinish, TransformStatus.ToForceFinish]:
-            is_operation = True
+            # is_operation = True
             if transform['status'] == TransformStatus.ToCancel:
                 t_processing_status = ProcessingStatus.ToCancel
                 # transform_substatus = TransformStatus.Cancelling
@@ -837,9 +876,9 @@ class Transformer(BaseAgent):
         if processing and processing.processing_id:
             processing_model = core_processings.get_processing(processing_id=processing.processing_id)
             work.sync_processing(processing, processing_model)
-            processing_metadata = processing_model['processing_metadata']
-            if 'errors' in processing_metadata:
-                work.set_terminated_msg(processing_metadata['errors'])
+            # processing_metadata = processing_model['processing_metadata']
+            if processing_model['errors']:
+                work.set_terminated_msg(processing['errors'])
             # work.set_processing_output_metadata(processing, processing_model['output_metadata'])
             work.set_output_data(processing.output_data)
             transform['workload_id'] = processing_model['workload_id']
@@ -863,13 +902,7 @@ class Transformer(BaseAgent):
             processing = work.get_processing(new_input_output_maps, without_creating=False)
             self.logger.debug("work get_processing with creating: %s" % processing)
         if processing and not processing.processing_id:
-            new_processing_model = {}
-            new_processing_model['transform_id'] = transform['transform_id']
-            new_processing_model['request_id'] = transform['request_id']
-            new_processing_model['workload_id'] = transform['workload_id']
-            new_processing_model['status'] = ProcessingStatus.New
-            # new_processing_model['expired_at'] = work.get_expired_at(None)
-            new_processing_model['expired_at'] = transform['expired_at']
+            new_processing_model = self.generate_processing_model(transform)
 
             # if 'processing_metadata' not in processing:
             #     processing['processing_metadata'] = {}
@@ -928,7 +961,7 @@ class Transformer(BaseAgent):
                 to_release_input_contents1 = self.trigger_release_inputs(updated_output_contents_full, work, registered_input_output_maps, final=True)
                 to_release_input_contents = to_release_input_contents + to_release_input_contents1
 
-        to_resume_transform = False
+        # to_resume_transform = False
         reactivated_contents = []
         if transform['status'] in [TransformStatus.ToCancel]:
             transform['status'] = TransformStatus.Cancelling
@@ -940,7 +973,7 @@ class Transformer(BaseAgent):
             transform['status'] = TransformStatus.Resuming
             transform['retries'] = 0
             work.toresume = True
-            to_resume_transform = True
+            # to_resume_transform = True
             reactivated_contents = self.reactive_contents(registered_input_output_maps)
             # reactive collections
             for coll in input_collections:
@@ -1057,23 +1090,25 @@ class Transformer(BaseAgent):
         else:
             transform['status'] = TransformStatus.Transforming
 
-        if not is_operation:
-            next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period)
-        else:
-            if to_resume_transform:
-                next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_operation_time_period * 5)
-            else:
-                next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_operation_time_period)
-
         # reset retries to 0 when it succeed
         transform['retries'] = 0
 
         transform_parameters = {'status': transform['status'],
                                 'locking': TransformLocking.Idle,
                                 'workload_id': transform['workload_id'],
-                                'next_poll_at': next_poll_at,
-                                'retries': transform['retries'],
                                 'transform_metadata': transform['transform_metadata']}
+        transform_parameters = self.load_poll_period(transform, transform_parameters)
+
+        if new_processing_model is not None:
+            if 'new_poll_period' in transform_parameters:
+                new_processing_model['new_poll_period'] = transform_parameters['new_poll_period']
+            if 'update_poll_period' in transform_parameters:
+                new_processing_model['update_poll_period'] = transform_parameters['update_poll_period']
+            if 'max_new_retries' in transform_parameters:
+                new_processing_model['max_new_retries'] = transform_parameters['max_new_retries']
+            if 'max_update_retries' in transform_parameters:
+                new_processing_model['max_update_retries'] = transform_parameters['max_update_retries']
+
         # if transform_substatus:
         #     transform_parameters['substatus'] = transform_substatus
 
@@ -1097,71 +1132,31 @@ class Transformer(BaseAgent):
                'update_processing': update_processing_model}
         return ret
 
-    def process_running_transform_message(self, transform, messages):
-        """
-        process running transform message
-        """
-        try:
-            self.logger.info("process_running_transform_message: transform_id: %s, messages: %s" % (transform['transform_id'], str(messages) if messages else messages))
-            msg = messages[0]
-            message = messages[0]['msg_content']
-            if message['command'] == 'update_transform':
-                parameters = message['parameters']
-                parameters['locking'] = TransformLocking.Idle
-                ret = {'transform': transform,
-                       'transform_parameters': parameters,
-                       'update_messages': [{'msg_id': msg['msg_id'], 'status': MessageStatus.Delivered}]
-                       }
-            else:
-                self.logger.error("Unknown message: %s" % str(msg))
-                ret = {'transform': transform,
-                       'transform_parameters': {'locking': TransformLocking.Idle},
-                       'update_messages': [{'msg_id': msg['msg_id'], 'status': MessageStatus.Failed}]
-                       }
-        except Exception as ex:
-            self.logger.error(ex)
-            self.logger.error(traceback.format_exc())
-            if transform['retries'] > self.retries:
-                tf_status = TransformStatus.Failed
-            else:
-                tf_status = TransformStatus.Transforming
-
-            wait_times = max(4, transform['retries'])
-
-            ret = {'transform': transform,
-                   'transform_parameters': {'status': tf_status,
-                                            'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period * wait_times),
-                                            'locking': TransformLocking.Idle,
-                                            'retries': transform['retries'] + 1,
-                                            'errors': {'msg': '%s: %s' % (ex, traceback.format_exc())}}}
-        return ret
-
     def handle_update_transform(self, transform):
         """
         Process running transform
         """
         try:
-            msgs = self.get_transform_message(transform_id=transform['transform_id'], bulk_size=1)
-            if msgs:
-                self.logger.info("Main thread processing running transform with message: %s" % transform)
-                ret = self.process_running_transform_message(transform, msgs)
-            else:
-                self.logger.info("Main thread processing running transform: %s" % transform)
-                ret = self.process_running_transform_real(transform)
+            self.logger.info("Main thread processing running transform: %s" % transform)
+            ret = self.handle_update_transform_real(transform)
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
-            if transform['retries'] > self.retries:
-                tf_status = TransformStatus.Failed
-            else:
-                tf_status = TransformStatus.Transforming
 
-            wait_times = max(4, transform['retries'])
+            retries = transform['update_retries'] + 1
+            if not transform['max_update_retries'] or retries < transform['max_update_retries']:
+                tf_status = transform['status']
+                error = None
+            else:
+                tf_status = TransformStatus.Failed
+                error = {'submit_err': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=200)}}
 
             transform_parameters = {'status': tf_status,
-                                    'next_poll_at': datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period * wait_times),
-                                    'retries': transform['retries'] + 1,
+                                    'update_retries': retries,
+                                    'errors': transform['errors'] if transform['errors'] else {},
                                     'locking': TransformLocking.Idle}
+            transform_parameters['errors'].update(error)
+
             ret = {'transform': transform, 'transform_parameters': transform_parameters}
         return ret
 
@@ -1200,16 +1195,21 @@ class Transformer(BaseAgent):
             work = transform['transform_metadata']['work']
             work.to_cancel = True
             tf_status = TransformStatus.Cancelling
-            next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_operation_time_period)
 
             transform_parameters = {'status': tf_status,
-                                    'locking': TransformLocking.Idle,
-                                    'next_poll_at': next_poll_at}
+                                    'locking': TransformLocking.Idle}
             ret = {'transform': transform, 'transform_parameters': transform_parameters}
             return ret
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
+            error = {'abort_err': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=200)}}
+            transform_parameters = {'status': TransformStatus.ToCancel,
+                                    'locking': TransformLocking.Idle,
+                                    'errors': transform['errors'] if transform['errors'] else {}}
+            transform_parameters['errors'].update(error)
+            ret = {'transform': transform, 'transform_parameters': transform_parameters}
+            return ret
         return None
 
     def process_abort_transform(self, event):
@@ -1285,12 +1285,10 @@ class Transformer(BaseAgent):
                 coll.status = CollectionStatus.Open
 
             tf_status = TransformStatus.Resuming
-            next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_operation_time_period)
 
             transform_parameters = {'status': tf_status,
-                                    'retries': 0,
-                                    'locking': TransformLocking.Idle,
-                                    'next_poll_at': next_poll_at}
+                                    'locking': TransformLocking.Idle}
+
             ret = {'transform': transform,
                    'transform_parameters': transform_parameters,
                    'update_input_collections': input_collections,
@@ -1301,6 +1299,13 @@ class Transformer(BaseAgent):
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
+            error = {'resume_err': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=200)}}
+            transform_parameters = {'status': TransformStatus.ToResume,
+                                    'locking': TransformLocking.Idle,
+                                    'errors': transform['errors'] if transform['errors'] else {}}
+            transform_parameters['errors'].update(error)
+            ret = {'transform': transform, 'transform_parameters': transform_parameters}
+            return ret
         return None
 
     def process_resume_transform(self, event):
