@@ -25,7 +25,6 @@ from idds.orm import (transforms as orm_transforms,
                       contents as orm_contents,
                       messages as orm_messages,
                       processings as orm_processings)
-from idds.core import messages as core_messages
 
 
 @transactional_session
@@ -142,41 +141,9 @@ def get_transforms(request_id=None, workload_id=None, transform_id=None, to_json
 
 
 @transactional_session
-def get_transforms_with_messaging(locking=False, bulk_size=None, session=None):
-    msgs = core_messages.retrieve_transform_messages(transform_id=None, bulk_size=bulk_size, session=session)
-    if msgs:
-        tf_ids = [msg['transform_id'] for msg in msgs]
-        if locking:
-            tf2s = orm_transforms.get_transforms_by_status(status=None, transform_ids=tf_ids,
-                                                           locking=locking, locking_for_update=True,
-                                                           bulk_size=None, session=session)
-            if tf2s:
-                transforms = []
-                for tf_id in tf_ids:
-                    if len(transforms) >= bulk_size:
-                        break
-                    for tf in tf2s:
-                        if tf['transform_id'] == tf_id:
-                            transforms.append(tf)
-                            break
-            else:
-                transforms = []
-
-            parameters = {'locking': TransformLocking.Locking}
-            for tf in transforms:
-                orm_transforms.update_transform(transform_id=tf['transform_id'], parameters=parameters, session=session)
-            return transforms
-        else:
-            transforms = orm_transforms.get_transforms_by_status(status=None, transform_ids=tf_ids, locking=locking,
-                                                                 locking_for_update=locking,
-                                                                 bulk_size=bulk_size, session=session)
-            return transforms
-    else:
-        return []
-
-
-@transactional_session
-def get_transforms_by_status(status, period=None, locking=False, bulk_size=None, to_json=False, by_substatus=False, with_messaging=False, not_lock=False, next_poll_at=None, session=None):
+def get_transforms_by_status(status, period=None, locking=False, bulk_size=None, to_json=False, by_substatus=False,
+                             new_poll=False, update_poll=False, only_return_id=False,
+                             not_lock=False, next_poll_at=None, session=None):
     """
     Get transforms or raise a NoObject exception.
 
@@ -189,23 +156,20 @@ def get_transforms_by_status(status, period=None, locking=False, bulk_size=None,
 
     :returns: list of transform.
     """
-    if with_messaging:
-        transforms = get_transforms_with_messaging(locking=locking, bulk_size=bulk_size, session=session)
-        if transforms:
-            return transforms
-
     if locking:
-        if bulk_size:
+        if not only_return_id and bulk_size:
             # order by cannot work together with locking. So first select 2 * bulk_size without locking with order by.
             # then select with locking.
             tf_ids = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking,
                                                              bulk_size=bulk_size * 2, locking_for_update=False,
                                                              to_json=False, only_return_id=True,
+                                                             new_poll=new_poll, upate_poll=update_poll,
                                                              by_substatus=by_substatus, session=session)
             if tf_ids:
                 transform2s = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking,
                                                                       bulk_size=None, locking_for_update=True,
                                                                       to_json=to_json, transform_ids=tf_ids,
+                                                                      new_poll=new_poll, upate_poll=update_poll,
                                                                       by_substatus=by_substatus, session=session)
                 if transform2s:
                     # reqs = req2s[:bulk_size]
@@ -227,6 +191,8 @@ def get_transforms_by_status(status, period=None, locking=False, bulk_size=None,
             transforms = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking,
                                                                  locking_for_update=locking,
                                                                  bulk_size=bulk_size, to_json=to_json,
+                                                                 new_poll=new_poll, upate_poll=update_poll,
+                                                                 only_return_id=only_return_id,
                                                                  by_substatus=by_substatus, session=session)
 
         parameters = []
@@ -240,6 +206,8 @@ def get_transforms_by_status(status, period=None, locking=False, bulk_size=None,
     else:
         transforms = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking,
                                                              bulk_size=bulk_size, to_json=to_json,
+                                                             new_poll=new_poll, upate_poll=update_poll,
+                                                             only_return_id=only_return_id,
                                                              by_substatus=by_substatus, session=session)
     return transforms
 

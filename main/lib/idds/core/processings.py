@@ -21,7 +21,6 @@ from idds.orm import (processings as orm_processings,
                       contents as orm_contents,
                       messages as orm_messages,
                       transforms as orm_transforms)
-from idds.core import messages as core_messages
 
 
 @transactional_session
@@ -114,42 +113,9 @@ def get_processing_by_id_status(processing_id, status=None, locking=False, sessi
 
 
 @transactional_session
-def get_processings_with_messaging(locking=False, bulk_size=None, session=None):
-    msgs = core_messages.retrieve_processing_messages(processing_id=None, bulk_size=bulk_size, session=session)
-    if msgs:
-        pr_ids = [msg['processing_id'] for msg in msgs]
-        if locking:
-            pr2s = orm_processings.get_processings_by_status(status=None, processing_ids=pr_ids,
-                                                             locking=locking, locking_for_update=True,
-                                                             bulk_size=None, session=session)
-            if pr2s:
-                prs = []
-                for pr_id in pr_ids:
-                    if len(prs) >= bulk_size:
-                        break
-                    for pr in pr2s:
-                        if pr['processing_id'] == pr_id:
-                            prs.append(pr)
-                            break
-            else:
-                prs = []
-
-            parameters = {'locking': ProcessingLocking.Locking}
-            for pr in prs:
-                orm_processings.update_processing(processing_id=pr['processing_id'], parameters=parameters, session=session)
-            return prs
-        else:
-            prs = orm_processings.get_processings_by_status(status=None, processing_ids=pr_ids, locking=locking,
-                                                            locking_for_update=locking,
-                                                            bulk_size=bulk_size, session=session)
-            return prs
-    else:
-        return []
-
-
-@transactional_session
 def get_processings_by_status(status, time_period=None, locking=False, bulk_size=None, to_json=False, by_substatus=False,
-                              with_messaging=False, not_lock=False, next_poll_at=None, for_poller=False, session=None):
+                              not_lock=False, next_poll_at=None, for_poller=False, only_return_id=False,
+                              new_poll=False, update_poll=False, session=None):
     """
     Get processing or raise a NoObject exception.
 
@@ -163,24 +129,21 @@ def get_processings_by_status(status, time_period=None, locking=False, bulk_size
 
     :returns: Processings.
     """
-    if with_messaging:
-        prs = get_processings_with_messaging(locking=locking, bulk_size=bulk_size, session=session)
-        if prs:
-            return prs
-
     if locking:
-        if bulk_size:
+        if not only_return_id and bulk_size:
             # order by cannot work together with locking. So first select 2 * bulk_size without locking with order by.
             # then select with locking.
             proc_ids = orm_processings.get_processings_by_status(status=status, period=time_period, locking=locking,
                                                                  bulk_size=bulk_size * 2, to_json=False, locking_for_update=False,
                                                                  by_substatus=by_substatus, only_return_id=True,
-                                                                 for_poller=for_poller, session=session)
+                                                                 for_poller=for_poller, new_poll=new_poll,
+                                                                 update_poll=update_poll, session=session)
             if proc_ids:
                 processing2s = orm_processings.get_processings_by_status(status=status, period=time_period, locking=locking,
                                                                          processing_ids=proc_ids,
                                                                          bulk_size=None, to_json=to_json, locking_for_update=True,
-                                                                         by_substatus=by_substatus,
+                                                                         by_substatus=by_substatus, only_return_id=only_return_id,
+                                                                         new_poll=new_poll, upate_poll=update_poll,
                                                                          for_poller=for_poller, session=session)
                 if processing2s:
                     # reqs = req2s[:bulk_size]
@@ -201,6 +164,8 @@ def get_processings_by_status(status, time_period=None, locking=False, bulk_size
         else:
             processings = orm_processings.get_processings_by_status(status=status, period=time_period, locking=locking,
                                                                     bulk_size=bulk_size, to_json=to_json, locking_for_update=locking,
+                                                                    new_poll=new_poll, upate_poll=update_poll,
+                                                                    only_return_id=only_return_id,
                                                                     by_substatus=by_substatus, for_poller=for_poller, session=session)
 
         parameters = []
@@ -214,6 +179,8 @@ def get_processings_by_status(status, time_period=None, locking=False, bulk_size
     else:
         processings = orm_processings.get_processings_by_status(status=status, period=time_period, locking=locking,
                                                                 bulk_size=bulk_size, to_json=to_json,
+                                                                new_poll=new_poll, upate_poll=update_poll,
+                                                                only_return_id=only_return_id,
                                                                 by_substatus=by_substatus, for_poller=for_poller, session=session)
     return processings
 

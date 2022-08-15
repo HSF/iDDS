@@ -686,7 +686,7 @@ def get_requests_by_requester(scope, name, requester, to_json=False, session=Non
 @transactional_session
 def get_requests_by_status_type(status, request_type=None, time_period=None, request_ids=[], locking=False,
                                 locking_for_update=False, bulk_size=None, to_json=False, by_substatus=False,
-                                only_return_id=False, session=None):
+                                new_poll=False, update_poll=False, only_return_id=False, session=None):
     """
     Get requests.
 
@@ -720,12 +720,13 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, req
                 query = query.filter(models.Request.substatus.in_(status))
             else:
                 query = query.filter(models.Request.status.in_(status))
-            query = query.filter(models.Request.next_poll_at <= datetime.datetime.utcnow())
+        if new_poll:
+            query = query.filter(models.Request.updated_at + models.Request.new_poll_period <= datetime.datetime.utcnow())
+        if update_poll:
+            query = query.filter(models.Request.updated_at + models.Request.update_poll_period <= datetime.datetime.utcnow())
 
         if request_type is not None:
             query = query.filter(models.Request.request_type == request_type)
-        # if time_period is not None:
-        #     query = query.filter(models.Request.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=time_period))
         if request_ids:
             query = query.filter(models.Request.request_id.in_(request_ids))
         if locking:
@@ -733,9 +734,10 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, req
 
         if locking_for_update:
             query = query.with_for_update(skip_locked=True)
-        else:
-            query = query.order_by(asc(models.Request.updated_at))\
-                         .order_by(desc(models.Request.priority))
+
+        query = query.order_by(asc(models.Request.updated_at))\
+                     .order_by(desc(models.Request.priority))
+
         if bulk_size:
             query = query.limit(bulk_size)
 

@@ -330,7 +330,8 @@ def get_transforms(request_id=None, workload_id=None, transform_id=None,
 
 @transactional_session
 def get_transforms_by_status(status, period=None, transform_ids=[], locking=False, locking_for_update=False,
-                             bulk_size=None, to_json=False, by_substatus=False, only_return_id=False, session=None):
+                             bulk_size=None, to_json=False, by_substatus=False, only_return_id=False,
+                             new_poll=False, update_poll=False, session=None):
     """
     Get transforms or raise a NoObject exception.
 
@@ -362,7 +363,10 @@ def get_transforms_by_status(status, period=None, transform_ids=[], locking=Fals
                 query = query.filter(models.Transform.substatus.in_(status))
             else:
                 query = query.filter(models.Transform.status.in_(status))
-            query = query.filter(models.Transform.next_poll_at <= datetime.datetime.utcnow())
+        if new_poll:
+            query = query.filter(models.Transform.updated_at + models.Transform.new_poll_period <= datetime.datetime.utcnow())
+        if update_poll:
+            query = query.filter(models.Transform.updated_at + models.Transform.update_poll_period <= datetime.datetime.utcnow())
 
         if transform_ids:
             query = query.filter(models.Transform.transform_id.in_(transform_ids))
@@ -373,8 +377,7 @@ def get_transforms_by_status(status, period=None, transform_ids=[], locking=Fals
 
         if locking_for_update:
             query = query.with_for_update(skip_locked=True)
-        else:
-            query = query.order_by(asc(models.Transform.updated_at)).order_by(desc(models.Transform.priority))
+        query = query.order_by(asc(models.Transform.updated_at)).order_by(desc(models.Transform.priority))
 
         if bulk_size:
             query = query.limit(bulk_size)

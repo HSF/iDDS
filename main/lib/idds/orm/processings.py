@@ -243,7 +243,7 @@ def get_processings_by_transform_id(transform_id=None, to_json=False, session=No
 @transactional_session
 def get_processings_by_status(status, period=None, processing_ids=[], locking=False, locking_for_update=False,
                               bulk_size=None, submitter=None, to_json=False, by_substatus=False, only_return_id=False,
-                              for_poller=False, session=None):
+                              new_poll=False, update_poll=False, for_poller=False, session=None):
     """
     Get processing or raise a NoObject exception.
 
@@ -278,7 +278,10 @@ def get_processings_by_status(status, period=None, processing_ids=[], locking=Fa
                 query = query.filter(models.Processing.substatus.in_(status))
             else:
                 query = query.filter(models.Processing.status.in_(status))
-            query = query.filter(models.Processing.next_poll_at <= datetime.datetime.utcnow())
+        if new_poll:
+            query = query.filter(models.Processing.updated_at + models.Processing.new_poll_period <= datetime.datetime.utcnow())
+        if update_poll:
+            query = query.filter(models.Processing.updated_at + models.Processing.update_poll_period <= datetime.datetime.utcnow())
 
         if processing_ids:
             query = query.filter(models.Processing.processing_id.in_(processing_ids))
@@ -289,12 +292,11 @@ def get_processings_by_status(status, period=None, processing_ids=[], locking=Fa
         if submitter:
             query = query.filter(models.Processing.submitter == submitter)
 
-        if for_poller:
-            query = query.order_by(asc(models.Processing.poller_updated_at))
-        elif locking_for_update:
+        # if for_poller:
+        #     query = query.order_by(asc(models.Processing.poller_updated_at))
+        if locking_for_update:
             query = query.with_for_update(skip_locked=True)
-        else:
-            query = query.order_by(asc(models.Processing.updated_at))
+        query = query.order_by(asc(models.Processing.updated_at))
 
         if bulk_size:
             query = query.limit(bulk_size)
