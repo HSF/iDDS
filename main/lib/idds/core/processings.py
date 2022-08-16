@@ -270,7 +270,8 @@ def update_processing_with_collection_contents(updated_processing, new_processin
 
 
 @transactional_session
-def update_processing_contents(processing_update, content_updates, update_messages=None, new_contents=None, session=None):
+def update_processing_contents(processing_update, content_updates, update_messages=None, new_contents=None,
+                               messages=None, message_bulk_size=2000, session=None):
     """
     Update processing with contents.
 
@@ -286,7 +287,11 @@ def update_processing_contents(processing_update, content_updates, update_messag
                                           parameters=processing_update['parameters'],
                                           session=session)
     if update_messages:
-        orm_messages.update_messages(update_messages, session=session)
+        orm_messages.update_messages(update_messages, bulk_size=message_bulk_size, session=session)
+    if messages:
+        if not type(messages) in [list, tuple]:
+            messages = [messages]
+        orm_messages.add_messages(messages, bulk_size=message_bulk_size, session=session)
 
 
 @transactional_session

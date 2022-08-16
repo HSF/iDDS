@@ -294,7 +294,7 @@ def get_contents(coll_scope=None, coll_name=None, request_id=None, workload_id=N
     :param to_json: return json format.
     :param session: The database session in use.
 
-    :returns: dict of contents
+    :returns: list of contents
     """
     collections = get_collections(scope=coll_scope, name=coll_name, request_id=request_id,
                                   workload_id=workload_id, transform_id=transform_id,
@@ -306,6 +306,22 @@ def get_contents(coll_scope=None, coll_name=None, request_id=None, workload_id=N
     else:
         rets = []
     return rets
+
+
+@read_session
+def get_contents_by_transform(request_id=None, workload_id=None, transform_id=None, session=None):
+    """
+    Get contents with request id, workload id and transform id.
+
+    :param request_id: the request id.
+    :param workload_id: The workload_id of the request.
+    :param transform_id: The transform id related to this collection.
+    :param session: The database session in use.
+
+    :returns: list of contents
+    """
+    ret = orm_contents.get_contents_by_transform(transform_id=transform_id, session=session)
+    return ret
 
 
 @read_session
