@@ -32,7 +32,9 @@ AGENTS = {
     'marshaller': ['idds.agents.marshaller.marshaller.Marshaller', Sections.Marshaller],
     'transformer': ['idds.agents.transformer.transformer.Transformer', Sections.Transformer],
     'transporter': ['idds.agents.transporter.transporter.Transporter', Sections.Transporter],
-    'carrier': ['idds.agents.carrier.carrier.Carrier', Sections.Carrier],
+    'poller': ['idds.agents.carrier.poller.Poller', Sections.Carrier],
+    'receiver': ['idds.agents.carrier.receiver.Receiver', Sections.Carrier],
+    'finisher': ['idds.agents.carrier.finisher.Finisher', Sections.Carrier],
     'conductor': ['idds.agents.conductor.conductor.Conductor', Sections.Conductor],
     'consumer': ['idds.agents.conductor.consumer.Consumer', Sections.Consumer]
 }
