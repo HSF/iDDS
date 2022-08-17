@@ -20,6 +20,7 @@ from idds.common.constants import (ProcessingStatus,
 from idds.core import (transforms as core_transforms,
                        processings as core_processings,
                        catalog as core_catalog)
+from idds.agents.common.cache.redis import get_redis_cache
 
 
 def get_new_content(request_id, transform_id, workload_id, map_id, input_content, content_relation_type=ContentRelationType.Input):
@@ -328,37 +329,46 @@ def handle_new_processing(processing, agent_attributes):
 
 
 def get_input_dependency_map(request_id, transform_id, workload_id, work):
-    # redis
-    # contents = core_catalog.get_contents(request_id=request_id, transform_id=transform_id)
-    contents = core_catalog.get_contents_by_transform(request_id=request_id, transform_id=transform_id)
-    content_output_name2id = {}
-    for content in contents:
-        if content['content_relation_type'] == ContentRelationType.Output:
-            content_output_name2id[content['name']] = content
-    content_depency_map = {}
-    for content in contents:
-        if content['content_relation_type'] == ContentRelationType.InputDependency:
-            dep_content = content_output_name2id[content['name']]
-            content_depency_map[dep_content['content_id']] = (content['content_id'], content['transform_id'], content['map_id'], None)
+    cache = get_redis_cache()
+    content_depency_map_key = "tf_cdm_%s" % transform_id
+    transform_dependency_map_key = "tf_dm_%s" % transform_id
+    content_depency_map = cache.get(content_depency_map_key)
+    transform_dependency_map = cache.get(transform_dependency_map_key)
 
-    transform_dependency_map = {}
-    for content in contents:
-        map_id = content['map_id']
-        if map_id not in transform_dependency_map:
-            transform_dependency_map[map_id] = {'inputs_dependency': [], 'inputs': [], 'outputs': [], 'logs': [], 'others': []}
+    if not content_depency_map or not transform_dependency_map:
+        # contents = core_catalog.get_contents(request_id=request_id, transform_id=transform_id)
+        contents = core_catalog.get_contents_by_transform(request_id=request_id, transform_id=transform_id)
+        content_output_name2id = {}
+        for content in contents:
+            if content['content_relation_type'] == ContentRelationType.Output:
+                content_output_name2id[content['name']] = content
+        content_depency_map = {}
+        for content in contents:
+            if content['content_relation_type'] == ContentRelationType.InputDependency:
+                dep_content = content_output_name2id[content['name']]
+                content_depency_map[dep_content['content_id']] = (content['content_id'], content['transform_id'], content['map_id'], None)
 
-        content_item = (content['content_id'], content['substatus'])
-        if content['content_relation_type'] == ContentRelationType.Input:
-            content_item = (content['content_id'], content['substatus'], content['scope'], content['name'], content['path'])
-            transform_dependency_map[map_id]['inputs'].append(content_item)
-        elif content['content_relation_type'] == ContentRelationType.InputDependency:
-            transform_dependency_map[map_id]['inputs_dependency'].append(content_item)
-        elif content['content_relation_type'] == ContentRelationType.Output:
-            transform_dependency_map[map_id]['outputs'].append(content_item)
-        elif content['content_relation_type'] == ContentRelationType.Log:
-            transform_dependency_map[map_id]['logs'].append(content_item)
-        else:
-            transform_dependency_map[map_id]['others'].append(content_item)
+        transform_dependency_map = {}
+        for content in contents:
+            map_id = content['map_id']
+            if map_id not in transform_dependency_map:
+                transform_dependency_map[map_id] = {'inputs_dependency': [], 'inputs': [], 'outputs': [], 'logs': [], 'others': []}
+
+            content_item = (content['content_id'], content['substatus'])
+            if content['content_relation_type'] == ContentRelationType.Input:
+                content_item = (content['content_id'], content['substatus'], content['scope'], content['name'], content['path'])
+                transform_dependency_map[map_id]['inputs'].append(content_item)
+            elif content['content_relation_type'] == ContentRelationType.InputDependency:
+                transform_dependency_map[map_id]['inputs_dependency'].append(content_item)
+            elif content['content_relation_type'] == ContentRelationType.Output:
+                transform_dependency_map[map_id]['outputs'].append(content_item)
+            elif content['content_relation_type'] == ContentRelationType.Log:
+                transform_dependency_map[map_id]['logs'].append(content_item)
+            else:
+                transform_dependency_map[map_id]['others'].append(content_item)
+
+        cache.get(content_depency_map_key, content_depency_map)
+        cache.set(transform_dependency_map_key, transform_dependency_map)
     return content_depency_map, transform_dependency_map
 
 
@@ -468,59 +478,72 @@ def get_content_status_from_panda_msg_status(status):
 
 
 def get_workload_id_transform_id_map(workload_id):
-    # redis
-    workload_id_transform_id_map = {}
-    processing_status = [ProcessingStatus.New,
-                         ProcessingStatus.Submitting, ProcessingStatus.Submitted,
-                         ProcessingStatus.Running, ProcessingStatus.FinishedOnExec,
-                         ProcessingStatus.Cancel, ProcessingStatus.FinishedOnStep,
-                         ProcessingStatus.ToCancel, ProcessingStatus.Cancelling,
-                         ProcessingStatus.ToSuspend, ProcessingStatus.Suspending,
-                         ProcessingStatus.ToResume, ProcessingStatus.Resuming,
-                         ProcessingStatus.ToExpire, ProcessingStatus.Expiring,
-                         ProcessingStatus.ToFinish, ProcessingStatus.ToForceFinish]
+    cache = get_redis_cache()
+    workload_id_transform_id_map_key = "all_wi_ti_m"
+    workload_id_transform_id_map = cache.get(workload_id_transform_id_map_key)
 
-    procs = core_processings.get_processings_by_status(status=processing_status)
-    for proc in procs:
-        workload_id_transform_id_map[proc['workload_id']] = (proc['request_id'], proc['transform_id'], proc['processing_id'])
+    if not workload_id_transform_id_map or workload_id not in workload_id_transform_id_map:
+        processing_status = [ProcessingStatus.New,
+                             ProcessingStatus.Submitting, ProcessingStatus.Submitted,
+                             ProcessingStatus.Running, ProcessingStatus.FinishedOnExec,
+                             ProcessingStatus.Cancel, ProcessingStatus.FinishedOnStep,
+                             ProcessingStatus.ToCancel, ProcessingStatus.Cancelling,
+                             ProcessingStatus.ToSuspend, ProcessingStatus.Suspending,
+                             ProcessingStatus.ToResume, ProcessingStatus.Resuming,
+                             ProcessingStatus.ToExpire, ProcessingStatus.Expiring,
+                             ProcessingStatus.ToFinish, ProcessingStatus.ToForceFinish]
+
+        procs = core_processings.get_processings_by_status(status=processing_status)
+        for proc in procs:
+            workload_id_transform_id_map[proc['workload_id']] = (proc['request_id'], proc['transform_id'], proc['processing_id'])
+
+        cache.set(workload_id_transform_id_map_key, workload_id_transform_id_map)
+
     return workload_id_transform_id_map[workload_id]
 
 
 def get_input_name_content_id_map(request_id, workload_id, transform_id):
-    # redis
-    contents = core_catalog.get_contents_by_transform(request_id=request_id, transform_id=transform_id)
-    input_name_content_id_map = {}
-    for content in contents:
-        if content['content_relation_type'] == ContentRelationType.Input:
-            input_name_content_id_map[content['name']] = content['content_id']
+    cache = get_redis_cache()
+    input_name_content_id_map_key = "tf_in_ci_m_%s" % transform_id
+    input_name_content_id_map = cache.get(input_name_content_id_map_key)
+
+    if not input_name_content_id_map:
+        contents = core_catalog.get_contents_by_transform(request_id=request_id, transform_id=transform_id)
+        input_name_content_id_map = {}
+        for content in contents:
+            if content['content_relation_type'] == ContentRelationType.Input:
+                input_name_content_id_map[content['name']] = content['content_id']
+
+        cache.set(input_name_content_id_map_key, input_name_content_id_map)
     return input_name_content_id_map
 
 
 def get_jobid_content_id_map(request_id, workload_id, transform_id, job_id, inputs):
-    # redis
-    jobid_content_id_map = {}
-    input_name_content_id_map = get_input_name_content_id_map(request_id, workload_id, transform_id)
-    for ip in inputs:
-        if ':' in ip:
-            pos = ip.find(":")
-            ip = ip[pos + 1:]
-        if ip in input_name_content_id_map:
-            content_id = input_name_content_id_map[ip]
-            jobid_content_id_map[job_id] = content_id
-            break
-    return jobid_content_id_map
+    cache = get_redis_cache()
+    jobid_content_id_map_key = "tf_ji_ci_m_%s" % transform_id
+    jobid_content_id_map = cache.get(jobid_content_id_map_key)
+
+    to_update_jobid = False
+    if not jobid_content_id_map or job_id not in jobid_content_id_map:
+        to_update_jobid = True
+        input_name_content_id_map = get_input_name_content_id_map(request_id, workload_id, transform_id)
+        for ip in inputs:
+            if ':' in ip:
+                pos = ip.find(":")
+                ip = ip[pos + 1:]
+            if ip in input_name_content_id_map:
+                content_id = input_name_content_id_map[ip]
+                jobid_content_id_map[job_id] = content_id
+                break
+
+        cache.set(jobid_content_id_map_key, jobid_content_id_map)
+    return jobid_content_id_map, to_update_jobid
 
 
 def get_content_id_from_job_id(request_id, workload_id, transform_id, job_id, inputs):
-    # redis
-    jobid_content_id_map = {}
-    to_update_jobid = False
-    if job_id in jobid_content_id_map:
-        content_id = jobid_content_id_map[job_id]
-    else:
-        jobid_content_id_map = get_jobid_content_id_map(request_id, workload_id, transform_id, job_id, inputs)
-        content_id = jobid_content_id_map[job_id]
-        to_update_jobid = True
+    jobid_content_id_map, to_update_jobid = get_jobid_content_id_map(request_id, workload_id, transform_id, job_id, inputs)
+
+    content_id = jobid_content_id_map[job_id]
     return content_id, to_update_jobid
 
 
