@@ -8,18 +8,15 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2022
 
-import time
-import traceback
 
-from idds.common import exceptions
-from idds.common.constants import (Sections, ProcessingStatus, ProcessingLocking,
+from idds.common.constants import (ProcessingStatus,
+                                   CollectionStatus,
                                    ContentStatus, ContentType,
                                    ContentRelationType,
+                                   WorkStatus,
                                    TransformType2MessageTypeMap,
-                                   MessageType, MessageTypeStr,
                                    MessageStatus, MessageSource,
                                    MessageDestination)
-from idds.common.utils import setup_logging, truncate_string
 from idds.core import (transforms as core_transforms,
                        processings as core_processings,
                        catalog as core_catalog)
@@ -98,9 +95,9 @@ def get_input_output_maps(transform_id, work):
     output_collections = work.get_output_collections()
     log_collections = work.get_log_collections()
 
-    for coll in input_collections + output_collections + log_collections:
-        coll_model = core_catalog.get_collection(coll_id=coll.coll_id)
-        coll.collection = coll_model
+    # for coll in input_collections + output_collections + log_collections:
+    #     coll_model = core_catalog.get_collection(coll_id=coll.coll_id)
+    #     coll.collection = coll_model
 
     input_coll_ids = get_collection_ids(input_collections)
     output_coll_ids = get_collection_ids(output_collections)
@@ -458,3 +455,296 @@ def handle_update_processing(processing, agent_attributes):
         content_updates = content_updates + content_updates_trigger
 
     return processing_update, new_contents, ret_msgs, content_updates
+
+
+def get_content_status_from_panda_msg_status(status):
+    status_map = {'starting': ContentStatus.New,
+                  'running': ContentStatus.Processing,
+                  'finished': ContentStatus.Available,
+                  'failed': ContentStatus.Failed}
+    if status in status_map:
+        return status_map[status]
+    return ContentStatus.New
+
+
+def get_workload_id_transform_id_map(workload_id):
+    # redis
+    workload_id_transform_id_map = {}
+    processing_status = [ProcessingStatus.New,
+                         ProcessingStatus.Submitting, ProcessingStatus.Submitted,
+                         ProcessingStatus.Running, ProcessingStatus.FinishedOnExec,
+                         ProcessingStatus.Cancel, ProcessingStatus.FinishedOnStep,
+                         ProcessingStatus.ToCancel, ProcessingStatus.Cancelling,
+                         ProcessingStatus.ToSuspend, ProcessingStatus.Suspending,
+                         ProcessingStatus.ToResume, ProcessingStatus.Resuming,
+                         ProcessingStatus.ToExpire, ProcessingStatus.Expiring,
+                         ProcessingStatus.ToFinish, ProcessingStatus.ToForceFinish]
+
+    procs = core_processings.get_processings_by_status(status=processing_status)
+    for proc in procs:
+        workload_id_transform_id_map[proc['workload_id']] = (proc['request_id'], proc['transform_id'], proc['processing_id'])
+    return workload_id_transform_id_map[workload_id]
+
+
+def get_input_name_content_id_map(request_id, workload_id, transform_id):
+    # redis
+    contents = core_catalog.get_contents_by_transform(request_id=request_id, transform_id=transform_id)
+    input_name_content_id_map = {}
+    for content in contents:
+        if content['content_relation_type'] == ContentRelationType.Input:
+            input_name_content_id_map[content['name']] = content['content_id']
+    return input_name_content_id_map
+
+
+def get_jobid_content_id_map(request_id, workload_id, transform_id, job_id, inputs):
+    # redis
+    jobid_content_id_map = {}
+    input_name_content_id_map = get_input_name_content_id_map(request_id, workload_id, transform_id)
+    for ip in inputs:
+        if ':' in ip:
+            pos = ip.find(":")
+            ip = ip[pos + 1:]
+        if ip in input_name_content_id_map:
+            content_id = input_name_content_id_map[ip]
+            jobid_content_id_map[job_id] = content_id
+            break
+    return jobid_content_id_map
+
+
+def get_content_id_from_job_id(request_id, workload_id, transform_id, job_id, inputs):
+    # redis
+    jobid_content_id_map = {}
+    to_update_jobid = False
+    if job_id in jobid_content_id_map:
+        content_id = jobid_content_id_map[job_id]
+    else:
+        jobid_content_id_map = get_jobid_content_id_map(request_id, workload_id, transform_id, job_id, inputs)
+        content_id = jobid_content_id_map[job_id]
+        to_update_jobid = True
+    return content_id, to_update_jobid
+
+
+def handle_messages_processing(messages):
+    update_processings = []
+    update_contents = []
+    for msg in messages:
+        if msg['msg_type'] in ['task_status']:
+            workload_id = msg['taskid']
+            status = msg['status']
+            if status in ['finished', 'done']:
+                req_id, tf_id, processing_id = get_workload_id_transform_id_map(workload_id)
+                update_processings.append((processing_id, status))
+
+        if msg['msg_type'] in ['job_status']:
+            workload_id = msg['taskid']
+            job_id = msg['job_id']
+            status = msg['status']
+            inputs = msg['inputs']
+            req_id, tf_id, processing_id = get_workload_id_transform_id_map(workload_id)
+            content_id, to_update_jobid = get_content_id_from_job_id(req_id, workload_id, tf_id, job_id, inputs)
+            if to_update_jobid:
+                u_content = {'content_id': content_id,
+                             'status': get_content_status_from_panda_msg_status(status),
+                             'content_metadata': {'panda_id': job_id}}
+            else:
+                u_content = {'content_id': content_id,
+                             'status': get_content_status_from_panda_msg_status(status)}
+            update_contents.append(u_content)
+
+    work = None
+    content_updates_trigger, updated_input_contents = trigger_release_inputs(req_id, tf_id, workload_id,
+                                                                             work, update_contents)
+    msgs = []
+    if updated_input_contents:
+        msgs = generate_messages(req_id, tf_id, workload_id, work, msg_type='file',
+                                 files=updated_input_contents, relation_type='input')
+    return update_processings, update_contents + content_updates_trigger, msgs
+
+
+def sync_collection_status(request_id, transform_id, workload_id, work, input_output_maps=None,
+                           close_collection=False, force_close_collection=False):
+    if input_output_maps is None:
+        input_output_maps = get_input_output_maps(transform_id, work)
+
+    all_updates_flushed = True
+    coll_status = {}
+    for map_id in input_output_maps:
+        inputs = input_output_maps[map_id]['inputs'] if 'inputs' in input_output_maps[map_id] else []
+        # inputs_dependency = input_output_maps[map_id]['inputs_dependency'] if 'inputs_dependency' in input_output_maps[map_id] else []
+        outputs = input_output_maps[map_id]['outputs'] if 'outputs' in input_output_maps[map_id] else []
+        logs = input_output_maps[map_id]['logs'] if 'logs' in input_output_maps[map_id] else []
+
+        for content in inputs + outputs + logs:
+            if content['coll_id'] not in coll_status:
+                coll_status[content['coll_id']] = {'total_files': 0, 'processed_files': 0, 'processing_files': 0, 'bytes': 0}
+            coll_status[content['coll_id']]['total_files'] += 1
+
+            if content['status'] in [ContentStatus.Available, ContentStatus.Mapped,
+                                     ContentStatus.Available.value, ContentStatus.Mapped.value,
+                                     ContentStatus.FakeAvailable, ContentStatus.FakeAvailable.value]:
+                coll_status[content['coll_id']]['processed_files'] += 1
+                coll_status[content['coll_id']]['bytes'] += content['bytes']
+            else:
+                coll_status[content['coll_id']]['processing_files'] += 1
+
+            if content['status'] != content['substatus']:
+                all_updates_flushed = False
+
+    input_collections = work.get_input_collections()
+    output_collections = work.get_output_collections()
+    log_collections = work.get_log_collections()
+
+    for coll in input_collections + output_collections + log_collections:
+        if coll.coll_id in coll_status:
+            coll.total_files = coll_status['total_files']
+            coll.processed_files = coll_status['processed_files']
+            coll.processing_files = coll_status['processing_files']
+            coll.bytes = coll_status['bytes']
+
+    update_collections = []
+    for coll_id in coll_status:
+        u_coll = {'coll_id': coll_id,
+                  'total_files': coll_status['total_files'],
+                  'processed_files': coll_status['processed_files'],
+                  'processing_files': coll_status['processing_files'],
+                  'bytes': coll_status['bytes']}
+        if force_close_collection or close_collection and all_updates_flushed:
+            u_coll['status'] = CollectionStatus.Closed
+            u_coll['substatus'] = CollectionStatus.Closed
+
+        update_collections.append(u_coll)
+    return update_collections, all_updates_flushed
+
+
+def sync_work_status(request_id, transform_id, workload_id, work):
+    input_collections = work.get_input_collections()
+    output_collections = work.get_output_collections()
+    log_collections = work.get_log_collections()
+
+    is_all_collections_closed = True
+    is_all_files_processed = True
+    is_all_files_failed = True
+    for coll in input_collections + output_collections + log_collections:
+        if coll.status != CollectionStatus.Closed:
+            is_all_collections_closed = False
+        if coll.total_files != coll.processed_files:
+            is_all_files_processed = False
+        if coll.processed_files > 0:
+            is_all_files_failed = False
+
+    if is_all_collections_closed:
+        if is_all_files_failed:
+            work.status = WorkStatus.Failed
+        elif is_all_files_processed:
+            work.status = WorkStatus.Finished
+        else:
+            work.status = WorkStatus.SubFinished
+
+
+def sync_processing(processing, agent_attributes):
+    request_id = processing['request_id']
+    transform_id = processing['transform_id']
+    workload_id = processing['workload_id']
+
+    proc = processing['processing_metadata']['processing']
+    work = proc.work
+    work.set_agent_attributes(agent_attributes, processing)
+
+    input_collections = work.get_input_collections()
+    output_collections = work.get_output_collections()
+    log_collections = work.get_log_collections()
+
+    # input_output_maps = get_input_output_maps(transform_id, work)
+    update_collections, all_updates_flushed = sync_collection_status(request_id, transform_id, workload_id, work,
+                                                                     input_output_maps=None, close_collection=True)
+
+    if all_updates_flushed:
+        for coll in input_collections + output_collections + log_collections:
+            coll.status = CollectionStatus.Closed
+            coll.substatus = CollectionStatus.Closed
+
+    messages = []
+    sync_work_status(request_id, transform_id, workload_id, work)
+    if work.is_terminated():
+        messages = generate_messages(request_id, transform_id, workload_id, work, msg_type='work')
+        if work.is_finished():
+            processing['status'] = ProcessingStatus.Finished
+        elif work.is_failed:
+            processing['status'] = ProcessingStatus.Failed
+        else:
+            processing['status'] = ProcessingStatus.SubFinished
+    return processing, update_collections, messages
+
+
+def handle_abort_processing(processing, agent_attributes):
+    request_id = processing['request_id']
+    transform_id = processing['transform_id']
+    workload_id = processing['workload_id']
+
+    proc = processing['processing_metadata']['processing']
+    work = proc.work
+    work.set_agent_attributes(agent_attributes, processing)
+
+    work.abort_processing(processing)
+
+    input_collections = work.get_input_collections()
+    output_collections = work.get_output_collections()
+    log_collections = work.get_log_collections()
+
+    # input_output_maps = get_input_output_maps(transform_id, work)
+    update_collections, all_updates_flushed = sync_collection_status(request_id, transform_id, workload_id, work,
+                                                                     input_output_maps=None, close_collection=True,
+                                                                     force_close_collection=True)
+
+    for coll in input_collections + output_collections + log_collections:
+        coll.status = CollectionStatus.Closed
+        coll.substatus = CollectionStatus.Closed
+    update_contents = []
+
+    processing['status'] = ProcessingStatus.Cancelled
+    return processing, update_collections, update_contents
+
+
+def reactive_contents(request_id, transform_id, workload_id, work, input_output_maps):
+    updated_contents = []
+    contents = core_catalog.get_contents_by_transform(request_id=request_id, transform_id=transform_id)
+    for content in contents:
+        if content['status'] in [ContentStatus.Available, ContentStatus.Mapped,
+                                 ContentStatus.Available.value, ContentStatus.Mapped.value,
+                                 ContentStatus.FakeAvailable, ContentStatus.FakeAvailable.value]:
+            u_content = {'content_id': content['content_id'],
+                         'substatus': ContentStatus.New,
+                         'status': ContentStatus.New}
+            updated_contents.append(u_content)
+    return updated_contents
+
+
+def handle_resume_processing(processing, agent_attributes):
+    request_id = processing['request_id']
+    transform_id = processing['transform_id']
+    workload_id = processing['workload_id']
+
+    proc = processing['processing_metadata']['processing']
+    work = proc.work
+    work.set_agent_attributes(agent_attributes, processing)
+
+    work.resume_processing(processing)
+
+    input_collections = work.get_input_collections()
+    output_collections = work.get_output_collections()
+    log_collections = work.get_log_collections()
+
+    update_collections = []
+    for coll in input_collections + output_collections + log_collections:
+        coll.status = CollectionStatus.Open
+        coll.substatus = CollectionStatus.Open
+        u_collection = {'coll_id': coll.coll_id,
+                        'status': CollectionStatus.Open,
+                        'substatus': CollectionStatus.Open}
+        update_collections.append(u_collection)
+
+    input_output_maps = get_input_output_maps(transform_id, work)
+    update_contents = reactive_contents(request_id, transform_id, workload_id, work, input_output_maps)
+
+    processing['status'] = ProcessingStatus.Processing
+    return processing, update_collections, update_contents
