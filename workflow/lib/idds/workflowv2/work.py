@@ -63,6 +63,11 @@ class Collection(Base):
         self.status = CollectionStatus.New
         self.substatus = CollectionStatus.New
 
+        self.total_files = 0
+        self.processed_files = 0
+        self.processing_files = 0
+        self.bytes = 0
+
     @property
     def internal_id(self):
         return self.get_metadata_item('internal_id')
@@ -133,6 +138,11 @@ class Collection(Base):
             self.coll_type = self._collection['coll_type']
             self.status = self._collection['status']
             self.substatus = self._collection['substatus']
+
+            self.total_files = self._collection['total_files']
+            self.processed_files = self._collection['processed_files']
+            self.processing_files = self._collection['processing_files']
+            self.bytes = self._collection['bytes']
 
     def to_origin_dict(self):
         return {'scope': self.scope, 'name': self.name}

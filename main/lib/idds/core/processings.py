@@ -270,21 +270,23 @@ def update_processing_with_collection_contents(updated_processing, new_processin
 
 
 @transactional_session
-def update_processing_contents(processing_update, content_updates, update_messages=None, new_contents=None,
-                               messages=None, message_bulk_size=2000, session=None):
+def update_processing_contents(update_processing, update_contents, update_messages=None, new_contents=None,
+                               update_collections=None, messages=None, message_bulk_size=2000, session=None):
     """
     Update processing with contents.
 
-    :param processing_update: dict with processing id and parameters.
-    :param content_updates: list of content files.
+    :param update_processing: dict with processing id and parameters.
+    :param update_contents: list of content files.
     """
-    if content_updates:
-        orm_contents.update_contents(content_updates, session=session)
+    if update_collections:
+        orm_collections.update_collections(update_collections, session=session)
+    if update_contents:
+        orm_contents.update_contents(update_contents, session=session)
     if new_contents:
         orm_contents.add_contents(new_contents, session=session)
-    if processing_update:
-        orm_processings.update_processing(processing_id=processing_update['processing_id'],
-                                          parameters=processing_update['parameters'],
+    if update_processing:
+        orm_processings.update_processing(processing_id=update_processing['processing_id'],
+                                          parameters=update_processing['parameters'],
                                           session=session)
     if update_messages:
         orm_messages.update_messages(update_messages, bulk_size=message_bulk_size, session=session)
