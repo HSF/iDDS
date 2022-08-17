@@ -23,6 +23,7 @@ from idds.common.utils import setup_logging
 from idds.core import health as core_health, messages as core_messages
 from idds.agents.common.timerscheduler import TimerScheduler
 from idds.agents.common.eventbus.eventbus import EventBus
+from idds.agents.common.cache.redis import get_redis_cache
 
 
 setup_logging(__name__)
@@ -63,6 +64,8 @@ class BaseAgent(TimerScheduler, PluginBase):
 
         self.event_bus = EventBus()
         self.event_func_map = {}
+
+        self.cache = get_redis_cache()
 
     def get_event_bus(self):
         self.event_bus
