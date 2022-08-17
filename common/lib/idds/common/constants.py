@@ -193,6 +193,7 @@ class TransformType(IDDSEnum):
     Derivation = 5
     Processing = 6
     Actuating = 7
+    Data = 8
     Other = 99
 
 
