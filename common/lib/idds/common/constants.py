@@ -113,7 +113,9 @@ class WorkStatus(IDDSEnum):
     ToExpire = 15
     Expiring = 16
     Expired = 17
-    Running = 18
+    ToFinish = 18
+    ToForceFinish = 19
+    Running = 20
 
 
 class RequestStatus(IDDSEnum):
@@ -362,6 +364,35 @@ class MessageTypeStr(IDDSEnum):
     UnknownFile = 'file_unknown'
     UnknownCollection = 'collection_unknown'
     UnknownWork = 'work_unknown'
+
+
+TransformType2MessageTypeMap = {
+    '0': {'transform_type': TransformType.Workflow,
+          'work': (MessageType.UnknownWork, MessageTypeStr.UnknownWork),
+          'collection': (MessageType.UnknownCollection, MessageTypeStr.UnknownCollection),
+          'file': (MessageType.UnknownFile, MessageTypeStr.UnknownFile)
+          },
+    '2': {'transform_type': TransformType.StageIn,
+          'work': (MessageType.StageInWork, MessageTypeStr.StageInWork),
+          'collection': (MessageType.StageInCollection, MessageTypeStr.StageInCollection),
+          'file': (MessageType.StageInFile, MessageTypeStr.StageInFile)
+          },
+    '3': {'transform_type': TransformType.ActiveLearning,
+          'work': (MessageType.ActiveLearningWork, MessageTypeStr.ActiveLearningWork),
+          'collection': (MessageType.ActiveLearningCollection, MessageTypeStr.ActiveLearningCollection),
+          'file': (MessageType.ActiveLearningFile, MessageTypeStr.ActiveLearningFile)
+          },
+    '4': {'transform_type': TransformType.HyperParameterOpt,
+          'work': (MessageType.HyperParameterOptWork, MessageTypeStr.HyperParameterOptWork),
+          'collection': (MessageType.HyperParameterOptCollection, MessageTypeStr.HyperParameterOptCollection),
+          'file': (MessageType.HyperParameterOptFile, MessageTypeStr.HyperParameterOptFile)
+          },
+    '6': {'transform_type': TransformType.Processing,
+          'work': (MessageType.ProcessingWork, MessageTypeStr.ProcessingWork),
+          'collection': (MessageType.ProcessingCollection, MessageTypeStr.ProcessingCollection),
+          'file': (MessageType.ProcessingFile, MessageTypeStr.ProcessingFile)
+          }
+}
 
 
 class MessageStatus(IDDSEnum):
