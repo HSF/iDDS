@@ -30,6 +30,7 @@ class EventType(Enum):
     UpdateRequest = 11
     AbortRequest = 12
     ResumeRequest = 13
+    ExpireRequest = 14
 
     NewTransform = 20
     UpdateTransform = 21
@@ -43,94 +44,99 @@ class EventType(Enum):
 
 
 class Event(object):
-    def __init__(self, publisher_id, event_type=EventType.Event):
+    def __init__(self, publisher_id, event_type=EventType.Event, content=None):
         self._id = str(uuid.uuid4())
         self._publisher_id = publisher_id
         self._event_type = event_type
         self._timestamp = time.time()
+        self._content = content
 
 
 class StateClaimEvent(Event):
-    def __init__(self, publisher_id, event_bus_state):
-        super(StateClaimEvent).__init__(publisher_id, event_type=EventType.StateClaim)
+    def __init__(self, publisher_id, event_bus_state, content=None):
+        super(StateClaimEvent).__init__(publisher_id, event_type=EventType.StateClaim, content=content)
         self._event_bus_state = event_bus_state
 
 
 class DemandEvent(Event):
-    def __init__(self, publisher_id, demand_type):
-        super(StateClaimEvent).__init__(publisher_id, event_type=EventType.Demand)
+    def __init__(self, publisher_id, demand_type, content=None):
+        super(StateClaimEvent).__init__(publisher_id, event_type=EventType.Demand, content=content)
         self._demand_type = demand_type
 
 
 class NewRequestEvent(Event):
-    def __init__(self, publisher_id, request_id):
-        super(NewRequestEvent).__init__(publisher_id, event_type=EventType.NewRequest)
+    def __init__(self, publisher_id, request_id, content=None):
+        super(NewRequestEvent).__init__(publisher_id, event_type=EventType.NewRequest, content=content)
         self._request_id = request_id
 
 
 class UpdateRequestEvent(Event):
-    def __init__(self, publisher_id, request_id):
-        super(UpdateRequestEvent).__init__(publisher_id, event_type=EventType.UpdateRequest)
+    def __init__(self, publisher_id, request_id, content=None):
+        super(UpdateRequestEvent).__init__(publisher_id, event_type=EventType.UpdateRequest, content=content)
         self._request_id = request_id
 
 
 class AbortRequestEvent(Event):
-    def __init__(self, publisher_id, request_id, stage='new'):
-        super(AbortRequestEvent).__init__(publisher_id, event_type=EventType.AbortRequest)
+    def __init__(self, publisher_id, request_id, content=None):
+        super(AbortRequestEvent).__init__(publisher_id, event_type=EventType.AbortRequest, content=content)
         self._request_id = request_id
-        self._stage = stage
 
 
 class ResumeRequestEvent(Event):
-    def __init__(self, publisher_id, request_id, stage='new'):
-        super(ResumeRequestEvent).__init__(publisher_id, event_type=EventType.ResumeRequest)
+    def __init__(self, publisher_id, request_id, content=None):
+        super(ResumeRequestEvent).__init__(publisher_id, event_type=EventType.ResumeRequest, content=content)
         self._request_id = request_id
-        self._stage = stage
+
+
+class ExpireRequestEvent(Event):
+    def __init__(self, publisher_id, request_id, content=None):
+        super(ExpireRequestEvent).__init__(publisher_id, event_type=EventType.ExpireRequest, content=content)
+        self._request_id = request_id
 
 
 class NewTransformEvent(Event):
-    def __init__(self, publisher_id, transform_id):
-        super(NewTransformEvent).__init__(publisher_id, event_type=EventType.NewTransform)
+    def __init__(self, publisher_id, transform_id, content=None):
+        super(NewTransformEvent).__init__(publisher_id, event_type=EventType.NewTransform, content=content)
         self._transform_id = transform_id
 
 
 class UpdateTransformEvent(Event):
-    def __init__(self, publisher_id, transform_id):
-        super(UpdateTransformEvent).__init__(publisher_id, event_type=EventType.UpdateRequest)
+    def __init__(self, publisher_id, transform_id, content=None):
+        super(UpdateTransformEvent).__init__(publisher_id, event_type=EventType.UpdateTransform, content=content)
         self._transform_id = transform_id
 
 
 class AbortTransformEvent(Event):
-    def __init__(self, publisher_id, transform_id):
-        super(AbortTransformEvent).__init__(publisher_id, event_type=EventType.AbortRequest)
+    def __init__(self, publisher_id, transform_id, content=None):
+        super(AbortTransformEvent).__init__(publisher_id, event_type=EventType.AbortTransform, content=content)
         self._transform_id = transform_id
 
 
 class ResumeTransformEvent(Event):
-    def __init__(self, publisher_id, transform_id):
-        super(ResumeTransformEvent).__init__(publisher_id, event_type=EventType.ResumeRequest)
+    def __init__(self, publisher_id, transform_id, content=None):
+        super(ResumeTransformEvent).__init__(publisher_id, event_type=EventType.ResumeTransform, content=content)
         self._transform_id = transform_id
 
 
 class NewProcessingEvent(Event):
-    def __init__(self, publisher_id, processing_id):
-        super(NewProcessingEvent).__init__(publisher_id, event_type=EventType.NewProcessing)
+    def __init__(self, publisher_id, processing_id, content=None):
+        super(NewProcessingEvent).__init__(publisher_id, event_type=EventType.NewProcessing, content=content)
         self._processing_id = processing_id
 
 
 class UpdateProcessingEvent(Event):
-    def __init__(self, publisher_id, processing_id):
-        super(UpdateProcessingEvent).__init__(publisher_id, event_type=EventType.UpdateProcessing)
+    def __init__(self, publisher_id, processing_id, content=None):
+        super(UpdateProcessingEvent).__init__(publisher_id, event_type=EventType.UpdateProcessing, content=content)
         self._processing_id = processing_id
 
 
 class AbortProcessingEvent(Event):
-    def __init__(self, publisher_id, processing_id):
-        super(AbortProcessingEvent).__init__(publisher_id, event_type=EventType.AbortProcessing)
+    def __init__(self, publisher_id, processing_id, content=None):
+        super(AbortProcessingEvent).__init__(publisher_id, event_type=EventType.AbortProcessing, content=content)
         self._processing_id = processing_id
 
 
 class ResumeProcessingEvent(Event):
-    def __init__(self, publisher_id, processing_id):
-        super(ResumeProcessingEvent).__init__(publisher_id, event_type=EventType.ResumeProcessing)
+    def __init__(self, publisher_id, processing_id, content=None):
+        super(ResumeProcessingEvent).__init__(publisher_id, event_type=EventType.ResumeProcessing, content=content)
         self._processing_id = processing_id
