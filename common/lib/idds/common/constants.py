@@ -424,3 +424,31 @@ class MessageDestination(IDDSEnum):
     Carrier = 3
     Conductor = 4
     Outside = 5
+
+
+class CommandType(IDDSEnum):
+    AbortRequest = 0
+    ResumeRequest = 1
+
+
+class CommandStatus(IDDSEnum):
+    New = 0
+    Processing = 1
+    Processed = 2
+    Failed = 3
+    UnknownCommand = 4
+
+
+class CommandLocking(IDDSEnum):
+    Idle = 0
+    Locking = 1
+
+
+class CommandLocation(IDDSEnum):
+    Clerk = 0
+    Transformer = 1
+    Transporter = 2
+    Carrier = 3
+    Conductor = 4
+    Rest = 5
+    Other = 6
