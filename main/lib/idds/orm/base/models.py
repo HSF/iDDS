@@ -30,7 +30,9 @@ from idds.common.constants import (RequestType, RequestStatus, RequestLocking,
                                    CollectionRelationType, ContentType, ContentRelationType,
                                    ContentStatus, ContentLocking, GranularityType,
                                    MessageType, MessageStatus, MessageLocking,
-                                   MessageSource, MessageDestination)
+                                   MessageSource, MessageDestination,
+                                   CommandType, CommandStatus, CommandLocking,
+                                   CommandLocation)
 from idds.common.utils import date_to_str
 from idds.orm.base.enum import EnumSymbol
 from idds.orm.base.types import JSON, JSONString, EnumWithValue
@@ -142,6 +144,7 @@ class Request(BASE, ModelBase):
     priority = Column(Integer())
     status = Column(EnumWithValue(RequestStatus))
     substatus = Column(EnumWithValue(RequestStatus), default=0)
+    oldstatus = Column(EnumWithValue(RequestStatus), default=0)
     locking = Column(EnumWithValue(RequestLocking))
     created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow)
     updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
@@ -264,6 +267,7 @@ class Transform(BASE, ModelBase):
     safe2get_output_from_input = Column(Integer())
     status = Column(EnumWithValue(TransformStatus))
     substatus = Column(EnumWithValue(TransformStatus), default=0)
+    oldstatus = Column(EnumWithValue(TransformStatus), default=0)
     locking = Column(EnumWithValue(TransformLocking))
     retries = Column(Integer(), default=0)
     created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow)
@@ -361,6 +365,7 @@ class Processing(BASE, ModelBase):
     workload_id = Column(Integer())
     status = Column(EnumWithValue(ProcessingStatus))
     substatus = Column(EnumWithValue(ProcessingStatus), default=0)
+    oldstatus = Column(EnumWithValue(ProcessingStatus), default=0)
     locking = Column(EnumWithValue(ProcessingLocking))
     submitter = Column(String(20))
     submitted_id = Column(Integer())
@@ -573,13 +578,40 @@ class Message(BASE, ModelBase):
                    Index('MESSAGES_TYPE_ST_PR_IDX', 'msg_type', 'status', 'destination', 'processing_id'))
 
 
+class Command(BASE, ModelBase):
+    """Represents the operations commands"""
+    __tablename__ = 'commands'
+    cmd_id = Column(BigInteger().with_variant(Integer, "sqlite"),
+                    Sequence('COMMAND_ID_SEQ', schema=DEFAULT_SCHEMA_NAME),
+                    primary_key=True)
+    request_id = Column(BigInteger().with_variant(Integer, "sqlite"))
+    workload_id = Column(Integer())
+    transform_id = Column(Integer())
+    cmd_type = Column(EnumWithValue(CommandType))
+    status = Column(EnumWithValue(CommandStatus))
+    substatus = Column(Integer())
+    locking = Column(EnumWithValue(CommandLocking))
+    username = Column(String(20))
+    retries = Column(Integer(), default=0)
+    source = Column(EnumWithValue(CommandLocation))
+    destination = Column(EnumWithValue(CommandLocation))
+    created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    cmd_content = Column(JSON())
+
+    _table_args = (PrimaryKeyConstraint('cmd_id', name='COMMANDS_PK'),
+                   Index('COMMANDS_TYPE_ST_IDX', 'cmd_type', 'status', 'destination', 'request_id'),
+                   Index('COMMANDS_TYPE_ST_TF_IDX', 'cmd_type', 'status', 'destination', 'transform_id'),
+                   Index('COMMANDS_TYPE_ST_PR_IDX', 'cmd_type', 'status', 'destination', 'processing_id'))
+
+
 def register_models(engine):
     """
     Creates database tables for all models with the given engine
     """
 
     # models = (Request, Workprogress, Transform, Workprogress2transform, Processing, Collection, Content, Health, Message)
-    models = (Request, Transform, Processing, Collection, Content, Health, Message)
+    models = (Request, Transform, Processing, Collection, Content, Health, Message, Command)
 
     for model in models:
         if not engine.has_table(model.__tablename__, model.metadata.schema):
@@ -592,7 +624,7 @@ def unregister_models(engine):
     """
 
     # models = (Request, Workprogress, Transform, Workprogress2transform, Processing, Collection, Content, Health, Message)
-    models = (Request, Transform, Processing, Collection, Content, Health, Message)
+    models = (Request, Transform, Processing, Collection, Content, Health, Message, Command)
 
     for model in models:
         model.metadata.drop_all(engine)   # pylint: disable=maybe-no-member
