@@ -190,7 +190,7 @@ class Finisher(Poller):
                 elif pr:
                     ret = self.handle_abort_processing(pr)
                     self.update_processing(ret)
-                    event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['processing_id'])
+                    event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['processing_id'], content=event.content)
                     self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
@@ -241,7 +241,7 @@ class Finisher(Poller):
                 elif pr:
                     ret = self.handle_resume_processing(pr)
                     self.update_processing(ret)
-                    event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['processing_id'])
+                    event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['processing_id'], content=event.content)
                     self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
