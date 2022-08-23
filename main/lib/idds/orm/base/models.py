@@ -587,6 +587,7 @@ class Command(BASE, ModelBase):
     request_id = Column(BigInteger().with_variant(Integer, "sqlite"))
     workload_id = Column(Integer())
     transform_id = Column(Integer())
+    processing_id = Column(Integer())
     cmd_type = Column(EnumWithValue(CommandType))
     status = Column(EnumWithValue(CommandStatus))
     substatus = Column(Integer())
