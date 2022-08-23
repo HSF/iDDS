@@ -36,7 +36,7 @@ class Receiver(BaseAgent):
 
     def __init__(self, num_threads=1, bulk_message_delay=5, bulk_message_size=2000,
                  random_delay=None, **kwargs):
-        super(Receiver, self).__init__(num_threads=num_threads, **kwargs)
+        super(Receiver, self).__init__(num_threads=num_threads, name='Receiver', **kwargs)
         self.config_section = Sections.Carrier
         self.bulk_message_delay = int(bulk_message_delay)
         self.bulk_message_size = int(bulk_message_size)

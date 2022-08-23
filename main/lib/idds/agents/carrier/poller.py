@@ -32,7 +32,7 @@ class Poller(BaseAgent):
 
     def __init__(self, num_threads=1, poll_time_period=10, retries=3, retrieve_bulk_size=None,
                  message_bulk_size=1000, **kwargs):
-        super(Poller, self).__init__(num_threads=num_threads, **kwargs)
+        super(Poller, self).__init__(num_threads=num_threads, name='Poller', **kwargs)
         self.config_section = Sections.Carrier
         self.poll_time_period = int(poll_time_period)
         self.retries = int(retries)

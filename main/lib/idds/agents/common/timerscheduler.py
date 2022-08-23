@@ -22,13 +22,14 @@ class TimerScheduler(threading.Thread):
     The base class to schedule Task which will be executed after some time
     """
 
-    def __init__(self, num_threads, logger=None):
-        super(TimerScheduler, self).__init__()
+    def __init__(self, num_threads, name=None, logger=None):
+        super(TimerScheduler, self).__init__(name=name)
         self.num_threads = int(num_threads)
         if self.num_threads < 1:
             self.num_threads = 1
         self.graceful_stop = threading.Event()
-        self.executors = futures.ThreadPoolExecutor(max_workers=self.num_threads)
+        self.executors = futures.ThreadPoolExecutor(max_workers=self.num_threads,
+                                                    thread_name_prefix=name)
 
         self._task_queue = []
         self._lock = threading.RLock()

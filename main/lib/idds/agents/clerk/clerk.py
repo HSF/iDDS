@@ -39,7 +39,7 @@ class Clerk(BaseAgent):
     """
 
     def __init__(self, num_threads=1, poll_time_period=10, retrieve_bulk_size=10, pending_time=None, **kwargs):
-        super(Clerk, self).__init__(num_threads=num_threads, **kwargs)
+        super(Clerk, self).__init__(num_threads=num_threads, name='Clerk', **kwargs)
         self.poll_time_period = int(poll_time_period)
         self.retrieve_bulk_size = int(retrieve_bulk_size)
         self.config_section = Sections.Clerk
