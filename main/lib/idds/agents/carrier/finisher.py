@@ -206,7 +206,7 @@ class Finisher(Poller):
                     self.logger.info(log_pre + "process_abort_processing result: %s" % str(ret))
                     self.update_processing(ret)
                     self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
-                    event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'], content=event.content)
+                    event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'], content=event._content)
                     self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
@@ -268,7 +268,7 @@ class Finisher(Poller):
                     self.update_processing(ret)
 
                     self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
-                    event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'], content=event.content)
+                    event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'], content=event._content)
                     self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)

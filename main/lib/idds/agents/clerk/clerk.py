@@ -454,11 +454,11 @@ class Clerk(BaseAgent):
 
         to_abort = False
         to_abort_transform_id = None
-        if event and event.content and event.content['cmd_type'] and event.content['cmd_type'] in [CommandType.AbortRequest, CommandType.ExpireRequest]:
+        if event and event._content and event._content['cmd_type'] and event._content['cmd_type'] in [CommandType.AbortRequest, CommandType.ExpireRequest]:
             to_abort = True
             self.logger.info(log_pre + "to_abort: %s" % to_abort)
-        if event and event.content and event.content['cmd_content'] and 'transform_id' in event.content['cmd_content']:
-            to_abort_transform_id = event.content['cmd_content']['transform_id']
+        if event and event._content and event._content['cmd_content'] and 'transform_id' in event._content['cmd_content']:
+            to_abort_transform_id = event._content['cmd_content']['transform_id']
             self.logger.info(log_pre + "to_abort_transform_id: %s" % to_abort_transform_id)
 
         if to_abort and not to_abort_transform_id:
@@ -578,11 +578,11 @@ class Clerk(BaseAgent):
                     new_tf_ids, update_tf_ids = self.update_request(ret)
                     for tf_id in new_tf_ids:
                         self.logger.info(log_pre + "NewTransformEvent(transform_id: %s)" % tf_id)
-                        event = NewTransformEvent(publisher_id=self.id, transform_id=tf_id, content=event.content)
+                        event = NewTransformEvent(publisher_id=self.id, transform_id=tf_id, content=event._content)
                         self.event_bus.send(event)
                     for tf_id in update_tf_ids:
                         self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % tf_id)
-                        event = UpdateTransformEvent(publisher_id=self.id, transform_id=tf_id, content=event.content)
+                        event = UpdateTransformEvent(publisher_id=self.id, transform_id=tf_id, content=event._content)
                         self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
@@ -598,11 +598,11 @@ class Clerk(BaseAgent):
             self.logger.info(log_pre + "handle_abort_request event: %s" % str(event))
             to_abort = False
             to_abort_transform_id = None
-            if event and event.content and event.content['cmd_type'] and event.content['cmd_type'] in [CommandType.AbortRequest, CommandType.ExpireRequest]:
+            if event and event._content and event._content['cmd_type'] and event._content['cmd_type'] in [CommandType.AbortRequest, CommandType.ExpireRequest]:
                 to_abort = True
                 self.logger.info(log_pre + "to_abort: %s" % to_abort)
-            if event and event.content and event.content['cmd_content'] and 'transform_id' in event.content['cmd_content']:
-                to_abort_transform_id = event.content['cmd_content']['transform_id']
+            if event and event._content and event._content['cmd_content'] and 'transform_id' in event._content['cmd_content']:
+                to_abort_transform_id = event._content['cmd_content']['transform_id']
                 self.logger.info(log_pre + "to_abort_transform_id: %s" % to_abort_transform_id)
 
             if to_abort and to_abort_transform_id:
@@ -654,8 +654,8 @@ class Clerk(BaseAgent):
                     self.logger.info(log_pre + "process_abort_request result: %s" % str(ret))
                     self.update_request(ret)
                     to_abort_transform_id = None
-                    if event and event.content and event.content['cmd_content'] and 'transform_id' in event.content['cmd_content']:
-                        to_abort_transform_id = event.content['cmd_content']['transform_id']
+                    if event and event._content and event._content['cmd_content'] and 'transform_id' in event._content['cmd_content']:
+                        to_abort_transform_id = event._content['cmd_content']['transform_id']
 
                     wf = req['request_metadata']['workflow']
                     works = wf.get_all_works()
@@ -666,12 +666,12 @@ class Clerk(BaseAgent):
                                     self.logger.info(log_pre + "AbortTransformEvent(transform_id: %s)" % str(work.get_work_id()))
                                     event = AbortTransformEvent(publisher_id=self.id,
                                                                 transform_id=work.get_work_id(),
-                                                                content=event.content)
+                                                                content=event._content)
                                     self.event_bus.send(event)
                     else:
                         # no works. should trigger update request
                         self.logger.info(log_pre + "UpdateRequestEvent(request_id: %s)" % str(req['request_id']))
-                        event = UpdateRequestEvent(publisher_id=self.id, request_id=req['request_id'], content=event.content)
+                        event = UpdateRequestEvent(publisher_id=self.id, request_id=req['request_id'], content=event._content)
                         self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
@@ -738,11 +738,11 @@ class Clerk(BaseAgent):
                             self.logger.info(log_pre + "ResumeTransformEvent(transform_id: %s)" % str(work.get_work_id()))
                             event = ResumeTransformEvent(publisher_id=self.id,
                                                          transform_id=work.get_work_id(),
-                                                         content=event.content)
+                                                         content=event._content)
                             self.event_bus.send(event)
                     else:
                         self.logger.info(log_pre + "UpdateRequestEvent(request_id: %s)" % str(req['request_id']))
-                        event = UpdateRequestEvent(publisher_id=self.id, request_id=req['request_id'], content=event.content)
+                        event = UpdateRequestEvent(publisher_id=self.id, request_id=req['request_id'], content=event._content)
                         self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)

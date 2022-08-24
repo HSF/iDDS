@@ -169,7 +169,7 @@ class Transformer(BaseAgent):
 
     def get_transform(self, transform_id, status=None, locking=False):
         try:
-            return core_transforms.get_transform_by_id_status(transfrom_id=transform_id, status=status, locking=locking)
+            return core_transforms.get_transform_by_id_status(transform_id=transform_id, status=status, locking=locking)
         except exceptions.DatabaseException as ex:
             if 'ORA-00060' in str(ex):
                 self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
@@ -367,11 +367,11 @@ class Transformer(BaseAgent):
                     new_pr_ids, update_pr_ids = self.update_transform(ret)
                     for pr_id in new_pr_ids:
                         self.logger.info(log_pre + "NewProcessingEvent(processing_id: %s)" % pr_id)
-                        event = NewProcessingEvent(publisher_id=self.id, processing_id=pr_id, content=event.content)
+                        event = NewProcessingEvent(publisher_id=self.id, processing_id=pr_id, content=event._content)
                         self.event_bus.send(event)
                     for pr_id in update_pr_ids:
                         self.logger.info(log_pre + "UpdateProcessingEvent(processing_id: %s)" % pr_id)
-                        event = UpdateProcessingEvent(publisher_id=self.id, processing_id=pr_id, content=event.content)
+                        event = UpdateProcessingEvent(publisher_id=self.id, processing_id=pr_id, content=event._content)
                         self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
@@ -393,7 +393,7 @@ class Transformer(BaseAgent):
         self.logger.info(log_pre + "handle_update_transform: transform_id: %s" % transform['transform_id'])
 
         to_abort = False
-        if event and event.content and event.content['cmd_type'] and event.content['cmd_type'] in [CommandType.AbortRequest, CommandType.ExpireRequest]:
+        if event and event._content and event._content['cmd_type'] and event._content['cmd_type'] in [CommandType.AbortRequest, CommandType.ExpireRequest]:
             to_abort = True
             self.logger.info(log_pre + "to_abort %s" % to_abort)
 
@@ -522,15 +522,15 @@ class Transformer(BaseAgent):
                     new_pr_ids, update_pr_ids = self.update_transform(ret)
 
                     self.logger.info(log_pre + "UpdateRequestEvent(request_id: %s)" % tf['request_id'])
-                    event = UpdateRequestEvent(publisher_id=self.id, request_id=tf['request_id'], content=event.content)
+                    event = UpdateRequestEvent(publisher_id=self.id, request_id=tf['request_id'], content=event._content)
                     self.event_bus.send(event)
                     for pr_id in new_pr_ids:
                         self.logger.info(log_pre + "NewProcessingEvent(processing_id: %s)" % pr_id)
-                        event = NewProcessingEvent(publisher_id=self.id, processing_id=pr_id, content=event.content)
+                        event = NewProcessingEvent(publisher_id=self.id, processing_id=pr_id, content=event._content)
                         self.event_bus.send(event)
                     for pr_id in update_pr_ids:
                         self.logger.info(log_pre + "NewProcessingEvent(processing_id: %s)" % pr_id)
-                        event = UpdateProcessingEvent(publisher_id=self.id, processing_id=pr_id, content=event.content)
+                        event = UpdateProcessingEvent(publisher_id=self.id, processing_id=pr_id, content=event._content)
                         self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
@@ -605,7 +605,7 @@ class Transformer(BaseAgent):
                     processing = work.get_processing(input_output_maps=[], without_creating=True)
                     if processing and processing.processing_id:
                         self.logger.info(log_pre + "AbortProcessingEvent(processing_id: %s)" % processing.processing_id)
-                        event = AbortProcessingEvent(publisher_id=self.id, processing_id=processing.processing_id, content=event.content)
+                        event = AbortProcessingEvent(publisher_id=self.id, processing_id=processing.processing_id, content=event._content)
                         self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
@@ -670,13 +670,13 @@ class Transformer(BaseAgent):
                         self.logger.info(log_pre + "ResumeProcessingEvent(processing_id: %s)" % processing.processing_id)
                         event = ResumeProcessingEvent(publisher_id=self.id,
                                                       processing_id=processing.processing_id,
-                                                      content=event.content)
+                                                      content=event._content)
                         self.event_bus.send(event)
                     else:
                         self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % tf['transform_id'])
                         event = UpdateTransformEvent(publisher_id=self.id,
                                                      transform_id=tf['transform_id'],
-                                                     content=event.content)
+                                                     content=event._content)
                         self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
