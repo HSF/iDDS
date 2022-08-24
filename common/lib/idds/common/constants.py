@@ -31,6 +31,7 @@ class Sections:
     Conductor = 'conductor'
     Consumer = 'consumer'
     EventBus = 'eventbus'
+    Cache = 'cache'
 
 
 class HTTP_STATUS_CODE:

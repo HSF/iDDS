@@ -34,8 +34,7 @@ class EventBus(Singleton):
     def __init__(self, logger=None):
         super(EventBus, self).__init__()
         self._id = str(uuid.uuid4())[:8]
-        self.logger = logger
-        self.set_logger(self.logger)
+        self.setup_logger(logger)
         self.config_section = Sections.EventBus
         attrs = self.load_attributes()
         if 'backend' in attrs and attrs['backend'] == 'message':
@@ -45,11 +44,17 @@ class EventBus(Singleton):
         else:
             self.backend = LocalEventBusBackend(logger=self.logger, **attrs)
 
-    def setup_logger(self):
+    def setup_logger(self, logger=None):
         """
         Setup logger
         """
-        self.logger = logging.getLogger(self.get_class_name())
+        if logger:
+            self.logger = logger
+        else:
+            self.logger = logging.getLogger(self.get_class_name())
+
+    def get_class_name(self):
+        return self.__class__.__name__
 
     def load_attributes(self):
         self.logger.info("Loading config for section: %s" % self.config_section)

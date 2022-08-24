@@ -37,10 +37,9 @@ class BaseAgent(TimerScheduler, PluginBase):
     def __init__(self, num_threads=1, name=None, **kwargs):
         super(BaseAgent, self).__init__(num_threads, name=name)
         self.name = self.__class__.__name__
-        self.id == str(uuid.uuid4())[:8]
+        self.id = str(uuid.uuid4())[:8]
         self.logger = None
-        self.setup_logger()
-        self.set_logger(self.logger)
+        self.setup_logger(self.logger)
 
         self.config_section = Sections.Common
 

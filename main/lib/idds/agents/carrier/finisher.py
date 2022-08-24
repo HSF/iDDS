@@ -13,11 +13,8 @@ import traceback
 from idds.common.constants import (Sections, ProcessingStatus, ProcessingLocking)
 from idds.common.utils import setup_logging, truncate_string
 from idds.core import processings as core_processings
-from idds.agents.common.eventbus.event import (UpdateProcessingEvent,
-                                               AbortProcessingEvent,
-                                               ResumeProcessingEvent,
-                                               SyncProcessingEvent,
-                                               TerminatedProcessingEvent,
+from idds.agents.common.eventbus.event import (EventType,
+                                               UpdateProcessingEvent,
                                                UpdateTransformEvent)
 
 from .utils import (handle_abort_processing,
@@ -285,19 +282,19 @@ class Finisher(Poller):
 
     def init_event_function_map(self):
         self.event_func_map = {
-            SyncProcessingEvent._event_type: {
+            EventType.SyncProcessing: {
                 'pre_check': self.is_ok_to_run_more_requests,
                 'exec_func': self.process_sync_processing
             },
-            TerminatedProcessingEvent._event_type: {
+            EventType.TerminatedProcessing: {
                 'pre_check': self.is_ok_to_run_more_requests,
                 'exec_func': self.process_terminated_processing
             },
-            AbortProcessingEvent._event_type: {
+            EventType.AbortProcessing: {
                 'pre_check': self.is_ok_to_run_more_requests,
                 'exec_func': self.process_abort_processing
             },
-            ResumeProcessingEvent._event_type: {
+            EventType.ResumeProcessing: {
                 'pre_check': self.is_ok_to_run_more_requests,
                 'exec_func': self.process_resume_processing
             }

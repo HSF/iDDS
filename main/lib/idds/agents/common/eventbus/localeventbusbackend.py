@@ -8,13 +8,13 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2022
 
-
+import logging
 import time
 import threading
 import traceback
 import uuid
 
-from .Event import StateClaimEvent
+from .event import StateClaimEvent, EventBusState
 
 
 class LocalEventBusBackend(threading.Thread):
@@ -24,10 +24,9 @@ class LocalEventBusBackend(threading.Thread):
 
     def __init__(self, logger=None, **kwargs):
         super(LocalEventBusBackend, self).__init__()
-        # self._schedule_state = ScheduleState.New
         self._id = str(uuid.uuid4())[:8]
         self._state_claim_wait = 60
-        self._state_claim = StateClaimEvent(self.id, self._schedule_state, time.time())
+        self._state_claim = StateClaimEvent(self._id, EventBusState.New, time.time())
 
         self.graceful_stop = threading.Event()
 
@@ -36,10 +35,19 @@ class LocalEventBusBackend(threading.Thread):
 
         self._lock = threading.RLock()
 
-        self.logger = logger
+        self.setup_logger(logger)
 
-    def set_logger(self, logger):
-        self.logger = logger
+    def setup_logger(self, logger=None):
+        """
+        Setup logger
+        """
+        if logger:
+            self.logger = logger
+        else:
+            self.logger = logging.getLogger(self.get_class_name())
+
+    def get_class_name(self):
+        return self.__class__.__name__
 
     def stop(self, signum=None, frame=None):
         self.graceful_stop.set()

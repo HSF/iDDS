@@ -48,12 +48,17 @@ class RedisCache(Singleton):
             self.port = 6379
         self.cache = redis.Redis(host=self.host, port=self.port, db=0)
 
-    def setup_logger(self, logger):
+    def setup_logger(self, logger=None):
         """
         Setup logger
         """
-        if not logger:
+        if logger:
+            self.logger = logger
+        else:
             self.logger = logging.getLogger(self.get_class_name())
+
+    def get_class_name(self):
+        return self.__class__.__name__
 
     def load_attributes(self):
         self.logger.info("Loading config for section: %s" % self.config_section)

@@ -19,10 +19,9 @@ from idds.common.utils import setup_logging, truncate_string
 from idds.core import (transforms as core_transforms,
                        processings as core_processings)
 from idds.agents.common.baseagent import BaseAgent
-from idds.agents.common.eventbus.event import (NewTransformEvent,
+from idds.agents.common.eventbus.event import (EventType,
+                                               NewTransformEvent,
                                                UpdateTransformEvent,
-                                               AbortTransformEvent,
-                                               ResumeTransformEvent,
                                                AbortProcessingEvent,
                                                ResumeProcessingEvent,
                                                UpdateRequestEvent,
@@ -690,19 +689,19 @@ class Transformer(BaseAgent):
 
     def init_event_function_map(self):
         self.event_func_map = {
-            NewTransformEvent._event_type: {
+            EventType.NewTransform: {
                 'pre_check': self.is_ok_to_run_more_transforms,
                 'exec_func': self.process_new_transform
             },
-            UpdateTransformEvent._event_type: {
+            EventType.UpdateTransform: {
                 'pre_check': self.is_ok_to_run_more_transforms,
                 'exec_func': self.process_update_transform
             },
-            AbortTransformEvent._event_type: {
+            EventType.AbortTransform: {
                 'pre_check': self.is_ok_to_run_more_transforms,
                 'exec_func': self.process_abort_transform
             },
-            ResumeTransformEvent._event_type: {
+            EventType.ResumeTransform: {
                 'pre_check': self.is_ok_to_run_more_transforms,
                 'exec_func': self.process_resume_transform
             }

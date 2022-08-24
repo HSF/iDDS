@@ -16,7 +16,8 @@ from idds.common.constants import Sections, ProcessingStatus, ProcessingLocking
 from idds.common.utils import setup_logging, truncate_string
 from idds.core import processings as core_processings
 from idds.agents.common.baseagent import BaseAgent
-from idds.agents.common.eventbus.event import (NewProcessingEvent,
+from idds.agents.common.eventbus.event import (EventType,
+                                               NewProcessingEvent,
                                                UpdateProcessingEvent,
                                                SyncProcessingEvent)
 
@@ -425,11 +426,11 @@ class Poller(BaseAgent):
 
     def init_event_function_map(self):
         self.event_func_map = {
-            NewProcessingEvent._event_type: {
+            EventType.NewProcessing: {
                 'pre_check': self.is_ok_to_run_more_requests,
                 'exec_func': self.process_new_processing
             },
-            UpdateProcessingEvent._event_type: {
+            EventType.UpdateProcessing: {
                 'pre_check': self.is_ok_to_run_more_requests,
                 'exec_func': self.process_update_processing
             }

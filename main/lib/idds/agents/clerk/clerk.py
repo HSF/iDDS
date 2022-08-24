@@ -20,7 +20,8 @@ from idds.core import (requests as core_requests,
                        transforms as core_transforms,
                        commands as core_commands)
 from idds.agents.common.baseagent import BaseAgent
-from idds.agents.common.eventbus.event import (NewRequestEvent,
+from idds.agents.common.eventbus.event import (EventType,
+                                               NewRequestEvent,
                                                UpdateRequestEvent,
                                                AbortRequestEvent,
                                                ResumeRequestEvent,
@@ -754,23 +755,23 @@ class Clerk(BaseAgent):
 
     def init_event_function_map(self):
         self.event_func_map = {
-            NewRequestEvent._event_type: {
+            EventType.NewRequest: {
                 'pre_check': self.is_ok_to_run_more_requests,
                 'exec_func': self.process_new_request
             },
-            UpdateRequestEvent._event_type: {
+            EventType.UpdateRequest: {
                 'pre_check': self.is_ok_to_run_more_requests,
                 'exec_func': self.process_update_request
             },
-            AbortRequestEvent._event_type: {
+            EventType.AbortRequest: {
                 'pre_check': self.is_ok_to_run_more_requests,
                 'exec_func': self.process_abort_request
             },
-            ExpireRequestEvent._event_type: {
+            EventType.ExpireRequest: {
                 'pre_check': self.is_ok_to_run_more_requests,
                 'exec_func': self.process_abort_request
             },
-            ResumeRequestEvent._event_type: {
+            EventType.ResumeRequest: {
                 'pre_check': self.is_ok_to_run_more_requests,
                 'exec_func': self.process_resume_request
             }
