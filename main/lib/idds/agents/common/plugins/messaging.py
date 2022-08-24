@@ -38,15 +38,15 @@ class MessagingListener(stomp.ConnectionListener):
         self.__output_queue = output_queue
         self.logger = logging.getLogger(self.__class__.__name__)
 
-    def on_error(self, headers, body):
+    def on_error(self, frame):
         '''
         Error handler
         '''
         self.logger.error('[broker] [%s]: %s', self.__broker, body)
 
-    def on_message(self, headers, body):
+    def on_message(self, frame):
         # self.logger.info('[broker] [%s]: %s', self.__broker, body)
-        self.__output_queue.put(body)
+        self.__output_queue.put(frame.body)
         pass
 
 
