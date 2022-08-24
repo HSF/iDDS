@@ -83,7 +83,7 @@ class Transformer(BaseAgent):
         else:
             self.max_number_workers = int(self.max_number_workers)
 
-    def is_ok_to_run_more_requests(self):
+    def is_ok_to_run_more_transforms(self):
         if self.number_workers >= self.max_number_workers:
             return False
         return True

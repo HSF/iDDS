@@ -35,7 +35,7 @@ class EventType(Enum):
     NewTransform = 20
     UpdateTransform = 21
     AbortTransform = 22
-    ResumeTransfrom = 23
+    ResumeTransform = 23
 
     NewProcessing = 30
     UpdateProcessing = 31
