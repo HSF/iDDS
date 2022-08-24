@@ -41,6 +41,8 @@ class EventType(Enum):
     UpdateProcessing = 31
     AbortProcessing = 32
     ResumeProcessing = 33
+    SyncProcessing = 34
+    TerminatedProcessing = 35
 
 
 class Event(object):
@@ -139,4 +141,16 @@ class AbortProcessingEvent(Event):
 class ResumeProcessingEvent(Event):
     def __init__(self, publisher_id, processing_id, content=None):
         super(ResumeProcessingEvent).__init__(publisher_id, event_type=EventType.ResumeProcessing, content=content)
+        self._processing_id = processing_id
+
+
+class SyncProcessingEvent(Event):
+    def __init__(self, publisher_id, processing_id, content=None):
+        super(SyncProcessingEvent).__init__(publisher_id, event_type=EventType.SyncProcessing, content=content)
+        self._processing_id = processing_id
+
+
+class TerminatedProcessingEvent(Event):
+    def __init__(self, publisher_id, processing_id, content=None):
+        super(TerminatedProcessingEvent).__init__(publisher_id, event_type=EventType.TerminatedProcessing, content=content)
         self._processing_id = processing_id
