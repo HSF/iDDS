@@ -202,11 +202,15 @@ class Transformer(BaseAgent):
         new_processing_model['max_update_retries'] = transform['max_update_retries']
         return new_processing_model
 
+    def get_log_prefix(self, transform):
+        return "<request_id=%s,transform_id=%s>" % (transform['request_id'], transform['transform_id'])
+
     def handle_new_transform_real(self, transform):
         """
         Process new transform
         """
-        self.logger.info("handle_new_transform: transform_id: %s" % transform['transform_id'])
+        log_pre = self.get_log_prefix(transform)
+        self.logger.info(log_pre + "handle_new_transform: transform_id: %s" % transform['transform_id'])
 
         work = transform['transform_metadata']['work']
         work.set_work_id(transform['transform_id'])
@@ -218,7 +222,7 @@ class Transformer(BaseAgent):
         # create processing
         new_processing_model = None
         processing = work.get_processing(input_output_maps=[], without_creating=False)
-        self.logger.debug("work get_processing with creating: %s" % processing)
+        self.logger.debug(log_pre + "work get_processing with creating: %s" % processing)
         if processing and not processing.processing_id:
             new_processing_model = self.generate_processing_model(transform)
 
@@ -255,7 +259,9 @@ class Transformer(BaseAgent):
         Process new transform
         """
         try:
+            log_pre = self.get_log_prefix(transform)
             ret = self.handle_new_transform_real(transform)
+            self.logger.info(log_pre + "handle_new_transform result: %s" % str(ret))
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
@@ -279,13 +285,16 @@ class Transformer(BaseAgent):
                                     'locking': TransformLocking.Idle}
             transform_parameters['errors'].update(error)
             ret = {'transform': transform, 'transform_parameters': transform_parameters}
+            self.logger.info(log_pre + "handle_new_transform exception result: %s" % str(ret))
         return ret
 
     def update_transform(self, ret):
         new_pr_ids, update_pr_ids = [], []
         try:
             if ret:
-                self.logger.info("Main thread finishing processing transform: %s" % ret['transform'])
+                log_pre = self.get_log_prefix(ret['transform'])
+                self.logger.info(log_pre + "Update transform: %s" % str(ret))
+
                 ret['transform_parameters']['locking'] = TransformLocking.Idle
                 retry = True
                 retry_num = 0
@@ -333,6 +342,10 @@ class Transformer(BaseAgent):
                     transform_parameters['update_retries'] = ret['transform_parameters']['update_retries']
                 if 'errors' in ret['transform_parameters']:
                     transform_parameters['errors'] = ret['transform_parameters']['errors']
+
+                log_pre = self.get_log_prefix(ret['transform'])
+                self.logger.warn(log_pre + "update transform exception result: %s" % str(transform_parameters))
+
                 new_pr_ids, update_pr_ids = core_transforms.add_transform_outputs(transform=ret['transform'],
                                                                                   transform_parameters=transform_parameters)
             except Exception as ex:
@@ -347,12 +360,18 @@ class Transformer(BaseAgent):
                 tf_status = [TransformStatus.New, TransformStatus.Ready, TransformStatus.Extend]
                 tf = self.get_transform(transform_id=event.transform_id, status=tf_status, locking=True)
                 if tf:
+                    log_pre = self.get_log_prefix(tf)
+                    self.logger.info(log_pre + "process_new_transform")
                     ret = self.handle_new_transform(tf)
+                    self.logger.info(log_pre + "process_new_transform result: %s" % str(ret))
+
                     new_pr_ids, update_pr_ids = self.update_transform(ret)
                     for pr_id in new_pr_ids:
+                        self.logger.info(log_pre + "NewProcessingEvent(processing_id: %s)" % pr_id)
                         event = NewProcessingEvent(publisher_id=self.id, processing_id=pr_id, content=event.content)
                         self.event_bus.send(event)
                     for pr_id in update_pr_ids:
+                        self.logger.info(log_pre + "UpdateProcessingEvent(processing_id: %s)" % pr_id)
                         event = UpdateProcessingEvent(publisher_id=self.id, processing_id=pr_id, content=event.content)
                         self.event_bus.send(event)
         except Exception as ex:
@@ -370,11 +389,14 @@ class Transformer(BaseAgent):
         """
         process running transforms
         """
-        self.logger.info("handle_update_transform: transform_id: %s" % transform['transform_id'])
+        log_pre = self.get_log_prefix(transform)
+
+        self.logger.info(log_pre + "handle_update_transform: transform_id: %s" % transform['transform_id'])
 
         to_abort = False
         if event and event.content and event.content['cmd_type'] and event.content['cmd_type'] in [CommandType.AbortRequest, CommandType.ExpireRequest]:
             to_abort = True
+            self.logger.info(log_pre + "to_abort %s" % to_abort)
 
         work = transform['transform_metadata']['work']
         work.set_work_id(transform['transform_id'])
@@ -387,7 +409,7 @@ class Transformer(BaseAgent):
         new_processing_model, processing_model = None, None
 
         processing = work.get_processing(input_output_maps=[], without_creating=True)
-        self.logger.debug("work get_processing: %s" % processing)
+        self.logger.debug(log_pre + "work get_processing: %s" % processing)
         if processing and processing.processing_id:
             processing_model = core_processings.get_processing(processing_id=processing.processing_id)
             work.sync_processing(processing, processing_model)
@@ -402,7 +424,7 @@ class Transformer(BaseAgent):
         else:
             if not processing:
                 processing = work.get_processing(input_output_maps=[], without_creating=False)
-                self.logger.debug("work get_processing with creating: %s" % processing)
+                self.logger.debug(log_pre + "work get_processing with creating: %s" % processing)
             new_processing_model = self.generate_processing_model(transform)
 
             proc_work = copy.deepcopy(work)
@@ -410,9 +432,9 @@ class Transformer(BaseAgent):
             processing.work = proc_work
             new_processing_model['processing_metadata'] = {'processing': processing}
 
-        self.logger.info("syn_work_status: %s, transform status: %s" % (transform['transform_id'], transform['status']))
+        self.logger.info(log_pre + "syn_work_status: %s, transform status: %s" % (transform['transform_id'], transform['status']))
         if work.is_terminated():
-            self.logger.info("Transform(%s) work is terminated, trigger to release all final status files" % (transform['transform_id']))
+            self.logger.info(log_pre + "Transform(%s) work is terminated" % (transform['transform_id']))
             if work.is_finished():
                 transform['status'] = TransformStatus.Finished
             else:
@@ -451,8 +473,11 @@ class Transformer(BaseAgent):
         Process running transform
         """
         try:
-            self.logger.info("Main thread processing running transform: %s" % transform)
+            log_pre = self.get_log_prefix(transform)
+
+            self.logger.info(log_pre + "handle_update_transform: %s" % transform)
             ret = self.handle_update_transform_real(transform, event)
+            self.logger.info(log_pre + "handle_update_transform result: %s" % str(ret))
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
@@ -477,6 +502,7 @@ class Transformer(BaseAgent):
             transform_parameters['errors'].update(error)
 
             ret = {'transform': transform, 'transform_parameters': transform_parameters}
+            self.logger.warn(log_pre + "handle_update_transform exception result: %s" % str(ret))
         return ret
 
     def process_update_transform(self, event):
@@ -491,14 +517,20 @@ class Transformer(BaseAgent):
                              TransformStatus.ToFinish, TransformStatus.ToForceFinish]
                 tf = self.get_transform(transform_id=event.transform_id, status=tf_status, locking=True)
                 if tf:
+                    log_pre = self.get_log_prefix(tf)
+
                     ret = self.handle_update_transform(tf, event)
+                    new_pr_ids, update_pr_ids = self.update_transform(ret)
+
+                    self.logger.info(log_pre + "UpdateRequestEvent(request_id: %s)" % tf['request_id'])
                     event = UpdateRequestEvent(publisher_id=self.id, request_id=tf['request_id'], content=event.content)
                     self.event_bus.send(event)
-                    new_pr_ids, update_pr_ids = self.update_transform(ret)
                     for pr_id in new_pr_ids:
+                        self.logger.info(log_pre + "NewProcessingEvent(processing_id: %s)" % pr_id)
                         event = NewProcessingEvent(publisher_id=self.id, processing_id=pr_id, content=event.content)
                         self.event_bus.send(event)
                     for pr_id in update_pr_ids:
+                        self.logger.info(log_pre + "NewProcessingEvent(processing_id: %s)" % pr_id)
                         event = UpdateProcessingEvent(publisher_id=self.id, processing_id=pr_id, content=event.content)
                         self.event_bus.send(event)
         except Exception as ex:
@@ -546,6 +578,9 @@ class Transformer(BaseAgent):
         try:
             if event:
                 tf = self.get_transform(transform_id=event.transform_id, locking=True)
+                log_pre = self.get_log_prefix(tf)
+                self.logger.info(log_pre + "process_abort_transform")
+
                 if tf['status'] in [TransformStatus.Finished, TransformStatus.SubFinished,
                                     TransformStatus.Failed, TransformStatus.Cancelled,
                                     TransformStatus.Suspended, TransformStatus.Expired]:
@@ -554,9 +589,13 @@ class Transformer(BaseAgent):
                                                     'errors': {'extra_msg': "Transform is already terminated. Cannot be aborted"}}}
                     if 'msg' in tf['errors']:
                         ret['parameters']['errors']['msg'] = tf['errors']['msg']
+
+                    self.logger.info(log_pre + "process_abort_transform result: %s" % str(ret))
+
                     self.update_transform(ret)
                 else:
                     ret = self.handle_abort_transform(tf)
+                    self.logger.info(log_pre + "process_abort_transform result: %s" % str(ret))
                     if ret:
                         self.update_transform(ret)
 
@@ -566,6 +605,7 @@ class Transformer(BaseAgent):
 
                     processing = work.get_processing(input_output_maps=[], without_creating=True)
                     if processing and processing.processing_id:
+                        self.logger.info(log_pre + "AbortProcessingEvent(processing_id: %s)" % processing.processing_id)
                         event = AbortProcessingEvent(publisher_id=self.id, processing_id=processing.processing_id, content=event.content)
                         self.event_bus.send(event)
         except Exception as ex:
@@ -606,15 +646,20 @@ class Transformer(BaseAgent):
         try:
             if event:
                 tf = self.get_transform(transform_id=event.transform_id, locking=True)
+                log_pre = self.get_log_prefix(tf)
+
                 if tf['status'] in [TransformStatus.Finished]:
                     ret = {'transform': tf,
                            'transform_parameters': {'locking': TransformLocking.Idle,
                                                     'errors': {'extra_msg': "Transform is already finished. Cannot be resumed"}}}
                     if 'msg' in tf['errors']:
                         ret['parameters']['errors']['msg'] = tf['errors']['msg']
+
+                    self.logger.info(log_pre + "process_resume_transform result: %s" % str(ret))
                     self.update_transform(ret)
                 else:
                     ret = self.handle_resume_transform(tf)
+                    self.logger.info(log_pre + "process_resume_transform result: %s" % str(ret))
                     if ret:
                         self.update_transform(ret)
 
@@ -623,13 +668,15 @@ class Transformer(BaseAgent):
 
                     processing = work.get_processing(input_output_maps=[], without_creating=True)
                     if processing and processing.processing_id:
+                        self.logger.info(log_pre + "ResumeProcessingEvent(processing_id: %s)" % processing.processing_id)
                         event = ResumeProcessingEvent(publisher_id=self.id,
                                                       processing_id=processing.processing_id,
                                                       content=event.content)
                         self.event_bus.send(event)
                     else:
+                        self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % tf['transform_id'])
                         event = UpdateTransformEvent(publisher_id=self.id,
-                                                     processing_id=processing.processing_id,
+                                                     transform_id=tf['transform_id'],
                                                      content=event.content)
                         self.event_bus.send(event)
         except Exception as ex:

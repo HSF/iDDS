@@ -18,7 +18,7 @@ from idds.core import processings as core_processings
 from idds.agents.common.baseagent import BaseAgent
 from idds.agents.common.eventbus.event import (NewProcessingEvent,
                                                UpdateProcessingEvent,
-                                               UpdateTransformEvent)
+                                               SyncProcessingEvent)
 
 from .utils import handle_new_processing, handle_update_processing
 
@@ -177,6 +177,11 @@ class Poller(BaseAgent):
             parameters['update_poll_period'] = self.update_poll_period
         return parameters
 
+    def get_log_prefix(self, processing):
+        return "<request_id=%s,transform_id=%s,processing_id=%s>" % (processing['request_id'],
+                                                                     processing['transform_id'],
+                                                                     processing['processing_id'])
+
     def handle_new_processing(self, processing):
         try:
             # transform_id = processing['transform_id']
@@ -234,8 +239,10 @@ class Poller(BaseAgent):
     def update_processing(self, processing):
         try:
             if processing:
-                self.logger.info("Main thread processing(processing_id: %s) updates: %s" % (processing['update_processing']['processing_id'],
-                                                                                            processing['update_processing']['parameters']))
+
+                self.logger.info("<processing_id=%s>update_processing: %s" % (processing['update_processing']['processing_id'],
+                                                                              processing['update_processing']['parameters']))
+
                 processing['update_processing']['parameters']['locking'] = ProcessingLocking.Idle
                 # self.logger.debug("wen: %s" % str(processing))
 
@@ -277,6 +284,8 @@ class Poller(BaseAgent):
                     parameters['update_retries'] = processing['update_processing']['update_retries']
                 if 'errors' in processing['update_processing']:
                     parameters['errors'] = processing['update_processing']['errors']
+
+                self.logger.warn("<processing_id=%s>update_processing exception result: %s" % (processing_id, parameters))
                 core_processings.update_processing(processing_id=processing_id, parameters=parameters)
             except Exception as ex:
                 self.logger.error(ex)
@@ -289,9 +298,15 @@ class Poller(BaseAgent):
                 pr_status = [ProcessingStatus.New]
                 pr = self.get_processing(processing_id=event.processing_id, status=pr_status, locking=True)
                 if pr:
+                    log_pre = self.get_log_prefix(pr)
+                    self.logger.info(log_pre + "process_new_processing")
                     ret = self.handle_new_processing(pr)
+                    self.logger.info(log_pre + "process_new_processing result: %s" % str(ret))
+
                     self.update_processing(ret)
-                    event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['processing_id'])
+
+                    self.logger.info(log_pre + "SyncProcessingEvent(processing_id: %s)" % pr['processing_id'])
+                    event = SyncProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'])
                     self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
@@ -388,9 +403,16 @@ class Poller(BaseAgent):
 
                 pr = self.get_processing(processing_id=event.processing_id, status=processing_status, locking=True)
                 if pr:
+                    log_pre = self.get_log_prefix(pr)
+
+                    self.logger.info(log_pre + "process_update_processing")
                     ret = self.handle_update_processing(pr)
+                    self.logger.info(log_pre + "process_update_processing result: %s" % str(ret))
+
                     self.update_processing(ret)
-                    event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['processing_id'])
+
+                    self.logger.info(log_pre + "SyncProcessingEvent(processing_id: %s)" % pr['processing_id'])
+                    event = SyncProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'])
                     self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)

@@ -36,6 +36,9 @@ class PluginBase(object):
         """
         self.logger = logging.getLogger(self.get_class_name())
 
+    def set_logger(self, logger):
+        self.logger = logger
+
     def __call__(self, **kwargs):
         return exceptions.NotImplementedException(self.get_class_name())
 

@@ -302,9 +302,13 @@ class Clerk(BaseAgent):
 
         return new_transform
 
+    def get_log_prefix(self, req):
+        return "<request_id=%s>" % req['request_id']
+
     def handle_new_request(self, req):
         try:
-            self.logger.info("handle new request(%s)" % (req['request_id']))
+            log_pre = self.get_log_prefix(req)
+            self.logger.info(log_pre + "Handle new request")
             workflow = req['request_metadata']['workflow']
 
             # wf = workflow.copy()
@@ -320,8 +324,8 @@ class Clerk(BaseAgent):
 
                 transform = self.generate_transform(req, work)
                 transforms.append(transform)
-            self.logger.debug("Processing request(%s): new transforms: %s" % (req['request_id'],
-                                                                              str(transforms)))
+            self.logger.debug(log_pre + "Processing request(%s): new transforms: %s" % (req['request_id'],
+                                                                                        str(transforms)))
             # processing_metadata = req['processing_metadata']
             # processing_metadata = {'workflow_data': wf.get_running_data()}
 
@@ -332,6 +336,7 @@ class Clerk(BaseAgent):
                                       'request_metadata': req['request_metadata']},
                        'new_transforms': transforms}
             ret_req['parameters'] = self.load_poll_period(req, ret_req['parameters'])
+            self.logger.info(log_pre + "Handle new request result: %s" % str(ret_req))
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
@@ -355,12 +360,14 @@ class Clerk(BaseAgent):
                                       'new_poll_period': new_poll_period,
                                       'errors': req['errors'] if req['errors'] else {}}}
             ret_req['parameters'].update(error)
+            self.logger.warn(log_pre + "Handle new request error result: %s" % str(ret_req))
         return ret_req
 
     def update_request(self, req):
         new_tf_ids, update_tf_ids = [], []
         try:
-            self.logger.info("update request: %s" % req)
+            log_pre = self.get_log_prefix(req)
+            self.logger.info(log_pre + "update request: %s" % req)
             req['parameters']['locking'] = RequestLocking.Idle
 
             if 'new_transforms' in req:
@@ -406,6 +413,7 @@ class Clerk(BaseAgent):
                     req_parameters['update_retries'] = req['parameters']['update_retries']
                 if 'errors' in req['parameters']:
                     req_parameters['errors'] = req['parameters']['errors']
+                self.logger.warn(log_pre + "Update request in exception: %s" % str(req_parameters))
                 core_requests.update_request_with_transforms(req['request_id'], req_parameters)
             except Exception as ex:
                 self.logger.error(ex)
@@ -419,12 +427,15 @@ class Clerk(BaseAgent):
                 req_status = [RequestStatus.New, RequestStatus.Extend]
                 req = self.get_request(request_id=event.request_id, status=req_status, locking=True)
                 if req:
+                    log_pre = self.get_log_prefix(req)
                     ret = self.handle_new_request(req)
                     new_tf_ids, update_tf_ids = self.update_request(ret)
                     for tf_id in new_tf_ids:
+                        self.logger.info(log_pre + "NewTransformEvent(transform_id: %s)" % str(tf_id))
                         event = NewTransformEvent(publisher_id=self.id, transform_id=tf_id)
                         self.event_bus.send(event)
                     for tf_id in update_tf_ids:
+                        self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % str(tf_id))
                         event = UpdateTransformEvent(publisher_id=self.id, transform_id=tf_id)
                         self.event_bus.send(event)
         except Exception as ex:
@@ -436,15 +447,18 @@ class Clerk(BaseAgent):
         """
         process running request
         """
-        self.logger.info("handle_update_request: request_id: %s" % req['request_id'])
+        log_pre = self.get_log_prefix(req)
+        self.logger.info(log_pre + " handle_update_request: request_id: %s" % req['request_id'])
         wf = req['request_metadata']['workflow']
 
         to_abort = False
         to_abort_transform_id = None
         if event and event.content and event.content['cmd_type'] and event.content['cmd_type'] in [CommandType.AbortRequest, CommandType.ExpireRequest]:
             to_abort = True
+            self.logger.info(log_pre + "to_abort: %s" % to_abort)
         if event and event.content and event.content['cmd_content'] and 'transform_id' in event.content['cmd_content']:
             to_abort_transform_id = event.content['cmd_content']['transform_id']
+            self.logger.info(log_pre + "to_abort_transform_id: %s" % to_abort_transform_id)
 
         if to_abort and not to_abort_transform_id:
             wf.to_cancel = True
@@ -472,7 +486,7 @@ class Clerk(BaseAgent):
                 new_work.add_proxy(wf.get_proxy())
                 new_transform = self.generate_transform(req, new_work)
                 new_transforms.append(new_transform)
-            self.logger.debug("Processing request(%s): new transforms: %s" % (req['request_id'], str(new_transforms)))
+            self.logger.debug(log_pre + " Processing request(%s): new transforms: %s" % (req['request_id'], str(new_transforms)))
 
         req_status = RequestStatus.Transforming
         if wf.is_terminated():
@@ -496,6 +510,7 @@ class Clerk(BaseAgent):
                 event_content = {'request_id': req['request_id'],
                                  'cmd_type': CommandType.ExpireRequest,
                                  'cmd_content': {}}
+                self.logger.debug(log_pre + "ExpireRequestEvent(request_id: %s" % req['request_id'])
                 event = ExpireRequestEvent(publisher_id=self.id, request_id=req['request_id'], content=event_content)
                 self.event_bus.send(event)
 
@@ -505,17 +520,10 @@ class Clerk(BaseAgent):
                       }
         parameters = self.load_poll_period(req, parameters)
 
-        if req_status == RequestStatus.ToExpire:
-            # parameters['substatus'] = req_status
-            works = wf.get_all_works()
-            for work in works:
-                transform_id = work.get_work_id()
-                event = ExpireRequestEvent(publisher_id=self.id, transform_id=transform_id)
-                self.event_bus.send(event)
-
         ret = {'request_id': req['request_id'],
                'parameters': parameters,
                'new_transforms': new_transforms}   # 'update_transforms': update_transforms}
+        self.logger.info(log_pre + "Handle update request result: %s" % str(ret))
         return ret
 
     def handle_update_request(self, req, event):
@@ -548,7 +556,8 @@ class Clerk(BaseAgent):
                                       'update_poll_period': update_poll_period,
                                       'errors': req['errors'] if req['errors'] else {}}}
             ret_req['parameters'].update(error)
-
+            log_pre = self.get_log_prefix(req)
+            self.logger.warn(log_pre + "Handle new request exception result: %s" % str(ret_req))
         return ret_req
 
     def process_update_request(self, event):
@@ -563,12 +572,15 @@ class Clerk(BaseAgent):
 
                 req = self.get_request(request_id=event.request_id, status=req_status, locking=True)
                 if req:
+                    log_pre = self.get_log_prefix(req)
                     ret = self.handle_update_request(req, event=event)
                     new_tf_ids, update_tf_ids = self.update_request(ret)
                     for tf_id in new_tf_ids:
+                        self.logger.info(log_pre + "NewTransformEvent(transform_id: %s)" % tf_id)
                         event = NewTransformEvent(publisher_id=self.id, transform_id=tf_id, content=event.content)
                         self.event_bus.send(event)
                     for tf_id in update_tf_ids:
+                        self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % tf_id)
                         event = UpdateTransformEvent(publisher_id=self.id, transform_id=tf_id, content=event.content)
                         self.event_bus.send(event)
         except Exception as ex:
@@ -581,12 +593,16 @@ class Clerk(BaseAgent):
         process abort request
         """
         try:
+            log_pre = self.get_log_prefix(req)
+            self.logger.info(log_pre + "handle_abort_request event: %s" % str(event))
             to_abort = False
             to_abort_transform_id = None
             if event and event.content and event.content['cmd_type'] and event.content['cmd_type'] in [CommandType.AbortRequest, CommandType.ExpireRequest]:
                 to_abort = True
+                self.logger.info(log_pre + "to_abort: %s" % to_abort)
             if event and event.content and event.content['cmd_content'] and 'transform_id' in event.content['cmd_content']:
                 to_abort_transform_id = event.content['cmd_content']['transform_id']
+                self.logger.info(log_pre + "to_abort_transform_id: %s" % to_abort_transform_id)
 
             if to_abort and to_abort_transform_id:
                 req_status = req['status']
@@ -600,6 +616,7 @@ class Clerk(BaseAgent):
                                       'locking': RequestLocking.Idle,
                                       'request_metadata': req['request_metadata']},
                        }
+            self.logger.info(log_pre + "handle_abort_request result: %s" % str(ret_req))
             return ret_req
         except Exception as ex:
             self.logger.error(ex)
@@ -610,6 +627,7 @@ class Clerk(BaseAgent):
                                       'locking': RequestLocking.Idle,
                                       'errors': req['errors'] if req['errors'] else {}}}
             ret_req['parameters']['errors'].update(error)
+            self.logger.info(log_pre + "handle_abort_request exception result: %s" % str(ret_req))
         return ret_req
 
     def process_abort_request(self, event):
@@ -617,6 +635,9 @@ class Clerk(BaseAgent):
         try:
             if event:
                 req = self.get_request(request_id=event.request_id, locking=True)
+                log_pre = self.get_log_prefix(req)
+                self.logger.info(log_pre + "process_abort_request event: %s" % str(event))
+
                 if req['status'] in [RequestStatus.Finished, RequestStatus.SubFinished,
                                      RequestStatus.Failed, RequestStatus.Cancelled,
                                      RequestStatus.Suspended, RequestStatus.Expired]:
@@ -625,9 +646,11 @@ class Clerk(BaseAgent):
                                           'errors': {'extra_msg': "Request is already terminated. Cannot be aborted"}}}
                     if 'msg' in req['errors']:
                         ret['parameters']['errors']['msg'] = req['errors']['msg']
+                    self.logger.info(log_pre + "process_abort_request result: %s" % str(ret))
                     self.update_request(ret)
                 else:
                     ret = self.handle_abort_request(req, event)
+                    self.logger.info(log_pre + "process_abort_request result: %s" % str(ret))
                     self.update_request(ret)
                     to_abort_transform_id = None
                     if event and event.content and event.content['cmd_content'] and 'transform_id' in event.content['cmd_content']:
@@ -639,12 +662,14 @@ class Clerk(BaseAgent):
                         for work in works:
                             if not work.is_terminated():
                                 if not to_abort_transform_id or to_abort_transform_id == work.get_work_id():
+                                    self.logger.info(log_pre + "AbortTransformEvent(transform_id: %s)" % str(work.get_work_id()))
                                     event = AbortTransformEvent(publisher_id=self.id,
                                                                 transform_id=work.get_work_id(),
                                                                 content=event.content)
                                     self.event_bus.send(event)
                     else:
                         # no works. should trigger update request
+                        self.logger.info(log_pre + "UpdateRequestEvent(request_id: %s)" % str(req['request_id']))
                         event = UpdateRequestEvent(publisher_id=self.id, request_id=req['request_id'], content=event.content)
                         self.event_bus.send(event)
         except Exception as ex:
@@ -687,26 +712,35 @@ class Clerk(BaseAgent):
         try:
             if event:
                 req = self.get_request(request_id=event.request_id, locking=True)
+                log_pre = self.get_log_prefix(req)
+                self.logger.info(log_pre + "process_resume_request event: %s" % str(event))
+
                 if req['status'] in [RequestStatus.Finished]:
                     ret = {'request_id': req['request_id'],
                            'parameters': {'locking': RequestLocking.Idle,
                                           'errors': {'extra_msg': "Request is already finished. Cannot be resumed"}}}
                     if 'msg' in req['errors']:
                         ret['parameters']['errors']['msg'] = req['errors']['msg']
+                    self.logger.info(log_pre + "process_resume_request result: %s" % str(ret))
+
                     self.update_request(ret)
                 else:
                     ret = self.handle_resume_request(req)
+                    self.logger.info(log_pre + "process_resume_request result: %s" % str(ret))
+
                     self.update_request(ret)
                     wf = req['request_metadata']['workflow']
                     works = wf.get_all_works()
                     if works:
                         for work in works:
                             # if not work.is_finished():
+                            self.logger.info(log_pre + "ResumeTransformEvent(transform_id: %s)" % str(work.get_work_id()))
                             event = ResumeTransformEvent(publisher_id=self.id,
                                                          transform_id=work.get_work_id(),
                                                          content=event.content)
                             self.event_bus.send(event)
                     else:
+                        self.logger.info(log_pre + "UpdateRequestEvent(request_id: %s)" % str(req['request_id']))
                         event = UpdateRequestEvent(publisher_id=self.id, request_id=req['request_id'], content=event.content)
                         self.event_bus.send(event)
         except Exception as ex:
