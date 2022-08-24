@@ -297,7 +297,7 @@ class Poller(BaseAgent):
         try:
             if event:
                 pr_status = [ProcessingStatus.New]
-                pr = self.get_processing(processing_id=event.processing_id, status=pr_status, locking=True)
+                pr = self.get_processing(processing_id=event._processing_id, status=pr_status, locking=True)
                 if pr:
                     log_pre = self.get_log_prefix(pr)
                     self.logger.info(log_pre + "process_new_processing")
@@ -402,7 +402,7 @@ class Poller(BaseAgent):
                                      ProcessingStatus.ToExpire, ProcessingStatus.Expiring,
                                      ProcessingStatus.ToFinish, ProcessingStatus.ToForceFinish]
 
-                pr = self.get_processing(processing_id=event.processing_id, status=processing_status, locking=True)
+                pr = self.get_processing(processing_id=event._processing_id, status=processing_status, locking=True)
                 if pr:
                     log_pre = self.get_log_prefix(pr)
 

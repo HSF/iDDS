@@ -54,11 +54,11 @@ class LocalEventBusBackend(threading.Thread):
 
     def send(self, event):
         with self._lock:
-            if event.event_type not in self._events:
-                self._events[event.event_type] = {}
-                self._events_index[event.event_type] = []
-            self._events[event.event_type][event._id] = event
-            self._events_index[event.event_type].append(event._id)
+            if event._event_type not in self._events:
+                self._events[event._event_type] = {}
+                self._events_index[event._event_type] = []
+            self._events[event._event_type][event._id] = event
+            self._events_index[event._event_type].append(event._id)
 
     def get(self, event_type, wait=0):
         with self._lock:

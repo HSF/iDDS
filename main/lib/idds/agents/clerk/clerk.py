@@ -426,7 +426,7 @@ class Clerk(BaseAgent):
         try:
             if event:
                 req_status = [RequestStatus.New, RequestStatus.Extend]
-                req = self.get_request(request_id=event.request_id, status=req_status, locking=True)
+                req = self.get_request(request_id=event._request_id, status=req_status, locking=True)
                 if req:
                     log_pre = self.get_log_prefix(req)
                     ret = self.handle_new_request(req)
@@ -571,7 +571,7 @@ class Clerk(BaseAgent):
                               RequestStatus.ToFinish, RequestStatus.ToForceFinish,
                               RequestStatus.ToResume, RequestStatus.Resuming]
 
-                req = self.get_request(request_id=event.request_id, status=req_status, locking=True)
+                req = self.get_request(request_id=event._request_id, status=req_status, locking=True)
                 if req:
                     log_pre = self.get_log_prefix(req)
                     ret = self.handle_update_request(req, event=event)
@@ -635,7 +635,7 @@ class Clerk(BaseAgent):
         self.number_workers += 1
         try:
             if event:
-                req = self.get_request(request_id=event.request_id, locking=True)
+                req = self.get_request(request_id=event._request_id, locking=True)
                 log_pre = self.get_log_prefix(req)
                 self.logger.info(log_pre + "process_abort_request event: %s" % str(event))
 
@@ -712,7 +712,7 @@ class Clerk(BaseAgent):
         self.number_workers += 1
         try:
             if event:
-                req = self.get_request(request_id=event.request_id, locking=True)
+                req = self.get_request(request_id=event._request_id, locking=True)
                 log_pre = self.get_log_prefix(req)
                 self.logger.info(log_pre + "process_resume_request event: %s" % str(event))
 

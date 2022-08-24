@@ -12,7 +12,6 @@ import traceback
 
 from idds.common.constants import (Sections, ProcessingStatus, ProcessingLocking)
 from idds.common.utils import setup_logging, truncate_string
-from idds.core import processings as core_processings
 from idds.agents.common.eventbus.event import (EventType,
                                                UpdateProcessingEvent,
                                                UpdateTransformEvent)
@@ -276,10 +275,6 @@ class Finisher(Poller):
             self.logger.error(traceback.format_exc())
         self.number_workers -= 1
 
-    def clean_locks(self):
-        self.logger.info("clean locking")
-        core_processings.clean_locking()
-
     def init_event_function_map(self):
         self.event_func_map = {
             EventType.SyncProcessing: {
@@ -311,15 +306,6 @@ class Finisher(Poller):
             self.init()
 
             self.add_default_tasks()
-
-            task = self.create_task(task_func=self.get_new_processings, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=60, priority=1)
-            self.add_task(task)
-
-            task = self.create_task(task_func=self.get_running_processings, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=60, priority=1)
-            self.add_task(task)
-
-            task = self.create_task(task_func=self.clean_locks, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1800, priority=1)
-            self.add_task(task)
 
             self.execute()
         except KeyboardInterrupt:

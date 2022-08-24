@@ -357,7 +357,7 @@ class Transformer(BaseAgent):
         try:
             if event:
                 tf_status = [TransformStatus.New, TransformStatus.Ready, TransformStatus.Extend]
-                tf = self.get_transform(transform_id=event.transform_id, status=tf_status, locking=True)
+                tf = self.get_transform(transform_id=event._transform_id, status=tf_status, locking=True)
                 if tf:
                     log_pre = self.get_log_prefix(tf)
                     self.logger.info(log_pre + "process_new_transform")
@@ -514,7 +514,7 @@ class Transformer(BaseAgent):
                              TransformStatus.ToExpire, TransformStatus.Expiring,
                              TransformStatus.ToResume, TransformStatus.Resuming,
                              TransformStatus.ToFinish, TransformStatus.ToForceFinish]
-                tf = self.get_transform(transform_id=event.transform_id, status=tf_status, locking=True)
+                tf = self.get_transform(transform_id=event._transform_id, status=tf_status, locking=True)
                 if tf:
                     log_pre = self.get_log_prefix(tf)
 
@@ -576,7 +576,7 @@ class Transformer(BaseAgent):
         self.number_workers += 1
         try:
             if event:
-                tf = self.get_transform(transform_id=event.transform_id, locking=True)
+                tf = self.get_transform(transform_id=event._transform_id, locking=True)
                 log_pre = self.get_log_prefix(tf)
                 self.logger.info(log_pre + "process_abort_transform")
 
@@ -644,7 +644,7 @@ class Transformer(BaseAgent):
         self.number_workers += 1
         try:
             if event:
-                tf = self.get_transform(transform_id=event.transform_id, locking=True)
+                tf = self.get_transform(transform_id=event._transform_id, locking=True)
                 log_pre = self.get_log_prefix(tf)
 
                 if tf['status'] in [TransformStatus.Finished]:
