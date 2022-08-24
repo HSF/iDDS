@@ -296,7 +296,8 @@ def get_processings_by_status(status, period=None, processing_ids=[], locking=Fa
         #     query = query.order_by(asc(models.Processing.poller_updated_at))
         if locking_for_update:
             query = query.with_for_update(skip_locked=True)
-        query = query.order_by(asc(models.Processing.updated_at))
+        else:
+            query = query.order_by(asc(models.Processing.updated_at))
 
         if bulk_size:
             query = query.limit(bulk_size)

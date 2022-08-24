@@ -734,9 +734,9 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, req
 
         if locking_for_update:
             query = query.with_for_update(skip_locked=True)
-
-        query = query.order_by(asc(models.Request.updated_at))\
-                     .order_by(desc(models.Request.priority))
+        else:
+            query = query.order_by(asc(models.Request.updated_at))\
+                         .order_by(desc(models.Request.priority))
 
         if bulk_size:
             query = query.limit(bulk_size)

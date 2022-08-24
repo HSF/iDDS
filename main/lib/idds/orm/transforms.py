@@ -377,7 +377,8 @@ def get_transforms_by_status(status, period=None, transform_ids=[], locking=Fals
 
         if locking_for_update:
             query = query.with_for_update(skip_locked=True)
-        query = query.order_by(asc(models.Transform.updated_at)).order_by(desc(models.Transform.priority))
+        else:
+            query = query.order_by(asc(models.Transform.updated_at)).order_by(desc(models.Transform.priority))
 
         if bulk_size:
             query = query.limit(bulk_size)
