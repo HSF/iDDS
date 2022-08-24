@@ -343,13 +343,13 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, loc
             # then select with locking.
             req_ids = orm_requests.get_requests_by_status_type(status, request_type, time_period, locking=locking, bulk_size=bulk_size * 2,
                                                                locking_for_update=False, to_json=False, by_substatus=by_substatus,
-                                                               new_poll=new_poll, upate_poll=update_poll,
+                                                               new_poll=new_poll, update_poll=update_poll,
                                                                only_return_id=True, session=session)
             if req_ids:
                 req2s = orm_requests.get_requests_by_status_type(status, request_type, time_period, request_ids=req_ids,
                                                                  locking=locking, locking_for_update=True, bulk_size=None,
                                                                  to_json=to_json,
-                                                                 new_poll=new_poll, upate_poll=update_poll,
+                                                                 new_poll=new_poll, update_poll=update_poll,
                                                                  by_substatus=by_substatus, session=session)
                 if req2s:
                     # reqs = req2s[:bulk_size]
@@ -370,7 +370,7 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, loc
         else:
             reqs = orm_requests.get_requests_by_status_type(status, request_type, time_period, locking=locking, locking_for_update=locking,
                                                             bulk_size=bulk_size,
-                                                            new_poll=new_poll, upate_poll=update_poll, only_return_id=only_return_id,
+                                                            new_poll=new_poll, update_poll=update_poll, only_return_id=only_return_id,
                                                             to_json=to_json, by_substatus=by_substatus, session=session)
 
         parameters = {}
@@ -383,7 +383,7 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, loc
                 orm_requests.update_request(request_id=req['request_id'], parameters=parameters, session=session)
     else:
         reqs = orm_requests.get_requests_by_status_type(status, request_type, time_period, locking=locking, bulk_size=bulk_size,
-                                                        new_poll=new_poll, upate_poll=update_poll, only_return_id=only_return_id,
+                                                        new_poll=new_poll, update_poll=update_poll, only_return_id=only_return_id,
                                                         to_json=to_json, by_substatus=by_substatus, session=session)
     return reqs
 

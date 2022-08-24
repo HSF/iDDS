@@ -143,7 +143,7 @@ def get_processings_by_status(status, time_period=None, locking=False, bulk_size
                                                                          processing_ids=proc_ids,
                                                                          bulk_size=None, to_json=to_json, locking_for_update=True,
                                                                          by_substatus=by_substatus, only_return_id=only_return_id,
-                                                                         new_poll=new_poll, upate_poll=update_poll,
+                                                                         new_poll=new_poll, update_poll=update_poll,
                                                                          for_poller=for_poller, session=session)
                 if processing2s:
                     # reqs = req2s[:bulk_size]
@@ -164,7 +164,7 @@ def get_processings_by_status(status, time_period=None, locking=False, bulk_size
         else:
             processings = orm_processings.get_processings_by_status(status=status, period=time_period, locking=locking,
                                                                     bulk_size=bulk_size, to_json=to_json, locking_for_update=locking,
-                                                                    new_poll=new_poll, upate_poll=update_poll,
+                                                                    new_poll=new_poll, update_poll=update_poll,
                                                                     only_return_id=only_return_id,
                                                                     by_substatus=by_substatus, for_poller=for_poller, session=session)
 
@@ -179,7 +179,7 @@ def get_processings_by_status(status, time_period=None, locking=False, bulk_size
     else:
         processings = orm_processings.get_processings_by_status(status=status, period=time_period, locking=locking,
                                                                 bulk_size=bulk_size, to_json=to_json,
-                                                                new_poll=new_poll, upate_poll=update_poll,
+                                                                new_poll=new_poll, update_poll=update_poll,
                                                                 only_return_id=only_return_id,
                                                                 by_substatus=by_substatus, for_poller=for_poller, session=session)
     return processings

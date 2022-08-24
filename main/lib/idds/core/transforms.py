@@ -163,13 +163,13 @@ def get_transforms_by_status(status, period=None, locking=False, bulk_size=None,
             tf_ids = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking,
                                                              bulk_size=bulk_size * 2, locking_for_update=False,
                                                              to_json=False, only_return_id=True,
-                                                             new_poll=new_poll, upate_poll=update_poll,
+                                                             new_poll=new_poll, update_poll=update_poll,
                                                              by_substatus=by_substatus, session=session)
             if tf_ids:
                 transform2s = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking,
                                                                       bulk_size=None, locking_for_update=True,
                                                                       to_json=to_json, transform_ids=tf_ids,
-                                                                      new_poll=new_poll, upate_poll=update_poll,
+                                                                      new_poll=new_poll, update_poll=update_poll,
                                                                       by_substatus=by_substatus, session=session)
                 if transform2s:
                     # reqs = req2s[:bulk_size]
@@ -191,7 +191,7 @@ def get_transforms_by_status(status, period=None, locking=False, bulk_size=None,
             transforms = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking,
                                                                  locking_for_update=locking,
                                                                  bulk_size=bulk_size, to_json=to_json,
-                                                                 new_poll=new_poll, upate_poll=update_poll,
+                                                                 new_poll=new_poll, update_poll=update_poll,
                                                                  only_return_id=only_return_id,
                                                                  by_substatus=by_substatus, session=session)
 
@@ -206,7 +206,7 @@ def get_transforms_by_status(status, period=None, locking=False, bulk_size=None,
     else:
         transforms = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking,
                                                              bulk_size=bulk_size, to_json=to_json,
-                                                             new_poll=new_poll, upate_poll=update_poll,
+                                                             new_poll=new_poll, update_poll=update_poll,
                                                              only_return_id=only_return_id,
                                                              by_substatus=by_substatus, session=session)
     return transforms
