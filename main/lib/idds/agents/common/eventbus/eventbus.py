@@ -77,5 +77,11 @@ class EventBus(Singleton):
         event = self.backend.get(event_type, wait=10)
         return event
 
+    def get(self, event_type):
+        return self.get_event(event_type)
+
+    def send(self, event):
+        return self.publish_event(event)
+
     def stop(self):
         self.backend.stop()
