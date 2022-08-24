@@ -36,6 +36,8 @@ class GUID(TypeDecorator):
     """
     impl = CHAR
 
+    cache_ok = True
+
     def generate_uuid(self):
         return str(uuid.uuid4()).replace('-', '').lower()
 
@@ -170,6 +172,7 @@ class EnumWithValue(TypeDecorator):
     The default would have stored the enum's *name* (ie the string).
     """
     impl = Integer
+    cache_ok = True
 
     def __init__(self, enumtype, *args, **kwargs):
         super(EnumWithValue, self).__init__(*args, **kwargs)
