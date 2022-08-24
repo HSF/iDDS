@@ -135,10 +135,10 @@ class Clerk(BaseAgent):
 
             self.logger.debug("Main thread get %s [New+Extend] requests to process" % len(reqs_new))
             if reqs_new:
-                self.logger.info("Main thread get %s [New+Extend] requests to process" % len(reqs_new))
+                self.logger.info("Main thread get [New+Extend] requests to process: %s" % str(reqs_new))
 
-            for req in reqs_new:
-                event = NewRequestEvent(publisher_id=self.id, request_id=req.request_id)
+            for req_id in reqs_new:
+                event = NewRequestEvent(publisher_id=self.id, request_id=req_id)
                 self.event_bus.send(event)
 
             return reqs_new
@@ -172,10 +172,10 @@ class Clerk(BaseAgent):
 
             self.logger.debug("Main thread get %s Transforming requests to running" % len(reqs))
             if reqs:
-                self.logger.info("Main thread get %s Transforming requests to running" % len(reqs))
+                self.logger.info("Main thread get Transforming requests to running: %s" % str(reqs))
 
-            for req in reqs:
-                event = UpdateRequestEvent(publisher_id=self.id, request_id=req.request_id)
+            for req_id in reqs:
+                event = UpdateRequestEvent(publisher_id=self.id, request_id=req_id)
                 self.event_bus.send(event)
 
             return reqs

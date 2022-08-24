@@ -97,7 +97,7 @@ class Transformer(BaseAgent):
         Get new transforms to process
         """
         try:
-            if not self.is_ok_to_run_more_requests():
+            if not self.is_ok_to_run_more_transforms():
                 return []
 
             self.show_queue_size()
@@ -111,10 +111,10 @@ class Transformer(BaseAgent):
 
             self.logger.debug("Main thread get %s New+Ready+Extend transforms to process" % len(transforms_new))
             if transforms_new:
-                self.logger.info("Main thread get %s New+Ready+Extend transforms to process" % len(transforms_new))
+                self.logger.info("Main thread get New+Ready+Extend transforms to process: %s" % str(transforms_new))
 
-            for tf in transforms_new:
-                event = NewTransformEvent(publisher_id=self.id, transform_id=tf.transform_id)
+            for tf_id in transforms_new:
+                event = NewTransformEvent(publisher_id=self.id, transform_id=tf_id)
                 self.event_bus.send(event)
 
             return transforms_new
@@ -132,7 +132,7 @@ class Transformer(BaseAgent):
         Get running transforms
         """
         try:
-            if not self.is_ok_to_run_more_requests():
+            if not self.is_ok_to_run_more_transforms():
                 return []
 
             self.show_queue_size()
@@ -152,10 +152,10 @@ class Transformer(BaseAgent):
 
             self.logger.debug("Main thread get %s transforming transforms to process" % len(transforms))
             if transforms:
-                self.logger.info("Main thread get %s transforming transforms to process" % len(transforms))
+                self.logger.info("Main thread get transforming transforms to process: %s" % str(transforms))
 
-            for tf in transforms:
-                event = UpdateTransformEvent(publisher_id=self.id, transform_id=tf.transform_id)
+            for tf_id in transforms:
+                event = UpdateTransformEvent(publisher_id=self.id, transform_id=tf_id)
                 self.event_bus.send(event)
 
             return transforms

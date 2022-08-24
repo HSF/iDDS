@@ -69,7 +69,7 @@ class Poller(BaseAgent):
         else:
             self.max_number_workers = int(self.max_number_workers)
 
-    def is_ok_to_run_more_requests(self):
+    def is_ok_to_run_more_processings(self):
         if self.number_workers >= self.max_number_workers:
             return False
         return True
@@ -88,7 +88,7 @@ class Poller(BaseAgent):
         Get new processing
         """
         try:
-            if not self.is_ok_to_run_more_requests():
+            if not self.is_ok_to_run_more_processings():
                 return []
 
             self.show_queue_size()
@@ -101,10 +101,10 @@ class Poller(BaseAgent):
 
             self.logger.debug("Main thread get %s [new] processings to process" % len(processings))
             if processings:
-                self.logger.info("Main thread get %s [new] processings to process" % len(processings))
+                self.logger.info("Main thread get [new] processings to process: %s" % str(processings))
 
-            for pr in processings:
-                event = NewProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'])
+            for pr_id in processings:
+                event = NewProcessingEvent(publisher_id=self.id, processing_id=pr_id)
                 self.event_bus.send(event)
 
             return processings
@@ -122,7 +122,7 @@ class Poller(BaseAgent):
         Get running processing
         """
         try:
-            if not self.is_ok_to_run_more_requests():
+            if not self.is_ok_to_run_more_processings():
                 return []
 
             self.show_queue_size()
@@ -141,12 +141,12 @@ class Poller(BaseAgent):
                                                                      only_return_id=True,
                                                                      bulk_size=self.retrieve_bulk_size)
 
-            self.logger.debug("Main thread get %s [submitting + submitted + running] processings to process: %s" % (len(processings), str([processing['processing_id'] for processing in processings])))
+            self.logger.debug("Main thread get %s [submitting + submitted + running] processings to process" % (len(processings)))
             if processings:
-                self.logger.info("Main thread get %s [submitting + submitted + running] processings to process: %s" % (len(processings), str([processing['processing_id'] for processing in processings])))
+                self.logger.info("Main thread get [submitting + submitted + running] processings to process: %s" % (str(processings)))
 
-            for pr in processings:
-                event = UpdateProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'])
+            for pr_id in processings:
+                event = UpdateProcessingEvent(publisher_id=self.id, processing_id=pr_id)
                 self.event_bus.send(event)
 
             return processings
@@ -427,11 +427,11 @@ class Poller(BaseAgent):
     def init_event_function_map(self):
         self.event_func_map = {
             EventType.NewProcessing: {
-                'pre_check': self.is_ok_to_run_more_requests,
+                'pre_check': self.is_ok_to_run_more_processings,
                 'exec_func': self.process_new_processing
             },
             EventType.UpdateProcessing: {
-                'pre_check': self.is_ok_to_run_more_requests,
+                'pre_check': self.is_ok_to_run_more_processings,
                 'exec_func': self.process_update_processing
             }
         }

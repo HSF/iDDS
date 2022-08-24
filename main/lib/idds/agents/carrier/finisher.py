@@ -43,7 +43,7 @@ class Finisher(Poller):
         else:
             self.max_number_workers = int(self.max_number_workers)
 
-    def is_ok_to_run_more_requests(self):
+    def is_ok_to_run_more_processings(self):
         if self.number_workers >= self.max_number_workers:
             return False
         return True
@@ -283,19 +283,19 @@ class Finisher(Poller):
     def init_event_function_map(self):
         self.event_func_map = {
             EventType.SyncProcessing: {
-                'pre_check': self.is_ok_to_run_more_requests,
+                'pre_check': self.is_ok_to_run_more_processings,
                 'exec_func': self.process_sync_processing
             },
             EventType.TerminatedProcessing: {
-                'pre_check': self.is_ok_to_run_more_requests,
+                'pre_check': self.is_ok_to_run_more_processings,
                 'exec_func': self.process_terminated_processing
             },
             EventType.AbortProcessing: {
-                'pre_check': self.is_ok_to_run_more_requests,
+                'pre_check': self.is_ok_to_run_more_processings,
                 'exec_func': self.process_abort_processing
             },
             EventType.ResumeProcessing: {
-                'pre_check': self.is_ok_to_run_more_requests,
+                'pre_check': self.is_ok_to_run_more_processings,
                 'exec_func': self.process_resume_processing
             }
         }
