@@ -4,17 +4,25 @@ alter table REQUESTS add (new_retries NUMBER(5) DEFAULT 0);
 alter table REQUESTS add (update_retries NUMBER(5) DEFAULT 0);
 alter table REQUESTS add (max_new_retries NUMBER(5) DEFAULT 3);
 alter table REQUESTS add (max_update_retries NUMBER(5) DEFAULT 0);
-alter table REQUESTS add (new_poll_period NUMBER(10) DEFAULT 10);
-alter table REQUESTS add (update_poll_period NUMBER(10) DEFAULT 10);
+# alter table REQUESTS add (new_poll_period NUMBER(10) DEFAULT 10);
+# alter table REQUESTS add (update_poll_period NUMBER(10) DEFAULT 10);
+# alter table REQUESTS drop column new_poll_period
+# alter table REQUESTS drop column update_poll_period
+alter table REQUESTS add (new_poll_period INTERVAL DAY TO SECOND DEFAULT '00 00:00:01');
+alter table REQUESTS add (update_poll_period INTERVAL DAY TO SECOND DEFAULT '00 00:00:10');
 
 alter table TRANSFORMS add (oldstatus NUMBER(2));
 alter table TRANSFORMS add (new_retries NUMBER(5) DEFAULT 0);
 alter table TRANSFORMS add (update_retries NUMBER(5) DEFAULT 0);
 alter table TRANSFORMS add (max_new_retries NUMBER(5) DEFAULT 3);
 alter table TRANSFORMS add (max_update_retries NUMBER(5) DEFAULT 0);
-alter table TRANSFORMS add (new_poll_period NUMBER(10) DEFAULT 10);
-alter table TRANSFORMS add (update_poll_period NUMBER(10) DEFAULT 10);
+#alter table TRANSFORMS add (new_poll_period NUMBER(10) DEFAULT 10);
+#alter table TRANSFORMS add (update_poll_period NUMBER(10) DEFAULT 10);
 alter table TRANSFORMS add (errors VARCHAR2(1024));
+# alter table TRANSFORMS drop column new_poll_period
+# alter table TRANSFORMS drop column update_poll_period
+alter table TRANSFORMS add (new_poll_period INTERVAL DAY TO SECOND DEFAULT '00 00:00:01');
+alter table TRANSFORMS add (update_poll_period INTERVAL DAY TO SECOND DEFAULT '00 00:00:10');
 
 
 alter table PROCESSINGS add (oldstatus NUMBER(2));
@@ -22,9 +30,13 @@ alter table PROCESSINGS add (new_retries NUMBER(5) DEFAULT 0);
 alter table PROCESSINGS add (update_retries NUMBER(5) DEFAULT 0);
 alter table PROCESSINGS add (max_new_retries NUMBER(5) DEFAULT 3);
 alter table PROCESSINGS add (max_update_retries NUMBER(5) DEFAULT 0);
-alter table PROCESSINGS add (new_poll_period NUMBER(10) DEFAULT 10);
-alter table PROCESSINGS add (update_poll_period NUMBER(10) DEFAULT 10);
+#alter table PROCESSINGS add (new_poll_period NUMBER(10) DEFAULT 10);
+#alter table PROCESSINGS add (update_poll_period NUMBER(10) DEFAULT 10);
 alter table PROCESSINGS add (errors VARCHAR2(1024));
+# alter table PROCESSINGS drop column new_poll_period
+# alter table PROCESSINGS drop column update_poll_period
+alter table PROCESSINGS add (new_poll_period INTERVAL DAY TO SECOND DEFAULT '00 00:00:01');
+alter table PROCESSINGS add (update_poll_period INTERVAL DAY TO SECOND DEFAULT '00 00:00:10');
 
 -- oracle 11
 CREATE SEQUENCE COMMAND_ID_SEQ MINVALUE 1 INCREMENT BY 1 START WITH 1 NOCACHE NOORDER NOCYCLE;

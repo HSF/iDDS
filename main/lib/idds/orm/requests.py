@@ -773,6 +773,11 @@ def update_request(request_id, parameters, session=None):
     try:
         parameters['updated_at'] = datetime.datetime.utcnow()
 
+        if 'new_poll_period' in parameters and type(parameters['new_poll_period']) not in [datetime.timedelta]:
+            parameters['new_poll_period'] = datetime.timedelta(seconds=parameters['new_poll_period'])
+        if 'update_poll_period' in parameters and type(parameters['update_poll_period']) not in [datetime.timedelta]:
+            parameters['update_poll_period'] = datetime.timedelta(seconds=parameters['update_poll_period'])
+
         if 'request_metadata' in parameters and 'workflow' in parameters['request_metadata']:
             workflow = parameters['request_metadata']['workflow']
 

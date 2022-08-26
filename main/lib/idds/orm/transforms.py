@@ -417,6 +417,12 @@ def update_transform(transform_id, parameters, session=None):
     """
     try:
         parameters['updated_at'] = datetime.datetime.utcnow()
+
+        if 'new_poll_period' in parameters and type(parameters['new_poll_period']) not in [datetime.timedelta]:
+            parameters['new_poll_period'] = datetime.timedelta(seconds=parameters['new_poll_period'])
+        if 'update_poll_period' in parameters and type(parameters['update_poll_period']) not in [datetime.timedelta]:
+            parameters['update_poll_period'] = datetime.timedelta(seconds=parameters['update_poll_period'])
+
         if 'status' in parameters and parameters['status'] in [TransformStatus.Finished, TransformStatus.Finished.value,
                                                                TransformStatus.Failed, TransformStatus.Failed.value]:
             parameters['finished_at'] = datetime.datetime.utcnow()

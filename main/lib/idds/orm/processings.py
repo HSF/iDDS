@@ -334,6 +334,10 @@ def update_processing(processing_id, parameters, session=None):
 
     """
     try:
+        if 'new_poll_period' in parameters and type(parameters['new_poll_period']) not in [datetime.timedelta]:
+            parameters['new_poll_period'] = datetime.timedelta(seconds=parameters['new_poll_period'])
+        if 'update_poll_period' in parameters and type(parameters['update_poll_period']) not in [datetime.timedelta]:
+            parameters['update_poll_period'] = datetime.timedelta(seconds=parameters['update_poll_period'])
 
         parameters['updated_at'] = datetime.datetime.utcnow()
         if 'status' in parameters and parameters['status'] in [ProcessingStatus.Finished, ProcessingStatus.Failed,

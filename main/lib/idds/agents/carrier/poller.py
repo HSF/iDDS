@@ -227,6 +227,7 @@ class Poller(BaseAgent):
 
             error = {'submit_err': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=200)}}
             parameters = {'status': pr_status,
+                          'new_poll_period': new_poll_period,
                           'errors': processing['errors'] if processing['errors'] else {},
                           'new_retries': retries}
             parameters['errors'].update(error)

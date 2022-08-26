@@ -16,7 +16,7 @@ SQLAlchemy models for idds relational data
 import datetime
 from enum import Enum
 
-from sqlalchemy import BigInteger, Boolean, Column, DateTime, Integer, String, event, DDL
+from sqlalchemy import BigInteger, Boolean, Column, DateTime, Integer, String, event, DDL, Interval
 from sqlalchemy.ext.compiler import compiles
 # from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import object_mapper
@@ -155,8 +155,8 @@ class Request(BASE, ModelBase):
     update_retries = Column(Integer(), default=0)
     max_new_retries = Column(Integer(), default=3)
     max_update_retries = Column(Integer(), default=0)
-    new_poll_period = Column(Integer(), default=10)
-    update_poll_period = Column(Integer(), default=10)
+    new_poll_period = Column(Interval(), default=datetime.timedelta(seconds=1))
+    update_poll_period = Column(Interval(), default=datetime.timedelta(seconds=10))
     errors = Column(JSONString(1024))
     _request_metadata = Column('request_metadata', JSON())
     _processing_metadata = Column('processing_metadata', JSON())
@@ -280,8 +280,8 @@ class Transform(BASE, ModelBase):
     update_retries = Column(Integer(), default=0)
     max_new_retries = Column(Integer(), default=3)
     max_update_retries = Column(Integer(), default=0)
-    new_poll_period = Column(Integer(), default=10)
-    update_poll_period = Column(Integer(), default=10)
+    new_poll_period = Column(Interval(), default=datetime.timedelta(seconds=1))
+    update_poll_period = Column(Interval(), default=datetime.timedelta(seconds=10))
     errors = Column(JSONString(1024))
     _transform_metadata = Column('transform_metadata', JSON())
     _running_metadata = Column('running_metadata', JSON())
@@ -382,8 +382,8 @@ class Processing(BASE, ModelBase):
     update_retries = Column(Integer(), default=0)
     max_new_retries = Column(Integer(), default=3)
     max_update_retries = Column(Integer(), default=0)
-    new_poll_period = Column(Integer(), default=10)
-    update_poll_period = Column(Integer(), default=10)
+    new_poll_period = Column(Interval(), default=datetime.timedelta(seconds=1))
+    update_poll_period = Column(Interval(), default=datetime.timedelta(seconds=10))
     errors = Column(JSONString(1024))
     _processing_metadata = Column('processing_metadata', JSON())
     _running_metadata = Column('running_metadata', JSON())
@@ -615,8 +615,8 @@ def register_models(engine):
     models = (Request, Transform, Processing, Collection, Content, Health, Message, Command)
 
     for model in models:
-        if not engine.has_table(model.__tablename__, model.metadata.schema):
-            model.metadata.create_all(engine)   # pylint: disable=maybe-no-member
+        # if not engine.has_table(model.__tablename__, model.metadata.schema):
+        model.metadata.create_all(engine)   # pylint: disable=maybe-no-member
 
 
 def unregister_models(engine):
