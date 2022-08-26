@@ -25,7 +25,8 @@ conda activate $CondaDir
 #export PYTHONPATH=${IDDS_HOME}/lib:$PYTHONPATH
 
 export RUCIO_HOME=$RootDir
-export RUCIO_ACCOUNT=ddmadmin
+#export RUCIO_ACCOUNT=ddmadmin
+export RUCIO_ACCOUNT=wguan
 export X509_USER_PROXY=/tmp/x509up_u23959
 # export PYTHONPATH=$PYTHONPATH:/cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase/x86_64/rucio-clients/current/lib/python3.6/site-packages/
 
