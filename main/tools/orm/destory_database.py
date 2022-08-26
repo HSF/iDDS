@@ -14,7 +14,7 @@ destory the database.
 """
 
 
-from ess.orm.utils import destory_everything
+from idds.orm.base.utils import destory_everything
 
 if __name__ == '__main__':
 
