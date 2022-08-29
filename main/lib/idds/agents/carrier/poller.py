@@ -104,6 +104,7 @@ class Poller(BaseAgent):
                 self.logger.info("Main thread get [new] processings to process: %s" % str(processings))
 
             for pr_id in processings:
+                self.logger.info("NewProcessingEvent(processing_id: %s)" % pr_id)
                 event = NewProcessingEvent(publisher_id=self.id, processing_id=pr_id)
                 self.event_bus.send(event)
 
@@ -146,6 +147,7 @@ class Poller(BaseAgent):
                 self.logger.info("Main thread get [submitting + submitted + running] processings to process: %s" % (str(processings)))
 
             for pr_id in processings:
+                self.logger.info("UpdateProcessingEvent(processing_id: %s)" % pr_id)
                 event = UpdateProcessingEvent(publisher_id=self.id, processing_id=pr_id)
                 self.event_bus.send(event)
 
@@ -297,8 +299,9 @@ class Poller(BaseAgent):
         self.number_workers += 1
         try:
             if event:
-                pr_status = [ProcessingStatus.New]
-                pr = self.get_processing(processing_id=event._processing_id, status=pr_status, locking=True)
+                # pr_status = [ProcessingStatus.New]
+                self.logger.info("process_new_processing, event: %s" % str(event))
+                pr = self.get_processing(processing_id=event._processing_id, status=None, locking=True)
                 if pr:
                     log_pre = self.get_log_prefix(pr)
                     self.logger.info(log_pre + "process_new_processing")
@@ -395,15 +398,9 @@ class Poller(BaseAgent):
         self.number_workers += 1
         try:
             if event:
-                processing_status = [ProcessingStatus.Submitting, ProcessingStatus.Submitted,
-                                     ProcessingStatus.Running, ProcessingStatus.FinishedOnExec,
-                                     ProcessingStatus.ToCancel, ProcessingStatus.Cancelling,
-                                     ProcessingStatus.ToSuspend, ProcessingStatus.Suspending,
-                                     ProcessingStatus.ToResume, ProcessingStatus.Resuming,
-                                     ProcessingStatus.ToExpire, ProcessingStatus.Expiring,
-                                     ProcessingStatus.ToFinish, ProcessingStatus.ToForceFinish]
+                self.logger.info("process_update_processing, event: %s" % str(event))
 
-                pr = self.get_processing(processing_id=event._processing_id, status=processing_status, locking=True)
+                pr = self.get_processing(processing_id=event._processing_id, status=None, locking=True)
                 if pr:
                     log_pre = self.get_log_prefix(pr)
 
@@ -448,6 +445,8 @@ class Poller(BaseAgent):
             self.init()
 
             self.add_default_tasks()
+
+            self.init_event_function_map()
 
             task = self.create_task(task_func=self.get_new_processings, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=60, priority=1)
             self.add_task(task)

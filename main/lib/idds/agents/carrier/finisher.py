@@ -310,6 +310,8 @@ class Finisher(Poller):
 
             self.add_default_tasks()
 
+            self.init_event_function_map()
+
             self.execute()
         except KeyboardInterrupt:
             self.stop()
