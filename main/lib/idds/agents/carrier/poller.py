@@ -31,23 +31,23 @@ class Poller(BaseAgent):
     Poller works to submit and running tasks to WFMS.
     """
 
-    def __init__(self, num_threads=1, poll_time_period=10, retries=3, retrieve_bulk_size=2,
+    def __init__(self, num_threads=1, poll_period=10, retries=3, retrieve_bulk_size=2,
                  name='Poller', message_bulk_size=1000, **kwargs):
         super(Poller, self).__init__(num_threads=num_threads, name=name, **kwargs)
         self.config_section = Sections.Carrier
-        self.poll_time_period = int(poll_time_period)
+        self.poll_period = int(poll_period)
         self.retries = int(retries)
         self.retrieve_bulk_size = int(retrieve_bulk_size)
         self.message_bulk_size = int(message_bulk_size)
 
-        if not hasattr(self, 'new_poll_time_period') or not self.new_poll_time_period:
-            self.new_poll_time_period = self.poll_time_period
+        if not hasattr(self, 'new_poll_period') or not self.new_poll_period:
+            self.new_poll_period = self.poll_period
         else:
-            self.new_poll_time_period = int(self.new_poll_time_period)
-        if not hasattr(self, 'update_poll_time_period') or not self.update_poll_time_period:
-            self.update_poll_time_period = self.poll_time_period
+            self.new_poll_period = int(self.new_poll_period)
+        if not hasattr(self, 'update_poll_period') or not self.update_poll_period:
+            self.update_poll_period = self.poll_period
         else:
-            self.update_poll_time_period = int(self.update_poll_time_period)
+            self.update_poll_period = int(self.update_poll_period)
 
         if hasattr(self, 'poll_period_increase_rate'):
             self.poll_period_increase_rate = float(self.poll_period_increase_rate)
@@ -134,7 +134,7 @@ class Poller(BaseAgent):
                                  ProcessingStatus.ToResume, ProcessingStatus.Resuming,
                                  ProcessingStatus.ToExpire, ProcessingStatus.Expiring,
                                  ProcessingStatus.ToFinish, ProcessingStatus.ToForceFinish]
-            # next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period)
+            # next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_period)
             processings = core_processings.get_processings_by_status(status=processing_status,
                                                                      locking=True, update_poll=True,
                                                                      not_lock=True,

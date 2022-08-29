@@ -39,9 +39,9 @@ class Clerk(BaseAgent):
     Clerk works to process requests and converts requests to transforms.
     """
 
-    def __init__(self, num_threads=1, poll_time_period=10, retrieve_bulk_size=10, pending_time=None, **kwargs):
+    def __init__(self, num_threads=1, poll_period=10, retrieve_bulk_size=10, pending_time=None, **kwargs):
         super(Clerk, self).__init__(num_threads=num_threads, name='Clerk', **kwargs)
-        self.poll_time_period = int(poll_time_period)
+        self.poll_period = int(poll_period)
         self.retrieve_bulk_size = int(retrieve_bulk_size)
         self.config_section = Sections.Clerk
         if pending_time:
@@ -56,14 +56,14 @@ class Clerk(BaseAgent):
         else:
             self.release_helper = False
 
-        if not hasattr(self, 'new_poll_time_period') or not self.new_poll_time_period:
-            self.new_poll_time_period = self.poll_time_period
+        if not hasattr(self, 'new_poll_period') or not self.new_poll_period:
+            self.new_poll_period = self.poll_period
         else:
-            self.new_poll_time_period = int(self.new_poll_time_period)
-        if not hasattr(self, 'update_poll_time_period') or not self.update_poll_time_period:
-            self.update_poll_time_period = self.poll_time_period
+            self.new_poll_period = int(self.new_poll_period)
+        if not hasattr(self, 'update_poll_period') or not self.update_poll_period:
+            self.update_poll_period = self.poll_period
         else:
-            self.update_poll_time_period = int(self.update_poll_time_period)
+            self.update_poll_period = int(self.update_poll_period)
 
         if hasattr(self, 'poll_period_increase_rate'):
             self.poll_period_increase_rate = float(self.poll_period_increase_rate)
@@ -79,14 +79,14 @@ class Clerk(BaseAgent):
         else:
             self.max_update_poll_period = 3600 * 6
 
-        if not hasattr(self, 'new_command_poll_time_period') or not self.new_command_poll_time_period:
-            self.new_command_poll_time_period = 1
+        if not hasattr(self, 'new_command_poll_period') or not self.new_command_poll_period:
+            self.new_command_poll_period = 1
         else:
-            self.new_command_poll_time_period = int(self.new_command_poll_time_period)
-        if not hasattr(self, 'update_command_poll_time_period') or not self.update_command_poll_time_period:
-            self.update_command_poll_time_period = self.poll_time_period
+            self.new_command_poll_period = int(self.new_command_poll_period)
+        if not hasattr(self, 'update_command_poll_period') or not self.update_command_poll_period:
+            self.update_command_poll_period = self.poll_period
         else:
-            self.update_command_poll_time_period = int(self.update_command_poll_time_period)
+            self.update_command_poll_period = int(self.update_command_poll_period)
 
         if hasattr(self, 'max_new_retries'):
             self.max_new_retries = int(self.max_new_retries)
@@ -199,10 +199,10 @@ class Clerk(BaseAgent):
             self.show_queue_size()
 
             status = [CommandStatus.New]
-            new_commands = core_commands.get_commands_by_status(status=status, locking=True, period=self.new_command_poll_time_period)
+            new_commands = core_commands.get_commands_by_status(status=status, locking=True, period=self.new_command_poll_period)
             status = [CommandStatus.Processing]
             processing_commands = core_commands.get_commands_by_status(status=status, locking=True,
-                                                                       period=self.update_command_poll_time_period)
+                                                                       period=self.update_command_poll_period)
             commands = new_commands + processing_commands
 
             self.logger.debug("Main thread get %s commands" % len(commands))

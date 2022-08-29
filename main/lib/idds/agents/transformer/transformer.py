@@ -36,32 +36,32 @@ class Transformer(BaseAgent):
     Transformer works to process transforms.
     """
 
-    def __init__(self, num_threads=1, poll_time_period=1800, retries=3, retrieve_bulk_size=10,
+    def __init__(self, num_threads=1, poll_period=1800, retries=3, retrieve_bulk_size=10,
                  message_bulk_size=10000, **kwargs):
         super(Transformer, self).__init__(num_threads=num_threads, name='Transformer', **kwargs)
         self.config_section = Sections.Transformer
-        self.poll_time_period = int(poll_time_period)
+        self.poll_period = int(poll_period)
         self.retries = int(retries)
         self.retrieve_bulk_size = int(retrieve_bulk_size)
         self.message_bulk_size = int(message_bulk_size)
 
-        if not hasattr(self, 'new_poll_time_period') or not self.new_poll_time_period:
-            self.new_poll_time_period = self.poll_time_period
+        if not hasattr(self, 'new_poll_period') or not self.new_poll_period:
+            self.new_poll_period = self.poll_period
         else:
-            self.new_poll_time_period = int(self.new_poll_time_period)
-        if not hasattr(self, 'update_poll_time_period') or not self.update_poll_time_period:
-            self.update_poll_time_period = self.poll_time_period
+            self.new_poll_period = int(self.new_poll_period)
+        if not hasattr(self, 'update_poll_period') or not self.update_poll_period:
+            self.update_poll_period = self.poll_period
         else:
-            self.update_poll_time_period = int(self.update_poll_time_period)
+            self.update_poll_period = int(self.update_poll_period)
 
-        if not hasattr(self, 'new_poll_time_period') or not self.new_poll_time_period:
-            self.new_poll_time_period = self.poll_time_period
+        if not hasattr(self, 'new_poll_period') or not self.new_poll_period:
+            self.new_poll_period = self.poll_period
         else:
-            self.new_poll_time_period = int(self.new_poll_time_period)
-        if not hasattr(self, 'update_poll_time_period') or not self.update_poll_time_period:
-            self.update_poll_time_period = self.poll_time_period
+            self.new_poll_period = int(self.new_poll_period)
+        if not hasattr(self, 'update_poll_period') or not self.update_poll_period:
+            self.update_poll_period = self.poll_period
         else:
-            self.update_poll_time_period = int(self.update_poll_time_period)
+            self.update_poll_period = int(self.update_poll_period)
 
         if hasattr(self, 'poll_period_increase_rate'):
             self.poll_period_increase_rate = float(self.poll_period_increase_rate)
@@ -103,7 +103,7 @@ class Transformer(BaseAgent):
             self.show_queue_size()
 
             transform_status = [TransformStatus.New, TransformStatus.Ready, TransformStatus.Extend]
-            # next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_time_period)
+            # next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_period)
             transforms_new = core_transforms.get_transforms_by_status(status=transform_status, locking=True,
                                                                       not_lock=True,
                                                                       new_poll=True, only_return_id=True,
