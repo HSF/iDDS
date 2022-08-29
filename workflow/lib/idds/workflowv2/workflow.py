@@ -1508,7 +1508,9 @@ class WorkflowBase(Base):
             self.init_works = init_works
             self.log_debug("first initialized")
 
-    def sync_works(self):
+    def sync_works(self, to_cancel=False):
+        if to_cancel:
+            self.to_cancel = to_cancel
         self.log_debug("synchroning works")
         self.first_initialize()
 
@@ -1587,6 +1589,7 @@ class WorkflowBase(Base):
         self.log_debug("synchronized works")
 
     def resume_works(self):
+        self.to_cancel = False
         self.num_subfinished_works = 0
         self.num_finished_works = 0
         self.num_failed_works = 0
@@ -2084,6 +2087,7 @@ class Workflow(Base):
     def resume_works(self):
         if self.runs:
             self.runs[str(self.num_run)].resume_works()
+        self.template.to_cancel = False
 
     def clean_works(self):
         # if self.runs:
@@ -2167,6 +2171,8 @@ class Workflow(Base):
             self.runs[str(self.num_run)].refresh_works()
 
     def sync_works(self, to_cancel=False):
+        if to_cancel:
+            self.to_cancel = to_cancel
         # position is end.
         if self._num_run < 1:
             self._num_run = 1
