@@ -430,6 +430,7 @@ class MessageDestination(IDDSEnum):
 class CommandType(IDDSEnum):
     AbortRequest = 0
     ResumeRequest = 1
+    ExpireRequest = 2
 
 
 class CommandStatus(IDDSEnum):
