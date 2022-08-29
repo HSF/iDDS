@@ -221,7 +221,7 @@ class Poller(BaseAgent):
             else:
                 pr_status = ProcessingStatus.Failed
             # increase poll period
-            new_poll_period = int(processing['new_poll_period'] * self.poll_period_increase_rate)
+            new_poll_period = int(processing['new_poll_period'].total_seconds() * self.poll_period_increase_rate)
             if new_poll_period > self.max_new_poll_period:
                 new_poll_period = self.max_new_poll_period
 
@@ -355,7 +355,7 @@ class Poller(BaseAgent):
             error = {'update_err': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=200)}}
 
             # increase poll period
-            update_poll_period = int(processing['update_poll_period'] * self.poll_period_increase_rate)
+            update_poll_period = int(processing['update_poll_period'].total_seconds() * self.poll_period_increase_rate)
             if update_poll_period > self.max_update_poll_period:
                 update_poll_period = self.max_update_poll_period
 
