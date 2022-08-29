@@ -1970,6 +1970,16 @@ class Workflow(Base):
         self.template.lifetime = value
 
     @property
+    def to_cancel(self):
+        return self.template.to_cancel
+
+    @to_cancel.setter
+    def to_cancel(self, value):
+        if self.runs:
+            self.runs[str(self.num_run)].to_cancel = value
+        self.template.to_cancel = value
+
+    @property
     def num_run(self):
         if self.parent_num_run:
             return self.parent_num_run * 100 + self._num_run
