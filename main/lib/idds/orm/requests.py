@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2020
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
 
 
 """
@@ -31,6 +31,8 @@ def create_request(scope=None, name=None, requester=None, request_type=None,
                    username=None, userdn=None, transform_tag=None,
                    status=RequestStatus.New, locking=RequestLocking.Idle, priority=0,
                    lifetime=None, workload_id=None, request_metadata=None,
+                   new_poll_period=1, update_poll_period=10,
+                   new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
                    processing_metadata=None):
     """
     Create a request.
@@ -79,7 +81,15 @@ def create_request(scope=None, name=None, requester=None, request_type=None,
                                  transform_tag=transform_tag, status=status, locking=locking,
                                  priority=priority, workload_id=workload_id,
                                  expired_at=expired_at,
+                                 new_retries=new_retries, update_retries=update_retries,
+                                 max_new_retries=max_new_retries, max_update_retries=max_update_retries,
                                  request_metadata=request_metadata, processing_metadata=processing_metadata)
+    if new_poll_period:
+        new_poll_period = datetime.timedelta(seconds=new_poll_period)
+        new_request.new_poll_period = new_poll_period
+    if update_poll_period:
+        update_poll_period = datetime.timedelta(seconds=update_poll_period)
+        new_request.update_poll_period = update_poll_period
     return new_request
 
 
@@ -88,6 +98,8 @@ def add_request(scope=None, name=None, requester=None, request_type=None,
                 username=None, userdn=None, transform_tag=None,
                 status=RequestStatus.New, locking=RequestLocking.Idle, priority=0,
                 lifetime=None, workload_id=None, request_metadata=None,
+                new_poll_period=1, update_poll_period=10,
+                new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
                 processing_metadata=None, session=None):
     """
     Add a request.
@@ -116,6 +128,10 @@ def add_request(scope=None, name=None, requester=None, request_type=None,
                                      username=username, userdn=userdn,
                                      transform_tag=transform_tag, status=status, locking=locking,
                                      priority=priority, workload_id=workload_id, lifetime=lifetime,
+                                     new_poll_period=new_poll_period,
+                                     update_poll_period=update_poll_period,
+                                     new_retries=new_retries, update_retries=update_retries,
+                                     max_new_retries=max_new_retries, max_update_retries=max_update_retries,
                                      request_metadata=request_metadata, processing_metadata=processing_metadata)
         new_request.save(session=session)
         request_id = new_request.request_id

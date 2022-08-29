@@ -30,6 +30,7 @@ def create_transform(request_id, workload_id, transform_type, transform_tag=None
                      priority=0, status=TransformStatus.New,
                      substatus=TransformStatus.New, locking=TransformLocking.Idle,
                      new_poll_period=1, update_poll_period=10,
+                     new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
                      retries=0, expired_at=None, transform_metadata=None):
     """
     Create a transform.
@@ -51,6 +52,8 @@ def create_transform(request_id, workload_id, transform_type, transform_tag=None
                                      transform_tag=transform_tag, priority=priority,
                                      status=status, substatus=substatus, locking=locking,
                                      retries=retries, expired_at=expired_at,
+                                     new_retries=new_retries, update_retries=update_retries,
+                                     max_new_retries=max_new_retries, max_update_retries=max_update_retries,
                                      transform_metadata=transform_metadata)
     if new_poll_period:
         new_poll_period = datetime.timedelta(seconds=new_poll_period)
@@ -64,7 +67,9 @@ def create_transform(request_id, workload_id, transform_type, transform_tag=None
 @transactional_session
 def add_transform(request_id, workload_id, transform_type, transform_tag=None, priority=0,
                   status=TransformStatus.New, substatus=TransformStatus.New, locking=TransformLocking.Idle,
-                  retries=0, expired_at=None, transform_metadata=None, workprogress_id=None, session=None):
+                  new_poll_period=1, update_poll_period=10, retries=0, expired_at=None,
+                  new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
+                  transform_metadata=None, workprogress_id=None, session=None):
     """
     Add a transform.
 
@@ -89,6 +94,10 @@ def add_transform(request_id, workload_id, transform_type, transform_tag=None, p
                                          transform_tag=transform_tag, priority=priority,
                                          status=status, substatus=substatus, locking=locking,
                                          retries=retries, expired_at=expired_at,
+                                         new_poll_period=new_poll_period,
+                                         update_poll_period=update_poll_period,
+                                         new_retries=new_retries, update_retries=update_retries,
+                                         max_new_retries=max_new_retries, max_update_retries=max_update_retries,
                                          transform_metadata=transform_metadata)
         new_transform.save(session=session)
         transform_id = new_transform.transform_id

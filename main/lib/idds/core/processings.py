@@ -28,6 +28,7 @@ def add_processing(request_id, workload_id, transform_id, status, submitter=None
                    substatus=ProcessingStatus.New, granularity=None,
                    granularity_type=GranularityType.File,
                    new_poll_period=1, update_poll_period=10,
+                   new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
                    expired_at=None, processing_metadata=None, session=None):
     """
     Add a processing.
@@ -52,6 +53,9 @@ def add_processing(request_id, workload_id, transform_id, status, submitter=None
                                           granularity=granularity, granularity_type=granularity_type,
                                           new_poll_period=new_poll_period,
                                           update_poll_period=update_poll_period,
+                                          new_retries=new_retries, update_retries=update_retries,
+                                          max_new_retries=max_new_retries,
+                                          max_update_retries=max_update_retries,
                                           expired_at=expired_at, processing_metadata=processing_metadata,
                                           session=session)
 
