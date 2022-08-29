@@ -128,6 +128,8 @@ class JSONString(TypeDecorator):
 
     impl = types.JSON
 
+    cache_ok = True
+
     def __init__(self, length=1024, *args, **kwargs):
         super(JSONString, self).__init__(*args, **kwargs)
         self._length = length

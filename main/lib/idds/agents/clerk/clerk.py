@@ -360,7 +360,7 @@ class Clerk(BaseAgent):
                                       'new_retries': retries,
                                       'new_poll_period': new_poll_period,
                                       'errors': req['errors'] if req['errors'] else {}}}
-            ret_req['parameters'].update(error)
+            ret_req['parameters']['errors'].update(error)
             self.logger.warn(log_pre + "Handle new request error result: %s" % str(ret_req))
         return ret_req
 
@@ -543,7 +543,7 @@ class Clerk(BaseAgent):
                 req_status = req['status']
             else:
                 req_status = RequestStatus.Failed
-            error = {'submit_err': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=200)}}
+            error = {'update_err': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=200)}}
 
             # increase poll period
             update_poll_period = int(req['update_poll_period'].total_seconds() * self.poll_period_increase_rate)
@@ -556,7 +556,7 @@ class Clerk(BaseAgent):
                                       'update_retries': retries,
                                       'update_poll_period': update_poll_period,
                                       'errors': req['errors'] if req['errors'] else {}}}
-            ret_req['parameters'].update(error)
+            ret_req['parameters']['errors'].update(error)
             log_pre = self.get_log_prefix(req)
             self.logger.warn(log_pre + "Handle new request exception result: %s" % str(ret_req))
         return ret_req
