@@ -29,6 +29,7 @@ from idds.orm.base import models
 def create_transform(request_id, workload_id, transform_type, transform_tag=None,
                      priority=0, status=TransformStatus.New,
                      substatus=TransformStatus.New, locking=TransformLocking.Idle,
+                     new_poll_period=1, update_poll_period=10,
                      retries=0, expired_at=None, transform_metadata=None):
     """
     Create a transform.
@@ -51,6 +52,12 @@ def create_transform(request_id, workload_id, transform_type, transform_tag=None
                                      status=status, substatus=substatus, locking=locking,
                                      retries=retries, expired_at=expired_at,
                                      transform_metadata=transform_metadata)
+    if new_poll_period:
+        new_poll_period = datetime.timedelta(seconds=new_poll_period)
+        new_transform.new_poll_period = new_poll_period
+    if update_poll_period:
+        update_poll_period = datetime.timedelta(seconds=update_poll_period)
+        new_transform.update_poll_period = update_poll_period
     return new_transform
 
 

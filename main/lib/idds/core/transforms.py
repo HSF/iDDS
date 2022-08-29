@@ -30,7 +30,8 @@ from idds.orm import (transforms as orm_transforms,
 @transactional_session
 def add_transform(request_id, workload_id, transform_type, transform_tag=None, priority=0,
                   status=TransformStatus.New, substatus=TransformStatus.New, locking=TransformLocking.Idle,
-                  retries=0, expired_at=None, transform_metadata=None, workprogress_id=None, session=None):
+                  new_poll_period=1, update_poll_period=10, retries=0, expired_at=None, transform_metadata=None,
+                  workprogress_id=None, session=None):
     """
     Add a transform.
 
@@ -54,6 +55,8 @@ def add_transform(request_id, workload_id, transform_type, transform_tag=None, p
                                                 transform_type=transform_type, transform_tag=transform_tag,
                                                 priority=priority, status=status, substatus=substatus,
                                                 locking=locking, retries=retries,
+                                                new_poll_period=new_poll_period,
+                                                update_poll_period=update_poll_period,
                                                 expired_at=expired_at, transform_metadata=transform_metadata,
                                                 workprogress_id=workprogress_id, session=session)
     return transform_id

@@ -27,6 +27,7 @@ from idds.orm.base import models
 
 def create_processing(request_id, workload_id, transform_id, status=ProcessingStatus.New, locking=ProcessingLocking.Idle, submitter=None,
                       granularity=None, granularity_type=GranularityType.File, expired_at=None, processing_metadata=None,
+                      new_poll_period=1, update_poll_period=10,
                       substatus=ProcessingStatus.New, output_metadata=None):
     """
     Create a processing.
@@ -49,6 +50,13 @@ def create_processing(request_id, workload_id, transform_id, status=ProcessingSt
                                        submitter=submitter, granularity=granularity, granularity_type=granularity_type,
                                        expired_at=expired_at, processing_metadata=processing_metadata,
                                        output_metadata=output_metadata)
+
+    if new_poll_period:
+        new_poll_period = datetime.timedelta(seconds=new_poll_period)
+        new_processing.new_poll_period = new_poll_period
+    if update_poll_period:
+        update_poll_period = datetime.timedelta(seconds=update_poll_period)
+        new_processing.update_poll_period = update_poll_period
     return new_processing
 
 

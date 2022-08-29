@@ -27,6 +27,7 @@ from idds.orm import (processings as orm_processings,
 def add_processing(request_id, workload_id, transform_id, status, submitter=None,
                    substatus=ProcessingStatus.New, granularity=None,
                    granularity_type=GranularityType.File,
+                   new_poll_period=1, update_poll_period=10,
                    expired_at=None, processing_metadata=None, session=None):
     """
     Add a processing.
@@ -49,6 +50,8 @@ def add_processing(request_id, workload_id, transform_id, status, submitter=None
     return orm_processings.add_processing(request_id=request_id, workload_id=workload_id, transform_id=transform_id,
                                           status=status, substatus=substatus, submitter=submitter,
                                           granularity=granularity, granularity_type=granularity_type,
+                                          new_poll_period=new_poll_period,
+                                          update_poll_period=update_poll_period,
                                           expired_at=expired_at, processing_metadata=processing_metadata,
                                           session=session)
 
