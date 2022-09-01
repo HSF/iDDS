@@ -392,6 +392,31 @@ def get_input_dependency_map(request_id, transform_id, workload_id, work):
     return content_depency_map, transform_dependency_map
 
 
+def trigger_release_inputs_no_deps(request_id, transform_id, workload_id, work):
+    content_depency_map, transform_dependency_map = get_input_dependency_map(request_id, transform_id, workload_id, work)
+    update_contents = []
+    update_input_contents_full = []
+
+    # release jobs without inputs_dependency
+    for map_id in transform_dependency_map:
+        inputs_dependency = transform_dependency_map[map_id]['inputs_dependency']
+        if len(inputs_dependency) == 0:
+            inputs = transform_dependency_map[map_id]['inputs']
+            for content in inputs:
+                content_id, substatus, scope, name, path = content
+                u_content = {'content_id': content_id,
+                             'substatus': substatus}
+                update_contents.append(u_content)
+                u_content_full = {'content_id': content_id,
+                                  'status': substatus,
+                                  'substatus': substatus,
+                                  'scope': scope,
+                                  'name': name,
+                                  'path': path}
+                update_input_contents_full.append(u_content_full)
+    return update_contents, update_input_contents_full
+
+
 def trigger_release_inputs(request_id, transform_id, workload_id, work, updated_contents_full):
     status_to_check = [ContentStatus.Available, ContentStatus.FakeAvailable, ContentStatus.FinalFailed, ContentStatus.Missing]
     content_depency_map, transform_dependency_map = get_input_dependency_map(request_id, transform_id, workload_id, work)
@@ -410,25 +435,7 @@ def trigger_release_inputs(request_id, transform_id, workload_id, work, updated_
                          'substatus': content['substatus']}
             update_contents.append(u_content)
 
-    # 2. release jobs without inputs_dependency
-    for map_id in transform_dependency_map:
-        inputs_dependency = transform_dependency_map[map_id]['inputs_dependency']
-        if len(inputs_dependency) == 0:
-            inputs = transform_dependency_map[map_id]['inputs']
-            for content in inputs:
-                content_id, substatus, scope, name, path = content
-                u_content = {'content_id': content_id,
-                             'substatus': substatus}
-                update_contents.append(u_content)
-                u_content_full = {'content_id': content_id,
-                                  'status': substatus,
-                                  'substatus': substatus,
-                                  'scope': scope,
-                                  'name': name,
-                                  'path': path}
-                update_input_contents_full.append(u_content_full)
-
-    # 3. use the updated input_dependency to release inputs
+    # 2. use the updated input_dependency to release inputs
     for content_t in triggered_contents:
         t_content_id, transform_id, map_id, t_substatus = content_t
         inputs_dependency = transform_dependency_map[map_id]['inputs_dependency']
@@ -499,6 +506,14 @@ def handle_update_processing(processing, agent_attributes, logger=None, log_pref
         msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='file',
                                  files=new_output_contents, relation_type='output')
         ret_msgs = ret_msgs + msgs
+
+    content_updates_trigger_no_deps, updated_input_contents_no_deps = trigger_release_inputs_no_deps(request_id, transform_id, workload_id, work)
+    content_updates = content_updates + content_updates_trigger_no_deps
+    if updated_input_contents_no_deps:
+        msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='file',
+                                 files=updated_input_contents_no_deps, relation_type='input')
+        ret_msgs = ret_msgs + msgs
+
     if updated_contents_full:
         msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='file',
                                  files=updated_contents_full, relation_type='output')
@@ -594,13 +609,18 @@ def get_content_id_from_job_id(request_id, workload_id, transform_id, job_id, in
 
 
 def handle_messages_processing(messages):
+    new_processings = []
     update_processings = []
     update_contents = []
+    workload_id_update_contents = {}
     for msg in messages:
         if msg['msg_type'] in ['task_status']:
             workload_id = msg['taskid']
             status = msg['status']
-            if status in ['finished', 'done']:
+            if status in ['new']:
+                req_id, tf_id, processing_id = get_workload_id_transform_id_map(workload_id)
+                new_processings.append((req_id, tf_id, processing_id, workload_id, status))
+            elif status in ['finished', 'done']:
                 req_id, tf_id, processing_id = get_workload_id_transform_id_map(workload_id)
                 update_processings.append((processing_id, status))
 
@@ -618,16 +638,40 @@ def handle_messages_processing(messages):
             else:
                 u_content = {'content_id': content_id,
                              'status': get_content_status_from_panda_msg_status(status)}
+
             update_contents.append(u_content)
+            if workload_id not in workload_id_update_contents:
+                workload_id_update_contents[workload_id] = {'request_id': req_id,
+                                                            'transform_id': tf_id,
+                                                            'processing_id': processing_id,
+                                                            'update_contents': []}
+                workload_id_update_contents[workload_id]['update_contents'].append(u_content)
 
     work = None
-    content_updates_trigger, updated_input_contents = trigger_release_inputs(req_id, tf_id, workload_id,
-                                                                             work, update_contents)
+    msgs_no_deps = []
+    content_updates_trigger_no_deps = []
+    for new_processing in new_processings:
+        req_id, tf_id, processing_id, workload_id, status = new_processing
+        content_updates_trigger_no_dep, updated_input_contents_no_dep = trigger_release_inputs_no_deps(req_id, tf_id, workload_id, work)
+        content_updates_trigger_no_deps += content_updates_trigger_no_dep
+        if updated_input_contents_no_dep:
+            msgs_no_dep = generate_messages(req_id, tf_id, workload_id, work, msg_type='file',
+                                            files=updated_input_contents_no_dep, relation_type='input')
+            msgs_no_deps += msgs_no_dep
+
     msgs = []
-    if updated_input_contents:
-        msgs = generate_messages(req_id, tf_id, workload_id, work, msg_type='file',
-                                 files=updated_input_contents, relation_type='input')
-    return update_processings, update_contents + content_updates_trigger, msgs
+    content_updates_triggers = []
+    for workload_id in workload_id_update_contents:
+        req_id = workload_id_update_contents[workload_id]['request_id']
+        tf_id = workload_id_update_contents[workload_id]['transform_id']
+        content_updates_trigger, updated_input_contents = trigger_release_inputs(req_id, tf_id, workload_id,
+                                                                                 work, update_contents)
+        content_updates_triggers += content_updates_trigger
+        if updated_input_contents:
+            msg = generate_messages(req_id, tf_id, workload_id, work, msg_type='file',
+                                    files=updated_input_contents, relation_type='input')
+            msgs += msg
+    return update_processings, update_contents + content_updates_triggers + content_updates_trigger_no_deps, msgs + msgs_no_dep
 
 
 def sync_collection_status(request_id, transform_id, workload_id, work, input_output_maps=None,
