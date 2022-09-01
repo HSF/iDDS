@@ -42,7 +42,7 @@ class MessagingListener(stomp.ConnectionListener):
         '''
         Error handler
         '''
-        self.logger.error('[broker] [%s]: %s', self.__broker, body)
+        self.logger.error('[broker] [%s]: %s', self.__broker, frame.body)
 
     def on_message(self, frame):
         # self.logger.info('[broker] [%s]: %s', self.__broker, body)
