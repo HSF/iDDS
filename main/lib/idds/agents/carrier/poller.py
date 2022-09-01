@@ -187,10 +187,18 @@ class Poller(BaseAgent):
 
     def handle_new_processing(self, processing):
         try:
+            log_prefix = self.get_log_prefix(processing)
+
             # transform_id = processing['transform_id']
             # transform = core_transforms.get_transform(transform_id=transform_id)
             # work = transform['transform_metadata']['work']
-            processing, new_contents, msgs = handle_new_processing(processing, self.agent_attributes)
+            status, processing, new_contents, msgs, errors = handle_new_processing(processing,
+                                                                                   self.agent_attributes,
+                                                                                   logger=self.logger,
+                                                                                   log_prefix=log_prefix)
+
+            if not status:
+                raise exceptions.ProcessSubmitFailed(errors)
 
             parameters = {'status': ProcessingStatus.Submitting,
                           'locking': ProcessingLocking.Idle,
@@ -227,7 +235,7 @@ class Poller(BaseAgent):
             if new_poll_period > self.max_new_poll_period:
                 new_poll_period = self.max_new_poll_period
 
-            error = {'submit_err': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=200)}}
+            error = {'submit_err': {'msg': truncate_string('%s' % (ex), length=200)}}
             parameters = {'status': pr_status,
                           'new_poll_period': new_poll_period,
                           'errors': processing['errors'] if processing['errors'] else {},
@@ -320,13 +328,18 @@ class Poller(BaseAgent):
 
     def handle_update_processing(self, processing):
         try:
-            update_processing, new_contents, ret_msgs, update_contents = handle_update_processing(processing, self.agent_attributes)
+            log_prefix = self.get_log_prefix(processing)
+            process_status, new_contents, ret_msgs, update_contents = handle_update_processing(processing,
+                                                                                               self.agent_attributes,
+                                                                                               logger=self.logger,
+                                                                                               log_prefix=log_prefix)
 
-            if update_processing:
-                update_processing['parameters']['locking'] = ProcessingLocking.Idle
-            else:
-                update_processing = {'processing_id': processing['processing_id'],
-                                     'parameters': {'locking': ProcessingLocking.Idle}}
+            if is_process_terminated(process_status):
+                process_status = ProcessingStatus.Terminating
+
+            update_processing = {'processing_id': processing['processing_id'],
+                                 'parameters': {'status': processing_status,
+                                                'locking': ProcessingLocking.Idle}}
 
             update_processing['parameters'] = self.load_poll_period(processing, update_processing['parameters'])
 
@@ -344,7 +357,8 @@ class Poller(BaseAgent):
             ret = {'update_processing': update_processing,
                    'update_contents': update_contents,
                    'new_contents': new_contents,
-                   'messages': ret_msgs}
+                   'messages': ret_msgs,
+                   'processing_status': process_status}
 
         except exceptions.ProcessFormatNotSupported as ex:
             self.logger.error(ex)
@@ -355,7 +369,7 @@ class Poller(BaseAgent):
                 proc_status = ProcessingStatus.Running
             else:
                 proc_status = ProcessingStatus.Failed
-            error = {'update_err': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=200)}}
+            error = {'update_err': {'msg': truncate_string('%s' % (ex), length=200)}}
 
             # increase poll period
             update_poll_period = int(processing['update_poll_period'].total_seconds() * self.poll_period_increase_rate)
@@ -381,7 +395,7 @@ class Poller(BaseAgent):
                 proc_status = ProcessingStatus.Running
             else:
                 proc_status = ProcessingStatus.Failed
-            error = {'update_err': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=200)}}
+            error = {'update_err': {'msg': truncate_string('%s' % (ex), length=200)}}
             update_processing = {'processing_id': processing['processing_id'],
                                  'parameters': {'status': proc_status,
                                                 'locking': ProcessingLocking.Idle,
@@ -410,9 +424,14 @@ class Poller(BaseAgent):
 
                     self.update_processing(ret)
 
-                    self.logger.info(log_pre + "SyncProcessingEvent(processing_id: %s)" % pr['processing_id'])
-                    event = SyncProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'])
-                    self.event_bus.send(event)
+                    if 'processing_status' in ret and ret['processing_status'] == ProcessingStatus.Terminating:
+                        self.logger.info(log_pre + "TerminatedProcessingEvent(processing_id: %s)" % pr['processing_id'])
+                        event = TerminatedProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'])
+                        self.event_bus.send(event)
+                    else:
+                        self.logger.info(log_pre + "SyncProcessingEvent(processing_id: %s)" % pr['processing_id'])
+                        event = SyncProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'])
+                        self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())

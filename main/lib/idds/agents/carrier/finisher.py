@@ -71,7 +71,7 @@ class Finisher(Poller):
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
-            error = {'sync_err': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=200)}}
+            error = {'sync_err': {'msg': truncate_string('%s' % (ex), length=200)}}
             update_processing = {'processing_id': processing['processing_id'],
                                  'parameters': {'status': ProcessingStatus.Processing,
                                                 'locking': ProcessingLocking.Idle,
@@ -119,7 +119,7 @@ class Finisher(Poller):
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
-            error = {'term_err': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=200)}}
+            error = {'term_err': {'msg': truncate_string('%s' % (ex), length=200)}}
             update_processing = {'processing_id': processing['processing_id'],
                                  'parameters': {'status': ProcessingStatus.Processing,
                                                 'locking': ProcessingLocking.Idle,
@@ -173,7 +173,7 @@ class Finisher(Poller):
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
-            error = {'abort_err': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=200)}}
+            error = {'abort_err': {'msg': truncate_string('%s' % (ex), length=200)}}
             update_processing = {'processing_id': processing['processing_id'],
                                  'parameters': {'status': ProcessingStatus.ToCancel,
                                                 'locking': ProcessingLocking.Idle,
@@ -234,7 +234,7 @@ class Finisher(Poller):
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
-            error = {'resume_err': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=200)}}
+            error = {'resume_err': {'msg': truncate_string('%s' % (ex), length=200)}}
             update_processing = {'processing_id': processing['processing_id'],
                                  'parameters': {'status': ProcessingStatus.ToResume,
                                                 'locking': ProcessingLocking.Idle,

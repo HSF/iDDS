@@ -352,7 +352,7 @@ class Clerk(BaseAgent):
             if new_poll_period > self.max_new_poll_period:
                 new_poll_period = self.max_new_poll_period
 
-            error = {'submit_err': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=200)}}
+            error = {'submit_err': {'msg': truncate_string('%s' % (ex), length=200)}}
 
             ret_req = {'request_id': req['request_id'],
                        'parameters': {'status': req_status,
@@ -543,7 +543,7 @@ class Clerk(BaseAgent):
                 req_status = req['status']
             else:
                 req_status = RequestStatus.Failed
-            error = {'update_err': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=200)}}
+            error = {'update_err': {'msg': truncate_string('%s' % (ex), length=200)}}
 
             # increase poll period
             update_poll_period = int(req['update_poll_period'].total_seconds() * self.poll_period_increase_rate)
@@ -622,7 +622,7 @@ class Clerk(BaseAgent):
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
-            error = {'abort_err': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=200)}}
+            error = {'abort_err': {'msg': truncate_string('%s' % (ex), length=200)}}
             ret_req = {'request_id': req['request_id'],
                        'parameters': {'status': RequestStatus.ToCancel,
                                       'locking': RequestLocking.Idle,
@@ -700,7 +700,7 @@ class Clerk(BaseAgent):
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
-            error = {'abort_err': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=200)}}
+            error = {'abort_err': {'msg': truncate_string('%s' % (ex), length=200)}}
             ret_req = {'request_id': req['request_id'],
                        'parameters': {'status': RequestStatus.ToResume,
                                       'locking': RequestLocking.Idle,

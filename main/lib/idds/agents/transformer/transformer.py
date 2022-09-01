@@ -275,7 +275,7 @@ class Transformer(BaseAgent):
             if new_poll_period > self.max_new_poll_period:
                 new_poll_period = self.max_new_poll_period
 
-            error = {'submit_err': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=200)}}
+            error = {'submit_err': {'msg': truncate_string('%s' % (ex), length=200)}}
 
             transform_parameters = {'status': tf_status,
                                     'new_retries': retries,
@@ -486,7 +486,7 @@ class Transformer(BaseAgent):
                 tf_status = transform['status']
             else:
                 tf_status = TransformStatus.Failed
-            error = {'submit_err': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=200)}}
+            error = {'submit_err': {'msg': truncate_string('%s' % (ex), length=200)}}
 
             # increase poll period
             update_poll_period = int(transform['update_poll_period'].total_seconds() * self.poll_period_increase_rate)
@@ -563,7 +563,7 @@ class Transformer(BaseAgent):
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
-            error = {'abort_err': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=200)}}
+            error = {'abort_err': {'msg': truncate_string('%s' % (ex), length=200)}}
             transform_parameters = {'status': tf_status,
                                     'locking': TransformLocking.Idle,
                                     'errors': transform['errors'] if transform['errors'] else {}}
@@ -631,7 +631,7 @@ class Transformer(BaseAgent):
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
-            error = {'resume_err': {'msg': truncate_string('%s: %s' % (ex, traceback.format_exc()), length=200)}}
+            error = {'resume_err': {'msg': truncate_string('%s' % (ex), length=200)}}
             transform_parameters = {'status': tf_status,
                                     'locking': TransformLocking.Idle,
                                     'errors': transform['errors'] if transform['errors'] else {}}
