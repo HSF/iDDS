@@ -8,6 +8,8 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2022
 
+import logging
+
 
 from idds.common.constants import (ProcessingStatus,
                                    CollectionStatus,
@@ -17,10 +19,21 @@ from idds.common.constants import (ProcessingStatus,
                                    TransformType2MessageTypeMap,
                                    MessageStatus, MessageSource,
                                    MessageDestination)
+from idds.common.utils import setup_logging
 from idds.core import (transforms as core_transforms,
                        processings as core_processings,
                        catalog as core_catalog)
 from idds.agents.common.cache.redis import get_redis_cache
+
+
+setup_logging(__name__)
+
+
+def get_logger(logger=None):
+    if logger:
+        return logger
+    logger = logging.getLogger(__name__)
+    return logger
 
 
 def get_new_content(request_id, transform_id, workload_id, map_id, input_content, content_relation_type=ContentRelationType.Input):
@@ -297,13 +310,20 @@ def generate_messages(request_id, transform_id, workload_id, work, msg_type='fil
         return msgs
 
 
-def handle_new_processing(processing, agent_attributes):
+def handle_new_processing(processing, agent_attributes, logger=None, log_prefix=''):
+    logger = get_logger(logger)
+
     proc = processing['processing_metadata']['processing']
     work = proc.work
     work.set_agent_attributes(agent_attributes, processing)
     transform_id = processing['transform_id']
 
-    work.submit_processing(processing)
+    status, workload_id, errors = work.submit_processing(processing)
+    logger.info(log_prefix + "submit_processing (status: %s, workload_id: %s, errors: %s)" % (status, workload_id, errors))
+
+    if not status:
+        logger.error(log_prefix + "Failed to submit processing (status: %s, workload_id: %s, errors: %s)" % (status, workload_id, errors))
+        return False, processing, [], [], errors
 
     ret_msgs = []
     new_contents = []
@@ -325,7 +345,7 @@ def handle_new_processing(processing, agent_attributes):
         if new_output_contents:
             msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='file', files=new_input_contents, relation_type='output')
             ret_msgs = ret_msgs + msgs
-    return processing, new_contents, ret_msgs
+    return True, processing, new_contents, ret_msgs, errors
 
 
 def get_input_dependency_map(request_id, transform_id, workload_id, work):
@@ -390,7 +410,25 @@ def trigger_release_inputs(request_id, transform_id, workload_id, work, updated_
                          'substatus': content['substatus']}
             update_contents.append(u_content)
 
-    # 2. use the updated input_dependency to release inputs
+    # 2. release jobs without inputs_dependency
+    for map_id in transform_dependency_map:
+        inputs_dependency = transform_dependency_map[map_id]['inputs_dependency']
+        if len(inputs_dependency) == 0:
+            inputs = transform_dependency_map[map_id]['inputs']
+            for content in inputs:
+                content_id, substatus, scope, name, path = content
+                u_content = {'content_id': content_id,
+                             'substatus': substatus}
+                update_contents.append(u_content)
+                u_content_full = {'content_id': content_id,
+                                  'status': substatus,
+                                  'substatus': substatus,
+                                  'scope': scope,
+                                  'name': name,
+                                  'path': path}
+                update_input_contents_full.append(u_content_full)
+
+    # 3. use the updated input_dependency to release inputs
     for content_t in triggered_contents:
         t_content_id, transform_id, map_id, t_substatus = content_t
         inputs_dependency = transform_dependency_map[map_id]['inputs_dependency']
@@ -424,7 +462,9 @@ def trigger_release_inputs(request_id, transform_id, workload_id, work, updated_
     return update_contents, update_input_contents_full
 
 
-def handle_update_processing(processing, agent_attributes):
+def handle_update_processing(processing, agent_attributes, logger=None, log_prefix=''):
+    logger = get_logger(logger)
+
     request_id = processing['request_id']
     transform_id = processing['transform_id']
     workload_id = processing['workload_id']
@@ -434,9 +474,15 @@ def handle_update_processing(processing, agent_attributes):
     work.set_agent_attributes(agent_attributes, processing)
 
     input_output_maps = get_input_output_maps(transform_id, work)
+    logger.info(log_prefix + "get_input_output_maps: len: %s" % len(input_output_maps))
+    logger.info(log_prefix + "get_input_output_maps.keys[:5]: %s" % str(list(input_output_maps.keys())[:5]))
+
     new_input_output_maps = work.get_new_input_output_maps(input_output_maps)
-    ret_poll_processing = work.poll_processing_updates(processing, input_output_maps)
-    processing_update, content_updates, new_input_output_maps1, updated_contents_full = ret_poll_processing
+    logger.info(log_prefix + "get_new_input_output_maps: len: %s" % len(new_input_output_maps))
+    logger.info(log_prefix + "get_new_input_output_maps.keys[:5]: %s" % str(list(new_input_output_maps.keys())[:5]))
+
+    ret_poll_processing = work.poll_processing_updates(processing, input_output_maps, log_prefix=log_prefix)
+    process_status, content_updates, new_input_output_maps1, updated_contents_full = ret_poll_processing
     new_input_output_maps.update(new_input_output_maps1)
 
     ret_new_contents = get_new_contents(request_id, transform_id, workload_id, new_input_output_maps)
@@ -464,7 +510,7 @@ def handle_update_processing(processing, agent_attributes):
         ret_msgs = ret_msgs + msgs
         content_updates = content_updates + content_updates_trigger
 
-    return processing_update, new_contents, ret_msgs, content_updates
+    return process_status, new_contents, ret_msgs, content_updates
 
 
 def get_content_status_from_panda_msg_status(status):
@@ -699,7 +745,9 @@ def sync_processing(processing, agent_attributes):
     return processing, update_collections, messages
 
 
-def handle_abort_processing(processing, agent_attributes):
+def handle_abort_processing(processing, agent_attributes, logger=None, log_prefix=''):
+    logger = get_logger(logger)
+
     request_id = processing['request_id']
     transform_id = processing['transform_id']
     workload_id = processing['workload_id']
@@ -708,7 +756,7 @@ def handle_abort_processing(processing, agent_attributes):
     work = proc.work
     work.set_agent_attributes(agent_attributes, processing)
 
-    work.abort_processing(processing)
+    work.abort_processing(processing, log_prefix=log_prefix)
 
     input_collections = work.get_input_collections()
     output_collections = work.get_output_collections()
@@ -724,7 +772,7 @@ def handle_abort_processing(processing, agent_attributes):
         coll.substatus = CollectionStatus.Closed
     update_contents = []
 
-    processing['status'] = ProcessingStatus.Cancelled
+    # processing['status'] = ProcessingStatus.Cancelled
     return processing, update_collections, update_contents
 
 
@@ -732,9 +780,9 @@ def reactive_contents(request_id, transform_id, workload_id, work, input_output_
     updated_contents = []
     contents = core_catalog.get_contents_by_transform(request_id=request_id, transform_id=transform_id)
     for content in contents:
-        if content['status'] in [ContentStatus.Available, ContentStatus.Mapped,
-                                 ContentStatus.Available.value, ContentStatus.Mapped.value,
-                                 ContentStatus.FakeAvailable, ContentStatus.FakeAvailable.value]:
+        if content['status'] not in [ContentStatus.Available, ContentStatus.Mapped,
+                                     ContentStatus.Available.value, ContentStatus.Mapped.value,
+                                     ContentStatus.FakeAvailable, ContentStatus.FakeAvailable.value]:
             u_content = {'content_id': content['content_id'],
                          'substatus': ContentStatus.New,
                          'status': ContentStatus.New}
@@ -742,7 +790,9 @@ def reactive_contents(request_id, transform_id, workload_id, work, input_output_
     return updated_contents
 
 
-def handle_resume_processing(processing, agent_attributes):
+def handle_resume_processing(processing, agent_attributes, logger=None, log_prefix=''):
+    logger = get_logger(logger)
+
     request_id = processing['request_id']
     transform_id = processing['transform_id']
     workload_id = processing['workload_id']
@@ -751,7 +801,7 @@ def handle_resume_processing(processing, agent_attributes):
     work = proc.work
     work.set_agent_attributes(agent_attributes, processing)
 
-    work.resume_processing(processing)
+    work.resume_processing(processing, log_prefix=log_prefix)
 
     input_collections = work.get_input_collections()
     output_collections = work.get_output_collections()

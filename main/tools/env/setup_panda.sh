@@ -35,7 +35,7 @@ else
     
     export PANDACACHE_URL=$PANDA_URL_SSL
 
-    PANDA_SYS=/afs/cern.ch/user/w/wguan/workdisk/iDDS/.conda/iDDS/
+    export PANDA_SYS=/afs/cern.ch/user/w/wguan/workdisk/iDDS/.conda/iDDS/
     # export PANDA_CONFIG_ROOT=/afs/cern.ch/user/w/wguan/workdisk/iDDS/main/etc/panda/
     export PANDA_CONFIG_ROOT=~/.panda/
 fi
