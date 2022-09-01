@@ -380,6 +380,14 @@ class Processing(Base):
         self.add_metadata_item('external_id', value)
 
     @property
+    def old_external_id(self):
+        return self.get_metadata_item('old_external_id', [])
+
+    @old_external_id.setter
+    def old_external_id(self, value):
+        self.add_metadata_item('old_external_id', value)
+
+    @property
     def task_name(self):
         return self.get_metadata_item('task_name', None)
 
@@ -1968,7 +1976,7 @@ class Work(Base):
         """
         raise exceptions.NotImplementedException
 
-    def abort_processing(self, processing):
+    def abort_processing_old(self, processing):
         """
         *** Function called by Carrier agent.
         """
@@ -1990,7 +1998,7 @@ class Work(Base):
             proc = processing['processing_metadata']['processing']
             proc.tosuspend = True
 
-    def resume_processing(self, processing):
+    def resume_processing_old(self, processing):
         """
         *** Function called by Carrier agent.
         """
@@ -2114,6 +2122,14 @@ class Work(Base):
         self.cancelled_processings = work.cancelled_processings
         self.suspended_processings = work.suspended_processings
         """
+
+    def abort_processing(self, processing, log_prefix=''):
+        msg = "abort processing is not implemented"
+        self.logger.error(log_prefix + msg)
+
+    def resume_processing(self, processing, log_prefix=''):
+        msg = "resume processing is not implemented"
+        self.logger.error(log_prefix + msg)
 
     def add_proxy(self, proxy):
         self.proxy = proxy
