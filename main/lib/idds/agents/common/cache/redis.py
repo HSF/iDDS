@@ -77,10 +77,12 @@ class RedisCache(Singleton):
         value = json.dumps(value)
         self.cache.set(key, value, ex=expire_seconds)
 
-    def get(self, key, value):
+    def get(self, key, default=None):
         value = self.cache.get(key)
         if value:
             value = json.loads(value)
+        if not value:
+            return default
         return value
 
     def hset(self, key, value, expire_seconds=21600):
@@ -88,10 +90,12 @@ class RedisCache(Singleton):
         self.cache.hset(key, value)
         self.cache.expire(key, expire_seconds)
 
-    def hget(self, key, value):
+    def hget(self, key, default=None):
         value = self.cache.hget(key)
         if value:
             value = json.loads(value)
+        if not value:
+            return default
         return value
 
 
