@@ -62,6 +62,16 @@ def get_new_content(request_id, transform_id, workload_id, map_id, input_content
     return content
 
 
+def is_process_terminated(processing_status):
+    if processing_status in [ProcessingStatus.Finished, ProcessingStatus.Failed,
+                             ProcessingStatus.SubFinished, ProcessingStatus.Cancelled,
+                             ProcessingStatus.Suspended, ProcessingStatus.Expired,
+                             ProcessingStatus.Broken, ProcessingStatus.FinishedOnStep,
+                             ProcessingStatus.FinishedOnExec, ProcessingStatus.FinishedTerm]:
+        return True
+    return False
+
+
 def is_all_inputs_dependency_available(inputs_dependency):
     for content in inputs_dependency:
         if type(content) is dict:

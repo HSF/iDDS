@@ -85,14 +85,15 @@ class Finisher(Poller):
         self.number_workers += 1
         try:
             if event:
-                pr = self.get_processing(processing_id=event.processing_id, locking=True)
+                self.logger.info("process_sync_processing: event: %s" % event)
+                pr = self.get_processing(processing_id=event._processing_id, locking=True)
                 log_pre = self.get_log_prefix(pr)
 
                 self.logger.info(log_pre + "process_sync_processing")
                 ret = self.handle_sync_processing(pr)
                 self.logger.info(log_pre + "process_sync_processing result: %s" % str(ret))
 
-                self.update_processing(ret)
+                self.update_processing(ret, pr)
                 self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
                 event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'])
                 self.event_bus.send(event)
@@ -140,7 +141,7 @@ class Finisher(Poller):
                 ret = self.handle_terminated_processing(pr)
                 self.logger.info(log_pre + "process_terminated_processing result: %s" % str(ret))
 
-                self.update_processing(ret)
+                self.update_processing(ret, pr)
                 self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
                 event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'])
                 self.event_bus.send(event)
@@ -203,11 +204,11 @@ class Finisher(Poller):
                                                         'errors': {'abort_err': {'msg': truncate_string("Processing is already terminated. Cannot be aborted", length=200)}}}}
                     ret = {'update_processing': update_processing}
                     self.logger.info(log_pre + "process_abort_processing result: %s" % str(ret))
-                    self.update_processing(ret)
+                    self.update_processing(ret, pr)
                 elif pr:
                     ret = self.handle_abort_processing(pr)
                     self.logger.info(log_pre + "process_abort_processing result: %s" % str(ret))
-                    self.update_processing(ret)
+                    self.update_processing(ret, pr)
                     self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
                     event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'], content=event._content)
                     self.event_bus.send(event)
@@ -263,12 +264,12 @@ class Finisher(Poller):
 
                     self.logger.info(log_pre + "process_resume_processing result: %s" % str(ret))
 
-                    self.update_processing(ret)
+                    self.update_processing(ret, pr)
                 elif pr:
                     ret = self.handle_resume_processing(pr)
                     self.logger.info(log_pre + "process_resume_processing result: %s" % str(ret))
 
-                    self.update_processing(ret)
+                    self.update_processing(ret, pr)
 
                     self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
                     event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'], content=event._content)

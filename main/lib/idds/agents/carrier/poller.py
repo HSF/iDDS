@@ -19,9 +19,10 @@ from idds.agents.common.baseagent import BaseAgent
 from idds.agents.common.eventbus.event import (EventType,
                                                NewProcessingEvent,
                                                UpdateProcessingEvent,
-                                               SyncProcessingEvent)
+                                               SyncProcessingEvent,
+                                               TerminatedProcessingEvent)
 
-from .utils import handle_new_processing, handle_update_processing
+from .utils import handle_new_processing, handle_update_processing, is_process_terminated
 
 setup_logging(__name__)
 
@@ -248,12 +249,12 @@ class Poller(BaseAgent):
                    'update_contents': []}
         return ret
 
-    def update_processing(self, processing):
+    def update_processing(self, processing, processing_model):
         try:
             if processing:
+                log_prefix = self.get_log_prefix(processing_model)
 
-                self.logger.info("<processing_id=%s>update_processing: %s" % (processing['update_processing']['processing_id'],
-                                                                              processing['update_processing']['parameters']))
+                self.logger.info(log_prefix + "update_processing: %s" % (processing['update_processing']['parameters']))
 
                 processing['update_processing']['parameters']['locking'] = ProcessingLocking.Idle
                 # self.logger.debug("wen: %s" % str(processing))
@@ -272,7 +273,7 @@ class Poller(BaseAgent):
                                                                     new_contents=processing.get('new_contents', None))
                     except exceptions.DatabaseException as ex:
                         if 'ORA-00060' in str(ex):
-                            self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
+                            self.logger.warn(log_prefix + "(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
                             if retry_num < 5:
                                 retry = True
                                 time.sleep(60 * retry_num * 2)
@@ -297,7 +298,7 @@ class Poller(BaseAgent):
                 if 'errors' in processing['update_processing']:
                     parameters['errors'] = processing['update_processing']['errors']
 
-                self.logger.warn("<processing_id=%s>update_processing exception result: %s" % (processing_id, parameters))
+                self.logger.warn(log_prefix + "update_processing exception result: %s" % (parameters))
                 core_processings.update_processing(processing_id=processing_id, parameters=parameters)
             except Exception as ex:
                 self.logger.error(ex)
@@ -316,7 +317,7 @@ class Poller(BaseAgent):
                     ret = self.handle_new_processing(pr)
                     self.logger.info(log_pre + "process_new_processing result: %s" % str(ret))
 
-                    self.update_processing(ret)
+                    self.update_processing(ret, pr)
 
                     self.logger.info(log_pre + "SyncProcessingEvent(processing_id: %s)" % pr['processing_id'])
                     event = SyncProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'])
@@ -338,7 +339,7 @@ class Poller(BaseAgent):
                 process_status = ProcessingStatus.Terminating
 
             update_processing = {'processing_id': processing['processing_id'],
-                                 'parameters': {'status': processing_status,
+                                 'parameters': {'status': process_status,
                                                 'locking': ProcessingLocking.Idle}}
 
             update_processing['parameters'] = self.load_poll_period(processing, update_processing['parameters'])
@@ -422,7 +423,7 @@ class Poller(BaseAgent):
                     ret = self.handle_update_processing(pr)
                     self.logger.info(log_pre + "process_update_processing result: %s" % str(ret))
 
-                    self.update_processing(ret)
+                    self.update_processing(ret, pr)
 
                     if 'processing_status' in ret and ret['processing_status'] == ProcessingStatus.Terminating:
                         self.logger.info(log_pre + "TerminatedProcessingEvent(processing_id: %s)" % pr['processing_id'])

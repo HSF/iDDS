@@ -6,8 +6,9 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
 
+import json
 import time
 import traceback
 try:
@@ -91,13 +92,16 @@ class Receiver(BaseAgent):
                     update_processings, update_contents, msgs = handle_messages_processing(output_messages)
 
                     if msgs:
+                        self.logger.debug("adding messages[:10]: %s" % json.dumps(msgs[:10]))
                         core_messages.add_messages(msgs, bulk_size=self.bulk_message_size)
 
                     for pr_id, status in update_processings:
+                        self.logger.info("TerminatedProcessingEvent(processing_id: %s)" % pr_id)
                         event = TerminatedProcessingEvent(publisher_id=self.id, processing_id=pr_id)
                         self.event_bus.send(event)
 
                     if update_contents:
+                        self.logger.info("update_contents[:10]: %s" % json.dumps(update_contents[:10]))
                         core_catalog.update_contents(update_contents)
 
                     time_delay = self.bulk_message_delay - (time.time() - time_start)
