@@ -8,6 +8,7 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2022
 
+import json
 import logging
 
 
@@ -541,7 +542,13 @@ def get_content_status_from_panda_msg_status(status):
 def get_workload_id_transform_id_map(workload_id):
     cache = get_redis_cache()
     workload_id_transform_id_map_key = "all_wi_ti_m"
-    workload_id_transform_id_map = cache.get(workload_id_transform_id_map_key)
+    workload_id_transform_id_map = cache.get(workload_id_transform_id_map_key, default={})
+
+    workload_id_transform_id_map_notexist_key = "all_wi_ti_m_notexist"
+    workload_id_transform_id_map_notexist = cache.get(workload_id_transform_id_map_notexist_key, default=[])
+
+    if workload_id in workload_id_transform_id_map_notexist:
+        return None
 
     if not workload_id_transform_id_map or workload_id not in workload_id_transform_id_map:
         processing_status = [ProcessingStatus.New,
@@ -559,6 +566,11 @@ def get_workload_id_transform_id_map(workload_id):
             workload_id_transform_id_map[proc['workload_id']] = (proc['request_id'], proc['transform_id'], proc['processing_id'])
 
         cache.set(workload_id_transform_id_map_key, workload_id_transform_id_map)
+
+    # for tasks running in some other instances
+    if workload_id not in workload_id_transform_id_map:
+        workload_id_transform_id_map_notexist.append(workload_id)
+        return None
 
     return workload_id_transform_id_map[workload_id]
 
@@ -614,37 +626,47 @@ def handle_messages_processing(messages):
     update_contents = []
     workload_id_update_contents = {}
     for msg in messages:
+        msg = json.loads(msg)
         if msg['msg_type'] in ['task_status']:
             workload_id = msg['taskid']
             status = msg['status']
-            if status in ['new']:
-                req_id, tf_id, processing_id = get_workload_id_transform_id_map(workload_id)
-                new_processings.append((req_id, tf_id, processing_id, workload_id, status))
+            if status in ['defined']:   # 'prepared'
+                ret_req_tf_pr_id = get_workload_id_transform_id_map(workload_id)
+                if ret_req_tf_pr_id:
+                    # request is submitted by some other instances
+                    req_id, tf_id, processing_id = ret_req_tf_pr_id
+                    new_processings.append((req_id, tf_id, processing_id, workload_id, status))
             elif status in ['finished', 'done']:
-                req_id, tf_id, processing_id = get_workload_id_transform_id_map(workload_id)
-                update_processings.append((processing_id, status))
+                ret_req_tf_pr_id = get_workload_id_transform_id_map(workload_id)
+                if ret_req_tf_pr_id:
+                    # request is submitted by some other instances
+                    req_id, tf_id, processing_id = ret_req_tf_pr_id
+                    update_processings.append((processing_id, status))
 
         if msg['msg_type'] in ['job_status']:
             workload_id = msg['taskid']
             job_id = msg['job_id']
             status = msg['status']
             inputs = msg['inputs']
-            req_id, tf_id, processing_id = get_workload_id_transform_id_map(workload_id)
-            content_id, to_update_jobid = get_content_id_from_job_id(req_id, workload_id, tf_id, job_id, inputs)
-            if to_update_jobid:
-                u_content = {'content_id': content_id,
-                             'status': get_content_status_from_panda_msg_status(status),
-                             'content_metadata': {'panda_id': job_id}}
-            else:
-                u_content = {'content_id': content_id,
-                             'status': get_content_status_from_panda_msg_status(status)}
+            ret_req_tf_pr_id = get_workload_id_transform_id_map(workload_id)
+            if ret_req_tf_pr_id:
+                # request is submitted by some other instances
+                req_id, tf_id, processing_id = ret_req_tf_pr_id
+                content_id, to_update_jobid = get_content_id_from_job_id(req_id, workload_id, tf_id, job_id, inputs)
+                if to_update_jobid:
+                    u_content = {'content_id': content_id,
+                                 'status': get_content_status_from_panda_msg_status(status),
+                                 'content_metadata': {'panda_id': job_id}}
+                else:
+                    u_content = {'content_id': content_id,
+                                 'status': get_content_status_from_panda_msg_status(status)}
 
-            update_contents.append(u_content)
-            if workload_id not in workload_id_update_contents:
-                workload_id_update_contents[workload_id] = {'request_id': req_id,
-                                                            'transform_id': tf_id,
-                                                            'processing_id': processing_id,
-                                                            'update_contents': []}
+                update_contents.append(u_content)
+                if workload_id not in workload_id_update_contents:
+                    workload_id_update_contents[workload_id] = {'request_id': req_id,
+                                                                'transform_id': tf_id,
+                                                                'processing_id': processing_id,
+                                                                'update_contents': []}
                 workload_id_update_contents[workload_id]['update_contents'].append(u_content)
 
     work = None
@@ -671,7 +693,7 @@ def handle_messages_processing(messages):
             msg = generate_messages(req_id, tf_id, workload_id, work, msg_type='file',
                                     files=updated_input_contents, relation_type='input')
             msgs += msg
-    return update_processings, update_contents + content_updates_triggers + content_updates_trigger_no_deps, msgs + msgs_no_dep
+    return update_processings, update_contents + content_updates_triggers + content_updates_trigger_no_deps, msgs + msgs_no_deps
 
 
 def sync_collection_status(request_id, transform_id, workload_id, work, input_output_maps=None,
