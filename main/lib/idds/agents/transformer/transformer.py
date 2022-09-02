@@ -202,7 +202,10 @@ class Transformer(BaseAgent):
         return new_processing_model
 
     def get_log_prefix(self, transform):
-        return "<request_id=%s,transform_id=%s>" % (transform['request_id'], transform['transform_id'])
+        if transform:
+            return "<request_id=%s,transform_id=%s>" % (transform['request_id'], transform['transform_id'])
+        self.logger.error("get_log_prefix transform is empty: %s" % str(transform))
+        return ""
 
     def handle_new_transform_real(self, transform):
         """
@@ -416,7 +419,7 @@ class Transformer(BaseAgent):
             work.sync_work_data(status=None, substatus=None, work=proc.work)
             # processing_metadata = processing_model['processing_metadata']
             if processing_model['errors']:
-                work.set_terminated_msg(processing['errors'])
+                work.set_terminated_msg(processing_model['errors'])
             # work.set_processing_output_metadata(processing, processing_model['output_metadata'])
             work.set_output_data(processing.output_data)
             transform['workload_id'] = processing_model['workload_id']
@@ -576,6 +579,7 @@ class Transformer(BaseAgent):
         self.number_workers += 1
         try:
             if event:
+                self.logger.info("process_abort_transform: event: %s" % event)
                 tf = self.get_transform(transform_id=event._transform_id, locking=True)
                 log_pre = self.get_log_prefix(tf)
                 self.logger.info(log_pre + "process_abort_transform")
@@ -644,6 +648,7 @@ class Transformer(BaseAgent):
         self.number_workers += 1
         try:
             if event:
+                self.logger.info("process_resume_transform: event: %s" % event)
                 tf = self.get_transform(transform_id=event._transform_id, locking=True)
                 log_pre = self.get_log_prefix(tf)
 

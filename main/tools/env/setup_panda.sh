@@ -5,6 +5,9 @@ if [ "$#" -eq 1 ]; then
   instance=$1
 fi
 
+export X509_USER_PROXY=/afs/cern.ch/user/w/wguan/workdisk/iDDS/test/x509up
+export RUCIO_ACCOUNT=pilot
+
 export PANDA_BEHIND_REAL_LB=true
 #  export PANDA_SYS=/opt/idds/
 

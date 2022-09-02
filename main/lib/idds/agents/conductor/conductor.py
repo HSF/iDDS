@@ -35,7 +35,7 @@ class Conductor(BaseAgent):
 
     def __init__(self, num_threads=1, retrieve_bulk_size=1000, threshold_to_release_messages=None,
                  random_delay=None, **kwargs):
-        super(Conductor, self).__init__(num_threads=num_threads, **kwargs)
+        super(Conductor, self).__init__(num_threads=num_threads, name='Conductor', **kwargs)
         self.config_section = Sections.Conductor
         self.retrieve_bulk_size = int(retrieve_bulk_size)
         self.message_queue = Queue()
@@ -62,7 +62,7 @@ class Conductor(BaseAgent):
                                                    bulk_size=self.retrieve_bulk_size,
                                                    destination=MessageDestination.Outside)
 
-        self.logger.debug("Main thread get %s new messages" % len(messages))
+        # self.logger.debug("Main thread get %s new messages" % len(messages))
         if messages:
             self.logger.info("Main thread get %s new messages" % len(messages))
 
