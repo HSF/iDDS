@@ -361,7 +361,9 @@ class Transformer(BaseAgent):
             if event:
                 tf_status = [TransformStatus.New, TransformStatus.Ready, TransformStatus.Extend]
                 tf = self.get_transform(transform_id=event._transform_id, status=tf_status, locking=True)
-                if tf:
+                if not tf:
+                    self.logger.error("Cannot find transform for event: %s" % str(event))
+                else:
                     log_pre = self.get_log_prefix(tf)
                     self.logger.info(log_pre + "process_new_transform")
                     ret = self.handle_new_transform(tf)
@@ -380,12 +382,6 @@ class Transformer(BaseAgent):
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
         self.number_workers -= 1
-
-    def get_collection_ids(self, collections):
-        coll_ids = []
-        for coll in collections:
-            coll_ids.append(coll.coll_id)
-        return coll_ids
 
     def handle_update_transform_real(self, transform, event):
         """
@@ -518,7 +514,9 @@ class Transformer(BaseAgent):
                              TransformStatus.ToResume, TransformStatus.Resuming,
                              TransformStatus.ToFinish, TransformStatus.ToForceFinish]
                 tf = self.get_transform(transform_id=event._transform_id, status=tf_status, locking=True)
-                if tf:
+                if not tf:
+                    self.logger.error("Cannot find transform for event: %s" % str(event))
+                else:
                     log_pre = self.get_log_prefix(tf)
 
                     ret = self.handle_update_transform(tf, event)
@@ -581,36 +579,39 @@ class Transformer(BaseAgent):
             if event:
                 self.logger.info("process_abort_transform: event: %s" % event)
                 tf = self.get_transform(transform_id=event._transform_id, locking=True)
-                log_pre = self.get_log_prefix(tf)
-                self.logger.info(log_pre + "process_abort_transform")
-
-                if tf['status'] in [TransformStatus.Finished, TransformStatus.SubFinished,
-                                    TransformStatus.Failed, TransformStatus.Cancelled,
-                                    TransformStatus.Suspended, TransformStatus.Expired]:
-                    ret = {'transform': tf,
-                           'transform_parameters': {'locking': TransformLocking.Idle,
-                                                    'errors': {'extra_msg': "Transform is already terminated. Cannot be aborted"}}}
-                    if 'msg' in tf['errors']:
-                        ret['parameters']['errors']['msg'] = tf['errors']['msg']
-
-                    self.logger.info(log_pre + "process_abort_transform result: %s" % str(ret))
-
-                    self.update_transform(ret)
+                if not tf:
+                    self.logger.error("Cannot find transform for event: %s" % str(event))
                 else:
-                    ret = self.handle_abort_transform(tf)
-                    self.logger.info(log_pre + "process_abort_transform result: %s" % str(ret))
-                    if ret:
+                    log_pre = self.get_log_prefix(tf)
+                    self.logger.info(log_pre + "process_abort_transform")
+
+                    if tf['status'] in [TransformStatus.Finished, TransformStatus.SubFinished,
+                                        TransformStatus.Failed, TransformStatus.Cancelled,
+                                        TransformStatus.Suspended, TransformStatus.Expired]:
+                        ret = {'transform': tf,
+                               'transform_parameters': {'locking': TransformLocking.Idle,
+                                                        'errors': {'extra_msg': "Transform is already terminated. Cannot be aborted"}}}
+                        if 'msg' in tf['errors']:
+                            ret['parameters']['errors']['msg'] = tf['errors']['msg']
+
+                        self.logger.info(log_pre + "process_abort_transform result: %s" % str(ret))
+
                         self.update_transform(ret)
+                    else:
+                        ret = self.handle_abort_transform(tf)
+                        self.logger.info(log_pre + "process_abort_transform result: %s" % str(ret))
+                        if ret:
+                            self.update_transform(ret)
 
-                    work = tf['transform_metadata']['work']
-                    work.set_work_id(tf['transform_id'])
-                    work.set_agent_attributes(self.agent_attributes, tf)
+                        work = tf['transform_metadata']['work']
+                        work.set_work_id(tf['transform_id'])
+                        work.set_agent_attributes(self.agent_attributes, tf)
 
-                    processing = work.get_processing(input_output_maps=[], without_creating=True)
-                    if processing and processing.processing_id:
-                        self.logger.info(log_pre + "AbortProcessingEvent(processing_id: %s)" % processing.processing_id)
-                        event = AbortProcessingEvent(publisher_id=self.id, processing_id=processing.processing_id, content=event._content)
-                        self.event_bus.send(event)
+                        processing = work.get_processing(input_output_maps=[], without_creating=True)
+                        if processing and processing.processing_id:
+                            self.logger.info(log_pre + "AbortProcessingEvent(processing_id: %s)" % processing.processing_id)
+                            event = AbortProcessingEvent(publisher_id=self.id, processing_id=processing.processing_id, content=event._content)
+                            self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
@@ -650,39 +651,42 @@ class Transformer(BaseAgent):
             if event:
                 self.logger.info("process_resume_transform: event: %s" % event)
                 tf = self.get_transform(transform_id=event._transform_id, locking=True)
-                log_pre = self.get_log_prefix(tf)
-
-                if tf['status'] in [TransformStatus.Finished]:
-                    ret = {'transform': tf,
-                           'transform_parameters': {'locking': TransformLocking.Idle,
-                                                    'errors': {'extra_msg': "Transform is already finished. Cannot be resumed"}}}
-                    if 'msg' in tf['errors']:
-                        ret['parameters']['errors']['msg'] = tf['errors']['msg']
-
-                    self.logger.info(log_pre + "process_resume_transform result: %s" % str(ret))
-                    self.update_transform(ret)
+                if not tf:
+                    self.logger.error("Cannot find transform for event: %s" % str(event))
                 else:
-                    ret = self.handle_resume_transform(tf)
-                    self.logger.info(log_pre + "process_resume_transform result: %s" % str(ret))
-                    if ret:
+                    log_pre = self.get_log_prefix(tf)
+
+                    if tf['status'] in [TransformStatus.Finished]:
+                        ret = {'transform': tf,
+                               'transform_parameters': {'locking': TransformLocking.Idle,
+                                                        'errors': {'extra_msg': "Transform is already finished. Cannot be resumed"}}}
+                        if 'msg' in tf['errors']:
+                            ret['parameters']['errors']['msg'] = tf['errors']['msg']
+
+                        self.logger.info(log_pre + "process_resume_transform result: %s" % str(ret))
                         self.update_transform(ret)
-
-                    work = tf['transform_metadata']['work']
-                    work.set_agent_attributes(self.agent_attributes, tf)
-
-                    processing = work.get_processing(input_output_maps=[], without_creating=True)
-                    if processing and processing.processing_id:
-                        self.logger.info(log_pre + "ResumeProcessingEvent(processing_id: %s)" % processing.processing_id)
-                        event = ResumeProcessingEvent(publisher_id=self.id,
-                                                      processing_id=processing.processing_id,
-                                                      content=event._content)
-                        self.event_bus.send(event)
                     else:
-                        self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % tf['transform_id'])
-                        event = UpdateTransformEvent(publisher_id=self.id,
-                                                     transform_id=tf['transform_id'],
-                                                     content=event._content)
-                        self.event_bus.send(event)
+                        ret = self.handle_resume_transform(tf)
+                        self.logger.info(log_pre + "process_resume_transform result: %s" % str(ret))
+                        if ret:
+                            self.update_transform(ret)
+
+                        work = tf['transform_metadata']['work']
+                        work.set_agent_attributes(self.agent_attributes, tf)
+
+                        processing = work.get_processing(input_output_maps=[], without_creating=True)
+                        if processing and processing.processing_id:
+                            self.logger.info(log_pre + "ResumeProcessingEvent(processing_id: %s)" % processing.processing_id)
+                            event = ResumeProcessingEvent(publisher_id=self.id,
+                                                          processing_id=processing.processing_id,
+                                                          content=event._content)
+                            self.event_bus.send(event)
+                        else:
+                            self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % tf['transform_id'])
+                            event = UpdateTransformEvent(publisher_id=self.id,
+                                                         transform_id=tf['transform_id'],
+                                                         content=event._content)
+                            self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())

@@ -427,7 +427,9 @@ class Clerk(BaseAgent):
             if event:
                 req_status = [RequestStatus.New, RequestStatus.Extend]
                 req = self.get_request(request_id=event._request_id, status=req_status, locking=True)
-                if req:
+                if not req:
+                    self.logger.error("Cannot find request for event: %s" % str(event))
+                elif req:
                     log_pre = self.get_log_prefix(req)
                     ret = self.handle_new_request(req)
                     new_tf_ids, update_tf_ids = self.update_request(ret)
@@ -572,7 +574,9 @@ class Clerk(BaseAgent):
                               RequestStatus.ToResume, RequestStatus.Resuming]
 
                 req = self.get_request(request_id=event._request_id, status=req_status, locking=True)
-                if req:
+                if not req:
+                    self.logger.error("Cannot find request for event: %s" % str(event))
+                else:
                     log_pre = self.get_log_prefix(req)
                     ret = self.handle_update_request(req, event=event)
                     new_tf_ids, update_tf_ids = self.update_request(ret)
@@ -636,43 +640,46 @@ class Clerk(BaseAgent):
         try:
             if event:
                 req = self.get_request(request_id=event._request_id, locking=True)
-                log_pre = self.get_log_prefix(req)
-                self.logger.info(log_pre + "process_abort_request event: %s" % str(event))
-
-                if req['status'] in [RequestStatus.Finished, RequestStatus.SubFinished,
-                                     RequestStatus.Failed, RequestStatus.Cancelled,
-                                     RequestStatus.Suspended, RequestStatus.Expired]:
-                    ret = {'request_id': req['request_id'],
-                           'parameters': {'locking': RequestLocking.Idle,
-                                          'errors': {'extra_msg': "Request is already terminated. Cannot be aborted"}}}
-                    if 'msg' in req['errors']:
-                        ret['parameters']['errors']['msg'] = req['errors']['msg']
-                    self.logger.info(log_pre + "process_abort_request result: %s" % str(ret))
-                    self.update_request(ret)
+                if not req:
+                    self.logger.error("Cannot find request for event: %s" % str(event))
                 else:
-                    ret = self.handle_abort_request(req, event)
-                    self.logger.info(log_pre + "process_abort_request result: %s" % str(ret))
-                    self.update_request(ret)
-                    to_abort_transform_id = None
-                    if event and event._content and event._content['cmd_content'] and 'transform_id' in event._content['cmd_content']:
-                        to_abort_transform_id = event._content['cmd_content']['transform_id']
+                    log_pre = self.get_log_prefix(req)
+                    self.logger.info(log_pre + "process_abort_request event: %s" % str(event))
 
-                    wf = req['request_metadata']['workflow']
-                    works = wf.get_all_works()
-                    if works:
-                        for work in works:
-                            if not work.is_terminated():
-                                if not to_abort_transform_id or to_abort_transform_id == work.get_work_id():
-                                    self.logger.info(log_pre + "AbortTransformEvent(transform_id: %s)" % str(work.get_work_id()))
-                                    event = AbortTransformEvent(publisher_id=self.id,
-                                                                transform_id=work.get_work_id(),
-                                                                content=event._content)
-                                    self.event_bus.send(event)
+                    if req['status'] in [RequestStatus.Finished, RequestStatus.SubFinished,
+                                         RequestStatus.Failed, RequestStatus.Cancelled,
+                                         RequestStatus.Suspended, RequestStatus.Expired]:
+                        ret = {'request_id': req['request_id'],
+                               'parameters': {'locking': RequestLocking.Idle,
+                                              'errors': {'extra_msg': "Request is already terminated. Cannot be aborted"}}}
+                        if 'msg' in req['errors']:
+                            ret['parameters']['errors']['msg'] = req['errors']['msg']
+                        self.logger.info(log_pre + "process_abort_request result: %s" % str(ret))
+                        self.update_request(ret)
                     else:
-                        # no works. should trigger update request
-                        self.logger.info(log_pre + "UpdateRequestEvent(request_id: %s)" % str(req['request_id']))
-                        event = UpdateRequestEvent(publisher_id=self.id, request_id=req['request_id'], content=event._content)
-                        self.event_bus.send(event)
+                        ret = self.handle_abort_request(req, event)
+                        self.logger.info(log_pre + "process_abort_request result: %s" % str(ret))
+                        self.update_request(ret)
+                        to_abort_transform_id = None
+                        if event and event._content and event._content['cmd_content'] and 'transform_id' in event._content['cmd_content']:
+                            to_abort_transform_id = event._content['cmd_content']['transform_id']
+
+                        wf = req['request_metadata']['workflow']
+                        works = wf.get_all_works()
+                        if works:
+                            for work in works:
+                                if not work.is_terminated():
+                                    if not to_abort_transform_id or to_abort_transform_id == work.get_work_id():
+                                        self.logger.info(log_pre + "AbortTransformEvent(transform_id: %s)" % str(work.get_work_id()))
+                                        event = AbortTransformEvent(publisher_id=self.id,
+                                                                    transform_id=work.get_work_id(),
+                                                                    content=event._content)
+                                        self.event_bus.send(event)
+                        else:
+                            # no works. should trigger update request
+                            self.logger.info(log_pre + "UpdateRequestEvent(request_id: %s)" % str(req['request_id']))
+                            event = UpdateRequestEvent(publisher_id=self.id, request_id=req['request_id'], content=event._content)
+                            self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
@@ -713,37 +720,40 @@ class Clerk(BaseAgent):
         try:
             if event:
                 req = self.get_request(request_id=event._request_id, locking=True)
-                log_pre = self.get_log_prefix(req)
-                self.logger.info(log_pre + "process_resume_request event: %s" % str(event))
-
-                if req['status'] in [RequestStatus.Finished]:
-                    ret = {'request_id': req['request_id'],
-                           'parameters': {'locking': RequestLocking.Idle,
-                                          'errors': {'extra_msg': "Request is already finished. Cannot be resumed"}}}
-                    if 'msg' in req['errors']:
-                        ret['parameters']['errors']['msg'] = req['errors']['msg']
-                    self.logger.info(log_pre + "process_resume_request result: %s" % str(ret))
-
-                    self.update_request(ret)
+                if not req:
+                    self.logger.error("Cannot find request for event: %s" % str(event))
                 else:
-                    ret = self.handle_resume_request(req)
-                    self.logger.info(log_pre + "process_resume_request result: %s" % str(ret))
+                    log_pre = self.get_log_prefix(req)
+                    self.logger.info(log_pre + "process_resume_request event: %s" % str(event))
 
-                    self.update_request(ret)
-                    wf = req['request_metadata']['workflow']
-                    works = wf.get_all_works()
-                    if works:
-                        for work in works:
-                            # if not work.is_finished():
-                            self.logger.info(log_pre + "ResumeTransformEvent(transform_id: %s)" % str(work.get_work_id()))
-                            event = ResumeTransformEvent(publisher_id=self.id,
-                                                         transform_id=work.get_work_id(),
-                                                         content=event._content)
-                            self.event_bus.send(event)
+                    if req['status'] in [RequestStatus.Finished]:
+                        ret = {'request_id': req['request_id'],
+                               'parameters': {'locking': RequestLocking.Idle,
+                                              'errors': {'extra_msg': "Request is already finished. Cannot be resumed"}}}
+                        if 'msg' in req['errors']:
+                            ret['parameters']['errors']['msg'] = req['errors']['msg']
+                        self.logger.info(log_pre + "process_resume_request result: %s" % str(ret))
+
+                        self.update_request(ret)
                     else:
-                        self.logger.info(log_pre + "UpdateRequestEvent(request_id: %s)" % str(req['request_id']))
-                        event = UpdateRequestEvent(publisher_id=self.id, request_id=req['request_id'], content=event._content)
-                        self.event_bus.send(event)
+                        ret = self.handle_resume_request(req)
+                        self.logger.info(log_pre + "process_resume_request result: %s" % str(ret))
+
+                        self.update_request(ret)
+                        wf = req['request_metadata']['workflow']
+                        works = wf.get_all_works()
+                        if works:
+                            for work in works:
+                                # if not work.is_finished():
+                                self.logger.info(log_pre + "ResumeTransformEvent(transform_id: %s)" % str(work.get_work_id()))
+                                event = ResumeTransformEvent(publisher_id=self.id,
+                                                             transform_id=work.get_work_id(),
+                                                             content=event._content)
+                                self.event_bus.send(event)
+                        else:
+                            self.logger.info(log_pre + "UpdateRequestEvent(request_id: %s)" % str(req['request_id']))
+                            event = UpdateRequestEvent(publisher_id=self.id, request_id=req['request_id'], content=event._content)
+                            self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())

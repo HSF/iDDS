@@ -87,16 +87,19 @@ class Finisher(Poller):
             if event:
                 self.logger.info("process_sync_processing: event: %s" % event)
                 pr = self.get_processing(processing_id=event._processing_id, locking=True)
-                log_pre = self.get_log_prefix(pr)
+                if not pr:
+                    self.logger.error("Cannot find processing for event: %s" % str(event))
+                else:
+                    log_pre = self.get_log_prefix(pr)
 
-                self.logger.info(log_pre + "process_sync_processing")
-                ret = self.handle_sync_processing(pr)
-                self.logger.info(log_pre + "process_sync_processing result: %s" % str(ret))
+                    self.logger.info(log_pre + "process_sync_processing")
+                    ret = self.handle_sync_processing(pr)
+                    self.logger.info(log_pre + "process_sync_processing result: %s" % str(ret))
 
-                self.update_processing(ret, pr)
-                self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
-                event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'])
-                self.event_bus.send(event)
+                    self.update_processing(ret, pr)
+                    self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
+                    event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'])
+                    self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
@@ -135,22 +138,25 @@ class Finisher(Poller):
         try:
             if event:
                 pr = self.get_processing(processing_id=event.processing_id, locking=True)
-                log_pre = self.get_log_prefix(pr)
+                if not pr:
+                    self.logger.error("Cannot find processing for event: %s" % str(event))
+                else:
+                    log_pre = self.get_log_prefix(pr)
 
-                self.logger.info(log_pre + "process_terminated_processing")
-                ret = self.handle_terminated_processing(pr)
-                self.logger.info(log_pre + "process_terminated_processing result: %s" % str(ret))
+                    self.logger.info(log_pre + "process_terminated_processing")
+                    ret = self.handle_terminated_processing(pr)
+                    self.logger.info(log_pre + "process_terminated_processing result: %s" % str(ret))
 
-                self.update_processing(ret, pr)
-                self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
-                event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'])
-                self.event_bus.send(event)
-
-                if pr['status'] not in [ProcessingStatus.Finished, ProcessingStatus.Failed, ProcessingStatus.SubFinished]:
-                    # some files are missing, poll it.
-                    self.logger.info(log_pre + "UpdateProcessingEvent(processing_id: %s)" % pr['processing_id'])
-                    event = UpdateProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'])
+                    self.update_processing(ret, pr)
+                    self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
+                    event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'])
                     self.event_bus.send(event)
+
+                    if pr['status'] not in [ProcessingStatus.Finished, ProcessingStatus.Failed, ProcessingStatus.SubFinished]:
+                        # some files are missing, poll it.
+                        self.logger.info(log_pre + "UpdateProcessingEvent(processing_id: %s)" % pr['processing_id'])
+                        event = UpdateProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'])
+                        self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
@@ -195,23 +201,26 @@ class Finisher(Poller):
 
                 pr = self.get_processing(processing_id=event.processing_id, locking=True)
 
-                log_pre = self.get_log_prefix(pr)
-                self.logger.info(log_pre + "process_abort_processing")
+                if not pr:
+                    self.logger.error("Cannot find processing for event: %s" % str(event))
+                else:
+                    log_pre = self.get_log_prefix(pr)
+                    self.logger.info(log_pre + "process_abort_processing")
 
-                if pr and pr['status'] in processing_status:
-                    update_processing = {'processing_id': pr['processing_id'],
-                                         'parameters': {'locking': ProcessingLocking.Idle,
-                                                        'errors': {'abort_err': {'msg': truncate_string("Processing is already terminated. Cannot be aborted", length=200)}}}}
-                    ret = {'update_processing': update_processing}
-                    self.logger.info(log_pre + "process_abort_processing result: %s" % str(ret))
-                    self.update_processing(ret, pr)
-                elif pr:
-                    ret = self.handle_abort_processing(pr)
-                    self.logger.info(log_pre + "process_abort_processing result: %s" % str(ret))
-                    self.update_processing(ret, pr)
-                    self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
-                    event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'], content=event._content)
-                    self.event_bus.send(event)
+                    if pr and pr['status'] in processing_status:
+                        update_processing = {'processing_id': pr['processing_id'],
+                                             'parameters': {'locking': ProcessingLocking.Idle,
+                                                            'errors': {'abort_err': {'msg': truncate_string("Processing is already terminated. Cannot be aborted", length=200)}}}}
+                        ret = {'update_processing': update_processing}
+                        self.logger.info(log_pre + "process_abort_processing result: %s" % str(ret))
+                        self.update_processing(ret, pr)
+                    elif pr:
+                        ret = self.handle_abort_processing(pr)
+                        self.logger.info(log_pre + "process_abort_processing result: %s" % str(ret))
+                        self.update_processing(ret, pr)
+                        self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
+                        event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'], content=event._content)
+                        self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
@@ -253,27 +262,30 @@ class Finisher(Poller):
 
                 pr = self.get_processing(processing_id=event.processing_id, locking=True)
 
-                log_pre = self.get_log_prefix(pr)
-                self.logger.info(log_pre + "process_resume_processing")
+                if not pr:
+                    self.logger.error("Cannot find processing for event: %s" % str(event))
+                else:
+                    log_pre = self.get_log_prefix(pr)
+                    self.logger.info(log_pre + "process_resume_processing")
 
-                if pr and pr['status'] in processing_status:
-                    update_processing = {'processing_id': pr['processing_id'],
-                                         'parameters': {'locking': ProcessingLocking.Idle,
-                                                        'errors': {'abort_err': {'msg': truncate_string("Processing has already finished. Cannot be resumed", length=200)}}}}
-                    ret = {'update_processing': update_processing}
+                    if pr and pr['status'] in processing_status:
+                        update_processing = {'processing_id': pr['processing_id'],
+                                             'parameters': {'locking': ProcessingLocking.Idle,
+                                                            'errors': {'abort_err': {'msg': truncate_string("Processing has already finished. Cannot be resumed", length=200)}}}}
+                        ret = {'update_processing': update_processing}
 
-                    self.logger.info(log_pre + "process_resume_processing result: %s" % str(ret))
+                        self.logger.info(log_pre + "process_resume_processing result: %s" % str(ret))
 
-                    self.update_processing(ret, pr)
-                elif pr:
-                    ret = self.handle_resume_processing(pr)
-                    self.logger.info(log_pre + "process_resume_processing result: %s" % str(ret))
+                        self.update_processing(ret, pr)
+                    elif pr:
+                        ret = self.handle_resume_processing(pr)
+                        self.logger.info(log_pre + "process_resume_processing result: %s" % str(ret))
 
-                    self.update_processing(ret, pr)
+                        self.update_processing(ret, pr)
 
-                    self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
-                    event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'], content=event._content)
-                    self.event_bus.send(event)
+                        self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
+                        event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'], content=event._content)
+                        self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())

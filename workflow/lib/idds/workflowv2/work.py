@@ -1568,6 +1568,9 @@ class Work(Base):
             return []
         return []
 
+    def poll_external_collection(self, coll):
+        return coll
+
     def poll_internal_collection(self, coll):
         try:
             if coll.status in [CollectionStatus.Closed]:

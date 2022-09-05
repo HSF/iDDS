@@ -289,14 +289,14 @@ class Poller(BaseAgent):
             try:
                 processing_id = processing['update_processing']['processing_id']
 
-                parameters = {'status': processing['update_processing']['status'],
+                parameters = {'status': processing['update_processing']['parameters']['status'],
                               'locking': ProcessingLocking.Idle}
-                if 'new_retries' in processing['update_processing']:
-                    parameters['new_retries'] = processing['update_processing']['new_retries']
-                if 'update_retries' in processing['update_processing']:
-                    parameters['update_retries'] = processing['update_processing']['update_retries']
-                if 'errors' in processing['update_processing']:
-                    parameters['errors'] = processing['update_processing']['errors']
+                if 'new_retries' in processing['update_processing']['parameters']:
+                    parameters['new_retries'] = processing['update_processing']['parameters']['new_retries']
+                if 'update_retries' in processing['update_processing']['parameters']:
+                    parameters['update_retries'] = processing['update_processing']['parameters']['update_retries']
+                if 'errors' in processing['update_processing']['parameters']:
+                    parameters['errors'] = processing['update_processing']['parameters']['errors']
 
                 self.logger.warn(log_prefix + "update_processing exception result: %s" % (parameters))
                 core_processings.update_processing(processing_id=processing_id, parameters=parameters)
@@ -311,7 +311,9 @@ class Poller(BaseAgent):
                 # pr_status = [ProcessingStatus.New]
                 self.logger.info("process_new_processing, event: %s" % str(event))
                 pr = self.get_processing(processing_id=event._processing_id, status=None, locking=True)
-                if pr:
+                if not pr:
+                    self.logger.error("Cannot find processing for event: %s" % str(event))
+                else:
                     log_pre = self.get_log_prefix(pr)
                     self.logger.info(log_pre + "process_new_processing")
                     ret = self.handle_new_processing(pr)
@@ -416,7 +418,9 @@ class Poller(BaseAgent):
                 self.logger.info("process_update_processing, event: %s" % str(event))
 
                 pr = self.get_processing(processing_id=event._processing_id, status=None, locking=True)
-                if pr:
+                if not pr:
+                    self.logger.error("Cannot find processing for event: %s" % str(event))
+                else:
                     log_pre = self.get_log_prefix(pr)
 
                     self.logger.info(log_pre + "process_update_processing")
