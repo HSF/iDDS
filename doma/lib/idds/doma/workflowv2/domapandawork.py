@@ -245,7 +245,7 @@ class DomaPanDAWork(Work):
             self.logger.error(traceback.format_exc())
             raise exceptions.IDDSException('%s: %s' % (str(ex), traceback.format_exc()))
 
-    def get_input_collections(self):
+    def get_input_collections(self, poll_externel=True):
         """
         *** Function called by Transformer agent.
         """
@@ -256,7 +256,8 @@ class DomaPanDAWork(Work):
             #     coll = self.poll_internal_collection(coll)
             # else:
             #     coll = self.poll_external_collection(coll)
-            coll = self.poll_external_collection(coll)
+            if poll_externel:
+                coll = self.poll_external_collection(coll)
             self.collections[coll_int_id] = coll
         return super(DomaPanDAWork, self).get_input_collections()
 

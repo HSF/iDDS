@@ -342,7 +342,7 @@ class ATLASPandaWork(Work):
             self.logger.error(traceback.format_exc())
             raise exceptions.IDDSException('%s: %s' % (str(ex), traceback.format_exc()))
 
-    def get_input_collections(self):
+    def get_input_collections(self, poll_externel=False):
         """
         *** Function called by Transformer agent.
         """
@@ -353,9 +353,10 @@ class ATLASPandaWork(Work):
             #     coll = self.poll_internal_collection(coll)
             # else:
             #     coll = self.poll_external_collection(coll)
-            coll = self.poll_external_collection(coll)
+            if poll_externel:
+                coll = self.poll_external_collection(coll)
             self.collections[coll_int_id] = coll
-        return super(ATLASPandaWork, self).get_input_collections()
+        return super(ATLASPandaWork, self).get_input_collections(poll_externel=poll_externel)
 
     def get_input_contents(self):
         """

@@ -317,13 +317,13 @@ class Poller(BaseAgent):
                     log_pre = self.get_log_prefix(pr)
                     self.logger.info(log_pre + "process_new_processing")
                     ret = self.handle_new_processing(pr)
-                    self.logger.info(log_pre + "process_new_processing result: %s" % str(ret))
+                    # self.logger.info(log_pre + "process_new_processing result: %s" % str(ret))
 
                     self.update_processing(ret, pr)
 
-                    self.logger.info(log_pre + "SyncProcessingEvent(processing_id: %s)" % pr['processing_id'])
-                    event = SyncProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'])
-                    self.event_bus.send(event)
+                    # self.logger.info(log_pre + "SyncProcessingEvent(processing_id: %s)" % pr['processing_id'])
+                    # event = SyncProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'])
+                    # self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
@@ -425,7 +425,7 @@ class Poller(BaseAgent):
 
                     self.logger.info(log_pre + "process_update_processing")
                     ret = self.handle_update_processing(pr)
-                    self.logger.info(log_pre + "process_update_processing result: %s" % str(ret))
+                    # self.logger.info(log_pre + "process_update_processing result: %s" % str(ret))
 
                     self.update_processing(ret, pr)
 

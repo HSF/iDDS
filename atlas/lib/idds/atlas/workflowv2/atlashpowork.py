@@ -191,12 +191,13 @@ class ATLASHPOWork(ATLASCondorWork):
             self.logger.error(traceback.format_exc())
             raise exceptions.IDDSException('%s: %s' % (str(ex), traceback.format_exc()))
 
-    def get_input_collections(self):
+    def get_input_collections(self, poll_externel=True):
         # return [self.primary_input_collection] + self.other_input_collections
         colls = [self._primary_input_collection] + self._other_input_collections
         for coll_int_id in colls:
             coll = self.collections[coll_int_id]
-            coll = self.poll_external_collection(coll)
+            if poll_externel:
+                coll = self.poll_external_collection(coll)
             self.collections[coll_int_id] = coll
         return super(ATLASHPOWork, self).get_input_collections()
 

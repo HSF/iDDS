@@ -110,7 +110,7 @@ class Finisher(Poller):
         process terminated processing
         """
         try:
-            processing, update_collections, messages = sync_processing(processing, self.agent_attributes)
+            processing, update_collections, messages = sync_processing(processing, self.agent_attributes, terminate=True)
 
             update_processing = {'processing_id': processing['processing_id'],
                                  'parameters': {'status': processing['status'],

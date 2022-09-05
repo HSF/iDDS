@@ -1522,7 +1522,7 @@ class Work(Base):
     def get_other_output_collections(self):
         return [self.collections[k] for k in self._other_output_collections]
 
-    def get_input_collections(self):
+    def get_input_collections(self, poll_externel=False):
         """
         *** Function called by Transformer agent.
         """

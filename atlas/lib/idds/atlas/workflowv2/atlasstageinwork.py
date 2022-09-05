@@ -128,12 +128,13 @@ class ATLASStageinWork(DataWork):
             # raise exceptions.IDDSException('%s: %s' % (str(ex), traceback.format_exc()))
             return coll
 
-    def get_input_collections(self):
+    def get_input_collections(self, poll_externel=False):
         # return [self.primary_input_collection] + self.other_input_collections
         colls = [self._primary_input_collection] + self._other_input_collections
         for coll_int_id in colls:
             coll = self.collections[coll_int_id]
-            coll = self.poll_external_collection(coll)
+            if poll_externel:
+                coll = self.poll_external_collection(coll)
             self.collections[coll_int_id] = coll
         return super(ATLASStageinWork, self).get_input_collections()
 
@@ -204,9 +205,9 @@ class ATLASStageinWork(DataWork):
                 next_key = 1
             for ip in new_inputs:
                 self.num_mapped_inputs += 1
-                out_ip = copy.deepcopy(ip)
                 ip['status'] = ContentStatus.New
                 ip['substatus'] = ContentStatus.New
+                out_ip = copy.deepcopy(ip)
                 out_ip['coll_id'] = self.collections[self._primary_output_collection].coll_id
                 new_input_output_maps[next_key] = {'inputs': [ip],
                                                    'outputs': [out_ip],

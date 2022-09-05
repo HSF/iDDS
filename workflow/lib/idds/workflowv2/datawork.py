@@ -8,8 +8,6 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2022
 
-from idds.common.constants import TransformType
-
 from .work import Work
 
 
@@ -22,7 +20,7 @@ class DataWork(Work):
                  agent_attributes=None, is_template=False,
                  logger=None):
         super(DataWork, self).__init__(executable=executable, arguments=arguments,
-                                       parameters=parameters, setup=setup, work_type=TransformType.Data,
+                                       parameters=parameters, setup=setup, work_type=work_type,
                                        exec_type=exec_type, sandbox=sandbox, work_id=work_id,
                                        primary_input_collection=primary_input_collection,
                                        other_input_collections=other_input_collections,

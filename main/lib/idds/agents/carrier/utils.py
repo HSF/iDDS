@@ -156,10 +156,10 @@ def get_new_contents(request_id, transform_id, workload_id, new_input_output_map
             content = get_new_content(request_id, transform_id, workload_id, map_id, input_content, content_relation_type=ContentRelationType.InputDependency)
             new_input_dependency_contents.append(content)
         for output_content in outputs:
-            content = get_new_content(request_id, transform_id, workload_id, map_id, input_content, content_relation_type=ContentRelationType.Output)
+            content = get_new_content(request_id, transform_id, workload_id, map_id, output_content, content_relation_type=ContentRelationType.Output)
             new_output_contents.append(content)
         for log_content in logs:
-            content = get_new_content(request_id, transform_id, workload_id, map_id, input_content, content_relation_type=ContentRelationType.Log)
+            content = get_new_content(request_id, transform_id, workload_id, map_id, log_content, content_relation_type=ContentRelationType.Log)
             new_log_contents.append(content)
     return new_input_contents, new_output_contents, new_log_contents, new_input_dependency_contents
 
@@ -707,7 +707,7 @@ def handle_messages_processing(messages):
 
 
 def sync_collection_status(request_id, transform_id, workload_id, work, input_output_maps=None,
-                           close_collection=False, force_close_collection=False):
+                           close_collection=False, force_close_collection=False, terminate=False):
     if input_output_maps is None:
         input_output_maps = get_input_output_maps(transform_id, work)
 
@@ -735,29 +735,34 @@ def sync_collection_status(request_id, transform_id, workload_id, work, input_ou
             if content['status'] != content['substatus']:
                 all_updates_flushed = False
 
-    input_collections = work.get_input_collections()
+    input_collections = work.get_input_collections(poll_externel=True)
     output_collections = work.get_output_collections()
     log_collections = work.get_log_collections()
 
+    update_collections = []
     for coll in input_collections + output_collections + log_collections:
         if coll.coll_id in coll_status:
-            coll.total_files = coll_status['total_files']
-            coll.processed_files = coll_status['processed_files']
-            coll.processing_files = coll_status['processing_files']
-            coll.bytes = coll_status['bytes']
+            if 'total_files' in coll.coll_metadata and coll.coll_metadata['total_files']:
+                coll.total_files = coll.coll_metadata['total_files']
+            else:
+                coll.total_files = coll_status[coll.coll_id]['total_files']
+            coll.processed_files = coll_status[coll.coll_id]['processed_files']
+            coll.processing_files = coll_status[coll.coll_id]['processing_files']
+            coll.bytes = coll_status[coll.coll_id]['bytes']
 
-    update_collections = []
-    for coll_id in coll_status:
-        u_coll = {'coll_id': coll_id,
-                  'total_files': coll_status['total_files'],
-                  'processed_files': coll_status['processed_files'],
-                  'processing_files': coll_status['processing_files'],
-                  'bytes': coll_status['bytes']}
-        if force_close_collection or close_collection and all_updates_flushed:
-            u_coll['status'] = CollectionStatus.Closed
-            u_coll['substatus'] = CollectionStatus.Closed
+            u_coll = {'coll_id': coll.coll_id,
+                      'total_files': coll.total_files,
+                      'processed_files': coll.processed_files,
+                      'processing_files': coll.processing_files,
+                      'bytes': coll.bytes}
+            if terminate:
+                if force_close_collection or close_collection and all_updates_flushed or coll.status == CollectionStatus.Closed:
+                    u_coll['status'] = CollectionStatus.Closed
+                    u_coll['substatus'] = CollectionStatus.Closed
+                    coll.status = CollectionStatus.Closed
+                    coll.substatus = CollectionStatus.Closed
 
-        update_collections.append(u_coll)
+            update_collections.append(u_coll)
     return update_collections, all_updates_flushed
 
 
@@ -786,7 +791,7 @@ def sync_work_status(request_id, transform_id, workload_id, work):
             work.status = WorkStatus.SubFinished
 
 
-def sync_processing(processing, agent_attributes):
+def sync_processing(processing, agent_attributes, terminate=False):
     request_id = processing['request_id']
     transform_id = processing['transform_id']
     workload_id = processing['workload_id']
@@ -795,22 +800,14 @@ def sync_processing(processing, agent_attributes):
     work = proc.work
     work.set_agent_attributes(agent_attributes, processing)
 
-    input_collections = work.get_input_collections()
-    output_collections = work.get_output_collections()
-    log_collections = work.get_log_collections()
-
     # input_output_maps = get_input_output_maps(transform_id, work)
     update_collections, all_updates_flushed = sync_collection_status(request_id, transform_id, workload_id, work,
-                                                                     input_output_maps=None, close_collection=True)
-
-    if all_updates_flushed:
-        for coll in input_collections + output_collections + log_collections:
-            coll.status = CollectionStatus.Closed
-            coll.substatus = CollectionStatus.Closed
+                                                                     input_output_maps=None, close_collection=True,
+                                                                     terminate=terminate)
 
     messages = []
     sync_work_status(request_id, transform_id, workload_id, work)
-    if work.is_terminated():
+    if terminate and work.is_terminated():
         messages = generate_messages(request_id, transform_id, workload_id, work, msg_type='work')
         if work.is_finished():
             processing['status'] = ProcessingStatus.Finished
