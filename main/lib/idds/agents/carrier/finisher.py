@@ -73,7 +73,7 @@ class Finisher(Poller):
             self.logger.error(traceback.format_exc())
             error = {'sync_err': {'msg': truncate_string('%s' % (ex), length=200)}}
             update_processing = {'processing_id': processing['processing_id'],
-                                 'parameters': {'status': ProcessingStatus.Processing,
+                                 'parameters': {'status': ProcessingStatus.Running,
                                                 'locking': ProcessingLocking.Idle,
                                                 'errors': processing['errors'] if processing['errors'] else {}}}
             update_processing['parameters']['errors'].update(error)
@@ -122,7 +122,7 @@ class Finisher(Poller):
             self.logger.error(traceback.format_exc())
             error = {'term_err': {'msg': truncate_string('%s' % (ex), length=200)}}
             update_processing = {'processing_id': processing['processing_id'],
-                                 'parameters': {'status': ProcessingStatus.Processing,
+                                 'parameters': {'status': ProcessingStatus.Running,
                                                 'locking': ProcessingLocking.Idle,
                                                 'errors': processing['errors'] if processing['errors'] else {}}}
             update_processing['parameters']['errors'].update(error)

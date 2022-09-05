@@ -109,7 +109,7 @@ class Transformer(BaseAgent):
                                                                       new_poll=True, only_return_id=True,
                                                                       bulk_size=self.retrieve_bulk_size)
 
-            self.logger.debug("Main thread get %s New+Ready+Extend transforms to process" % len(transforms_new))
+            # self.logger.debug("Main thread get %s New+Ready+Extend transforms to process" % len(transforms_new))
             if transforms_new:
                 self.logger.info("Main thread get New+Ready+Extend transforms to process: %s" % str(transforms_new))
 
@@ -150,7 +150,7 @@ class Transformer(BaseAgent):
                                                                   update_poll=True, only_return_id=True,
                                                                   bulk_size=self.retrieve_bulk_size)
 
-            self.logger.debug("Main thread get %s transforming transforms to process" % len(transforms))
+            # self.logger.debug("Main thread get %s transforming transforms to process" % len(transforms))
             if transforms:
                 self.logger.info("Main thread get transforming transforms to process: %s" % str(transforms))
 

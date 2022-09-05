@@ -133,7 +133,7 @@ class Clerk(BaseAgent):
                                                                  new_poll=True, only_return_id=True,
                                                                  bulk_size=self.retrieve_bulk_size)
 
-            self.logger.debug("Main thread get %s [New+Extend] requests to process" % len(reqs_new))
+            # self.logger.debug("Main thread get %s [New+Extend] requests to process" % len(reqs_new))
             if reqs_new:
                 self.logger.info("Main thread get [New+Extend] requests to process: %s" % str(reqs_new))
 
@@ -170,7 +170,7 @@ class Clerk(BaseAgent):
                                                              locking=True, bulk_size=self.retrieve_bulk_size,
                                                              not_lock=True, update_poll=True, only_return_id=True)
 
-            self.logger.debug("Main thread get %s Transforming requests to running" % len(reqs))
+            # self.logger.debug("Main thread get %s Transforming requests to running" % len(reqs))
             if reqs:
                 self.logger.info("Main thread get Transforming requests to running: %s" % str(reqs))
 
@@ -205,7 +205,7 @@ class Clerk(BaseAgent):
                                                                        period=self.update_command_poll_period)
             commands = new_commands + processing_commands
 
-            self.logger.debug("Main thread get %s commands" % len(commands))
+            # self.logger.debug("Main thread get %s commands" % len(commands))
             if commands:
                 self.logger.info("Main thread get %s commands" % len(commands))
 

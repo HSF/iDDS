@@ -100,7 +100,7 @@ class Poller(BaseAgent):
                                                                      new_poll=True, only_return_id=True,
                                                                      bulk_size=self.retrieve_bulk_size)
 
-            self.logger.debug("Main thread get %s [new] processings to process" % len(processings))
+            # self.logger.debug("Main thread get %s [new] processings to process" % len(processings))
             if processings:
                 self.logger.info("Main thread get [new] processings to process: %s" % str(processings))
 
@@ -143,7 +143,7 @@ class Poller(BaseAgent):
                                                                      only_return_id=True,
                                                                      bulk_size=self.retrieve_bulk_size)
 
-            self.logger.debug("Main thread get %s [submitting + submitted + running] processings to process" % (len(processings)))
+            # self.logger.debug("Main thread get %s [submitting + submitted + running] processings to process" % (len(processings)))
             if processings:
                 self.logger.info("Main thread get [submitting + submitted + running] processings to process: %s" % (str(processings)))
 

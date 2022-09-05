@@ -213,7 +213,7 @@ def get_update_contents(request_id, transform_id, workload_id, input_output_maps
         return updated_contents, updated_input_contents_full, updated_output_contents_full
 
 
-def get_message_type(self, work_type, input_type='file'):
+def get_message_type(work_type, input_type='file'):
     work_type_value = str(work_type.value)
     if work_type_value not in TransformType2MessageTypeMap:
         return TransformType2MessageTypeMap['0'][input_type]
