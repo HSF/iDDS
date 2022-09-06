@@ -8,13 +8,13 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2022
 
-import json
 import logging
 import uuid
 import redis
 
 from idds.common.constants import Sections
 from idds.common.config import config_has_section, config_list_options
+from idds.common.utils import json_dumps, json_loads
 
 
 class Singleton(object):
@@ -74,26 +74,26 @@ class RedisCache(Singleton):
         return attrs
 
     def set(self, key, value, expire_seconds=21600):
-        value = json.dumps(value)
+        value = json_dumps(value)
         self.cache.set(key, value, ex=expire_seconds)
 
     def get(self, key, default=None):
         value = self.cache.get(key)
         if value:
-            value = json.loads(value)
+            value = json_loads(value)
         if not value:
             return default
         return value
 
     def hset(self, key, value, expire_seconds=21600):
-        value = json.dumps(value)
+        value = json_dumps(value)
         self.cache.hset(key, value)
         self.cache.expire(key, expire_seconds)
 
     def hget(self, key, default=None):
         value = self.cache.hget(key)
         if value:
-            value = json.loads(value)
+            value = json_loads(value)
         if not value:
             return default
         return value
