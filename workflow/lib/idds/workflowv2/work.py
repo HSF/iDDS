@@ -19,6 +19,7 @@ import traceback
 from idds.common import exceptions
 from idds.common.constants import (WorkStatus, ProcessingStatus,
                                    CollectionStatus, CollectionType)
+from idds.common.constants import get_work_status_from_transform_processing_status
 from idds.common.utils import setup_logging
 from idds.common.utils import str_to_date
 # from idds.common.utils import json_dumps
@@ -1314,7 +1315,7 @@ class Work(Base):
         return self.started
 
     def is_running(self):
-        if self.status in [WorkStatus.Running]:
+        if self.status in [WorkStatus.Running, WorkStatus.Transforming]:
             return True
         return False
 
@@ -2099,12 +2100,15 @@ class Work(Base):
         # clerk will update next_works while transformer doesn't.
         # synchronizing work metadata from transformer to clerk needs to keep it at first.
         next_works = self.next_works
-        self.metadata = work.metadata
+        # self.metadata = work.metadata
         self.next_works = next_works
 
         self.status_statistics = work.status_statistics
-        self.processings = work.processings
+        # self.processings = work.processings
         self.output_data = work.output_data
+
+        self.status = get_work_status_from_transform_processing_status(status)
+        self.substatus = get_work_status_from_transform_processing_status(substatus)
 
         """
         self.status = WorkStatus(status.value)

@@ -117,6 +117,7 @@ class WorkStatus(IDDSEnum):
     ToFinish = 18
     ToForceFinish = 19
     Running = 20
+    Terminating = 21
 
 
 class RequestStatus(IDDSEnum):
@@ -140,6 +141,7 @@ class RequestStatus(IDDSEnum):
     Expired = 17
     ToFinish = 18
     ToForceFinish = 19
+    Terminating = 20
 
 
 class RequestLocking(IDDSEnum):
@@ -219,6 +221,7 @@ class TransformStatus(IDDSEnum):
     Expired = 17
     ToFinish = 18
     ToForceFinish = 19
+    Terminating = 20
 
 
 class TransformLocking(IDDSEnum):
@@ -455,3 +458,24 @@ class CommandLocation(IDDSEnum):
     Conductor = 4
     Rest = 5
     Other = 6
+
+
+def get_work_status_from_transform_processing_status(status):
+    if status in [ProcessingStatus.New, TransformStatus.New]:
+        return WorkStatus.New
+    elif status in [ProcessingStatus.Submitting, ProcessingStatus.Submitted, TransformStatus.Transforming]:
+        return WorkStatus.Transforming
+    elif status in [ProcessingStatus.Running]:
+        return WorkStatus.Transforming
+    elif status in [ProcessingStatus.Finished, TransformStatus.Finished]:
+        return WorkStatus.Finished
+    elif status in [ProcessingStatus.Failed, ProcessingStatus.Broken, TransformStatus.Failed]:
+        return WorkStatus.Failed
+    elif status in [ProcessingStatus.SubFinished, TransformStatus.SubFinished]:
+        return WorkStatus.SubFinished
+    elif status in [ProcessingStatus.Cancelled, ProcessingStatus.Suspended, TransformStatus.Cancelled, TransformStatus.Suspended]:
+        return WorkStatus.Cancelled
+    elif status in [ProcessingStatus.Terminating, TransformStatus.Terminating]:
+        return WorkStatus.Terminating
+    else:
+        return WorkStatus.Transforming

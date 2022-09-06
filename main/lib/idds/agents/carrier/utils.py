@@ -504,7 +504,7 @@ def handle_update_processing(processing, agent_attributes, logger=None, log_pref
     new_input_output_maps.update(new_input_output_maps1)
     logger.info(log_prefix + "poll_processing_updates process_status: %s" % process_status)
     logger.info(log_prefix + "poll_processing_updates content_updates[:5]: %s" % content_updates[:5])
-    logger.info(log_prefix + "poll_processing_updates new_input_output_maps1.keys[:5]: %s" % (new_input_output_maps1.keys()[:5]))
+    logger.info(log_prefix + "poll_processing_updates new_input_output_maps1.keys[:5]: %s" % (list(new_input_output_maps1.keys())[:5]))
     logger.info(log_prefix + "poll_processing_updates updated_contents_full[:5]: %s" % (updated_contents_full[:5]))
 
     ret_new_contents = get_new_contents(request_id, transform_id, workload_id, new_input_output_maps)
@@ -639,7 +639,10 @@ def get_jobid_content_id_map(request_id, workload_id, transform_id, job_id, inpu
 def get_content_id_from_job_id(request_id, workload_id, transform_id, job_id, inputs):
     jobid_content_id_map, to_update_jobid = get_jobid_content_id_map(request_id, workload_id, transform_id, job_id, inputs)
 
-    content_id = jobid_content_id_map[job_id]
+    if job_id in jobid_content_id_map:
+        content_id = jobid_content_id_map[job_id]
+    else:
+        content_id = None
     return content_id, to_update_jobid
 
 
@@ -668,7 +671,7 @@ def handle_messages_processing(messages):
 
         if msg['msg_type'] in ['job_status']:
             workload_id = msg['taskid']
-            job_id = msg['job_id']
+            job_id = msg['jobid']
             status = msg['status']
             inputs = msg['inputs']
             ret_req_tf_pr_id = get_workload_id_transform_id_map(workload_id)
@@ -676,21 +679,22 @@ def handle_messages_processing(messages):
                 # request is submitted by some other instances
                 req_id, tf_id, processing_id = ret_req_tf_pr_id
                 content_id, to_update_jobid = get_content_id_from_job_id(req_id, workload_id, tf_id, job_id, inputs)
-                if to_update_jobid:
-                    u_content = {'content_id': content_id,
-                                 'status': get_content_status_from_panda_msg_status(status),
-                                 'content_metadata': {'panda_id': job_id}}
-                else:
-                    u_content = {'content_id': content_id,
-                                 'status': get_content_status_from_panda_msg_status(status)}
+                if content_id:
+                    if to_update_jobid:
+                        u_content = {'content_id': content_id,
+                                     'status': get_content_status_from_panda_msg_status(status),
+                                     'content_metadata': {'panda_id': job_id}}
+                    else:
+                        u_content = {'content_id': content_id,
+                                     'status': get_content_status_from_panda_msg_status(status)}
 
-                update_contents.append(u_content)
-                if workload_id not in workload_id_update_contents:
-                    workload_id_update_contents[workload_id] = {'request_id': req_id,
-                                                                'transform_id': tf_id,
-                                                                'processing_id': processing_id,
-                                                                'update_contents': []}
-                workload_id_update_contents[workload_id]['update_contents'].append(u_content)
+                    update_contents.append(u_content)
+                    if workload_id not in workload_id_update_contents:
+                        workload_id_update_contents[workload_id] = {'request_id': req_id,
+                                                                    'transform_id': tf_id,
+                                                                    'processing_id': processing_id,
+                                                                    'update_contents': []}
+                    workload_id_update_contents[workload_id]['update_contents'].append(u_content)
 
     work = None
     msgs_no_deps = []

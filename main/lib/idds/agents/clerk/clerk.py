@@ -477,6 +477,7 @@ class Clerk(BaseAgent):
                 # work_status = WorkStatus(tf['status'].value)
                 # work.set_status(work_status)
                 work.sync_work_data(status=tf['status'], substatus=tf['substatus'], work=transform_work)
+                self.logger.info(log_pre + "transform status: %s, work status: %s" % (tf['status'], work.status))
         wf.refresh_works()
 
         new_transforms = []
