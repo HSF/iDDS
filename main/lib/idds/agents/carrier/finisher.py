@@ -137,7 +137,7 @@ class Finisher(Poller):
         self.number_workers += 1
         try:
             if event:
-                pr = self.get_processing(processing_id=event.processing_id, locking=True)
+                pr = self.get_processing(processing_id=event._processing_id, locking=True)
                 if not pr:
                     self.logger.error("Cannot find processing for event: %s" % str(event))
                 else:
@@ -199,7 +199,7 @@ class Finisher(Poller):
                                      ProcessingStatus.Suspended, ProcessingStatus.Expired,
                                      ProcessingStatus.Broken]
 
-                pr = self.get_processing(processing_id=event.processing_id, locking=True)
+                pr = self.get_processing(processing_id=event._processing_id, locking=True)
 
                 if not pr:
                     self.logger.error("Cannot find processing for event: %s" % str(event))
@@ -260,7 +260,7 @@ class Finisher(Poller):
             if event:
                 processing_status = [ProcessingStatus.Finished]
 
-                pr = self.get_processing(processing_id=event.processing_id, locking=True)
+                pr = self.get_processing(processing_id=event._processing_id, locking=True)
 
                 if not pr:
                     self.logger.error("Cannot find processing for event: %s" % str(event))

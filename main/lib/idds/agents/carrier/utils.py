@@ -502,6 +502,10 @@ def handle_update_processing(processing, agent_attributes, logger=None, log_pref
     ret_poll_processing = work.poll_processing_updates(processing, input_output_maps, log_prefix=log_prefix)
     process_status, content_updates, new_input_output_maps1, updated_contents_full = ret_poll_processing
     new_input_output_maps.update(new_input_output_maps1)
+    logger.info(log_prefix + "poll_processing_updates process_status: %s" % process_status)
+    logger.info(log_prefix + "poll_processing_updates content_updates[:5]: %s" % content_updates[:5])
+    logger.info(log_prefix + "poll_processing_updates new_input_output_maps1.keys[:5]: %s" % (new_input_output_maps1.keys()[:5]))
+    logger.info(log_prefix + "poll_processing_updates updated_contents_full[:5]: %s" % (updated_contents_full[:5]))
 
     ret_new_contents = get_new_contents(request_id, transform_id, workload_id, new_input_output_maps)
     new_input_contents, new_output_contents, new_log_contents, new_input_dependency_contents = ret_new_contents
@@ -521,6 +525,9 @@ def handle_update_processing(processing, agent_attributes, logger=None, log_pref
     content_updates_trigger_no_deps, updated_input_contents_no_deps = [], []
     if work.use_dependency_to_release_jobs():
         content_updates_trigger_no_deps, updated_input_contents_no_deps = trigger_release_inputs_no_deps(request_id, transform_id, workload_id, work)
+        logger.info(log_prefix + "trigger_release_inputs_no_deps: content_updates_trigger_no_deps[:5] %s" % (content_updates_trigger_no_deps[:5]))
+        logger.info(log_prefix + "trigger_release_inputs_no_deps: updated_input_contents_no_deps[:5] %s" % (updated_input_contents_no_deps[:5]))
+
         content_updates = content_updates + content_updates_trigger_no_deps
         if updated_input_contents_no_deps:
             msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='file',
@@ -534,6 +541,9 @@ def handle_update_processing(processing, agent_attributes, logger=None, log_pref
 
         if work.use_dependency_to_release_jobs():
             content_updates_trigger, updated_input_contents = trigger_release_inputs(request_id, transform_id, workload_id, work, updated_contents_full)
+            logger.info(log_prefix + "trigger_release_inputs: content_updates_trigger[:5] %s" % (content_updates_trigger[:5]))
+            logger.info(log_prefix + "trigger_release_inputs: updated_input_contents[:5] %s" % (updated_input_contents[:5]))
+
             msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='file',
                                      files=updated_input_contents, relation_type='input')
             ret_msgs = ret_msgs + msgs

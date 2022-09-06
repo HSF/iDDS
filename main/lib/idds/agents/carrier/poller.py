@@ -135,7 +135,8 @@ class Poller(BaseAgent):
                                  ProcessingStatus.ToSuspend, ProcessingStatus.Suspending,
                                  ProcessingStatus.ToResume, ProcessingStatus.Resuming,
                                  ProcessingStatus.ToExpire, ProcessingStatus.Expiring,
-                                 ProcessingStatus.ToFinish, ProcessingStatus.ToForceFinish]
+                                 ProcessingStatus.ToFinish, ProcessingStatus.ToForceFinish,
+                                 ProcessingStatus.Terminating]
             # next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_period)
             processings = core_processings.get_processings_by_status(status=processing_status,
                                                                      locking=True, update_poll=True,
