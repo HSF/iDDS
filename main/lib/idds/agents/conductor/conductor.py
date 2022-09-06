@@ -118,16 +118,12 @@ class Conductor(BaseAgent):
                 # execute timer task
                 self.execute_once()
 
-                reach_threshold = False
                 try:
                     num_contents = 0
                     messages = self.get_messages()
                     for message in messages:
                         num_contents += message['num_contents']
                         self.message_queue.put(message)
-                        if self.threshold_to_release_messages and num_contents > self.threshold_to_release_messages:
-                            reach_threshold = True
-                            break
                     while not self.message_queue.empty():
                         time.sleep(1)
                     output_messages = self.get_output_messages()
@@ -136,10 +132,7 @@ class Conductor(BaseAgent):
                     self.logger.error("Main thread IDDSException: %s" % str(error))
                 except Exception as error:
                     self.logger.critical("Main thread exception: %s\n%s" % (str(error), traceback.format_exc()))
-                if self.random_delay is None or not reach_threshold:
-                    time.sleep(5)
-                else:
-                    time.sleep(random.randint(5, self.random_delay))
+                time.sleep(random.randint(5, self.random_delay))
         except KeyboardInterrupt:
             self.stop()
 
