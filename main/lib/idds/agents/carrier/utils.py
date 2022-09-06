@@ -518,23 +518,26 @@ def handle_update_processing(processing, agent_attributes, logger=None, log_pref
                                  files=new_output_contents, relation_type='output')
         ret_msgs = ret_msgs + msgs
 
-    content_updates_trigger_no_deps, updated_input_contents_no_deps = trigger_release_inputs_no_deps(request_id, transform_id, workload_id, work)
-    content_updates = content_updates + content_updates_trigger_no_deps
-    if updated_input_contents_no_deps:
-        msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='file',
-                                 files=updated_input_contents_no_deps, relation_type='input')
-        ret_msgs = ret_msgs + msgs
+    content_updates_trigger_no_deps, updated_input_contents_no_deps = [], []
+    if work.use_dependency_to_release_jobs():
+        content_updates_trigger_no_deps, updated_input_contents_no_deps = trigger_release_inputs_no_deps(request_id, transform_id, workload_id, work)
+        content_updates = content_updates + content_updates_trigger_no_deps
+        if updated_input_contents_no_deps:
+            msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='file',
+                                     files=updated_input_contents_no_deps, relation_type='input')
+            ret_msgs = ret_msgs + msgs
 
     if updated_contents_full:
         msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='file',
                                  files=updated_contents_full, relation_type='output')
         ret_msgs = ret_msgs + msgs
 
-        content_updates_trigger, updated_input_contents = trigger_release_inputs(request_id, transform_id, workload_id, work, updated_contents_full)
-        msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='file',
-                                 files=updated_input_contents, relation_type='input')
-        ret_msgs = ret_msgs + msgs
-        content_updates = content_updates + content_updates_trigger
+        if work.use_dependency_to_release_jobs():
+            content_updates_trigger, updated_input_contents = trigger_release_inputs(request_id, transform_id, workload_id, work, updated_contents_full)
+            msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='file',
+                                     files=updated_input_contents, relation_type='input')
+            ret_msgs = ret_msgs + msgs
+            content_updates = content_updates + content_updates_trigger
 
     return process_status, new_contents, ret_msgs, content_updates
 
