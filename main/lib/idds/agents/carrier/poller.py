@@ -76,8 +76,9 @@ class Poller(BaseAgent):
         return True
 
     def show_queue_size(self):
-        q_str = "number of processings: %s, max number of processings: %s" % (self.number_workers, self.max_number_workers)
-        self.logger.debug(q_str)
+        if self.number_workers > 0:
+            q_str = "number of processings: %s, max number of processings: %s" % (self.number_workers, self.max_number_workers)
+            self.logger.debug(q_str)
 
     def init(self):
         status = [ProcessingStatus.New, ProcessingStatus.Submitting, ProcessingStatus.Submitted,

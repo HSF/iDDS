@@ -110,8 +110,9 @@ class Clerk(BaseAgent):
         return True
 
     def show_queue_size(self):
-        q_str = "number of requests: %s, max number of requests: %s" % (self.number_workers, self.max_number_workers)
-        self.logger.debug(q_str)
+        if self.number_workers > 0:
+            q_str = "number of requests: %s, max number of requests: %s" % (self.number_workers, self.max_number_workers)
+            self.logger.debug(q_str)
 
     def get_new_requests(self):
         """

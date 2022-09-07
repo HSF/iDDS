@@ -89,8 +89,9 @@ class Transformer(BaseAgent):
         return True
 
     def show_queue_size(self):
-        q_str = "number of transforms: %s, max number of transforms: %s" % (self.number_workers, self.max_number_workers)
-        self.logger.debug(q_str)
+        if self.number_workers > 0:
+            q_str = "number of transforms: %s, max number of transforms: %s" % (self.number_workers, self.max_number_workers)
+            self.logger.debug(q_str)
 
     def get_new_transforms(self):
         """
