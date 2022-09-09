@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2021
+# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2022
 
 
 try:
@@ -215,18 +215,27 @@ class ATLASPandaWork(Work):
 
     def renew_parameter(self, parameter):
         new_parameter = parameter
-        if '___idds___' in parameter:
-            pos_start = parameter.find('___idds___')
-            attr = parameter[pos_start:]
-            attr = attr.replace("___idds___", "")
-            pos = attr.find("___")
-            if pos > -1:
-                attr = attr[:pos]
-            if attr:
-                idds_attr = "___idds___" + attr + "___"
-                if hasattr(self, attr):
-                    attr_value = getattr(self, attr)
-                    new_parameter = parameter.replace(idds_attr, str(attr_value))
+        has_updates = True
+        len_idds = len('___idds___')
+        while has_updates:
+            if '___idds___' in parameter:
+                pos_start = parameter.find('___idds___')
+                attr = parameter[pos_start:]
+                attr = attr.replace("___idds___", "")
+                pos = attr.find("___")
+                if pos > -1:
+                    attr = attr[:pos]
+                if attr:
+                    idds_attr = "___idds___" + attr + "___"
+                    if hasattr(self, attr):
+                        has_updates = True
+                        attr_value = getattr(self, attr)
+                        new_parameter = new_parameter.replace(idds_attr, str(attr_value))
+                        parameter = parameter.replace(idds_attr, str(attr_value))
+                else:
+                    parameter = parameter[pos_start + len_idds:]
+            else:
+                has_updates = False
         return new_parameter
 
     def renew_parameters_from_attributes(self):
