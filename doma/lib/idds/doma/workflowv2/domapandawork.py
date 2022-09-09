@@ -845,8 +845,11 @@ class DomaPanDAWork(Work):
             contents = map_id_contents['outputs']
             for content in contents:
                 if content['substatus'] != panda_status:
+                    content['status'] = panda_status
+                    content['substatus'] = panda_status
                     update_contents_full.append(content)
                     update_content = {'content_id': content['content_id'],
+                                      'status': panda_status,
                                       'substatus': panda_status}
                     # 'content_metadata': content['content_metadata']
                     if 'panda_id' in content['content_metadata'] and content['content_metadata']['panda_id']:
@@ -858,6 +861,7 @@ class DomaPanDAWork(Work):
                             if content['content_metadata']['panda_id'] not in content['content_metadata']['old_panda_id']:
                                 content['content_metadata']['old_panda_id'].append(content['content_metadata']['panda_id'])
                             content['content_metadata']['panda_id'] = panda_id
+                            content['status'] = panda_status
                             content['substatus'] = panda_status
                             update_content['content_metadata'] = content['content_metadata']
                         elif content['content_metadata']['panda_id'] > panda_id:

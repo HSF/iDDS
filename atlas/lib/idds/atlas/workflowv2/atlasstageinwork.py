@@ -342,14 +342,18 @@ class ATLASStageinWork(DataWork):
                     if key in rep_status:
                         if rule_state in ['OK'] and content['substatus'] != ContentStatus.Available:
                             updated_content = {'content_id': content['content_id'],
+                                               'status': ContentStatus.Available,
                                                'substatus': ContentStatus.Available}
                             updated_contents.append(updated_content)
+                            content['status'] = ContentStatus.Available
                             content['substatus'] = ContentStatus.Available
                             updated_contents_full.append(content)
                         elif content['substatus'] != rep_status[key]:
                             updated_content = {'content_id': content['content_id'],
+                                               'status': ContentStatus.Available,
                                                'substatus': rep_status[key]}
                             updated_contents.append(updated_content)
+                            content['status'] = rep_status[key]
                             content['substatus'] = rep_status[key]
                             updated_contents_full.append(content)
 

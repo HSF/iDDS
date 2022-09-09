@@ -63,7 +63,8 @@ class HyperParameterOpt(IDDSController):
             content_id = content['content_id']
             point = content['path']
             param, origin_loss = json.loads(point)
-            params = {'path': json.dumps((param, loss)), 'substatus': ContentStatus.Available}
+            params = {'path': json.dumps((param, loss)),
+                      'substatus': ContentStatus.Available}
             catalog.update_content(content_id, params)
         except exceptions.NoObject as error:
             return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
