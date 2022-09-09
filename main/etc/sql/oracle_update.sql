@@ -88,7 +88,7 @@ CREATE TABLE COMMANDS
     status NUMBER(2),
     substatus NUMBER(2),
     locking NUMBER(2),
-    username VARCHAR2(20)
+    username VARCHAR2(20),
     retries NUMBER(5) DEFAULT 0,
     source NUMBER(2),
     destination NUMBER(2),
