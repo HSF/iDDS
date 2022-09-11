@@ -398,6 +398,8 @@ class Clerk(BaseAgent):
                         if retry_num < 5:
                             retry = True
                             if retry_num <= 1:
+                                random_sleep = random.randint(1, 10)
+                            elif retry_num <= 2:
                                 random_sleep = random.randint(1, 60)
                             else:
                                 random_sleep = random.randint(1, 120)
@@ -443,6 +445,7 @@ class Clerk(BaseAgent):
                         self.logger.info(log_pre + "NewTransformEvent(transform_id: %s)" % str(tf_id))
                         event = NewTransformEvent(publisher_id=self.id, transform_id=tf_id)
                         self.event_bus.send(event)
+                        time.sleep(1)
                     for tf_id in update_tf_ids:
                         self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % str(tf_id))
                         event = UpdateTransformEvent(publisher_id=self.id, transform_id=tf_id)

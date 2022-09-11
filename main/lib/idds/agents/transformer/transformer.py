@@ -328,6 +328,8 @@ class Transformer(BaseAgent):
                             if retry_num < 5:
                                 retry = True
                                 if retry_num <= 1:
+                                    random_sleep = random.randint(1, 10)
+                                elif retry_num <= 2:
                                     random_sleep = random.randint(1, 60)
                                 else:
                                     random_sleep = random.randint(1, 120)
