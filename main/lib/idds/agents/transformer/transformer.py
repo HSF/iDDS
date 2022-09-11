@@ -9,6 +9,7 @@
 # - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
 
 import copy
+import random
 import time
 import traceback
 
@@ -326,7 +327,11 @@ class Transformer(BaseAgent):
                             self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
                             if retry_num < 5:
                                 retry = True
-                                time.sleep(60 * retry_num * 2)
+                                if retry_num <= 1:
+                                    random_sleep = random.randint(1, 60)
+                                else:
+                                    random_sleep = random.randint(1, 120)
+                                time.sleep(random_sleep)
                             else:
                                 raise ex
                         else:
