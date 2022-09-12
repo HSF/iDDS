@@ -399,6 +399,7 @@ class Transformer(BaseAgent):
 
         self.logger.info(log_pre + "handle_update_transform: transform_id: %s" % transform['transform_id'])
 
+        is_terminated = False
         to_abort = False
         if event and event._content and event._content['cmd_type'] and event._content['cmd_type'] in [CommandType.AbortRequest, CommandType.ExpireRequest]:
             to_abort = True
@@ -440,6 +441,7 @@ class Transformer(BaseAgent):
 
         self.logger.info(log_pre + "syn_work_status: %s, transform status: %s" % (transform['transform_id'], transform['status']))
         if work.is_terminated():
+            is_terminated = True
             self.logger.info(log_pre + "Transform(%s) work is terminated" % (transform['transform_id']))
             if work.is_finished():
                 transform['status'] = TransformStatus.Finished
@@ -472,7 +474,7 @@ class Transformer(BaseAgent):
         ret = {'transform': transform,
                'transform_parameters': transform_parameters,
                'new_processing': new_processing_model}
-        return ret
+        return ret, is_terminated
 
     def handle_update_transform(self, transform, event):
         """
@@ -482,7 +484,7 @@ class Transformer(BaseAgent):
             log_pre = self.get_log_prefix(transform)
 
             self.logger.info(log_pre + "handle_update_transform: %s" % transform)
-            ret = self.handle_update_transform_real(transform, event)
+            ret, is_terminated = self.handle_update_transform_real(transform, event)
             self.logger.info(log_pre + "handle_update_transform result: %s" % str(ret))
         except Exception as ex:
             self.logger.error(ex)
@@ -509,7 +511,7 @@ class Transformer(BaseAgent):
 
             ret = {'transform': transform, 'transform_parameters': transform_parameters}
             self.logger.warn(log_pre + "handle_update_transform exception result: %s" % str(ret))
-        return ret
+        return ret, False
 
     def process_update_transform(self, event):
         self.number_workers += 1
@@ -527,12 +529,13 @@ class Transformer(BaseAgent):
                 else:
                     log_pre = self.get_log_prefix(tf)
 
-                    ret = self.handle_update_transform(tf, event)
+                    ret, is_terminated = self.handle_update_transform(tf, event)
                     new_pr_ids, update_pr_ids = self.update_transform(ret)
 
-                    self.logger.info(log_pre + "UpdateRequestEvent(request_id: %s)" % tf['request_id'])
-                    event = UpdateRequestEvent(publisher_id=self.id, request_id=tf['request_id'], content=event._content)
-                    self.event_bus.send(event)
+                    if is_terminated:
+                        self.logger.info(log_pre + "UpdateRequestEvent(request_id: %s)" % tf['request_id'])
+                        event = UpdateRequestEvent(publisher_id=self.id, request_id=tf['request_id'], content=event._content)
+                        self.event_bus.send(event)
                     for pr_id in new_pr_ids:
                         self.logger.info(log_pre + "NewProcessingEvent(processing_id: %s)" % pr_id)
                         event = NewProcessingEvent(publisher_id=self.id, processing_id=pr_id, content=event._content)

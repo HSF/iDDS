@@ -97,9 +97,11 @@ class Finisher(Poller):
                     self.logger.info(log_pre + "process_sync_processing result: %s" % str(ret))
 
                     self.update_processing(ret, pr)
-                    self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
-                    event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'])
-                    self.event_bus.send(event)
+
+                    # no need to update transform
+                    # self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
+                    # event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'])
+                    # self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())

@@ -443,9 +443,12 @@ class Poller(BaseAgent):
                         event = TerminatedProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'])
                         self.event_bus.send(event)
                     else:
-                        self.logger.info(log_pre + "SyncProcessingEvent(processing_id: %s)" % pr['processing_id'])
-                        event = SyncProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'])
-                        self.event_bus.send(event)
+                        if (('update_contents' in ret and ret['update_contents'])
+                            or ('new_contents' in ret and ret['new_contents'])       # noqa W503
+                            or ('messages' in ret and ret['messages'])):             # noqa E129
+                            self.logger.info(log_pre + "SyncProcessingEvent(processing_id: %s)" % pr['processing_id'])
+                            event = SyncProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'])
+                            self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
