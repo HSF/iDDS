@@ -381,7 +381,7 @@ def get_transform_input_output_maps(transform_id, input_coll_ids, output_coll_id
 
     :param transform_id: transform id.
     """
-    contents = orm_contents.get_contents_by_transform(transform_id=transform_id, session=session)
+    contents = orm_contents.get_contents_by_request_transform(transform_id=transform_id, session=session)
     ret = {}
     for content in contents:
         map_id = content['map_id']
