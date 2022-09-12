@@ -369,7 +369,7 @@ def get_updated_contents_by_request(request_id, transform_id, workload_id, work,
         if content['substatus'] in status_to_check:
             updated_contents.append(content)
 
-    logger.debug(log_prefix + "get_updated_contents_by_request: updated_contents[:3]: %s" % str(updated_contents[:3]))
+    # logger.debug(log_prefix + "get_updated_contents_by_request: updated_contents[:3]: %s" % str(updated_contents[:3]))
     return updated_contents
 
 

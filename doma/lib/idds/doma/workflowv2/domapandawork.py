@@ -831,8 +831,8 @@ class DomaPanDAWork(Work):
 
     def get_update_contents(self, inputnames, inputname_mapid_map, inputname_jobid_map):
         self.logger.debug("get_update_contents, inputnames[:5]: %s" % str(inputnames[:5]))
-        self.logger.debug("get_update_contents, inputname_mapid_map[:5]: %s" % str({k: inputname_mapid_map[k] for k in inputnames[:5]}))
-        self.logger.debug("get_update_contents, inputname_jobid_map[:5]: %s" % str({k: inputname_jobid_map[k] for k in inputnames[:5]}))
+        # self.logger.debug("get_update_contents, inputname_mapid_map[:5]: %s" % str({k: inputname_mapid_map[k] for k in inputnames[:5]}))
+        self.logger.debug("get_update_contents, inputname_jobid_map[:3]: %s" % str({k: inputname_jobid_map[k] for k in inputnames[:3]}))
 
         update_contents = []
         update_contents_full = []
@@ -888,7 +888,7 @@ class DomaPanDAWork(Work):
                     pass
 
         self.logger.debug("get_update_contents, num_updated_contents: %s, num_unupdated_contents: %s" % (num_updated_contents, num_unupdated_contents))
-        self.logger.debug("get_update_contents, update_contents[:5]: %s" % (str(update_contents[:5])))
+        self.logger.debug("get_update_contents, update_contents[:3]: %s" % (str(update_contents[:3])))
         return update_contents, update_contents_full
 
     def poll_panda_task(self, processing=None, input_output_maps=None, log_prefix=''):
@@ -1011,15 +1011,15 @@ class DomaPanDAWork(Work):
             processing_status, update_contents, update_contents_full = self.poll_panda_task(processing=processing,
                                                                                             input_output_maps=input_output_maps,
                                                                                             log_prefix=log_prefix)
-            self.logger.debug(log_prefix + "poll_processing_updates, processing_status: %s" % str(processing_status))
-            self.logger.debug(log_prefix + "poll_processing_updates, update_contents[:10]: %s" % str(update_contents[:10]))
+            # self.logger.debug(log_prefix + "poll_processing_updates, processing_status: %s" % str(processing_status))
+            # self.logger.debug(log_prefix + "poll_processing_updates, update_contents[:10]: %s" % str(update_contents[:10]))
 
             if update_contents:
                 proc.has_new_updates()
         self.logger.debug(log_prefix + "poll_processing_updates, task: %s, processing_status: %s" %
                           (proc.workload_id, str(processing_status)))
-        self.logger.debug(log_prefix + "poll_processing_updates, task: %s, updated_contents[:10]: %s" %
-                          (proc.workload_id, str(update_contents[:10])))
+        self.logger.debug(log_prefix + "poll_processing_updates, task: %s, updated_contents[:3]: %s" %
+                          (proc.workload_id, str(update_contents[:3])))
         return processing_status, update_contents, {}, update_contents_full
 
     def get_status_statistics(self, registered_input_output_maps):
