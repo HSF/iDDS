@@ -34,7 +34,7 @@ class Conductor(BaseAgent):
     """
 
     def __init__(self, num_threads=1, retrieve_bulk_size=1000, threshold_to_release_messages=None,
-                 random_delay=None, **kwargs):
+                 random_delay=None, delay=300, **kwargs):
         super(Conductor, self).__init__(num_threads=num_threads, name='Conductor', **kwargs)
         self.config_section = Sections.Conductor
         self.retrieve_bulk_size = int(retrieve_bulk_size)
@@ -50,6 +50,9 @@ class Conductor(BaseAgent):
             self.random_delay = int(random_delay)
             if self.random_delay < 5:
                 self.random_delay = 5
+        if delay is None:
+            delay = 300
+        self.delay = int(delay)
 
     def __del__(self):
         self.stop_notifier()
@@ -66,13 +69,21 @@ class Conductor(BaseAgent):
         if messages:
             self.logger.info("Main thread get %s new messages" % len(messages))
 
-        return messages
+        messages_d = core_messages.retrieve_messages(status=MessageStatus.Delivered,
+                                                     retries=1, delay=self.delay,
+                                                     bulk_size=self.retrieve_bulk_size,
+                                                     destination=MessageDestination.Outside)
+        if messages_d:
+            self.logger.info("Main thread get %s retries messages" % len(messages_d))
+
+        return messages + messages_d
 
     def clean_messages(self, msgs):
         # core_messages.delete_messages(msgs)
         to_updates = []
         for msg in msgs:
             to_updates.append({'msg_id': msg['msg_id'],
+                               'retries': msg['retries'] + 1,
                                'status': MessageStatus.Delivered})
         core_messages.update_messages(to_updates)
 

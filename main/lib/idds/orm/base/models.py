@@ -568,6 +568,7 @@ class Message(BASE, ModelBase):
     transform_id = Column(Integer())
     processing_id = Column(Integer())
     num_contents = Column(Integer())
+    retries = Column(Integer(), default=0)
     created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow)
     updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     msg_content = Column(JSON())
