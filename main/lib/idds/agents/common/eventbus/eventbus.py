@@ -23,6 +23,7 @@ class Singleton(object):
     def __new__(class_, *args, **kwargs):
         if not isinstance(class_._instance, class_):
             class_._instance = object.__new__(class_, *args, **kwargs)
+            class_._instance._initialized = False
         return class_._instance
 
 
@@ -32,17 +33,20 @@ class EventBus(Singleton):
     """
 
     def __init__(self, logger=None):
-        super(EventBus, self).__init__()
-        self._id = str(uuid.uuid4())[:8]
-        self.setup_logger(logger)
-        self.config_section = Sections.EventBus
-        attrs = self.load_attributes()
-        if 'backend' in attrs and attrs['backend'] == 'message':
-            # ToBeDone
-            # self.backend = MsgEventBusBackend(**attrs)
-            pass
-        else:
-            self.backend = LocalEventBusBackend(logger=self.logger, **attrs)
+        if not self._initialized:
+            self._initialized = True
+
+            super(EventBus, self).__init__()
+            self._id = str(uuid.uuid4())[:8]
+            self.setup_logger(logger)
+            self.config_section = Sections.EventBus
+            attrs = self.load_attributes()
+            if 'backend' in attrs and attrs['backend'] == 'message':
+                # ToBeDone
+                # self.backend = MsgEventBusBackend(**attrs)
+                pass
+            else:
+                self.backend = LocalEventBusBackend(logger=self.logger, **attrs)
 
     def setup_logger(self, logger=None):
         """

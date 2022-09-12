@@ -23,37 +23,34 @@ class Singleton(object):
     def __new__(class_, *args, **kwargs):
         if not isinstance(class_._instance, class_):
             class_._instance = object.__new__(class_, *args, **kwargs)
+            class_._instance._initialized = False
         return class_._instance
 
 
-class RedisCache(object):
+class RedisCache(Singleton):
     """
     Redis cache
     """
 
-    _instance = None
-
-    def __new__(class_, *args, **kwargs):
-        if not isinstance(class_._instance, class_):
-            class_._instance = object.__new__(class_, *args, **kwargs)
-        return class_._instance
-
     def __init__(self, logger=None):
-        super(RedisCache, self).__init__()
-        self._id = str(uuid.uuid4())[:8]
-        self.logger = logger
-        self.setup_logger(self.logger)
-        self.config_section = Sections.Cache
-        attrs = self.load_attributes()
-        if 'host' in attrs and attrs['host']:
-            self.host = attrs['host']
-        else:
-            self.host = 'localhost'
-        if 'port' in attrs and attrs['port']:
-            self.port = int(attrs['port'])
-        else:
-            self.port = 6379
-        self.cache = redis.Redis(host=self.host, port=self.port, db=0)
+        if not self._initialized:
+            self._initialized = True
+
+            super(RedisCache, self).__init__()
+            self._id = str(uuid.uuid4())[:8]
+            self.logger = logger
+            self.setup_logger(self.logger)
+            self.config_section = Sections.Cache
+            attrs = self.load_attributes()
+            if 'host' in attrs and attrs['host']:
+                self.host = attrs['host']
+            else:
+                self.host = 'localhost'
+            if 'port' in attrs and attrs['port']:
+                self.port = int(attrs['port'])
+            else:
+                self.port = 6379
+            self.cache = redis.Redis(host=self.host, port=self.port, db=0)
 
     def setup_logger(self, logger=None):
         """
