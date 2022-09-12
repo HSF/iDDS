@@ -881,7 +881,7 @@ class DomaPanDAWork(Work):
                         content['substatus'] = panda_status
                         update_content['content_metadata'] = content['content_metadata']
 
-                    update_contents.append(content)
+                    update_contents.append(update_content)
                     num_updated_contents += 1
                 else:
                     # num_unupdated_contents += 1
