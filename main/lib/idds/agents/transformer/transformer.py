@@ -486,6 +486,7 @@ class Transformer(BaseAgent):
             self.logger.info(log_pre + "handle_update_transform: %s" % transform)
             ret, is_terminated = self.handle_update_transform_real(transform, event)
             self.logger.info(log_pre + "handle_update_transform result: %s" % str(ret))
+            return ret, is_terminated
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
