@@ -909,7 +909,7 @@ class DomaPanDAWork(Work):
                     self.logger.debug(log_prefix + "poll_panda_task, task_info[0]: %s" % str(task_info[0]))
                     if task_info[0] != 0:
                         self.logger.warn(log_prefix + "poll_panda_task %s, error getting task status, task_info: %s" % (task_id, str(task_info)))
-                        return ProcessingStatus.Running, []
+                        return ProcessingStatus.Running, [], []
 
                     task_info = task_info[1]
 
