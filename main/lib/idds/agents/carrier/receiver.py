@@ -8,7 +8,6 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
 
-import json
 import time
 import traceback
 try:
@@ -21,9 +20,11 @@ except ImportError:
 from idds.common.constants import Sections
 from idds.common.exceptions import AgentPluginError, IDDSException
 from idds.common.utils import setup_logging
+from idds.common.utils import json_dumps
 from idds.core import messages as core_messages, catalog as core_catalog
 from idds.agents.common.baseagent import BaseAgent
-from idds.agents.common.eventbus.event import TerminatedProcessingEvent
+# from idds.agents.common.eventbus.event import TerminatedProcessingEvent
+from idds.agents.common.eventbus.event import UpdateProcessingEvent
 
 from .utils import handle_messages_processing
 
@@ -67,7 +68,7 @@ class Receiver(BaseAgent):
             while not self.message_queue.empty():
                 msg = self.message_queue.get(False)
                 if msg:
-                    self.logger.debug("Received message: %s" % str(msg))
+                    # self.logger.debug("Received message: %s" % str(msg))
                     msgs.append(msg)
         except Exception as error:
             self.logger.error("Failed to get output messages: %s, %s" % (error, traceback.format_exc()))
@@ -85,6 +86,8 @@ class Receiver(BaseAgent):
 
             self.add_health_message_task()
 
+            log_prefix = "<Message>"
+
             while not self.graceful_stop.is_set():
                 try:
                     time_start = time.time()
@@ -92,16 +95,18 @@ class Receiver(BaseAgent):
                     update_processings, update_contents, msgs = handle_messages_processing(output_messages)
 
                     if msgs:
-                        self.logger.debug("adding messages[:10]: %s" % json.dumps(msgs[:10]))
+                        # self.logger.debug(log_prefix + "adding messages[:3]: %s" % json_dumps(msgs[:3]))
                         core_messages.add_messages(msgs, bulk_size=self.bulk_message_size)
 
                     for pr_id, status in update_processings:
-                        self.logger.info("TerminatedProcessingEvent(processing_id: %s)" % pr_id)
-                        event = TerminatedProcessingEvent(publisher_id=self.id, processing_id=pr_id)
+                        # self.logger.info(log_prefix + "TerminatedProcessingEvent(processing_id: %s)" % pr_id)
+                        # event = TerminatedProcessingEvent(publisher_id=self.id, processing_id=pr_id)
+                        self.logger.info(log_prefix + "UpdateProcessingEvent(processing_id: %s)" % pr_id)
+                        event = UpdateProcessingEvent(publisher_id=self.id, processing_id=pr_id)
                         self.event_bus.send(event)
 
                     if update_contents:
-                        self.logger.info("update_contents[:10]: %s" % json.dumps(update_contents[:10]))
+                        self.logger.info(log_prefix + "update_contents[:3]: %s" % json_dumps(update_contents[:3]))
                         core_catalog.update_contents(update_contents)
 
                     time_delay = self.bulk_message_delay - (time.time() - time_start)

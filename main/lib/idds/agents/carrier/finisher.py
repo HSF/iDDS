@@ -18,6 +18,7 @@ from idds.agents.common.eventbus.event import (EventType,
 
 from .utils import (handle_abort_processing,
                     handle_resume_processing,
+                    is_process_terminated,
                     sync_processing)
 from .poller import Poller
 
@@ -148,6 +149,9 @@ class Finisher(Poller):
                     self.logger.info(log_pre + "process_terminated_processing")
                     ret = self.handle_terminated_processing(pr)
                     self.logger.info(log_pre + "process_terminated_processing result: %s" % str(ret))
+
+                    if pr['status'] == ProcessingStatus.Terminating and is_process_terminated(pr['substatus']):
+                        pr['status'] = pr['substatus']
 
                     self.update_processing(ret, pr)
                     self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
