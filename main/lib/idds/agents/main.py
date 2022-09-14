@@ -117,7 +117,7 @@ def stop(signum=None, frame=None):
     [thr.stop() for thr in RUNNING_AGENTS if thr and thr.is_alive()]
     stop_time = time.time()
     while len(RUNNING_AGENTS):
-        [thr.join(timeout=3.14) for thr in RUNNING_AGENTS if thr and thr.is_alive()]
+        [thr.join(timeout=1) for thr in RUNNING_AGENTS if thr and thr.is_alive()]
         RUNNING_AGENTS = [thr for thr in RUNNING_AGENTS if thr and thr.is_alive()]
         if time.time() > stop_time + 180:
             break
@@ -128,7 +128,7 @@ def stop(signum=None, frame=None):
     while len(RUNNING_AGENTS):
         logging.info("Still running agents: %s" % str(RUNNING_AGENTS))
         [thr.terminate() for thr in RUNNING_AGENTS if thr and thr.is_alive()]
-        [thr.join(timeout=3.14) for thr in RUNNING_AGENTS if thr and thr.is_alive()]
+        [thr.join(timeout=1) for thr in RUNNING_AGENTS if thr and thr.is_alive()]
         RUNNING_AGENTS = [thr for thr in RUNNING_AGENTS if thr and thr.is_alive()]
 
 
