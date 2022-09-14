@@ -17,6 +17,7 @@ from idds.common.constants import (ProcessingStatus,
                                    ContentStatus, ContentType,
                                    ContentRelationType,
                                    WorkStatus,
+                                   TransformType,
                                    TransformType2MessageTypeMap,
                                    MessageStatus, MessageSource,
                                    MessageDestination)
@@ -222,7 +223,12 @@ def get_message_type(work_type, input_type='file'):
 
 
 def generate_file_messages(request_id, transform_id, workload_id, work, files, relation_type):
-    i_msg_type, i_msg_type_str = get_message_type(work.get_work_type(), input_type='file')
+    if work:
+        work_type = work.get_work_type()
+    else:
+        work_type = TransformType.Processing
+
+    i_msg_type, i_msg_type_str = get_message_type(work_type, input_type='file')
     files_message = []
     for file in files:
         file_status = file['status'].name
@@ -385,7 +391,7 @@ def get_input_dependency_map_by_request(request_id, transform_id, workload_id, w
     collection_dependcy_map = cache.get(collection_dependcy_map_key, default=[])
 
     refresh = False
-    if transform_id and transform_id not in request_dependcy_maps:
+    if transform_id and str(transform_id) not in request_dependcy_maps:
         refresh = True
     elif work:
         output_collections = work.get_output_collections()
@@ -401,10 +407,12 @@ def get_input_dependency_map_by_request(request_id, transform_id, workload_id, w
         contents = core_catalog.get_contents_by_request_transform(request_id=request_id)
         # logger.debug("contents: ", contents)
         for content in contents:
-            if content['transform_id'] not in transform_dependcy_maps:
-                transform_dependcy_maps[content['transform_id']] = {}
-            if content['map_id'] not in transform_dependcy_maps[content['transform_id']]:
-                transform_dependcy_maps[content['transform_id']][content['map_id']] = {'inputs': [], 'outputs': [], 'input_deps': []}
+            str_tf_id = str(content['transform_id'])
+            str_map_id = str(content['map_id'])
+            if str_tf_id not in transform_dependcy_maps:
+                transform_dependcy_maps[str_tf_id] = {}
+            if str_map_id not in transform_dependcy_maps[str_tf_id]:
+                transform_dependcy_maps[str_tf_id][str_map_id] = {'inputs': [], 'outputs': [], 'input_deps': []}
 
             if content['content_relation_type'] == ContentRelationType.Output:
                 if content['coll_id'] not in content_output_name2id:
@@ -412,14 +420,14 @@ def get_input_dependency_map_by_request(request_id, transform_id, workload_id, w
                     collection_dependcy_map.append(content['coll_id'])
                 content_output_name2id[content['coll_id']][content['name']] = content
                 # content_id, status
-                transform_dependcy_maps[content['transform_id']][content['map_id']]['outputs'].append((content['content_id'], None))
+                transform_dependcy_maps[str_tf_id][str_map_id]['outputs'].append((content['content_id'], None))
             elif content['content_relation_type'] == ContentRelationType.InputDependency:
                 content_input_deps.append(content)
                 # content_id, status
-                transform_dependcy_maps[content['transform_id']][content['map_id']]['input_deps'].append((content['content_id'], None))
+                transform_dependcy_maps[str_tf_id][str_map_id]['input_deps'].append((content['content_id'], None))
             elif content['content_relation_type'] == ContentRelationType.Input:
                 # content_id, status
-                transform_dependcy_maps[content['transform_id']][content['map_id']]['inputs'].append((content['content_id'], None))
+                transform_dependcy_maps[str_tf_id][str_map_id]['inputs'].append((content['content_id'], None))
         # logger.debug("content_output_name2id: ", content_output_name2id)
 
         for content in content_input_deps:
@@ -429,7 +437,7 @@ def get_input_dependency_map_by_request(request_id, transform_id, workload_id, w
             else:
                 dep_content = content_output_name2id[dep_coll_id].get(content['name'], None)
                 if dep_content:
-                    dep_content_id = dep_content['content_id']
+                    dep_content_id = str(dep_content['content_id'])
                     if dep_content_id not in content_dependcy_map:
                         content_dependcy_map[dep_content_id] = []
                     content_dependcy_map[dep_content_id].append((content['content_id'], content['transform_id'], content['map_id']))
@@ -452,7 +460,7 @@ def set_input_dependency_map_by_request(request_id, content_dependcy_map=None, r
         content_dependcy_map_key = "request_content_dependcy_map_%s" % request_id
         cache.set(content_dependcy_map_key, content_dependcy_map)
     if request_dependcy_maps:
-        request_dependcy_maps_key = "request_content_dependcy_maps_%s" % request_id
+        request_dependcy_maps_key = "request_transform_dependcy_maps_%s" % request_id
         cache.set(request_dependcy_maps_key, request_dependcy_maps)
 
 
@@ -470,10 +478,13 @@ def trigger_release_inputs_no_deps(request_id, transform_id, workload_id, work, 
     update_content_ids = []
 
     # release jobs without inputs_dependency
-    if transform_id not in transform_dependency_maps:
+    # after reload from the cache, the key will be changed to string.
+    str_transform_id = str(transform_id)
+
+    if str_transform_id not in transform_dependency_maps:
         logger.warn(log_prefix + "transform_id %s not in transform_dependency_maps" % transform_id)
     else:
-        transform_dependency_map = transform_dependency_maps[transform_id]
+        transform_dependency_map = transform_dependency_maps[str_transform_id]
         for map_id in transform_dependency_map:
             inputs_dependency = transform_dependency_map[map_id]['input_deps']
             if len(inputs_dependency) == 0:
@@ -532,10 +543,10 @@ def trigger_release_inputs(request_id, transform_id, workload_id, work, updated_
     # 1. use the outputs to check input_dependency
     for content in updated_contents_full:
         if content['substatus'] in status_to_check:
-            content_id = content['content_id']
-            if content_id in content_depency_map:
+            str_content_id = str(content['content_id'])
+            if str_content_id in content_depency_map:
                 # t_contents are the contents to be triggered
-                t_contents = content_depency_map[content_id]
+                t_contents = content_depency_map[str_content_id]
                 for t_content in t_contents:
                     t_content_id, t_transform_id, t_map_id = t_content
                     # update the input_dependency
@@ -545,6 +556,9 @@ def trigger_release_inputs(request_id, transform_id, workload_id, work, updated_
                     # update_contents.append(u_content)
                     update_contents_dict[t_content_id] = u_content
                     update_contents_ids.append(t_content_id)
+
+                    t_transform_id = str(t_transform_id)
+                    t_map_id = str(t_map_id)
 
                     t_tf_map_id = (t_transform_id, t_map_id)
                     if t_tf_map_id not in triggered_map_ids:
@@ -616,6 +630,9 @@ def trigger_release_inputs(request_id, transform_id, workload_id, work, updated_
 def handle_update_processing(processing, agent_attributes, logger=None, log_prefix=''):
     logger = get_logger(logger)
 
+    ret_msgs = []
+    new_contents = []
+
     request_id = processing['request_id']
     transform_id = processing['transform_id']
     workload_id = processing['workload_id']
@@ -644,8 +661,6 @@ def handle_update_processing(processing, agent_attributes, logger=None, log_pref
     new_input_contents, new_output_contents, new_log_contents, new_input_dependency_contents = ret_new_contents
     new_contents = new_input_contents + new_output_contents + new_log_contents + new_input_dependency_contents
 
-    ret_msgs = []
-    new_contents = []
     if new_input_contents:
         msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='file',
                                  files=new_input_contents, relation_type='input')
@@ -684,6 +699,7 @@ def handle_update_processing(processing, agent_attributes, logger=None, log_pref
         logger.debug(log_prefix + "trigger_release_inputs: content_updates_trigger[:3] %s" % (content_updates_trigger[:3]))
         # logger.debug(log_prefix + "trigger_release_inputs: updated_input_contents[:5] %s" % (updated_input_contents[:5]))
 
+        content_updates = content_updates + content_updates_trigger
         if updated_input_contents:
             for trigger_tf_id in updated_input_contents:
                 logger.debug(log_prefix + "trigger_release_inputs: updated_input_contents[%s][:3] %s" % (trigger_tf_id,
@@ -694,7 +710,6 @@ def handle_update_processing(processing, agent_attributes, logger=None, log_pref
                 msgs = generate_messages(trigger_req_id, trigger_tf_id, trigger_workload_id, work, msg_type='file',
                                          files=updated_input_contents[trigger_tf_id], relation_type='input')
                 ret_msgs = ret_msgs + msgs
-        content_updates = content_updates + content_updates_trigger
 
     return process_status, new_contents, ret_msgs, content_updates
 
@@ -778,14 +793,14 @@ def get_workload_id_transform_id_map(workload_id):
 
 def get_input_name_content_id_map(request_id, workload_id, transform_id):
     cache = get_redis_cache()
-    input_name_content_id_map_key = "tf_input_contentid_map_%s" % transform_id
-    input_name_content_id_map = cache.get(input_name_content_id_map_key)
+    input_name_content_id_map_key = "transform_input_contentid_map_%s" % transform_id
+    input_name_content_id_map = cache.get(input_name_content_id_map_key, default={})
 
     if not input_name_content_id_map:
         contents = core_catalog.get_contents_by_request_transform(request_id=request_id, transform_id=transform_id)
         input_name_content_id_map = {}
         for content in contents:
-            if content['content_relation_type'] == ContentRelationType.Input:
+            if content['content_relation_type'] == ContentRelationType.Output:
                 input_name_content_id_map[content['name']] = content['content_id']
 
         cache.set(input_name_content_id_map_key, input_name_content_id_map)
@@ -794,10 +809,11 @@ def get_input_name_content_id_map(request_id, workload_id, transform_id):
 
 def get_jobid_content_id_map(request_id, workload_id, transform_id, job_id, inputs):
     cache = get_redis_cache()
-    jobid_content_id_map_key = "tf_jobid_contentid_map_%s" % transform_id
-    jobid_content_id_map = cache.get(jobid_content_id_map_key)
+    jobid_content_id_map_key = "transform_jobid_contentid_map_%s" % transform_id
+    jobid_content_id_map = cache.get(jobid_content_id_map_key, default={})
 
     to_update_jobid = False
+    job_id = str(job_id)
     if not jobid_content_id_map or job_id not in jobid_content_id_map:
         to_update_jobid = True
         input_name_content_id_map = get_input_name_content_id_map(request_id, workload_id, transform_id)
@@ -817,51 +833,51 @@ def get_jobid_content_id_map(request_id, workload_id, transform_id, job_id, inpu
 def get_content_id_from_job_id(request_id, workload_id, transform_id, job_id, inputs):
     jobid_content_id_map, to_update_jobid = get_jobid_content_id_map(request_id, workload_id, transform_id, job_id, inputs)
 
-    if job_id in jobid_content_id_map:
-        content_id = jobid_content_id_map[job_id]
+    if str(job_id) in jobid_content_id_map:
+        content_id = jobid_content_id_map[str(job_id)]
     else:
         content_id = None
     return content_id, to_update_jobid
 
 
 def handle_messages_processing(messages):
+    logger = get_logger()
+    log_prefix = "<Message>"
+
     new_processings = []
     update_processings = []
     update_contents = []
     request_update_contents = {}
 
-    for msg in messages:
-        msg = json.loads(msg)
+    for ori_msg in messages:
+        msg = json.loads(ori_msg)
+        if 'taskid' not in msg or not msg['taskid']:
+            continue
+
+        workload_id = msg['taskid']
+        ret_req_tf_pr_id = get_workload_id_transform_id_map(workload_id)
+        if not ret_req_tf_pr_id:
+            # request is submitted by some other instances
+            continue
+
+        logger.debug(log_prefix + "Received message: %s" % str(ori_msg))
+
         if msg['msg_type'] in ['task_status']:
             workload_id = msg['taskid']
             status = msg['status']
-            if status in ['defined']:   # 'prepared'
-                ret_req_tf_pr_id = get_workload_id_transform_id_map(workload_id)
-                if not ret_req_tf_pr_id:
-                    # request is submitted by some other instances
-                    pass
-                else:
-                    req_id, tf_id, processing_id = ret_req_tf_pr_id
-                    new_processings.append((req_id, tf_id, processing_id, workload_id, status))
+            if status in ['pending']:   # 'prepared'
+                req_id, tf_id, processing_id = ret_req_tf_pr_id
+                new_processings.append((req_id, tf_id, processing_id, workload_id, status))
             elif status in ['finished', 'done']:
-                ret_req_tf_pr_id = get_workload_id_transform_id_map(workload_id)
-                if not ret_req_tf_pr_id:
-                    # request is submitted by some other instances
-                    pass
-                else:
-                    req_id, tf_id, processing_id = ret_req_tf_pr_id
-                    update_processings.append((processing_id, status))
+                req_id, tf_id, processing_id = ret_req_tf_pr_id
+                update_processings.append((processing_id, status))
 
         if msg['msg_type'] in ['job_status']:
             workload_id = msg['taskid']
             job_id = msg['jobid']
             status = msg['status']
             inputs = msg['inputs']
-            ret_req_tf_pr_id = get_workload_id_transform_id_map(workload_id)
-            if not ret_req_tf_pr_id:
-                # request is submitted by some other instances
-                pass
-            else:
+            if inputs and status in ['finished']:
                 req_id, tf_id, processing_id = ret_req_tf_pr_id
                 content_id, to_update_jobid = get_content_id_from_job_id(req_id, workload_id, tf_id, job_id, inputs)
                 if content_id:
@@ -885,23 +901,37 @@ def handle_messages_processing(messages):
     content_updates_trigger_no_deps = []
     for new_processing in new_processings:
         req_id, tf_id, processing_id, workload_id, status = new_processing
-        content_updates_trigger_no_dep, updated_input_contents_no_dep = trigger_release_inputs_no_deps(req_id, tf_id, workload_id, work)
+        content_updates_trigger_no_dep, updated_input_contents_no_dep = trigger_release_inputs_no_deps(req_id, tf_id, workload_id, work, log_prefix=log_prefix)
         content_updates_trigger_no_deps += content_updates_trigger_no_dep
         if updated_input_contents_no_dep:
-            msgs_no_dep = generate_messages(req_id, tf_id, workload_id, work, msg_type='file',
-                                            files=updated_input_contents_no_dep, relation_type='input')
-            msgs_no_deps += msgs_no_dep
+            for trigger_tf_id in updated_input_contents_no_dep:
+                logger.debug(log_prefix + "trigger_release_inputs_no_deps: updated_input_contents_no_dep[%s][:3] %s" % (trigger_tf_id,
+                                                                                                                        updated_input_contents_no_dep[trigger_tf_id][:3]))
+                trigger_req_id = updated_input_contents_no_dep[trigger_tf_id][0]['request_id']
+                trigger_workload_id = updated_input_contents_no_dep[trigger_tf_id][0]['workload_id']
+
+                msgs_no_dep = generate_messages(trigger_req_id, trigger_tf_id, trigger_workload_id, work, msg_type='file',
+                                                files=updated_input_contents_no_dep[trigger_tf_id], relation_type='input')
+                msgs_no_deps += msgs_no_dep
 
     msgs = []
     content_updates_triggers = []
     for req_id in request_update_contents:
-        content_updates_trigger, updated_input_contents = trigger_release_inputs(req_id, tf_id=None, workload_id=None, work=None,
-                                                                                 updated_contents_full=request_update_contents[req_id])
+        content_updates_trigger, updated_input_contents = trigger_release_inputs(req_id, transform_id=None, workload_id=None, work=None,
+                                                                                 updated_contents_full=request_update_contents[req_id],
+                                                                                 log_prefix=log_prefix)
         content_updates_triggers += content_updates_trigger
         if updated_input_contents:
-            msg = generate_messages(req_id, tf_id, workload_id, work, msg_type='file',
-                                    files=updated_input_contents, relation_type='input')
-            msgs += msg
+            for trigger_tf_id in updated_input_contents:
+                logger.debug(log_prefix + "trigger_release_inputs: updated_input_contents[%s][:3] %s" % (trigger_tf_id,
+                                                                                                         updated_input_contents[trigger_tf_id][:3]))
+                trigger_req_id = updated_input_contents[trigger_tf_id][0]['request_id']
+                trigger_workload_id = updated_input_contents[trigger_tf_id][0]['workload_id']
+
+                msg = generate_messages(trigger_req_id, trigger_tf_id, trigger_workload_id, work, msg_type='file',
+                                        files=updated_input_contents[trigger_tf_id], relation_type='input')
+                msgs += msg
+
     return update_processings, update_contents + content_updates_triggers + content_updates_trigger_no_deps, msgs + msgs_no_deps
 
 
