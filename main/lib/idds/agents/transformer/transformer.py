@@ -401,7 +401,8 @@ class Transformer(BaseAgent):
 
         is_terminated = False
         to_abort = False
-        if event and event._content and event._content['cmd_type'] and event._content['cmd_type'] in [CommandType.AbortRequest, CommandType.ExpireRequest]:
+        if (event and event._content and 'cmd_type' in event._content and event._content['cmd_type']
+            and event._content['cmd_type'] in [CommandType.AbortRequest, CommandType.ExpireRequest]):      # noqa W503
             to_abort = True
             self.logger.info(log_pre + "to_abort %s" % to_abort)
 
@@ -533,7 +534,7 @@ class Transformer(BaseAgent):
                     ret, is_terminated = self.handle_update_transform(tf, event)
                     new_pr_ids, update_pr_ids = self.update_transform(ret)
 
-                    if is_terminated:
+                    if is_terminated or (event._content and 'event' in event._content and event._content['event'] == 'submitted'):
                         self.logger.info(log_pre + "UpdateRequestEvent(request_id: %s)" % tf['request_id'])
                         event = UpdateRequestEvent(publisher_id=self.id, request_id=tf['request_id'], content=event._content)
                         self.event_bus.send(event)

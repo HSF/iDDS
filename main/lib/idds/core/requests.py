@@ -93,7 +93,7 @@ def add_request(scope=None, name=None, requester=None, request_type=None,
 
     :returns: request id.
     """
-    if workload_id is None and request_metadata and 'workload_id' in request_metadata:
+    if workload_id is None and request_metadata and 'workload_id' in request_metadata and request_metadata['workload_id']:
         workload_id = int(request_metadata['workload_id'])
     # request_metadata = convert_request_metadata_to_workflow(scope, name, workload_id, request_type, request_metadata)
 

@@ -465,12 +465,14 @@ class Clerk(BaseAgent):
 
         to_abort = False
         to_abort_transform_id = None
-        if event and event._content and event._content['cmd_type'] and event._content['cmd_type'] in [CommandType.AbortRequest, CommandType.ExpireRequest]:
+        if (event and event._content and 'cmd_type' in event._content and event._content['cmd_type']
+            and event._content['cmd_type'] in [CommandType.AbortRequest, CommandType.ExpireRequest]):    # noqa W503
             to_abort = True
             self.logger.info(log_pre + "to_abort: %s" % to_abort)
-        if event and event._content and event._content['cmd_content'] and 'transform_id' in event._content['cmd_content']:
-            to_abort_transform_id = event._content['cmd_content']['transform_id']
-            self.logger.info(log_pre + "to_abort_transform_id: %s" % to_abort_transform_id)
+            if (event and event._content and 'cmd_content' in event._content and event._content['cmd_content']
+                and 'transform_id' in event._content['cmd_content']):                                    # noqa W503
+                to_abort_transform_id = event._content['cmd_content']['transform_id']
+                self.logger.info(log_pre + "to_abort_transform_id: %s" % to_abort_transform_id)
 
         if to_abort and not to_abort_transform_id:
             wf.to_cancel = True
@@ -485,7 +487,7 @@ class Clerk(BaseAgent):
                 transform_work = tf['transform_metadata']['work']
                 # work_status = WorkStatus(tf['status'].value)
                 # work.set_status(work_status)
-                work.sync_work_data(status=tf['status'], substatus=tf['substatus'], work=transform_work)
+                work.sync_work_data(status=tf['status'], substatus=tf['substatus'], work=transform_work, workload_id=tf['workload_id'])
                 self.logger.info(log_pre + "transform status: %s, work status: %s" % (tf['status'], work.status))
         wf.refresh_works()
 
@@ -610,14 +612,17 @@ class Clerk(BaseAgent):
         try:
             log_pre = self.get_log_prefix(req)
             self.logger.info(log_pre + "handle_abort_request event: %s" % str(event))
+
             to_abort = False
             to_abort_transform_id = None
-            if event and event._content and event._content['cmd_type'] and event._content['cmd_type'] in [CommandType.AbortRequest, CommandType.ExpireRequest]:
+            if (event and event._content and 'cmd_type' in event._content and event._content['cmd_type']
+                and event._content['cmd_type'] in [CommandType.AbortRequest, CommandType.ExpireRequest]):    # noqa W503
                 to_abort = True
                 self.logger.info(log_pre + "to_abort: %s" % to_abort)
-            if event and event._content and event._content['cmd_content'] and 'transform_id' in event._content['cmd_content']:
-                to_abort_transform_id = event._content['cmd_content']['transform_id']
-                self.logger.info(log_pre + "to_abort_transform_id: %s" % to_abort_transform_id)
+                if (event and event._content and 'cmd_content' in event._content and event._content['cmd_content']
+                    and 'transform_id' in event._content['cmd_content']):                                    # noqa W503
+                    to_abort_transform_id = event._content['cmd_content']['transform_id']
+                    self.logger.info(log_pre + "to_abort_transform_id: %s" % to_abort_transform_id)
 
             if to_abort and to_abort_transform_id:
                 req_status = req['status']

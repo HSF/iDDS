@@ -15,7 +15,8 @@ from idds.common.constants import ProcessingStatus, ProcessingLocking
 from idds.common.utils import setup_logging, truncate_string
 from idds.core import processings as core_processings
 from idds.agents.common.eventbus.event import (EventType,
-                                               NewProcessingEvent)
+                                               NewProcessingEvent,
+                                               UpdateTransformEvent)
 
 from .utils import handle_new_processing
 from .poller import Poller
@@ -146,6 +147,11 @@ class Submitter(Poller):
                     # self.logger.info(log_pre + "process_new_processing result: %s" % str(ret))
 
                     self.update_processing(ret, pr)
+
+                    self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
+                    submit_event_content = {'event': 'submitted'}
+                    event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'], content=submit_event_content)
+                    self.event_bus.send(event)
 
                     # self.logger.info(log_pre + "SyncProcessingEvent(processing_id: %s)" % pr['processing_id'])
                     # event = SyncProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'])

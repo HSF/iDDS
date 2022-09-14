@@ -476,7 +476,7 @@ class DomaPanDAWork(Work):
 
             proc = processing['processing_metadata']['processing']
             task_param = proc.processing_metadata['task_param']
-            return_code = Client.insertTaskParams(task_param, verbose=True)
+            return_code = Client.insertTaskParams(task_param, verbose=True, parent_tid=self.parent_workload_id)
             if return_code[0] == 0 and return_code[1][0] is True:
                 try:
                     task_id = int(return_code[1][1])
