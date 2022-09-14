@@ -76,6 +76,8 @@ class ATLASPandaWork(Work):
         self.parse_task_parameters(task_parameters)
         # self.logger.setLevel(logging.DEBUG)
 
+        self.logger = self.get_logger()
+
         self.retry_number = 0
         self.num_retries = num_retries
 

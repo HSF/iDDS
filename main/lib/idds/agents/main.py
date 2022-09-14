@@ -32,6 +32,7 @@ AGENTS = {
     'marshaller': ['idds.agents.marshaller.marshaller.Marshaller', Sections.Marshaller],
     'transformer': ['idds.agents.transformer.transformer.Transformer', Sections.Transformer],
     'transporter': ['idds.agents.transporter.transporter.Transporter', Sections.Transporter],
+    'submitter': ['idds.agents.carrier.submitter.Submitter', Sections.Carrier],
     'poller': ['idds.agents.carrier.poller.Poller', Sections.Carrier],
     'receiver': ['idds.agents.carrier.receiver.Receiver', Sections.Carrier],
     'finisher': ['idds.agents.carrier.finisher.Finisher', Sections.Carrier],
@@ -125,6 +126,8 @@ def stop(signum=None, frame=None):
     [thr.terminate() for thr in RUNNING_AGENTS if thr and thr.is_alive()]
 
     while len(RUNNING_AGENTS):
+        logging.info("Still running agents: %s" % str(RUNNING_AGENTS))
+        [thr.terminate() for thr in RUNNING_AGENTS if thr and thr.is_alive()]
         [thr.join(timeout=3.14) for thr in RUNNING_AGENTS if thr and thr.is_alive()]
         RUNNING_AGENTS = [thr for thr in RUNNING_AGENTS if thr and thr.is_alive()]
 
