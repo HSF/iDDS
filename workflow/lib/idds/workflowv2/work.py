@@ -688,6 +688,14 @@ class Work(Base):
         self.add_metadata_item('work_id', value)
 
     @property
+    def parent_workload_id(self):
+        return self.get_metadata_item('parent_workload_id', None)
+
+    @parent_workload_id.setter
+    def parent_workload_id(self, value):
+        self.add_metadata_item('parent_workload_id', value)
+
+    @property
     def transforming(self):
         return self.get_metadata_item('transforming', False)
 
@@ -2098,7 +2106,7 @@ class Work(Base):
             self.started = True
         self.logger.debug("syn_work_status(%s): work.status: %s" % (str(self.get_processing_ids()), str(self.status)))
 
-    def sync_work_data(self, status, substatus, work):
+    def sync_work_data(self, status, substatus, work, workload_id=None):
         # self.status = work.status
         work.work_id = self.work_id
         work.transforming = self.transforming
@@ -2115,6 +2123,8 @@ class Work(Base):
 
         self.status = get_work_status_from_transform_processing_status(status)
         self.substatus = get_work_status_from_transform_processing_status(substatus)
+        if workload_id:
+            self.workload_id = workload_id
 
         """
         self.status = WorkStatus(status.value)
