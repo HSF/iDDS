@@ -591,6 +591,11 @@ class Work(Base):
             self._running_data_names.append(name)
         """
 
+    def get_logger(self):
+        if self.logger is None:
+            self.logger = self.setup_logger()
+        return self.logger
+
     def get_class_name(self):
         return self.__class__.__name__
 
@@ -1154,6 +1159,7 @@ class Work(Base):
         Setup logger
         """
         self.logger = logging.getLogger(self.get_class_name())
+        return self.logger
 
     def add_errors(self, error):
         self.errors.append(error)

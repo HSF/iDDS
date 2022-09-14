@@ -340,7 +340,9 @@ def get_collections_by_request_ids(request_ids, session=None):
         rets = []
         if tmp:
             for t in tmp:
-                rets.append(t.to_dict())
+                # rets.append(t.to_dict())
+                t2 = dict(zip(t.keys(), t))
+                rets.append(t2)
         return rets
     except Exception as error:
         raise error
