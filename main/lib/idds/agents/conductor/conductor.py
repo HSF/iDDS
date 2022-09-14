@@ -34,7 +34,7 @@ class Conductor(BaseAgent):
     """
 
     def __init__(self, num_threads=1, retrieve_bulk_size=1000, threshold_to_release_messages=None,
-                 random_delay=None, delay=300, **kwargs):
+                 random_delay=None, delay=60, **kwargs):
         super(Conductor, self).__init__(num_threads=num_threads, name='Conductor', **kwargs)
         self.config_section = Sections.Conductor
         self.retrieve_bulk_size = int(retrieve_bulk_size)
@@ -69,14 +69,22 @@ class Conductor(BaseAgent):
         if messages:
             self.logger.info("Main thread get %s new messages" % len(messages))
 
-        messages_d = core_messages.retrieve_messages(status=MessageStatus.Delivered,
-                                                     retries=1, delay=self.delay,
-                                                     bulk_size=self.retrieve_bulk_size,
-                                                     destination=MessageDestination.Outside)
-        if messages_d:
-            self.logger.info("Main thread get %s retries messages" % len(messages_d))
+        retry_messages = []
+        for retry in range(1, 2):
+            if retry == 1:
+                delay = self.delay * 5
+            else:
+                delay = int(self.delay * 2.5)
 
-        return messages + messages_d
+            messages_d = core_messages.retrieve_messages(status=MessageStatus.Delivered,
+                                                         retries=retry, delay=delay,
+                                                         bulk_size=self.retrieve_bulk_size,
+                                                         destination=MessageDestination.Outside)
+            if messages_d:
+                self.logger.info("Main thread get %s retries messages" % len(messages_d))
+                retry_messages += messages_d
+
+        return messages + retry_messages
 
     def clean_messages(self, msgs):
         # core_messages.delete_messages(msgs)
@@ -123,7 +131,7 @@ class Conductor(BaseAgent):
 
             self.start_notifier()
 
-            self.add_health_message_task()
+            # self.add_health_message_task()
 
             while not self.graceful_stop.is_set():
                 # execute timer task
