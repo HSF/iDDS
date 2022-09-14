@@ -438,6 +438,7 @@ class DomaPanDAWork(Work):
             task_param_map['transPath'] = 'https://storage.googleapis.com/drp-us-central1-containers/bash-c'
         task_param_map['processingType'] = self.processingType
         task_param_map['prodSourceLabel'] = self.prodSourceLabel
+        task_param_map['noWaitParent'] = True
         task_param_map['taskType'] = self.task_type
         task_param_map['coreCount'] = self.core_count
         task_param_map['skipScout'] = True
