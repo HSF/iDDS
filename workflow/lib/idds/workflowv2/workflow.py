@@ -13,7 +13,6 @@ import datetime
 import logging
 import inspect
 import random
-import time
 import uuid
 
 
@@ -615,7 +614,8 @@ class WorkflowBase(Base):
             self._name = 'idds.workflow.' + datetime.datetime.utcnow().strftime("%Y_%m_%d_%H_%M_%S_%f") + str(random.randint(1, 1000))
 
         if workload_id is None:
-            workload_id = int(time.time())
+            # workload_id = int(time.time())
+            pass
         self.workload_id = workload_id
 
         self.logger = logger
@@ -930,6 +930,14 @@ class WorkflowBase(Base):
         self.add_metadata_item('first_initial', value)
 
     @property
+    def to_start_works(self):
+        return self.get_metadata_item('to_start_works', [])
+
+    @to_start_works.setter
+    def to_start_works(self, value):
+        self.add_metadata_item('to_start_works', value)
+
+    @property
     def new_to_run_works(self):
         return self.get_metadata_item('new_to_run_works', [])
 
@@ -1096,6 +1104,8 @@ class WorkflowBase(Base):
         # 1. initialize works
         # template_id = work.get_template_id()
         work = self.works[work_id]
+        work.workload_id = None
+
         if isinstance(work, Workflow):
             work.sync_works(to_cancel=self.to_cancel)
 
@@ -1119,6 +1129,11 @@ class WorkflowBase(Base):
             work.initialize_work()
             work.sync_global_parameters(self.global_parameters)
             work.renew_parameters_from_attributes()
+            if work.parent_workload_id is None and self.num_total_works > 0:
+                last_work_id = self.work_sequence[str(self.num_total_works - 1)]
+                last_work = self.works[last_work_id]
+                work.parent_workload_id = last_work.workload_id
+                last_work.add_next_work(work.get_internal_id())
             works = self.works
             self.works = works
             # self.work_sequence.append(new_work.get_internal_id())
@@ -1320,6 +1335,7 @@ class WorkflowBase(Base):
                 # parameters = self.get_destination_parameters(next_work.get_internal_id())
                 new_next_work = self.get_new_work_to_run(next_work.get_internal_id())
                 work.add_next_work(new_next_work.get_internal_id())
+                new_next_work.parent_workload_id = work.workload_id
                 # cond.add_condition_work(new_next_work)   ####### TODO:
                 new_next_works.append(new_next_work)
             return new_next_works
@@ -1349,8 +1365,22 @@ class WorkflowBase(Base):
 
         new works to be ready to start
         """
+        if self.to_cancel:
+            return []
+
         self.sync_works(to_cancel=self.to_cancel)
         works = []
+
+        if self.to_start_works:
+            init_works = self.init_works
+            to_start_works = self.to_start_works
+            work_id = to_start_works.pop(0)
+            self.to_start_works = to_start_works
+            self.get_new_work_to_run(work_id)
+            if not init_works:
+                init_works.append(work_id)
+                self.init_works = init_works
+
         for k in self.new_to_run_works:
             if isinstance(self.works[k], Work):
                 self.works[k] = self.get_new_parameters_for_work(self.works[k])
@@ -1501,11 +1531,10 @@ class WorkflowBase(Base):
                 tostart_works = list(self.get_works().keys())
                 tostart_works = [tostart_works[0]]
 
-            init_works = []
+            to_start_works = self.to_start_works
             for work_id in tostart_works:
-                self.get_new_work_to_run(work_id)
-                init_works.append(work_id)
-            self.init_works = init_works
+                to_start_works.append(work_id)
+            self.to_start_works = to_start_works
             self.log_debug("first initialized")
 
     def sync_works(self, to_cancel=False):
@@ -1985,13 +2014,15 @@ class Workflow(Base):
     @property
     def num_run(self):
         if self.parent_num_run:
-            return self.parent_num_run * 100 + self._num_run
+            # return self.parent_num_run * 100 + self._num_run
+            pass
         return self._num_run
 
     @num_run.setter
     def num_run(self, value):
         if self.parent_num_run:
-            self._num_run = value - self.parent_num_run * 100
+            # self._num_run = value - self.parent_num_run * 100
+            self._num_run = value
         else:
             self._num_run = value
 
@@ -2007,6 +2038,7 @@ class Workflow(Base):
             self._num_run = 1
         if str(self.num_run) not in self.runs:
             self.runs[str(self.num_run)] = self.template.copy()
+            self.runs[str(self.num_run)].num_run = self.num_run
             if self.runs[str(self.num_run)].has_loop_condition():
                 self.runs[str(self.num_run)].num_run = self.num_run
                 if self._num_run > 1:
@@ -2178,8 +2210,9 @@ class Workflow(Base):
             self._num_run = 1
         if str(self.num_run) not in self.runs:
             self.runs[str(self.num_run)] = self.template.copy()
+            self.runs[str(self.num_run)].num_run = self.num_run
             if self.runs[str(self.num_run)].has_loop_condition():
-                self.runs[str(self.num_run)].num_run = self._num_run
+                self.runs[str(self.num_run)].num_run = self.num_run
                 if self._num_run > 1:
                     p_metadata = self.runs[str(self.num_run - 1)].get_metadata_item('parameter_links')
                     self.runs[str(self.num_run)].add_metadata_item('parameter_links', p_metadata)
@@ -2196,7 +2229,7 @@ class Workflow(Base):
                         self._num_run += 1
                         self.runs[str(self.num_run)] = self.template.copy()
 
-                        self.runs[str(self.num_run)].num_run = self._num_run
+                        self.runs[str(self.num_run)].num_run = self.num_run
                         p_metadata = self.runs[str(self.num_run - 1)].get_metadata_item('parameter_links')
                         self.runs[str(self.num_run)].add_metadata_item('parameter_links', p_metadata)
 
