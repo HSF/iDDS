@@ -124,6 +124,8 @@ class ATLASHPOWork(ATLASCondorWork):
         if agent_attributes:
             self.set_agent_attributes(agent_attributes)
 
+        self.logger = self.get_logger()
+
     def set_agent_attributes(self, attrs, req_attributes=None):
         self.agent_attributes = attrs
 
@@ -191,7 +193,7 @@ class ATLASHPOWork(ATLASCondorWork):
             self.logger.error(traceback.format_exc())
             raise exceptions.IDDSException('%s: %s' % (str(ex), traceback.format_exc()))
 
-    def get_input_collections(self, poll_externel=True):
+    def get_input_collections(self, poll_externel=False):
         # return [self.primary_input_collection] + self.other_input_collections
         colls = [self._primary_input_collection] + self._other_input_collections
         for coll_int_id in colls:
@@ -667,7 +669,7 @@ class ATLASHPOWork(ATLASCondorWork):
             next_key = 1
 
         coll = self.collections[self._primary_input_collection]
-        new_input_output_maps = []
+        new_input_output_maps = {}
         loss = None
         for point in points:
             content = {'coll_id': coll.coll_id,
@@ -693,7 +695,7 @@ class ATLASHPOWork(ATLASCondorWork):
 
     def poll_processing_updates(self, processing, input_output_maps, log_prefix=''):
         proc = processing['processing_metadata']['processing']
-        new_input_output_maps = []
+        new_input_output_maps = {}
         updated_contents = []
         if proc.external_id:
             processing_status, processing_outputs, processing_err = self.poll_processing(processing)
@@ -701,23 +703,46 @@ class ATLASHPOWork(ATLASCondorWork):
             proc.errors = processing_err
 
             if processing_status in [ProcessingStatus.Finished]:
-                points = processing_outputs
-                new_input_output_maps = self.generate_new_input_output_maps(input_output_maps, points)
-                proc.old_external_id.append(proc.external_id)
                 proc.external_id = None
-                processing_status = ProcessingStatus.Running
-            elif processing_status in [ProcessingStatus.Failed, ProcessingStatus.Cancelled]:
-                proc.retries += 1
-                if proc.retries <= 10:
+                if processing_outputs:
+                    self.logger.info(log_prefix + "Processing finished with outputs")
+                    points = processing_outputs
+                    new_input_output_maps = self.generate_new_input_output_maps(input_output_maps, points)
+                    proc.old_external_id.append(proc.external_id)
                     processing_status = ProcessingStatus.Running
+                else:
+                    self.status = WorkStatus.Finished
+                    self.logger.info(log_prefix + "Processing finished and output is empty (output: %s)" % str(processing_outputs))
+            elif processing_status in [ProcessingStatus.Failed, ProcessingStatus.Cancelled]:
+                proc.external_id = None
+                proc.retries += 1
+                if proc.retries <= 3:
+                    self.logger.warn(log_prefix + "Processing terminated (status: %s, retries: %s), retries <=3, new status: %s" % (processing_status,
+                                                                                                                                    proc.retries,
+                                                                                                                                    ProcessingStatus.Running))
+                    processing_status = ProcessingStatus.Running
+                else:
+                    self.status = WorkStatus.Failed
+                    self.logger.warn(log_prefix + "Processing terminated (status: %s, retries: %s)" % (processing_status, proc.retries))
         else:
-            if self.max_points and (self.max_points - self.finished_points < self.num_points_per_iteration):
-                self.points_to_generate = self.max_points - self.finished_points
-            if self.points_to_generate <= 0:
-                processing_status = ProcessingStatus.Finished
-            else:
-                status, workload_id, error = self.submit_processing(processing)
+            unfinished_mapped = self.get_unfinished_points(input_output_maps)
+            self.unfinished_points = unfinished_mapped
+
+            if self.unfinished_points > 0:
                 processing_status = ProcessingStatus.Running
+            else:
+                self.logger.warn(log_prefix + "max_points: %s, finished_points: %s, unfinished_points: %s, num_points_per_iteration: %s" % (self.max_points,
+                                                                                                                                            self.finished_points,
+                                                                                                                                            self.unfinished_points,
+                                                                                                                                            self.num_points_per_iteration))
+                if self.max_points and (self.max_points - self.finished_points < self.num_points_per_iteration):
+                    self.points_to_generate = self.max_points - self.finished_points
+                if self.points_to_generate <= 0:
+                    processing_status = ProcessingStatus.Finished
+                    self.status = WorkStatus.Finished
+                else:
+                    status, workload_id, error = self.submit_processing(processing)
+                    processing_status = ProcessingStatus.Running
 
         return processing_status, updated_contents, new_input_output_maps, []
 
