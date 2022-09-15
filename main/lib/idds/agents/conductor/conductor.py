@@ -34,7 +34,7 @@ class Conductor(BaseAgent):
     """
 
     def __init__(self, num_threads=1, retrieve_bulk_size=1000, threshold_to_release_messages=None,
-                 random_delay=None, delay=60, **kwargs):
+                 random_delay=None, delay=60, replay_times=3, **kwargs):
         super(Conductor, self).__init__(num_threads=num_threads, name='Conductor', **kwargs)
         self.config_section = Sections.Conductor
         self.retrieve_bulk_size = int(retrieve_bulk_size)
@@ -51,8 +51,11 @@ class Conductor(BaseAgent):
             if self.random_delay < 5:
                 self.random_delay = 5
         if delay is None:
-            delay = 300
+            delay = 60
         self.delay = int(delay)
+        if replay_times is None:
+            replay_times = 3
+        self.replay_times = int(replay_times)
 
     def __del__(self):
         self.stop_notifier()
@@ -70,11 +73,8 @@ class Conductor(BaseAgent):
             self.logger.info("Main thread get %s new messages" % len(messages))
 
         retry_messages = []
-        for retry in range(1, 2):
-            if retry == 1:
-                delay = self.delay * 5
-            else:
-                delay = int(self.delay * 2.5)
+        for retry in range(1, self.replay_times + 1):
+            delay = int(self.delay) * (retry ** 3)
 
             messages_d = core_messages.retrieve_messages(status=MessageStatus.Delivered,
                                                          retries=retry, delay=delay,
