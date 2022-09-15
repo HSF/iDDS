@@ -643,19 +643,19 @@ def handle_update_processing(processing, agent_attributes, logger=None, log_pref
 
     input_output_maps = get_input_output_maps(transform_id, work)
     logger.debug(log_prefix + "get_input_output_maps: len: %s" % len(input_output_maps))
-    logger.debug(log_prefix + "get_input_output_maps.keys[:5]: %s" % str(list(input_output_maps.keys())[:5]))
+    logger.debug(log_prefix + "get_input_output_maps.keys[:3]: %s" % str(list(input_output_maps.keys())[:3]))
 
     new_input_output_maps = work.get_new_input_output_maps(input_output_maps)
     logger.debug(log_prefix + "get_new_input_output_maps: len: %s" % len(new_input_output_maps))
-    logger.debug(log_prefix + "get_new_input_output_maps.keys[:5]: %s" % str(list(new_input_output_maps.keys())[:5]))
+    logger.debug(log_prefix + "get_new_input_output_maps.keys[:3]: %s" % str(list(new_input_output_maps.keys())[:3]))
 
     ret_poll_processing = work.poll_processing_updates(processing, input_output_maps, log_prefix=log_prefix)
     process_status, content_updates, new_input_output_maps1, updated_contents_full, parameters = ret_poll_processing
     new_input_output_maps.update(new_input_output_maps1)
     logger.debug(log_prefix + "poll_processing_updates process_status: %s" % process_status)
-    logger.debug(log_prefix + "poll_processing_updates content_updates[:5]: %s" % content_updates[:5])
-    logger.debug(log_prefix + "poll_processing_updates new_input_output_maps1.keys[:5]: %s" % (list(new_input_output_maps1.keys())[:5]))
-    logger.debug(log_prefix + "poll_processing_updates updated_contents_full[:5]: %s" % (updated_contents_full[:5]))
+    logger.debug(log_prefix + "poll_processing_updates content_updates[:3]: %s" % content_updates[:3])
+    logger.debug(log_prefix + "poll_processing_updates new_input_output_maps1.keys[:3]: %s" % (list(new_input_output_maps1.keys())[:3]))
+    logger.debug(log_prefix + "poll_processing_updates updated_contents_full[:3]: %s" % (updated_contents_full[:3]))
 
     ret_new_contents = get_new_contents(request_id, transform_id, workload_id, new_input_output_maps)
     new_input_contents, new_output_contents, new_log_contents, new_input_dependency_contents = ret_new_contents
@@ -697,7 +697,7 @@ def handle_update_processing(processing, agent_attributes, logger=None, log_pref
         content_updates_trigger, updated_input_contents = trigger_release_inputs(request_id, transform_id, workload_id, work, updated_contents_full,
                                                                                  logger, log_prefix)
         logger.debug(log_prefix + "trigger_release_inputs: content_updates_trigger[:3] %s" % (content_updates_trigger[:3]))
-        # logger.debug(log_prefix + "trigger_release_inputs: updated_input_contents[:5] %s" % (updated_input_contents[:5]))
+        # logger.debug(log_prefix + "trigger_release_inputs: updated_input_contents[:3] %s" % (updated_input_contents[:3]))
 
         content_updates = content_updates + content_updates_trigger
         if updated_input_contents:
@@ -711,7 +711,7 @@ def handle_update_processing(processing, agent_attributes, logger=None, log_pref
                                          files=updated_input_contents[trigger_tf_id], relation_type='input')
                 ret_msgs = ret_msgs + msgs
 
-    return process_status, new_contents, ret_msgs, content_updates
+    return process_status, new_contents, ret_msgs, content_updates, parameters
 
 
 def get_content_status_from_panda_msg_status(status):

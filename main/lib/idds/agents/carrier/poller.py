@@ -217,10 +217,10 @@ class Poller(BaseAgent):
     def handle_update_processing(self, processing):
         try:
             log_prefix = self.get_log_prefix(processing)
-            process_status, new_contents, ret_msgs, update_contents = handle_update_processing(processing,
-                                                                                               self.agent_attributes,
-                                                                                               logger=self.logger,
-                                                                                               log_prefix=log_prefix)
+            process_status, new_contents, ret_msgs, update_contents, parameters = handle_update_processing(processing,
+                                                                                                           self.agent_attributes,
+                                                                                                           logger=self.logger,
+                                                                                                           log_prefix=log_prefix)
 
             new_process_status = process_status
             if is_process_terminated(process_status):
@@ -243,6 +243,11 @@ class Poller(BaseAgent):
 
             # update_processing['parameters']['expired_at'] = work.get_expired_at(processing)
             update_processing['parameters']['processing_metadata'] = processing['processing_metadata']
+
+            if parameters:
+                # special parameters such as 'output_metadata'
+                for p in parameters:
+                    update_processing['parameters'][p] = parameters[p]
 
             ret = {'update_processing': update_processing,
                    'update_contents': update_contents,
