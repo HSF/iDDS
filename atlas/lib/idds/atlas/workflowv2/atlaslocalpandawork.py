@@ -350,8 +350,6 @@ class ATLASLocalPandaWork(ATLASPandaWork):
             processing_status, poll_updated_contents, new_input_output_maps, output_metadata = self.poll_panda_task_output(processing=processing,
                                                                                                                            input_output_maps=input_output_maps,
                                                                                                                            log_prefix=log_prefix)
-            self.logger.debug(log_prefix + "poll_processing_updates, processing_status: %s" % str(processing_status))
-            self.logger.debug(log_prefix + "poll_processing_updates, update_contents: %s" % str(poll_updated_contents))
             self.logger.debug(log_prefix + "poll_processing_updates, output_metadata: %s" % str(output_metadata))
 
             if poll_updated_contents:
@@ -366,10 +364,6 @@ class ATLASLocalPandaWork(ATLASPandaWork):
             if output_metadata:
                 parameters = {'output_metadata': output_metadata}
 
-        self.logger.debug("poll_processing_updates, task: %s, processing_status: %s" %
-                          (proc.workload_id, str(processing_status)))
-        self.logger.debug("poll_processing_updates, task: %s, updated_contents: %s" %
-                          (proc.workload_id, str(updated_contents)))
         return processing_status, updated_contents, new_input_output_maps, update_contents_full, parameters
 
     def syn_work_status(self, registered_input_output_maps, all_updates_flushed=True, output_statistics={}, to_release_input_contents=[]):
