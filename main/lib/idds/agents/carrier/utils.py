@@ -650,7 +650,7 @@ def handle_update_processing(processing, agent_attributes, logger=None, log_pref
     logger.debug(log_prefix + "get_new_input_output_maps.keys[:5]: %s" % str(list(new_input_output_maps.keys())[:5]))
 
     ret_poll_processing = work.poll_processing_updates(processing, input_output_maps, log_prefix=log_prefix)
-    process_status, content_updates, new_input_output_maps1, updated_contents_full = ret_poll_processing
+    process_status, content_updates, new_input_output_maps1, updated_contents_full, parameters = ret_poll_processing
     new_input_output_maps.update(new_input_output_maps1)
     logger.debug(log_prefix + "poll_processing_updates process_status: %s" % process_status)
     logger.debug(log_prefix + "poll_processing_updates content_updates[:5]: %s" % content_updates[:5])

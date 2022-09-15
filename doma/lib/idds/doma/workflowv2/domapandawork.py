@@ -1017,10 +1017,6 @@ class DomaPanDAWork(Work):
 
             if update_contents:
                 proc.has_new_updates()
-        self.logger.debug(log_prefix + "poll_processing_updates, task: %s, processing_status: %s" %
-                          (proc.workload_id, str(processing_status)))
-        self.logger.debug(log_prefix + "poll_processing_updates, task: %s, updated_contents[:3]: %s" %
-                          (proc.workload_id, str(update_contents[:3])))
         return processing_status, update_contents, {}, update_contents_full, {}
 
     def get_status_statistics(self, registered_input_output_maps):
