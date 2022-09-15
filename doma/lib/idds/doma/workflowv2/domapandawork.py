@@ -938,8 +938,8 @@ class DomaPanDAWork(Work):
                     return ProcessingStatus.Running, [], []
         except Exception as ex:
             msg = "Failed to check the processing (%s) status: %s" % (str(processing['processing_id']), str(ex))
-            self.logger.error(msg)
-            self.logger.error(ex)
+            self.logger.error(log_prefix + msg)
+            self.logger.error(log_prefix + ex)
             self.logger.error(traceback.format_exc())
             # raise exceptions.IDDSException(msg)
         return ProcessingStatus.Running, [], []
@@ -1021,7 +1021,7 @@ class DomaPanDAWork(Work):
                           (proc.workload_id, str(processing_status)))
         self.logger.debug(log_prefix + "poll_processing_updates, task: %s, updated_contents[:3]: %s" %
                           (proc.workload_id, str(update_contents[:3])))
-        return processing_status, update_contents, {}, update_contents_full
+        return processing_status, update_contents, {}, update_contents_full, {}
 
     def get_status_statistics(self, registered_input_output_maps):
         status_statistics = {}
@@ -1054,24 +1054,26 @@ class DomaPanDAWork(Work):
         self.logger.debug("syn_work_status(%s): has_to_release_inputs: %s" % (str(self.get_processing_ids()), str(self.has_to_release_inputs())))
         self.logger.debug("syn_work_status(%s): to_release_input_contents: %s" % (str(self.get_processing_ids()), str(to_release_input_contents)))
 
-        if self.is_processings_terminated() and self.is_input_collections_closed() and not self.has_new_inputs and not self.has_to_release_inputs() and not to_release_input_contents:
+        # if self.is_processings_terminated() and self.is_input_collections_closed() and not self.has_new_inputs and not self.has_to_release_inputs() and not to_release_input_contents:
+        if self.is_processings_terminated():
             # if not self.is_all_outputs_flushed(registered_input_output_maps):
             if not all_updates_flushed:
                 self.logger.warn("The work processings %s is terminated. but not all outputs are flushed. Wait to flush the outputs then finish the transform" % str(self.get_processing_ids()))
                 return
 
-            keys = self.status_statistics.keys()
-            if len(keys) == 1:
-                if ContentStatus.Available.name in keys:
-                    self.status = WorkStatus.Finished
-                else:
-                    self.status = WorkStatus.Failed
-            else:
+            if self.is_processings_finished():
+                self.status = WorkStatus.Finished
+            elif self.is_processings_subfinished():
                 self.status = WorkStatus.SubFinished
+            elif self.is_processings_failed():
+                self.status = WorkStatus.Failed
+            elif self.is_processings_expired():
+                self.status = WorkStatus.Expired
+            elif self.is_processings_cancelled():
+                self.status = WorkStatus.Cancelled
+            elif self.is_processings_suspended():
+                self.status = WorkStatus.Suspended
         elif self.is_processings_running():
             self.status = WorkStatus.Running
         else:
             self.status = WorkStatus.Transforming
-
-        if self.is_processings_started():
-            self.started = True

@@ -744,7 +744,7 @@ class ATLASHPOWork(ATLASCondorWork):
                     status, workload_id, error = self.submit_processing(processing)
                     processing_status = ProcessingStatus.Running
 
-        return processing_status, updated_contents, new_input_output_maps, []
+        return processing_status, updated_contents, new_input_output_maps, [], {}
 
     def abort_processing(self, processing, log_prefix=''):
         self.logger.info(log_prefix + "abort processing")

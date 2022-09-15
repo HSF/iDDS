@@ -367,16 +367,16 @@ class ATLASStageinWork(DataWork):
                 proc = processing['processing_metadata']['processing']
                 proc.has_new_updates()
 
-            return processing_status, updated_contents, {}, updated_contents_full
+            return processing_status, updated_contents, {}, updated_contents_full, {}
         except exceptions.ProcessNotFound as ex:
             self.logger.warn("processing_id %s not not found: %s" % (processing['processing_id'], str(ex)))
             processing_status = ProcessingStatus.Failed
-            return processing_status, [], {}, []
+            return processing_status, [], {}, [], {}
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
 
-        return ProcessingStatus.Running, [], {}, []
+        return ProcessingStatus.Running, [], {}, [], {}
 
     def get_status_statistics(self, registered_input_output_maps):
         status_statistics = {}

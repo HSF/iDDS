@@ -18,8 +18,7 @@ import traceback
 from rucio.common.exception import (CannotAuthenticate as RucioCannotAuthenticate)
 
 from idds.common import exceptions
-from idds.common.constants import (ContentStatus,
-                                   ProcessingStatus, WorkStatus)
+from idds.common.constants import (ProcessingStatus, WorkStatus)
 from idds.common.utils import extract_scope_atlas
 # from idds.workflowv2.work import Work, Processing
 # from idds.workflowv2.workflow import Condition
@@ -293,7 +292,7 @@ class ATLASLocalPandaWork(ATLASPandaWork):
             raise exceptions.IDDSException('%s: %s' % (str(error), traceback.format_exc()))
         return client
 
-    def poll_panda_task_output(self, processing=None, input_output_maps=None):
+    def poll_panda_task_output(self, processing=None, input_output_maps=None, log_prefix=''):
         task_id = None
         try:
             from pandaclient import Client
@@ -308,25 +307,20 @@ class ATLASLocalPandaWork(ATLASPandaWork):
                 if task_id:
                     # ret_ids = Client.getPandaIDsWithTaskID(task_id, verbose=False)
                     task_info = Client.getJediTaskDetails({'jediTaskID': task_id}, True, True, verbose=False)
-                    self.logger.info("poll_panda_task, task_info: %s" % str(task_info))
+                    self.logger.info(log_prefix + "poll_panda_task, task_info: %s" % str(task_info))
                     if task_info[0] != 0:
-                        self.logger.warn("poll_panda_task %s, error getting task status, task_info: %s" % (task_id, str(task_info)))
-                        return ProcessingStatus.Submitting, [], {}
+                        self.logger.warn(log_prefix + "poll_panda_task %s, error getting task status, task_info: %s" % (task_id, str(task_info)))
+                        return ProcessingStatus.Submitting, [], {}, {}
 
                     task_info = task_info[1]
 
                     processing_status = self.get_processing_status_from_panda_status(task_info["status"])
 
-                    if processing_status in [ProcessingStatus.SubFinished]:
-                        if self.retry_number < self.num_retries:
-                            self.reactivate_processing(processing)
-                            processing_status = ProcessingStatus.Submitted
-                            self.retry_number += 1
                     if processing_status in [ProcessingStatus.SubFinished, ProcessingStatus.Finished]:
                         output_status, output_metadata = self.process_outputs(processing)
                         if not output_status:
                             err = "Failed to process processing(processing_id: %s, task_id: %s) outputs" % (processing['processing_id'], task_id)
-                            self.logger.error(err)
+                            self.logger.error(log_prefix + err)
                             self.add_errors(err)
                             processing_status = ProcessingStatus.Failed
 
@@ -335,121 +329,48 @@ class ATLASLocalPandaWork(ATLASPandaWork):
                     return ProcessingStatus.Failed, [], {}, output_metadata
         except Exception as ex:
             msg = "Failed to check the processing (%s) status: %s" % (str(processing['processing_id']), str(ex))
-            self.logger.error(msg)
-            self.logger.error(ex)
+            self.logger.error(log_prefix + msg)
+            self.logger.error(log_prefix + ex)
             self.logger.error(traceback.format_exc())
             # raise exceptions.IDDSException(msg)
         return ProcessingStatus.Submitting, [], {}, {}
 
-    def poll_processing_updates(self, processing, input_output_maps):
+    def poll_processing_updates(self, processing, input_output_maps, log_prefix=''):
         """
         *** Function called by Carrier agent.
         """
         updated_contents = []
-        update_processing = {}
-        reset_expired_at = False
-        reactive_contents = []
+        update_contents_full = []
+        parameters = {}
         # self.logger.debug("poll_processing_updates, input_output_maps: %s" % str(input_output_maps))
 
         if processing:
             proc = processing['processing_metadata']['processing']
-            if proc.tocancel:
-                self.logger.info("Cancelling processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], proc.workload_id))
-                self.kill_processing_force(processing)
-                # self.kill_processing(processing)
-                proc.tocancel = False
-                proc.polling_retries = 0
-            elif proc.tosuspend:
-                self.logger.info("Suspending processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], proc.workload_id))
-                self.kill_processing_force(processing)
-                # self.kill_processing(processing)
-                proc.tosuspend = False
-                proc.polling_retries = 0
-            elif proc.toresume:
-                self.logger.info("Resuming processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], proc.workload_id))
-                self.reactivate_processing(processing)
-                reset_expired_at = True
-                proc.toresume = False
-                proc.polling_retries = 0
-                proc.has_new_updates()
-                # reactive_contents = self.reactive_contents(input_output_maps)
-            # elif self.is_processing_expired(processing):
-            elif proc.toexpire:
-                self.logger.info("Expiring processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], proc.workload_id))
-                self.kill_processing(processing)
-                proc.toexpire = False
-                proc.polling_retries = 0
-            elif proc.tofinish or proc.toforcefinish:
-                self.logger.info("Finishing processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], proc.workload_id))
-                self.kill_processing(processing)
-                proc.tofinish = False
-                proc.toforcefinish = False
-                proc.polling_retries = 0
 
-            processing_status, poll_updated_contents, new_input_output_maps, output_metadata = self.poll_panda_task_output(processing=processing, input_output_maps=input_output_maps)
-            self.logger.debug("poll_processing_updates, processing_status: %s" % str(processing_status))
-            self.logger.debug("poll_processing_updates, update_contents: %s" % str(poll_updated_contents))
-            self.logger.debug("poll_processing_updates, output_metadata: %s" % str(output_metadata))
+            processing_status, poll_updated_contents, new_input_output_maps, output_metadata = self.poll_panda_task_output(processing=processing,
+                                                                                                                           input_output_maps=input_output_maps,
+                                                                                                                           log_prefix=log_prefix)
+            self.logger.debug(log_prefix + "poll_processing_updates, processing_status: %s" % str(processing_status))
+            self.logger.debug(log_prefix + "poll_processing_updates, update_contents: %s" % str(poll_updated_contents))
+            self.logger.debug(log_prefix + "poll_processing_updates, output_metadata: %s" % str(output_metadata))
 
             if poll_updated_contents:
                 proc.has_new_updates()
             for content in poll_updated_contents:
                 updated_content = {'content_id': content['content_id'],
+                                   'status': content['status'],
                                    'substatus': content['substatus'],
                                    'content_metadata': content['content_metadata']}
                 updated_contents.append(updated_content)
 
-            content_substatus = {'finished': 0, 'unfinished': 0}
-            for map_id in input_output_maps:
-                outputs = input_output_maps[map_id]['outputs']
-                for content in outputs:
-                    if content.get('substatus', ContentStatus.New) != ContentStatus.Available:
-                        content_substatus['unfinished'] += 1
-                    else:
-                        content_substatus['finished'] += 1
+            if output_metadata:
+                parameters = {'output_metadata': output_metadata}
 
-            if processing_status in [ProcessingStatus.SubFinished, ProcessingStatus.Finished, ProcessingStatus.Failed] and updated_contents:
-                self.logger.info("Processing %s is terminated, but there are still contents to be flushed. Waiting." % (proc.workload_id))
-                # there are still polling contents, should not terminate the task.
-                processing_status = ProcessingStatus.Running
-
-            if processing_status in [ProcessingStatus.SubFinished] and content_substatus['finished'] > 0 and content_substatus['unfinished'] == 0:
-                # found that a 'done' panda task has got a 'finished' status. Maybe in this case 'finished' is a transparent status.
-                if proc.polling_retries is None:
-                    proc.polling_retries = 0
-
-            if processing_status in [ProcessingStatus.SubFinished, ProcessingStatus.Finished, ProcessingStatus.Failed]:
-                if proc.polling_retries is not None and proc.polling_retries < 3:
-                    self.logger.info("processing %s polling_retries(%s) < 3, keep running" % (processing['processing_id'], proc.polling_retries))
-                    processing_status = ProcessingStatus.Running
-                    proc.polling_retries += 1
-            else:
-                proc.polling_retries = 0
-
-            if proc.in_operation_time():
-                processing_status = ProcessingStatus.Running
-
-            update_processing = {'processing_id': processing['processing_id'],
-                                 'parameters': {'status': processing_status,
-                                                'output_metadata': output_metadata}}
-
-            if reset_expired_at:
-                processing['expired_at'] = None
-                update_processing['parameters']['expired_at'] = None
-                proc.polling_retries = 0
-                # if (processing_status in [ProcessingStatus.SubFinished, ProcessingStatus.Finished, ProcessingStatus.Failed]
-                #     or processing['status'] in [ProcessingStatus.Resuming]):   # noqa W503
-                # using polling_retries to poll it again when panda may update the status in a delay(when issuing retryTask, panda will not update it without any delay).
-                update_processing['parameters']['status'] = ProcessingStatus.Resuming
-            proc.status = update_processing['parameters']['status']
-
-        self.logger.debug("poll_processing_updates, task: %s, update_processing: %s" %
-                          (proc.workload_id, str(update_processing)))
+        self.logger.debug("poll_processing_updates, task: %s, processing_status: %s" %
+                          (proc.workload_id, str(processing_status)))
         self.logger.debug("poll_processing_updates, task: %s, updated_contents: %s" %
                           (proc.workload_id, str(updated_contents)))
-        self.logger.debug("poll_processing_updates, task: %s, reactive_contents: %s" %
-                          (proc.workload_id, str(reactive_contents)))
-        return update_processing, updated_contents + reactive_contents, new_input_output_maps
+        return processing_status, updated_contents, new_input_output_maps, update_contents_full, parameters
 
     def syn_work_status(self, registered_input_output_maps, all_updates_flushed=True, output_statistics={}, to_release_input_contents=[]):
         super(ATLASLocalPandaWork, self).syn_work_status(registered_input_output_maps, all_updates_flushed, output_statistics, to_release_input_contents)
@@ -469,7 +390,8 @@ class ATLASLocalPandaWork(ATLASPandaWork):
         self.logger.debug("syn_work_status(%s): has_to_release_inputs: %s" % (str(self.get_processing_ids()), str(self.has_to_release_inputs())))
         self.logger.debug("syn_work_status(%s): to_release_input_contents: %s" % (str(self.get_processing_ids()), str(to_release_input_contents)))
 
-        if self.is_processings_terminated() and self.is_input_collections_closed() and not self.has_new_inputs and not self.has_to_release_inputs() and not to_release_input_contents:
+        # if self.is_processings_terminated() and self.is_input_collections_closed() and not self.has_new_inputs and not self.has_to_release_inputs() and not to_release_input_contents:
+        if self.is_processings_terminated():
             # if not self.is_all_outputs_flushed(registered_input_output_maps):
             if not all_updates_flushed:
                 self.logger.warn("The work processings %s is terminated. but not all outputs are flushed. Wait to flush the outputs then finish the transform" % str(self.get_processing_ids()))
