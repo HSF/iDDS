@@ -204,6 +204,16 @@ class ProcessFormatNotSupported(IDDSException):
         self.error_code = 404
 
 
+class ProcessSubmitFailed(IDDSException):
+    """
+    ProcessSubmitFailed
+    """
+    def __init__(self, *args, **kwargs):
+        super(ProcessSubmitFailed, self).__init__(*args, **kwargs)
+        self._message = "Failed to submit process."
+        self.error_code = 405
+
+
 class AgentException(IDDSException):
     """
     BrokerException

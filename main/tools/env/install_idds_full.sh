@@ -96,3 +96,8 @@ sphinx-apidoc -f -o ./source/codes/doma/ ../doma/lib/idds
 
 yum install fetch-crl.noarch
 yum install lcg-CA
+
+
+yum install redis
+systemctl start redis
+systemctl enable redis

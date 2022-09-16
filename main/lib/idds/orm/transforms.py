@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2020
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
 
 
 """
@@ -29,6 +29,8 @@ from idds.orm.base import models
 def create_transform(request_id, workload_id, transform_type, transform_tag=None,
                      priority=0, status=TransformStatus.New,
                      substatus=TransformStatus.New, locking=TransformLocking.Idle,
+                     new_poll_period=1, update_poll_period=10,
+                     new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
                      retries=0, expired_at=None, transform_metadata=None):
     """
     Create a transform.
@@ -50,14 +52,24 @@ def create_transform(request_id, workload_id, transform_type, transform_tag=None
                                      transform_tag=transform_tag, priority=priority,
                                      status=status, substatus=substatus, locking=locking,
                                      retries=retries, expired_at=expired_at,
+                                     new_retries=new_retries, update_retries=update_retries,
+                                     max_new_retries=max_new_retries, max_update_retries=max_update_retries,
                                      transform_metadata=transform_metadata)
+    if new_poll_period:
+        new_poll_period = datetime.timedelta(seconds=new_poll_period)
+        new_transform.new_poll_period = new_poll_period
+    if update_poll_period:
+        update_poll_period = datetime.timedelta(seconds=update_poll_period)
+        new_transform.update_poll_period = update_poll_period
     return new_transform
 
 
 @transactional_session
 def add_transform(request_id, workload_id, transform_type, transform_tag=None, priority=0,
                   status=TransformStatus.New, substatus=TransformStatus.New, locking=TransformLocking.Idle,
-                  retries=0, expired_at=None, transform_metadata=None, workprogress_id=None, session=None):
+                  new_poll_period=1, update_poll_period=10, retries=0, expired_at=None,
+                  new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
+                  transform_metadata=None, workprogress_id=None, session=None):
     """
     Add a transform.
 
@@ -82,6 +94,10 @@ def add_transform(request_id, workload_id, transform_type, transform_tag=None, p
                                          transform_tag=transform_tag, priority=priority,
                                          status=status, substatus=substatus, locking=locking,
                                          retries=retries, expired_at=expired_at,
+                                         new_poll_period=new_poll_period,
+                                         update_poll_period=update_poll_period,
+                                         new_retries=new_retries, update_retries=update_retries,
+                                         max_new_retries=max_new_retries, max_update_retries=max_update_retries,
                                          transform_metadata=transform_metadata)
         new_transform.save(session=session)
         transform_id = new_transform.transform_id
@@ -164,6 +180,46 @@ def get_transform(transform_id, to_json=False, session=None):
                                   (transform_id, error))
     except Exception as error:
         raise error
+
+
+@read_session
+def get_transform_by_id_status(transform_id, status=None, locking=False, session=None):
+    """
+    Get a transform or raise a NoObject exception.
+
+    :param transform_id: The id of the transform.
+    :param status: request status.
+    :param locking: the locking status.
+
+    :param session: The database session in use.
+
+    :raises NoObject: If no request is founded.
+
+    :returns: Transform.
+    """
+
+    try:
+        query = session.query(models.Transform).with_hint(models.Transform, "INDEX(TRANSFORMS TRANSFORMS_PK)", 'oracle')\
+                                               .filter(models.Transform.transform_id == transform_id)
+
+        if status:
+            if not isinstance(status, (list, tuple)):
+                status = [status]
+            if len(status) == 1:
+                status = [status[0], status[0]]
+            query = query.filter(models.Transform.status.in_(status))
+
+        if locking:
+            query = query.filter(models.Transform.locking == TransformLocking.Idle)
+            query = query.with_for_update(skip_locked=True)
+
+        ret = query.first()
+        if not ret:
+            return None
+        else:
+            return ret.to_dict()
+    except sqlalchemy.orm.exc.NoResultFound as error:
+        raise exceptions.NoObject('transform transform_id: %s cannot be found: %s' % (transform_id, error))
 
 
 @read_session
@@ -290,7 +346,8 @@ def get_transforms(request_id=None, workload_id=None, transform_id=None,
 
 @transactional_session
 def get_transforms_by_status(status, period=None, transform_ids=[], locking=False, locking_for_update=False,
-                             bulk_size=None, to_json=False, by_substatus=False, only_return_id=False, session=None):
+                             bulk_size=None, to_json=False, by_substatus=False, only_return_id=False,
+                             new_poll=False, update_poll=False, session=None):
     """
     Get transforms or raise a NoObject exception.
 
@@ -322,7 +379,10 @@ def get_transforms_by_status(status, period=None, transform_ids=[], locking=Fals
                 query = query.filter(models.Transform.substatus.in_(status))
             else:
                 query = query.filter(models.Transform.status.in_(status))
-            query = query.filter(models.Transform.next_poll_at <= datetime.datetime.utcnow())
+        if new_poll:
+            query = query.filter(models.Transform.updated_at + models.Transform.new_poll_period <= datetime.datetime.utcnow())
+        if update_poll:
+            query = query.filter(models.Transform.updated_at + models.Transform.update_poll_period <= datetime.datetime.utcnow())
 
         if transform_ids:
             query = query.filter(models.Transform.transform_id.in_(transform_ids))
@@ -373,6 +433,12 @@ def update_transform(transform_id, parameters, session=None):
     """
     try:
         parameters['updated_at'] = datetime.datetime.utcnow()
+
+        if 'new_poll_period' in parameters and type(parameters['new_poll_period']) not in [datetime.timedelta]:
+            parameters['new_poll_period'] = datetime.timedelta(seconds=parameters['new_poll_period'])
+        if 'update_poll_period' in parameters and type(parameters['update_poll_period']) not in [datetime.timedelta]:
+            parameters['update_poll_period'] = datetime.timedelta(seconds=parameters['update_poll_period'])
+
         if 'status' in parameters and parameters['status'] in [TransformStatus.Finished, TransformStatus.Finished.value,
                                                                TransformStatus.Failed, TransformStatus.Failed.value]:
             parameters['finished_at'] = datetime.datetime.utcnow()

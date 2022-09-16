@@ -10,7 +10,9 @@
 
 import os
 import socket
+import traceback
 import threading
+import uuid
 
 from idds.common.constants import Sections
 from idds.common.constants import (MessageType, MessageTypeStr,
@@ -20,6 +22,8 @@ from idds.common.plugin.plugin_utils import load_plugins, load_plugin_sequence
 from idds.common.utils import setup_logging
 from idds.core import health as core_health, messages as core_messages
 from idds.agents.common.timerscheduler import TimerScheduler
+from idds.agents.common.eventbus.eventbus import EventBus
+from idds.agents.common.cache.redis import get_redis_cache
 
 
 setup_logging(__name__)
@@ -30,12 +34,12 @@ class BaseAgent(TimerScheduler, PluginBase):
     The base IDDS agent class
     """
 
-    def __init__(self, num_threads=1, **kwargs):
-        super(BaseAgent, self).__init__(num_threads)
+    def __init__(self, num_threads=1, name=None, **kwargs):
+        super(BaseAgent, self).__init__(num_threads, name=name)
         self.name = self.__class__.__name__
+        self.id = str(uuid.uuid4())[:8]
         self.logger = None
-        self.setup_logger()
-        self.set_logger(self.logger)
+        self.setup_logger(self.logger)
 
         self.config_section = Sections.Common
 
@@ -56,6 +60,14 @@ class BaseAgent(TimerScheduler, PluginBase):
         self.agent_attributes = self.load_agent_attributes(kwargs)
 
         self.logger.info("agent_attributes: %s" % self.agent_attributes)
+
+        self.event_bus = EventBus()
+        self.event_func_map = {}
+
+        self.cache = get_redis_cache()
+
+    def get_event_bus(self):
+        self.event_bus
 
     def get_name(self):
         return self.name
@@ -89,6 +101,31 @@ class BaseAgent(TimerScheduler, PluginBase):
                 raise AgentPluginError("Plugin %s is defined but it is not defined in plugin_sequence" % plugin_name)
         """
 
+    def init_event_function_map(self):
+        self.event_func_map = {}
+
+    def get_event_function_map(self):
+        return self.event_func_map
+
+    def execute_event_schedule(self):
+        event_funcs = self.get_event_function_map()
+        for event_type in event_funcs:
+            exec_func = event_funcs[event_type]['exec_func']
+            pre_check = event_funcs[event_type]['pre_check']
+            if pre_check():
+                event = self.event_bus.get(event_type)
+                if event:
+                    self.executors.submit(exec_func, event)
+
+    def execute(self):
+        while not self.graceful_stop.is_set():
+            try:
+                self.execute_timer_schedule()
+                self.execute_event_schedule()
+                self.graceful_stop.wait(0.1)
+            except Exception as error:
+                self.logger.critical("Caught an exception: %s\n%s" % (str(error), traceback.format_exc()))
+
     def run(self):
         """
         Main run function.
@@ -101,6 +138,7 @@ class BaseAgent(TimerScheduler, PluginBase):
             self.execute()
         except KeyboardInterrupt:
             self.stop()
+            self.event_bus.stop()
 
     def __call__(self):
         self.run()

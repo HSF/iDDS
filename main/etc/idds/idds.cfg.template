@@ -112,3 +112,7 @@ plugin.receiver.destination = /queue/Consumer.monitor.atlas.idds
 plugin.receiver.username = atlasidds
 plugin.receiver.password = *****
 plugin.receiver.broker_timeout = 10
+
+[cache]
+host = localhost
+port = 6379

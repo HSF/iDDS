@@ -23,7 +23,8 @@ dependencies:
   - recommonmark                     # use Markdown with Sphinx
   - sphinx-rtd-theme                 # sphinx readthedoc theme
   - nevergrad                        # nevergrad hyper parameter optimization
-  - psycopg2-binary 
+  - psycopg2-binary
+  - redis
   - idds-common==0.11.5
   - idds-workflow==0.11.5
   - idds-client==0.11.5

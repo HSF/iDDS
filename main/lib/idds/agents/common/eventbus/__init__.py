@@ -7,15 +7,3 @@
 #
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2019
-
-
-"""
-destory the database.
-"""
-
-
-from idds.orm.base.utils import destory_everything
-
-if __name__ == '__main__':
-
-    destory_everything()

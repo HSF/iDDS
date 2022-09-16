@@ -34,26 +34,27 @@ class MessagingListener(stomp.ConnectionListener):
         '''
         __init__
         '''
+        self.name = "MessagingListener"
         self.__broker = broker
         self.__output_queue = output_queue
         self.logger = logging.getLogger(self.__class__.__name__)
 
-    def on_error(self, headers, body):
+    def on_error(self, frame):
         '''
         Error handler
         '''
-        self.logger.error('[broker] [%s]: %s', self.__broker, body)
+        self.logger.error('[broker] [%s]: %s', self.__broker, frame.body)
 
-    def on_message(self, headers, body):
+    def on_message(self, frame):
         # self.logger.info('[broker] [%s]: %s', self.__broker, body)
-        self.__output_queue.put(body)
+        self.__output_queue.put(frame.body)
         pass
 
 
 class MessagingSender(PluginBase, threading.Thread):
-    def __init__(self, **kwargs):
-        threading.Thread.__init__(self)
-        super(MessagingSender, self).__init__(**kwargs)
+    def __init__(self, name="MessagingSender", **kwargs):
+        threading.Thread.__init__(self, name=name)
+        super(MessagingSender, self).__init__(name=name, **kwargs)
 
         self.setup_logger()
         self.graceful_stop = threading.Event()
@@ -147,8 +148,8 @@ class MessagingSender(PluginBase, threading.Thread):
 
 
 class MessagingReceiver(MessagingSender):
-    def __init__(self, **kwargs):
-        super(MessagingReceiver, self).__init__(**kwargs)
+    def __init__(self, name="MessagingReceiver", **kwargs):
+        super(MessagingReceiver, self).__init__(name=name, **kwargs)
         self.listener = None
 
     def get_listener(self, broker):

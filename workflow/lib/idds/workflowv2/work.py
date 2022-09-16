@@ -19,6 +19,7 @@ import traceback
 from idds.common import exceptions
 from idds.common.constants import (WorkStatus, ProcessingStatus,
                                    CollectionStatus, CollectionType)
+from idds.common.constants import get_work_status_from_transform_processing_status
 from idds.common.utils import setup_logging
 from idds.common.utils import str_to_date
 # from idds.common.utils import json_dumps
@@ -62,6 +63,11 @@ class Collection(Base):
         self.coll_type = coll_type
         self.status = CollectionStatus.New
         self.substatus = CollectionStatus.New
+
+        self.total_files = 0
+        self.processed_files = 0
+        self.processing_files = 0
+        self.bytes = 0
 
     @property
     def internal_id(self):
@@ -133,6 +139,11 @@ class Collection(Base):
             self.coll_type = self._collection['coll_type']
             self.status = self._collection['status']
             self.substatus = self._collection['substatus']
+
+            self.total_files = self._collection['total_files']
+            self.processed_files = self._collection['processed_files']
+            self.processing_files = self._collection['processing_files']
+            self.bytes = self._collection['bytes']
 
     def to_origin_dict(self):
         return {'scope': self.scope, 'name': self.name}
@@ -370,6 +381,14 @@ class Processing(Base):
         self.add_metadata_item('external_id', value)
 
     @property
+    def old_external_id(self):
+        return self.get_metadata_item('old_external_id', [])
+
+    @old_external_id.setter
+    def old_external_id(self, value):
+        self.add_metadata_item('old_external_id', value)
+
+    @property
     def task_name(self):
         return self.get_metadata_item('task_name', None)
 
@@ -572,6 +591,11 @@ class Work(Base):
             self._running_data_names.append(name)
         """
 
+    def get_logger(self):
+        if self.logger is None:
+            self.logger = self.setup_logger()
+        return self.logger
+
     def get_class_name(self):
         return self.__class__.__name__
 
@@ -662,6 +686,14 @@ class Work(Base):
     @work_id.setter
     def work_id(self, value):
         self.add_metadata_item('work_id', value)
+
+    @property
+    def parent_workload_id(self):
+        return self.get_metadata_item('parent_workload_id', None)
+
+    @parent_workload_id.setter
+    def parent_workload_id(self, value):
+        self.add_metadata_item('parent_workload_id', value)
 
     @property
     def transforming(self):
@@ -1135,6 +1167,7 @@ class Work(Base):
         Setup logger
         """
         self.logger = logging.getLogger(self.get_class_name())
+        return self.logger
 
     def add_errors(self, error):
         self.errors.append(error)
@@ -1296,7 +1329,7 @@ class Work(Base):
         return self.started
 
     def is_running(self):
-        if self.status in [WorkStatus.Running]:
+        if self.status in [WorkStatus.Running, WorkStatus.Transforming]:
             return True
         return False
 
@@ -1504,7 +1537,7 @@ class Work(Base):
     def get_other_output_collections(self):
         return [self.collections[k] for k in self._other_output_collections]
 
-    def get_input_collections(self):
+    def get_input_collections(self, poll_externel=False):
         """
         *** Function called by Transformer agent.
         """
@@ -1549,6 +1582,9 @@ class Work(Base):
             #                                 relation_type=relation_type)
             return []
         return []
+
+    def poll_external_collection(self, coll):
+        return coll
 
     def poll_internal_collection(self, coll):
         try:
@@ -1958,7 +1994,7 @@ class Work(Base):
         """
         raise exceptions.NotImplementedException
 
-    def abort_processing(self, processing):
+    def abort_processing_old(self, processing):
         """
         *** Function called by Carrier agent.
         """
@@ -1980,7 +2016,7 @@ class Work(Base):
             proc = processing['processing_metadata']['processing']
             proc.tosuspend = True
 
-    def resume_processing(self, processing):
+    def resume_processing_old(self, processing):
         """
         *** Function called by Carrier agent.
         """
@@ -2070,7 +2106,7 @@ class Work(Base):
             self.started = True
         self.logger.debug("syn_work_status(%s): work.status: %s" % (str(self.get_processing_ids()), str(self.status)))
 
-    def sync_work_data(self, status, substatus, work):
+    def sync_work_data(self, status, substatus, work, workload_id=None):
         # self.status = work.status
         work.work_id = self.work_id
         work.transforming = self.transforming
@@ -2078,12 +2114,17 @@ class Work(Base):
         # clerk will update next_works while transformer doesn't.
         # synchronizing work metadata from transformer to clerk needs to keep it at first.
         next_works = self.next_works
-        self.metadata = work.metadata
+        # self.metadata = work.metadata
         self.next_works = next_works
 
         self.status_statistics = work.status_statistics
-        self.processings = work.processings
+        # self.processings = work.processings
         self.output_data = work.output_data
+
+        self.status = get_work_status_from_transform_processing_status(status)
+        self.substatus = get_work_status_from_transform_processing_status(substatus)
+        if workload_id:
+            self.workload_id = workload_id
 
         """
         self.status = WorkStatus(status.value)
@@ -2104,6 +2145,14 @@ class Work(Base):
         self.cancelled_processings = work.cancelled_processings
         self.suspended_processings = work.suspended_processings
         """
+
+    def abort_processing(self, processing, log_prefix=''):
+        msg = "abort processing is not implemented"
+        self.logger.error(log_prefix + msg)
+
+    def resume_processing(self, processing, log_prefix=''):
+        msg = "resume processing is not implemented"
+        self.logger.error(log_prefix + msg)
 
     def add_proxy(self, proxy):
         self.proxy = proxy

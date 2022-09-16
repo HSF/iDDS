@@ -34,8 +34,8 @@ class Conductor(BaseAgent):
     """
 
     def __init__(self, num_threads=1, retrieve_bulk_size=1000, threshold_to_release_messages=None,
-                 random_delay=None, **kwargs):
-        super(Conductor, self).__init__(num_threads=num_threads, **kwargs)
+                 random_delay=None, delay=60, replay_times=3, **kwargs):
+        super(Conductor, self).__init__(num_threads=num_threads, name='Conductor', **kwargs)
         self.config_section = Sections.Conductor
         self.retrieve_bulk_size = int(retrieve_bulk_size)
         self.message_queue = Queue()
@@ -50,6 +50,12 @@ class Conductor(BaseAgent):
             self.random_delay = int(random_delay)
             if self.random_delay < 5:
                 self.random_delay = 5
+        if delay is None:
+            delay = 60
+        self.delay = int(delay)
+        if replay_times is None:
+            replay_times = 3
+        self.replay_times = int(replay_times)
 
     def __del__(self):
         self.stop_notifier()
@@ -62,17 +68,30 @@ class Conductor(BaseAgent):
                                                    bulk_size=self.retrieve_bulk_size,
                                                    destination=MessageDestination.Outside)
 
-        self.logger.debug("Main thread get %s new messages" % len(messages))
+        # self.logger.debug("Main thread get %s new messages" % len(messages))
         if messages:
             self.logger.info("Main thread get %s new messages" % len(messages))
 
-        return messages
+        retry_messages = []
+        for retry in range(1, self.replay_times + 1):
+            delay = int(self.delay) * (retry ** 3)
+
+            messages_d = core_messages.retrieve_messages(status=MessageStatus.Delivered,
+                                                         retries=retry, delay=delay,
+                                                         bulk_size=self.retrieve_bulk_size,
+                                                         destination=MessageDestination.Outside)
+            if messages_d:
+                self.logger.info("Main thread get %s retries messages" % len(messages_d))
+                retry_messages += messages_d
+
+        return messages + retry_messages
 
     def clean_messages(self, msgs):
         # core_messages.delete_messages(msgs)
         to_updates = []
         for msg in msgs:
             to_updates.append({'msg_id': msg['msg_id'],
+                               'retries': msg['retries'] + 1,
                                'status': MessageStatus.Delivered})
         core_messages.update_messages(to_updates)
 
@@ -112,22 +131,18 @@ class Conductor(BaseAgent):
 
             self.start_notifier()
 
-            self.add_health_message_task()
+            # self.add_health_message_task()
 
             while not self.graceful_stop.is_set():
                 # execute timer task
                 self.execute_once()
 
-                reach_threshold = False
                 try:
                     num_contents = 0
                     messages = self.get_messages()
                     for message in messages:
                         num_contents += message['num_contents']
                         self.message_queue.put(message)
-                        if self.threshold_to_release_messages and num_contents > self.threshold_to_release_messages:
-                            reach_threshold = True
-                            break
                     while not self.message_queue.empty():
                         time.sleep(1)
                     output_messages = self.get_output_messages()
@@ -136,10 +151,7 @@ class Conductor(BaseAgent):
                     self.logger.error("Main thread IDDSException: %s" % str(error))
                 except Exception as error:
                     self.logger.critical("Main thread exception: %s\n%s" % (str(error), traceback.format_exc()))
-                if self.random_delay is None or not reach_threshold:
-                    time.sleep(5)
-                else:
-                    time.sleep(random.randint(5, self.random_delay))
+                time.sleep(random.randint(5, self.random_delay))
         except KeyboardInterrupt:
             self.stop()
 

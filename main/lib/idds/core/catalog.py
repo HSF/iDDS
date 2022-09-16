@@ -78,6 +78,18 @@ def get_collections(scope=None, name=None, request_id=None, workload_id=None, tr
     return collections
 
 
+@read_session
+def get_collections_by_request_ids(request_ids, session=None):
+    """"
+    Get collections by a list of request ids.
+
+    :param request_ids: list of request ids.
+
+    :return collections: list of collections.
+    """
+    return orm_collections.get_collections_by_request_ids(request_ids)
+
+
 @transactional_session
 def add_collection(request_id, workload_id, scope, name, coll_type=CollectionType.Dataset, transform_id=None,
                    relation_type=CollectionRelationType.Input, bytes=0, status=CollectionStatus.New,
@@ -294,7 +306,7 @@ def get_contents(coll_scope=None, coll_name=None, request_id=None, workload_id=N
     :param to_json: return json format.
     :param session: The database session in use.
 
-    :returns: dict of contents
+    :returns: list of contents
     """
     collections = get_collections(scope=coll_scope, name=coll_name, request_id=request_id,
                                   workload_id=workload_id, transform_id=transform_id,
@@ -306,6 +318,42 @@ def get_contents(coll_scope=None, coll_name=None, request_id=None, workload_id=N
     else:
         rets = []
     return rets
+
+
+@read_session
+def get_contents_by_request_transform(request_id=None, workload_id=None, transform_id=None, session=None):
+    """
+    Get contents with request id, workload id and transform id.
+
+    :param request_id: the request id.
+    :param workload_id: The workload_id of the request.
+    :param transform_id: The transform id related to this collection.
+    :param session: The database session in use.
+
+    :returns: list of contents
+    """
+    ret = orm_contents.get_contents_by_request_transform(request_id=request_id, transform_id=transform_id,
+                                                         workload_id=workload_id, session=session)
+    return ret
+
+
+@read_session
+def get_contents_by_content_ids(content_ids, request_id=None, session=None):
+    """
+    Get content or raise a NoObject exception.
+
+    :param request_id: request id.
+    :param content_ids: list of content id.
+    :param workload_id: workload id.
+
+    :param session: The database session in use.
+
+    :raises NoObject: If no content is founded.
+
+    :returns: list of contents.
+    """
+    ret = orm_contents.get_contents_by_content_ids(content_ids=content_ids, request_id=request_id, session=session)
+    return ret
 
 
 @read_session

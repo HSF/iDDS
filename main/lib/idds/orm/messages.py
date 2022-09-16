@@ -13,6 +13,7 @@
 operations related to Messages.
 """
 
+import datetime
 import re
 import copy
 
@@ -116,7 +117,8 @@ def update_messages(messages, bulk_size=1000, session=None):
 @read_session
 def retrieve_messages(bulk_size=1000, msg_type=None, status=None, source=None,
                       destination=None, request_id=None, workload_id=None,
-                      transform_id=None, processing_id=None, session=None):
+                      transform_id=None, processing_id=None,
+                      retries=None, delay=None, session=None):
     """
     Retrieve up to $bulk messages.
 
@@ -156,6 +158,10 @@ def retrieve_messages(bulk_size=1000, msg_type=None, status=None, source=None,
             query = query.filter_by(transform_id=transform_id)
         if processing_id is not None:
             query = query.filter_by(processing_id=processing_id)
+        if retries:
+            query = query.filter_by(retries=retries)
+        if delay:
+            query = query.filter(models.Message.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=delay))
 
         if bulk_size:
             query = query.order_by(models.Message.created_at).limit(bulk_size)

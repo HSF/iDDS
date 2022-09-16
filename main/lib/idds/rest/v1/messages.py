@@ -15,8 +15,10 @@ from flask import Blueprint
 
 from idds.common import exceptions
 from idds.common.constants import (HTTP_STATUS_CODE, MessageType, MessageStatus,
-                                   MessageSource, MessageDestination)
+                                   MessageSource, MessageDestination,
+                                   CommandType, RequestStatus)
 from idds.common.utils import json_loads
+from idds.core.commands import add_command
 from idds.core.requests import get_requests
 from idds.core.messages import add_message, retrieve_messages
 from idds.rest.v1.controller import IDDSController
@@ -114,15 +116,24 @@ class Message(IDDSController):
             msg = self.get_request().data and json_loads(self.get_request().data)
             # command = msg['command']
             # parameters = msg['parameters']
-            add_message(msg_type=MessageType.IDDSCommunication,
-                        status=MessageStatus.New,
-                        destination=MessageDestination.Clerk,
-                        source=MessageSource.Rest,
-                        request_id=request_id,
-                        workload_id=workload_id,
-                        transform_id=None,
-                        num_contents=1,
-                        msg_content=msg)
+            if 'command' in msg and msg['command'] in ['update_request', 'update_processing']:
+                status = msg['parameters']['status']
+                if status in [RequestStatus.ToCancel, RequestStatus.ToSuspend]:
+                    add_command(request_id=request_id, cmd_type=CommandType.AbortRequest,
+                                cmd_content=None)
+                elif status in [RequestStatus.ToResume]:
+                    add_command(request_id=request_id, cmd_type=CommandType.ResumeRequest,
+                                cmd_content=None)
+            else:
+                add_message(msg_type=MessageType.IDDSCommunication,
+                            status=MessageStatus.New,
+                            destination=MessageDestination.Clerk,
+                            source=MessageSource.Rest,
+                            request_id=request_id,
+                            workload_id=workload_id,
+                            transform_id=None,
+                            num_contents=1,
+                            msg_content=msg)
 
         except exceptions.DuplicatedObject as error:
             return self.generate_http_response(HTTP_STATUS_CODE.Conflict, exc_cls=error.__class__.__name__, exc_msg=error)

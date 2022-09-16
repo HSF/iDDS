@@ -17,10 +17,12 @@ from idds.common import exceptions
 from idds.common.constants import HTTP_STATUS_CODE
 from idds.common.constants import RequestStatus
 from idds.common.constants import (MessageType, MessageStatus,
-                                   MessageSource, MessageDestination)
+                                   MessageSource, MessageDestination,
+                                   CommandType)
 from idds.common.utils import json_loads
 from idds.core.requests import add_request, get_requests
 from idds.core.messages import add_message
+from idds.core.commands import add_command
 from idds.rest.v1.controller import IDDSController
 
 from idds.rest.v1.utils import convert_old_req_2_workflow_req
@@ -213,6 +215,127 @@ class Request(IDDSController):
         pprint.pprint(self.get_request().url_rule)
 
 
+class RequestAbort(IDDSController):
+    """ Abort Request. """
+
+    def put(self, request_id, workload_id=None, task_id=None):
+        """ Abort the request.
+        HTTP Success:
+            200 OK
+        HTTP Error:
+            400 Bad request
+            404 Not Found
+            500 Internal Error
+        """
+        if request_id == 'null':
+            request_id = None
+        if workload_id == 'null':
+            workload_id = None
+        if task_id == 'null':
+            task_id = None
+
+        try:
+            username = self.get_username()
+            if task_id:
+                reqs = get_requests(request_id=request_id, workload_id=workload_id, with_processing=True)
+            else:
+                reqs = get_requests(request_id=request_id, workload_id=workload_id, with_request=True)
+
+            if not reqs:
+                return self.generate_http_response(HTTP_STATUS_CODE.OK, data={'status': -1, 'message': 'No match requests'})
+            matched_transform_id = None
+            if task_id:
+                for req in reqs:
+                    if str(req['processing_workload_id']) == str(task_id):
+                        matched_transform_id = req['transform_id']
+                if matched_transform_id:
+                    return self.generate_http_response(HTTP_STATUS_CODE.OK, data={'status': -1, 'message': 'No match tasks'})
+
+            for req in reqs:
+                if req['username'] and req['username'] != username:
+                    msg = "User %s has no permission to update request %s" % (username, req['request_id'])
+                    # raise exceptions.AuthenticationNoPermission(msg)
+                    return self.generate_http_response(HTTP_STATUS_CODE.OK, data={'status': -1, 'message': msg})
+        except exceptions.AuthenticationNoPermission as error:
+            return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=error.__class__.__name__, exc_msg=error)
+        except Exception as error:
+            print(error)
+            print(format_exc())
+            return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
+
+        try:
+            cmd_content = None
+            if task_id and matched_transform_id:
+                cmd_content = {'task_id': task_id,
+                               'transform_id': matched_transform_id}
+
+            add_command(request_id=request_id, cmd_type=CommandType.AbortRequest,
+                        workload_id=workload_id, cmd_content=cmd_content)
+
+        except exceptions.NoObject as error:
+            return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
+        except exceptions.IDDSException as error:
+            return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=error.__class__.__name__, exc_msg=error)
+        except Exception as error:
+            print(error)
+            print(format_exc())
+            return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
+
+        return self.generate_http_response(HTTP_STATUS_CODE.OK, data={'status': 0, 'message': 'Command registered successfully'})
+
+
+class RequestRetry(IDDSController):
+    """ Retry Request. """
+
+    def put(self, request_id, workload_id=None):
+        """ Retry the request.
+        HTTP Success:
+            200 OK
+        HTTP Error:
+            400 Bad request
+            404 Not Found
+            500 Internal Error
+        """
+
+        if request_id == 'null':
+            request_id = None
+        if workload_id == 'null':
+            workload_id = None
+
+        try:
+            username = self.get_username()
+            reqs = get_requests(request_id=request_id, workload_id=workload_id, with_request=True)
+            if not reqs:
+                return self.generate_http_response(HTTP_STATUS_CODE.OK, data={'status': -1, 'message': 'No match requests'})
+
+            for req in reqs:
+                if req['username'] and req['username'] != username:
+                    msg = "User %s has no permission to update request %s" % (username, req['request_id'])
+                    # raise exceptions.AuthenticationNoPermission(msg)
+                    return self.generate_http_response(HTTP_STATUS_CODE.OK, data={'status': -1, 'message': msg})
+        except exceptions.AuthenticationNoPermission as error:
+            return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=error.__class__.__name__, exc_msg=error)
+        except Exception as error:
+            print(error)
+            print(format_exc())
+            return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
+
+        try:
+            add_command(request_id=request_id, cmd_type=CommandType.ResumeRequest,
+                        workload_id=workload_id, cmd_content=None)
+
+        except exceptions.NoObject as error:
+            return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
+        except exceptions.IDDSException as error:
+            return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=error.__class__.__name__, exc_msg=error)
+        except Exception as error:
+            print(error)
+            print(format_exc())
+            return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
+
+        return self.generate_http_response(HTTP_STATUS_CODE.OK, data={'status': 0, 'message': 'Command registered successfully'})
+
+
 """----------------------
    Web service url maps
 ----------------------"""
@@ -228,4 +351,12 @@ def get_blueprint():
     bp.add_url_rule('/request/<request_id>/<workload_id>/<with_detail>/<with_metadata>', view_func=request_view, methods=['get', ])
     bp.add_url_rule('/request/<request_id>/<workload_id>/<with_detail>/<with_metadata>/<with_transform>', view_func=request_view, methods=['get', ])
     bp.add_url_rule('/request/<request_id>/<workload_id>/<with_detail>/<with_metadata>/<with_transform>/<with_processing>', view_func=request_view, methods=['get', ])
+
+    request_abort = RequestAbort.as_view('request_abort')
+    bp.add_url_rule('/request/abort/<request_id>/<workload_id>', view_func=request_abort, methods=['put', ])
+    bp.add_url_rule('/request/abort/<request_id>/<workload_id>/task_id', view_func=request_abort, methods=['put', ])
+
+    request_retry = RequestRetry.as_view('request_retry')
+    bp.add_url_rule('/request/retry/<request_id>/<workload_id>', view_func=request_retry, methods=['put', ])
+
     return bp

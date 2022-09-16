@@ -316,6 +316,38 @@ def get_collections(scope=None, name=None, request_id=None, workload_id=None, tr
         raise error
 
 
+@read_session
+def get_collections_by_request_ids(request_ids, session=None):
+    """"
+    Get collections by a list of request ids.
+
+    :param request_ids: list of request ids.
+
+    :return collections: list of collections.
+    """
+    try:
+        if request_ids and type(request_ids) not in (list, tuple):
+            request_ids = [request_ids]
+
+        query = session.query(models.Collection.coll_id,
+                              models.Collection.request_id,
+                              models.Collection.transform_id,
+                              models.Collection.workload_id)
+        if request_ids:
+            query = query.filter(models.Collection.request_id.in_(request_ids))
+
+        tmp = query.all()
+        rets = []
+        if tmp:
+            for t in tmp:
+                # rets.append(t.to_dict())
+                t2 = dict(zip(t.keys(), t))
+                rets.append(t2)
+        return rets
+    except Exception as error:
+        raise error
+
+
 @transactional_session
 def update_collection(coll_id, parameters, session=None):
     """
