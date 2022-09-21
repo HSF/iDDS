@@ -8,11 +8,12 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2022
 
-import json
 import time
 import uuid
 
 from enum import Enum
+
+from idds.common.utils import json_dumps
 
 
 class EventBusState(Enum):
@@ -62,7 +63,7 @@ class Event(object):
         return ret
 
     def __str__(self):
-        return json.dumps(self.to_json())
+        return json_dumps(self.to_json())
 
 
 class StateClaimEvent(Event):

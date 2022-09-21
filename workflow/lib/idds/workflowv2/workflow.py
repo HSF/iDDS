@@ -882,6 +882,29 @@ class WorkflowBase(Base):
     def set_global_parameters(self, value):
         self.global_parameters = value
 
+    @property
+    def sliced_global_parameters(self):
+        self._sliced_global_parameters = self.get_metadata_item('sliced_gp', {})
+        return self._sliced_global_parameters
+
+    @sliced_global_parameters.setter
+    def sliced_global_parameters(self, value):
+        self._sliced_global_parameters = value
+        gp_metadata = {}
+        if self._sliced_global_parameters:
+            for key in self._sliced_global_parameters:
+                if key.startswith("user_"):
+                    gp_metadata[key] = self._sliced_global_parameters[key]
+                else:
+                    self.logger.warn("Only parameters start with 'user_' can be set as global parameters. The parameter '%s' will be ignored." % (key))
+        self.add_metadata_item('sliced_gp', gp_metadata)
+
+    def set_sliced_global_parameters(self, source, index=0):
+        sliced_global_parameters = self.sliced_global_parameters
+        sliced_global_parameters[source] = index
+        # to trigger the setter function
+        self.sliced_global_parameters = self.sliced_global_parameters
+
     def sync_global_parameters_from_work(self, work):
         self.log_debug("work %s is_terminated, global_parameters: %s" % (work.get_internal_id(), str(self.global_parameters)))
         if self.global_parameters:
@@ -1107,10 +1130,10 @@ class WorkflowBase(Base):
         work.workload_id = None
 
         if isinstance(work, Workflow):
+            work.parent_num_run = self.num_run
             work.sync_works(to_cancel=self.to_cancel)
 
             work.sequence_id = self.num_total_works
-            work.parent_num_run = self.num_run
 
             works = self.works
             self.works = works
@@ -1127,7 +1150,7 @@ class WorkflowBase(Base):
 
             work.num_run = self.num_run
             work.initialize_work()
-            work.sync_global_parameters(self.global_parameters)
+            work.sync_global_parameters(self.global_parameters, self.sliced_global_parameters)
             work.renew_parameters_from_attributes()
             if work.parent_workload_id is None and self.num_total_works > 0:
                 last_work_id = self.work_sequence[str(self.num_total_works - 1)]
@@ -1151,7 +1174,7 @@ class WorkflowBase(Base):
         work.sequence_id = self.num_total_works
 
         work.initialize_work()
-        work.sync_global_parameters(self.global_parameters)
+        work.sync_global_parameters(self.global_parameters, self.sliced_global_parameters)
         work.renew_parameters_from_attributes()
         works = self.works
         self.works = works
@@ -2086,6 +2109,9 @@ class Workflow(Base):
     def set_global_parameters(self, value):
         self.template.set_global_parameters(value)
 
+    def set_sliced_global_parameters(self, source, index=0):
+        self.template.set_sliced_global_parameters(source, index)
+
     def sync_global_parameters_from_work(self, work):
         if self.runs:
             return self.runs[str(self.num_run)].sync_global_parameters_from_work(work)
@@ -2206,14 +2232,14 @@ class Workflow(Base):
         if to_cancel:
             self.to_cancel = to_cancel
         # position is end.
-        if self._num_run < 1:
-            self._num_run = 1
+        if self.num_run < 1:
+            self.num_run = 1
         if str(self.num_run) not in self.runs:
             self.runs[str(self.num_run)] = self.template.copy()
             self.runs[str(self.num_run)].num_run = self.num_run
             if self.runs[str(self.num_run)].has_loop_condition():
                 self.runs[str(self.num_run)].num_run = self.num_run
-                if self._num_run > 1:
+                if self.num_run > 1:
                     p_metadata = self.runs[str(self.num_run - 1)].get_metadata_item('parameter_links')
                     self.runs[str(self.num_run)].add_metadata_item('parameter_links', p_metadata)
 

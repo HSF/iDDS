@@ -578,6 +578,8 @@ class Work(Base):
         self.or_custom_conditions = {}
         self.and_custom_conditions = {}
 
+        self.sliced_global_parameters = None
+
         """
         self._running_data_names = []
         for name in ['internal_id', 'template_work_id', 'initialized', 'sequence_id', 'parameters', 'work_id', 'transforming', 'workdir',
@@ -1068,10 +1070,23 @@ class Work(Base):
     def get_is_template(self):
         self.is_template
 
-    def sync_global_parameters(self, global_parameters):
+    def sync_global_parameters(self, global_parameters, sliced_global_parameters=None):
+        if sliced_global_parameters:
+            self.sliced_global_parameters = sliced_global_parameters
+
         if global_parameters:
             for key in global_parameters:
-                setattr(self, key, global_parameters[key])
+                sliced_index = None
+                if self.sliced_global_parameters and key in self.sliced_global_parameters:
+                    sliced_index = self.sliced_global_parameters[key]
+                    if type(global_parameters[key]) in [list, tuple] and sliced_index < len(global_parameters[key]):
+                        pass
+                    else:
+                        sliced_index = None
+                if sliced_index is None:
+                    setattr(self, key, global_parameters[key])
+                else:
+                    setattr(self, key, global_parameters[key][sliced_index])
 
     def get_global_parameter_from_output_data(self, key):
         self.logger.debug("get_global_parameter_from_output_data, key: %s, output_data: %s" % (key, str(self.output_data)))
@@ -1125,6 +1140,9 @@ class Work(Base):
             return False
 
     def get_custom_condition_status_value(self, key):
+        if self.output_data and key in self.output_data:
+            return self.output_data[key]
+
         user_key = "user_" + key
         if hasattr(self, user_key):
             key = user_key
@@ -2106,7 +2124,7 @@ class Work(Base):
             self.started = True
         self.logger.debug("syn_work_status(%s): work.status: %s" % (str(self.get_processing_ids()), str(self.status)))
 
-    def sync_work_data(self, status, substatus, work, workload_id=None):
+    def sync_work_data(self, status, substatus, work, workload_id=None, output_data=None):
         # self.status = work.status
         work.work_id = self.work_id
         work.transforming = self.transforming
@@ -2119,7 +2137,10 @@ class Work(Base):
 
         self.status_statistics = work.status_statistics
         # self.processings = work.processings
-        self.output_data = work.output_data
+        if output_data:
+            self.output_data = output_data
+        else:
+            self.output_data = work.output_data
 
         self.status = get_work_status_from_transform_processing_status(status)
         self.substatus = get_work_status_from_transform_processing_status(substatus)

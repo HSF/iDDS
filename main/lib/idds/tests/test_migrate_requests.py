@@ -31,17 +31,17 @@ def migrate():
     # doma google
     doma_google_host = 'https://34.133.138.229:443/idds'  # noqa F841
 
-    cm1 = ClientManager(host=doma_host)
+    cm1 = ClientManager(host=atlas_host)
     # reqs = cm1.get_requests(request_id=290)
     # old_request_id = 298163
-    old_request_id = 1685
+    old_request_id = 350723
     # for old_request_id in [152]:
     # for old_request_id in [60]:    # noqa E115
     # for old_request_id in [200]:    # noqa E115
     for old_request_id in [old_request_id]:    # noqa E115  # doma 183
         reqs = cm1.get_requests(request_id=old_request_id, with_metadata=True)
 
-        cm2 = ClientManager(host=doma_host)
+        cm2 = ClientManager(host=dev_host)
         # print(reqs)
 
         print("num requests: %s" % len(reqs))

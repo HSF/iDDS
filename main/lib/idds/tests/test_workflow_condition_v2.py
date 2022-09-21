@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2021
+# - Wen Guan, <wen.guan@cern.ch>, 2021 - 2022
 
 
 """
@@ -1271,6 +1271,49 @@ class TestWorkflowCondtion(unittest.TestCase):
         assert(workflow.is_terminated() is False)
 
         for work in works:
+            work.transforming = True
+            work.status = WorkStatus.Failed
+
+        works = workflow.get_new_works()
+        works.sort(key=lambda x: x.work_id)
+        assert(works == [])
+        assert(workflow.is_terminated() is True)
+
+    def test_custom_condition(self):
+        work1 = Work(executable='/bin/hostname', arguments=None, sandbox=None, work_id=1)
+        work1.add_custom_condition(key="to_continue", value=True)
+        assert(work1.get_custom_condition_status() is False)
+        # output_data will be set based on the outputs of jobs.
+        work1.output_data = {'to_continue': True}
+        assert(work1.get_custom_condition_status() is True)
+
+    def test_workflow_subloopworkflow4(self):
+        work1 = Work(executable='/bin/hostname', arguments=None, sandbox=None, work_id=1)
+        work2 = Work(executable='/bin/hostname', arguments=None, sandbox=None, work_id=2)
+
+        workflow1 = Workflow()
+        workflow1.add_work(work1, initial=False)
+        workflow1.add_work(work2, initial=False)
+
+        work2.add_custom_condition(key="to_continue", value=True)
+        cond = Condition(cond=work2.get_custom_condition_status)
+        workflow1.add_loop_condition(cond)
+
+        work3 = Work(executable='/bin/hostname', arguments=None, sandbox=None, work_id=3)
+        cond1 = Condition(cond=work3.is_finished, true_work=workflow1)
+
+        workflow = Workflow()
+        workflow.add_work(work3, initial=False)
+        workflow.add_work(workflow1, initial=False)
+        workflow.add_condition(cond1)
+
+        works = workflow.get_new_works()
+        works.sort(key=lambda x: x.work_id)
+        assert(works == [work3])
+        # assert(workflow.num_run == 1)
+
+        for work in works:
+            # if work.work_id == 3:
             work.transforming = True
             work.status = WorkStatus.Failed
 

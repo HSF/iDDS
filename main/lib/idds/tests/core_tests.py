@@ -111,6 +111,8 @@ def show_works(req):
 # reqs = get_requests(request_id=299235, with_request=True, with_detail=False, with_metadata=True)
 # reqs = get_requests(request_id=965, with_request=True, with_detail=False, with_metadata=True)
 # reqs = get_requests(request_id=350695, with_request=True, with_detail=False, with_metadata=True)
+
+"""
 reqs = get_requests(request_id=350723, with_request=True, with_detail=False, with_metadata=True)
 for req in reqs:
     # print(req['request_id'])
@@ -134,7 +136,7 @@ for req in reqs:
         pass
 
 sys.exit(0)
-
+"""
 
 """
 # reqs = get_requests()
@@ -150,17 +152,22 @@ sys.exit(0)
 
 """
 
-"""
+
 tfs = get_transforms(request_id=350723)
 # tfs = get_transforms(transform_id=350723)
 for tf in tfs:
     # print(tf)
     # print(tf['transform_metadata']['work'].to_dict())
-    print(json_dumps(tf, sort_keys=True, indent=4))
+    # print(tf)
+    # print(json_dumps(tf, sort_keys=True, indent=4))
+    print(tf['request_id'], tf['workload_id'])
+    print(tf['transform_metadata']['work_name'])
+    print(tf['transform_metadata']['work'].num_run)
+    print(tf['transform_metadata']['work'].task_name)
     pass
 
 sys.exit(0)
-"""
+
 
 """
 msgs = retrieve_messages(workload_id=25972557)
