@@ -667,7 +667,7 @@ class Clerk(BaseAgent):
                         ret = {'request_id': req['request_id'],
                                'parameters': {'locking': RequestLocking.Idle,
                                               'errors': {'extra_msg': "Request is already terminated. Cannot be aborted"}}}
-                        if 'msg' in req['errors']:
+                        if req['errors'] and 'msg' in req['errors']:
                             ret['parameters']['errors']['msg'] = req['errors']['msg']
                         self.logger.info(log_pre + "process_abort_request result: %s" % str(ret))
                         self.update_request(ret)
@@ -745,7 +745,7 @@ class Clerk(BaseAgent):
                         ret = {'request_id': req['request_id'],
                                'parameters': {'locking': RequestLocking.Idle,
                                               'errors': {'extra_msg': "Request is already finished. Cannot be resumed"}}}
-                        if 'msg' in req['errors']:
+                        if req['errors'] and 'msg' in req['errors']:
                             ret['parameters']['errors']['msg'] = req['errors']['msg']
                         self.logger.info(log_pre + "process_resume_request result: %s" % str(ret))
 

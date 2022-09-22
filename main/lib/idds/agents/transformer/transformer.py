@@ -605,7 +605,7 @@ class Transformer(BaseAgent):
                         ret = {'transform': tf,
                                'transform_parameters': {'locking': TransformLocking.Idle,
                                                         'errors': {'extra_msg': "Transform is already terminated. Cannot be aborted"}}}
-                        if 'msg' in tf['errors']:
+                        if tf['errors'] and 'msg' in tf['errors']:
                             ret['parameters']['errors']['msg'] = tf['errors']['msg']
 
                         self.logger.info(log_pre + "process_abort_transform result: %s" % str(ret))
@@ -674,7 +674,7 @@ class Transformer(BaseAgent):
                         ret = {'transform': tf,
                                'transform_parameters': {'locking': TransformLocking.Idle,
                                                         'errors': {'extra_msg': "Transform is already finished. Cannot be resumed"}}}
-                        if 'msg' in tf['errors']:
+                        if tf['errors'] and 'msg' in tf['errors']:
                             ret['parameters']['errors']['msg'] = tf['errors']['msg']
 
                         self.logger.info(log_pre + "process_resume_transform result: %s" % str(ret))
