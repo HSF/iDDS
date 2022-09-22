@@ -14,6 +14,7 @@ from traceback import format_exc
 from flask import Blueprint
 
 from idds.common import exceptions
+from idds.common.authentication import authenticate_is_super_user
 from idds.common.constants import HTTP_STATUS_CODE
 from idds.common.constants import RequestStatus
 from idds.common.constants import (MessageType, MessageStatus,
@@ -121,7 +122,7 @@ class Request(IDDSController):
             username = self.get_username()
             reqs = get_requests(request_id=request_id, with_request=True)
             for req in reqs:
-                if req['username'] and req['username'] != username:
+                if req['username'] and req['username'] != username and not authenticate_is_super_user(username):
                     raise exceptions.AuthenticationNoPermission("User %s has no permission to update request %s" % (username, req['request_id']))
         except exceptions.AuthenticationNoPermission as error:
             return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=error.__class__.__name__, exc_msg=error)
@@ -252,7 +253,7 @@ class RequestAbort(IDDSController):
                     return self.generate_http_response(HTTP_STATUS_CODE.OK, data={'status': -1, 'message': 'No match tasks'})
 
             for req in reqs:
-                if req['username'] and req['username'] != username:
+                if req['username'] and req['username'] != username and not authenticate_is_super_user(username):
                     msg = "User %s has no permission to update request %s" % (username, req['request_id'])
                     # raise exceptions.AuthenticationNoPermission(msg)
                     return self.generate_http_response(HTTP_STATUS_CODE.OK, data={'status': -1, 'message': msg})
@@ -270,7 +271,8 @@ class RequestAbort(IDDSController):
                                'transform_id': matched_transform_id}
 
             add_command(request_id=request_id, cmd_type=CommandType.AbortRequest,
-                        workload_id=workload_id, cmd_content=cmd_content)
+                        workload_id=workload_id, cmd_content=cmd_content,
+                        username=username)
 
         except exceptions.NoObject as error:
             return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
@@ -309,7 +311,7 @@ class RequestRetry(IDDSController):
                 return self.generate_http_response(HTTP_STATUS_CODE.OK, data={'status': -1, 'message': 'No match requests'})
 
             for req in reqs:
-                if req['username'] and req['username'] != username:
+                if req['username'] and req['username'] != username and not authenticate_is_super_user(username):
                     msg = "User %s has no permission to update request %s" % (username, req['request_id'])
                     # raise exceptions.AuthenticationNoPermission(msg)
                     return self.generate_http_response(HTTP_STATUS_CODE.OK, data={'status': -1, 'message': msg})
@@ -322,7 +324,8 @@ class RequestRetry(IDDSController):
 
         try:
             add_command(request_id=request_id, cmd_type=CommandType.ResumeRequest,
-                        workload_id=workload_id, cmd_content=None)
+                        workload_id=workload_id, cmd_content=None,
+                        username=username)
 
         except exceptions.NoObject as error:
             return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
