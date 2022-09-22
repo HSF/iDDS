@@ -62,6 +62,7 @@ CREATE TABLE COMMANDS
     created_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)),
     updated_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)),
     cmd_content CLOB,
+    errors VARCHAR2(1024),
     CONSTRAINT COMMANDS_PK PRIMARY KEY (cmd_id) -- USING INDEX LOCAL,
 );
 
@@ -99,6 +100,7 @@ CREATE TABLE COMMANDS
     created_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)),
     updated_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)),
     cmd_content CLOB,
+    errors VARCHAR2(1024),
     CONSTRAINT COMMANDS_PK PRIMARY KEY (cmd_id) -- USING INDEX LOCAL,
 );
 

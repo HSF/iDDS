@@ -600,6 +600,7 @@ class Command(BASE, ModelBase):
     created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow)
     updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     cmd_content = Column(JSON())
+    errors = Column(JSONString(1024))
 
     _table_args = (PrimaryKeyConstraint('cmd_id', name='COMMANDS_PK'),
                    Index('COMMANDS_TYPE_ST_IDX', 'cmd_type', 'status', 'destination', 'request_id'),

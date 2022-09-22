@@ -46,6 +46,8 @@ class EventType(Enum):
     SyncProcessing = 34
     TerminatedProcessing = 35
 
+    UpdateCommand = 40
+
 
 class Event(object):
     def __init__(self, publisher_id, event_type=EventType.Event, content=None):
@@ -140,6 +142,17 @@ class ExpireRequestEvent(Event):
     def to_json(self):
         ret = super(ExpireRequestEvent, self).to_json()
         ret['request_id'] = self._request_id
+        return ret
+
+
+class UpdateCommandEvent(Event):
+    def __init__(self, publisher_id, command_id, content=None):
+        super(UpdateCommandEvent, self).__init__(publisher_id, event_type=EventType.UpdateCommand, content=content)
+        self._command_id = command_id
+
+    def to_json(self):
+        ret = super(UpdateCommandEvent, self).to_json()
+        ret['command_id'] = self._command_id
         return ret
 
 

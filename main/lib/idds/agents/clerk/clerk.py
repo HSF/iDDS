@@ -219,6 +219,7 @@ class Clerk(BaseAgent):
                 cmd_status = cmd['status']
                 event_content = {'request_id': request_id,
                                  'cmd_type': cmd_type,
+                                 'cmd_id': cmd['cmd_id'],
                                  'cmd_content': cmd_content}
 
                 event = None
@@ -650,6 +651,15 @@ class Clerk(BaseAgent):
             self.logger.info(log_pre + "handle_abort_request exception result: %s" % str(ret_req))
         return ret_req
 
+    def handle_command(self, event, cmd_status, errors=None):
+        if (event and event._content and 'cmd_id' in event._content and event._content['cmd_id']):
+            u_command = {'cmd_id': event._content['cmd_id'],
+                         'status': cmd_status,
+                         'locking': CommandLocking.Idle}
+            if errors:
+                u_command['errors'] = errors
+            core_commands.update_commands([u_command])
+
     def process_abort_request(self, event):
         self.number_workers += 1
         try:
@@ -671,6 +681,7 @@ class Clerk(BaseAgent):
                             ret['parameters']['errors']['msg'] = req['errors']['msg']
                         self.logger.info(log_pre + "process_abort_request result: %s" % str(ret))
                         self.update_request(ret)
+                        self.handle_command(event, cmd_status=CommandStatus.Failed, errors="Request is already terminated. Cannot be aborted")
                     else:
                         ret = self.handle_abort_request(req, event)
                         self.logger.info(log_pre + "process_abort_request result: %s" % str(ret))
@@ -695,6 +706,8 @@ class Clerk(BaseAgent):
                             self.logger.info(log_pre + "UpdateRequestEvent(request_id: %s)" % str(req['request_id']))
                             event = UpdateRequestEvent(publisher_id=self.id, request_id=req['request_id'], content=event._content)
                             self.event_bus.send(event)
+
+                        self.handle_command(event, cmd_status=CommandStatus.Processed, errors=None)
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
@@ -750,6 +763,7 @@ class Clerk(BaseAgent):
                         self.logger.info(log_pre + "process_resume_request result: %s" % str(ret))
 
                         self.update_request(ret)
+                        self.handle_command(event, cmd_status=CommandStatus.Failed, errors="Request is already finished. Cannot be resumed")
                     else:
                         ret = self.handle_resume_request(req)
                         self.logger.info(log_pre + "process_resume_request result: %s" % str(ret))
@@ -769,6 +783,8 @@ class Clerk(BaseAgent):
                             self.logger.info(log_pre + "UpdateRequestEvent(request_id: %s)" % str(req['request_id']))
                             event = UpdateRequestEvent(publisher_id=self.id, request_id=req['request_id'], content=event._content)
                             self.event_bus.send(event)
+
+                        self.handle_command(event, cmd_status=CommandStatus.Processed, errors=None)
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())

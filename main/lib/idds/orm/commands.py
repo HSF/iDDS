@@ -19,7 +19,6 @@ import datetime
 import sqlalchemy
 from sqlalchemy import or_
 from sqlalchemy.exc import DatabaseError, IntegrityError
-from sqlalchemy.sql.expression import asc
 
 from idds.common import exceptions
 from idds.common.constants import CommandLocation, CommandLocking
@@ -68,9 +67,9 @@ def add_command(cmd_type, status, request_id, workload_id, transform_id,
 
 
 @transactional_session
-def update_command(command, bulk_size=1000, session=None):
+def update_commands(commands, bulk_size=1000, session=None):
     try:
-        session.bulk_update_mappings(models.Command, command)
+        session.bulk_update_mappings(models.Command, commands)
     except TypeError as e:
         raise exceptions.DatabaseException('Invalid JSON for cmd_content: %s' % str(e))
     except DatabaseError as e:
@@ -187,8 +186,8 @@ def get_commands_by_status(status, locking=False, period=None, bulk_size=None, s
 
         if locking:
             query = query.filter(models.Command.locking == CommandLocking.Idle)
-        query = query.with_for_update(skip_locked=True)
-        query = query.order_by(asc(models.Command.updated_at))
+        # query = query.with_for_update(skip_locked=True)
+        # query = query.order_by(asc(models.Command.updated_at))
 
         if bulk_size:
             query = query.limit(bulk_size)
