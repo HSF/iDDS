@@ -978,20 +978,24 @@ def sync_collection_status(request_id, transform_id, workload_id, work, input_ou
             coll.processed_files = coll_status[coll.coll_id]['processed_files']
             coll.processing_files = coll_status[coll.coll_id]['processing_files']
             coll.bytes = coll_status[coll.coll_id]['bytes']
+        else:
+            coll.total_files = 0
+            coll.processed_files = 0
+            coll.processing_files = 0
 
-            u_coll = {'coll_id': coll.coll_id,
-                      'total_files': coll.total_files,
-                      'processed_files': coll.processed_files,
-                      'processing_files': coll.processing_files,
-                      'bytes': coll.bytes}
-            if terminate:
-                if force_close_collection or close_collection and all_updates_flushed or coll.status == CollectionStatus.Closed:
-                    u_coll['status'] = CollectionStatus.Closed
-                    u_coll['substatus'] = CollectionStatus.Closed
-                    coll.status = CollectionStatus.Closed
-                    coll.substatus = CollectionStatus.Closed
+        u_coll = {'coll_id': coll.coll_id,
+                  'total_files': coll.total_files,
+                  'processed_files': coll.processed_files,
+                  'processing_files': coll.processing_files,
+                  'bytes': coll.bytes}
+        if terminate:
+            if force_close_collection or close_collection and all_updates_flushed or coll.status == CollectionStatus.Closed:
+                u_coll['status'] = CollectionStatus.Closed
+                u_coll['substatus'] = CollectionStatus.Closed
+                coll.status = CollectionStatus.Closed
+                coll.substatus = CollectionStatus.Closed
 
-            update_collections.append(u_coll)
+        update_collections.append(u_coll)
     return update_collections, all_updates_flushed
 
 
