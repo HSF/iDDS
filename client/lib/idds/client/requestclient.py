@@ -116,7 +116,7 @@ class RequestClient(BaseRestClient):
         :raise exceptions if it's not updated successfully.
         """
         path = self.REQUEST_BASEURL
-        path += "/retry"
+        path += "/abort"
 
         if request_id is None:
             request_id = 'null'

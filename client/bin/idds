@@ -72,17 +72,20 @@ def get_requests_status(args):
 
 def abort_requests(args):
     wm = ClientManager(host=args.host, setup_client=True)
-    wm.abort(request_id=args.request_id, workload_id=args.workload_id)
+    ret = wm.abort(request_id=args.request_id, workload_id=args.workload_id)
+    print(ret)
 
 
 def abort_tasks(args):
     wm = ClientManager(host=args.host, setup_client=True)
-    wm.abort_task(request_id=args.request_id, workload_id=args.workload_id, task_id=args.task_id)
+    ret = wm.abort_task(request_id=args.request_id, workload_id=args.workload_id, task_id=args.task_id)
+    print(ret)
 
 
 def retry_requests(args):
     wm = ClientManager(host=args.host, setup_client=True)
-    wm.retry(request_id=args.request_id, workload_id=args.workload_id)
+    ret = wm.retry(request_id=args.request_id, workload_id=args.workload_id)
+    print(ret)
 
 
 def download_logs(args):
