@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2020
+# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2022
 
 import copy
 import datetime
@@ -21,9 +21,9 @@ from idds.common.constants import (TransformType, CollectionType, CollectionStat
                                    ProcessingStatus, WorkStatus)
 from idds.common.utils import run_command
 from idds.common.utils import replace_parameters_with_values
-# from idds.workflow.work import Work
-from idds.workflow.work import Processing
-from idds.atlas.workflow.atlascondorwork import ATLASCondorWork
+# from idds.workflowv2.work import Work
+from idds.workflowv2.work import Processing
+from idds.atlas.workflowv2.atlascondorwork import ATLASCondorWork
 # from idds.core import (catalog as core_catalog)
 
 
@@ -124,6 +124,8 @@ class ATLASHPOWork(ATLASCondorWork):
         if agent_attributes:
             self.set_agent_attributes(agent_attributes)
 
+        self.logger = self.get_logger()
+
     def set_agent_attributes(self, attrs, req_attributes=None):
         self.agent_attributes = attrs
 
@@ -191,12 +193,13 @@ class ATLASHPOWork(ATLASCondorWork):
             self.logger.error(traceback.format_exc())
             raise exceptions.IDDSException('%s: %s' % (str(ex), traceback.format_exc()))
 
-    def get_input_collections(self):
+    def get_input_collections(self, poll_externel=False):
         # return [self.primary_input_collection] + self.other_input_collections
-        colls = [self.primary_input_collection] + self.other_input_collections
+        colls = [self._primary_input_collection] + self._other_input_collections
         for coll_int_id in colls:
             coll = self.collections[coll_int_id]
-            coll = self.poll_external_collection(coll)
+            if poll_externel:
+                coll = self.poll_external_collection(coll)
             self.collections[coll_int_id] = coll
         return super(ATLASHPOWork, self).get_input_collections()
 
@@ -212,7 +215,7 @@ class ATLASHPOWork(ATLASCondorWork):
                 return []
 
             ret_files = []
-            coll = self.collections[self.primary_input_collection]
+            coll = self.collections[self._primary_input_collection]
 
             if self.max_points and (self.max_points - self.finished_points < self.num_points_per_iteration):
                 self.points_to_generate = self.max_points - self.finished_points
@@ -273,46 +276,11 @@ class ATLASHPOWork(ATLASCondorWork):
         New inputs which are not yet mapped to outputs.
 
         :param mapped_input_output_maps: Inputs that are already mapped.
+
+        :returns new_input_output_maps  as dict.
         """
-        unfinished_mapped = self.get_unfinished_points(mapped_input_output_maps)
-        self.unfinished_points = unfinished_mapped
 
-        mapped_inputs = self.get_mapped_inputs(mapped_input_output_maps)
-        mapped_inputs_scope_name = [ip['scope'] + ":" + ip['name'] for ip in mapped_inputs]
-        mapped_keys = mapped_input_output_maps.keys()
-        if mapped_keys:
-            next_key = max(mapped_keys) + 1
-        else:
-            next_key = 1
-
-        inputs = self.get_input_contents(point_index=next_key)
-
-        new_inputs = []
-        new_input_output_maps = {}
-        for ip in inputs:
-            ip_scope_name = ip['scope'] + ":" + ip['name']
-            if ip_scope_name not in mapped_inputs_scope_name:
-                new_inputs.append(ip)
-
-        # to avoid cheking new inputs if there are no new inputs anymore
-        if (not new_inputs and self.collections[self.primary_input_collection]
-           and self.collections[self.primary_input_collection].status in [CollectionStatus.Closed]):  # noqa: W503
-            self.set_has_new_inputs(False)
-        else:
-            for ip in new_inputs:
-                out_ip = copy.deepcopy(ip)
-                ip['status'] = ContentStatus.Available
-                ip['substatus'] = ContentStatus.Available
-                out_ip['coll_id'] = self.collections[self.output_collections[0]].coll_id
-                new_input_output_maps[next_key] = {'inputs': [ip],
-                                                   'outputs': [out_ip],
-                                                   'inputs_dependency': [],
-                                                   'logs': []}
-                next_key += 1
-
-        self.unfinished_points = self.unfinished_points + len(new_inputs)
-
-        return new_input_output_maps
+        return {}
 
     def generate_points(self):
         active_processing = self.get_processing(None, without_creating=True)
@@ -366,8 +334,8 @@ class ATLASHPOWork(ATLASCondorWork):
         if self.active_processings:
             return self.processings[self.active_processings[0]]
         else:
-            # if not without_creating:
-            #     return self.create_processing(input_output_maps)
+            if not without_creating:
+                return self.create_processing(input_output_maps)
             pass
         return None
 
@@ -389,21 +357,6 @@ class ATLASHPOWork(ATLASCondorWork):
                 status_statistics[content['status'].name] += 1
         self.status_statistics = status_statistics
         return status_statistics
-
-    """
-    def syn_collection_status(self):
-        input_collections = self.get_input_collections()
-        output_collections = self.get_output_collections()
-        # log_collections = self.get_log_collections()
-
-        for input_collection in input_collections:
-            input_collection['total_files'] = self.finished_points + self.unfinished_points
-            input_collection['processed_files'] = self.finished_points + self.unfinished_points
-
-        for output_collection in output_collections:
-            output_collection['total_files'] = self.finished_points + self.unfinished_points
-            output_collection['processed_files'] = self.finished_points
-    """
 
     def syn_work_status(self, registered_input_output_maps, all_updates_flushed=True, output_statistics={}, to_release_input_contents=[]):
         super(ATLASHPOWork, self).syn_work_status(registered_input_output_maps)
@@ -640,14 +593,18 @@ class ATLASHPOWork(ATLASCondorWork):
         if proc.external_id:
             # if 'job_id' in processing['processing_metadata']:
             pass
+            return True, None, None
         else:
             job_id, errors = self.submit_condor_processing(processing)
             # processing['processing_metadata']['job_id'] = job_id
             # processing['processing_metadata']['errors'] = errors
-            proc.external_id = job_id
             if job_id:
+                proc.external_id = job_id
                 proc.submitted_at = datetime.datetime.utcnow()
-            proc.errors = errors
+                return True, None, None
+            else:
+                proc.errors = errors
+                return False, None, errors
 
     def parse_processing_outputs(self, processing):
         request_id = processing['request_id']
@@ -678,7 +635,6 @@ class ATLASHPOWork(ATLASCondorWork):
             proc = processing['processing_metadata']['processing']
             job_status, job_err_msg = self.poll_condor_job_status(processing, proc.external_id)
             processing_outputs = None
-            reset_expired_at = False
             if job_status in [ProcessingStatus.Finished]:
                 job_outputs, parser_errors = self.parse_processing_outputs(processing)
                 if job_outputs:
@@ -690,36 +646,9 @@ class ATLASHPOWork(ATLASCondorWork):
                     processing_err = parser_errors
             elif job_status in [ProcessingStatus.Failed]:
                 processing_status = job_status
-                processing_err = job_err_msg
-            elif self.toexpire:
-                processing_status = ProcessingStatus.Expired
-                processing_err = "The processing is expired"
-            elif job_status in [ProcessingStatus.Cancelled]:
                 processing_status = job_status
                 processing_err = job_err_msg
-            elif self.tocancel:
-                self.cancelled_processings.append(proc.internal_id)
-                processing_status = ProcessingStatus.Cancelled
-                processing_outputs = None
-                processing_err = 'Cancelled'
-            elif self.tosuspend:
-                self.suspended_processings.append(proc.internal_id)
-                processing_status = ProcessingStatus.Suspended
-                processing_outputs = None
-                processing_err = 'Suspend'
-            elif self.toresume:
-                # self.old_processings.append(processing['processing_metadata']['internal_id'])
-                # self.active_processings.clear()
-                # self.active_processings.remove(processing['processing_metadata']['internal_id'])
-                processing['processing_metadata']['resuming_at'] = datetime.datetime.utcnow()
-                processing_status = ProcessingStatus.Running
-                reset_expired_at = True
-                processing_outputs = None
-                processing_err = None
-            else:
-                processing_status = job_status
-                processing_err = job_err_msg
-            return processing_status, processing_outputs, processing_err, reset_expired_at
+            return processing_status, processing_outputs, processing_err
         except Exception as ex:
             self.logger.error("processing_id %s exception: %s, %s" % (processing['processing_id'], str(ex), traceback.format_exc()))
             proc.retries += 1
@@ -727,25 +656,98 @@ class ATLASHPOWork(ATLASCondorWork):
                 processing_status = ProcessingStatus.Failed
             else:
                 processing_status = ProcessingStatus.Running
-            return processing_status, None, None, False
+            return processing_status, None, None
 
-    def poll_processing_updates(self, processing, input_output_maps):
-        processing_status, processing_outputs, processing_err, reset_expired_at = self.poll_processing(processing)
+    def generate_new_input_output_maps(self, input_output_maps, points):
+        unfinished_mapped = self.get_unfinished_points(input_output_maps)
+        self.unfinished_points = unfinished_mapped
 
-        # processing_metadata = processing['processing_metadata']
-        # if not processing_metadata:
-        #     processing_metadata = {}
-        # processing_metadata['errors'] = processing_err
+        mapped_keys = input_output_maps.keys()
+        if mapped_keys:
+            next_key = max(mapped_keys) + 1
+        else:
+            next_key = 1
+
+        coll = self.collections[self._primary_input_collection]
+        new_input_output_maps = {}
+        loss = None
+        for point in points:
+            content = {'coll_id': coll.coll_id,
+                       'scope': coll.scope,
+                       'name': str(next_key),
+                       'bytes': 0,
+                       'adler32': None,
+                       'min_id': 0,
+                       'max_id': 0,
+                       'path': json.dumps((point, loss)),
+                       'content_type': ContentType.File,
+                       'content_metadata': {'events': 0}}
+            out_content = copy.deepcopy(content)
+            content['status'] = ContentStatus.Available
+            content['substatus'] = ContentStatus.Available
+            out_content['coll_id'] = self.collections[self._primary_output_collection].coll_id
+            new_input_output_maps[next_key] = {'inputs': [content],
+                                               'outputs': [out_content],
+                                               'inputs_dependency': [],
+                                               'logs': []}
+            next_key += 1
+        return new_input_output_maps
+
+    def poll_processing_updates(self, processing, input_output_maps, log_prefix=''):
         proc = processing['processing_metadata']['processing']
-        proc.errors = processing_err
-
-        update_processing = {'processing_id': processing['processing_id'],
-                             'parameters': {'status': processing_status,
-                                            'processing_metadata': processing['processing_metadata'],
-                                            'output_metadata': processing_outputs}}
-
-        if reset_expired_at:
-            update_processing['parameters']['expired_at'] = None
-            processing['expired_at'] = None
+        new_input_output_maps = {}
         updated_contents = []
-        return update_processing, updated_contents, {}
+        if proc.external_id:
+            processing_status, processing_outputs, processing_err = self.poll_processing(processing)
+
+            proc.errors = processing_err
+
+            if processing_status in [ProcessingStatus.Finished]:
+                proc.external_id = None
+                if processing_outputs:
+                    self.logger.info(log_prefix + "Processing finished with outputs")
+                    points = processing_outputs
+                    new_input_output_maps = self.generate_new_input_output_maps(input_output_maps, points)
+                    proc.old_external_id.append(proc.external_id)
+                    processing_status = ProcessingStatus.Running
+                else:
+                    self.status = WorkStatus.Finished
+                    self.logger.info(log_prefix + "Processing finished and output is empty (output: %s)" % str(processing_outputs))
+            elif processing_status in [ProcessingStatus.Failed, ProcessingStatus.Cancelled]:
+                proc.external_id = None
+                proc.retries += 1
+                if proc.retries <= 3:
+                    self.logger.warn(log_prefix + "Processing terminated (status: %s, retries: %s), retries <=3, new status: %s" % (processing_status,
+                                                                                                                                    proc.retries,
+                                                                                                                                    ProcessingStatus.Running))
+                    processing_status = ProcessingStatus.Running
+                else:
+                    self.status = WorkStatus.Failed
+                    self.logger.warn(log_prefix + "Processing terminated (status: %s, retries: %s)" % (processing_status, proc.retries))
+        else:
+            unfinished_mapped = self.get_unfinished_points(input_output_maps)
+            self.unfinished_points = unfinished_mapped
+
+            if self.unfinished_points > 0:
+                processing_status = ProcessingStatus.Running
+            else:
+                self.logger.warn(log_prefix + "max_points: %s, finished_points: %s, unfinished_points: %s, num_points_per_iteration: %s" % (self.max_points,
+                                                                                                                                            self.finished_points,
+                                                                                                                                            self.unfinished_points,
+                                                                                                                                            self.num_points_per_iteration))
+                if self.max_points and (self.max_points - self.finished_points < self.num_points_per_iteration):
+                    self.points_to_generate = self.max_points - self.finished_points
+                if self.points_to_generate <= 0:
+                    processing_status = ProcessingStatus.Finished
+                    self.status = WorkStatus.Finished
+                else:
+                    status, workload_id, error = self.submit_processing(processing)
+                    processing_status = ProcessingStatus.Running
+
+        return processing_status, updated_contents, new_input_output_maps, [], {}
+
+    def abort_processing(self, processing, log_prefix=''):
+        self.logger.info(log_prefix + "abort processing")
+
+    def resume_processing(self, processing, log_prefix=''):
+        self.logger.info(log_prefix + "resume processing")

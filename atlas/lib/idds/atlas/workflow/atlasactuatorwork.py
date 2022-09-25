@@ -21,16 +21,17 @@ from idds.common.constants import (TransformType, CollectionType, CollectionStat
                                    ContentStatus, ContentType,
                                    ProcessingStatus, WorkStatus)
 from idds.common.utils import run_command
-# from idds.workflow.work import Work
-from idds.workflow.work import Processing
-from idds.atlas.workflow.atlascondorwork import ATLASCondorWork
+# from idds.workflowv2.work import Work
+from idds.workflowv2.work import Processing
+from idds.atlas.workflowv2.atlascondorwork import ATLASCondorWork
 
 
 class ATLASActuatorWork(ATLASCondorWork):
     def __init__(self, executable=None, arguments=None, parameters=None, setup=None,
                  work_tag='actuating', exec_type='local', sandbox=None, work_id=None,
                  name=None,
-                 primary_input_collection=None, other_input_collections=None,
+                 primary_input_collection=None, other_input_collections=None, input_collections=None,
+                 primary_output_collection=None, other_output_collections=None,
                  output_collections=None, log_collections=None,
                  logger=None,
                  workload_id=None,
@@ -61,6 +62,9 @@ class ATLASActuatorWork(ATLASCondorWork):
                                                 exec_type=exec_type, sandbox=sandbox, work_id=work_id,
                                                 primary_input_collection=primary_input_collection,
                                                 other_input_collections=other_input_collections,
+                                                primary_output_collection=primary_output_collection,
+                                                other_output_collections=other_output_collections,
+                                                input_collections=input_collections,
                                                 output_collections=output_collections,
                                                 log_collections=log_collections,
                                                 logger=logger,
@@ -160,7 +164,7 @@ class ATLASActuatorWork(ATLASCondorWork):
 
     def get_input_collections(self):
         # return [self.primary_input_collection] + self.other_input_collections
-        colls = [self.primary_input_collection] + self.other_input_collections
+        colls = [self._primary_input_collection] + self._other_input_collections
         for coll_int_id in colls:
             coll = self.collections[coll_int_id]
             coll = self.poll_external_collection(coll)
@@ -173,7 +177,7 @@ class ATLASActuatorWork(ATLASCondorWork):
         """
         try:
             ret_files = []
-            coll = self.collections[self.primary_input_collection]
+            coll = self.collections[self._primary_input_collection]
             ret_file = {'coll_id': coll['coll_id'],
                         'scope': coll['scope'],
                         'name': coll['name'],
@@ -222,8 +226,8 @@ class ATLASActuatorWork(ATLASCondorWork):
                 new_inputs.append(ip)
 
         # to avoid cheking new inputs if there are no new inputs anymore
-        if (not new_inputs and 'status' in self.collections[self.primary_input_collection]
-           and self.collections[self.primary_input_collection]['status'] in [CollectionStatus.Closed]):  # noqa: W503
+        if (not new_inputs and 'status' in self.collections[self._primary_input_collection]
+           and self.collections[self._primary_input_collection]['status'] in [CollectionStatus.Closed]):  # noqa: W503
             self.set_has_new_inputs(False)
         else:
             mapped_keys = mapped_input_output_maps.keys()
@@ -233,7 +237,7 @@ class ATLASActuatorWork(ATLASCondorWork):
                 next_key = 1
             for ip in new_inputs:
                 out_ip = copy.deepcopy(ip)
-                out_ip['coll_id'] = self.collections[self.output_collections[0]]['coll_id']
+                out_ip['coll_id'] = self.collections[self._primary_output_collection]['coll_id']
                 new_input_output_maps[next_key] = {'inputs': [ip],
                                                    'outputs': [out_ip]}
                 next_key += 1
@@ -342,7 +346,7 @@ class ATLASActuatorWork(ATLASCondorWork):
         script += 'base_sandbox="$(basename -- $sandbox)"\n'
         script += 'tar xzf $base_sandbox\n'
 
-        dataset = self.collections[self.primary_input_collection]
+        dataset = self.collections[self._primary_input_collection]
         script += 'rucio download %s:%s\n' % (dataset['scope'], dataset['name'])
         script += 'chmod +x %s\n' % str(self.executable)
         script += "echo '%s' '%s'\n" % (str(self.executable), str(arguments))

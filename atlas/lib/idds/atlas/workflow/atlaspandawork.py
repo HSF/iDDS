@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2021
+# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2022
 
 
 try:
@@ -24,17 +24,18 @@ from rucio.common.exception import (CannotAuthenticate as RucioCannotAuthenticat
 
 from idds.common import exceptions
 from idds.common.constants import (TransformType, CollectionStatus, CollectionType,
-                                   ContentStatus, ContentType,
-                                   ProcessingStatus, WorkStatus)
+                                   ContentType, ProcessingStatus, WorkStatus)
 from idds.common.utils import extract_scope_atlas
-from idds.workflow.work import Work, Processing
-# from idds.workflow.workflow import Condition
+from idds.workflowv2.work import Work, Processing
+# from idds.workflowv2.workflow import Condition
 
 
 class ATLASPandaWork(Work):
     def __init__(self, task_parameters=None,
                  work_tag='atlas', exec_type='panda', work_id=None,
                  primary_input_collection=None, other_input_collections=None,
+                 input_collections=None,
+                 primary_output_collection=None, other_output_collections=None,
                  output_collections=None, log_collections=None,
                  logger=None,
                  # dependency_map=None, task_name="",
@@ -54,6 +55,9 @@ class ATLASPandaWork(Work):
                                              work_id=work_id,
                                              primary_input_collection=primary_input_collection,
                                              other_input_collections=other_input_collections,
+                                             primary_output_collection=primary_output_collection,
+                                             other_output_collections=other_output_collections,
+                                             input_collections=input_collections,
                                              output_collections=output_collections,
                                              log_collections=log_collections,
                                              release_inputs_after_submitting=True,
@@ -61,11 +65,18 @@ class ATLASPandaWork(Work):
         self.panda_url = None
         self.panda_url_ssl = None
         self.panda_monitor = None
+        self.panda_auth = None
+        self.panda_auth_vo = None
+        self.panda_config_root = None
+        self.pandacache_url = None
+        self.panda_verify_host = None
 
         self.task_type = 'test'
         self.task_parameters = None
         self.parse_task_parameters(task_parameters)
         # self.logger.setLevel(logging.DEBUG)
+
+        self.logger = self.get_logger()
 
         self.retry_number = 0
         self.num_retries = num_retries
@@ -98,30 +109,42 @@ class ATLASPandaWork(Work):
         self.panda_url = None
         self.panda_url_ssl = None
         self.panda_monitor = None
+        self.pandacache_url = None
+        self.panda_verify_host = None
+        self.panda_auth = None
+        self.panda_auth_vo = None
+        self.panda_config_root = None
 
         if panda_config.has_section('panda'):
-            if panda_config.has_option('panda', 'panda_monitor_url'):
+            if 'PANDA_MONITOR_URL' not in os.environ and panda_config.has_option('panda', 'panda_monitor_url'):
                 self.panda_monitor = panda_config.get('panda', 'panda_monitor_url')
                 os.environ['PANDA_MONITOR_URL'] = self.panda_monitor
                 # self.logger.debug("Panda monitor url: %s" % str(self.panda_monitor))
-            if panda_config.has_option('panda', 'panda_url'):
+            if 'PANDA_URL' not in os.environ and panda_config.has_option('panda', 'panda_url'):
                 self.panda_url = panda_config.get('panda', 'panda_url')
                 os.environ['PANDA_URL'] = self.panda_url
                 # self.logger.debug("Panda url: %s" % str(self.panda_url))
-            if panda_config.has_option('panda', 'panda_url_ssl'):
+            if 'PANDACACHE_URL' not in os.environ and panda_config.has_option('panda', 'pandacache_url'):
+                self.pandacache_url = panda_config.get('panda', 'pandacache_url')
+                os.environ['PANDACACHE_URL'] = self.pandacache_url
+                # self.logger.debug("Pandacache url: %s" % str(self.pandacache_url))
+            if 'PANDA_VERIFY_HOST' not in os.environ and panda_config.has_option('panda', 'panda_verify_host'):
+                self.panda_verify_host = panda_config.get('panda', 'panda_verify_host')
+                os.environ['PANDA_VERIFY_HOST'] = self.panda_verify_host
+                # self.logger.debug("Panda verify host: %s" % str(self.panda_verify_host))
+            if 'PANDA_URL_SSL' not in os.environ and panda_config.has_option('panda', 'panda_url_ssl'):
                 self.panda_url_ssl = panda_config.get('panda', 'panda_url_ssl')
                 os.environ['PANDA_URL_SSL'] = self.panda_url_ssl
                 # self.logger.debug("Panda url ssl: %s" % str(self.panda_url_ssl))
-
-        if not self.panda_monitor and 'PANDA_MONITOR_URL' in os.environ and os.environ['PANDA_MONITOR_URL']:
-            self.panda_monitor = os.environ['PANDA_MONITOR_URL']
-            # self.logger.debug("Panda monitor url: %s" % str(self.panda_monitor))
-        if not self.panda_url and 'PANDA_URL' in os.environ and os.environ['PANDA_URL']:
-            self.panda_url = os.environ['PANDA_URL']
-            # self.logger.debug("Panda url: %s" % str(self.panda_url))
-        if not self.panda_url_ssl and 'PANDA_URL_SSL' in os.environ and os.environ['PANDA_URL_SSL']:
-            self.panda_url_ssl = os.environ['PANDA_URL_SSL']
-            # self.logger.debug("Panda url ssl: %s" % str(self.panda_url_ssl))
+            if 'PANDA_AUTH' not in os.environ and panda_config.has_option('panda', 'panda_auth'):
+                self.panda_auth = panda_config.get('panda', 'panda_auth')
+                os.environ['PANDA_AUTH'] = self.panda_auth
+            if 'PANDA_AUTH_VO' not in os.environ and panda_config.has_option('panda', 'panda_auth_vo'):
+                self.panda_auth_vo = panda_config.get('panda', 'panda_auth_vo')
+                os.environ['PANDA_AUTH_VO'] = self.panda_auth_vo
+            if 'PANDA_CONFIG_ROOT' not in os.environ and panda_config.has_option('panda', 'panda_config_root'):
+                self.panda_config_root = panda_config.get('panda', 'panda_config_root')
+                os.environ['PANDA_CONFIG_ROOT'] = self.panda_config_root
 
     def set_agent_attributes(self, attrs, req_attributes=None):
         if self.class_name not in attrs or 'life_time' not in attrs[self.class_name] or int(attrs[self.class_name]['life_time']) <= 0:
@@ -168,6 +191,17 @@ class ATLASPandaWork(Work):
                 log_col = {'scope': scope, 'name': name}
                 self.add_log_collections(log_col)
 
+            if not self.get_primary_output_collection():
+                all_colls = self.get_collections()
+                if all_colls:
+                    one_coll = all_colls[0]
+                    output_coll_scope = one_coll.scope
+                else:
+                    output_coll_scope = 'pseudo.scope'
+                name = 'pseudo_output.' + datetime.datetime.utcnow().strftime("%Y_%m_%d_%H_%M_%S_%f") + str(random.randint(1, 1000))
+                output_coll = {'scope': output_coll_scope, 'name': name, 'type': CollectionType.PseudoDataset}
+                self.set_primary_output_collection(output_coll)
+
             if not self.get_primary_input_collection():
                 output_colls = self.get_output_collections()
                 output_coll = output_colls[0]
@@ -175,6 +209,72 @@ class ATLASPandaWork(Work):
                 input_coll = {'scope': output_coll.scope, 'name': name, 'type': CollectionType.PseudoDataset}
                 self.set_primary_input_collection(input_coll)
 
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+            # raise exceptions.IDDSException('%s: %s' % (str(ex), traceback.format_exc()))
+            self.add_errors(str(ex))
+
+    def renew_parameter(self, parameter):
+        new_parameter = parameter
+        has_updates = True
+        len_idds = len('___idds___')
+        while has_updates:
+            if '___idds___' in parameter:
+                pos_start = parameter.find('___idds___')
+                attr = parameter[pos_start:]
+                attr = attr.replace("___idds___", "")
+                pos = attr.find("___")
+                if pos > -1:
+                    attr = attr[:pos]
+                if attr:
+                    idds_attr = "___idds___" + attr + "___"
+                    if hasattr(self, attr):
+                        has_updates = True
+                        attr_value = getattr(self, attr)
+                        new_parameter = new_parameter.replace(idds_attr, str(attr_value))
+                        parameter = parameter.replace(idds_attr, str(attr_value))
+                else:
+                    parameter = parameter[pos_start + len_idds:]
+            else:
+                has_updates = False
+        return new_parameter
+
+    def renew_parameters_from_attributes(self):
+        if not self.task_parameters:
+            return
+
+        try:
+            for key in self.task_parameters:
+                if self.task_parameters[key] and type(self.task_parameters[key]) in [str]:
+                    self.task_parameters[key] = self.renew_parameter(self.task_parameters[key])
+
+            if 'taskName' in self.task_parameters:
+                self.task_name = self.task_parameters['taskName']
+                self.task_name = self.renew_parameter(self.task_name)
+                self.task_parameters['taskName'] = self.task_name
+                self.set_work_name(self.task_name)
+
+            if 'prodSourceLabel' in self.task_parameters:
+                self.task_type = self.task_parameters['prodSourceLabel']
+
+            if 'jobParameters' in self.task_parameters:
+                jobParameters = self.task_parameters['jobParameters']
+                for jobP in jobParameters:
+                    if type(jobP) in [dict]:
+                        for key in jobP:
+                            if jobP[key] and type(jobP[key]) in [str]:
+                                jobP[key] = self.renew_parameter(jobP[key])
+
+            if 'log' in self.task_parameters:
+                log = self.task_parameters['log']
+                for key in log:
+                    if log[key] and type(log[key]) in [str]:
+                        self.task_parameters['log'][key] = self.renew_parameter(log[key])
+
+            for coll_id in self.collections:
+                coll_name = self.collections[coll_id].name
+                self.collections[coll_id].name = self.renew_parameter(coll_name)
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
@@ -253,20 +353,21 @@ class ATLASPandaWork(Work):
             self.logger.error(traceback.format_exc())
             raise exceptions.IDDSException('%s: %s' % (str(ex), traceback.format_exc()))
 
-    def get_input_collections(self):
+    def get_input_collections(self, poll_externel=False):
         """
         *** Function called by Transformer agent.
         """
-        colls = [self.primary_input_collection] + self.other_input_collections
+        colls = [self._primary_input_collection] + self._other_input_collections
         for coll_int_id in colls:
             coll = self.collections[coll_int_id]
             # if self.is_internal_collection(coll):
             #     coll = self.poll_internal_collection(coll)
             # else:
             #     coll = self.poll_external_collection(coll)
-            coll = self.poll_external_collection(coll)
+            if poll_externel:
+                coll = self.poll_external_collection(coll)
             self.collections[coll_int_id] = coll
-        return super(ATLASPandaWork, self).get_input_collections()
+        return super(ATLASPandaWork, self).get_input_collections(poll_externel=poll_externel)
 
     def get_input_contents(self):
         """
@@ -347,7 +448,7 @@ class ATLASPandaWork(Work):
                 new_inputs.append(ip)
 
         # to avoid cheking new inputs if there are no new inputs anymore
-        if (not new_inputs and self.collections[self.primary_input_collection].status in [CollectionStatus.Closed]):  # noqa: W503
+        if (not new_inputs and self.collections[self._primary_input_collection].status in [CollectionStatus.Closed]):  # noqa: W503
             self.set_has_new_inputs(False)
         else:
             pass
@@ -397,10 +498,10 @@ class ATLASPandaWork(Work):
             proc = processing['processing_metadata']['processing']
             task_param = proc.processing_metadata['task_param']
             return_code = Client.insertTaskParams(task_param, verbose=True)
-            if return_code[0] == 0:
+            if return_code[0] == 0 and return_code[1][0] is True:
                 try:
                     task_id = int(return_code[1][1])
-                    return task_id
+                    return task_id, None
                 except Exception as ex:
                     self.logger.warn("task id is not retruned: (%s) is not task id: %s" % (return_code[1][1], str(ex)))
                     # jediTaskID=26468582
@@ -409,30 +510,38 @@ class ATLASPandaWork(Work):
                         for part in parts:
                             if 'jediTaskID=' in part:
                                 task_id = int(part.split("=")[1])
-                                return task_id
+                                return task_id, None
+                    else:
+                        return None, return_code
             else:
                 self.logger.warn("submit_panda_task, return_code: %s" % str(return_code))
+                return None, return_code
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
             # raise exceptions.AgentPluginError('%s: %s' % (str(ex), traceback.format_exc()))
-        return None
+            return None, str(ex)
+        return None, None
 
     def submit_processing(self, processing):
         """
         *** Function called by Carrier agent.
         """
+        errors = None
         proc = processing['processing_metadata']['processing']
         if proc.workload_id:
             # if 'task_id' in processing['processing_metadata'] and processing['processing_metadata']['task_id']:
             pass
+            return True, proc.workload_id, None
         else:
-            task_id = self.submit_panda_task(processing)
+            task_id, errors = self.submit_panda_task(processing)
             # processing['processing_metadata']['task_id'] = task_id
             # processing['processing_metadata']['workload_id'] = task_id
-            proc.workload_id = task_id
             if task_id:
                 proc.submitted_at = datetime.datetime.utcnow()
+                proc.workload_id = task_id
+                return True, task_id, errors
+        return False, None, errors
 
     def poll_panda_task_status(self, processing):
         if 'processing' in processing['processing_metadata']:
@@ -491,7 +600,7 @@ class ATLASPandaWork(Work):
 
         return task_id
 
-    def poll_panda_task(self, processing=None, input_output_maps=None):
+    def poll_panda_task(self, processing=None, input_output_maps=None, log_prefix=''):
         task_id = None
         try:
             from pandaclient import Client
@@ -504,34 +613,28 @@ class ATLASPandaWork(Work):
 
                 if task_id:
                     # ret_ids = Client.getPandaIDsWithTaskID(task_id, verbose=False)
-                    task_info = Client.getJediTaskDetails({'jediTaskID': task_id}, True, True, verbose=False)
-                    self.logger.info("poll_panda_task, task_info: %s" % str(task_info))
+                    task_info = Client.getJediTaskDetails({'jediTaskID': task_id}, True, True, verbose=True)
+                    self.logger.info(log_prefix + "poll_panda_task, task_info: %s" % str(task_info))
                     if task_info[0] != 0:
-                        self.logger.warn("poll_panda_task %s, error getting task status, task_info: %s" % (task_id, str(task_info)))
+                        self.logger.warn(log_prefix + "poll_panda_task %s, error getting task status, task_info: %s" % (task_id, str(task_info)))
                         return ProcessingStatus.Submitting, [], {}
 
                     task_info = task_info[1]
 
                     processing_status = self.get_processing_status_from_panda_status(task_info["status"])
 
-                    if processing_status in [ProcessingStatus.SubFinished]:
-                        if self.retry_number < self.num_retries:
-                            self.reactivate_processing(processing)
-                            processing_status = ProcessingStatus.Submitted
-                            self.retry_number += 1
-
                     return processing_status, [], {}
                 else:
-                    return ProcessingStatus.Failed, [], {}
+                    return ProcessingStatus.Running, [], {}
         except Exception as ex:
             msg = "Failed to check the processing (%s) status: %s" % (str(processing['processing_id']), str(ex))
-            self.logger.error(msg)
-            self.logger.error(ex)
+            self.logger.error(log_prefix + msg)
+            self.logger.error(log_prefix + ex)
             self.logger.error(traceback.format_exc())
             # raise exceptions.IDDSException(msg)
-        return ProcessingStatus.Submitting, [], {}
+        return ProcessingStatus.Running, [], []
 
-    def kill_processing(self, processing):
+    def kill_processing(self, processing, log_prefix=''):
         try:
             if processing:
                 from pandaclient import Client
@@ -540,11 +643,13 @@ class ATLASPandaWork(Work):
                 # task_id = processing['processing_metadata']['task_id']
                 # Client.killTask(task_id)
                 Client.finishTask(task_id, soft=False)
+                self.logger.info(log_prefix + "finishTask: %s" % task_id)
         except Exception as ex:
-            msg = "Failed to check the processing (%s) status: %s" % (str(processing['processing_id']), str(ex))
-            raise exceptions.IDDSException(msg)
+            msg = "Failed to kill the processing (%s) status: %s" % (str(processing['processing_id']), str(ex))
+            # raise exceptions.IDDSException(msg)
+            self.logger.error(log_prefix + "Failed to finishTask: %s, %s" % (task_id, msg))
 
-    def kill_processing_force(self, processing):
+    def kill_processing_force(self, processing, log_prefix=''):
         try:
             if processing:
                 from pandaclient import Client
@@ -553,11 +658,13 @@ class ATLASPandaWork(Work):
                 # task_id = processing['processing_metadata']['task_id']
                 Client.killTask(task_id)
                 # Client.finishTask(task_id, soft=True)
+                self.logger.info(log_prefix + "killTask: %s" % task_id)
         except Exception as ex:
-            msg = "Failed to check the processing (%s) status: %s" % (str(processing['processing_id']), str(ex))
-            raise exceptions.IDDSException(msg)
+            msg = "Failed to force kill the processing (%s) status: %s" % (str(processing['processing_id']), str(ex))
+            # raise exceptions.IDDSException(msg)
+            self.logger.error(log_prefix + "Failed to finishTask: %s, %s" % (task_id, msg))
 
-    def reactivate_processing(self, processing):
+    def reactivate_processing(self, processing, log_prefix=''):
         try:
             if processing:
                 from pandaclient import Client
@@ -567,119 +674,46 @@ class ATLASPandaWork(Work):
 
                 # Client.retryTask(task_id)
                 status, out = Client.retryTask(task_id, newParams={})
-                self.logger.warn("Retry processing(%s) with task id(%s): %s, %s" % (processing['processing_id'], task_id, status, out))
+                self.logger.warn(log_prefix + "Retry processing(%s) with task id(%s): %s, %s" % (processing['processing_id'], task_id, status, out))
                 # Client.reactivateTask(task_id)
                 # Client.resumeTask(task_id)
         except Exception as ex:
-            msg = "Failed to check the processing (%s) status: %s" % (str(processing['processing_id']), str(ex))
-            raise exceptions.IDDSException(msg)
+            msg = log_prefix + "Failed to resume the processing (%s) status: %s" % (str(processing['processing_id']), str(ex))
+            # raise exceptions.IDDSException(msg)
+            self.logger.error(msg)
 
-    def poll_processing_updates(self, processing, input_output_maps):
+    def abort_processing(self, processing, log_prefix=''):
+        self.kill_processing_force(processing, log_prefix=log_prefix)
+
+    def resume_processing(self, processing, log_prefix=''):
+        self.reactivate_processing(processing, log_prefix=log_prefix)
+
+    def poll_processing_updates(self, processing, input_output_maps, log_prefix=''):
         """
         *** Function called by Carrier agent.
         """
         updated_contents = []
-        update_processing = {}
-        reset_expired_at = False
-        reactive_contents = []
         # self.logger.debug("poll_processing_updates, input_output_maps: %s" % str(input_output_maps))
 
         if processing:
             proc = processing['processing_metadata']['processing']
-            if proc.tocancel:
-                self.logger.info("Cancelling processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], proc.workload_id))
-                self.kill_processing_force(processing)
-                # self.kill_processing(processing)
-                proc.tocancel = False
-                proc.polling_retries = 0
-            elif proc.tosuspend:
-                self.logger.info("Suspending processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], proc.workload_id))
-                self.kill_processing_force(processing)
-                # self.kill_processing(processing)
-                proc.tosuspend = False
-                proc.polling_retries = 0
-            elif proc.toresume:
-                self.logger.info("Resuming processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], proc.workload_id))
-                self.reactivate_processing(processing)
-                reset_expired_at = True
-                proc.toresume = False
-                proc.polling_retries = 0
-                proc.has_new_updates()
-                # reactive_contents = self.reactive_contents(input_output_maps)
-            # elif self.is_processing_expired(processing):
-            elif proc.toexpire:
-                self.logger.info("Expiring processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], proc.workload_id))
-                self.kill_processing(processing)
-                proc.toexpire = False
-                proc.polling_retries = 0
-            elif proc.tofinish or proc.toforcefinish:
-                self.logger.info("Finishing processing (processing id: %s, jediTaskId: %s)" % (processing['processing_id'], proc.workload_id))
-                self.kill_processing(processing)
-                proc.tofinish = False
-                proc.toforcefinish = False
-                proc.polling_retries = 0
 
-            processing_status, poll_updated_contents, new_input_output_maps = self.poll_panda_task(processing=processing, input_output_maps=input_output_maps)
-            self.logger.debug("poll_processing_updates, processing_status: %s" % str(processing_status))
-            self.logger.debug("poll_processing_updates, update_contents: %s" % str(poll_updated_contents))
+            processing_status, poll_updated_contents, new_input_output_maps = self.poll_panda_task(processing=processing,
+                                                                                                   input_output_maps=input_output_maps,
+                                                                                                   log_prefix=log_prefix)
+            self.logger.debug(log_prefix + "poll_processing_updates, processing_status: %s" % str(processing_status))
+            self.logger.debug(log_prefix + "poll_processing_updates, update_contents: %s" % str(poll_updated_contents))
 
             if poll_updated_contents:
                 proc.has_new_updates()
             for content in poll_updated_contents:
                 updated_content = {'content_id': content['content_id'],
+                                   'status': content['status'],
                                    'substatus': content['substatus'],
                                    'content_metadata': content['content_metadata']}
                 updated_contents.append(updated_content)
 
-            content_substatus = {'finished': 0, 'unfinished': 0}
-            for map_id in input_output_maps:
-                outputs = input_output_maps[map_id]['outputs']
-                for content in outputs:
-                    if content.get('substatus', ContentStatus.New) != ContentStatus.Available:
-                        content_substatus['unfinished'] += 1
-                    else:
-                        content_substatus['finished'] += 1
-
-            if processing_status in [ProcessingStatus.SubFinished, ProcessingStatus.Finished, ProcessingStatus.Failed] and updated_contents:
-                self.logger.info("Processing %s is terminated, but there are still contents to be flushed. Waiting." % (proc.workload_id))
-                # there are still polling contents, should not terminate the task.
-                processing_status = ProcessingStatus.Running
-
-            if processing_status in [ProcessingStatus.SubFinished] and content_substatus['finished'] > 0 and content_substatus['unfinished'] == 0:
-                # found that a 'done' panda task has got a 'finished' status. Maybe in this case 'finished' is a transparent status.
-                if proc.polling_retries is None:
-                    proc.polling_retries = 0
-
-            if processing_status in [ProcessingStatus.SubFinished, ProcessingStatus.Finished, ProcessingStatus.Failed]:
-                if proc.polling_retries is not None and proc.polling_retries < 3:
-                    self.logger.info("processing %s polling_retries(%s) < 3, keep running" % (processing['processing_id'], proc.polling_retries))
-                    processing_status = ProcessingStatus.Running
-                    proc.polling_retries += 1
-            else:
-                proc.polling_retries = 0
-
-            if proc.in_operation_time():
-                processing_status = ProcessingStatus.Running
-
-            update_processing = {'processing_id': processing['processing_id'],
-                                 'parameters': {'status': processing_status}}
-            if reset_expired_at:
-                processing['expired_at'] = None
-                update_processing['parameters']['expired_at'] = None
-                proc.polling_retries = 0
-                # if (processing_status in [ProcessingStatus.SubFinished, ProcessingStatus.Finished, ProcessingStatus.Failed]
-                #     or processing['status'] in [ProcessingStatus.Resuming]):   # noqa W503
-                # using polling_retries to poll it again when panda may update the status in a delay(when issuing retryTask, panda will not update it without any delay).
-                update_processing['parameters']['status'] = ProcessingStatus.Resuming
-            proc.status = update_processing['parameters']['status']
-
-        self.logger.debug("poll_processing_updates, task: %s, update_processing: %s" %
-                          (proc.workload_id, str(update_processing)))
-        self.logger.debug("poll_processing_updates, task: %s, updated_contents: %s" %
-                          (proc.workload_id, str(updated_contents)))
-        self.logger.debug("poll_processing_updates, task: %s, reactive_contents: %s" %
-                          (proc.workload_id, str(reactive_contents)))
-        return update_processing, updated_contents + reactive_contents, new_input_output_maps
+        return processing_status, updated_contents, new_input_output_maps, [], {}
 
     def get_status_statistics(self, registered_input_output_maps):
         status_statistics = {}
@@ -702,9 +736,9 @@ class ATLASPandaWork(Work):
         self.logger.debug("syn_work_status, self.active_processings: %s" % str(self.active_processings))
         self.logger.debug("syn_work_status, self.has_new_inputs(): %s" % str(self.has_new_inputs))
         self.logger.debug("syn_work_status, coll_metadata_is_open: %s" %
-                          str(self.collections[self.primary_input_collection].coll_metadata['is_open']))
+                          str(self.collections[self._primary_input_collection].coll_metadata['is_open']))
         self.logger.debug("syn_work_status, primary_input_collection_status: %s" %
-                          str(self.collections[self.primary_input_collection].status))
+                          str(self.collections[self._primary_input_collection].status))
 
         self.logger.debug("syn_work_status(%s): is_processings_terminated: %s" % (str(self.get_processing_ids()), str(self.is_processings_terminated())))
         self.logger.debug("syn_work_status(%s): is_input_collections_closed: %s" % (str(self.get_processing_ids()), str(self.is_input_collections_closed())))
@@ -712,7 +746,8 @@ class ATLASPandaWork(Work):
         self.logger.debug("syn_work_status(%s): has_to_release_inputs: %s" % (str(self.get_processing_ids()), str(self.has_to_release_inputs())))
         self.logger.debug("syn_work_status(%s): to_release_input_contents: %s" % (str(self.get_processing_ids()), str(to_release_input_contents)))
 
-        if self.is_processings_terminated() and self.is_input_collections_closed() and not self.has_new_inputs and not self.has_to_release_inputs() and not to_release_input_contents:
+        # if self.is_processings_terminated() and self.is_input_collections_closed() and not self.has_new_inputs and not self.has_to_release_inputs() and not to_release_input_contents:
+        if self.is_processings_terminated():
             # if not self.is_all_outputs_flushed(registered_input_output_maps):
             if not all_updates_flushed:
                 self.logger.warn("The work processings %s is terminated. but not all outputs are flushed. Wait to flush the outputs then finish the transform" % str(self.get_processing_ids()))
