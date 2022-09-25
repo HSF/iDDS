@@ -8,6 +8,7 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
 
+import datetime
 import random
 import time
 import traceback
@@ -162,6 +163,7 @@ class Poller(BaseAgent):
 
                 processing['update_processing']['parameters']['locking'] = ProcessingLocking.Idle
                 # self.logger.debug("wen: %s" % str(processing))
+                processing['update_processing']['parameters']['updated_at'] = datetime.datetime.utcnow()
 
                 retry = True
                 retry_num = 0

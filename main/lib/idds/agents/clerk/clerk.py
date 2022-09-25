@@ -8,6 +8,7 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
 
+import datetime
 import random
 import time
 import traceback
@@ -373,6 +374,7 @@ class Clerk(BaseAgent):
             log_pre = self.get_log_prefix(req)
             self.logger.info(log_pre + "update request: %s" % req)
             req['parameters']['locking'] = RequestLocking.Idle
+            req['parameters']['updated_at'] = datetime.datetime.utcnow()
 
             if 'new_transforms' in req:
                 new_transforms = req['new_transforms']

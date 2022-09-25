@@ -9,6 +9,7 @@
 # - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
 
 import copy
+import datetime
 import random
 import time
 import traceback
@@ -300,6 +301,8 @@ class Transformer(BaseAgent):
                 self.logger.info(log_pre + "Update transform: %s" % str(ret))
 
                 ret['transform_parameters']['locking'] = TransformLocking.Idle
+                ret['transform_parameters']['updated_at'] = datetime.datetime.utcnow()
+
                 retry = True
                 retry_num = 0
                 while retry:
@@ -444,7 +447,7 @@ class Transformer(BaseAgent):
         self.logger.info(log_pre + "syn_work_status: %s, transform status: %s" % (transform['transform_id'], transform['status']))
         if work.is_terminated():
             is_terminated = True
-            self.logger.info(log_pre + "Transform(%s) work is terminated" % (transform['transform_id']))
+            self.logger.info(log_pre + "Transform(%s) work is terminated: work status: %s" % (transform['transform_id'], work.get_status()))
             if work.is_finished():
                 transform['status'] = TransformStatus.Finished
             else:
