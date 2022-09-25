@@ -371,7 +371,7 @@ def get_contents_by_request_transform(request_id=None, transform_id=None, worklo
 
 
 @read_session
-def get_contents_by_content_ids(content_ids, request_id=None, session=None):
+def get_contents_by_content_ids(content_ids, request_id=None, bulk_size=1000, session=None):
     """
     Get content or raise a NoObject exception.
 
@@ -389,6 +389,33 @@ def get_contents_by_content_ids(content_ids, request_id=None, session=None):
         if content_ids:
             if not isinstance(content_ids, (list, tuple)):
                 content_ids = [content_ids]
+
+        chunks = [content_ids[i:i + bulk_size] for i in range(0, len(content_ids), bulk_size)]
+        ret = []
+        for chunk in chunks:
+            ret_chunk = get_contents_by_content_ids_real(chunk, request_id=request_id)
+            ret = ret + ret_chunk
+        return ret
+    except Exception as error:
+        raise error
+
+
+@read_session
+def get_contents_by_content_ids_real(content_ids, request_id=None, session=None):
+    """
+    Get content or raise a NoObject exception.
+
+    :param request_id: request id.
+    :param content_ids: list of content id.
+    :param workload_id: workload id.
+
+    :param session: The database session in use.
+
+    :raises NoObject: If no content is founded.
+
+    :returns: list of contents.
+    """
+    try:
         query = session.query(models.Content)
         query = query.with_hint(models.Content, "INDEX(CONTENTS CONTENTS_REQ_TF_COLL_IDX)", 'oracle')
         if request_id:
