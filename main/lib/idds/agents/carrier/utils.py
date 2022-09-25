@@ -469,7 +469,7 @@ def trigger_release_inputs_no_deps(request_id, transform_id, workload_id, work, 
 
     content_depency_map, transform_dependency_maps = get_input_dependency_map_by_request(request_id, transform_id, workload_id, work,
                                                                                          logger=logger, log_prefix=log_prefix)
-    logger.debug(log_prefix + "content_depency_map[:2]: %s" % str({k: content_depency_map[k] for k in list(content_depency_map.keys())[:2]}))
+    # logger.debug(log_prefix + "content_depency_map[:2]: %s" % str({k: content_depency_map[k] for k in list(content_depency_map.keys())[:2]}))
     # logger.debug(log_prefix + "transform_dependency_map[:2]: %s" % str({key: transform_dependency_map[key] for k in list(transform_dependency_map.keys())[:2]}))
     logger.debug(log_prefix + "transform_dependency_maps.keys[:2]: %s" % str(list(transform_dependency_maps.keys())[:2]))
 
@@ -526,7 +526,7 @@ def trigger_release_inputs(request_id, transform_id, workload_id, work, updated_
 
     content_depency_map, transform_dependency_maps = get_input_dependency_map_by_request(request_id, transform_id, workload_id, work,
                                                                                          logger=logger, log_prefix=log_prefix)
-    logger.debug(log_prefix + "content_depency_map[:2]: %s" % str({k: content_depency_map[k] for k in list(content_depency_map.keys())[:2]}))
+    # logger.debug(log_prefix + "content_depency_map[:2]: %s" % str({k: content_depency_map[k] for k in list(content_depency_map.keys())[:2]}))
     # logger.debug(log_prefix + "transform_dependency_map[:2]: %s" % str({key: transform_dependency_maps[key] for k in list(transform_dependency_maps.keys())[:2]}))
     logger.debug(log_prefix + "transform_dependency_maps.keys[:2]: %s" % str(list(transform_dependency_maps.keys())[:2]))
 
@@ -1024,7 +1024,9 @@ def sync_work_status(request_id, transform_id, workload_id, work):
             work.status = WorkStatus.SubFinished
 
 
-def sync_processing(processing, agent_attributes, terminate=False):
+def sync_processing(processing, agent_attributes, terminate=False, logger=None, log_prefix=""):
+    logger = get_logger()
+
     request_id = processing['request_id']
     transform_id = processing['transform_id']
     workload_id = processing['workload_id']
@@ -1040,11 +1042,14 @@ def sync_processing(processing, agent_attributes, terminate=False):
 
     messages = []
     sync_work_status(request_id, transform_id, workload_id, work)
+    logger.info(log_prefix + "sync_processing: work status: %s" % work.get_status())
     if terminate and work.is_terminated():
         messages = generate_messages(request_id, transform_id, workload_id, work, msg_type='work')
         if work.is_finished():
             processing['status'] = ProcessingStatus.Finished
-        elif work.is_failed:
+        elif work.is_subfinished():
+            processing['status'] = ProcessingStatus.SubFinished
+        elif work.is_failed():
             processing['status'] = ProcessingStatus.Failed
         else:
             processing['status'] = ProcessingStatus.SubFinished

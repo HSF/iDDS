@@ -55,12 +55,12 @@ class Finisher(Poller):
         q_str = "number of processings: %s, max number of processings: %s" % (self.number_workers, self.max_number_workers)
         self.logger.debug(q_str)
 
-    def handle_sync_processing(self, processing):
+    def handle_sync_processing(self, processing, log_prefix=""):
         """
         process terminated processing
         """
         try:
-            processing, update_collections, messages = sync_processing(processing, self.agent_attributes)
+            processing, update_collections, messages = sync_processing(processing, self.agent_attributes, logger=self.logger, log_prefix=log_prefix)
 
             update_processing = {'processing_id': processing['processing_id'],
                                  'parameters': {'status': processing['status'],
@@ -94,7 +94,7 @@ class Finisher(Poller):
                     log_pre = self.get_log_prefix(pr)
 
                     self.logger.info(log_pre + "process_sync_processing")
-                    ret = self.handle_sync_processing(pr)
+                    ret = self.handle_sync_processing(pr, log_prefix=log_pre)
                     self.logger.info(log_pre + "process_sync_processing result: %s" % str(ret))
 
                     self.update_processing(ret, pr)
@@ -108,12 +108,12 @@ class Finisher(Poller):
             self.logger.error(traceback.format_exc())
         self.number_workers -= 1
 
-    def handle_terminated_processing(self, processing):
+    def handle_terminated_processing(self, processing, log_prefix=""):
         """
         process terminated processing
         """
         try:
-            processing, update_collections, messages = sync_processing(processing, self.agent_attributes, terminate=True)
+            processing, update_collections, messages = sync_processing(processing, self.agent_attributes, terminate=True, logger=self.logger, log_prefix=log_prefix)
 
             update_processing = {'processing_id': processing['processing_id'],
                                  'parameters': {'status': processing['status'],
@@ -147,7 +147,7 @@ class Finisher(Poller):
                     log_pre = self.get_log_prefix(pr)
 
                     self.logger.info(log_pre + "process_terminated_processing")
-                    ret = self.handle_terminated_processing(pr)
+                    ret = self.handle_terminated_processing(pr, log_prefix=log_pre)
                     self.logger.info(log_pre + "process_terminated_processing result: %s" % str(ret))
 
                     if pr['status'] == ProcessingStatus.Terminating and is_process_terminated(pr['substatus']):
@@ -168,12 +168,12 @@ class Finisher(Poller):
             self.logger.error(traceback.format_exc())
         self.number_workers -= 1
 
-    def handle_abort_processing(self, processing):
+    def handle_abort_processing(self, processing, log_prefix=""):
         """
         process abort processing
         """
         try:
-            processing, update_collections, update_contents = handle_abort_processing(processing, self.agent_attributes)
+            processing, update_collections, update_contents = handle_abort_processing(processing, self.agent_attributes, logger=self.logger, log_prefix=log_prefix)
 
             update_processing = {'processing_id': processing['processing_id'],
                                  'parameters': {'status': processing['status'],
@@ -221,7 +221,7 @@ class Finisher(Poller):
                         self.logger.info(log_pre + "process_abort_processing result: %s" % str(ret))
                         self.update_processing(ret, pr)
                     elif pr:
-                        ret = self.handle_abort_processing(pr)
+                        ret = self.handle_abort_processing(pr, log_prefix=log_pre)
                         self.logger.info(log_pre + "process_abort_processing result: %s" % str(ret))
                         self.update_processing(ret, pr)
                         self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
@@ -232,12 +232,12 @@ class Finisher(Poller):
             self.logger.error(traceback.format_exc())
         self.number_workers -= 1
 
-    def handle_resume_processing(self, processing):
+    def handle_resume_processing(self, processing, log_prefix=""):
         """
         process resume processing
         """
         try:
-            processing, update_collections, update_contents = handle_resume_processing(processing, self.agent_attributes)
+            processing, update_collections, update_contents = handle_resume_processing(processing, self.agent_attributes, logger=self.logger, log_prefix=log_prefix)
 
             update_processing = {'processing_id': processing['processing_id'],
                                  'parameters': {'status': processing['status'],
@@ -284,7 +284,7 @@ class Finisher(Poller):
 
                         self.update_processing(ret, pr)
                     elif pr:
-                        ret = self.handle_resume_processing(pr)
+                        ret = self.handle_resume_processing(pr, log_prefix=log_pre)
                         self.logger.info(log_pre + "process_resume_processing result: %s" % str(ret))
 
                         self.update_processing(ret, pr)
