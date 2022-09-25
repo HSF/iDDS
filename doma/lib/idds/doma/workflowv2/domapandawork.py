@@ -446,7 +446,8 @@ class DomaPanDAWork(Work):
         task_param_map['PandaSite'] = self.task_site
         if self.task_rss and self.task_rss > 0:
             task_param_map['ramCount'] = self.task_rss
-            task_param_map['ramUnit'] = 'MB'
+            # task_param_map['ramUnit'] = 'MB'
+            task_param_map['ramUnit'] = 'MBPerCoreFixed'
 
         task_param_map['inputPreStaging'] = True
         task_param_map['prestagingRuleID'] = 123
@@ -669,6 +670,9 @@ class DomaPanDAWork(Work):
         return None
 
     def get_content_status_from_panda_status(self, job_info):
+        if job_info is None:
+            return ContentStatus.Processing
+
         jobstatus = job_info.jobStatus
         if jobstatus in ['finished', 'merging']:
             return ContentStatus.Available
@@ -939,7 +943,7 @@ class DomaPanDAWork(Work):
         except Exception as ex:
             msg = "Failed to check the processing (%s) status: %s" % (str(processing['processing_id']), str(ex))
             self.logger.error(log_prefix + msg)
-            self.logger.error(log_prefix + ex)
+            self.logger.error(log_prefix + str(ex))
             self.logger.error(traceback.format_exc())
             # raise exceptions.IDDSException(msg)
         return ProcessingStatus.Running, [], []
