@@ -212,7 +212,10 @@ def get_transforms_by_status(status, period=None, locking=False, bulk_size=None,
         parameters['updated_at'] = datetime.datetime.utcnow()
         if parameters:
             for transform in transforms:
-                orm_transforms.update_transform(transform_id=transform['transform_id'], parameters=parameters, session=session)
+                if type(transform) in [dict]:
+                    orm_transforms.update_transform(transform_id=transform['transform_id'], parameters=parameters, session=session)
+                else:
+                    orm_transforms.update_transform(transform_id=transform, parameters=parameters, session=session)
     else:
         transforms = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking,
                                                              bulk_size=bulk_size, to_json=to_json,

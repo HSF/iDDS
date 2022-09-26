@@ -185,7 +185,10 @@ def get_processings_by_status(status, time_period=None, locking=False, bulk_size
         parameters['updated_at'] = datetime.datetime.utcnow()
         if parameters:
             for processing in processings:
-                orm_processings.update_processing(processing['processing_id'], parameters=parameters, session=session)
+                if type(processing) in [dict]:
+                    orm_processings.update_processing(processing['processing_id'], parameters=parameters, session=session)
+                else:
+                    orm_processings.update_processing(processing, parameters=parameters, session=session)
     else:
         processings = orm_processings.get_processings_by_status(status=status, period=time_period, locking=locking,
                                                                 bulk_size=bulk_size, to_json=to_json,
