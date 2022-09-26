@@ -6,13 +6,14 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2020
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
 
 
 """
 operations related to Transform.
 """
 
+import datetime
 import logging
 
 # from idds.common import exceptions
@@ -202,11 +203,12 @@ def get_transforms_by_status(status, period=None, locking=False, bulk_size=None,
                                                                  only_return_id=only_return_id,
                                                                  by_substatus=by_substatus, session=session)
 
-        parameters = []
+        parameters = {}
         if not not_lock:
             parameters['locking'] = TransformLocking.Locking
         if next_poll_at:
             parameters['next_poll_at'] = next_poll_at
+        parameters['updated_at'] = datetime.datetime.utcnow()
         if parameters:
             for transform in transforms:
                 orm_transforms.update_transform(transform_id=transform['transform_id'], parameters=parameters, session=session)

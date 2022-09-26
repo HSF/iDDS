@@ -14,6 +14,7 @@ operations related to Requests.
 """
 
 import copy
+import datetime
 
 from idds.common.constants import (RequestStatus, RequestLocking, WorkStatus,
                                    CollectionType, CollectionStatus, CollectionRelationType,
@@ -388,6 +389,7 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, loc
             parameters['locking'] = RequestLocking.Locking
         if next_poll_at:
             parameters['next_poll_at'] = next_poll_at
+        parameters['updated_at'] = datetime.datetime.utcnow()
         if parameters:
             for req in reqs:
                 orm_requests.update_request(request_id=req['request_id'], parameters=parameters, session=session)

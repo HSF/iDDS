@@ -13,6 +13,7 @@
 operations related to Processings.
 """
 
+import datetime
 
 from idds.orm.base.session import read_session, transactional_session
 from idds.common.constants import ProcessingLocking, ProcessingStatus, GranularityType
@@ -175,11 +176,12 @@ def get_processings_by_status(status, time_period=None, locking=False, bulk_size
                                                                     only_return_id=only_return_id,
                                                                     by_substatus=by_substatus, for_poller=for_poller, session=session)
 
-        parameters = []
+        parameters = {}
         if not not_lock:
             parameters['locking'] = ProcessingLocking.Locking
         if next_poll_at:
             parameters['next_poll_at'] = next_poll_at
+        parameters['updated_at'] = datetime.datetime.utcnow()
         if parameters:
             for processing in processings:
                 orm_processings.update_processing(processing['processing_id'], parameters=parameters, session=session)
