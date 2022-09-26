@@ -116,6 +116,7 @@ def get_processing_by_id_status(processing_id, status=None, locking=False, sessi
     if pr is not None and locking:
         parameters = {}
         parameters['locking'] = ProcessingLocking.Locking
+        parameters['updated_at'] = datetime.datetime.utcnow()
         orm_processings.update_processing(processing_id=pr['processing_id'], parameters=parameters, session=session)
     return pr
 

@@ -131,6 +131,7 @@ def get_request_by_id_status(request_id, status=None, locking=False, session=Non
     if req is not None and locking:
         parameters = {}
         parameters['locking'] = RequestLocking.Locking
+        parameters['updated_at'] = datetime.datetime.utcnow()
         orm_requests.update_request(request_id=req['request_id'], parameters=parameters, session=session)
     return req
 

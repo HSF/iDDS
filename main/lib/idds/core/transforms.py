@@ -89,6 +89,7 @@ def get_transform_by_id_status(transform_id, status=None, locking=False, session
     if tf is not None and locking:
         parameters = {}
         parameters['locking'] = TransformLocking.Locking
+        parameters['updated_at'] = datetime.datetime.utcnow()
         orm_transforms.update_transform(transform_id=tf['transform_id'], parameters=parameters, session=session)
     return tf
 
