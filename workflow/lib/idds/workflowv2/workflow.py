@@ -1781,7 +1781,7 @@ class WorkflowBase(Base):
         *** Function called by Marshaller agent.
         """
         self.sync_works(to_cancel=self.to_cancel)
-        if len(self.new_to_run_works) == 0 and len(self.current_running_works) == 0:
+        if (self.to_cancel or len(self.new_to_run_works) == 0) and len(self.current_running_works) == 0:
             return True
         return False
 
