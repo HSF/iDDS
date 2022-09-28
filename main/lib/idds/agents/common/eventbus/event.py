@@ -45,6 +45,7 @@ class EventType(Enum):
     ResumeProcessing = 33
     SyncProcessing = 34
     TerminatedProcessing = 35
+    TriggerProcessing = 36
 
     UpdateCommand = 40
 
@@ -262,5 +263,16 @@ class TerminatedProcessingEvent(Event):
 
     def to_json(self):
         ret = super(TerminatedProcessingEvent, self).to_json()
+        ret['processing_id'] = self._processing_id
+        return ret
+
+
+class TriggerProcessingEvent(Event):
+    def __init__(self, publisher_id, processing_id, content=None):
+        super(TriggerProcessingEvent, self).__init__(publisher_id, event_type=EventType.TriggerProcessing, content=content)
+        self._processing_id = processing_id
+
+    def to_json(self):
+        ret = super(TriggerProcessingEvent, self).to_json()
         ret['processing_id'] = self._processing_id
         return ret

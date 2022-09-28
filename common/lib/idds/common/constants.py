@@ -325,6 +325,8 @@ class ProcessingStatus(IDDSEnum):
     ToForceFinish = 25
     Broken = 26
     Terminating = 27
+    ToTrigger = 28
+    Triggering = 29
 
 
 class ProcessingLocking(IDDSEnum):

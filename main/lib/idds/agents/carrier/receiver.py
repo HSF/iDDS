@@ -24,7 +24,7 @@ from idds.common.utils import json_dumps
 from idds.core import messages as core_messages, catalog as core_catalog
 from idds.agents.common.baseagent import BaseAgent
 # from idds.agents.common.eventbus.event import TerminatedProcessingEvent
-from idds.agents.common.eventbus.event import UpdateProcessingEvent
+from idds.agents.common.eventbus.event import TriggerProcessingEvent
 
 from .utils import handle_messages_processing
 
@@ -92,22 +92,27 @@ class Receiver(BaseAgent):
                 try:
                     time_start = time.time()
                     output_messages = self.get_output_messages()
-                    update_processings, update_contents, msgs = handle_messages_processing(output_messages)
+                    update_processings, terminated_processings, update_contents, msgs = handle_messages_processing(output_messages)
 
                     if msgs:
                         # self.logger.debug(log_prefix + "adding messages[:3]: %s" % json_dumps(msgs[:3]))
                         core_messages.add_messages(msgs, bulk_size=self.bulk_message_size)
 
-                    for pr_id, status in update_processings:
-                        # self.logger.info(log_prefix + "TerminatedProcessingEvent(processing_id: %s)" % pr_id)
-                        # event = TerminatedProcessingEvent(publisher_id=self.id, processing_id=pr_id)
-                        self.logger.info(log_prefix + "UpdateProcessingEvent(processing_id: %s)" % pr_id)
-                        event = UpdateProcessingEvent(publisher_id=self.id, processing_id=pr_id)
-                        self.event_bus.send(event)
-
                     if update_contents:
                         self.logger.info(log_prefix + "update_contents[:3]: %s" % json_dumps(update_contents[:3]))
                         core_catalog.update_contents(update_contents)
+
+                    for pr_id in update_processings:
+                        # self.logger.info(log_prefix + "TerminatedProcessingEvent(processing_id: %s)" % pr_id)
+                        # event = TerminatedProcessingEvent(publisher_id=self.id, processing_id=pr_id)
+                        self.logger.info(log_prefix + "TriggerProcessingEvent(processing_id: %s)" % pr_id)
+                        event = TriggerProcessingEvent(publisher_id=self.id, processing_id=pr_id)
+                        self.event_bus.send(event)
+
+                    for pr_id in terminated_processings:
+                        self.logger.info(log_prefix + "TriggerProcessingEvent(processing_id: %s)" % pr_id)
+                        event = TriggerProcessingEvent(publisher_id=self.id, processing_id=pr_id, content={'Terminated': True, 'source': 'Receiver'})
+                        self.event_bus.send(event)
 
                     time_delay = self.bulk_message_delay - (time.time() - time_start)
                     if time_delay > 0:
