@@ -899,9 +899,9 @@ class WorkflowBase(Base):
                     self.logger.warn("Only parameters start with 'user_' can be set as global parameters. The parameter '%s' will be ignored." % (key))
         self.add_metadata_item('sliced_gp', gp_metadata)
 
-    def set_sliced_global_parameters(self, source, index=0):
+    def set_sliced_global_parameters(self, source, name=None, index=0):
         sliced_global_parameters = self.sliced_global_parameters
-        sliced_global_parameters[source] = index
+        sliced_global_parameters[source] = {'name': name, 'index': index}
         # to trigger the setter function
         self.sliced_global_parameters = self.sliced_global_parameters
 

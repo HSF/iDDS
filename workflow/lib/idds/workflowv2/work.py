@@ -1077,16 +1077,21 @@ class Work(Base):
         if global_parameters:
             for key in global_parameters:
                 sliced_index = None
+                sliced_name = None
                 if self.sliced_global_parameters and key in self.sliced_global_parameters:
-                    sliced_index = self.sliced_global_parameters[key]
+                    sliced_index = self.sliced_global_parameters[key]['index']
+                    sliced_name = self.sliced_global_parameters[key]['name']
                     if type(global_parameters[key]) in [list, tuple] and sliced_index < len(global_parameters[key]):
                         pass
                     else:
                         sliced_index = None
+                if not sliced_name:
+                    sliced_name = key
+
                 if sliced_index is None:
-                    setattr(self, key, global_parameters[key])
+                    setattr(self, sliced_name, global_parameters[key])
                 else:
-                    setattr(self, key, global_parameters[key][sliced_index])
+                    setattr(self, sliced_name, global_parameters[key][sliced_index])
 
     def get_global_parameter_from_output_data(self, key):
         self.logger.debug("get_global_parameter_from_output_data, key: %s, output_data: %s" % (key, str(self.output_data)))
