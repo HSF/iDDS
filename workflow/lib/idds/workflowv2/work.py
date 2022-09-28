@@ -1703,6 +1703,15 @@ class Work(Base):
     def set_has_new_inputs(self, yes=True):
         self.has_new_inputs = yes
 
+    def has_dependency(self):
+        return False
+
+    def get_parent_work_names(self):
+        return []
+
+    def get_parent_workload_ids(self):
+        return []
+
     def get_new_input_output_maps(self, mapped_input_output_maps={}):
         """
         *** Function called by Transformer agent.

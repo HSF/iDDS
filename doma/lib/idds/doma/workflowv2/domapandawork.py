@@ -320,6 +320,34 @@ class DomaPanDAWork(Work):
                 unmapped_jobs.append(job)
         return unmapped_jobs
 
+    def has_dependency(self):
+        for job in self.dependency_map:
+            if "dependencies" in job and job["dependencies"]:
+                return True
+        return False
+
+    def get_parent_work_names(self):
+        parent_work_names = []
+        for job in self.dependency_map:
+            if "dependencies" in job and job["dependencies"]:
+                inputs_dependency = job["dependencies"]
+                for input_d in inputs_dependency:
+                    task_name = input_d['task']
+                    if task_name not in parent_work_names:
+                        parent_work_names.append(task_name)
+        return parent_work_names
+
+    def get_parent_workload_ids(self):
+        parent_workload_ids = []
+        parent_work_names = self.get_parent_work_names()
+        work_name_to_coll_map = self.get_work_name_to_coll_map()
+        for work_name in parent_work_names:
+            if work_name in work_name_to_coll_map:
+                input_d_coll = work_name_to_coll_map[work_name]['outputs'][0]
+                if input_d_coll and 'workload_id' in input_d_coll:
+                    parent_workload_ids.append(input_d_coll['workload_id'])
+        return parent_workload_ids
+
     def get_new_input_output_maps(self, mapped_input_output_maps={}):
         """
         *** Function called by Transformer agent.
@@ -478,7 +506,10 @@ class DomaPanDAWork(Work):
 
             proc = processing['processing_metadata']['processing']
             task_param = proc.processing_metadata['task_param']
-            return_code = Client.insertTaskParams(task_param, verbose=True, parent_tid=self.parent_workload_id)
+            if self.has_dependency():
+                return_code = Client.insertTaskParams(task_param, verbose=True, parent_tid=self.parent_workload_id)
+            else:
+                return_code = Client.insertTaskParams(task_param, verbose=True)
             if return_code[0] == 0 and return_code[1][0] is True:
                 try:
                     task_id = int(return_code[1][1])
@@ -850,11 +881,11 @@ class DomaPanDAWork(Work):
             contents = map_id_contents['outputs']
             for content in contents:
                 if content['substatus'] != panda_status:
-                    content['status'] = panda_status
+                    # content['status'] = panda_status
                     content['substatus'] = panda_status
                     update_contents_full.append(content)
                     update_content = {'content_id': content['content_id'],
-                                      'status': panda_status,
+                                      # 'status': panda_status,
                                       'substatus': panda_status}
                     # 'content_metadata': content['content_metadata']
                     if 'panda_id' in content['content_metadata'] and content['content_metadata']['panda_id']:
@@ -866,7 +897,7 @@ class DomaPanDAWork(Work):
                             if content['content_metadata']['panda_id'] not in content['content_metadata']['old_panda_id']:
                                 content['content_metadata']['old_panda_id'].append(content['content_metadata']['panda_id'])
                             content['content_metadata']['panda_id'] = panda_id
-                            content['status'] = panda_status
+                            # content['status'] = panda_status
                             content['substatus'] = panda_status
                             update_content['content_metadata'] = content['content_metadata']
                         elif content['content_metadata']['panda_id'] > panda_id:
