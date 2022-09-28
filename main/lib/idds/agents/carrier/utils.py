@@ -360,12 +360,20 @@ def handle_new_processing(processing, agent_attributes, logger=None, log_prefix=
 
     if not status:
         logger.error(log_prefix + "Failed to submit processing (status: %s, workload_id: %s, errors: %s)" % (status, workload_id, errors))
-        return False, processing, [], [], errors
+        return False, processing, [], [], [], errors
 
     ret_msgs = []
     new_contents = []
+    update_collections = []
     if proc.workload_id:
         processing['workload_id'] = proc.workload_id
+        input_collections = work.get_input_collections()
+        output_collections = work.get_output_collections()
+        log_collections = work.get_log_collections()
+        for coll in input_collections + output_collections + log_collections:
+            u_coll = {'coll_id': coll.coll_id, 'workload_id': proc.workload_id}
+            update_collections.append(u_coll)
+
     if proc.submitted_at:
         input_output_maps = get_input_output_maps(transform_id, work)
         new_input_output_maps = work.get_new_input_output_maps(input_output_maps)
@@ -382,7 +390,7 @@ def handle_new_processing(processing, agent_attributes, logger=None, log_prefix=
         if new_output_contents:
             msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='file', files=new_input_contents, relation_type='output')
             ret_msgs = ret_msgs + msgs
-    return True, processing, new_contents, ret_msgs, errors
+    return True, processing, update_collections, new_contents, ret_msgs, errors
 
 
 def get_updated_contents_by_request(request_id, transform_id, workload_id, work, logger=None, log_prefix=''):

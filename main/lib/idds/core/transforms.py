@@ -619,7 +619,11 @@ def get_work_name_to_coll_map(request_id):
             for coll in colls:
                 if coll['transform_id'] == transform_id:
                     if coll['relation_type'] == CollectionRelationType.Input:
-                        work_name_to_coll_map[work_name]['inputs'].append({'coll_id': coll['coll_id'], 'scope': coll['scope'], 'name': coll['name']})
+                        work_name_to_coll_map[work_name]['inputs'].append({'coll_id': coll['coll_id'], 'transform_id': coll['transform_id'],
+                                                                           'workload_id': coll['workload_id'],
+                                                                           'scope': coll['scope'], 'name': coll['name']})
                     elif coll['relation_type'] == CollectionRelationType.Output:
-                        work_name_to_coll_map[work_name]['outputs'].append({'coll_id': coll['coll_id'], 'scope': coll['scope'], 'name': coll['name']})
+                        work_name_to_coll_map[work_name]['outputs'].append({'coll_id': coll['coll_id'], 'transform_id': coll['transform_id'],
+                                                                            'workload_id': coll['workload_id'],
+                                                                            'scope': coll['scope'], 'name': coll['name']})
     return work_name_to_coll_map
