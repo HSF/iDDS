@@ -495,7 +495,7 @@ class Clerk(BaseAgent):
         wf.refresh_works()
 
         new_transforms = []
-        if req['status'] in [RequestStatus.Transforming]:
+        if req['status'] in [RequestStatus.Transforming] and not wf.to_cancel:
             # new works
             works = wf.get_new_works()
             for work in works:
