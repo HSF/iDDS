@@ -124,7 +124,7 @@ def get_processing_by_id_status(processing_id, status=None, locking=False, sessi
 @transactional_session
 def get_processings_by_status(status, time_period=None, locking=False, bulk_size=None, to_json=False, by_substatus=False,
                               not_lock=False, next_poll_at=None, for_poller=False, only_return_id=False,
-                              new_poll=False, update_poll=False, session=None):
+                              locking_for_update=False, new_poll=False, update_poll=False, session=None):
     """
     Get processing or raise a NoObject exception.
 
@@ -150,7 +150,8 @@ def get_processings_by_status(status, time_period=None, locking=False, bulk_size
             if proc_ids:
                 processing2s = orm_processings.get_processings_by_status(status=status, period=time_period, locking=locking,
                                                                          processing_ids=proc_ids,
-                                                                         bulk_size=None, to_json=to_json, locking_for_update=True,
+                                                                         bulk_size=None, to_json=to_json,
+                                                                         locking_for_update=locking_for_update,
                                                                          by_substatus=by_substatus, only_return_id=only_return_id,
                                                                          new_poll=new_poll, update_poll=update_poll,
                                                                          for_poller=for_poller, session=session)
@@ -172,7 +173,8 @@ def get_processings_by_status(status, time_period=None, locking=False, bulk_size
                 processings = []
         else:
             processings = orm_processings.get_processings_by_status(status=status, period=time_period, locking=locking,
-                                                                    bulk_size=bulk_size, to_json=to_json, locking_for_update=locking,
+                                                                    bulk_size=bulk_size, to_json=to_json,
+                                                                    locking_for_update=locking_for_update,
                                                                     new_poll=new_poll, update_poll=update_poll,
                                                                     only_return_id=only_return_id,
                                                                     by_substatus=by_substatus, for_poller=for_poller, session=session)
