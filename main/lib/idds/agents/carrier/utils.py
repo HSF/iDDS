@@ -393,14 +393,17 @@ def handle_new_processing(processing, agent_attributes, logger=None, log_prefix=
     return True, processing, update_collections, new_contents, ret_msgs, errors
 
 
-def get_updated_contents_by_request(request_id, transform_id, workload_id, work, logger=None, log_prefix=''):
+def get_updated_contents_by_request(request_id, transform_id, workload_id, work, terminated=False, logger=None, log_prefix=''):
     logger = get_logger(logger)
 
-    status_to_check = [ContentStatus.Available, ContentStatus.FakeAvailable, ContentStatus.FinalFailed, ContentStatus.Missing]
+    status_to_check = [ContentStatus.Available, ContentStatus.FakeAvailable, ContentStatus.FinalFailed,
+                       ContentStatus.Missing, ContentStatus.Failed, ContentStatus.Lost,
+                       ContentStatus.Deleted]
     contents = core_catalog.get_contents_by_request_transform(request_id=request_id, transform_id=transform_id)
     updated_contents, updated_contents_full_input, updated_contents_full_output = [], [], []
     for content in contents:
-        if content['status'] != content['substatus'] and content['substatus'] in status_to_check:
+        # terminated: check all files one time.
+        if (terminated or content['status'] != content['substatus']) and content['substatus'] in status_to_check:
             u_content = {'content_id': content['content_id'],
                          'status': content['substatus']}
             updated_contents.append(u_content)
@@ -769,10 +772,13 @@ def handle_trigger_processing(processing, agent_attributes, logger=None, log_pre
                                          files=updated_input_contents_no_deps[trigger_tf_id], relation_type='input')
                 ret_msgs = ret_msgs + msgs
 
-        updated_contents_ret = get_updated_contents_by_request(request_id, transform_id, workload_id, work,
+        is_terminated = is_process_terminated(processing['substatus'])
+        updated_contents_ret = get_updated_contents_by_request(request_id, transform_id, workload_id, work, terminated=is_terminated,
                                                                logger=logger, log_prefix=log_prefix)
 
         updated_contents, updated_contents_full_input, updated_contents_full_output = updated_contents_ret
+        logger.debug(log_prefix + "handle_trigger_processing: updated_contents[:3] %s" % (updated_contents[:3]))
+
         if updated_contents_full_input:
             # if the content is updated by receiver, here is the place to broadcast the messages
             msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='file',
