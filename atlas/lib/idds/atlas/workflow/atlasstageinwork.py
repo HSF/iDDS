@@ -21,8 +21,8 @@ from idds.common import exceptions
 from idds.common.constants import (TransformType, CollectionType, CollectionStatus,
                                    ContentStatus, ContentType,
                                    ProcessingStatus, WorkStatus)
-from idds.workflowv2.work import Processing
-from idds.workflowv2.datawork import DataWork
+from idds.workflow.work import Processing
+from idds.workflow.datawork import DataWork
 
 
 class ATLASStageinWork(DataWork):
