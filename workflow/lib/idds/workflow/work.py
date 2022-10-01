@@ -999,7 +999,11 @@ class Work(Base):
 
     @primary_input_collection.setter
     def primary_input_collection(self, value):
-        self.set_primary_input_collection(value)
+        if type(value) in [str] and len(value) == 8:
+            # local value from old idds version
+            self._primary_input_collection = value
+        else:
+            self.set_primary_input_collection(value)
 
     @property
     def primary_output_collection(self):
@@ -1009,7 +1013,11 @@ class Work(Base):
 
     @primary_output_collection.setter
     def primary_output_collection(self, value):
-        self.set_primary_output_collection(value)
+        if type(value) in [str] and len(value) == 8:
+            # local value from old idds version
+            self._primary_output_collection = value
+        else:
+            self.set_primary_output_collection(value)
 
     @property
     def input_collections(self):
@@ -1077,16 +1085,21 @@ class Work(Base):
         if global_parameters:
             for key in global_parameters:
                 sliced_index = None
+                sliced_name = None
                 if self.sliced_global_parameters and key in self.sliced_global_parameters:
-                    sliced_index = self.sliced_global_parameters[key]
+                    sliced_index = self.sliced_global_parameters[key]['index']
+                    sliced_name = self.sliced_global_parameters[key]['name']
                     if type(global_parameters[key]) in [list, tuple] and sliced_index < len(global_parameters[key]):
                         pass
                     else:
                         sliced_index = None
+                if not sliced_name:
+                    sliced_name = key
+
                 if sliced_index is None:
-                    setattr(self, key, global_parameters[key])
+                    setattr(self, sliced_name, global_parameters[key])
                 else:
-                    setattr(self, key, global_parameters[key][sliced_index])
+                    setattr(self, sliced_name, global_parameters[key][sliced_index])
 
     def get_global_parameter_from_output_data(self, key):
         self.logger.debug("get_global_parameter_from_output_data, key: %s, output_data: %s" % (key, str(self.output_data)))
@@ -1505,8 +1518,13 @@ class Work(Base):
 
     def set_primary_input_collection(self, coll):
         if coll:
-            collection = self.add_collection_to_collections(coll)
-            self._primary_input_collection = collection.internal_id
+            if type(coll) in [str] and len(coll) == 8:
+                # local value from old idds version
+                # load value submitted from old idds version
+                self._primary_input_collection = coll
+            else:
+                collection = self.add_collection_to_collections(coll)
+                self._primary_input_collection = collection.internal_id
 
     def get_primary_input_collection(self):
         """
@@ -1518,8 +1536,13 @@ class Work(Base):
 
     def set_primary_output_collection(self, coll):
         if coll:
-            collection = self.add_collection_to_collections(coll)
-            self._primary_output_collection = collection.internal_id
+            if type(coll) in [str] and len(coll) == 8:
+                # local value from old idds version
+                # load value submitted from old idds version
+                self._primary_output_collection = coll
+            else:
+                collection = self.add_collection_to_collections(coll)
+                self._primary_output_collection = collection.internal_id
 
     def get_primary_output_collection(self):
         """
@@ -1702,6 +1725,15 @@ class Work(Base):
 
     def set_has_new_inputs(self, yes=True):
         self.has_new_inputs = yes
+
+    def has_dependency(self):
+        return False
+
+    def get_parent_work_names(self):
+        return []
+
+    def get_parent_workload_ids(self):
+        return []
 
     def get_new_input_output_maps(self, mapped_input_output_maps={}):
         """

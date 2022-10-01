@@ -899,9 +899,9 @@ class WorkflowBase(Base):
                     self.logger.warn("Only parameters start with 'user_' can be set as global parameters. The parameter '%s' will be ignored." % (key))
         self.add_metadata_item('sliced_gp', gp_metadata)
 
-    def set_sliced_global_parameters(self, source, index=0):
+    def set_sliced_global_parameters(self, source, name=None, index=0):
         sliced_global_parameters = self.sliced_global_parameters
-        sliced_global_parameters[source] = index
+        sliced_global_parameters[source] = {'name': name, 'index': index}
         # to trigger the setter function
         self.sliced_global_parameters = self.sliced_global_parameters
 
@@ -1753,7 +1753,7 @@ class WorkflowBase(Base):
 
         self.terminated_works = []
         self.current_running_works = []
-        self.works = {}
+        # self.works = {}
         self.work_sequence = {}  # order list
 
         self.first_initial = False
@@ -1781,7 +1781,7 @@ class WorkflowBase(Base):
         *** Function called by Marshaller agent.
         """
         self.sync_works(to_cancel=self.to_cancel)
-        if len(self.new_to_run_works) == 0 and len(self.current_running_works) == 0:
+        if (self.to_cancel or len(self.new_to_run_works) == 0) and len(self.current_running_works) == 0:
             return True
         return False
 
@@ -1903,6 +1903,11 @@ class Workflow(Base):
         self.runs = {}
         self.loop_condition_position = 'end'
 
+        # for old idds version
+        t_works = self.template.works
+        if not t_works and hasattr(self, 'works_template'):
+            self.template.works = self.works_template
+
     def setup_logger(self):
         # Setup logger
         self.logger = logging.getLogger(self.get_class_name())
@@ -1951,6 +1956,8 @@ class Workflow(Base):
     @metadata.setter
     def metadata(self, value):
         self.template.load_metadata()
+        self.origin_metadata = value
+
         run_metadata = value
         self.parent_num_run = run_metadata['parent_num_run']
         self._num_run = run_metadata['num_run']
@@ -2231,17 +2238,38 @@ class Workflow(Base):
     def sync_works(self, to_cancel=False):
         if to_cancel:
             self.to_cancel = to_cancel
+
+        origin_metadata = self.origin_metadata
+        t_works = self.template.works
+        if not t_works and hasattr(self, 'works_template'):
+            self.template.works = self.works_template
+            if origin_metadata:
+                self.metadata = origin_metadata
+
         # position is end.
         if self.num_run < 1:
             self.num_run = 1
         if str(self.num_run) not in self.runs:
             self.runs[str(self.num_run)] = self.template.copy()
+
+            t_works = self.runs[str(self.num_run)].works
+            if not t_works and hasattr(self, 'works_template'):
+                self.runs[str(self.num_run)].works = self.works_template
+                if origin_metadata:
+                    self.metadata = origin_metadata
+
             self.runs[str(self.num_run)].num_run = self.num_run
             if self.runs[str(self.num_run)].has_loop_condition():
                 self.runs[str(self.num_run)].num_run = self.num_run
                 if self.num_run > 1:
                     p_metadata = self.runs[str(self.num_run - 1)].get_metadata_item('parameter_links')
                     self.runs[str(self.num_run)].add_metadata_item('parameter_links', p_metadata)
+
+        t_works = self.runs[str(self.num_run)].works
+        if not t_works and hasattr(self, 'works_template'):
+            self.runs[str(self.num_run)].works = self.works_template
+            if origin_metadata:
+                self.metadata = origin_metadata
 
         self.runs[str(self.num_run)].sync_works(to_cancel=to_cancel)
 

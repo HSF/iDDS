@@ -38,6 +38,7 @@ class IDDSMetadata(DictClass):
 class Base(DictClass):
     def __init__(self):
         self.metadata = IDDSMetadata()
+        self.origin_metadata = None
         pass
 
     def add_metadata_item(self, key, value):
