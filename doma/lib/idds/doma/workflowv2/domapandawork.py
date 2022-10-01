@@ -852,10 +852,10 @@ class DomaPanDAWork(Work):
             inputs = input_output_maps[map_id]['inputs']
             outputs = input_output_maps[map_id]['outputs']
             for content in outputs:
-                if content['status'] in [ContentStatus.Available]:
+                if content['substatus'] in [ContentStatus.Available]:
                     if 'panda_id' in content['content_metadata']:
                         finished_jobs.append(content['content_metadata']['panda_id'])
-                elif content['status'] in [ContentStatus.Failed, ContentStatus.FinalFailed,
+                elif content['substatus'] in [ContentStatus.Failed, ContentStatus.FinalFailed,
                                            ContentStatus.Lost, ContentStatus.Deleted,
                                            ContentStatus.Missing]:
                     if 'panda_id' in content['content_metadata']:
