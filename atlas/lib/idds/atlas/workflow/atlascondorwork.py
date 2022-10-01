@@ -12,7 +12,7 @@ import os
 
 from idds.common.constants import (ProcessingStatus)
 from idds.common.utils import run_command
-from idds.workflowv2.work import Work
+from idds.workflow.work import Work
 
 
 class ATLASCondorWork(Work):

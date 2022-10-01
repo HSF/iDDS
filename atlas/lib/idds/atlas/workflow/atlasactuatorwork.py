@@ -21,9 +21,9 @@ from idds.common.constants import (TransformType, CollectionType, CollectionStat
                                    ContentStatus, ContentType,
                                    ProcessingStatus, WorkStatus)
 from idds.common.utils import run_command
-# from idds.workflowv2.work import Work
-from idds.workflowv2.work import Processing
-from idds.atlas.workflowv2.atlascondorwork import ATLASCondorWork
+# from idds.workflow.work import Work
+from idds.workflow.work import Processing
+from idds.atlas.workflow.atlascondorwork import ATLASCondorWork
 
 
 class ATLASActuatorWork(ATLASCondorWork):

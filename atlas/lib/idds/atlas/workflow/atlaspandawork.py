@@ -26,8 +26,8 @@ from idds.common import exceptions
 from idds.common.constants import (TransformType, CollectionStatus, CollectionType,
                                    ContentType, ProcessingStatus, WorkStatus)
 from idds.common.utils import extract_scope_atlas
-from idds.workflowv2.work import Work, Processing
-# from idds.workflowv2.workflow import Condition
+from idds.workflow.work import Work, Processing
+# from idds.workflow.workflow import Condition
 
 
 class ATLASPandaWork(Work):
