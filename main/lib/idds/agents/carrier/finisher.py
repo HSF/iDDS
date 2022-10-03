@@ -40,16 +40,8 @@ class Finisher(Poller):
         self.poll_time_period = int(poll_time_period)
         self.retries = int(retries)
 
-        self.number_workers = 0
-        if not hasattr(self, 'max_number_workers') or not self.max_number_workers:
-            self.max_number_workers = 3
-        else:
-            self.max_number_workers = int(self.max_number_workers)
-
-    def is_ok_to_run_more_processings(self):
-        if self.number_workers >= self.max_number_workers:
-            return False
-        return True
+        if hasattr(self, 'finisher_max_number_workers'):
+            self.max_number_workers = int(self.finisher_max_number_workers)
 
     def show_queue_size(self):
         q_str = "number of processings: %s, max number of processings: %s" % (self.number_workers, self.max_number_workers)

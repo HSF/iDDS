@@ -130,6 +130,23 @@ def is_all_contents_terminated_but_not_available(inputs):
     return True
 
 
+def is_all_inputs_dependency_available_with_status_map(inputs_dependency, content_status_map):
+    for content_id in inputs_dependency:
+        status = content_status_map[str(content_id)]
+        if status not in [ContentStatus.Available, ContentStatus.FakeAvailable]:
+            return False
+    return True
+
+
+def is_all_inputs_dependency_terminated_with_status_map(input_dependency, content_status_map):
+    for content_id in input_dependency:
+        status = content_status_map[str(content_id)]
+        if status not in [ContentStatus.Available, ContentStatus.FakeAvailable,
+                          ContentStatus.FinalFailed, ContentStatus.Missing]:
+            return False
+    return True
+
+
 def get_collection_ids(collections):
     coll_ids = [coll.coll_id for coll in collections]
     return coll_ids
@@ -399,11 +416,12 @@ def get_updated_contents_by_request(request_id, transform_id, workload_id, work,
     status_to_check = [ContentStatus.Available, ContentStatus.FakeAvailable, ContentStatus.FinalFailed,
                        ContentStatus.Missing, ContentStatus.Failed, ContentStatus.Lost,
                        ContentStatus.Deleted]
-    contents = core_catalog.get_contents_by_request_transform(request_id=request_id, transform_id=transform_id)
+    contents = core_catalog.get_contents_by_request_transform(request_id=request_id, transform_id=transform_id,
+                                                              status=status_to_check, status_updated=True)
     updated_contents, updated_contents_full_input, updated_contents_full_output = [], [], []
+    updated_contents_full_input_deps = []
     for content in contents:
-        # terminated: check all files one time.
-        if (terminated or content['status'] != content['substatus']) and content['substatus'] in status_to_check:
+        if (content['status'] != content['substatus']) and content['substatus'] in status_to_check:
             u_content = {'content_id': content['content_id'],
                          'status': content['substatus']}
             updated_contents.append(u_content)
@@ -411,23 +429,77 @@ def get_updated_contents_by_request(request_id, transform_id, workload_id, work,
                 updated_contents_full_output.append(content)
             elif content['content_relation_type'] == ContentRelationType.Input:
                 updated_contents_full_input.append(content)
+            elif content['content_relation_type'] == ContentRelationType.InputDependency:
+                updated_contents_full_input_deps.append(content)
     # logger.debug(log_prefix + "get_updated_contents_by_request: updated_contents[:3]: %s" % str(updated_contents[:3]))
-    return updated_contents, updated_contents_full_input, updated_contents_full_output
+    return updated_contents, updated_contents_full_input, updated_contents_full_output, updated_contents_full_input_deps
+
+
+def get_transform_dependency_map(transform_id, logger=None, log_prefix=''):
+    cache = get_redis_cache()
+    transform_dependcy_map_key = "transform_dependcy_map_%s" % transform_id
+    transform_dependcy_map = cache.get(transform_dependcy_map_key, default={})
+    return transform_dependcy_map
+
+
+def set_transform_dependency_map(transform_id, transform_dependcy_map, logger=None, log_prefix=''):
+    cache = get_redis_cache()
+    transform_dependcy_map_key = "transform_dependcy_map_%s" % transform_id
+    cache.set(transform_dependcy_map_key, transform_dependcy_map)
+
+
+def get_content_dependcy_map(request_id, logger=None, log_prefix=''):
+    cache = get_redis_cache()
+    content_dependcy_map_key = "request_content_dependcy_map_%s" % request_id
+    content_dependcy_map = cache.get(content_dependcy_map_key, default={})
+
+    request_dependcy_map_key = "request_dependcy_map_%s" % request_id
+    request_dependcy_map = cache.get(request_dependcy_map_key, default=[])
+
+    collection_dependcy_map_key = "request_collections_dependcy_map_%s" % request_id
+    collection_dependcy_map = cache.get(collection_dependcy_map_key, default=[])
+
+    return content_dependcy_map, request_dependcy_map, collection_dependcy_map
+
+
+def set_content_dependcy_map(request_id, content_dependcy_map, request_dependcy_map,
+                             collection_dependcy_map, logger=None, log_prefix=''):
+    cache = get_redis_cache()
+    content_dependcy_map_key = "request_content_dependcy_map_%s" % request_id
+    cache.set(content_dependcy_map_key, content_dependcy_map)
+
+    request_dependcy_map_key = "request_dependcy_map_%s" % request_id
+    cache.set(request_dependcy_map_key, request_dependcy_map)
+
+    collection_dependcy_map_key = "request_collections_dependcy_map_%s" % request_id
+    cache.set(collection_dependcy_map_key, collection_dependcy_map)
+
+
+def get_content_status_map(request_id, logger=None, log_prefix=''):
+    cache = get_redis_cache()
+    content_status_map_key = "request_content_status_map_%s" % request_id
+    content_status_map = cache.get(content_status_map_key, default={})
+    return content_status_map
+
+
+def set_content_status_map(request_id, content_status_map, logger=None, log_prefix=''):
+    cache = get_redis_cache()
+    content_status_map_key = "request_content_status_map_%s" % request_id
+    cache.set(content_status_map_key, content_status_map)
 
 
 def get_input_dependency_map_by_request(request_id, transform_id, workload_id, work, logger=None, log_prefix=''):
     logger = get_logger(logger)
 
-    cache = get_redis_cache()
-    content_dependcy_map_key = "request_content_dependcy_map_%s" % request_id
-    content_dependcy_map = cache.get(content_dependcy_map_key, default={})
-    request_dependcy_maps_key = "request_transform_dependcy_maps_%s" % request_id
-    request_dependcy_maps = cache.get(request_dependcy_maps_key, default={})
-    collection_dependcy_map_key = "request_collection_dependcy_map_%s" % request_id
-    collection_dependcy_map = cache.get(collection_dependcy_map_key, default=[])
+    content_dependcy_map, request_dependcy_map, collection_dependcy_map = get_content_dependcy_map(request_id, logger=logger, log_prefix=log_prefix)
+    content_status_map = get_content_status_map(request_id, logger=logger, log_prefix=log_prefix)
+
+    transform_dependcy_maps = {}
 
     refresh = False
-    if transform_id and str(transform_id) not in request_dependcy_maps:
+    if not content_dependcy_map or not content_status_map:
+        refresh = True
+    elif transform_id and transform_id not in request_dependcy_map:
         refresh = True
     elif work:
         output_collections = work.get_output_collections()
@@ -435,18 +507,36 @@ def get_input_dependency_map_by_request(request_id, transform_id, workload_id, w
             if coll.coll_id not in collection_dependcy_map:
                 refresh = True
 
-    if refresh or not content_dependcy_map:
+    for tf_id in request_dependcy_map:
+        transform_dependcy_maps[str(tf_id)] = get_transform_dependency_map(tf_id, logger=logger, log_prefix=log_prefix)
+        if not transform_dependcy_maps[str(tf_id)]:
+            refresh = True
+
+    if refresh:
+        logger.debug(log_prefix + "refresh content_dependcy_map")
+        content_dependcy_map = {}
+        request_dependcy_map = []
+        collection_dependcy_map = []
+        content_status_map = {}
+        transform_dependcy_maps = {}
+
         content_output_name2id = {}
         content_input_deps = []
-        transform_dependcy_maps = {}
 
         contents = core_catalog.get_contents_by_request_transform(request_id=request_id)
         # logger.debug("contents: ", contents)
         for content in contents:
+            if content['transform_id'] not in request_dependcy_map:
+                request_dependcy_map.append(content['transform_id'])
+            if content['coll_id'] not in collection_dependcy_map:
+                collection_dependcy_map.append(content['coll_id'])
+
+            content_status_map[str(content['content_id'])] = content['substatus'].value
+
             str_tf_id = str(content['transform_id'])
             str_map_id = str(content['map_id'])
             if str_tf_id not in transform_dependcy_maps:
-                transform_dependcy_maps[str_tf_id] = {}
+                transform_dependcy_maps[str_tf_id] = get_transform_dependency_map(str_tf_id, logger=logger, log_prefix=log_prefix)
             if str_map_id not in transform_dependcy_maps[str_tf_id]:
                 transform_dependcy_maps[str_tf_id][str_map_id] = {'inputs': [], 'outputs': [], 'input_deps': []}
 
@@ -456,14 +546,14 @@ def get_input_dependency_map_by_request(request_id, transform_id, workload_id, w
                     collection_dependcy_map.append(content['coll_id'])
                 content_output_name2id[content['coll_id']][content['name']] = content
                 # content_id, status
-                transform_dependcy_maps[str_tf_id][str_map_id]['outputs'].append((content['content_id'], None))
+                transform_dependcy_maps[str_tf_id][str_map_id]['outputs'].append(content['content_id'])
             elif content['content_relation_type'] == ContentRelationType.InputDependency:
                 content_input_deps.append(content)
                 # content_id, status
-                transform_dependcy_maps[str_tf_id][str_map_id]['input_deps'].append((content['content_id'], None))
+                transform_dependcy_maps[str_tf_id][str_map_id]['input_deps'].append(content['content_id'])
             elif content['content_relation_type'] == ContentRelationType.Input:
                 # content_id, status
-                transform_dependcy_maps[str_tf_id][str_map_id]['inputs'].append((content['content_id'], None))
+                transform_dependcy_maps[str_tf_id][str_map_id]['inputs'].append(content['content_id'])
         # logger.debug("content_output_name2id: ", content_output_name2id)
 
         for content in content_input_deps:
@@ -480,31 +570,29 @@ def get_input_dependency_map_by_request(request_id, transform_id, workload_id, w
                 else:
                     logger.error(log_prefix + "Failed to find input dependcy for content_id: %s" % content['content_id'])
 
-        request_dependcy_maps = transform_dependcy_maps
-        # logger.debug("content_dependcy_map_key: ", content_dependcy_map)
-        # logger.debug("request_dependcy_maps: ", request_dependcy_maps)
-        cache.set(content_dependcy_map_key, content_dependcy_map)
-        cache.set(request_dependcy_maps_key, request_dependcy_maps)
-        cache.set(collection_dependcy_map_key, collection_dependcy_map)
+        set_content_dependcy_map(request_id, content_dependcy_map, request_dependcy_map,
+                                 collection_dependcy_map, logger=logger, log_prefix=log_prefix)
+        for str_tf_id in transform_dependcy_maps:
+            set_transform_dependency_map(str_tf_id, transform_dependcy_maps[str_tf_id], logger=logger, log_prefix=log_prefix)
+        set_content_status_map(request_id, content_status_map, logger=logger, log_prefix=log_prefix)
 
-    return content_dependcy_map, request_dependcy_maps
+    return content_dependcy_map, transform_dependcy_maps, content_status_map
 
 
-def set_input_dependency_map_by_request(request_id, content_dependcy_map=None, request_dependcy_maps=None):
-    cache = get_redis_cache()
-    if content_dependcy_map:
-        content_dependcy_map_key = "request_content_dependcy_map_%s" % request_id
-        cache.set(content_dependcy_map_key, content_dependcy_map)
-    if request_dependcy_maps:
-        request_dependcy_maps_key = "request_transform_dependcy_maps_%s" % request_id
-        cache.set(request_dependcy_maps_key, request_dependcy_maps)
+def get_content_status_with_status_map(content_ids, content_status_map):
+    content_id_status = []
+    for content_id in content_ids:
+        status_value = content_status_map[str(content_id)]
+        status = ContentStatus(status_value)
+        content_id_status.append((content_id, status))
+    return content_id_status
 
 
 def trigger_release_inputs_no_deps(request_id, transform_id, workload_id, work, logger=None, log_prefix=''):
     logger = get_logger(logger)
 
-    content_depency_map, transform_dependency_maps = get_input_dependency_map_by_request(request_id, transform_id, workload_id, work,
-                                                                                         logger=logger, log_prefix=log_prefix)
+    content_depency_map, transform_dependency_maps, content_status_map = get_input_dependency_map_by_request(request_id, transform_id, workload_id, work,
+                                                                                                             logger=logger, log_prefix=log_prefix)
     # logger.debug(log_prefix + "content_depency_map[:2]: %s" % str({k: content_depency_map[k] for k in list(content_depency_map.keys())[:2]}))
     # logger.debug(log_prefix + "transform_dependency_map[:2]: %s" % str({key: transform_dependency_map[key] for k in list(transform_dependency_map.keys())[:2]}))
     logger.debug(log_prefix + "transform_dependency_maps.keys[:2]: %s" % str(list(transform_dependency_maps.keys())[:2]))
@@ -525,8 +613,7 @@ def trigger_release_inputs_no_deps(request_id, transform_id, workload_id, work, 
             inputs_dependency = transform_dependency_map[map_id]['input_deps']
             if len(inputs_dependency) == 0:
                 inputs = transform_dependency_map[map_id]['inputs']
-                for content in inputs:
-                    content_id, status = content
+                for content_id in inputs:
                     update_content_ids.append(content_id)
                     u_content = {'content_id': content_id,
                                  'status': ContentStatus.Available,
@@ -555,93 +642,108 @@ def trigger_release_inputs_no_deps(request_id, transform_id, workload_id, work, 
     return update_contents, update_input_contents_full
 
 
-def trigger_release_inputs(request_id, transform_id, workload_id, work, updated_contents_full, logger=None, log_prefix=''):
+def trigger_release_inputs(request_id, transform_id, workload_id, work, updated_contents_full,
+                           updated_contents_full_input_deps, logger=None, log_prefix=''):
     logger = get_logger(logger)
 
     status_to_check = [ContentStatus.Available, ContentStatus.FakeAvailable, ContentStatus.FinalFailed, ContentStatus.Missing]
 
-    content_depency_map, transform_dependency_maps = get_input_dependency_map_by_request(request_id, transform_id, workload_id, work,
-                                                                                         logger=logger, log_prefix=log_prefix)
+    content_depency_map, transform_dependency_maps, content_status_map = get_input_dependency_map_by_request(request_id, transform_id, workload_id, work,
+                                                                                                             logger=logger, log_prefix=log_prefix)
     # logger.debug(log_prefix + "content_depency_map[:2]: %s" % str({k: content_depency_map[k] for k in list(content_depency_map.keys())[:2]}))
     # logger.debug(log_prefix + "transform_dependency_map[:2]: %s" % str({key: transform_dependency_maps[key] for k in list(transform_dependency_maps.keys())[:2]}))
     logger.debug(log_prefix + "transform_dependency_maps.keys[:2]: %s" % str(list(transform_dependency_maps.keys())[:2]))
 
     triggered_map_ids = []
     update_contents = []
-    update_contents_dict = {}
-    update_contents_ids = []
+    update_trigger_contents_dict, update_contents_dict = {}, {}
     update_input_contents_full = {}
     # 1. use the outputs to check input_dependency
     for content in updated_contents_full:
+        # update the status
+        u_content = {'content_id': content['content_id'], 'status': content['substatus']}
+        update_contents.append(u_content)
+
         if content['substatus'] in status_to_check:
             str_content_id = str(content['content_id'])
+            content_status_map[str_content_id] = content['substatus'].value
+
             if str_content_id in content_depency_map:
                 # t_contents are the contents to be triggered
                 t_contents = content_depency_map[str_content_id]
                 for t_content in t_contents:
                     t_content_id, t_transform_id, t_map_id = t_content
+
+                    content_status_map[str(t_content_id)] = content['substatus'].value
                     # update the input_dependency
                     u_content = {'content_id': t_content_id,
-                                 'status': content['status'],
+                                 # 'status': content['status'],
                                  'substatus': content['substatus']}
                     # update_contents.append(u_content)
-                    update_contents_dict[t_content_id] = u_content
-                    update_contents_ids.append(t_content_id)
+                    # update_contents_ids.append(t_content_id)
+                    update_trigger_contents_dict[t_content_id] = u_content
 
-                    t_transform_id = str(t_transform_id)
-                    t_map_id = str(t_map_id)
-
-                    t_tf_map_id = (t_transform_id, t_map_id)
+                    t_tf_map_id = (str(t_transform_id), str(t_map_id))
                     if t_tf_map_id not in triggered_map_ids:
                         triggered_map_ids.append(t_tf_map_id)
 
-                    t_input_deps = transform_dependency_maps[t_transform_id][t_map_id]['input_deps']
-                    if t_input_deps:
-                        new_inputs_dependency = []
-                        for input_dep in t_input_deps:
-                            content_id, substatus = input_dep
-                            if content_id == t_content_id:
-                                substatus = content['substatus']
-                            new_inputs_dependency.append((content_id, substatus))
-                        transform_dependency_maps[t_transform_id][t_map_id]['input_deps'] = new_inputs_dependency
+    # 2. use the input_deps to update the trigger contents
+    for content in updated_contents_full_input_deps:
+        if content['substatus'] in status_to_check:
+            content_status_map[str(content['content_id'])] = content['substatus'].value
+            # u_content = {'content_id': content['content_id'],
+            #              # 'status': content['status'],
+            #              'substatus': content['substatus']}
+            # update_trigger_contents_dict[content['content_id']] = u_content
+            t_tf_map_id = (str(content['transform_id']), str(content['map_id']))
+            if t_tf_map_id not in triggered_map_ids:
+                triggered_map_ids.append(t_tf_map_id)
 
-    if update_contents_ids:
-        contents = core_catalog.get_contents_by_content_ids(update_contents_ids, request_id=request_id)
-        for content in contents:
-            if content['status'] != update_contents_dict[content['content_id']]['status']:
-                update_contents.append(update_contents_dict[content['content_id']])
+    # update the content status
+    set_content_status_map(request_id, content_status_map, logger=logger, log_prefix=log_prefix)
 
-    # update the cached map
-    set_input_dependency_map_by_request(request_id, content_dependcy_map=None, request_dependcy_maps=transform_dependency_maps)
-
-    # 2. use the updated input_dependency to release inputs
+    # 3. use the updated input_dependency to release inputs
     input_update_content_ids = []
     for t_tf_map_id in triggered_map_ids:
         transform_id, map_id = t_tf_map_id
         inputs_dependency = transform_dependency_maps[transform_id][map_id]['input_deps']
+        inputs_dependency_status = get_content_status_with_status_map(inputs_dependency, content_status_map)
 
         content_update_status = None
-        if is_all_inputs_dependency_available(inputs_dependency):
+        if is_all_inputs_dependency_available(inputs_dependency_status):
             content_update_status = ContentStatus.Available
-        elif is_all_inputs_dependency_terminated(inputs_dependency):
+        elif is_all_inputs_dependency_terminated(inputs_dependency_status):
             content_update_status = ContentStatus.Missing
         if content_update_status:
+            for content_id, status in inputs_dependency_status:
+                # update input dependencies status from substatus
+                u_content = {'content_id': content_id,
+                             'status': status,
+                             'substatus': status}
+                update_contents.append(u_content)
+                if content_id in update_trigger_contents_dict:
+                    del update_trigger_contents_dict[content_id]
+
             inputs = transform_dependency_maps[transform_id][map_id]['inputs']
-            for content in inputs:
-                content_id, substatus = content
+            for content_id in inputs:
                 u_content = {'content_id': content_id,
                              'status': content_update_status,
                              'substatus': content_update_status}
-                # update_contents.append(u_content)
+                update_contents.append(u_content)
                 update_contents_dict[content_id] = u_content
                 input_update_content_ids.append(content_id)
+
+    # the input is not triggered. only update the substatus, not update the status
+    for content_id in update_trigger_contents_dict:
+        update_contents.append(update_trigger_contents_dict[content_id])
 
     if input_update_content_ids:
         contents = core_catalog.get_contents_by_content_ids(input_update_content_ids, request_id=request_id)
         for content in contents:
             content_id = content['content_id']
-            if update_contents_dict[content_id]['status'] != content['status']:
-                update_contents.append(update_contents_dict[content_id])
+            # if update_contents_dict[content_id]['status'] != content['status']:
+            #     update_contents.append(update_contents_dict[content_id])
+            if True:
                 if content['transform_id'] not in update_input_contents_full:
                     update_input_contents_full[content['transform_id']] = []
                 u_content_full = {'content_id': content_id,
@@ -776,7 +878,7 @@ def handle_trigger_processing(processing, agent_attributes, logger=None, log_pre
         updated_contents_ret = get_updated_contents_by_request(request_id, transform_id, workload_id, work, terminated=is_terminated,
                                                                logger=logger, log_prefix=log_prefix)
 
-        updated_contents, updated_contents_full_input, updated_contents_full_output = updated_contents_ret
+        updated_contents, updated_contents_full_input, updated_contents_full_output, updated_contents_full_input_deps = updated_contents_ret
         logger.debug(log_prefix + "handle_trigger_processing: updated_contents[:3] %s" % (updated_contents[:3]))
 
         if updated_contents_full_input:
@@ -790,11 +892,14 @@ def handle_trigger_processing(processing, agent_attributes, logger=None, log_pre
                                      files=updated_contents_full_output, relation_type='output')
             ret_msgs = ret_msgs + msgs
 
-        content_updates = content_updates + updated_contents
+        # not flusht updated_contents here
+        # content_updates = content_updates + updated_contents
 
-        if updated_contents_full_output:
+        # updated_contents_full_output_input_deps = updated_contents_full_output + updated_contents_full_input_deps
+        if updated_contents_full_output or updated_contents_full_input_deps:
             content_updates_trigger, updated_input_contents = trigger_release_inputs(request_id, transform_id, workload_id, work,
                                                                                      updated_contents_full_output,
+                                                                                     updated_contents_full_input_deps,
                                                                                      logger, log_prefix)
             logger.debug(log_prefix + "trigger_release_inputs: content_updates_trigger[:3] %s" % (content_updates_trigger[:3]))
             # logger.debug(log_prefix + "trigger_release_inputs: updated_input_contents[:3] %s" % (updated_input_contents[:3]))

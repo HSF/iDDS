@@ -331,7 +331,7 @@ def get_contents(scope=None, name=None, coll_id=None, status=None, to_json=False
 
 
 @read_session
-def get_contents_by_request_transform(request_id=None, transform_id=None, workload_id=None, session=None):
+def get_contents_by_request_transform(request_id=None, transform_id=None, workload_id=None, status=None, status_updated=False, session=None):
     """
     Get content or raise a NoObject exception.
 
@@ -347,6 +347,10 @@ def get_contents_by_request_transform(request_id=None, transform_id=None, worklo
     """
 
     try:
+        if status is not None:
+            if not isinstance(status, (tuple, list)):
+                status = [status]
+
         query = session.query(models.Content)
         query = query.with_hint(models.Content, "INDEX(CONTENTS CONTENTS_REQ_TF_COLL_IDX)", 'oracle')
         if request_id:
@@ -355,6 +359,10 @@ def get_contents_by_request_transform(request_id=None, transform_id=None, worklo
             query = query.filter(models.Content.transform_id == transform_id)
         if workload_id:
             query = query.filter(models.Content.workload_id == workload_id)
+        if status is not None:
+            query = query.filter(models.Content.substatus.in_(status))
+        if status_updated:
+            query = query.filter(models.Content.status != models.Content.substatus)
         query = query.order_by(asc(models.Content.request_id), asc(models.Content.transform_id), asc(models.Content.map_id))
 
         tmp = query.all()
