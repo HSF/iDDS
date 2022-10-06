@@ -1635,6 +1635,8 @@ class WorkflowBase(Base):
         log_str += ", num_expired_works: %s" % self.num_expired_works
         log_str += ", num_cancelled_works: %s" % self.num_cancelled_works
         log_str += ", num_suspended_works: %s" % self.num_suspended_works
+        log_str += ", new_to_run_works: %s" % len(self.new_to_run_works)
+        log_str += ", current_running_works: %s" % len(self.current_running_works)
         self.log_debug(log_str)
 
         self.refresh_works()
@@ -2109,8 +2111,8 @@ class Workflow(Base):
     def set_global_parameters(self, value):
         self.template.set_global_parameters(value)
 
-    def set_sliced_global_parameters(self, source, index=0):
-        self.template.set_sliced_global_parameters(source, index)
+    def set_sliced_global_parameters(self, source, name=None, index=0):
+        self.template.set_sliced_global_parameters(source, name=name, index=index)
 
     def sync_global_parameters_from_work(self, work):
         if self.runs:

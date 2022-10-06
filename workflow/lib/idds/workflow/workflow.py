@@ -1902,6 +1902,7 @@ class Workflow(Base):
         self._num_run = 0
         self.runs = {}
         self.loop_condition_position = 'end'
+        self.origin_metadata = None
 
         # for old idds version
         t_works = self.template.works
