@@ -547,7 +547,8 @@ class DomaPanDAWork(Work):
         *** Function called by Carrier agent.
         """
         proc = processing['processing_metadata']['processing']
-        if proc.workload_id:
+        # if proc.workload_id:
+        if False:
             pass
             return True, proc.workload_id, None
         else:
