@@ -17,6 +17,7 @@ except ImportError:
 
 import datetime
 import os
+import time
 import traceback
 
 from idds.common import exceptions
@@ -506,8 +507,14 @@ class DomaPanDAWork(Work):
 
             proc = processing['processing_metadata']['processing']
             task_param = proc.processing_metadata['task_param']
+            if 'new_retries' in processing and processing['new_retries']:
+                new_retries = int(processing['new_retries'])
+                task_param['taskName'] = task_param['taskName'] + "_" + str(new_retries)
             if self.has_dependency():
-                return_code = Client.insertTaskParams(task_param, verbose=True, parent_tid=self.parent_workload_id)
+                parent_tid = None
+                if self.parent_workload_id and int(self.parent_workload_id) > time.time() - 604800:
+                    parent_tid = self.parent_workload_id
+                return_code = Client.insertTaskParams(task_param, verbose=True, parent_tid=parent_tid)
             else:
                 return_code = Client.insertTaskParams(task_param, verbose=True)
             if return_code[0] == 0 and return_code[1][0] is True:
@@ -856,8 +863,8 @@ class DomaPanDAWork(Work):
                     if 'panda_id' in content['content_metadata']:
                         finished_jobs.append(content['content_metadata']['panda_id'])
                 elif content['substatus'] in [ContentStatus.Failed, ContentStatus.FinalFailed,
-                                           ContentStatus.Lost, ContentStatus.Deleted,
-                                           ContentStatus.Missing]:
+                                              ContentStatus.Lost, ContentStatus.Deleted,
+                                              ContentStatus.Missing]:
                     if 'panda_id' in content['content_metadata']:
                         failed_jobs.append(content['content_metadata']['panda_id'])
             for content in inputs:
