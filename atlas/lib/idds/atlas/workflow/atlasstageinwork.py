@@ -360,7 +360,8 @@ class ATLASStageinWork(DataWork):
             processing_status = ProcessingStatus.Running
             if rule_state in ['OK']:
                 processing_status = ProcessingStatus.Finished
-            elif rule_state in ['STUCK', 'SUSPENDED']:
+            # elif rule_state in ['STUCK', 'SUSPENDED']:
+            elif rule_state in ['SUSPENDED']:
                 processing_status = ProcessingStatus.SubFinished
 
             if updated_contents:
