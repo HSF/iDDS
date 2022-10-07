@@ -84,6 +84,7 @@ class Submitter(Poller):
                 raise exceptions.ProcessSubmitFailed(errors)
 
             parameters = {'status': ProcessingStatus.Submitting,
+                          'substatus': ProcessingStatus.Submitting,
                           'locking': ProcessingLocking.Idle,
                           'processing_metadata': processing['processing_metadata']}
             parameters = self.load_poll_period(processing, parameters)
