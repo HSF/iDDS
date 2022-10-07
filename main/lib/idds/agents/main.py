@@ -32,7 +32,11 @@ AGENTS = {
     'marshaller': ['idds.agents.marshaller.marshaller.Marshaller', Sections.Marshaller],
     'transformer': ['idds.agents.transformer.transformer.Transformer', Sections.Transformer],
     'transporter': ['idds.agents.transporter.transporter.Transporter', Sections.Transporter],
-    'carrier': ['idds.agents.carrier.carrier.Carrier', Sections.Carrier],
+    'submitter': ['idds.agents.carrier.submitter.Submitter', Sections.Carrier],
+    'poller': ['idds.agents.carrier.poller.Poller', Sections.Carrier],
+    'receiver': ['idds.agents.carrier.receiver.Receiver', Sections.Carrier],
+    'trigger': ['idds.agents.carrier.trigger.Trigger', Sections.Carrier],
+    'finisher': ['idds.agents.carrier.finisher.Finisher', Sections.Carrier],
     'conductor': ['idds.agents.conductor.conductor.Conductor', Sections.Conductor],
     'consumer': ['idds.agents.conductor.consumer.Consumer', Sections.Consumer]
 }
@@ -114,7 +118,7 @@ def stop(signum=None, frame=None):
     [thr.stop() for thr in RUNNING_AGENTS if thr and thr.is_alive()]
     stop_time = time.time()
     while len(RUNNING_AGENTS):
-        [thr.join(timeout=3.14) for thr in RUNNING_AGENTS if thr and thr.is_alive()]
+        [thr.join(timeout=1) for thr in RUNNING_AGENTS if thr and thr.is_alive()]
         RUNNING_AGENTS = [thr for thr in RUNNING_AGENTS if thr and thr.is_alive()]
         if time.time() > stop_time + 180:
             break
@@ -123,7 +127,9 @@ def stop(signum=None, frame=None):
     [thr.terminate() for thr in RUNNING_AGENTS if thr and thr.is_alive()]
 
     while len(RUNNING_AGENTS):
-        [thr.join(timeout=3.14) for thr in RUNNING_AGENTS if thr and thr.is_alive()]
+        logging.info("Still running agents: %s" % str(RUNNING_AGENTS))
+        [thr.terminate() for thr in RUNNING_AGENTS if thr and thr.is_alive()]
+        [thr.join(timeout=1) for thr in RUNNING_AGENTS if thr and thr.is_alive()]
         RUNNING_AGENTS = [thr for thr in RUNNING_AGENTS if thr and thr.is_alive()]
 
 

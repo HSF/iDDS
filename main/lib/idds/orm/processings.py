@@ -27,6 +27,8 @@ from idds.orm.base import models
 
 def create_processing(request_id, workload_id, transform_id, status=ProcessingStatus.New, locking=ProcessingLocking.Idle, submitter=None,
                       granularity=None, granularity_type=GranularityType.File, expired_at=None, processing_metadata=None,
+                      new_poll_period=1, update_poll_period=10,
+                      new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
                       substatus=ProcessingStatus.New, output_metadata=None):
     """
     Create a processing.
@@ -48,14 +50,25 @@ def create_processing(request_id, workload_id, transform_id, status=ProcessingSt
                                        status=status, substatus=substatus, locking=locking,
                                        submitter=submitter, granularity=granularity, granularity_type=granularity_type,
                                        expired_at=expired_at, processing_metadata=processing_metadata,
+                                       new_retries=new_retries, update_retries=update_retries,
+                                       max_new_retries=max_new_retries, max_update_retries=max_update_retries,
                                        output_metadata=output_metadata)
+
+    if new_poll_period:
+        new_poll_period = datetime.timedelta(seconds=new_poll_period)
+        new_processing.new_poll_period = new_poll_period
+    if update_poll_period:
+        update_poll_period = datetime.timedelta(seconds=update_poll_period)
+        new_processing.update_poll_period = update_poll_period
     return new_processing
 
 
 @transactional_session
 def add_processing(request_id, workload_id, transform_id, status=ProcessingStatus.New,
                    locking=ProcessingLocking.Idle, submitter=None, substatus=ProcessingStatus.New,
-                   granularity=None, granularity_type=GranularityType.File, expired_at=None, processing_metadata=None,
+                   granularity=None, granularity_type=GranularityType.File, expired_at=None,
+                   processing_metadata=None, new_poll_period=1, update_poll_period=10,
+                   new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
                    output_metadata=None, session=None):
     """
     Add a processing.
@@ -79,7 +92,11 @@ def add_processing(request_id, workload_id, transform_id, status=ProcessingStatu
     try:
         new_processing = create_processing(request_id=request_id, workload_id=workload_id, transform_id=transform_id,
                                            status=status, substatus=substatus, locking=locking, submitter=submitter,
-                                           granularity=granularity, granularity_type=granularity_type, expired_at=expired_at,
+                                           granularity=granularity, granularity_type=granularity_type,
+                                           expired_at=expired_at, new_poll_period=new_poll_period,
+                                           update_poll_period=update_poll_period,
+                                           new_retries=new_retries, update_retries=update_retries,
+                                           max_new_retries=max_new_retries, max_update_retries=max_update_retries,
                                            processing_metadata=processing_metadata, output_metadata=output_metadata)
         new_processing.save(session=session)
         proc_id = new_processing.processing_id
@@ -121,6 +138,46 @@ def get_processing(processing_id, to_json=False, session=None):
                                   (processing_id, error))
     except Exception as error:
         raise error
+
+
+@read_session
+def get_processing_by_id_status(processing_id, status=None, locking=False, session=None):
+    """
+    Get a processing or raise a NoObject exception.
+
+    :param processing_id: The id of the processing.
+    :param status: request status.
+    :param locking: the locking status.
+
+    :param session: The database session in use.
+
+    :raises NoObject: If no request is founded.
+
+    :returns: Processing.
+    """
+
+    try:
+        query = session.query(models.Processing).with_hint(models.Processing, "INDEX(PROCESSINGS PROCESSINGS_PK)", 'oracle')\
+                                                .filter(models.Processing.processing_id == processing_id)
+
+        if status:
+            if not isinstance(status, (list, tuple)):
+                status = [status]
+            if len(status) == 1:
+                status = [status[0], status[0]]
+            query = query.filter(models.Processing.status.in_(status))
+
+        if locking:
+            query = query.filter(models.Processing.locking == ProcessingLocking.Idle)
+            query = query.with_for_update(skip_locked=True)
+
+        ret = query.first()
+        if not ret:
+            return None
+        else:
+            return ret.to_dict()
+    except sqlalchemy.orm.exc.NoResultFound as error:
+        raise exceptions.NoObject('processing processing_id: %s cannot be found: %s' % (processing_id, error))
 
 
 @read_session
@@ -203,7 +260,7 @@ def get_processings_by_transform_id(transform_id=None, to_json=False, session=No
 @transactional_session
 def get_processings_by_status(status, period=None, processing_ids=[], locking=False, locking_for_update=False,
                               bulk_size=None, submitter=None, to_json=False, by_substatus=False, only_return_id=False,
-                              for_poller=False, session=None):
+                              new_poll=False, update_poll=False, for_poller=False, session=None):
     """
     Get processing or raise a NoObject exception.
 
@@ -238,7 +295,10 @@ def get_processings_by_status(status, period=None, processing_ids=[], locking=Fa
                 query = query.filter(models.Processing.substatus.in_(status))
             else:
                 query = query.filter(models.Processing.status.in_(status))
-            query = query.filter(models.Processing.next_poll_at <= datetime.datetime.utcnow())
+        if new_poll:
+            query = query.filter(models.Processing.updated_at + models.Processing.new_poll_period <= datetime.datetime.utcnow())
+        if update_poll:
+            query = query.filter(models.Processing.updated_at + models.Processing.update_poll_period <= datetime.datetime.utcnow())
 
         if processing_ids:
             query = query.filter(models.Processing.processing_id.in_(processing_ids))
@@ -249,9 +309,9 @@ def get_processings_by_status(status, period=None, processing_ids=[], locking=Fa
         if submitter:
             query = query.filter(models.Processing.submitter == submitter)
 
-        if for_poller:
-            query = query.order_by(asc(models.Processing.poller_updated_at))
-        elif locking_for_update:
+        # if for_poller:
+        #     query = query.order_by(asc(models.Processing.poller_updated_at))
+        if locking_for_update:
             query = query.with_for_update(skip_locked=True)
         else:
             query = query.order_by(asc(models.Processing.updated_at))
@@ -291,6 +351,10 @@ def update_processing(processing_id, parameters, session=None):
 
     """
     try:
+        if 'new_poll_period' in parameters and type(parameters['new_poll_period']) not in [datetime.timedelta]:
+            parameters['new_poll_period'] = datetime.timedelta(seconds=parameters['new_poll_period'])
+        if 'update_poll_period' in parameters and type(parameters['update_poll_period']) not in [datetime.timedelta]:
+            parameters['update_poll_period'] = datetime.timedelta(seconds=parameters['update_poll_period'])
 
         parameters['updated_at'] = datetime.datetime.utcnow()
         if 'status' in parameters and parameters['status'] in [ProcessingStatus.Finished, ProcessingStatus.Failed,

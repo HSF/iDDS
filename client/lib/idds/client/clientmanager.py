@@ -39,13 +39,14 @@ from idds.client.client import Client
 from idds.common import exceptions
 from idds.common.config import (get_local_cfg_file, get_local_config_root,
                                 get_local_config_value, get_main_config_file)
-from idds.common.constants import RequestType, RequestStatus, ProcessingStatus
+from idds.common.constants import RequestType, RequestStatus
 # from idds.common.utils import get_rest_host, exception_handler
 from idds.common.utils import exception_handler
 
 # from idds.workflowv2.work import Work, Parameter, WorkStatus
 # from idds.workflowv2.workflow import Condition, Workflow
 from idds.workflowv2.work import Collection
+from idds.workflow.work import Collection as CollectionV1
 
 
 setup_logging(__name__)
@@ -397,7 +398,7 @@ class ClientManager:
         if use_dataset_name:
             primary_init_work = workflow.get_primary_initial_collection()
             if primary_init_work:
-                if type(primary_init_work) in [Collection]:
+                if type(primary_init_work) in [Collection, CollectionV1]:
                     props['scope'] = primary_init_work.scope
                     props['name'] = primary_init_work.name
                 else:
@@ -422,24 +423,14 @@ class ClientManager:
             logging.error("Both request_id and workload_id are None. One of them should not be None")
             return (-1, "Both request_id and workload_id are None. One of them should not be None")
 
-        reqs = self.client.get_requests(request_id=request_id, workload_id=workload_id)
-        if reqs:
-            rets = []
-            for req in reqs:
-                logging.info("Aborting request: %s" % req['request_id'])
-                # self.client.update_request(request_id=req['request_id'], parameters={'substatus': RequestStatus.ToCancel})
-                self.client.send_message(request_id=req['request_id'], msg={'command': 'update_request', 'parameters': {'status': RequestStatus.ToCancel}})
-                logging.info("Abort request registered successfully: %s" % req['request_id'])
-                ret = (0, "Abort request registered successfully: %s" % req['request_id'])
-                rets.append(ret)
-            return rets
-        else:
-            return (-1, 'No matching requests')
+        ret = self.client.abort_request(request_id=request_id, workload_id=workload_id)
+        # return (-1, 'No matching requests')
+        return ret
 
     @exception_handler
-    def abort_tasks(self, request_id=None, workload_id=None, task_id=None):
+    def abort_task(self, request_id=None, workload_id=None, task_id=None):
         """
-        Abort tasks.
+        Abort task.
 
         :param workload_id: the workload id.
         :param request_id: the request.
@@ -454,76 +445,8 @@ class ClientManager:
             logging.error("The task_id is required for killing tasks. If you want to kill the whole workflow, please try another API.")
             return (-1, "The task_id is required for killing tasks")
 
-        reqs = self.client.get_requests(request_id=request_id, workload_id=workload_id, with_processing=True)
-        if reqs:
-            rets = []
-            for req in reqs:
-                if str(req['processing_workload_id']) == str(task_id):
-                    logging.info("Aborting task: (request_id: %s, task_id: %s)" % (req['request_id'], task_id))
-                    self.client.send_message(request_id=req['request_id'], msg={'command': 'update_processing',
-                                                                                'parameters': [{'status': ProcessingStatus.ToCancel, 'workload_id': task_id}]})
-                    logging.info("Abort task registered successfully: (request_id %s, task_id: %s)" % (req['request_id'], task_id))
-                    ret = (0, "Abort task registered successfully: (request_id %s, task_id: %s)" % (req['request_id'], task_id))
-                    rets.append(ret)
-            return rets
-        else:
-            return (-1, 'No matching requests')
-
-    @exception_handler
-    def suspend(self, request_id=None, workload_id=None):
-        """
-        Suspend requests.
-
-        :param workload_id: the workload id.
-        :param request_id: the request.
-        """
-        self.setup_client()
-
-        if request_id is None and workload_id is None:
-            logging.error("Both request_id and workload_id are None. One of them should not be None")
-            return (-1, "Both request_id and workload_id are None. One of them should not be None")
-
-        reqs = self.client.get_requests(request_id=request_id, workload_id=workload_id)
-        if reqs:
-            rets = []
-            for req in reqs:
-                logging.info("Suspending request: %s" % req['request_id'])
-                # self.client.update_request(request_id=req['request_id'], parameters={'substatus': RequestStatus.ToSuspend})
-                self.client.send_message(request_id=req['request_id'], msg={'command': 'update_request', 'parameters': {'status': RequestStatus.ToSuspend}})
-                logging.info("Suspend request registered successfully: %s" % req['request_id'])
-                ret = (0, "Suspend request registered successfully: %s" % req['request_id'])
-                rets.append(ret)
-            return rets
-        else:
-            return (-1, 'No matching requests')
-
-    @exception_handler
-    def resume(self, request_id=None, workload_id=None):
-        """
-        Resume requests.
-
-        :param workload_id: the workload id.
-        :param request_id: the request.
-        """
-        self.setup_client()
-
-        if request_id is None and workload_id is None:
-            logging.error("Both request_id and workload_id are None. One of them should not be None")
-            return (-1, "Both request_id and workload_id are None. One of them should not be None")
-
-        reqs = self.client.get_requests(request_id=request_id, workload_id=workload_id)
-        if reqs:
-            rets = []
-            for req in reqs:
-                logging.info("Resuming request: %s" % req['request_id'])
-                # self.client.update_request(request_id=req['request_id'], parameters={'substatus': RequestStatus.ToResume})
-                self.client.send_message(request_id=req['request_id'], msg={'command': 'update_request', 'parameters': {'status': RequestStatus.ToResume}})
-                logging.info("Resume request registered successfully: %s" % req['request_id'])
-                ret = (0, "Resume request registered successfully: %s" % req['request_id'])
-                rets.append(ret)
-            return rets
-        else:
-            return (-1, 'No matching requests')
+        ret = self.client.abort_request_task(request_id=request_id, workload_id=workload_id, task_id=task_id)
+        return ret
 
     @exception_handler
     def retry(self, request_id=None, workload_id=None):
@@ -539,51 +462,8 @@ class ClientManager:
             logging.error("Both request_id and workload_id are None. One of them should not be None")
             return (-1, "Both request_id and workload_id are None. One of them should not be None")
 
-        reqs = self.client.get_requests(request_id=request_id, workload_id=workload_id)
-        if reqs:
-            rets = []
-            for req in reqs:
-                logging.info("Retrying request: %s" % req['request_id'])
-                # self.client.update_request(request_id=req['request_id'], parameters={'substatus': RequestStatus.ToResume})
-                self.client.send_message(request_id=req['request_id'], msg={'command': 'update_request', 'parameters': {'status': RequestStatus.ToResume}})
-                logging.info("Retry request registered successfully: %s" % req['request_id'])
-                ret = (0, "Retry request registered successfully: %s" % req['request_id'])
-                rets.append(ret)
-            return rets
-        else:
-            return (-1, 'No matching requests')
-
-    @exception_handler
-    def finish(self, request_id=None, workload_id=None, set_all_finished=False):
-        """
-        Retry requests.
-
-        :param workload_id: the workload id.
-        :param request_id: the request.
-        """
-        self.setup_client()
-
-        if request_id is None and workload_id is None:
-            logging.error("Both request_id and workload_id are None. One of them should not be None")
-            return (-1, "Both request_id and workload_id are None. One of them should not be None")
-
-        reqs = self.client.get_requests(request_id=request_id, workload_id=workload_id)
-        if reqs:
-            rets = []
-            for req in reqs:
-                logging.info("Finishing request: %s" % req['request_id'])
-                if set_all_finished:
-                    # self.client.update_request(request_id=req['request_id'], parameters={'substatus': RequestStatus.ToForceFinish})
-                    self.client.send_message(request_id=req['request_id'], msg={'command': 'update_request', 'parameters': {'status': RequestStatus.ToForceFinish}})
-                else:
-                    # self.client.update_request(request_id=req['request_id'], parameters={'substatus': RequestStatus.ToFinish})
-                    self.client.send_message(request_id=req['request_id'], msg={'command': 'update_request', 'parameters': {'status': RequestStatus.ToFinish}})
-                logging.info("ToFinish request registered successfully: %s" % req['request_id'])
-                ret = (0, "ToFinish request registered successfully: %s" % req['request_id'])
-                rets.append(ret)
-            return rets
-        else:
-            return (-1, 'No matching requests')
+        ret = self.client.retry_request(request_id=request_id, workload_id=workload_id)
+        return ret
 
     @exception_handler
     def get_requests(self, request_id=None, workload_id=None, with_detail=False, with_metadata=False):

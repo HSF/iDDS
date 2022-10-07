@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2020
+# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2022
 
 import copy
 import datetime
@@ -21,13 +21,15 @@ from idds.common import exceptions
 from idds.common.constants import (TransformType, CollectionType, CollectionStatus,
                                    ContentStatus, ContentType,
                                    ProcessingStatus, WorkStatus)
-from idds.workflow.work import Work, Processing
+from idds.workflow.work import Processing
+from idds.workflow.datawork import DataWork
 
 
-class ATLASStageinWork(Work):
+class ATLASStageinWork(DataWork):
     def __init__(self, executable=None, arguments=None, parameters=None, setup=None,
                  work_tag='stagein', exec_type='local', sandbox=None, work_id=None,
-                 primary_input_collection=None, other_input_collections=None,
+                 primary_input_collection=None, other_input_collections=None, input_collections=None,
+                 primary_output_collection=None, other_output_collections=None,
                  output_collections=None, log_collections=None,
                  agent_attributes=None,
                  logger=None,
@@ -57,6 +59,9 @@ class ATLASStageinWork(Work):
                                                exec_type=exec_type, sandbox=sandbox, work_id=work_id,
                                                primary_input_collection=primary_input_collection,
                                                other_input_collections=other_input_collections,
+                                               primary_output_collection=primary_output_collection,
+                                               other_output_collections=other_output_collections,
+                                               input_collections=input_collections,
                                                output_collections=output_collections,
                                                log_collections=log_collections,
                                                agent_attributes=agent_attributes,
@@ -123,12 +128,13 @@ class ATLASStageinWork(Work):
             # raise exceptions.IDDSException('%s: %s' % (str(ex), traceback.format_exc()))
             return coll
 
-    def get_input_collections(self):
+    def get_input_collections(self, poll_externel=False):
         # return [self.primary_input_collection] + self.other_input_collections
-        colls = [self.primary_input_collection] + self.other_input_collections
+        colls = [self._primary_input_collection] + self._other_input_collections
         for coll_int_id in colls:
             coll = self.collections[coll_int_id]
-            coll = self.poll_external_collection(coll)
+            if poll_externel:
+                coll = self.poll_external_collection(coll)
             self.collections[coll_int_id] = coll
         return super(ATLASStageinWork, self).get_input_collections()
 
@@ -139,10 +145,10 @@ class ATLASStageinWork(Work):
         try:
             ret_files = []
             rucio_client = self.get_rucio_client()
-            files = rucio_client.list_files(scope=self.collections[self.primary_input_collection].scope,
-                                            name=self.collections[self.primary_input_collection].name)
+            files = rucio_client.list_files(scope=self.collections[self._primary_input_collection].scope,
+                                            name=self.collections[self._primary_input_collection].name)
             for file in files:
-                ret_file = {'coll_id': self.collections[self.primary_input_collection].coll_id,
+                ret_file = {'coll_id': self.collections[self._primary_input_collection].coll_id,
                             'scope': file['scope'],
                             'name': file['name'],
                             'bytes': file['bytes'],
@@ -189,7 +195,7 @@ class ATLASStageinWork(Work):
                 new_inputs.append(ip)
 
         # to avoid cheking new inputs if there are no new inputs anymore
-        if (not new_inputs and self.collections[self.primary_input_collection].status in [CollectionStatus.Closed]):  # noqa: W503
+        if (not new_inputs and self.collections[self._primary_input_collection].status in [CollectionStatus.Closed]):  # noqa: W503
             self.set_has_new_inputs(False)
         else:
             mapped_keys = mapped_input_output_maps.keys()
@@ -199,10 +205,10 @@ class ATLASStageinWork(Work):
                 next_key = 1
             for ip in new_inputs:
                 self.num_mapped_inputs += 1
-                out_ip = copy.deepcopy(ip)
                 ip['status'] = ContentStatus.New
                 ip['substatus'] = ContentStatus.New
-                out_ip['coll_id'] = self.collections[self.output_collections[0]].coll_id
+                out_ip = copy.deepcopy(ip)
+                out_ip['coll_id'] = self.collections[self._primary_output_collection].coll_id
                 new_input_output_maps[next_key] = {'inputs': [ip],
                                                    'outputs': [out_ip],
                                                    'inputs_dependency': [],
@@ -225,9 +231,9 @@ class ATLASStageinWork(Work):
                                'life_time': self.life_time,
                                'rule_id': self.rule_id}
         proc = Processing(processing_metadata=processing_metadata)
-        proc.external_id = self.rule_id
-        if self.rule_id:
-            proc.submitted_at = datetime.datetime.utcnow()
+        # proc.external_id = self.rule_id
+        # if self.rule_id:
+        #     proc.submitted_at = datetime.datetime.utcnow()
 
         self.add_processing_to_processings(proc)
         self.active_processings.append(proc.internal_id)
@@ -236,8 +242,8 @@ class ATLASStageinWork(Work):
     def create_rule(self, processing):
         try:
             rucio_client = self.get_rucio_client()
-            ds_did = {'scope': self.collections[self.primary_input_collection].scope,
-                      'name': self.collections[self.primary_input_collection].name}
+            ds_did = {'scope': self.collections[self._primary_input_collection].scope,
+                      'name': self.collections[self._primary_input_collection].name}
             rule_id = rucio_client.add_replication_rule(dids=[ds_did],
                                                         copies=1,
                                                         rse_expression=self.dest_rse,
@@ -248,31 +254,39 @@ class ATLASStageinWork(Work):
                                                         ask_approval=False)
             if type(rule_id) in (list, tuple):
                 rule_id = rule_id[0]
-            return rule_id
+            return rule_id, None
         except RucioDuplicateRule as ex:
             self.logger.warn(ex)
-            rules = rucio_client.list_did_rules(scope=self.collections[self.primary_input_collection].scope,
-                                                name=self.collections[self.primary_input_collection].name)
+            rules = rucio_client.list_did_rules(scope=self.collections[self._primary_input_collection].scope,
+                                                name=self.collections[self._primary_input_collection].name)
             for rule in rules:
                 if rule['account'] == rucio_client.account and rule['rse_expression'] == self.dest_rse:
-                    return rule['id']
+                    return rule['id'], None
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
             # raise exceptions.AgentPluginError('%s: %s' % (str(ex), traceback.format_exc()))
-        return None
+            return None, str(ex)
+        return None, None
 
     def submit_processing(self, processing):
         proc = processing['processing_metadata']['processing']
-        if proc.external_id:
-            # if 'rule_id' in processing['processing_meta']:
-            pass
-        else:
-            rule_id = self.create_rule(processing)
-            # processing['processing_metadata']['rule_id'] = rule_id
-            proc.external_id = rule_id
-            if rule_id:
+
+        if not proc.external_id:
+            if self.rule_id:
+                proc.external_id = self.rule_id
                 proc.submitted_at = datetime.datetime.utcnow()
+                return True, None, None
+            else:
+                rule_id, error = self.create_rule(processing)
+                if rule_id:
+                    proc.external_id = rule_id
+                    proc.submitted_at = datetime.datetime.utcnow()
+                    return True, None, None
+                else:
+                    return False, None, error
+        else:
+            return True, None, None
 
     def poll_rule(self, processing):
         try:
@@ -313,79 +327,57 @@ class ATLASStageinWork(Work):
 
         return processing, 'notOk', {}
 
-    def poll_processing_updates(self, processing, input_output_maps):
+    def poll_processing_updates(self, processing, input_output_maps, log_prefix=''):
         try:
             processing, rule_state, rep_status = self.poll_processing(processing)
+            self.logger.info(log_prefix + "poll_processing rule_state: %s" % rule_state)
 
             updated_contents = []
-            content_substatus = {'finished': 0, 'unfinished': 0}
+            updated_contents_full = []
             for map_id in input_output_maps:
                 inputs = input_output_maps[map_id]['inputs']
                 outputs = input_output_maps[map_id]['outputs']
                 for content in inputs + outputs:
                     key = '%s:%s' % (content['scope'], content['name'])
                     if key in rep_status:
-                        if content['substatus'] != rep_status[key]:
+                        if rule_state in ['OK'] and content['substatus'] != ContentStatus.Available:
                             updated_content = {'content_id': content['content_id'],
+                                               'status': ContentStatus.Available,
+                                               'substatus': ContentStatus.Available}
+                            updated_contents.append(updated_content)
+                            content['status'] = ContentStatus.Available
+                            content['substatus'] = ContentStatus.Available
+                            updated_contents_full.append(content)
+                        elif content['substatus'] != rep_status[key]:
+                            updated_content = {'content_id': content['content_id'],
+                                               'status': ContentStatus.Available,
                                                'substatus': rep_status[key]}
                             updated_contents.append(updated_content)
+                            content['status'] = rep_status[key]
                             content['substatus'] = rep_status[key]
-                    if content['substatus'] == ContentStatus.Available:
-                        content_substatus['finished'] += 1
-                    else:
-                        content_substatus['unfinished'] += 1
+                            updated_contents_full.append(content)
 
-            update_processing = {}
-            if rule_state == 'OK' and content_substatus['finished'] > 0 and content_substatus['unfinished'] == 0:
-                update_processing = {'processing_id': processing['processing_id'],
-                                     'parameters': {'status': ProcessingStatus.Finished}}
-            elif self.toexpire:
-                update_processing = {'processing_id': processing['processing_id'],
-                                     'parameters': {'status': ProcessingStatus.Expired}}
-            elif self.tocancel:
-                update_processing = {'processing_id': processing['processing_id'],
-                                     'parameters': {'status': ProcessingStatus.Cancelled}}
-            elif self.tosuspend:
-                update_processing = {'processing_id': processing['processing_id'],
-                                     'parameters': {'status': ProcessingStatus.Suspended}}
-            elif self.toresume:
-                update_processing = {'processing_id': processing['processing_id'],
-                                     'parameters': {'status': ProcessingStatus.Running}}
-                update_processing['parameters']['expired_at'] = None
-                processing['expired_at'] = None
-                proc = processing['processing_metadata']['processing']
-                proc.has_new_updates()
-            elif self.tofinish:
-                update_processing = {'processing_id': processing['processing_id'],
-                                     'parameters': {'status': ProcessingStatus.SubFinished}}
-            elif self.toforcefinish:
-                for map_id in input_output_maps:
-                    inputs = input_output_maps[map_id]['inputs']
-                    outputs = input_output_maps[map_id]['outputs']
-                    for content in inputs + outputs:
-                        if content['substatus'] not in [ContentStatus.Available, ContentStatus.FakeAvailable]:
-                            updated_content = {'content_id': content['content_id'],
-                                               'substatus': ContentStatus.FakeAvailable}
-                            updated_contents.append(updated_content)
-                            content['substatus'] = ContentStatus.FakeAvailable
-
-                update_processing = {'processing_id': processing['processing_id'],
-                                     'parameters': {'status': ProcessingStatus.Finished}}
+            processing_status = ProcessingStatus.Running
+            if rule_state in ['OK']:
+                processing_status = ProcessingStatus.Finished
+            # elif rule_state in ['STUCK', 'SUSPENDED']:
+            elif rule_state in ['SUSPENDED']:
+                processing_status = ProcessingStatus.SubFinished
 
             if updated_contents:
                 proc = processing['processing_metadata']['processing']
                 proc.has_new_updates()
 
-            return update_processing, updated_contents, {}
+            return processing_status, updated_contents, {}, updated_contents_full, {}
         except exceptions.ProcessNotFound as ex:
             self.logger.warn("processing_id %s not not found: %s" % (processing['processing_id'], str(ex)))
-            update_processing = {'processing_id': processing['processing_id'],
-                                 'parameters': {'status': ProcessingStatus.SubFinished}}
-            return update_processing, [], {}
+            processing_status = ProcessingStatus.Failed
+            return processing_status, [], {}, [], {}
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
-            raise ex
+
+        return ProcessingStatus.Running, [], {}, [], {}
 
     def get_status_statistics(self, registered_input_output_maps):
         status_statistics = {}

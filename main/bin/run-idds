@@ -13,5 +13,9 @@ echo $SITE_PACKAGES_PATH
 # PROGRAM=${RootDir}/lib/python3.6/site-packages/idds/agents/main.py
 PROGRAM=${SITE_PACKAGES_PATH}/idds/agents/main.py
 
+trap 'kill -TERM $PID; wait $PID' TERM
+
 which python
 python $PROGRAM
+PID=$!
+wait $PID

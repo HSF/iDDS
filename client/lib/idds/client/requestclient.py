@@ -105,3 +105,68 @@ class RequestClient(BaseRestClient):
         #         request['status'] = RequestStatus(request['status'])
 
         return requests
+
+    def abort_request(self, request_id, workload_id=None):
+        """
+        Abort Request.
+
+        :param request_id: the request.
+        :param kwargs: other attributes of the request.
+
+        :raise exceptions if it's not updated successfully.
+        """
+        path = self.REQUEST_BASEURL
+        path += "/abort"
+
+        if request_id is None:
+            request_id = 'null'
+        if workload_id is None:
+            workload_id = 'null'
+
+        url = self.build_url(self.host, path=os.path.join(path, str(request_id), str(workload_id)))
+        r = self.get_request_response(url, type='PUT', data=None)
+        return r
+
+    def abort_request_task(self, request_id, workload_id=None, task_id=None):
+        """
+        Abort Request task.
+
+        :param request_id: the request.
+        :param kwargs: other attributes of the request.
+
+        :raise exceptions if it's not updated successfully.
+        """
+        path = self.REQUEST_BASEURL
+        path += "/abort"
+
+        if request_id is None:
+            request_id = 'null'
+        if workload_id is None:
+            workload_id = 'null'
+        if task_id is None:
+            task_id = 'null'
+
+        url = self.build_url(self.host, path=os.path.join(path, str(request_id), str(workload_id), str(task_id)))
+        r = self.get_request_response(url, type='PUT', data=None)
+        return r
+
+    def retry_request(self, request_id, workload_id=None):
+        """
+        Retry Request.
+
+        :param request_id: the request.
+        :param kwargs: other attributes of the request.
+
+        :raise exceptions if it's not updated successfully.
+        """
+        path = self.REQUEST_BASEURL
+        path += "/retry"
+
+        if request_id is None:
+            request_id = 'null'
+        if workload_id is None:
+            workload_id = 'null'
+
+        url = self.build_url(self.host, path=os.path.join(path, str(request_id), str(workload_id)))
+        r = self.get_request_response(url, type='PUT', data=None)
+        return r

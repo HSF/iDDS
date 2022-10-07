@@ -13,7 +13,7 @@
 dump the database schema.
 """
 
-from ess.orm.utils import dump_schema
+from idds.orm.base.utils import dump_schema
 
 if __name__ == '__main__':
 

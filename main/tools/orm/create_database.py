@@ -13,7 +13,7 @@
 create the database.
 """
 
-from ess.orm.utils import build_database
+from idds.orm.base.utils import build_database
 
 if __name__ == '__main__':
 

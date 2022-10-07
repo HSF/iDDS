@@ -30,6 +30,8 @@ class Sections:
     Carrier = 'carrier'
     Conductor = 'conductor'
     Consumer = 'consumer'
+    EventBus = 'eventbus'
+    Cache = 'cache'
 
 
 class HTTP_STATUS_CODE:
@@ -112,7 +114,10 @@ class WorkStatus(IDDSEnum):
     ToExpire = 15
     Expiring = 16
     Expired = 17
-    Running = 18
+    ToFinish = 18
+    ToForceFinish = 19
+    Running = 20
+    Terminating = 21
 
 
 class RequestStatus(IDDSEnum):
@@ -136,6 +141,7 @@ class RequestStatus(IDDSEnum):
     Expired = 17
     ToFinish = 18
     ToForceFinish = 19
+    Terminating = 20
 
 
 class RequestLocking(IDDSEnum):
@@ -190,6 +196,7 @@ class TransformType(IDDSEnum):
     Derivation = 5
     Processing = 6
     Actuating = 7
+    Data = 8
     Other = 99
 
 
@@ -214,6 +221,7 @@ class TransformStatus(IDDSEnum):
     Expired = 17
     ToFinish = 18
     ToForceFinish = 19
+    Terminating = 20
 
 
 class TransformLocking(IDDSEnum):
@@ -316,6 +324,9 @@ class ProcessingStatus(IDDSEnum):
     ToFinish = 24
     ToForceFinish = 25
     Broken = 26
+    Terminating = 27
+    ToTrigger = 28
+    Triggering = 29
 
 
 class ProcessingLocking(IDDSEnum):
@@ -363,6 +374,35 @@ class MessageTypeStr(IDDSEnum):
     UnknownWork = 'work_unknown'
 
 
+TransformType2MessageTypeMap = {
+    '0': {'transform_type': TransformType.Workflow,
+          'work': (MessageType.UnknownWork, MessageTypeStr.UnknownWork),
+          'collection': (MessageType.UnknownCollection, MessageTypeStr.UnknownCollection),
+          'file': (MessageType.UnknownFile, MessageTypeStr.UnknownFile)
+          },
+    '2': {'transform_type': TransformType.StageIn,
+          'work': (MessageType.StageInWork, MessageTypeStr.StageInWork),
+          'collection': (MessageType.StageInCollection, MessageTypeStr.StageInCollection),
+          'file': (MessageType.StageInFile, MessageTypeStr.StageInFile)
+          },
+    '3': {'transform_type': TransformType.ActiveLearning,
+          'work': (MessageType.ActiveLearningWork, MessageTypeStr.ActiveLearningWork),
+          'collection': (MessageType.ActiveLearningCollection, MessageTypeStr.ActiveLearningCollection),
+          'file': (MessageType.ActiveLearningFile, MessageTypeStr.ActiveLearningFile)
+          },
+    '4': {'transform_type': TransformType.HyperParameterOpt,
+          'work': (MessageType.HyperParameterOptWork, MessageTypeStr.HyperParameterOptWork),
+          'collection': (MessageType.HyperParameterOptCollection, MessageTypeStr.HyperParameterOptCollection),
+          'file': (MessageType.HyperParameterOptFile, MessageTypeStr.HyperParameterOptFile)
+          },
+    '6': {'transform_type': TransformType.Processing,
+          'work': (MessageType.ProcessingWork, MessageTypeStr.ProcessingWork),
+          'collection': (MessageType.ProcessingCollection, MessageTypeStr.ProcessingCollection),
+          'file': (MessageType.ProcessingFile, MessageTypeStr.ProcessingFile)
+          }
+}
+
+
 class MessageStatus(IDDSEnum):
     New = 0
     Fetched = 1
@@ -391,3 +431,53 @@ class MessageDestination(IDDSEnum):
     Carrier = 3
     Conductor = 4
     Outside = 5
+
+
+class CommandType(IDDSEnum):
+    AbortRequest = 0
+    ResumeRequest = 1
+    ExpireRequest = 2
+
+
+class CommandStatus(IDDSEnum):
+    New = 0
+    Processing = 1
+    Processed = 2
+    Failed = 3
+    UnknownCommand = 4
+
+
+class CommandLocking(IDDSEnum):
+    Idle = 0
+    Locking = 1
+
+
+class CommandLocation(IDDSEnum):
+    Clerk = 0
+    Transformer = 1
+    Transporter = 2
+    Carrier = 3
+    Conductor = 4
+    Rest = 5
+    Other = 6
+
+
+def get_work_status_from_transform_processing_status(status):
+    if status in [ProcessingStatus.New, TransformStatus.New]:
+        return WorkStatus.New
+    elif status in [ProcessingStatus.Submitting, ProcessingStatus.Submitted, TransformStatus.Transforming]:
+        return WorkStatus.Transforming
+    elif status in [ProcessingStatus.Running]:
+        return WorkStatus.Transforming
+    elif status in [ProcessingStatus.Finished, TransformStatus.Finished]:
+        return WorkStatus.Finished
+    elif status in [ProcessingStatus.Failed, ProcessingStatus.Broken, TransformStatus.Failed]:
+        return WorkStatus.Failed
+    elif status in [ProcessingStatus.SubFinished, TransformStatus.SubFinished]:
+        return WorkStatus.SubFinished
+    elif status in [ProcessingStatus.Cancelled, ProcessingStatus.Suspended, TransformStatus.Cancelled, TransformStatus.Suspended]:
+        return WorkStatus.Cancelled
+    elif status in [ProcessingStatus.Terminating, TransformStatus.Terminating]:
+        return WorkStatus.Terminating
+    else:
+        return WorkStatus.Transforming

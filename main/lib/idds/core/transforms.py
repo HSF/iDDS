@@ -6,13 +6,14 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2020
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
 
 
 """
 operations related to Transform.
 """
 
+import datetime
 import logging
 
 # from idds.common import exceptions
@@ -25,13 +26,14 @@ from idds.orm import (transforms as orm_transforms,
                       contents as orm_contents,
                       messages as orm_messages,
                       processings as orm_processings)
-from idds.core import messages as core_messages
 
 
 @transactional_session
 def add_transform(request_id, workload_id, transform_type, transform_tag=None, priority=0,
                   status=TransformStatus.New, substatus=TransformStatus.New, locking=TransformLocking.Idle,
-                  retries=0, expired_at=None, transform_metadata=None, workprogress_id=None, session=None):
+                  new_poll_period=1, update_poll_period=10, retries=0, expired_at=None, transform_metadata=None,
+                  new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
+                  workprogress_id=None, session=None):
     """
     Add a transform.
 
@@ -55,6 +57,11 @@ def add_transform(request_id, workload_id, transform_type, transform_tag=None, p
                                                 transform_type=transform_type, transform_tag=transform_tag,
                                                 priority=priority, status=status, substatus=substatus,
                                                 locking=locking, retries=retries,
+                                                new_poll_period=new_poll_period,
+                                                update_poll_period=update_poll_period,
+                                                new_retries=new_retries, update_retries=update_retries,
+                                                max_new_retries=max_new_retries,
+                                                max_update_retries=max_update_retries,
                                                 expired_at=expired_at, transform_metadata=transform_metadata,
                                                 workprogress_id=workprogress_id, session=session)
     return transform_id
@@ -74,6 +81,17 @@ def get_transform(transform_id, to_json=False, session=None):
     :returns: Transform.
     """
     return orm_transforms.get_transform(transform_id=transform_id, to_json=to_json, session=session)
+
+
+@transactional_session
+def get_transform_by_id_status(transform_id, status=None, locking=False, session=None):
+    tf = orm_transforms.get_transform_by_id_status(transform_id=transform_id, status=status, locking=locking, session=session)
+    if tf is not None and locking:
+        parameters = {}
+        parameters['locking'] = TransformLocking.Locking
+        parameters['updated_at'] = datetime.datetime.utcnow()
+        orm_transforms.update_transform(transform_id=tf['transform_id'], parameters=parameters, session=session)
+    return tf
 
 
 @read_session
@@ -132,41 +150,9 @@ def get_transforms(request_id=None, workload_id=None, transform_id=None, to_json
 
 
 @transactional_session
-def get_transforms_with_messaging(locking=False, bulk_size=None, session=None):
-    msgs = core_messages.retrieve_transform_messages(transform_id=None, bulk_size=bulk_size, session=session)
-    if msgs:
-        tf_ids = [msg['transform_id'] for msg in msgs]
-        if locking:
-            tf2s = orm_transforms.get_transforms_by_status(status=None, transform_ids=tf_ids,
-                                                           locking=locking, locking_for_update=True,
-                                                           bulk_size=None, session=session)
-            if tf2s:
-                transforms = []
-                for tf_id in tf_ids:
-                    if len(transforms) >= bulk_size:
-                        break
-                    for tf in tf2s:
-                        if tf['transform_id'] == tf_id:
-                            transforms.append(tf)
-                            break
-            else:
-                transforms = []
-
-            parameters = {'locking': TransformLocking.Locking}
-            for tf in transforms:
-                orm_transforms.update_transform(transform_id=tf['transform_id'], parameters=parameters, session=session)
-            return transforms
-        else:
-            transforms = orm_transforms.get_transforms_by_status(status=None, transform_ids=tf_ids, locking=locking,
-                                                                 locking_for_update=locking,
-                                                                 bulk_size=bulk_size, session=session)
-            return transforms
-    else:
-        return []
-
-
-@transactional_session
-def get_transforms_by_status(status, period=None, locking=False, bulk_size=None, to_json=False, by_substatus=False, with_messaging=False, session=None):
+def get_transforms_by_status(status, period=None, locking=False, bulk_size=None, to_json=False, by_substatus=False,
+                             new_poll=False, update_poll=False, only_return_id=False,
+                             not_lock=False, next_poll_at=None, session=None):
     """
     Get transforms or raise a NoObject exception.
 
@@ -179,23 +165,20 @@ def get_transforms_by_status(status, period=None, locking=False, bulk_size=None,
 
     :returns: list of transform.
     """
-    if with_messaging:
-        transforms = get_transforms_with_messaging(locking=locking, bulk_size=bulk_size, session=session)
-        if transforms:
-            return transforms
-
     if locking:
-        if bulk_size:
+        if not only_return_id and bulk_size:
             # order by cannot work together with locking. So first select 2 * bulk_size without locking with order by.
             # then select with locking.
             tf_ids = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking,
                                                              bulk_size=bulk_size * 2, locking_for_update=False,
                                                              to_json=False, only_return_id=True,
+                                                             new_poll=new_poll, update_poll=update_poll,
                                                              by_substatus=by_substatus, session=session)
             if tf_ids:
                 transform2s = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking,
                                                                       bulk_size=None, locking_for_update=True,
                                                                       to_json=to_json, transform_ids=tf_ids,
+                                                                      new_poll=new_poll, update_poll=update_poll,
                                                                       by_substatus=by_substatus, session=session)
                 if transform2s:
                     # reqs = req2s[:bulk_size]
@@ -217,14 +200,27 @@ def get_transforms_by_status(status, period=None, locking=False, bulk_size=None,
             transforms = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking,
                                                                  locking_for_update=locking,
                                                                  bulk_size=bulk_size, to_json=to_json,
+                                                                 new_poll=new_poll, update_poll=update_poll,
+                                                                 only_return_id=only_return_id,
                                                                  by_substatus=by_substatus, session=session)
 
-        parameters = {'locking': TransformLocking.Locking}
-        for transform in transforms:
-            orm_transforms.update_transform(transform_id=transform['transform_id'], parameters=parameters, session=session)
+        parameters = {}
+        if not not_lock:
+            parameters['locking'] = TransformLocking.Locking
+        if next_poll_at:
+            parameters['next_poll_at'] = next_poll_at
+        parameters['updated_at'] = datetime.datetime.utcnow()
+        if parameters:
+            for transform in transforms:
+                if type(transform) in [dict]:
+                    orm_transforms.update_transform(transform_id=transform['transform_id'], parameters=parameters, session=session)
+                else:
+                    orm_transforms.update_transform(transform_id=transform, parameters=parameters, session=session)
     else:
         transforms = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking,
                                                              bulk_size=bulk_size, to_json=to_json,
+                                                             new_poll=new_poll, update_poll=update_poll,
+                                                             only_return_id=only_return_id,
                                                              by_substatus=by_substatus, session=session)
     return transforms
 
@@ -271,6 +267,8 @@ def add_transform_outputs(transform, transform_parameters, input_collections=Non
     """
     work = transform['transform_metadata']['work']
 
+    new_pr_ids, update_pr_ids = [], []
+
     if input_collections:
         for coll in input_collections:
             collection = coll['collection']
@@ -312,9 +310,11 @@ def add_transform_outputs(transform, transform_parameters, input_collections=Non
     if new_processing:
         # print(new_processing)
         processing_id = orm_processings.add_processing(**new_processing, session=session)
+        new_pr_ids.append(processing_id)
     if update_processing:
         for proc_id in update_processing:
             orm_processings.update_processing(processing_id=proc_id, parameters=update_processing[proc_id], session=session)
+            update_pr_ids.append(proc_id)
 
     if messages:
         if not type(messages) in [list, tuple]:
@@ -343,6 +343,7 @@ def add_transform_outputs(transform, transform_parameters, input_collections=Non
         orm_transforms.update_transform(transform_id=transform['transform_id'],
                                         parameters=transform_parameters,
                                         session=session)
+    return new_pr_ids, update_pr_ids
 
 
 @transactional_session
@@ -386,7 +387,7 @@ def get_transform_input_output_maps(transform_id, input_coll_ids, output_coll_id
 
     :param transform_id: transform id.
     """
-    contents = orm_contents.get_contents_by_transform(transform_id=transform_id, session=session)
+    contents = orm_contents.get_contents_by_request_transform(transform_id=transform_id, session=session)
     ret = {}
     for content in contents:
         map_id = content['map_id']
@@ -618,7 +619,11 @@ def get_work_name_to_coll_map(request_id):
             for coll in colls:
                 if coll['transform_id'] == transform_id:
                     if coll['relation_type'] == CollectionRelationType.Input:
-                        work_name_to_coll_map[work_name]['inputs'].append({'coll_id': coll['coll_id'], 'scope': coll['scope'], 'name': coll['name']})
+                        work_name_to_coll_map[work_name]['inputs'].append({'coll_id': coll['coll_id'], 'transform_id': coll['transform_id'],
+                                                                           'workload_id': coll['workload_id'],
+                                                                           'scope': coll['scope'], 'name': coll['name']})
                     elif coll['relation_type'] == CollectionRelationType.Output:
-                        work_name_to_coll_map[work_name]['outputs'].append({'coll_id': coll['coll_id'], 'scope': coll['scope'], 'name': coll['name']})
+                        work_name_to_coll_map[work_name]['outputs'].append({'coll_id': coll['coll_id'], 'transform_id': coll['transform_id'],
+                                                                            'workload_id': coll['workload_id'],
+                                                                            'scope': coll['scope'], 'name': coll['name']})
     return work_name_to_coll_map
