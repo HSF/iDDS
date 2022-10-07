@@ -25,6 +25,28 @@ Here is a simple example of loop workflow.
     cond = Condition(cond=work2.is_finished)
     workflow.add_loop_condition(cond)
 
+    # custom_condition
+    # iDDS will check to_contiue status.
+    # With ATLASLocalPanDAWork, the output will be parsed. If 'to_continue' is in the output, it will be used.
+    work2.add_custom_condition(key='to_continue', value=True)
+    cond = Condition(work2.get_custom_condition_status)
+    workflow.add_loop_condition(cond1)
+
+    # multiple custom_condition
+    # to_continue and to_continue1
+    work2.add_custom_condition(key='to_continue', value=True, op='and')
+    work2.add_custom_condition(key='to_continue1', value=True, op='and')
+    cond = Condition(work2.get_custom_condition_status)
+    workflow.add_loop_condition(cond1)
+
+    # multiple custom_condition
+    # (to_continue and to_continue1) or to_exit or to_exit1
+    work2.add_custom_condition(key='to_continue', value=True, op='and')
+    work2.add_custom_condition(key='to_continue1', value=True, op='and')
+    work2.add_custom_condition(key='to_exit', value=False, op='or')
+    work2.add_custom_condition(key='to_exit1', value=False, op='or')
+    cond = Condition(work2.get_custom_condition_status)
+    workflow.add_loop_condition(cond1)
 
 Sub workflow
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -119,5 +141,12 @@ However, to avoid the global parameters overwrite the work's private attributes,
     workflow1.add_work(work1, initial=False)
     workflow1.add_work(work2, initial=False)
 
-    # to avoid 
+    # global paraeters
     workflow1.set_global_parameters({'user_attr1': 1, 'user_attr2': 2})
+
+    # sliced global parameters
+    workflow1.set_global_parameters({'user_attr': [1, 2, 3]})
+    workflow1.set_sliced_global_parameters(source='user_attr', index=0)
+    workflow1.set_sliced_global_parameters(source='user_attr', index=1, name='user_myattr')
+
+

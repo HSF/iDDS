@@ -83,10 +83,10 @@ def generate_failed_auth_response(exc_msg=None):
 
 
 def before_request_auth():
-    print("envs")
-    print(flask.request.environ)
-    print("headers")
-    print(flask.request.headers)
+    # print("envs")
+    # print(flask.request.environ)
+    # print("headers")
+    # print(flask.request.headers)
     auth_type = flask.request.headers.get('X-IDDS-Auth-Type', default='x509_proxy')
     vo = flask.request.headers.get('X-IDDS-Auth-VO', default=None)
     if auth_type in ['x509_proxy']:

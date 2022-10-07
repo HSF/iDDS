@@ -600,7 +600,7 @@ class ATLASPandaWork(Work):
 
         return task_id
 
-    def poll_panda_task(self, processing=None, input_output_maps=None):
+    def poll_panda_task(self, processing=None, input_output_maps=None, log_prefix=''):
         task_id = None
         try:
             from pandaclient import Client
@@ -614,9 +614,9 @@ class ATLASPandaWork(Work):
                 if task_id:
                     # ret_ids = Client.getPandaIDsWithTaskID(task_id, verbose=False)
                     task_info = Client.getJediTaskDetails({'jediTaskID': task_id}, True, True, verbose=True)
-                    self.logger.info("poll_panda_task, task_info: %s" % str(task_info))
+                    self.logger.info(log_prefix + "poll_panda_task, task_info: %s" % str(task_info))
                     if task_info[0] != 0:
-                        self.logger.warn("poll_panda_task %s, error getting task status, task_info: %s" % (task_id, str(task_info)))
+                        self.logger.warn(log_prefix + "poll_panda_task %s, error getting task status, task_info: %s" % (task_id, str(task_info)))
                         return ProcessingStatus.Submitting, [], {}
 
                     task_info = task_info[1]
@@ -628,11 +628,11 @@ class ATLASPandaWork(Work):
                     return ProcessingStatus.Running, [], {}
         except Exception as ex:
             msg = "Failed to check the processing (%s) status: %s" % (str(processing['processing_id']), str(ex))
-            self.logger.error(msg)
-            self.logger.error(ex)
+            self.logger.error(log_prefix + msg)
+            self.logger.error(log_prefix + ex)
             self.logger.error(traceback.format_exc())
             # raise exceptions.IDDSException(msg)
-        return ProcessingStatus.Running, [], {}
+        return ProcessingStatus.Running, [], []
 
     def kill_processing(self, processing, log_prefix=''):
         try:
@@ -698,7 +698,9 @@ class ATLASPandaWork(Work):
         if processing:
             proc = processing['processing_metadata']['processing']
 
-            processing_status, poll_updated_contents, new_input_output_maps = self.poll_panda_task(processing=processing, input_output_maps=input_output_maps)
+            processing_status, poll_updated_contents, new_input_output_maps = self.poll_panda_task(processing=processing,
+                                                                                                   input_output_maps=input_output_maps,
+                                                                                                   log_prefix=log_prefix)
             self.logger.debug(log_prefix + "poll_processing_updates, processing_status: %s" % str(processing_status))
             self.logger.debug(log_prefix + "poll_processing_updates, update_contents: %s" % str(poll_updated_contents))
 
@@ -706,11 +708,12 @@ class ATLASPandaWork(Work):
                 proc.has_new_updates()
             for content in poll_updated_contents:
                 updated_content = {'content_id': content['content_id'],
+                                   'status': content['status'],
                                    'substatus': content['substatus'],
                                    'content_metadata': content['content_metadata']}
                 updated_contents.append(updated_content)
 
-        return processing_status, updated_contents, new_input_output_maps, []
+        return processing_status, updated_contents, new_input_output_maps, [], {}
 
     def get_status_statistics(self, registered_input_output_maps):
         status_statistics = {}

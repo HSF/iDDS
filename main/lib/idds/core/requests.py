@@ -14,6 +14,7 @@ operations related to Requests.
 """
 
 import copy
+import datetime
 
 from idds.common.constants import (RequestStatus, RequestLocking, WorkStatus,
                                    CollectionType, CollectionStatus, CollectionRelationType,
@@ -130,6 +131,7 @@ def get_request_by_id_status(request_id, status=None, locking=False, session=Non
     if req is not None and locking:
         parameters = {}
         parameters['locking'] = RequestLocking.Locking
+        parameters['updated_at'] = datetime.datetime.utcnow()
         orm_requests.update_request(request_id=req['request_id'], parameters=parameters, session=session)
     return req
 
@@ -388,9 +390,13 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, loc
             parameters['locking'] = RequestLocking.Locking
         if next_poll_at:
             parameters['next_poll_at'] = next_poll_at
+        parameters['updated_at'] = datetime.datetime.utcnow()
         if parameters:
             for req in reqs:
-                orm_requests.update_request(request_id=req['request_id'], parameters=parameters, session=session)
+                if type(req) in [dict]:
+                    orm_requests.update_request(request_id=req['request_id'], parameters=parameters, session=session)
+                else:
+                    orm_requests.update_request(request_id=req, parameters=parameters, session=session)
     else:
         reqs = orm_requests.get_requests_by_status_type(status, request_type, time_period, locking=locking, bulk_size=bulk_size,
                                                         new_poll=new_poll, update_poll=update_poll, only_return_id=only_return_id,

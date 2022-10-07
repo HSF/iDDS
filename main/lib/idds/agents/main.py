@@ -35,6 +35,7 @@ AGENTS = {
     'submitter': ['idds.agents.carrier.submitter.Submitter', Sections.Carrier],
     'poller': ['idds.agents.carrier.poller.Poller', Sections.Carrier],
     'receiver': ['idds.agents.carrier.receiver.Receiver', Sections.Carrier],
+    'trigger': ['idds.agents.carrier.trigger.Trigger', Sections.Carrier],
     'finisher': ['idds.agents.carrier.finisher.Finisher', Sections.Carrier],
     'conductor': ['idds.agents.conductor.conductor.Conductor', Sections.Conductor],
     'consumer': ['idds.agents.conductor.consumer.Consumer', Sections.Consumer]

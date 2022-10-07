@@ -17,6 +17,7 @@ except ImportError:
 
 import datetime
 import os
+import time
 import traceback
 
 from idds.common import exceptions
@@ -320,6 +321,34 @@ class DomaPanDAWork(Work):
                 unmapped_jobs.append(job)
         return unmapped_jobs
 
+    def has_dependency(self):
+        for job in self.dependency_map:
+            if "dependencies" in job and job["dependencies"]:
+                return True
+        return False
+
+    def get_parent_work_names(self):
+        parent_work_names = []
+        for job in self.dependency_map:
+            if "dependencies" in job and job["dependencies"]:
+                inputs_dependency = job["dependencies"]
+                for input_d in inputs_dependency:
+                    task_name = input_d['task']
+                    if task_name not in parent_work_names:
+                        parent_work_names.append(task_name)
+        return parent_work_names
+
+    def get_parent_workload_ids(self):
+        parent_workload_ids = []
+        parent_work_names = self.get_parent_work_names()
+        work_name_to_coll_map = self.get_work_name_to_coll_map()
+        for work_name in parent_work_names:
+            if work_name in work_name_to_coll_map:
+                input_d_coll = work_name_to_coll_map[work_name]['outputs'][0]
+                if input_d_coll and 'workload_id' in input_d_coll:
+                    parent_workload_ids.append(input_d_coll['workload_id'])
+        return parent_workload_ids
+
     def get_new_input_output_maps(self, mapped_input_output_maps={}):
         """
         *** Function called by Transformer agent.
@@ -446,7 +475,8 @@ class DomaPanDAWork(Work):
         task_param_map['PandaSite'] = self.task_site
         if self.task_rss and self.task_rss > 0:
             task_param_map['ramCount'] = self.task_rss
-            task_param_map['ramUnit'] = 'MB'
+            # task_param_map['ramUnit'] = 'MB'
+            task_param_map['ramUnit'] = 'MBPerCoreFixed'
 
         task_param_map['inputPreStaging'] = True
         task_param_map['prestagingRuleID'] = 123
@@ -477,7 +507,16 @@ class DomaPanDAWork(Work):
 
             proc = processing['processing_metadata']['processing']
             task_param = proc.processing_metadata['task_param']
-            return_code = Client.insertTaskParams(task_param, verbose=True, parent_tid=self.parent_workload_id)
+            if 'new_retries' in processing and processing['new_retries']:
+                new_retries = int(processing['new_retries'])
+                task_param['taskName'] = task_param['taskName'] + "_" + str(new_retries)
+            if self.has_dependency():
+                parent_tid = None
+                if self.parent_workload_id and int(self.parent_workload_id) > time.time() - 604800:
+                    parent_tid = self.parent_workload_id
+                return_code = Client.insertTaskParams(task_param, verbose=True, parent_tid=parent_tid)
+            else:
+                return_code = Client.insertTaskParams(task_param, verbose=True)
             if return_code[0] == 0 and return_code[1][0] is True:
                 try:
                     task_id = int(return_code[1][1])
@@ -508,7 +547,8 @@ class DomaPanDAWork(Work):
         *** Function called by Carrier agent.
         """
         proc = processing['processing_metadata']['processing']
-        if proc.workload_id:
+        # if proc.workload_id:
+        if False:
             pass
             return True, proc.workload_id, None
         else:
@@ -669,6 +709,9 @@ class DomaPanDAWork(Work):
         return None
 
     def get_content_status_from_panda_status(self, job_info):
+        if job_info is None:
+            return ContentStatus.Processing
+
         jobstatus = job_info.jobStatus
         if jobstatus in ['finished', 'merging']:
             return ContentStatus.Available
@@ -817,12 +860,12 @@ class DomaPanDAWork(Work):
             inputs = input_output_maps[map_id]['inputs']
             outputs = input_output_maps[map_id]['outputs']
             for content in outputs:
-                if content['status'] in [ContentStatus.Available]:
+                if content['substatus'] in [ContentStatus.Available]:
                     if 'panda_id' in content['content_metadata']:
                         finished_jobs.append(content['content_metadata']['panda_id'])
-                elif content['status'] in [ContentStatus.Failed, ContentStatus.FinalFailed,
-                                           ContentStatus.Lost, ContentStatus.Deleted,
-                                           ContentStatus.Missing]:
+                elif content['substatus'] in [ContentStatus.Failed, ContentStatus.FinalFailed,
+                                              ContentStatus.Lost, ContentStatus.Deleted,
+                                              ContentStatus.Missing]:
                     if 'panda_id' in content['content_metadata']:
                         failed_jobs.append(content['content_metadata']['panda_id'])
             for content in inputs:
@@ -846,11 +889,11 @@ class DomaPanDAWork(Work):
             contents = map_id_contents['outputs']
             for content in contents:
                 if content['substatus'] != panda_status:
-                    content['status'] = panda_status
+                    # content['status'] = panda_status
                     content['substatus'] = panda_status
                     update_contents_full.append(content)
                     update_content = {'content_id': content['content_id'],
-                                      'status': panda_status,
+                                      # 'status': panda_status,
                                       'substatus': panda_status}
                     # 'content_metadata': content['content_metadata']
                     if 'panda_id' in content['content_metadata'] and content['content_metadata']['panda_id']:
@@ -862,7 +905,7 @@ class DomaPanDAWork(Work):
                             if content['content_metadata']['panda_id'] not in content['content_metadata']['old_panda_id']:
                                 content['content_metadata']['old_panda_id'].append(content['content_metadata']['panda_id'])
                             content['content_metadata']['panda_id'] = panda_id
-                            content['status'] = panda_status
+                            # content['status'] = panda_status
                             content['substatus'] = panda_status
                             update_content['content_metadata'] = content['content_metadata']
                         elif content['content_metadata']['panda_id'] > panda_id:
@@ -938,8 +981,8 @@ class DomaPanDAWork(Work):
                     return ProcessingStatus.Running, [], []
         except Exception as ex:
             msg = "Failed to check the processing (%s) status: %s" % (str(processing['processing_id']), str(ex))
-            self.logger.error(msg)
-            self.logger.error(ex)
+            self.logger.error(log_prefix + msg)
+            self.logger.error(log_prefix + str(ex))
             self.logger.error(traceback.format_exc())
             # raise exceptions.IDDSException(msg)
         return ProcessingStatus.Running, [], []
@@ -1017,11 +1060,7 @@ class DomaPanDAWork(Work):
 
             if update_contents:
                 proc.has_new_updates()
-        self.logger.debug(log_prefix + "poll_processing_updates, task: %s, processing_status: %s" %
-                          (proc.workload_id, str(processing_status)))
-        self.logger.debug(log_prefix + "poll_processing_updates, task: %s, updated_contents[:3]: %s" %
-                          (proc.workload_id, str(update_contents[:3])))
-        return processing_status, update_contents, {}, update_contents_full
+        return processing_status, update_contents, {}, update_contents_full, {}
 
     def get_status_statistics(self, registered_input_output_maps):
         status_statistics = {}
@@ -1054,24 +1093,26 @@ class DomaPanDAWork(Work):
         self.logger.debug("syn_work_status(%s): has_to_release_inputs: %s" % (str(self.get_processing_ids()), str(self.has_to_release_inputs())))
         self.logger.debug("syn_work_status(%s): to_release_input_contents: %s" % (str(self.get_processing_ids()), str(to_release_input_contents)))
 
-        if self.is_processings_terminated() and self.is_input_collections_closed() and not self.has_new_inputs and not self.has_to_release_inputs() and not to_release_input_contents:
+        # if self.is_processings_terminated() and self.is_input_collections_closed() and not self.has_new_inputs and not self.has_to_release_inputs() and not to_release_input_contents:
+        if self.is_processings_terminated():
             # if not self.is_all_outputs_flushed(registered_input_output_maps):
             if not all_updates_flushed:
                 self.logger.warn("The work processings %s is terminated. but not all outputs are flushed. Wait to flush the outputs then finish the transform" % str(self.get_processing_ids()))
                 return
 
-            keys = self.status_statistics.keys()
-            if len(keys) == 1:
-                if ContentStatus.Available.name in keys:
-                    self.status = WorkStatus.Finished
-                else:
-                    self.status = WorkStatus.Failed
-            else:
+            if self.is_processings_finished():
+                self.status = WorkStatus.Finished
+            elif self.is_processings_subfinished():
                 self.status = WorkStatus.SubFinished
+            elif self.is_processings_failed():
+                self.status = WorkStatus.Failed
+            elif self.is_processings_expired():
+                self.status = WorkStatus.Expired
+            elif self.is_processings_cancelled():
+                self.status = WorkStatus.Cancelled
+            elif self.is_processings_suspended():
+                self.status = WorkStatus.Suspended
         elif self.is_processings_running():
             self.status = WorkStatus.Running
         else:
             self.status = WorkStatus.Transforming
-
-        if self.is_processings_started():
-            self.started = True

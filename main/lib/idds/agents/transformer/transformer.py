@@ -9,6 +9,7 @@
 # - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
 
 import copy
+import datetime
 import random
 import time
 import traceback
@@ -300,6 +301,8 @@ class Transformer(BaseAgent):
                 self.logger.info(log_pre + "Update transform: %s" % str(ret))
 
                 ret['transform_parameters']['locking'] = TransformLocking.Idle
+                ret['transform_parameters']['updated_at'] = datetime.datetime.utcnow()
+
                 retry = True
                 retry_num = 0
                 while retry:
@@ -422,7 +425,8 @@ class Transformer(BaseAgent):
             processing_model = core_processings.get_processing(processing_id=processing.processing_id)
             work.sync_processing(processing, processing_model)
             proc = processing_model['processing_metadata']['processing']
-            work.sync_work_data(status=processing_model['status'], substatus=processing_model['substatus'], work=proc.work)
+            work.sync_work_data(status=processing_model['status'], substatus=processing_model['substatus'],
+                                work=proc.work, output_data=processing_model['output_metadata'])
             # processing_metadata = processing_model['processing_metadata']
             if processing_model['errors']:
                 work.set_terminated_msg(processing_model['errors'])
@@ -443,7 +447,7 @@ class Transformer(BaseAgent):
         self.logger.info(log_pre + "syn_work_status: %s, transform status: %s" % (transform['transform_id'], transform['status']))
         if work.is_terminated():
             is_terminated = True
-            self.logger.info(log_pre + "Transform(%s) work is terminated" % (transform['transform_id']))
+            self.logger.info(log_pre + "Transform(%s) work is terminated: work status: %s" % (transform['transform_id'], work.get_status()))
             if work.is_finished():
                 transform['status'] = TransformStatus.Finished
             else:
@@ -604,7 +608,7 @@ class Transformer(BaseAgent):
                         ret = {'transform': tf,
                                'transform_parameters': {'locking': TransformLocking.Idle,
                                                         'errors': {'extra_msg': "Transform is already terminated. Cannot be aborted"}}}
-                        if 'msg' in tf['errors']:
+                        if tf['errors'] and 'msg' in tf['errors']:
                             ret['parameters']['errors']['msg'] = tf['errors']['msg']
 
                         self.logger.info(log_pre + "process_abort_transform result: %s" % str(ret))
@@ -673,7 +677,7 @@ class Transformer(BaseAgent):
                         ret = {'transform': tf,
                                'transform_parameters': {'locking': TransformLocking.Idle,
                                                         'errors': {'extra_msg': "Transform is already finished. Cannot be resumed"}}}
-                        if 'msg' in tf['errors']:
+                        if tf['errors'] and 'msg' in tf['errors']:
                             ret['parameters']['errors']['msg'] = tf['errors']['msg']
 
                         self.logger.info(log_pre + "process_resume_transform result: %s" % str(ret))

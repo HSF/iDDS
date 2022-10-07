@@ -8,4 +8,4 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2019
 
-python setup.py install --old-and-unmanageable
+python setup.py install --old-and-unmanageable --force

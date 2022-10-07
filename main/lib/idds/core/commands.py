@@ -102,5 +102,5 @@ def get_commands_by_status(status, locking=False, period=None, session=None):
             param = {'cmd_id': cmd['cmd_id'],
                      'locking': CommandLocking.Locking}
             parameters.append(param)
-        orm_commands.update_command(parameters)
+        orm_commands.update_commands(parameters)
     return cmds

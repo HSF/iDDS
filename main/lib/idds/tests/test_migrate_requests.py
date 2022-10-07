@@ -17,6 +17,10 @@ Test client.
 from idds.client.clientmanager import ClientManager
 from idds.common.utils import json_dumps  # noqa F401
 from idds.rest.v1.utils import convert_old_req_2_workflow_req
+from idds.common.utils import setup_logging
+
+
+setup_logging("idds.log")
 
 
 def migrate():
@@ -31,25 +35,40 @@ def migrate():
     # doma google
     doma_google_host = 'https://34.133.138.229:443/idds'  # noqa F841
 
+    cm1 = ClientManager(host=atlas_host)
     cm1 = ClientManager(host=doma_host)
     # reqs = cm1.get_requests(request_id=290)
     # old_request_id = 298163
-    old_request_id = 1685
+    # old_request_id = 350723
+    old_request_id = 359383
+    # old_request_id = 349
+    old_request_id = 2400
+
     # for old_request_id in [152]:
     # for old_request_id in [60]:    # noqa E115
     # for old_request_id in [200]:    # noqa E115
     for old_request_id in [old_request_id]:    # noqa E115  # doma 183
         reqs = cm1.get_requests(request_id=old_request_id, with_metadata=True)
 
+        cm2 = ClientManager(host=dev_host)
         cm2 = ClientManager(host=doma_host)
         # print(reqs)
 
         print("num requests: %s" % len(reqs))
         for req in reqs[:1]:
             # print(req)
+            # workflow = req['request_metadata']['workflow']
+            # print(json_dumps(workflow, sort_keys=True, indent=4))
+
             req = convert_old_req_2_workflow_req(req)
             workflow = req['request_metadata']['workflow']
             workflow.clean_works()
+
+            # for old idds version
+            t_works = workflow.template.works
+            if not t_works and hasattr(workflow, 'works_template'):
+                workflow.template.works = workflow.works_template
+
             # print(json_dumps(workflow))
             # print(json_dumps(workflow, sort_keys=True, indent=4))
             req_id = cm2.submit(workflow)

@@ -8,6 +8,7 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
 
+import datetime
 import random
 import time
 import traceback
@@ -19,6 +20,7 @@ from idds.core import processings as core_processings
 from idds.agents.common.baseagent import BaseAgent
 from idds.agents.common.eventbus.event import (EventType,
                                                UpdateProcessingEvent,
+                                               TriggerProcessingEvent,
                                                SyncProcessingEvent,
                                                TerminatedProcessingEvent)
 
@@ -162,6 +164,7 @@ class Poller(BaseAgent):
 
                 processing['update_processing']['parameters']['locking'] = ProcessingLocking.Idle
                 # self.logger.debug("wen: %s" % str(processing))
+                processing['update_processing']['parameters']['updated_at'] = datetime.datetime.utcnow()
 
                 retry = True
                 retry_num = 0
@@ -217,14 +220,19 @@ class Poller(BaseAgent):
     def handle_update_processing(self, processing):
         try:
             log_prefix = self.get_log_prefix(processing)
-            process_status, new_contents, ret_msgs, update_contents = handle_update_processing(processing,
-                                                                                               self.agent_attributes,
-                                                                                               logger=self.logger,
-                                                                                               log_prefix=log_prefix)
+            process_status, new_contents, ret_msgs, update_contents, parameters = handle_update_processing(processing,
+                                                                                                           self.agent_attributes,
+                                                                                                           logger=self.logger,
+                                                                                                           log_prefix=log_prefix)
 
-            new_process_status = process_status
-            if is_process_terminated(process_status):
-                new_process_status = ProcessingStatus.Terminating
+            proc = processing['processing_metadata']['processing']
+            work = proc.work
+            if work.use_dependency_to_release_jobs():
+                new_process_status = ProcessingStatus.Triggering
+            else:
+                new_process_status = process_status
+                if is_process_terminated(process_status):
+                    new_process_status = ProcessingStatus.Terminating
 
             update_processing = {'processing_id': processing['processing_id'],
                                  'parameters': {'status': new_process_status,
@@ -233,7 +241,6 @@ class Poller(BaseAgent):
 
             update_processing['parameters'] = self.load_poll_period(processing, update_processing['parameters'])
 
-            proc = processing['processing_metadata']['processing']
             if proc.submitted_at:
                 if not processing['submitted_at'] or processing['submitted_at'] < proc.submitted_at:
                     update_processing['parameters']['submitted_at'] = proc.submitted_at
@@ -243,6 +250,11 @@ class Poller(BaseAgent):
 
             # update_processing['parameters']['expired_at'] = work.get_expired_at(processing)
             update_processing['parameters']['processing_metadata'] = processing['processing_metadata']
+
+            if parameters:
+                # special parameters such as 'output_metadata'
+                for p in parameters:
+                    update_processing['parameters'][p] = parameters[p]
 
             ret = {'update_processing': update_processing,
                    'update_contents': update_contents,
@@ -316,7 +328,15 @@ class Poller(BaseAgent):
 
                     self.update_processing(ret, pr)
 
-                    if 'processing_status' in ret and ret['processing_status'] == ProcessingStatus.Terminating:
+                    if 'processing_status' in ret and ret['processing_status'] == ProcessingStatus.Triggering:
+                        event_content = {}
+                        if (('update_contents' in ret and ret['update_contents']) or ('new_contents' in ret and ret['new_contents'])):
+                            event_content['has_updates'] = True
+                        if is_process_terminated(pr['substatus']):
+                            event_content['Terminated'] = True
+                        event = TriggerProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'], content=event_content)
+                        self.event_bus.send(event)
+                    elif 'processing_status' in ret and ret['processing_status'] == ProcessingStatus.Terminating:
                         self.logger.info(log_pre + "TerminatedProcessingEvent(processing_id: %s)" % pr['processing_id'])
                         event = TerminatedProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'])
                         self.event_bus.send(event)

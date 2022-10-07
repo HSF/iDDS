@@ -46,6 +46,7 @@ from idds.common.utils import exception_handler
 # from idds.workflowv2.work import Work, Parameter, WorkStatus
 # from idds.workflowv2.workflow import Condition, Workflow
 from idds.workflowv2.work import Collection
+from idds.workflow.work import Collection as CollectionV1
 
 
 setup_logging(__name__)
@@ -397,7 +398,7 @@ class ClientManager:
         if use_dataset_name:
             primary_init_work = workflow.get_primary_initial_collection()
             if primary_init_work:
-                if type(primary_init_work) in [Collection]:
+                if type(primary_init_work) in [Collection, CollectionV1]:
                     props['scope'] = primary_init_work.scope
                     props['name'] = primary_init_work.name
                 else:

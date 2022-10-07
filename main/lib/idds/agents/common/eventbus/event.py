@@ -8,11 +8,12 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2022
 
-import json
 import time
 import uuid
 
 from enum import Enum
+
+from idds.common.utils import json_dumps
 
 
 class EventBusState(Enum):
@@ -44,6 +45,9 @@ class EventType(Enum):
     ResumeProcessing = 33
     SyncProcessing = 34
     TerminatedProcessing = 35
+    TriggerProcessing = 36
+
+    UpdateCommand = 40
 
 
 class Event(object):
@@ -62,7 +66,7 @@ class Event(object):
         return ret
 
     def __str__(self):
-        return json.dumps(self.to_json())
+        return json_dumps(self.to_json())
 
 
 class StateClaimEvent(Event):
@@ -139,6 +143,17 @@ class ExpireRequestEvent(Event):
     def to_json(self):
         ret = super(ExpireRequestEvent, self).to_json()
         ret['request_id'] = self._request_id
+        return ret
+
+
+class UpdateCommandEvent(Event):
+    def __init__(self, publisher_id, command_id, content=None):
+        super(UpdateCommandEvent, self).__init__(publisher_id, event_type=EventType.UpdateCommand, content=content)
+        self._command_id = command_id
+
+    def to_json(self):
+        ret = super(UpdateCommandEvent, self).to_json()
+        ret['command_id'] = self._command_id
         return ret
 
 
@@ -248,5 +263,16 @@ class TerminatedProcessingEvent(Event):
 
     def to_json(self):
         ret = super(TerminatedProcessingEvent, self).to_json()
+        ret['processing_id'] = self._processing_id
+        return ret
+
+
+class TriggerProcessingEvent(Event):
+    def __init__(self, publisher_id, processing_id, content=None):
+        super(TriggerProcessingEvent, self).__init__(publisher_id, event_type=EventType.TriggerProcessing, content=content)
+        self._processing_id = processing_id
+
+    def to_json(self):
+        ret = super(TriggerProcessingEvent, self).to_json()
         ret['processing_id'] = self._processing_id
         return ret

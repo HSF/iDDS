@@ -6,13 +6,14 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2020
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
 
 
 """
 operations related to Transform.
 """
 
+import datetime
 import logging
 
 # from idds.common import exceptions
@@ -88,6 +89,7 @@ def get_transform_by_id_status(transform_id, status=None, locking=False, session
     if tf is not None and locking:
         parameters = {}
         parameters['locking'] = TransformLocking.Locking
+        parameters['updated_at'] = datetime.datetime.utcnow()
         orm_transforms.update_transform(transform_id=tf['transform_id'], parameters=parameters, session=session)
     return tf
 
@@ -202,14 +204,18 @@ def get_transforms_by_status(status, period=None, locking=False, bulk_size=None,
                                                                  only_return_id=only_return_id,
                                                                  by_substatus=by_substatus, session=session)
 
-        parameters = []
+        parameters = {}
         if not not_lock:
             parameters['locking'] = TransformLocking.Locking
         if next_poll_at:
             parameters['next_poll_at'] = next_poll_at
+        parameters['updated_at'] = datetime.datetime.utcnow()
         if parameters:
             for transform in transforms:
-                orm_transforms.update_transform(transform_id=transform['transform_id'], parameters=parameters, session=session)
+                if type(transform) in [dict]:
+                    orm_transforms.update_transform(transform_id=transform['transform_id'], parameters=parameters, session=session)
+                else:
+                    orm_transforms.update_transform(transform_id=transform, parameters=parameters, session=session)
     else:
         transforms = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking,
                                                              bulk_size=bulk_size, to_json=to_json,
@@ -613,7 +619,11 @@ def get_work_name_to_coll_map(request_id):
             for coll in colls:
                 if coll['transform_id'] == transform_id:
                     if coll['relation_type'] == CollectionRelationType.Input:
-                        work_name_to_coll_map[work_name]['inputs'].append({'coll_id': coll['coll_id'], 'scope': coll['scope'], 'name': coll['name']})
+                        work_name_to_coll_map[work_name]['inputs'].append({'coll_id': coll['coll_id'], 'transform_id': coll['transform_id'],
+                                                                           'workload_id': coll['workload_id'],
+                                                                           'scope': coll['scope'], 'name': coll['name']})
                     elif coll['relation_type'] == CollectionRelationType.Output:
-                        work_name_to_coll_map[work_name]['outputs'].append({'coll_id': coll['coll_id'], 'scope': coll['scope'], 'name': coll['name']})
+                        work_name_to_coll_map[work_name]['outputs'].append({'coll_id': coll['coll_id'], 'transform_id': coll['transform_id'],
+                                                                            'workload_id': coll['workload_id'],
+                                                                            'scope': coll['scope'], 'name': coll['name']})
     return work_name_to_coll_map

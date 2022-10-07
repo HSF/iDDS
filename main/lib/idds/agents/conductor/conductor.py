@@ -8,7 +8,6 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2019
 
-import random
 import time
 import traceback
 try:
@@ -151,7 +150,7 @@ class Conductor(BaseAgent):
                     self.logger.error("Main thread IDDSException: %s" % str(error))
                 except Exception as error:
                     self.logger.critical("Main thread exception: %s\n%s" % (str(error), traceback.format_exc()))
-                time.sleep(random.randint(5, self.random_delay))
+                # time.sleep(random.randint(5, self.random_delay))
         except KeyboardInterrupt:
             self.stop()
 

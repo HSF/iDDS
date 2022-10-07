@@ -75,10 +75,10 @@ class Submitter(Poller):
             # transform_id = processing['transform_id']
             # transform = core_transforms.get_transform(transform_id=transform_id)
             # work = transform['transform_metadata']['work']
-            status, processing, new_contents, msgs, errors = handle_new_processing(processing,
-                                                                                   self.agent_attributes,
-                                                                                   logger=self.logger,
-                                                                                   log_prefix=log_prefix)
+            status, processing, update_colls, new_contents, msgs, errors = handle_new_processing(processing,
+                                                                                                 self.agent_attributes,
+                                                                                                 logger=self.logger,
+                                                                                                 log_prefix=log_prefix)
 
             if not status:
                 raise exceptions.ProcessSubmitFailed(errors)
@@ -100,6 +100,7 @@ class Submitter(Poller):
             update_processing = {'processing_id': processing['processing_id'],
                                  'parameters': parameters}
             ret = {'update_processing': update_processing,
+                   'update_collections': update_colls,
                    'update_contents': [],
                    'new_contents': new_contents,
                    'messages': msgs,
