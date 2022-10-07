@@ -426,7 +426,7 @@ class Transformer(BaseAgent):
             work.sync_processing(processing, processing_model)
             proc = processing_model['processing_metadata']['processing']
             work.sync_work_data(status=processing_model['status'], substatus=processing_model['substatus'],
-                                work=proc.work, output_data=processing_model['output_metadata'])
+                                work=proc.work, output_data=processing_model['output_metadata'], processing=proc)
             # processing_metadata = processing_model['processing_metadata']
             if processing_model['errors']:
                 work.set_terminated_msg(processing_model['errors'])

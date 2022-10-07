@@ -636,6 +636,7 @@ class WorkflowBase(Base):
 
         self.first_initial = False
         self.new_to_run_works = []
+        self.submitting_works = []
         self.current_running_works = []
 
         self.num_subfinished_works = 0
@@ -967,6 +968,14 @@ class WorkflowBase(Base):
     @new_to_run_works.setter
     def new_to_run_works(self, value):
         self.add_metadata_item('new_to_run_works', value)
+
+    @property
+    def submitting_works(self):
+        return self.get_metadata_item('submitting_works', [])
+
+    @submitting_works.setter
+    def submitting_works(self, value):
+        self.add_metadata_item('submitting_works', value)
 
     @property
     def current_running_works(self):
@@ -1394,6 +1403,10 @@ class WorkflowBase(Base):
         self.sync_works(to_cancel=self.to_cancel)
         works = []
 
+        if self.submitting_works:
+            # wait the work to be submitted
+            return works
+
         if self.to_start_works:
             init_works = self.init_works
             to_start_works = self.to_start_works
@@ -1570,12 +1583,23 @@ class WorkflowBase(Base):
 
         for k in self.works:
             work = self.works[k]
-            self.log_debug("work %s is_terminated(%s:%s)" % (work.get_internal_id(), work.is_terminated(), work.get_status()))
+            self.log_debug("work %s is_terminated(%s:%s), is_submitted: %s, transforming: %s" % (work.get_internal_id(),
+                                                                                                 work.is_terminated(),
+                                                                                                 work.get_status(),
+                                                                                                 work.submitted,
+                                                                                                 work.transforming))
 
+        submitting_works = self.submitting_works
         for work in [self.works[k] for k in self.new_to_run_works]:
             if work.transforming:
                 self.new_to_run_works.remove(work.get_internal_id())
+                submitting_works.append(work.get_internal_id())
                 self.current_running_works.append(work.get_internal_id())
+        self.submitting_works = submitting_works
+        for work in [self.works[k] for k in self.submitting_works]:
+            self.log_info("Work %s is_submitted(%s)" % (work.get_internal_id(), work.submitted))
+            if work.submitted:
+                self.submitting_works.remove(work.get_internal_id())
 
         for work in [self.works[k] for k in self.current_running_works]:
             if isinstance(work, Workflow):
