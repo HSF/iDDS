@@ -1357,7 +1357,7 @@ class Work(Base):
         return to_release_inputs
 
     def is_started(self):
-        return self.started
+        return self.started or self.submitted
 
     def is_running(self):
         if self.status in [WorkStatus.Running, WorkStatus.Transforming]:
@@ -2175,6 +2175,9 @@ class Work(Base):
         else:
             # called by clerk to syn from transform
             self.submitted = work.submitted
+
+        if self.submitted:
+            self.started = True
 
         """
         self.status = WorkStatus(status.value)
