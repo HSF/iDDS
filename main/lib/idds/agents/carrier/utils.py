@@ -1222,14 +1222,14 @@ def sync_work_status(request_id, transform_id, workload_id, work):
     for coll in output_collections:
         if coll.total_files != coll.processed_files:
             is_all_files_processed = False
-        if coll.processed_files > 0:
+        if coll.processed_files > 0 or coll.total_files == coll.processed_files:
             is_all_files_failed = False
 
     if is_all_collections_closed:
-        if is_all_files_failed:
-            work.status = WorkStatus.Failed
-        elif is_all_files_processed:
+        if is_all_files_processed:
             work.status = WorkStatus.Finished
+        elif is_all_files_failed:
+            work.status = WorkStatus.Failed
         else:
             work.status = WorkStatus.SubFinished
 
@@ -1256,7 +1256,8 @@ def sync_processing(processing, agent_attributes, terminate=False, logger=None, 
     if terminate and work.is_terminated():
         messages = generate_messages(request_id, transform_id, workload_id, work, msg_type='work')
         if work.is_finished():
-            processing['status'] = ProcessingStatus.Finished
+            # processing['status'] = ProcessingStatus.Finished
+            processing['status'] = processing['substatus']
         elif work.is_subfinished():
             processing['status'] = ProcessingStatus.SubFinished
         elif work.is_failed():
