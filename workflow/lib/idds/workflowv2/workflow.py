@@ -2095,6 +2095,14 @@ class Workflow(Base):
                     p_metadata = self.runs[str(self.num_run - 1)].get_metadata_item('parameter_links')
                     self.runs[str(self.num_run)].add_metadata_item('parameter_links', p_metadata)
 
+    @property
+    def submitted(self):
+        return self.transforming
+
+    @submitted.setter
+    def submitted(self, value):
+        pass
+
     def set_workload_id(self, workload_id):
         if self.runs:
             self.runs[str(self.num_run)].workload_id = workload_id

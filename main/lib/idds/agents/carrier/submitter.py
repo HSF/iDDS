@@ -81,7 +81,7 @@ class Submitter(Poller):
                                                                                                  log_prefix=log_prefix)
 
             if not status:
-                raise exceptions.ProcessSubmitFailed(errors)
+                raise exceptions.ProcessSubmitFailed(str(errors))
 
             parameters = {'status': ProcessingStatus.Submitting,
                           'substatus': ProcessingStatus.Submitting,
@@ -120,7 +120,7 @@ class Submitter(Poller):
             if new_poll_period > self.max_new_poll_period:
                 new_poll_period = self.max_new_poll_period
 
-            error = {'submit_err': {'msg': truncate_string('%s' % (ex), length=200)}}
+            error = {'submit_err': {'msg': truncate_string('%s' % str(ex), length=200)}}
             parameters = {'status': pr_status,
                           'new_poll_period': new_poll_period,
                           'errors': processing['errors'] if processing['errors'] else {},
