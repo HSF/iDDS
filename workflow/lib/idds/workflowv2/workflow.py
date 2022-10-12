@@ -907,16 +907,17 @@ class WorkflowBase(Base):
         self.sliced_global_parameters = self.sliced_global_parameters
 
     def sync_global_parameters_from_work(self, work):
-        self.log_debug("work %s is_terminated, global_parameters: %s" % (work.get_internal_id(), str(self.global_parameters)))
-        if self.global_parameters:
-            for key in self.global_parameters:
-                status, value = work.get_global_parameter_from_output_data(key)
-                self.log_debug("work %s get_global_parameter_from_output_data(key: %s) results(%s:%s)" % (work.get_internal_id(), key, status, value))
-                if status:
-                    self.global_parameters[key] = value
-                elif hasattr(work, key):
-                    self.global_parameters[key] = getattr(work, key)
-        self.set_global_parameters(self.global_parameters)
+        self.log_debug("work %s (%s) is_terminated, global_parameters: %s" % (work.get_internal_id(), str(work), str(self.global_parameters)))
+        if isinstance(work, Work):
+            if self.global_parameters:
+                for key in self.global_parameters:
+                    status, value = work.get_global_parameter_from_output_data(key)
+                    self.log_debug("work %s get_global_parameter_from_output_data(key: %s) results(%s:%s)" % (work.get_internal_id(), key, status, value))
+                    if status:
+                        self.global_parameters[key] = value
+                    elif hasattr(work, key):
+                        self.global_parameters[key] = getattr(work, key)
+            self.set_global_parameters(self.global_parameters)
 
     @property
     def loop_condition(self):
