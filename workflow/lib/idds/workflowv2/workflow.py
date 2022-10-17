@@ -669,6 +669,9 @@ class WorkflowBase(Base):
         self.global_parameters = {}
 
         self.to_cancel = False
+
+        self.synchronized = False
+
         """
         self._running_data_names = []
         for name in ['internal_id', 'template_work_id', 'workload_id', 'work_sequence', 'terminated_works',
@@ -1165,7 +1168,8 @@ class WorkflowBase(Base):
             if work.parent_workload_id is None and self.num_total_works > 0:
                 last_work_id = self.work_sequence[str(self.num_total_works - 1)]
                 last_work = self.works[last_work_id]
-                work.parent_workload_id = last_work.workload_id
+                if isinstance(last_work, Work):
+                    work.parent_workload_id = last_work.workload_id
                 last_work.add_next_work(work.get_internal_id())
             works = self.works
             self.works = works
@@ -1368,7 +1372,8 @@ class WorkflowBase(Base):
                 # parameters = self.get_destination_parameters(next_work.get_internal_id())
                 new_next_work = self.get_new_work_to_run(next_work.get_internal_id())
                 work.add_next_work(new_next_work.get_internal_id())
-                new_next_work.parent_workload_id = work.workload_id
+                if isinstance(work, Work):
+                    new_next_work.parent_workload_id = work.workload_id
                 # cond.add_condition_work(new_next_work)   ####### TODO:
                 new_next_works.append(new_next_work)
             return new_next_works
@@ -1606,7 +1611,7 @@ class WorkflowBase(Base):
             if isinstance(work, Workflow):
                 work.sync_works(to_cancel=self.to_cancel)
 
-            if work.is_terminated():
+            if work.is_terminated(synchronize=False):
                 self.log_debug("work %s is_terminated, sync_global_parameters_from_work" % (work.get_internal_id()))
                 self.set_source_parameters(work.get_internal_id())
                 self.sync_global_parameters_from_work(work)
@@ -1620,7 +1625,7 @@ class WorkflowBase(Base):
                                                                              json_dumps(cond, sort_keys=True, indent=4)))
                     self.enable_next_works(work, cond)
 
-            if work.is_terminated():
+            if work.is_terminated(synchronize=False):
                 self.log_info("Work %s is terminated(%s)" % (work.get_internal_id(), work.get_status()))
                 self.log_debug("Work conditions: %s" % json_dumps(self.work_conds, sort_keys=True, indent=4))
                 if work.get_internal_id() not in self.work_conds:
@@ -1636,17 +1641,17 @@ class WorkflowBase(Base):
                     self.terminated_works.append(work.get_internal_id())
                     self.current_running_works.remove(work.get_internal_id())
 
-                if work.is_finished():
+                if work.is_finished(synchronize=False):
                     self.num_finished_works += 1
-                elif work.is_subfinished():
+                elif work.is_subfinished(synchronize=False):
                     self.num_subfinished_works += 1
-                elif work.is_failed():
+                elif work.is_failed(synchronize=False):
                     self.num_failed_works += 1
-                elif work.is_expired():
+                elif work.is_expired(synchronize=False):
                     self.num_expired_works += 1
-                elif work.is_cancelled():
+                elif work.is_cancelled(synchronize=False):
                     self.num_cancelled_works += 1
-                elif work.is_suspended():
+                elif work.is_suspended(synchronize=False):
                     self.num_suspended_works += 1
 
             # if work.is_terminated():
@@ -1803,32 +1808,33 @@ class WorkflowBase(Base):
         """
         return [self]
 
-    def is_terminated(self):
+    def is_terminated(self, synchronize=True):
         """
         *** Function called by Marshaller agent.
         """
-        self.sync_works(to_cancel=self.to_cancel)
+        if synchronize:
+            self.sync_works(to_cancel=self.to_cancel)
         if (self.to_cancel or len(self.new_to_run_works) == 0) and len(self.current_running_works) == 0:
             return True
         return False
 
-    def is_finished(self):
+    def is_finished(self, synchronize=True):
         """
         *** Function called by Marshaller agent.
         """
-        return self.is_terminated() and self.num_finished_works == self.num_total_works
+        return self.is_terminated(synchronize=synchronize) and self.num_finished_works == self.num_total_works
 
-    def is_subfinished(self):
+    def is_subfinished(self, synchronize=True):
         """
         *** Function called by Marshaller agent.
         """
-        return self.is_terminated() and (self.num_finished_works + self.num_subfinished_works > 0 and self.num_finished_works + self.num_subfinished_works <= self.num_total_works)
+        return self.is_terminated(synchronize=synchronize) and (self.num_finished_works + self.num_subfinished_works > 0 and self.num_finished_works + self.num_subfinished_works <= self.num_total_works)
 
-    def is_failed(self):
+    def is_failed(self, synchronize=True):
         """
         *** Function called by Marshaller agent.
         """
-        return self.is_terminated() and (self.num_failed_works > 0) and (self.num_cancelled_works == 0) and (self.num_suspended_works == 0) and (self.num_expired_works == 0)
+        return self.is_terminated(synchronize=synchronize) and (self.num_failed_works > 0) and (self.num_cancelled_works == 0) and (self.num_suspended_works == 0) and (self.num_expired_works == 0)
 
     def is_to_expire(self, expired_at=None, pending_time=None, request_id=None):
         if self.expired:
@@ -1862,24 +1868,24 @@ class WorkflowBase(Base):
 
         return False
 
-    def is_expired(self):
+    def is_expired(self, synchronize=True):
         """
         *** Function called by Marshaller agent.
         """
         # return self.is_terminated() and (self.num_expired_works > 0)
-        return self.is_terminated() and self.expired
+        return self.is_terminated(synchronize=synchronize) and self.expired
 
-    def is_cancelled(self):
+    def is_cancelled(self, synchronize=True):
         """
         *** Function called by Marshaller agent.
         """
-        return self.is_terminated() and (self.num_cancelled_works > 0)
+        return self.is_terminated(synchronize=synchronize) and (self.num_cancelled_works > 0)
 
-    def is_suspended(self):
+    def is_suspended(self, synchronize=True):
         """
         *** Function called by Marshaller agent.
         """
-        return self.is_terminated() and (self.num_suspended_works > 0)
+        return self.is_terminated(synchronize=synchronize) and (self.num_suspended_works > 0)
 
     def get_terminated_msg(self):
         """
@@ -1891,17 +1897,17 @@ class WorkflowBase(Base):
 
     def get_status(self):
         if self.is_terminated():
-            if self.is_finished():
+            if self.is_finished(synchronize=False):
                 return WorkStatus.Finished
-            elif self.is_subfinished():
+            elif self.is_subfinished(synchronize=False):
                 return WorkStatus.SubFinished
-            elif self.is_failed():
+            elif self.is_failed(synchronize=False):
                 return WorkStatus.Failed
-            elif self.is_expired():
+            elif self.is_expired(synchronize=False):
                 return WorkStatus.Expired
-            elif self.is_cancelled():
+            elif self.is_cancelled(synchronize=False):
                 return WorkStatus.Cancelled
-            elif self.is_suspended():
+            elif self.is_suspended(synchronize=False):
                 return WorkStatus.Suspended
         return WorkStatus.Transforming
 
@@ -2194,41 +2200,41 @@ class Workflow(Base):
             return self.runs[str(self.num_run)].is_to_expire(expired_at=expired_at, pending_time=pending_time, request_id=request_id)
         return False
 
-    def is_terminated(self):
+    def is_terminated(self, synchronize=True):
         if self.runs:
-            if self.runs[str(self.num_run)].is_terminated():
+            if self.runs[str(self.num_run)].is_terminated(synchronize=synchronize):
                 if not self.runs[str(self.num_run)].has_loop_condition() or not self.runs[str(self.num_run)].get_loop_condition_status():
                     return True
         return False
 
-    def is_finished(self):
-        if self.is_terminated():
-            return self.runs[str(self.num_run)].is_finished()
+    def is_finished(self, synchronize=True):
+        if self.is_terminated(synchronize=synchronize):
+            return self.runs[str(self.num_run)].is_finished(synchronize=False)
         return False
 
-    def is_subfinished(self):
-        if self.is_terminated():
-            return self.runs[str(self.num_run)].is_subfinished()
+    def is_subfinished(self, synchronize=True):
+        if self.is_terminated(synchronize=synchronize):
+            return self.runs[str(self.num_run)].is_subfinished(synchronize=False)
         return False
 
-    def is_failed(self):
-        if self.is_terminated():
-            return self.runs[str(self.num_run)].is_failed()
+    def is_failed(self, synchronize=True):
+        if self.is_terminated(synchronize=synchronize):
+            return self.runs[str(self.num_run)].is_failed(synchronize=False)
         return False
 
-    def is_expired(self):
-        if self.is_terminated():
-            return self.runs[str(self.num_run)].is_expired()
+    def is_expired(self, synchronize=True):
+        if self.is_terminated(synchronize=synchronize):
+            return self.runs[str(self.num_run)].is_expired(synchronize=False)
         return False
 
-    def is_cancelled(self):
-        if self.is_terminated():
-            return self.runs[str(self.num_run)].is_cancelled()
+    def is_cancelled(self, synchronize=True):
+        if self.is_terminated(synchronize=synchronize):
+            return self.runs[str(self.num_run)].is_cancelled(synchronize=False)
         return False
 
-    def is_suspended(self):
-        if self.is_terminated():
-            return self.runs[str(self.num_run)].is_suspended()
+    def is_suspended(self, synchronize=True):
+        if self.is_terminated(synchronize=synchronize):
+            return self.runs[str(self.num_run)].is_suspended(synchronize=False)
         return False
 
     def get_terminated_msg(self):
@@ -2280,7 +2286,7 @@ class Workflow(Base):
 
         self.runs[str(self.num_run)].sync_works(to_cancel=to_cancel)
 
-        if self.runs[str(self.num_run)].is_terminated():
+        if self.runs[str(self.num_run)].is_terminated(synchronize=False):
             if to_cancel:
                 self.logger.info("num_run %s, to cancel" % self.num_run)
             else:

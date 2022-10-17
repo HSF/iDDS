@@ -1364,7 +1364,7 @@ class Work(Base):
             return True
         return False
 
-    def is_terminated(self):
+    def is_terminated(self, synchronize=True):
         """
         *** Function called by Transformer agent.
         """
@@ -1373,7 +1373,7 @@ class Work(Base):
             return True
         return False
 
-    def is_finished(self):
+    def is_finished(self, synchronize=True):
         """
         *** Function called by Transformer agent.
         """
@@ -1381,7 +1381,7 @@ class Work(Base):
             return True
         return False
 
-    def is_subfinished(self):
+    def is_subfinished(self, synchronize=True):
         """
         *** Function called by Transformer agent.
         """
@@ -1389,7 +1389,7 @@ class Work(Base):
             return True
         return False
 
-    def is_failed(self):
+    def is_failed(self, synchronize=True):
         """
         *** Function called by Transformer agent.
         """
@@ -1397,7 +1397,7 @@ class Work(Base):
             return True
         return False
 
-    def is_expired(self):
+    def is_expired(self, synchronize=True):
         """
         *** Function called by Transformer agent.
         """
@@ -1405,7 +1405,7 @@ class Work(Base):
             return True
         return False
 
-    def is_cancelled(self):
+    def is_cancelled(self, synchronize=True):
         """
         *** Function called by Transformer agent.
         """
@@ -1413,7 +1413,7 @@ class Work(Base):
             return True
         return False
 
-    def is_suspended(self):
+    def is_suspended(self, synchronize=True):
         """
         *** Function called by Transformer agent.
         """
