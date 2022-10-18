@@ -25,9 +25,12 @@ from rucio.common.exception import (CannotAuthenticate as RucioCannotAuthenticat
 from idds.common import exceptions
 from idds.common.constants import (TransformType, CollectionStatus, CollectionType,
                                    ContentType, ProcessingStatus, WorkStatus)
-from idds.common.utils import extract_scope_atlas
+from idds.common.utils import extract_scope_atlas, setup_logging
 from idds.workflowv2.work import Work, Processing
 # from idds.workflowv2.workflow import Condition
+
+
+setup_logging(__name__)
 
 
 class ATLASPandaWork(Work):
@@ -234,6 +237,8 @@ class ATLASPandaWork(Work):
                         attr_value = getattr(self, attr)
                         new_parameter = new_parameter.replace(idds_attr, str(attr_value))
                         parameter = parameter.replace(idds_attr, str(attr_value))
+                    else:
+                        parameter = parameter[pos_start + len_idds:]
                 else:
                     parameter = parameter[pos_start + len_idds:]
             else:
