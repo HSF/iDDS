@@ -992,7 +992,7 @@ class Work(Base):
     @num_run.setter
     def num_run(self, value):
         self.add_metadata_item('num_run', value)
-        if value is not None and value > 1:
+        if value is not None:
             # for k in self._collections:
             for coll in self.output_collections:
                 if type(coll) in [Collection]:

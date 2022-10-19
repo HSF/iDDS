@@ -401,12 +401,13 @@ def handle_new_processing(processing, agent_attributes, logger=None, log_prefix=
         new_input_contents, new_output_contents, new_log_contents, new_input_dependency_contents = ret_new_contents
         new_contents = new_input_contents + new_output_contents + new_log_contents + new_input_dependency_contents
 
-        if new_input_contents:
-            msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='file', files=new_input_contents, relation_type='input')
-            ret_msgs = ret_msgs + msgs
-        if new_output_contents:
-            msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='file', files=new_input_contents, relation_type='output')
-            ret_msgs = ret_msgs + msgs
+        # not generate new messages
+        # if new_input_contents:
+        #     msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='file', files=new_input_contents, relation_type='input')
+        #     ret_msgs = ret_msgs + msgs
+        # if new_output_contents:
+        #     msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='file', files=new_input_contents, relation_type='output')
+        #     ret_msgs = ret_msgs + msgs
     return True, processing, update_collections, new_contents, ret_msgs, errors
 
 
