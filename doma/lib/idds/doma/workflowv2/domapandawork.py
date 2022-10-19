@@ -515,6 +515,7 @@ class DomaPanDAWork(Work):
                 self.logger.info("parent_workload_id: %s" % self.parent_workload_id)
                 if self.parent_workload_id and int(self.parent_workload_id) < time.time() - 604800:
                     parent_tid = self.parent_workload_id
+                    parent_tid = None       # disable parent_tid for now
                 return_code = Client.insertTaskParams(task_param, verbose=True, parent_tid=parent_tid)
             else:
                 return_code = Client.insertTaskParams(task_param, verbose=True)
