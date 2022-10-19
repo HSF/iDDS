@@ -112,31 +112,33 @@ def show_works(req):
 # reqs = get_requests(request_id=965, with_request=True, with_detail=False, with_metadata=True)
 # reqs = get_requests(request_id=350695, with_request=True, with_detail=False, with_metadata=True)
 
-"""
-reqs = get_requests(request_id=350723, with_request=True, with_detail=False, with_metadata=True)
+# reqs = get_requests(request_id=370028, with_request=True, with_detail=False, with_metadata=True)
+# reqs = get_requests(request_id=370400, with_request=True, with_detail=False, with_metadata=True)
+# reqs = get_requests(request_id=371204, with_request=True, with_detail=False, with_metadata=True)
+reqs = get_requests(request_id=372678, with_request=True, with_detail=False, with_metadata=True)
 for req in reqs:
     # print(req['request_id'])
     print(req)
     # print(rets)
-    # print(json_dumps(req, sort_keys=True, indent=4))
+    print(json_dumps(req, sort_keys=True, indent=4))
     # show_works(req)
     pass
     workflow = req['request_metadata']['workflow']
+    # workflow.get_new_works()
     print(workflow.runs.keys())
     # print(workflow.runs["1"])
     # print(json_dumps(workflow.runs["1"], sort_keys=True, indent=4))
 
     print(workflow.runs["1"].works.keys())
-    # print(workflow.runs["1"].works["7bdcf871"])
-    # print(json_dumps(workflow.runs["1"].works["7bdcf871"], indent=4))
-    print(workflow.runs["1"].works["7bdcf871"].runs.keys())
-    print(json_dumps(workflow.runs["1"].works["7bdcf871"].runs["2"], indent=4))
+    print(workflow.runs["1"].works["048a1811"])
+    # print(json_dumps(workflow.runs["1"].works["048a1811"], indent=4))
+    print(workflow.runs["1"].works["048a1811"].runs.keys())
+    print(json_dumps(workflow.runs["1"].works["048a1811"].runs["2"], indent=4))
     if hasattr(workflow, 'get_relation_map'):
         # print(json_dumps(workflow.get_relation_map(), sort_keys=True, indent=4))
         pass
 
 sys.exit(0)
-"""
 
 """
 # reqs = get_requests()
@@ -153,7 +155,7 @@ sys.exit(0)
 """
 
 
-tfs = get_transforms(request_id=350723)
+tfs = get_transforms(request_id=370028)
 # tfs = get_transforms(transform_id=350723)
 for tf in tfs:
     # print(tf)
