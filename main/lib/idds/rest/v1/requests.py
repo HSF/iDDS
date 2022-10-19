@@ -243,20 +243,20 @@ class RequestAbort(IDDSController):
                 reqs = get_requests(request_id=request_id, workload_id=workload_id, with_request=True)
 
             if not reqs:
-                return self.generate_http_response(HTTP_STATUS_CODE.OK, data={'status': -1, 'message': 'No match requests'})
+                return self.generate_http_response(HTTP_STATUS_CODE.OK, data=(-1, {'status': -1, 'message': 'No match requests'}))
             matched_transform_id = None
             if task_id:
                 for req in reqs:
                     if str(req['processing_workload_id']) == str(task_id):
                         matched_transform_id = req['transform_id']
                 if matched_transform_id:
-                    return self.generate_http_response(HTTP_STATUS_CODE.OK, data={'status': -1, 'message': 'No match tasks'})
+                    return self.generate_http_response(HTTP_STATUS_CODE.OK, data=(-1, {'status': -1, 'message': 'No match tasks'}))
 
             for req in reqs:
                 if req['username'] and req['username'] != username and not authenticate_is_super_user(username):
                     msg = "User %s has no permission to update request %s" % (username, req['request_id'])
                     # raise exceptions.AuthenticationNoPermission(msg)
-                    return self.generate_http_response(HTTP_STATUS_CODE.OK, data={'status': -1, 'message': msg})
+                    return self.generate_http_response(HTTP_STATUS_CODE.OK, data=(-1, {'status': -1, 'message': msg}))
         except exceptions.AuthenticationNoPermission as error:
             return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=error.__class__.__name__, exc_msg=error)
         except Exception as error:
@@ -283,7 +283,7 @@ class RequestAbort(IDDSController):
             print(format_exc())
             return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
 
-        return self.generate_http_response(HTTP_STATUS_CODE.OK, data={'status': 0, 'message': 'Command registered successfully'})
+        return self.generate_http_response(HTTP_STATUS_CODE.OK, data=(0, {'status': 0, 'message': 'Command registered successfully'}))
 
 
 class RequestRetry(IDDSController):
@@ -308,13 +308,13 @@ class RequestRetry(IDDSController):
             username = self.get_username()
             reqs = get_requests(request_id=request_id, workload_id=workload_id, with_request=True)
             if not reqs:
-                return self.generate_http_response(HTTP_STATUS_CODE.OK, data={'status': -1, 'message': 'No match requests'})
+                return self.generate_http_response(HTTP_STATUS_CODE.OK, data=(-1, {'status': -1, 'message': 'No match requests'}))
 
             for req in reqs:
                 if req['username'] and req['username'] != username and not authenticate_is_super_user(username):
                     msg = "User %s has no permission to update request %s" % (username, req['request_id'])
                     # raise exceptions.AuthenticationNoPermission(msg)
-                    return self.generate_http_response(HTTP_STATUS_CODE.OK, data={'status': -1, 'message': msg})
+                    return self.generate_http_response(HTTP_STATUS_CODE.OK, data=(-1, {'status': -1, 'message': msg}))
         except exceptions.AuthenticationNoPermission as error:
             return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=error.__class__.__name__, exc_msg=error)
         except Exception as error:
@@ -336,7 +336,7 @@ class RequestRetry(IDDSController):
             print(format_exc())
             return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
 
-        return self.generate_http_response(HTTP_STATUS_CODE.OK, data={'status': 0, 'message': 'Command registered successfully'})
+        return self.generate_http_response(HTTP_STATUS_CODE.OK, data=(0, {'status': 0, 'message': 'Command registered successfully'}))
 
 
 """----------------------

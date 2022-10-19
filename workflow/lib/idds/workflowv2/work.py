@@ -706,6 +706,14 @@ class Work(Base):
         self.add_metadata_item('transforming', value)
 
     @property
+    def submitted(self):
+        return self.get_metadata_item('submitted', False)
+
+    @submitted.setter
+    def submitted(self, value):
+        self.add_metadata_item('submitted', value)
+
+    @property
     def workdir(self):
         return self.get_metadata_item('workdir', None)
 
@@ -984,7 +992,7 @@ class Work(Base):
     @num_run.setter
     def num_run(self, value):
         self.add_metadata_item('num_run', value)
-        if value is not None and value > 1:
+        if value is not None:
             # for k in self._collections:
             for coll in self.output_collections:
                 if type(coll) in [Collection]:
@@ -1349,14 +1357,14 @@ class Work(Base):
         return to_release_inputs
 
     def is_started(self):
-        return self.started
+        return self.started or self.submitted
 
     def is_running(self):
         if self.status in [WorkStatus.Running, WorkStatus.Transforming]:
             return True
         return False
 
-    def is_terminated(self):
+    def is_terminated(self, synchronize=True):
         """
         *** Function called by Transformer agent.
         """
@@ -1365,7 +1373,7 @@ class Work(Base):
             return True
         return False
 
-    def is_finished(self):
+    def is_finished(self, synchronize=True):
         """
         *** Function called by Transformer agent.
         """
@@ -1373,7 +1381,7 @@ class Work(Base):
             return True
         return False
 
-    def is_subfinished(self):
+    def is_subfinished(self, synchronize=True):
         """
         *** Function called by Transformer agent.
         """
@@ -1381,7 +1389,7 @@ class Work(Base):
             return True
         return False
 
-    def is_failed(self):
+    def is_failed(self, synchronize=True):
         """
         *** Function called by Transformer agent.
         """
@@ -1389,7 +1397,7 @@ class Work(Base):
             return True
         return False
 
-    def is_expired(self):
+    def is_expired(self, synchronize=True):
         """
         *** Function called by Transformer agent.
         """
@@ -1397,7 +1405,7 @@ class Work(Base):
             return True
         return False
 
-    def is_cancelled(self):
+    def is_cancelled(self, synchronize=True):
         """
         *** Function called by Transformer agent.
         """
@@ -1405,7 +1413,7 @@ class Work(Base):
             return True
         return False
 
-    def is_suspended(self):
+    def is_suspended(self, synchronize=True):
         """
         *** Function called by Transformer agent.
         """
@@ -2138,7 +2146,7 @@ class Work(Base):
             self.started = True
         self.logger.debug("syn_work_status(%s): work.status: %s" % (str(self.get_processing_ids()), str(self.status)))
 
-    def sync_work_data(self, status, substatus, work, workload_id=None, output_data=None):
+    def sync_work_data(self, status, substatus, work, workload_id=None, output_data=None, processing=None):
         # self.status = work.status
         work.work_id = self.work_id
         work.transforming = self.transforming
@@ -2160,6 +2168,16 @@ class Work(Base):
         self.substatus = get_work_status_from_transform_processing_status(substatus)
         if workload_id:
             self.workload_id = workload_id
+        if processing is not None:
+            # called by transformer to sync from processing
+            if processing.submitted_at:
+                self.submitted = True
+        else:
+            # called by clerk to syn from transform
+            self.submitted = work.submitted
+
+        if self.submitted:
+            self.started = True
 
         """
         self.status = WorkStatus(status.value)
