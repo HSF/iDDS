@@ -359,7 +359,7 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, loc
                                                                only_return_id=True, session=session)
             if req_ids:
                 req2s = orm_requests.get_requests_by_status_type(status, request_type, time_period, request_ids=req_ids,
-                                                                 locking=locking, locking_for_update=True, bulk_size=None,
+                                                                 locking=locking, locking_for_update=False, bulk_size=None,
                                                                  to_json=to_json,
                                                                  new_poll=new_poll, update_poll=update_poll,
                                                                  by_substatus=by_substatus, session=session)
@@ -380,7 +380,7 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, loc
             else:
                 reqs = []
         else:
-            reqs = orm_requests.get_requests_by_status_type(status, request_type, time_period, locking=locking, locking_for_update=locking,
+            reqs = orm_requests.get_requests_by_status_type(status, request_type, time_period, locking=locking, locking_for_update=False,
                                                             bulk_size=bulk_size,
                                                             new_poll=new_poll, update_poll=update_poll, only_return_id=only_return_id,
                                                             to_json=to_json, by_substatus=by_substatus, session=session)
