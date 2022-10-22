@@ -21,11 +21,11 @@ def setup(argv):
 
         cmd = 'python ' + path + ' ' + ' clean --all'
         print(cmd)
-        subprocess.call(cmd, shell=True)
+        subprocess.call(cmd,shell=True)
 
         cmd = 'python ' + path + ' ' + ' '.join(argv)
         print(cmd)
-        subprocess.call(cmd, shell=True)
+        subprocess.call(cmd,shell=True)
 
 
 setup(sys.argv[1:])
