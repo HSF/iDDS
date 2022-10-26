@@ -1,7 +1,7 @@
 import sys
 import datetime
 
-from idds.common.utils import json_dumps                 # noqa F401
+from idds.common.utils import json_dumps, setup_logging                 # noqa F401
 from idds.common.constants import ContentStatus, ContentType, ContentRelationType, ContentLocking          # noqa F401
 from idds.core.requests import get_requests              # noqa F401
 from idds.core.messages import retrieve_messages         # noqa F401
@@ -11,6 +11,11 @@ from idds.core.processings import get_processings        # noqa F401
 from idds.core import transforms as core_transforms      # noqa F401
 from idds.orm.contents import get_input_contents
 from idds.core.transforms import release_inputs_by_collection, release_inputs_by_collection_old     # noqa F401
+from idds.workflowv2.workflow import Workflow            # noqa F401
+from idds.workflowv2.work import Work                    # noqa F401
+
+
+setup_logging(__name__)
 
 
 def release_inputs_test():
@@ -102,6 +107,34 @@ def show_works(req):
     print(work_ids)
 
 
+def print_workflow(workflow, layers=0):
+    prefix = " " * layers * 4
+    for run in workflow.runs:
+        print(prefix + "run: " + str(run) + ", has_loop_condition: " + str(workflow.runs[run].has_loop_condition()))
+        if workflow.runs[run].has_loop_condition():
+            print(prefix + " Loop condition: %s" % json_dumps(workflow.runs[run].loop_condition, sort_keys=True, indent=4))
+        for work_id in workflow.runs[run].works:
+            print(prefix + " " + str(work_id) + " " + str(type(workflow.runs[run].works[work_id])))
+            if type(workflow.runs[run].works[work_id]) in [Workflow]:
+                print(prefix + "   parent_num_run: " + workflow.runs[run].works[work_id].parent_num_run + ", num_run: " + str(workflow.runs[run].works[work_id].num_run))
+                print_workflow(workflow.runs[run].works[work_id], layers=layers + 1)
+            # elif type(workflow.runs[run].works[work_id]) in [Work]:
+            else:
+                print(prefix + "   " + workflow.runs[run].works[work_id].task_name + ", num_run: " + str(workflow.runs[run].works[work_id].num_run))
+
+
+def print_workflow_template(workflow, layers=0):
+    prefix = " " * layers * 4
+    print(prefix + str(workflow.template.internal_id) + ", has_loop_condition: " + str(workflow.template.has_loop_condition()))
+    for work_id in workflow.template.works:
+        print(prefix + " " + str(work_id) + " " + str(type(workflow.template.works[work_id])))
+        if type(workflow.template.works[work_id]) in [Workflow]:
+            print(prefix + "   parent_num_run: " + str(workflow.template.works[work_id].parent_num_run) + ", num_run: " + str(workflow.template.works[work_id].num_run))
+            print_workflow_template(workflow.template.works[work_id], layers=layers + 1)
+        else:
+            print(prefix + "   " + workflow.template.works[work_id].task_name + ", num_run: " + str(workflow.template.works[work_id].num_run))
+
+
 # 283511, 283517
 # reqs = get_requests(request_id=599, with_detail=True, with_metadata=True)
 # reqs = get_requests(request_id=283511, with_request=True, with_detail=False, with_metadata=True)
@@ -115,12 +148,15 @@ def show_works(req):
 # reqs = get_requests(request_id=370028, with_request=True, with_detail=False, with_metadata=True)
 # reqs = get_requests(request_id=370400, with_request=True, with_detail=False, with_metadata=True)
 # reqs = get_requests(request_id=371204, with_request=True, with_detail=False, with_metadata=True)
-reqs = get_requests(request_id=372678, with_request=True, with_detail=False, with_metadata=True)
+# reqs = get_requests(request_id=372678, with_request=True, with_detail=False, with_metadata=True)
+# reqs = get_requests(request_id=373602, with_request=True, with_detail=False, with_metadata=True)
+# reqs = get_requests(request_id=376086, with_request=True, with_detail=False, with_metadata=True)
+reqs = get_requests(request_id=380474, with_request=True, with_detail=False, with_metadata=True)
 for req in reqs:
     # print(req['request_id'])
-    print(req)
+    # print(req)
     # print(rets)
-    print(json_dumps(req, sort_keys=True, indent=4))
+    # print(json_dumps(req, sort_keys=True, indent=4))
     # show_works(req)
     pass
     workflow = req['request_metadata']['workflow']
@@ -129,16 +165,28 @@ for req in reqs:
     # print(workflow.runs["1"])
     # print(json_dumps(workflow.runs["1"], sort_keys=True, indent=4))
 
-    print(workflow.runs["1"].works.keys())
-    print(workflow.runs["1"].works["048a1811"])
+    # print(workflow.runs["1"].works.keys())
+    # print(workflow.runs["1"].has_loop_condition())
+    # print(workflow.runs["1"].works["7aa1ec08"])
     # print(json_dumps(workflow.runs["1"].works["048a1811"], indent=4))
-    print(workflow.runs["1"].works["048a1811"].runs.keys())
-    print(json_dumps(workflow.runs["1"].works["048a1811"].runs["2"], indent=4))
+    # print(workflow.runs["1"].works["7aa1ec08"].runs.keys())
+    # print(workflow.runs["1"].works["7aa1ec08"].runs["1"].has_loop_condition())
+    # print(workflow.runs["1"].works["7aa1ec08"].runs["1"].works.keys())
+
+    # print(json_dumps(workflow.runs["1"].works["7aa1ec08"].runs["1"], indent=4))
     if hasattr(workflow, 'get_relation_map'):
         # print(json_dumps(workflow.get_relation_map(), sort_keys=True, indent=4))
         pass
 
-sys.exit(0)
+    print("workflow")
+    print_workflow(workflow)
+    print("workflow template")
+    print_workflow_template(workflow)
+
+    # workflow.sync_works()
+
+# sys.exit(0)
+
 
 """
 # reqs = get_requests()
@@ -155,7 +203,7 @@ sys.exit(0)
 """
 
 
-tfs = get_transforms(request_id=370028)
+tfs = get_transforms(request_id=380474)
 # tfs = get_transforms(transform_id=350723)
 for tf in tfs:
     # print(tf)
@@ -166,6 +214,7 @@ for tf in tfs:
     print(tf['transform_metadata']['work_name'])
     print(tf['transform_metadata']['work'].num_run)
     print(tf['transform_metadata']['work'].task_name)
+    print(tf['transform_metadata']['work'].output_data)
     pass
 
 sys.exit(0)
@@ -190,7 +239,7 @@ print(number_contents)
 sys.exit(0)
 """
 
-prs = get_processings(request_id=350723)
+prs = get_processings(request_id=373602)
 # prs = get_processings(transform_id=350723)
 i = 0
 for pr in prs:

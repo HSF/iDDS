@@ -1,0 +1,20 @@
+name: iDDS
+dependencies:
+- python==3.6
+- pip
+- pip:
+  - requests                         # requests
+  - SQLAlchemy                       # db orm
+  - urllib3                          # url connections
+  - retrying                         # retrying behavior
+  - mysqlclient                      # mysql python client
+  #- web.py                           # web service
+  - futures                          # multiple process/threads
+  - stomp.py                         # Messaging broker client
+  - cx-Oracle                        # Oralce client
+  - unittest2        # unit test tool
+  - pep8             # checks for PEP8 code style compliance
+  - flake8           # Wrapper around PyFlakes&pep8
+  - pytest           # python testing tool
+  - nose             # nose test tools
+

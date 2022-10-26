@@ -508,16 +508,16 @@ class Clerk(BaseAgent):
 
         req_status = RequestStatus.Transforming
         if wf.is_terminated():
-            if wf.is_finished():
+            if wf.is_finished(synchronize=False):
                 req_status = RequestStatus.Finished
             else:
                 if to_abort and not to_abort_transform_id:
                     req_status = RequestStatus.Cancelled
-                elif wf.is_expired():
+                elif wf.is_expired(synchronize=False):
                     req_status = RequestStatus.Expired
-                elif wf.is_subfinished():
+                elif wf.is_subfinished(synchronize=False):
                     req_status = RequestStatus.SubFinished
-                elif wf.is_failed():
+                elif wf.is_failed(synchronize=False):
                     req_status = RequestStatus.Failed
                 else:
                     req_status = RequestStatus.Failed
