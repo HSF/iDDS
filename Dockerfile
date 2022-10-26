@@ -57,6 +57,11 @@ RUN chown atlpan -R /opt/idds
 RUN chown atlpan -R /var/log/idds
 RUN chown apache -R /var/idds/wsgisocks/
 
+# redis
+RUN chmod a+rx /etc/redis*
+RUN chmod a+rwx /var/log/redis
+RUN chmod a+rwx /var/lib/redis
+
 # setup conda virtual env
 ADD requirements.yaml /opt/idds/
 # ADD start-daemon.sh /opt/idds/
