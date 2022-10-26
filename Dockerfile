@@ -59,8 +59,14 @@ RUN chown apache -R /var/idds/wsgisocks/
 
 # redis
 RUN chmod a+rx /etc/redis*
-RUN chmod a+rwx /var/log/redis
-RUN chmod a+rwx /var/lib/redis
+# RUN chmod a+rwx /var/log/redis
+# RUN chmod a+rwx /var/lib/redis
+RUN rm -fr /var/log/redis
+RUN rm -fr /var/lib/redis
+RUN mkdir /var/log/idds/redis
+RUN chmod a+rwx /var/log/idds/redis
+RUN ln -s /var/log/idds/redis /var/log/redis
+RUN ln -s /var/log/idds/redis /var/lib/redis
 
 # setup conda virtual env
 ADD requirements.yaml /opt/idds/

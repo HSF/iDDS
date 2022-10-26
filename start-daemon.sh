@@ -156,6 +156,13 @@ if ! [ -f /opt/idds/config/.token ]; then
 fi
 
 # start redis
+mkdir /var/log/idds/redis
+if [ ! -f /var/log/redis ]; then
+    ln -s /var/log/idds/redis /var/log/redis
+fi
+if [ ! -f /var/lib/redis ]; then
+    ln -s /var/log/idds/redis /var/lib/redis
+fi
 /usr/bin/redis-server /etc/redis.conf --supervised systemd &
 
 if [ "${IDDS_SERVICE}" == "rest" ]; then
