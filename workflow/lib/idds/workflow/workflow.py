@@ -1776,7 +1776,7 @@ class WorkflowBase(Base):
         """
         return [self]
 
-    def is_terminated(self):
+    def is_terminated(self, synchronize=True):
         """
         *** Function called by Marshaller agent.
         """
@@ -1785,19 +1785,19 @@ class WorkflowBase(Base):
             return True
         return False
 
-    def is_finished(self):
+    def is_finished(self, synchronize=True):
         """
         *** Function called by Marshaller agent.
         """
         return self.is_terminated() and self.num_finished_works == self.num_total_works
 
-    def is_subfinished(self):
+    def is_subfinished(self, synchronize=True):
         """
         *** Function called by Marshaller agent.
         """
         return self.is_terminated() and (self.num_finished_works + self.num_subfinished_works > 0 and self.num_finished_works + self.num_subfinished_works <= self.num_total_works)
 
-    def is_failed(self):
+    def is_failed(self, synchronize=True):
         """
         *** Function called by Marshaller agent.
         """
@@ -1835,20 +1835,20 @@ class WorkflowBase(Base):
 
         return False
 
-    def is_expired(self):
+    def is_expired(self, synchronize=True):
         """
         *** Function called by Marshaller agent.
         """
         # return self.is_terminated() and (self.num_expired_works > 0)
         return self.is_terminated() and self.expired
 
-    def is_cancelled(self):
+    def is_cancelled(self, synchronize=True):
         """
         *** Function called by Marshaller agent.
         """
         return self.is_terminated() and (self.num_cancelled_works > 0)
 
-    def is_suspended(self):
+    def is_suspended(self, synchronize=True):
         """
         *** Function called by Marshaller agent.
         """
@@ -2167,39 +2167,39 @@ class Workflow(Base):
             return self.runs[str(self.num_run)].is_to_expire(expired_at=expired_at, pending_time=pending_time, request_id=request_id)
         return False
 
-    def is_terminated(self):
+    def is_terminated(self, synchronize=True):
         if self.runs:
             if self.runs[str(self.num_run)].is_terminated():
                 if not self.runs[str(self.num_run)].has_loop_condition() or not self.runs[str(self.num_run)].get_loop_condition_status():
                     return True
         return False
 
-    def is_finished(self):
+    def is_finished(self, synchronize=True):
         if self.is_terminated():
             return self.runs[str(self.num_run)].is_finished()
         return False
 
-    def is_subfinished(self):
+    def is_subfinished(self, synchronize=True):
         if self.is_terminated():
             return self.runs[str(self.num_run)].is_subfinished()
         return False
 
-    def is_failed(self):
+    def is_failed(self, synchronize=True):
         if self.is_terminated():
             return self.runs[str(self.num_run)].is_failed()
         return False
 
-    def is_expired(self):
+    def is_expired(self, synchronize=True):
         if self.is_terminated():
             return self.runs[str(self.num_run)].is_expired()
         return False
 
-    def is_cancelled(self):
+    def is_cancelled(self, synchronize=True):
         if self.is_terminated():
             return self.runs[str(self.num_run)].is_cancelled()
         return False
 
-    def is_suspended(self):
+    def is_suspended(self, synchronize=True):
         if self.is_terminated():
             return self.runs[str(self.num_run)].is_suspended()
         return False
