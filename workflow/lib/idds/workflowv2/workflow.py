@@ -1620,7 +1620,7 @@ class WorkflowBase(Base):
     def sync_works(self, to_cancel=False):
         if to_cancel:
             self.to_cancel = to_cancel
-        self.log_debug("synchroning works")
+        self.log_debug("%s synchroning works" % self.get_internal_id())
         self.first_initialize()
 
         self.refresh_works()
@@ -1696,7 +1696,7 @@ class WorkflowBase(Base):
             #    # if it's a loop workflow, to generate new loop
             #    if isinstance(work, Workflow):
             #        work.sync_works()
-        log_str = "num_total_works: %s" % self.num_total_works
+        log_str = "%s num_total_works: %s" % (self.get_internal_id(), self.num_total_works)
         log_str += ", num_finished_works: %s" % self.num_finished_works
         log_str += ", num_subfinished_works: %s" % self.num_subfinished_works
         log_str += ", num_failed_works: %s" % self.num_failed_works
@@ -1708,7 +1708,7 @@ class WorkflowBase(Base):
         self.log_debug(log_str)
 
         self.refresh_works()
-        self.log_debug("synchronized works")
+        self.log_debug("%s synchronized works" % self.get_internal_id())
 
     def resume_works(self):
         self.to_cancel = False
@@ -1853,7 +1853,7 @@ class WorkflowBase(Base):
         if synchronize:
             self.sync_works(to_cancel=self.to_cancel)
         if new:
-            if (self.to_cancel) and len(self.current_running_works) == 0 and self.num_total_works > 0:
+            if (self.to_cancel) or (len(self.new_to_run_works) == 0 and len(self.current_running_works) == 0 and self.num_total_works > 0):
                 return True
         else:
             if (self.to_cancel or len(self.new_to_run_works) == 0) and len(self.current_running_works) == 0:
@@ -2356,12 +2356,13 @@ class Workflow(Base):
         self.runs[str(self.num_run)].sync_works(to_cancel=to_cancel)
 
         if self.runs[str(self.num_run)].is_terminated(synchronize=False, new=True):
+            self.logger.info("%s num_run %s is_terminated" % (self.get_internal_id(), self.num_run))
             if to_cancel:
                 self.logger.info("num_run %s, to cancel" % self.num_run)
             else:
                 if self.runs[str(self.num_run)].has_loop_condition():
                     if self.runs[str(self.num_run)].get_loop_condition_status():
-                        self.logger.info("num_run %s get_loop_condition_status %s, start next run" % (self.num_run, self.runs[str(self.num_run)].get_loop_condition_status()))
+                        self.logger.info("%s num_run %s get_loop_condition_status %s, start next run" % (self.get_internal_id(), self.num_run, self.runs[str(self.num_run)].get_loop_condition_status()))
                         self._num_run += 1
                         self.template.parent_num_run = self.parent_num_run
                         self.runs[str(self.num_run)] = self.template.copy()
@@ -2374,7 +2375,7 @@ class Workflow(Base):
 
                         self.runs[str(self.num_run)].global_parameters = self.runs[str(self.num_run - 1)].global_parameters
                     else:
-                        self.logger.info("num_run %s get_loop_condition_status %s, terminated loop" % (self.num_run, self.runs[str(self.num_run)].get_loop_condition_status()))
+                        self.logger.info("%s num_run %s get_loop_condition_status %s, terminated loop" % (self.get_internal_id(), self.num_run, self.runs[str(self.num_run)].get_loop_condition_status()))
         self.refresh_works()
 
     def get_relation_map(self):
