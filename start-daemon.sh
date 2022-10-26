@@ -155,6 +155,9 @@ if ! [ -f /opt/idds/config/.token ]; then
     fi
 fi
 
+# start redis
+/usr/bin/redis-server /etc/redis.conf --supervised systemd &
+
 if [ "${IDDS_SERVICE}" == "rest" ]; then
   echo "starting iDDS ${IDDS_SERVICE} service"
   # systemctl restart httpd.service
