@@ -13,11 +13,14 @@ export PANDA_BEHIND_REAL_LB=true
 
 if [ "$instance" == "k8s" ]; then
     export PANDA_AUTH=oidc
-    export PANDA_URL_SSL=https://pandaserver-doma.cern.ch:25443/server/panda
-    export PANDA_URL=http://pandaserver-doma.cern.ch:25080/server/panda
-    export PANDAMON_URL=https://panda-doma.cern.ch
+    export PANDA_BEHIND_REAL_LB=true
+    export PANDA_VERIFY_HOST=off
+    export PANDA_URL_SSL=https://panda-server-dev.cern.ch:443/server/panda
+    export PANDA_URL=http://panda-server-dev.cern.ch:80/server/panda
+    export PANDAMON_URL=https://panda-server-dev.cern.ch
     export PANDA_AUTH_VO=panda_dev
 
+    export PANDACACHE_URL=$PANDA_URL_SSL
     # export PANDA_CONFIG_ROOT=/afs/cern.ch/user/w/wguan/workdisk/iDDS/main/etc/panda/
     export PANDA_CONFIG_ROOT=~/.panda/
 elif [ "$instance" == "slac" ]; then
