@@ -1443,19 +1443,24 @@ class WorkflowBase(Base):
             return works
 
         if self.to_start_works:
+            self.logger.info("%s to_start_works: %s" % (self.get_internal_id(), str(self.to_start_works)))
             to_start_works = self.to_start_works.copy()
             init_works = self.init_works
             starting_works = []
             for work_id in to_start_works:
                 if not self.works[work_id].has_dependency():
                     starting_works.append(work_id)
-                    self.get_new_work_to_run(work_id)
-                    if not init_works:
-                        init_works.append(work_id)
-                        self.init_works = init_works
+            if not starting_works:
+                work_id = to_start_works.pop(0)
+                starting_works.append(work_id)
             for work_id in starting_works:
+                self.get_new_work_to_run(work_id)
+                if not init_works:
+                    init_works.append(work_id)
+                    self.init_works = init_works
                 if work_id in self.to_start_works:
                     self.to_start_works.remove(work_id)
+            self.logger.info("%s starting_works: %s" % (self.get_internal_id(), str(starting_works)))
 
         for k in self.new_to_run_works:
             if isinstance(self.works[k], Work):
