@@ -5,7 +5,7 @@ from idds.common.utils import json_dumps, setup_logging                 # noqa F
 from idds.common.constants import ContentStatus, ContentType, ContentRelationType, ContentLocking          # noqa F401
 from idds.core.requests import get_requests              # noqa F401
 from idds.core.messages import retrieve_messages         # noqa F401
-from idds.core.transforms import get_transforms          # noqa F401
+from idds.core.transforms import get_transforms, get_transform          # noqa F401
 from idds.core.workprogress import get_workprogresses    # noqa F401
 from idds.core.processings import get_processings        # noqa F401
 from idds.core import transforms as core_transforms      # noqa F401
@@ -111,8 +111,8 @@ def print_workflow(workflow, layers=0):
     prefix = " " * layers * 4
     for run in workflow.runs:
         print(prefix + "run: " + str(run) + ", has_loop_condition: " + str(workflow.runs[run].has_loop_condition()))
-        if workflow.runs[run].has_loop_condition():
-            print(prefix + " Loop condition: %s" % json_dumps(workflow.runs[run].loop_condition, sort_keys=True, indent=4))
+        # if workflow.runs[run].has_loop_condition():
+        #     print(prefix + " Loop condition: %s" % json_dumps(workflow.runs[run].loop_condition, sort_keys=True, indent=4))
         for work_id in workflow.runs[run].works:
             print(prefix + " " + str(work_id) + " " + str(type(workflow.runs[run].works[work_id])))
             if type(workflow.runs[run].works[work_id]) in [Workflow]:
@@ -120,7 +120,19 @@ def print_workflow(workflow, layers=0):
                 print_workflow(workflow.runs[run].works[work_id], layers=layers + 1)
             # elif type(workflow.runs[run].works[work_id]) in [Work]:
             else:
+                work = workflow.runs[run].works[work_id]
+                tf = get_transform(transform_id=work.get_work_id())
+                if tf:
+                    transform_work = tf['transform_metadata']['work']
+                    # print(json_dumps(transform_work, sort_keys=True, indent=4))
+                    work.sync_work_data(status=tf['status'], substatus=tf['substatus'], work=transform_work, workload_id=tf['workload_id'])
+
+                print(prefix + "   or: " + str(work.or_custom_conditions) + " and: " + str(work.and_custom_conditions))
+                print(prefix + "   output: " + str(work.output_data))
                 print(prefix + "   " + workflow.runs[run].works[work_id].task_name + ", num_run: " + str(workflow.runs[run].works[work_id].num_run))
+        if workflow.runs[run].has_loop_condition():
+            print(prefix + " Loop condition status: %s" % workflow.runs[run].get_loop_condition_status())
+            print(prefix + " Loop condition: %s" % json_dumps(workflow.runs[run].loop_condition, sort_keys=True, indent=4))
 
 
 def print_workflow_template(workflow, layers=0):
@@ -151,12 +163,14 @@ def print_workflow_template(workflow, layers=0):
 # reqs = get_requests(request_id=372678, with_request=True, with_detail=False, with_metadata=True)
 # reqs = get_requests(request_id=373602, with_request=True, with_detail=False, with_metadata=True)
 # reqs = get_requests(request_id=376086, with_request=True, with_detail=False, with_metadata=True)
-reqs = get_requests(request_id=380474, with_request=True, with_detail=False, with_metadata=True)
+# reqs = get_requests(request_id=380474, with_request=True, with_detail=False, with_metadata=True)
+# reqs = get_requests(request_id=381520, with_request=True, with_detail=False, with_metadata=True)
+reqs = get_requests(request_id=28182323, with_request=True, with_detail=False, with_metadata=True)
 for req in reqs:
     # print(req['request_id'])
     # print(req)
     # print(rets)
-    # print(json_dumps(req, sort_keys=True, indent=4))
+    print(json_dumps(req, sort_keys=True, indent=4))
     # show_works(req)
     pass
     workflow = req['request_metadata']['workflow']
@@ -180,13 +194,18 @@ for req in reqs:
 
     print("workflow")
     print_workflow(workflow)
-    print("workflow template")
-    print_workflow_template(workflow)
+    # print("workflow template")
+    # print_workflow_template(workflow)
 
     # workflow.sync_works()
 
 # sys.exit(0)
 
+reqs = get_requests(request_id=28182323, with_request=False, with_detail=True, with_metadata=False)
+for req in reqs:
+    print(json_dumps(req, sort_keys=True, indent=4))
+
+# sys.exit(0)
 
 """
 # reqs = get_requests()
@@ -203,13 +222,13 @@ sys.exit(0)
 """
 
 
-tfs = get_transforms(request_id=380474)
+tfs = get_transforms(request_id=2818)
 # tfs = get_transforms(transform_id=350723)
 for tf in tfs:
     # print(tf)
     # print(tf['transform_metadata']['work'].to_dict())
     # print(tf)
-    # print(json_dumps(tf, sort_keys=True, indent=4))
+    print(json_dumps(tf, sort_keys=True, indent=4))
     print(tf['request_id'], tf['workload_id'])
     print(tf['transform_metadata']['work_name'])
     print(tf['transform_metadata']['work'].num_run)

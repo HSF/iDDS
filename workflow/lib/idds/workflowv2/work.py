@@ -68,6 +68,9 @@ class Collection(Base):
         self.processed_files = 0
         self.processing_files = 0
         self.bytes = 0
+        self.new_files = 0
+        self.failed_files = 0
+        self.missing_files = 0
 
     @property
     def internal_id(self):
