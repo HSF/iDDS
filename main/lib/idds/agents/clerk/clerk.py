@@ -289,6 +289,7 @@ class Clerk(BaseAgent):
                          'priority': req['priority'],
                          'status': TransformStatus.New,
                          'retries': 0,
+                         'name': work.get_work_name(),
                          'new_poll_period': self.new_poll_period,
                          'update_poll_period': self.update_poll_period,
                          'max_new_retries': req['max_new_retries'] if req['max_new_retries'] is not None else self.max_new_retries,

@@ -27,7 +27,7 @@ from idds.orm.base import models
 
 
 def create_transform(request_id, workload_id, transform_type, transform_tag=None,
-                     priority=0, status=TransformStatus.New,
+                     priority=0, status=TransformStatus.New, name=None,
                      substatus=TransformStatus.New, locking=TransformLocking.Idle,
                      new_poll_period=1, update_poll_period=10,
                      new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
@@ -49,7 +49,7 @@ def create_transform(request_id, workload_id, transform_type, transform_tag=None
     :returns: transform.
     """
     new_transform = models.Transform(request_id=request_id, workload_id=workload_id, transform_type=transform_type,
-                                     transform_tag=transform_tag, priority=priority,
+                                     transform_tag=transform_tag, priority=priority, name=name,
                                      status=status, substatus=substatus, locking=locking,
                                      retries=retries, expired_at=expired_at,
                                      new_retries=new_retries, update_retries=update_retries,
@@ -65,7 +65,7 @@ def create_transform(request_id, workload_id, transform_type, transform_tag=None
 
 
 @transactional_session
-def add_transform(request_id, workload_id, transform_type, transform_tag=None, priority=0,
+def add_transform(request_id, workload_id, transform_type, transform_tag=None, priority=0, name=None,
                   status=TransformStatus.New, substatus=TransformStatus.New, locking=TransformLocking.Idle,
                   new_poll_period=1, update_poll_period=10, retries=0, expired_at=None,
                   new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
@@ -91,7 +91,7 @@ def add_transform(request_id, workload_id, transform_type, transform_tag=None, p
     """
     try:
         new_transform = create_transform(request_id=request_id, workload_id=workload_id, transform_type=transform_type,
-                                         transform_tag=transform_tag, priority=priority,
+                                         transform_tag=transform_tag, priority=priority, name=name,
                                          status=status, substatus=substatus, locking=locking,
                                          retries=retries, expired_at=expired_at,
                                          new_poll_period=new_poll_period,

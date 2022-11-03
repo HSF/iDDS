@@ -127,6 +127,7 @@ CREATE TABLE TRANSFORMS
         started_at DATE,
         finished_at DATE,
         expired_at DATE,
+	name VARCHAR2(255),
         transform_metadata CLOB constraint TRANSFORM_METADATA_ENSURE_JSON CHECK(transform_metadata IS JSON(LAX)),
         running_metadata CLOB,
         CONSTRAINT TRANSFORMS_PK PRIMARY KEY (transform_id)  

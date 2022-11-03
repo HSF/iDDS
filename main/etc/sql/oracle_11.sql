@@ -147,6 +147,7 @@ CREATE TABLE TRANSFORMS
         started_at DATE,
         finished_at DATE,
         expired_at DATE,
+	name VARCHAR2(255),
         transform_metadata CLOB,
         running_metadata CLOB,
         CONSTRAINT TRANSFORMS_PK PRIMARY KEY (transform_id)  

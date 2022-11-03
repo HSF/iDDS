@@ -108,3 +108,7 @@ CREATE INDEX COMMANDS_TYPE_ST_IDX ON COMMANDS (cmd_type, status, destination, re
 CREATE INDEX COMMANDS_TYPE_ST_TF_IDX ON COMMANDS (cmd_type, status, destination, transform_id);
 CREATE INDEX COMMANDS_TYPE_ST_PR_IDX ON COMMANDS (cmd_type, status, destination, processing_id);
 
+-- 2022.11.03
+alter table transforms add name VARCHAR2(255);
+alter table collections add failed_files NUMBER(10);
+alter table collections add missing_files NUMBER(10);
