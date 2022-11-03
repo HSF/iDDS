@@ -263,6 +263,7 @@ class Transform(BASE, ModelBase):
     workload_id = Column(Integer())
     transform_type = Column(EnumWithValue(TransformType))
     transform_tag = Column(String(20))
+    name = Column(String(NAME_LENGTH))
     priority = Column(Integer())
     safe2get_output_from_input = Column(Integer())
     status = Column(EnumWithValue(TransformStatus))
