@@ -72,7 +72,7 @@ class LocalEventBusBackend(threading.Thread):
     def execute(self):
         while not self.graceful_stop.is_set():
             try:
-                self.graceful_stop.wait(1)
+                self.graceful_stop.wait(0.1)
             except Exception as error:
                 self.logger.critical("Caught an exception: %s\n%s" % (str(error), traceback.format_exc()))
 

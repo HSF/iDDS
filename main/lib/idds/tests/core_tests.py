@@ -118,6 +118,8 @@ def print_workflow(workflow, layers=0):
             if type(workflow.runs[run].works[work_id]) in [Workflow]:
                 print(prefix + "   parent_num_run: " + workflow.runs[run].works[work_id].parent_num_run + ", num_run: " + str(workflow.runs[run].works[work_id].num_run))
                 print_workflow(workflow.runs[run].works[work_id], layers=layers + 1)
+                # print(prefix + "   is_terminated: " + str(workflow.runs[run].works[work_id].is_terminated()))
+                # print(prefix + "   is_finished: " + str(workflow.runs[run].works[work_id].is_finished()))
             # elif type(workflow.runs[run].works[work_id]) in [Work]:
             else:
                 work = workflow.runs[run].works[work_id]
@@ -130,6 +132,8 @@ def print_workflow(workflow, layers=0):
                 print(prefix + "   or: " + str(work.or_custom_conditions) + " and: " + str(work.and_custom_conditions))
                 print(prefix + "   output: " + str(work.output_data))
                 print(prefix + "   " + workflow.runs[run].works[work_id].task_name + ", num_run: " + str(workflow.runs[run].works[work_id].num_run))
+                # print(prefix + "   is_terminated: " + str(workflow.runs[run].works[work_id].is_terminated()))
+                # print(prefix + "   is_finished: " + str(workflow.runs[run].works[work_id].is_finished()))
         if workflow.runs[run].has_loop_condition():
             print(prefix + " Loop condition status: %s" % workflow.runs[run].get_loop_condition_status())
             print(prefix + " Loop condition: %s" % json_dumps(workflow.runs[run].loop_condition, sort_keys=True, indent=4))
@@ -165,12 +169,13 @@ def print_workflow_template(workflow, layers=0):
 # reqs = get_requests(request_id=376086, with_request=True, with_detail=False, with_metadata=True)
 # reqs = get_requests(request_id=380474, with_request=True, with_detail=False, with_metadata=True)
 # reqs = get_requests(request_id=381520, with_request=True, with_detail=False, with_metadata=True)
-reqs = get_requests(request_id=28182323, with_request=True, with_detail=False, with_metadata=True)
+# reqs = get_requests(request_id=28182323, with_request=True, with_detail=False, with_metadata=True)
+reqs = get_requests(request_id=385554, with_request=True, with_detail=False, with_metadata=True)
 for req in reqs:
     # print(req['request_id'])
     # print(req)
     # print(rets)
-    print(json_dumps(req, sort_keys=True, indent=4))
+    # print(json_dumps(req, sort_keys=True, indent=4))
     # show_works(req)
     pass
     workflow = req['request_metadata']['workflow']
@@ -194,12 +199,14 @@ for req in reqs:
 
     print("workflow")
     print_workflow(workflow)
+    new_works = workflow.get_new_works()
+    print('new_works:' + str(new_works))
     # print("workflow template")
     # print_workflow_template(workflow)
 
     # workflow.sync_works()
 
-# sys.exit(0)
+sys.exit(0)
 
 reqs = get_requests(request_id=28182323, with_request=False, with_detail=True, with_metadata=False)
 for req in reqs:
