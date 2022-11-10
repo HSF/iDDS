@@ -1358,5 +1358,5 @@ def handle_resume_processing(processing, agent_attributes, logger=None, log_pref
     input_output_maps = get_input_output_maps(transform_id, work)
     update_contents = reactive_contents(request_id, transform_id, workload_id, work, input_output_maps)
 
-    processing['status'] = ProcessingStatus.Processing
+    processing['status'] = ProcessingStatus.Running
     return processing, update_collections, update_contents
