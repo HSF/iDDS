@@ -73,7 +73,7 @@ class MessagingSender(PluginBase, threading.Thread):
         if not hasattr(self, 'destination'):
             raise Exception('destination is required but not defined.')
         if not hasattr(self, 'broker_timeout'):
-            self.broker_timeout = 10
+            self.broker_timeout = 60
         else:
             self.broker_timeout = int(self.broker_timeout)
 
@@ -118,6 +118,7 @@ class MessagingSender(PluginBase, threading.Thread):
             conn = stomp.Connection12(host_and_ports=[(broker, port)],
                                       vhost=self.vhost,
                                       keepalive=True,
+                                      heartbeats=(60000, 60000),     # one minute
                                       timeout=timeout)
             conns.append(conn)
         return conns
