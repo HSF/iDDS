@@ -209,7 +209,7 @@ def generate_collection(transform, collection, relation_type=CollectionRelationT
             'workload_id': transform['workload_id'],
             'coll_type': coll_type,
             'scope': collection.scope,
-            'name': collection.name,
+            'name': collection.name[:254],
             'relation_type': relation_type,
             'bytes': coll_metadata['bytes'] if 'bytes' in coll_metadata else 0,
             'total_files': coll_metadata['total_files'] if 'total_files' in coll_metadata else 0,

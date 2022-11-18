@@ -339,6 +339,9 @@ def get_requests(request_id=None, workload_id=None, with_detail=False, with_meta
                                       models.Collection.bytes.label("input_coll_bytes"),
                                       models.Collection.total_files.label("input_total_files"),
                                       models.Collection.processed_files.label("input_processed_files"),
+                                      models.Collection.new_files.label("input_new_files"),
+                                      models.Collection.failed_files.label("input_failed_files"),
+                                      models.Collection.missing_files.label("input_missing_files"),
                                       models.Collection.processing_files.label("input_processing_files")).filter(models.Collection.relation_type == 0)
             subquery1 = subquery1.subquery()
 
@@ -349,6 +352,9 @@ def get_requests(request_id=None, workload_id=None, with_detail=False, with_meta
                                       models.Collection.bytes.label("output_coll_bytes"),
                                       models.Collection.total_files.label("output_total_files"),
                                       models.Collection.processed_files.label("output_processed_files"),
+                                      models.Collection.new_files.label("output_new_files"),
+                                      models.Collection.failed_files.label("output_failed_files"),
+                                      models.Collection.missing_files.label("output_missing_files"),
                                       models.Collection.processing_files.label("output_processing_files")).filter(models.Collection.relation_type == 1)
             subquery2 = subquery2.subquery()
             if True:
@@ -383,11 +389,17 @@ def get_requests(request_id=None, workload_id=None, with_detail=False, with_meta
                                       subquery1.c.input_total_files,
                                       subquery1.c.input_processed_files,
                                       subquery1.c.input_processing_files,
+                                      subquery1.c.input_new_files,
+                                      subquery1.c.input_failed_files,
+                                      subquery1.c.input_missing_files,
                                       subquery2.c.output_coll_scope, subquery2.c.output_coll_name,
                                       subquery2.c.output_coll_status, subquery2.c.output_coll_bytes,
                                       subquery2.c.output_total_files,
                                       subquery2.c.output_processed_files,
-                                      subquery2.c.output_processing_files)
+                                      subquery2.c.output_processing_files,
+                                      subquery2.c.output_new_files,
+                                      subquery2.c.output_failed_files,
+                                      subquery2.c.output_missing_files)
 
             if request_id:
                 query = query.filter(models.Request.request_id == request_id)
@@ -492,6 +504,9 @@ def get_requests(request_id=None, workload_id=None, with_detail=False, with_meta
                                       models.Collection.bytes.label("input_coll_bytes"),
                                       models.Collection.total_files.label("input_total_files"),
                                       models.Collection.processed_files.label("input_processed_files"),
+                                      models.Collection.new_files.label("input_new_files"),
+                                      models.Collection.failed_files.label("input_failed_files"),
+                                      models.Collection.missing_files.label("input_missing_files"),
                                       models.Collection.processing_files.label("input_processing_files")).filter(models.Collection.relation_type == 0)
             subquery1 = subquery1.subquery()
 
@@ -502,6 +517,9 @@ def get_requests(request_id=None, workload_id=None, with_detail=False, with_meta
                                       models.Collection.bytes.label("output_coll_bytes"),
                                       models.Collection.total_files.label("output_total_files"),
                                       models.Collection.processed_files.label("output_processed_files"),
+                                      models.Collection.new_files.label("output_new_files"),
+                                      models.Collection.failed_files.label("output_failed_files"),
+                                      models.Collection.missing_files.label("output_missing_files"),
                                       models.Collection.processing_files.label("output_processing_files")).filter(models.Collection.relation_type == 1)
             subquery2 = subquery2.subquery()
 
@@ -529,6 +547,7 @@ def get_requests(request_id=None, workload_id=None, with_detail=False, with_meta
                                       models.Request._processing_metadata.label('processing_metadata'),
                                       models.Transform.transform_id,
                                       models.Transform.transform_type,
+                                      models.Transform.name.label("transform_name"),
                                       models.Transform.workload_id.label("transform_workload_id"),
                                       models.Transform.status.label("transform_status"),
                                       models.Transform.created_at.label("transform_created_at"),
@@ -539,11 +558,17 @@ def get_requests(request_id=None, workload_id=None, with_detail=False, with_meta
                                       subquery1.c.input_total_files,
                                       subquery1.c.input_processed_files,
                                       subquery1.c.input_processing_files,
+                                      subquery1.c.input_new_files,
+                                      subquery1.c.input_failed_files,
+                                      subquery1.c.input_missing_files,
                                       subquery2.c.output_coll_scope, subquery2.c.output_coll_name,
                                       subquery2.c.output_coll_status, subquery2.c.output_coll_bytes,
                                       subquery2.c.output_total_files,
                                       subquery2.c.output_processed_files,
-                                      subquery2.c.output_processing_files)
+                                      subquery2.c.output_processing_files,
+                                      subquery2.c.output_new_files,
+                                      subquery2.c.output_failed_files,
+                                      subquery2.c.output_missing_files,)
             else:
                 query = session.query(models.Request.request_id,
                                       models.Request.scope,
@@ -566,6 +591,7 @@ def get_requests(request_id=None, workload_id=None, with_detail=False, with_meta
                                       models.Request.errors,
                                       models.Transform.transform_id,
                                       models.Transform.transform_type,
+                                      models.Transform.name.label("transform_name"),
                                       models.Transform.workload_id.label("transform_workload_id"),
                                       models.Transform.status.label("transform_status"),
                                       models.Transform.created_at.label("transform_created_at"),
@@ -576,11 +602,17 @@ def get_requests(request_id=None, workload_id=None, with_detail=False, with_meta
                                       subquery1.c.input_total_files,
                                       subquery1.c.input_processed_files,
                                       subquery1.c.input_processing_files,
+                                      subquery1.c.input_new_files,
+                                      subquery1.c.input_failed_files,
+                                      subquery1.c.input_missing_files,
                                       subquery2.c.output_coll_scope, subquery2.c.output_coll_name,
                                       subquery2.c.output_coll_status, subquery2.c.output_coll_bytes,
                                       subquery2.c.output_total_files,
                                       subquery2.c.output_processed_files,
-                                      subquery2.c.output_processing_files)
+                                      subquery2.c.output_processing_files,
+                                      subquery2.c.output_new_files,
+                                      subquery2.c.output_failed_files,
+                                      subquery2.c.output_missing_files,)
 
             if request_id:
                 query = query.filter(models.Request.request_id == request_id)
