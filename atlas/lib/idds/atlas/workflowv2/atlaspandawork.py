@@ -179,6 +179,11 @@ class ATLASPandaWork(Work):
                             if jobP['param_type'] == 'input':
                                 input_c = jobP['dataset']
                                 scope, name = extract_scope_atlas(input_c, scopes=[])
+                                if len(name) > 255:
+                                    if "consolidate" in jobP:
+                                        scope, name = extract_scope_atlas(jobP['consolidate'], scopes=[])
+                                    else:
+                                        name = name[:250]
                                 input_coll = {'scope': scope, 'name': name}
                                 self.set_primary_input_collection(input_coll)
                             if jobP['param_type'] == 'output':

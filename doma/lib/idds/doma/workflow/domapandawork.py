@@ -856,8 +856,8 @@ class DomaPanDAWork(Work):
                     if 'panda_id' in content['content_metadata']:
                         finished_jobs.append(content['content_metadata']['panda_id'])
                 elif content['substatus'] in [ContentStatus.Failed, ContentStatus.FinalFailed,
-                                           ContentStatus.Lost, ContentStatus.Deleted,
-                                           ContentStatus.Missing]:
+                                              ContentStatus.Lost, ContentStatus.Deleted,
+                                              ContentStatus.Missing]:
                     if 'panda_id' in content['content_metadata']:
                         failed_jobs.append(content['content_metadata']['panda_id'])
             for content in inputs:

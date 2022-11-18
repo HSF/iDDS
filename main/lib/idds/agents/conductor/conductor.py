@@ -101,7 +101,7 @@ class Conductor(BaseAgent):
 
         self.logger.info("Starting notifier: %s" % self.notifier)
         self.notifier.set_request_queue(self.message_queue)
-        self.notifier.set_output_queue(self.output_message_queue)
+        self.notifier.set_response_queue(self.output_message_queue)
         self.notifier.start()
 
     def stop_notifier(self):

@@ -1160,7 +1160,8 @@ def sync_collection_status(request_id, transform_id, workload_id, work, input_ou
 
         for content in inputs + outputs + logs:
             if content['coll_id'] not in coll_status:
-                coll_status[content['coll_id']] = {'total_files': 0, 'processed_files': 0, 'processing_files': 0, 'bytes': 0}
+                coll_status[content['coll_id']] = {'total_files': 0, 'processed_files': 0, 'processing_files': 0, 'bytes': 0,
+                                                   'new_files': 0, 'failed_files': 0, 'missing_files': 0}
             coll_status[content['coll_id']]['total_files'] += 1
 
             if content['status'] in [ContentStatus.Available, ContentStatus.Mapped,
@@ -1168,6 +1169,12 @@ def sync_collection_status(request_id, transform_id, workload_id, work, input_ou
                                      ContentStatus.FakeAvailable, ContentStatus.FakeAvailable.value]:
                 coll_status[content['coll_id']]['processed_files'] += 1
                 coll_status[content['coll_id']]['bytes'] += content['bytes']
+            elif content['status'] in [ContentStatus.New]:
+                coll_status[content['coll_id']]['new_files'] += 1
+            elif content['status'] in [ContentStatus.Failed, ContentStatus.FinalFailed]:
+                coll_status[content['coll_id']]['failed_files'] += 1
+            elif content['status'] in [ContentStatus.Lost, ContentStatus.Deleted, ContentStatus.Missing]:
+                coll_status[content['coll_id']]['missing_files'] += 1
             else:
                 coll_status[content['coll_id']]['processing_files'] += 1
 
@@ -1188,15 +1195,24 @@ def sync_collection_status(request_id, transform_id, workload_id, work, input_ou
             coll.processed_files = coll_status[coll.coll_id]['processed_files']
             coll.processing_files = coll_status[coll.coll_id]['processing_files']
             coll.bytes = coll_status[coll.coll_id]['bytes']
+            coll.new_files = coll_status[coll.coll_id]['new_files']
+            coll.failed_files = coll_status[coll.coll_id]['failed_files']
+            coll.missing_files = coll_status[coll.coll_id]['missing_files']
         else:
             coll.total_files = 0
             coll.processed_files = 0
             coll.processing_files = 0
+            coll.new_files = 0
+            coll.failed_files = 0
+            coll.missing_files = 0
 
         u_coll = {'coll_id': coll.coll_id,
                   'total_files': coll.total_files,
                   'processed_files': coll.processed_files,
                   'processing_files': coll.processing_files,
+                  'new_files': coll.new_files,
+                  'failed_files': coll.failed_files,
+                  'missing_files': coll.missing_files,
                   'bytes': coll.bytes}
         if terminate:
             if force_close_collection or close_collection and all_updates_flushed or coll.status == CollectionStatus.Closed:
@@ -1342,5 +1358,5 @@ def handle_resume_processing(processing, agent_attributes, logger=None, log_pref
     input_output_maps = get_input_output_maps(transform_id, work)
     update_contents = reactive_contents(request_id, transform_id, workload_id, work, input_output_maps)
 
-    processing['status'] = ProcessingStatus.Processing
+    processing['status'] = ProcessingStatus.Running
     return processing, update_collections, update_contents

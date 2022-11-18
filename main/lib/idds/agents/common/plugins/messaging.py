@@ -60,6 +60,7 @@ class MessagingSender(PluginBase, threading.Thread):
         self.graceful_stop = threading.Event()
         self.request_queue = None
         self.output_queue = None
+        self.response_queue = None
 
         if not hasattr(self, 'brokers'):
             raise Exception('brokers is required but not defined.')
@@ -72,7 +73,7 @@ class MessagingSender(PluginBase, threading.Thread):
         if not hasattr(self, 'destination'):
             raise Exception('destination is required but not defined.')
         if not hasattr(self, 'broker_timeout'):
-            self.broker_timeout = 10
+            self.broker_timeout = 60
         else:
             self.broker_timeout = int(self.broker_timeout)
 
@@ -87,7 +88,10 @@ class MessagingSender(PluginBase, threading.Thread):
     def set_output_queue(self, output_queue):
         self.output_queue = output_queue
 
-    def connect_to_messaging_brokers(self):
+    def set_response_queue(self, response_queue):
+        self.response_queue = response_queue
+
+    def connect_to_messaging_brokers(self, sender=True):
         broker_addresses = []
         for b in self.brokers:
             try:
@@ -105,18 +109,47 @@ class MessagingSender(PluginBase, threading.Thread):
 
         self.logger.info("Resolved broker addresses: %s" % broker_addresses)
 
+        timeout = None
+        if sender:
+            timeout = self.broker_timeout
+
+        conns = []
         for broker, port in broker_addresses:
             conn = stomp.Connection12(host_and_ports=[(broker, port)],
                                       vhost=self.vhost,
                                       keepalive=True,
-                                      timeout=self.broker_timeout)
-            self.conns.append(conn)
+                                      heartbeats=(60000, 60000),     # one minute
+                                      timeout=timeout)
+            conns.append(conn)
+        return conns
 
-    def send_message(self, msg):
+    def disconnect(self, conns):
+        for conn in conns:
+            try:
+                conn.disconnect()
+            except Exception:
+                pass
+
+    def get_connection(self):
+        try:
+            conn = random.sample(self.conns, 1)[0]
+            if not conn.is_connected():
+                # conn.start()
+                conn.connect(self.username, self.password, wait=True)
+                return conn
+        except Exception as error:
+            self.logger.error("Failed to connect to message broker(will re-resolve brokers): %s" % str(error))
+
+        self.disconnect(self.conns)
+
+        self.conns = self.connect_to_messaging_brokers(sender=True)
         conn = random.sample(self.conns, 1)[0]
         if not conn.is_connected():
-            # conn.start()
             conn.connect(self.username, self.password, wait=True)
+            return conn
+
+    def send_message(self, msg):
+        conn = self.get_connection()
 
         self.logger.info("Sending message to message broker: %s" % msg['msg_id'])
         self.logger.debug("Sending message to message broker: %s" % json.dumps(msg['msg_content']))
@@ -128,8 +161,8 @@ class MessagingSender(PluginBase, threading.Thread):
                            'vo': 'atlas',
                            'msg_type': str(msg['msg_type']).lower()})
 
-    def run(self):
-        self.connect_to_messaging_brokers()
+    def execute_send(self):
+        self.conns = self.connect_to_messaging_brokers(sender=True)
 
         while not self.graceful_stop.is_set():
             try:
@@ -137,11 +170,17 @@ class MessagingSender(PluginBase, threading.Thread):
                     msg = self.request_queue.get(False)
                     if msg:
                         self.send_message(msg)
-                        self.output_queue.put(msg)
+                        self.response_queue.put(msg)
                 else:
-                    time.sleep(1)
+                    time.sleep(0.1)
             except Exception as error:
                 self.logger.error("Messaging sender throws an exception: %s, %s" % (error, traceback.format_exc()))
+
+    def run(self):
+        try:
+            self.execute_send()
+        except Exception as error:
+            self.logger.error("Messaging sender throws an exception: %s, %s" % (error, traceback.format_exc()))
 
     def __call__(self):
         self.run()
@@ -151,6 +190,7 @@ class MessagingReceiver(MessagingSender):
     def __init__(self, name="MessagingReceiver", **kwargs):
         super(MessagingReceiver, self).__init__(name=name, **kwargs)
         self.listener = None
+        self.receiver_conns = []
 
     def get_listener(self, broker):
         if self.listener is None:
@@ -158,58 +198,100 @@ class MessagingReceiver(MessagingSender):
         return self.listener
 
     def subscribe(self):
-        self.conns = []
+        self.receiver_conns = self.connect_to_messaging_brokers()
 
-        broker_addresses = []
-        for b in self.brokers:
-            try:
-                if ":" in b:
-                    b, port = b.split(":")
-                else:
-                    port = self.port
-
-                addrinfos = socket.getaddrinfo(b, 0, socket.AF_INET, 0, socket.IPPROTO_TCP)
-                for addrinfo in addrinfos:
-                    b_addr = addrinfo[4][0]
-                    broker_addresses.append((b_addr, port))
-            except socket.gaierror as error:
-                self.logger.error('Cannot resolve hostname %s: %s' % (b, str(error)))
-
-        self.logger.info("Resolved broker addresses: %s" % broker_addresses)
-
-        for broker, port in broker_addresses:
-            conn = stomp.Connection12(host_and_ports=[(broker, port)],
-                                      vhost=self.vhost,
-                                      keepalive=True)
+        for conn in self.receiver_conns:
+            self.logger.info('connecting to %s' % conn.transport._Transport__host_and_ports[0][0])
             conn.set_listener('message-receiver', self.get_listener(conn.transport._Transport__host_and_ports[0]))
             conn.connect(self.username, self.password, wait=True)
             conn.subscribe(destination=self.destination, id='atlas-idds-messaging', ack='auto')
-            self.conns.append(conn)
+
+    def execute_subscribe(self):
+        self.subscribe()
 
         while not self.graceful_stop.is_set():
+            has_failed_connection = False
             try:
-                for conn in self.conns:
+                for conn in self.receiver_conns:
                     if not conn.is_connected():
-                        self.logger.info('connecting to %s' % conn.transport._Transport__host_and_ports[0][0])
                         conn.set_listener('message-receiver', self.get_listener(conn.transport._Transport__host_and_ports[0]))
                         # conn.start()
                         conn.connect(self.username, self.password, wait=True)
                         conn.subscribe(destination=self.destination, id='atlas-idds-messaging', ack='auto')
-                time.sleep(1)
+                time.sleep(0.1)
             except Exception as error:
                 self.logger.error("Messaging receiver throws an exception: %s, %s" % (error, traceback.format_exc()))
+                has_failed_connection = True
+
+            if has_failed_connection:
+                # re-subscribe
+                self.disconnect(self.receiver_conns)
+                self.subscribe()
 
         self.logger.info('receiver graceful stop requested')
 
-        for conn in self.conns:
-            try:
-                conn.disconnect()
-            except Exception:
-                pass
+        self.disconnect(self.receiver_conns)
 
     def run(self):
         try:
-            self.subscribe()
+            self.execute_subscribe()
+        except Exception as error:
+            self.logger.error("Messaging receiver throws an exception: %s, %s" % (error, traceback.format_exc()))
+
+    def __call__(self):
+        self.run()
+
+
+class MessagingMessager(MessagingReceiver):
+    def __init__(self, name="MessagingMessager", **kwargs):
+        super(MessagingMessager, self).__init__(name=name, **kwargs)
+
+    def execute_send_subscribe(self):
+        self.conns = self.connect_to_messaging_brokers(sender=True)
+        self.subscribe()
+
+        while not self.graceful_stop.is_set():
+            # send
+            while True:
+                try:
+                    if not self.request_queue.empty():
+                        msg = self.request_queue.get(False)
+                        if msg:
+                            self.send_message(msg)
+                            if self.response_queue:
+                                self.response_queue.put(msg)
+                    else:
+                        break
+                except Exception as error:
+                    self.logger.error("Messaging sender throws an exception: %s, %s" % (error, traceback.format_exc()))
+
+            # subscribe
+            has_failed_connection = False
+            try:
+                for conn in self.receiver_conns:
+                    if not conn.is_connected():
+                        conn.set_listener('message-receiver', self.get_listener(conn.transport._Transport__host_and_ports[0]))
+                        # conn.start()
+                        conn.connect(self.username, self.password, wait=True)
+                        conn.subscribe(destination=self.destination, id='atlas-idds-messaging', ack='auto')
+            except Exception as error:
+                self.logger.error("Messaging receiver throws an exception: %s, %s" % (error, traceback.format_exc()))
+                has_failed_connection = True
+
+            if has_failed_connection:
+                # re-subscribe
+                self.disconnect(self.receiver_conns)
+                self.subscribe()
+
+            time.sleep(0.1)
+
+        self.logger.info('receiver graceful stop requested')
+        self.disconnect(self.conns)
+        self.disconnect(self.receiver_conns)
+
+    def run(self):
+        try:
+            self.execute_send_subscribe()
         except Exception as error:
             self.logger.error("Messaging receiver throws an exception: %s, %s" % (error, traceback.format_exc()))
 
