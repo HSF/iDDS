@@ -634,6 +634,7 @@ class ATLASHPOWork(ATLASCondorWork):
         try:
             proc = processing['processing_metadata']['processing']
             job_status, job_err_msg = self.poll_condor_job_status(processing, proc.external_id)
+            self.logger.info("poll_condor_job_status: (status: %s, error: %s" % (str(job_status), str(job_err_msg)))
             processing_outputs = None
             if job_status in [ProcessingStatus.Finished]:
                 job_outputs, parser_errors = self.parse_processing_outputs(processing)
