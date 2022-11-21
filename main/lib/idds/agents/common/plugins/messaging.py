@@ -162,7 +162,10 @@ class MessagingSender(PluginBase, threading.Thread):
                            'msg_type': str(msg['msg_type']).lower()})
 
     def execute_send(self):
-        self.conns = self.connect_to_messaging_brokers(sender=True)
+        try:
+            self.conns = self.connect_to_messaging_brokers(sender=True)
+        except Exception as error:
+            self.logger.error("Messaging sender throws an exception: %s, %s" % (error, traceback.format_exc()))
 
         while not self.graceful_stop.is_set():
             try:
@@ -207,7 +210,10 @@ class MessagingReceiver(MessagingSender):
             conn.subscribe(destination=self.destination, id='atlas-idds-messaging', ack='auto')
 
     def execute_subscribe(self):
-        self.subscribe()
+        try:
+            self.subscribe()
+        except Exception as error:
+            self.logger.error("Messaging receiver throws an exception: %s, %s" % (error, traceback.format_exc()))
 
         while not self.graceful_stop.is_set():
             has_failed_connection = False
@@ -223,10 +229,13 @@ class MessagingReceiver(MessagingSender):
                 self.logger.error("Messaging receiver throws an exception: %s, %s" % (error, traceback.format_exc()))
                 has_failed_connection = True
 
-            if has_failed_connection:
-                # re-subscribe
-                self.disconnect(self.receiver_conns)
-                self.subscribe()
+            if has_failed_connection or len(self.receiver_conns) == 0:
+                try:
+                    # re-subscribe
+                    self.disconnect(self.receiver_conns)
+                    self.subscribe()
+                except Exception as error:
+                    self.logger.error("Messaging receiver throws an exception: %s, %s" % (error, traceback.format_exc()))
 
         self.logger.info('receiver graceful stop requested')
 
@@ -247,8 +256,11 @@ class MessagingMessager(MessagingReceiver):
         super(MessagingMessager, self).__init__(name=name, **kwargs)
 
     def execute_send_subscribe(self):
-        self.conns = self.connect_to_messaging_brokers(sender=True)
-        self.subscribe()
+        try:
+            self.conns = self.connect_to_messaging_brokers(sender=True)
+            self.subscribe()
+        except Exception as error:
+            self.logger.error("Messaging sender_subscriber throws an exception: %s, %s" % (error, traceback.format_exc()))
 
         while not self.graceful_stop.is_set():
             # send
@@ -278,14 +290,17 @@ class MessagingMessager(MessagingReceiver):
                 self.logger.error("Messaging receiver throws an exception: %s, %s" % (error, traceback.format_exc()))
                 has_failed_connection = True
 
-            if has_failed_connection:
-                # re-subscribe
-                self.disconnect(self.receiver_conns)
-                self.subscribe()
+            if has_failed_connection or len(self.receiver_conns) == 0:
+                try:
+                    # re-subscribe
+                    self.disconnect(self.receiver_conns)
+                    self.subscribe()
+                except Exception as error:
+                    self.logger.error("Messaging receiver throws an exception: %s, %s" % (error, traceback.format_exc()))
 
             time.sleep(0.1)
 
-        self.logger.info('receiver graceful stop requested')
+        self.logger.info('sender_receiver graceful stop requested')
         self.disconnect(self.conns)
         self.disconnect(self.receiver_conns)
 
