@@ -276,11 +276,37 @@ class Clerk(BaseAgent):
         parameters['max_update_retries'] = req['max_update_retries'] if req['max_update_retries'] is not None else self.max_update_retries
         return parameters
 
+    def get_work_tag_attribute(self, work_tag, attribute):
+        work_tag_attribute = work_tag + "_" + attribute
+        work_tag_attribute_value = None
+        if not hasattr(self, work_tag_attribute):
+            work_tag_attribute_value = int(self.work_tag_attribute)
+        return work_tag_attribute_value
+
     def generate_transform(self, req, work):
         wf = req['request_metadata']['workflow']
 
         work.set_request_id(req['request_id'])
         work.username = req['username']
+
+        transform_tag = work.get_work_tag()
+        if req['max_new_retries']:
+            max_new_retries = req['max_new_retries']
+        else:
+            work_tag_max_new_retries = self.get_work_tag_attribute(transform_tag, "max_new_retries")
+            if work_tag_max_new_retries:
+                max_new_retries = work_tag_max_new_retries
+            else:
+                max_new_retries = self.max_new_retries
+
+        if req['max_update_retries']:
+            max_update_retries = req['max_update_retries']
+        else:
+            work_tag_max_update_retries = self.get_work_tag_attribute(transform_tag, "max_update_retries")
+            if work_tag_max_update_retries:
+                max_update_retries = work_tag_max_update_retries
+            else:
+                max_update_retries = self.max_update_retries
 
         new_transform = {'request_id': req['request_id'],
                          'workload_id': req['workload_id'],
@@ -292,8 +318,8 @@ class Clerk(BaseAgent):
                          'name': work.get_work_name(),
                          'new_poll_period': self.new_poll_period,
                          'update_poll_period': self.update_poll_period,
-                         'max_new_retries': req['max_new_retries'] if req['max_new_retries'] is not None else self.max_new_retries,
-                         'max_update_retries': req['max_update_retries'] if req['max_update_retries'] is not None else self.max_update_retries,
+                         'max_new_retries': max_new_retries,
+                         'max_update_retries': max_update_retries,
                          # 'expired_at': req['expired_at'],
                          'expired_at': None,
                          'transform_metadata': {'internal_id': work.get_internal_id(),

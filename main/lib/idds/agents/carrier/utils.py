@@ -73,6 +73,12 @@ def is_process_terminated(processing_status):
     return False
 
 
+def is_process_finished(processing_status):
+    if processing_status in [ProcessingStatus.Finished]:
+        return True
+    return False
+
+
 def is_all_contents_available(contents):
     for content in contents:
         if type(content) is dict:
