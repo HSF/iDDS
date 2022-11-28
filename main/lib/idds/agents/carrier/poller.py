@@ -24,7 +24,7 @@ from idds.agents.common.eventbus.event import (EventType,
                                                SyncProcessingEvent,
                                                TerminatedProcessingEvent)
 
-from .utils import handle_update_processing, is_process_terminated
+from .utils import handle_update_processing, is_process_terminated, is_process_finished
 
 setup_logging(__name__)
 
@@ -143,10 +143,28 @@ class Poller(BaseAgent):
                 self.logger.error(traceback.format_exc())
         return None
 
+    def get_work_tag_attribute(self, work_tag, attribute):
+        work_tag_attribute = work_tag + "_" + attribute
+        work_tag_attribute_value = None
+        if not hasattr(self, work_tag_attribute):
+            work_tag_attribute_value = int(self.work_tag_attribute)
+        return work_tag_attribute_value
+
     def load_poll_period(self, processing, parameters):
-        if self.new_poll_period and processing['new_poll_period'] != self.new_poll_period:
+        proc = processing['processing_metadata']['processing']
+        work = proc.work
+        work_tag = work.get_work_tag()
+
+        work_tag_new_poll_period = self.get_work_tag_attribute(work_tag, "new_poll_period")
+        if work_tag_new_poll_period:
+            parameters['new_poll_period'] = work_tag_new_poll_period
+        elif self.new_poll_period and processing['new_poll_period'] != self.new_poll_period:
             parameters['new_poll_period'] = self.new_poll_period
-        if self.update_poll_period and processing['update_poll_period'] != self.update_poll_period:
+
+        work_tag_update_poll_period = self.get_work_tag_attribute(work_tag, "update_poll_period")
+        if work_tag_update_poll_period:
+            parameters['update_poll_period'] = work_tag_update_poll_period
+        elif self.update_poll_period and processing['update_poll_period'] != self.update_poll_period:
             parameters['update_poll_period'] = self.update_poll_period
         return parameters
 
@@ -233,6 +251,14 @@ class Poller(BaseAgent):
                 new_process_status = process_status
                 if is_process_terminated(process_status):
                     new_process_status = ProcessingStatus.Terminating
+                    if is_process_finished(process_status):
+                        new_process_status = ProcessingStatus.Terminating
+                    else:
+                        retries = processing['update_retries'] + 1
+                        if processing['max_update_retries'] and retries < processing['max_update_retries']:
+                            work.reactivate_processing(processing, log_prefix=log_prefix)
+                            process_status = ProcessingStatus.Running
+                            new_process_status = ProcessingStatus.Running
 
             update_processing = {'processing_id': processing['processing_id'],
                                  'parameters': {'status': new_process_status,
