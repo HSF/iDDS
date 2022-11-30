@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
 
 
 import logging
@@ -46,7 +46,7 @@ class MessagingListener(stomp.ConnectionListener):
         self.logger.error('[broker] [%s]: %s', self.__broker, frame.body)
 
     def on_message(self, frame):
-        # self.logger.info('[broker] [%s]: %s', self.__broker, body)
+        self.logger.debug('[broker] [%s]: %s', self.__broker, frame.body)
         self.__output_queue.put(frame.body)
         pass
 
@@ -109,9 +109,7 @@ class MessagingSender(PluginBase, threading.Thread):
 
         self.logger.info("Resolved broker addresses: %s" % broker_addresses)
 
-        timeout = None
-        if sender:
-            timeout = self.broker_timeout
+        timeout = self.broker_timeout
 
         conns = []
         for broker, port in broker_addresses:
