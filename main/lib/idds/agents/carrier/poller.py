@@ -193,6 +193,7 @@ class Poller(BaseAgent):
                         core_processings.update_processing_contents(update_processing=processing.get('update_processing', None),
                                                                     update_collections=processing.get('update_collections', None),
                                                                     update_contents=processing.get('update_contents', None),
+                                                                    update_dep_contents=processing.get('update_dep_contents', None),
                                                                     messages=processing.get('messages', None),
                                                                     update_messages=processing.get('update_messages', None),
                                                                     new_contents=processing.get('new_contents', None))
