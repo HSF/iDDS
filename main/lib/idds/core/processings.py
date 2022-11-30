@@ -286,7 +286,8 @@ def update_processing_with_collection_contents(updated_processing, new_processin
 
 @transactional_session
 def update_processing_contents(update_processing, update_contents, update_messages=None, new_contents=None,
-                               update_collections=None, messages=None, message_bulk_size=2000, session=None):
+                               update_dep_contents=None, update_collections=None, messages=None,
+                               message_bulk_size=2000, session=None):
     """
     Update processing with contents.
 
@@ -299,6 +300,13 @@ def update_processing_contents(update_processing, update_contents, update_messag
         orm_contents.update_contents(update_contents, session=session)
     if new_contents:
         orm_contents.add_contents(new_contents, session=session)
+    if update_dep_contents:
+        request_id, update_dep_contents_status_name, update_dep_contents_status = update_dep_contents
+        for status_name in update_dep_contents_status_name:
+            status = update_dep_contents_status_name[status_name]
+            status_content_ids = update_dep_contents_status[status_name]
+            if status_content_ids:
+                orm_contents.update_dep_contents(request_id, status_content_ids, status, session=session)
     if update_processing:
         orm_processings.update_processing(processing_id=update_processing['processing_id'],
                                           parameters=update_processing['parameters'],

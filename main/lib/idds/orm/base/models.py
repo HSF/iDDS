@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2020
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
 
 
 """
@@ -500,6 +500,7 @@ class Content(BASE, ModelBase):
     request_id = Column(BigInteger().with_variant(Integer, "sqlite"))
     workload_id = Column(Integer())
     map_id = Column(BigInteger().with_variant(Integer, "sqlite"), default=0)
+    content_dep_id = Column(BigInteger())
     scope = Column(String(SCOPE_LENGTH))
     name = Column(String(LONG_NAME_LENGTH))
     min_id = Column(Integer(), default=0)
@@ -533,6 +534,7 @@ class Content(BASE, ModelBase):
                    CheckConstraint('coll_id IS NOT NULL', name='CONTENTS_COLL_ID_NN'),
                    Index('CONTENTS_STATUS_UPDATED_IDX', 'status', 'locking', 'updated_at', 'created_at'),
                    Index('CONTENTS_ID_NAME_IDX', 'coll_id', 'scope', 'name', 'status'),
+                   Index('CONTENTS_DEP_IDX', 'request_id', 'transform_id', 'content_dep_id'),
                    Index('CONTENTS_REQ_TF_COLL_IDX', 'request_id', 'transform_id', 'coll_id', 'status'))
 
 

@@ -550,6 +550,31 @@ def update_contents(parameters, session=None):
 
 
 @transactional_session
+def update_dep_contents(request_id, content_dep_ids, status, bulk_size=1000, session=None):
+    """
+    update dependency contents.
+
+    :param content_dep_ids: list of content dependency id.
+    :param status: Content status.
+    :param session: The database session in use.
+
+    :raises NoObject: If no content is founded.
+    :raises DatabaseException: If there is a database error.
+
+    """
+    try:
+        params = {'substatus': status}
+        chunks = [content_dep_ids[i:i + bulk_size] for i in range(0, len(content_dep_ids), bulk_size)]
+        for chunk in chunks:
+            session.query(models.Content).with_hint(models.Content, "INDEX(CONTENTS CONTENTS_DEP_IDX)")\
+                   .filter(models.Content.request_id == request_id)\
+                   .filter(models.Content.content_id.in_(chunk))\
+                   .update(params, synchronize_session=False)
+    except sqlalchemy.orm.exc.NoResultFound as error:
+        raise exceptions.NoObject('Content cannot be found: %s' % (error))
+
+
+@transactional_session
 def delete_content(content_id=None, session=None):
     """
     delete a content.
