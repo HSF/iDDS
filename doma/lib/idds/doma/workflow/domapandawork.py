@@ -1033,7 +1033,7 @@ class DomaPanDAWork(Work):
     def resume_processing(self, processing, log_prefix=''):
         self.reactivate_processing(processing, log_prefix=log_prefix)
 
-    def poll_processing_updates(self, processing, input_output_maps, log_prefix=''):
+    def poll_processing_updates(self, processing, input_output_maps, contents_ext=None, log_prefix=''):
         """
         *** Function called by Carrier agent.
         """
@@ -1052,7 +1052,7 @@ class DomaPanDAWork(Work):
 
             if update_contents:
                 proc.has_new_updates()
-        return processing_status, update_contents, {}, update_contents_full, {}
+        return processing_status, update_contents, {}, update_contents_full, {}, [], []
 
     def get_status_statistics(self, registered_input_output_maps):
         status_statistics = {}
