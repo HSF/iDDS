@@ -19,6 +19,7 @@ from idds.common.constants import (ProcessingStatus,
                                    WorkStatus,
                                    TransformType,
                                    TransformType2MessageTypeMap,
+                                   MessageType, MessageTypeStr,
                                    MessageStatus, MessageSource,
                                    MessageDestination)
 from idds.common.utils import setup_logging
@@ -314,6 +315,33 @@ def generate_file_messages(request_id, transform_id, workload_id, work, files, r
     return i_msg_type, msg_content, num_msg_content
 
 
+def generate_content_ext_messages(request_id, transform_id, workload_id, work, files, relation_type, input_output_maps):
+    i_msg_type = MessageType.ContentExt
+    i_msg_type_str = MessageTypeStr.ContentExt
+
+    content_map = {}
+    for map_id in input_output_maps:
+        outputs = input_output_maps[map_id]['outputs'] if 'outputs' in input_output_maps[map_id] else []
+        for content in outputs:
+            content_map[content['content_id']] = content
+
+    files_message = []
+    for file in files:
+        file['status'] = file['status'].name
+        content_id = file['content_id']
+        content = content_map[content_id]
+        file['scope'] = content['scope']
+        file['name'] = content['name']
+        files_message.append(file)
+    msg_content = {'msg_type': i_msg_type_str.value,
+                   'request_id': request_id,
+                   'workload_id': workload_id,
+                   'relation_type': relation_type,
+                   'files': files_message}
+    num_msg_content = len(files_message)
+    return i_msg_type, msg_content, num_msg_content
+
+
 def generate_collection_messages(request_id, transform_id, workload_id, work, collection, relation_type):
     coll_name = collection.name
     if coll_name.endswith(".idds.stagein"):
@@ -346,13 +374,27 @@ def generate_work_messages(request_id, transform_id, workload_id, work, relation
     return i_msg_type, msg_content, num_msg_content
 
 
-def generate_messages(request_id, transform_id, workload_id, work, msg_type='file', files=[], relation_type='input'):
+def generate_messages(request_id, transform_id, workload_id, work, msg_type='file', files=[], relation_type='input', input_output_maps=None):
     if msg_type == 'file':
         i_msg_type, msg_content, num_msg_content = generate_file_messages(request_id, transform_id, workload_id, work, files=files, relation_type=relation_type)
         msg = {'msg_type': i_msg_type,
                'status': MessageStatus.New,
-               'source': MessageSource.Transformer,
+               'source': MessageSource.Carrier,
                'destination': MessageDestination.Outside,
+               'request_id': request_id,
+               'workload_id': workload_id,
+               'transform_id': transform_id,
+               'num_contents': num_msg_content,
+               'msg_content': msg_content}
+        return [msg]
+    elif msg_type == 'content_ext':
+        i_msg_type, msg_content, num_msg_content = generate_content_ext_messages(request_id, transform_id, workload_id, work, files=files,
+                                                                                 relation_type=relation_type,
+                                                                                 input_output_maps=input_output_maps)
+        msg = {'msg_type': i_msg_type,
+               'status': MessageStatus.New,
+               'source': MessageSource.Carrier,
+               'destination': MessageDestination.ContentExt,
                'request_id': request_id,
                'workload_id': workload_id,
                'transform_id': transform_id,
@@ -382,7 +424,7 @@ def generate_messages(request_id, transform_id, workload_id, work, msg_type='fil
         for i_msg_type, msg_content, num_msg_content in msg_type_contents:
             msg = {'msg_type': i_msg_type,
                    'status': MessageStatus.New,
-                   'source': MessageSource.Transformer,
+                   'source': MessageSource.Carrier,
                    'destination': MessageDestination.Outside,
                    'request_id': request_id,
                    'workload_id': workload_id,
@@ -1231,10 +1273,10 @@ def sync_processing(processing, agent_attributes, terminate=False, logger=None, 
     work = proc.work
     work.set_agent_attributes(agent_attributes, processing)
 
-    # input_output_maps = get_input_output_maps(transform_id, work)
+    input_output_maps = get_input_output_maps(transform_id, work)
     update_collections, all_updates_flushed = sync_collection_status(request_id, transform_id, workload_id, work,
-                                                                     input_output_maps=None, close_collection=True,
-                                                                     terminate=terminate)
+                                                                     input_output_maps=input_output_maps,
+                                                                     close_collection=True, terminate=terminate)
 
     messages = []
     sync_work_status(request_id, transform_id, workload_id, work)
@@ -1250,6 +1292,12 @@ def sync_processing(processing, agent_attributes, terminate=False, logger=None, 
             processing['status'] = ProcessingStatus.Failed
         else:
             processing['status'] = ProcessingStatus.SubFinished
+
+        if work.require_ext_contents():
+            contents_ext = core_catalog.get_contents_ext(request_id=request_id, transform_id=transform_id)
+            msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='content_ext', files=contents_ext,
+                                     relation_type='output', input_output_maps=input_output_maps)
+            messages += msgs
     return processing, update_collections, messages
 
 

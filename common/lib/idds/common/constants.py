@@ -349,6 +349,7 @@ class MessageType(IDDSEnum):
     ProcessingWork = 11
     HealthHeartbeat = 12
     IDDSCommunication = 13
+    ContentExt = 14
     UnknownFile = 97
     UnknownCollection = 98
     UnknownWork = 99
@@ -372,6 +373,7 @@ class MessageTypeStr(IDDSEnum):
     UnknownFile = 'file_unknown'
     UnknownCollection = 'collection_unknown'
     UnknownWork = 'work_unknown'
+    ContentExt = 'content_ext'
 
 
 TransformType2MessageTypeMap = {
@@ -431,6 +433,7 @@ class MessageDestination(IDDSEnum):
     Carrier = 3
     Conductor = 4
     Outside = 5
+    ContentExt = 6
 
 
 class CommandType(IDDSEnum):
