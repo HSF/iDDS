@@ -1085,8 +1085,11 @@ class DomaPanDAWork(Work):
                                                                                                          inputname_mapid_map,
                                                                                                          inputname_jobid_map)
 
-                    new_contents_ext, update_contents_ext = self.get_contents_ext(input_output_maps, contents_ext,
-                                                                                  contents_ext_full, job_info_items)
+                    new_contents_ext, update_contents_ext, left_jobs = self.get_contents_ext(input_output_maps, contents_ext,
+                                                                                             contents_ext_full, job_info_items)
+                    if left_jobs:
+                        processing_status = ProcessingStatus.Running
+
                     return processing_status, updated_contents, update_contents_full, new_contents_ext, update_contents_ext
                 else:
                     return ProcessingStatus.Running, [], [], [], []
