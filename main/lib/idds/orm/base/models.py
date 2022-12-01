@@ -16,7 +16,7 @@ SQLAlchemy models for idds relational data
 import datetime
 from enum import Enum
 
-from sqlalchemy import BigInteger, Boolean, Column, DateTime, Integer, String, event, DDL, Interval
+from sqlalchemy import BigInteger, Boolean, Column, DateTime, Integer, String, Float, event, DDL, Interval
 from sqlalchemy.ext.compiler import compiles
 # from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import object_mapper
@@ -538,6 +538,92 @@ class Content(BASE, ModelBase):
                    Index('CONTENTS_REQ_TF_COLL_IDX', 'request_id', 'transform_id', 'coll_id', 'status'))
 
 
+class Content_ext(BASE, ModelBase):
+    """Represents a content extension"""
+    __tablename__ = 'contents_ext'
+    content_id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    transform_id = Column(BigInteger().with_variant(Integer, "sqlite"))
+    coll_id = Column(BigInteger().with_variant(Integer, "sqlite"))
+    request_id = Column(BigInteger().with_variant(Integer, "sqlite"))
+    workload_id = Column(Integer())
+    map_id = Column(BigInteger().with_variant(Integer, "sqlite"), default=0)
+    status = Column(EnumWithValue(ContentStatus))
+    PandaID = Column(BigInteger())
+    jobDefinitionID = Column(BigInteger())
+    schedulerID = Column(String(128))
+    pilotID = Column(String(200))
+    creationTime = Column(DateTime)
+    modificationTime = Column(DateTime)
+    startTime = Column(DateTime)
+    endTime = Column(DateTime)
+    prodSourceLabel = Column(String(20))
+    prodUserID = Column(String(250))
+    assignedPriority = Column(Integer())
+    currentPriority = Column(Integer())
+    attemptNr = Column(Integer())
+    maxAttempt = Column(Integer())
+    maxCpuCount = Column(Integer())
+    maxCpuUnit = Column(String(32))
+    maxDiskCount = Column(Integer())
+    maxDiskUnit = Column(String(10))
+    minRamCount = Column(Integer())
+    maxRamUnit = Column(String(10))
+    cpuConsumptionTime = Column(Integer())
+    cpuConsumptionUnit = Column(String(128))
+    jobStatus = Column(String(10))
+    jobName = Column(String(255))
+    transExitCode = Column(Integer())
+    pilotErrorCode = Column(Integer())
+    pilotErrorDiag = Column(String(500))
+    exeErrorCode = Column(Integer())
+    exeErrorDiag = Column(String(500))
+    supErrorCode = Column(Integer())
+    supErrorDiag = Column(String(250))
+    ddmErrorCode = Column(Integer())
+    ddmErrorDiag = Column(String(500))
+    brokerageErrorCode = Column(Integer())
+    brokerageErrorDiag = Column(String(250))
+    jobDispatcherErrorCode = Column(Integer())
+    jobDispatcherErrorDiag = Column(String(250))
+    taskBufferErrorCode = Column(Integer())
+    taskBufferErrorDiag = Column(String(300))
+    computingSite = Column(String(128))
+    computingElement = Column(String(128))
+    grid = Column(String(50))
+    cloud = Column(String(50))
+    cpuConversion = Column(Float())
+    taskID = Column(BigInteger())
+    vo = Column(String(16))
+    pilotTiming = Column(String(100))
+    workingGroup = Column(String(20))
+    processingType = Column(String(64))
+    prodUserName = Column(String(60))
+    coreCount = Column(Integer())
+    nInputFiles = Column(Integer())
+    reqID = Column(BigInteger())
+    jediTaskID = Column(BigInteger())
+    actualCoreCount = Column(Integer())
+    maxRSS = Column(Integer())
+    maxVMEM = Column(Integer())
+    maxSWAP = Column(Integer())
+    maxPSS = Column(Integer())
+    avgRSS = Column(Integer())
+    avgVMEM = Column(Integer())
+    avgSWAP = Column(Integer())
+    avgPSS = Column(Integer())
+    maxWalltime = Column(Integer())
+    diskIO = Column(Integer())
+    failedAttempt = Column(Integer())
+    hs06 = Column(Integer())
+    hs06sec = Column(Integer())
+    memory_leak = Column(String(10))
+    memory_leak_x2 = Column(String(10))
+    job_label = Column(String(20))
+
+    _table_args = (PrimaryKeyConstraint('content_id', name='CONTENTS_EXT_PK'),
+                   Index('CONTENTS_EXT_RTF_IDX', 'request_id', 'transform_id', 'workload_id', 'coll_id', 'content_id', 'PandaID', 'status'))
+
+
 class Health(BASE, ModelBase):
     """Represents the status of the running agents"""
     __tablename__ = 'health'
@@ -598,7 +684,7 @@ class Command(BASE, ModelBase):
     status = Column(EnumWithValue(CommandStatus))
     substatus = Column(Integer())
     locking = Column(EnumWithValue(CommandLocking))
-    username = Column(String(20))
+    username = Column(String(50))
     retries = Column(Integer(), default=0)
     source = Column(EnumWithValue(CommandLocation))
     destination = Column(EnumWithValue(CommandLocation))
@@ -619,7 +705,7 @@ def register_models(engine):
     """
 
     # models = (Request, Workprogress, Transform, Workprogress2transform, Processing, Collection, Content, Health, Message)
-    models = (Request, Transform, Processing, Collection, Content, Health, Message, Command)
+    models = (Request, Transform, Processing, Collection, Content, Content_ext, Health, Message, Command)
 
     for model in models:
         # if not engine.has_table(model.__tablename__, model.metadata.schema):
@@ -632,7 +718,7 @@ def unregister_models(engine):
     """
 
     # models = (Request, Workprogress, Transform, Workprogress2transform, Processing, Collection, Content, Health, Message)
-    models = (Request, Transform, Processing, Collection, Content, Health, Message, Command)
+    models = (Request, Transform, Processing, Collection, Content, Content_ext, Health, Message, Command)
 
     for model in models:
         model.metadata.drop_all(engine)   # pylint: disable=maybe-no-member

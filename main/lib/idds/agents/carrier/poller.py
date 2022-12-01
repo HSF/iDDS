@@ -239,10 +239,12 @@ class Poller(BaseAgent):
     def handle_update_processing(self, processing):
         try:
             log_prefix = self.get_log_prefix(processing)
-            process_status, new_contents, ret_msgs, update_contents, parameters = handle_update_processing(processing,
-                                                                                                           self.agent_attributes,
-                                                                                                           logger=self.logger,
-                                                                                                           log_prefix=log_prefix)
+            ret_handle_update_processing = handle_update_processing(processing,
+                                                                    self.agent_attributes,
+                                                                    logger=self.logger,
+                                                                    log_prefix=log_prefix)
+
+            process_status, new_contents, ret_msgs, update_contents, parameters, new_contents_ext, update_contents_ext = ret_handle_update_processing
 
             proc = processing['processing_metadata']['processing']
             work = proc.work
@@ -287,6 +289,8 @@ class Poller(BaseAgent):
                    'update_contents': update_contents,
                    'new_contents': new_contents,
                    'messages': ret_msgs,
+                   'new_contents_ext': new_contents_ext,
+                   'update_contents_ext': update_contents_ext,
                    'processing_status': new_process_status}
 
         except exceptions.ProcessFormatNotSupported as ex:

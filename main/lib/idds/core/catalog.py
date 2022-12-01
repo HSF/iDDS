@@ -609,3 +609,76 @@ def get_output_contents_by_request_id_status(request_id, name, content_status, l
     if contents and limit and len(contents) > limit:
         contents = contents[:limit]
     return contents
+
+
+def get_contents_ext_items():
+    return orm_contents.get_contents_ext_items()
+
+
+@transactional_session
+def add_contents_ext(contents, bulk_size=10000, session=None):
+    """
+    Add contents ext.
+
+    :param contents: dict of contents.
+    :param session: session.
+
+    :raises DuplicatedObject: If a collection with the same name exists.
+    :raises DatabaseException: If there is a database error.
+
+    :returns: content ids.
+    """
+    return orm_contents.add_contents_ext(contents, bulk_size=bulk_size, session=session)
+
+
+@transactional_session
+def update_contents_ext(parameters, session=None):
+    """
+    update contents ext.
+
+    :param parameters: list of dictionary of parameters.
+    :param session: The database session in use.
+
+    :raises NoObject: If no content is founded.
+    :raises DatabaseException: If there is a database error.
+
+    """
+    return orm_contents.update_contents_ext(parameters, session=session)
+
+
+@read_session
+def get_contents_ext(request_id=None, transform_id=None, workload_id=None, coll_id=None, status=None, session=None):
+    """
+    Get content or raise a NoObject exception.
+
+    :param request_id: request id.
+    :param transform_id: transform id.
+    :param workload_id: workload id.
+
+    :param session: The database session in use.
+
+    :raises NoObject: If no content is founded.
+
+    :returns: list of contents.
+    """
+    return orm_contents.get_contents_ext(request_id=request_id, transform_id=transform_id, workload_id=workload_id,
+                                         coll_id=coll_id, status=status, session=session)
+
+
+@read_session
+def get_contents_ext_ids(request_id=None, transform_id=None, workload_id=None, coll_id=None, status=None, session=None):
+    """
+    Get content or raise a NoObject exception.
+
+    :param request_id: request id.
+    :param transform_id: transform id.
+    :param workload_id: workload id.
+
+    :param session: The database session in use.
+
+    :raises NoObject: If no content is founded.
+
+    :returns: list of content ids.
+    """
+    return orm_contents.get_contents_ext_ids(request_id=request_id, transform_id=transform_id, workload_id=workload_id,
+                                             coll_id=coll_id, status=status, session=session)

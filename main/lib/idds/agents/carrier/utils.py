@@ -184,6 +184,11 @@ def get_input_output_maps(transform_id, work):
     return mapped_input_output_maps
 
 
+def get_ext_contents(transform_id, work):
+    contents_ids = core_catalog.get_contents_ext_ids(transform_id=transform_id)
+    return contents_ids
+
+
 def resolve_input_dependency_id(request_id, new_input_dep_coll_ids, new_input_dependency_contents):
     contents = core_catalog.get_contents_by_coll_id_status(coll_id=new_input_dep_coll_ids)
     content_name_id_map = {}
@@ -793,8 +798,17 @@ def handle_update_processing(processing, agent_attributes, logger=None, log_pref
     logger.debug(log_prefix + "get_new_input_output_maps: len: %s" % len(new_input_output_maps))
     logger.debug(log_prefix + "get_new_input_output_maps.keys[:3]: %s" % str(list(new_input_output_maps.keys())[:3]))
 
-    ret_poll_processing = work.poll_processing_updates(processing, input_output_maps, log_prefix=log_prefix)
-    process_status, content_updates, new_input_output_maps1, updated_contents_full, parameters = ret_poll_processing
+    if work.require_ext_contents():
+        contents_ext = get_ext_contents(transform_id, work)
+        job_info_items = core_catalog.get_contents_ext_items()
+        ret_poll_processing = work.poll_processing_updates(processing, input_output_maps, contents_ext=contents_ext,
+                                                           job_info_items=job_info_items, log_prefix=log_prefix)
+        process_status, content_updates, new_input_output_maps1, updated_contents_full, parameters, new_contents_ext, update_contents_ext = ret_poll_processing
+    else:
+        ret_poll_processing = work.poll_processing_updates(processing, input_output_maps, log_prefix=log_prefix)
+        new_contents_ext, update_contents_ext = [], []
+        process_status, content_updates, new_input_output_maps1, updated_contents_full, parameters = ret_poll_processing
+
     new_input_output_maps.update(new_input_output_maps1)
     logger.debug(log_prefix + "poll_processing_updates process_status: %s" % process_status)
     logger.debug(log_prefix + "poll_processing_updates content_updates[:3]: %s" % content_updates[:3])
@@ -822,7 +836,7 @@ def handle_update_processing(processing, agent_attributes, logger=None, log_pref
                                  files=updated_contents_full, relation_type='output')
         ret_msgs = ret_msgs + msgs
 
-    return process_status, new_contents, ret_msgs, content_updates + content_updates_missing, parameters
+    return process_status, new_contents, ret_msgs, content_updates + content_updates_missing, parameters, new_contents_ext, update_contents_ext
 
 
 def handle_trigger_processing(processing, agent_attributes, logger=None, log_prefix=''):

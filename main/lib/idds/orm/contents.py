@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2020
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
 
 
 """
@@ -589,3 +589,185 @@ def delete_content(content_id=None, session=None):
         session.query(models.Content).filter_by(content_id=content_id).delete()
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('Content %s cannot be found: %s' % (content_id, error))
+
+
+def get_contents_ext_items():
+    default_params = {'PandaID': None, 'jobDefinitionID': None, 'schedulerID': None,
+                      'pilotID': None, 'creationTime': None, 'modificationTime': None,
+                      'startTime': None, 'endTime': None, 'prodSourceLabel': None,
+                      'prodUserID': None, 'assignedPriority': None, 'currentPriority': None,
+                      'attemptNr': None, 'maxAttempt': None, 'maxCpuCount': None,
+                      'maxCpuUnit': None, 'maxDiskCount': None, 'maxDiskUnit': None,
+                      'minRamCount': None, 'maxRamUnit': None, 'cpuConsumptionTime': None,
+                      'cpuConsumptionUnit': None, 'jobStatus': None, 'jobName': None,
+                      'transExitCode': None, 'pilotErrorCode': None, 'pilotErrorDiag': None,
+                      'exeErrorCode': None, 'exeErrorDiag': None, 'supErrorCode': None,
+                      'supErrorDiag': None, 'ddmErrorCode': None, 'ddmErrorDiag': None,
+                      'brokerageErrorCode': None, 'brokerageErrorDiag': None,
+                      'jobDispatcherErrorCode': None, 'jobDispatcherErrorDiag': None,
+                      'taskBufferErrorCode': None, 'taskBufferErrorDiag': None,
+                      'computingSite': None, 'computingElement': None,
+                      'grid': None, 'cloud': None, 'cpuConversion': None, 'taskID': None,
+                      'vo': None, 'pilotTiming': None, 'workingGroup': None,
+                      'processingType': None, 'prodUserName': None, 'coreCount': None,
+                      'nInputFiles': None, 'reqID': None, 'jediTaskID': None,
+                      'actualCoreCount': None, 'maxRSS': None, 'maxVMEM': None,
+                      'maxSWAP': None, 'maxPSS': None, 'avgRSS': None, 'avgVMEM': None,
+                      'avgSWAP': None, 'avgPSS': None, 'maxWalltime': None, 'diskIO': None,
+                      'failedAttempt': None, 'hs06': None, 'hs06sec': None,
+                      'memory_leak': None, 'memory_leak_x2': None, 'job_label': None}
+    return default_params
+
+
+@transactional_session
+def add_contents_ext(contents, bulk_size=10000, session=None):
+    """
+    Add contents ext.
+
+    :param contents: dict of contents.
+    :param session: session.
+
+    :raises DuplicatedObject: If a collection with the same name exists.
+    :raises DatabaseException: If there is a database error.
+
+    :returns: content ids.
+    """
+    default_params = get_contents_ext_items()
+    default_params['status'] = ContentStatus.New
+
+    for content in contents:
+        for key in default_params:
+            if key not in content:
+                content[key] = default_params[key]
+
+    sub_params = [contents[i:i + bulk_size] for i in range(0, len(contents), bulk_size)]
+
+    try:
+        for sub_param in sub_params:
+            session.bulk_insert_mappings(models.Content, sub_param)
+        content_ids = [None for _ in range(len(contents))]
+        return content_ids
+    except IntegrityError as error:
+        raise exceptions.DuplicatedObject('Duplicated objects: %s' % (error))
+    except DatabaseError as error:
+        raise exceptions.DatabaseException(error)
+
+
+@transactional_session
+def update_contents_ext(parameters, session=None):
+    """
+    update contents ext.
+
+    :param parameters: list of dictionary of parameters.
+    :param session: The database session in use.
+
+    :raises NoObject: If no content is founded.
+    :raises DatabaseException: If there is a database error.
+
+    """
+    try:
+        session.bulk_update_mappings(models.Content, parameters)
+    except sqlalchemy.orm.exc.NoResultFound as error:
+        raise exceptions.NoObject('Content cannot be found: %s' % (error))
+
+
+@read_session
+def get_contents_ext(request_id=None, transform_id=None, workload_id=None, coll_id=None, status=None, session=None):
+    """
+    Get content or raise a NoObject exception.
+
+    :param request_id: request id.
+    :param transform_id: transform id.
+    :param workload_id: workload id.
+
+    :param session: The database session in use.
+
+    :raises NoObject: If no content is founded.
+
+    :returns: list of contents.
+    """
+
+    try:
+        if status is not None:
+            if not isinstance(status, (tuple, list)):
+                status = [status]
+
+        query = session.query(models.Content_ext)
+        query = query.with_hint(models.Content_ext, "INDEX(CONTENTS_EXT CONTENTS_EXT_RTF_IDX)")
+        if request_id:
+            query = query.filter(models.Content_ext.request_id == request_id)
+        if transform_id:
+            query = query.filter(models.Content_ext.transform_id == transform_id)
+        if workload_id:
+            query = query.filter(models.Content_ext.workload_id == workload_id)
+        if coll_id:
+            query = query.filter(models.Content_ext.coll_id == coll_id)
+        if status is not None:
+            query = query.filter(models.Content_ext.status.in_(status))
+        query = query.order_by(asc(models.Content.request_id), asc(models.Content.transform_id), asc(models.Content.map_id))
+
+        tmp = query.all()
+        rets = []
+        if tmp:
+            for t in tmp:
+                rets.append(t.to_dict())
+        return rets
+    except sqlalchemy.orm.exc.NoResultFound as error:
+        raise exceptions.NoObject('No record can be found with (transform_id=%s): %s' %
+                                  (transform_id, error))
+    except Exception as error:
+        raise error
+
+
+@read_session
+def get_contents_ext_ids(request_id=None, transform_id=None, workload_id=None, coll_id=None, status=None, session=None):
+    """
+    Get content or raise a NoObject exception.
+
+    :param request_id: request id.
+    :param transform_id: transform id.
+    :param workload_id: workload id.
+
+    :param session: The database session in use.
+
+    :raises NoObject: If no content is founded.
+
+    :returns: list of content ids.
+    """
+
+    try:
+        if status is not None:
+            if not isinstance(status, (tuple, list)):
+                status = [status]
+
+        query = session.query(models.Content_ext.request_id,
+                              models.Content_ext.transform_id,
+                              models.Content_ext.workload_id,
+                              models.Content_ext.coll_id,
+                              models.Content_ext.content_id,
+                              models.Content_ext.PandaID,
+                              models.Content_ext.status)
+        query = query.with_hint(models.Content_ext, "INDEX(CONTENTS_EXT CONTENTS_EXT_RTF_IDX)")
+        if request_id:
+            query = query.filter(models.Content_ext.request_id == request_id)
+        if transform_id:
+            query = query.filter(models.Content_ext.transform_id == transform_id)
+        if workload_id:
+            query = query.filter(models.Content_ext.workload_id == workload_id)
+        if coll_id:
+            query = query.filter(models.Content_ext.coll_id == coll_id)
+        if status is not None:
+            query = query.filter(models.Content_ext.status.in_(status))
+        query = query.order_by(asc(models.Content.request_id), asc(models.Content.transform_id), asc(models.Content.map_id))
+
+        tmp = query.all()
+        rets = []
+        if tmp:
+            for t in tmp:
+                rets.append(t.to_dict())
+        return rets
+    except sqlalchemy.orm.exc.NoResultFound as error:
+        raise exceptions.NoObject('No record can be found with (transform_id=%s): %s' %
+                                  (transform_id, error))
+    except Exception as error:
+        raise error
