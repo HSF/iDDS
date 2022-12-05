@@ -1828,8 +1828,8 @@ class WorkflowBase(Base):
 
         self.terminated_works = []
         self.current_running_works = []
-        self.works = {}
-        self.work_sequence = {}  # order list
+        # self.works = {}
+        # self.work_sequence = {}  # order list
 
         self.first_initial = False
         self.new_to_run_works = []
@@ -2260,6 +2260,7 @@ class Workflow(Base):
     def clean_works(self):
         # if self.runs:
         #     self.runs[str(self.num_run)].clean_works()
+        self.template.clean_works()
         self.parent_num_run = None
         self._num_run = 0
         self.runs = {}
