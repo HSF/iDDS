@@ -555,7 +555,7 @@ class Clerk(BaseAgent):
                 event_content = {'request_id': req['request_id'],
                                  'cmd_type': CommandType.ExpireRequest,
                                  'cmd_content': {}}
-                self.logger.debug(log_pre + "ExpireRequestEvent(request_id: %s" % req['request_id'])
+                self.logger.debug(log_pre + "ExpireRequestEvent(request_id: %s)" % req['request_id'])
                 event = ExpireRequestEvent(publisher_id=self.id, request_id=req['request_id'], content=event_content)
                 self.event_bus.send(event)
 
