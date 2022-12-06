@@ -172,3 +172,26 @@ class CatalogClient(BaseRestClient):
 
         r = self.get_request_response(url, type='POST', data=contents)
         return r
+
+    def get_contents_output_ext(self, request_id=None, workload_id=None, transform_id=None):
+        """
+        Get output extension contents from the Head service.
+
+        :param request_id: the request id.
+        :param workload_id: the workload id.
+        :param transform_id: the transform id.
+
+        :raise exceptions if it's not got successfully.
+        """
+        path = os.path.join(self.CATALOG_BASEURL, 'contents_output_ext')
+        if request_id is None:
+            request_id = 'null'
+        if workload_id is None:
+            workload_id = 'null'
+        if transform_id is None:
+            transform_id = 'null'
+
+        url = self.build_url(self.host, path=os.path.join(path, str(request_id), str(workload_id), str(transform_id)))
+
+        contents = self.get_request_response(url, type='GET')
+        return contents
