@@ -72,6 +72,11 @@ class Collection(Base):
         self.failed_files = 0
         self.missing_files = 0
 
+        self.ext_files = 0
+        self.processed_ext_files = 0
+        self.failed_ext_files = 0
+        self.missing_ext_files = 0
+
     @property
     def internal_id(self):
         return self.get_metadata_item('internal_id')

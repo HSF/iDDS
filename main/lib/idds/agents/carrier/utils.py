@@ -1166,7 +1166,9 @@ def sync_collection_status(request_id, transform_id, workload_id, work, input_ou
         for content in inputs + outputs + logs:
             if content['coll_id'] not in coll_status:
                 coll_status[content['coll_id']] = {'total_files': 0, 'processed_files': 0, 'processing_files': 0, 'bytes': 0,
-                                                   'new_files': 0, 'failed_files': 0, 'missing_files': 0}
+                                                   'new_files': 0, 'failed_files': 0, 'missing_files': 0,
+                                                   'ext_files': 0, 'processed_ext_files': 0, 'failed_ext_files': 0,
+                                                   'missing_ext_files': 0}
             coll_status[content['coll_id']]['total_files'] += 1
 
             if content['status'] in [ContentStatus.Available, ContentStatus.Mapped,
@@ -1186,6 +1188,22 @@ def sync_collection_status(request_id, transform_id, workload_id, work, input_ou
             if content['status'] != content['substatus']:
                 all_updates_flushed = False
 
+    all_ext_updated = True
+    if work.require_ext_contents():
+        all_ext_updated = False
+        contents_ext = core_catalog.get_contents_ext(request_id=request_id, transform_id=transform_id)
+        for content in contents_ext:
+            coll_status[content['coll_id']]['ext_files'] += 1
+
+            if content['status'] in [ContentStatus.Available, ContentStatus.Mapped,
+                                     ContentStatus.Available.value, ContentStatus.Mapped.value,
+                                     ContentStatus.FakeAvailable, ContentStatus.FakeAvailable.value]:
+                coll_status[content['coll_id']]['processed_extfiles'] += 1
+            elif content['status'] in [ContentStatus.Failed, ContentStatus.FinalFailed]:
+                coll_status[content['coll_id']]['failed_ext_files'] += 1
+            elif content['status'] in [ContentStatus.Lost, ContentStatus.Deleted, ContentStatus.Missing]:
+                coll_status[content['coll_id']]['missing_ext_files'] += 1
+
     input_collections = work.get_input_collections(poll_externel=True)
     output_collections = work.get_output_collections()
     log_collections = work.get_log_collections()
@@ -1203,6 +1221,10 @@ def sync_collection_status(request_id, transform_id, workload_id, work, input_ou
             coll.new_files = coll_status[coll.coll_id]['new_files']
             coll.failed_files = coll_status[coll.coll_id]['failed_files']
             coll.missing_files = coll_status[coll.coll_id]['missing_files']
+            coll.ext_files = coll_status[coll.coll_id]['ext_files']
+            coll.processed_ext_files = coll_status[coll.coll_id]['processed_ext_files']
+            coll.failed_ext_files = coll_status[coll.coll_id]['failed_ext_files']
+            coll.missing_ext_files = coll_status[coll.coll_id]['missing_ext_files']
         else:
             coll.total_files = 0
             coll.processed_files = 0
@@ -1210,6 +1232,10 @@ def sync_collection_status(request_id, transform_id, workload_id, work, input_ou
             coll.new_files = 0
             coll.failed_files = 0
             coll.missing_files = 0
+            coll.ext_files = 0
+            coll.processed_ext_files = 0
+            coll.failed_ext_files = 0
+            coll.missing_ext_files = 0
 
         u_coll = {'coll_id': coll.coll_id,
                   'total_files': coll.total_files,
@@ -1218,9 +1244,22 @@ def sync_collection_status(request_id, transform_id, workload_id, work, input_ou
                   'new_files': coll.new_files,
                   'failed_files': coll.failed_files,
                   'missing_files': coll.missing_files,
-                  'bytes': coll.bytes}
+                  'bytes': coll.bytes,
+                  'ext_files': coll.ext_files,
+                  'processed_ext_files': coll.processed_ext_files,
+                  'failed_ext_files': coll.failed_ext_files,
+                  'missing_ext_files': coll.missing_ext_files}
         if terminate:
-            if force_close_collection or close_collection and all_updates_flushed or coll.status == CollectionStatus.Closed:
+            if work.require_ext_contents():
+                if coll.processed_files == coll.ext_processed_files and coll.failed_files == coll.failed_ext_files:
+                    all_ext_updated = True
+                if (force_close_collection or (close_collection and all_updates_flushed and all_ext_updated)
+                   or coll.status == CollectionStatus.Closed):        # noqa W503
+                    u_coll['status'] = CollectionStatus.Closed
+                    u_coll['substatus'] = CollectionStatus.Closed
+                    coll.status = CollectionStatus.Closed
+                    coll.substatus = CollectionStatus.Closed
+            elif force_close_collection or close_collection and all_updates_flushed or coll.status == CollectionStatus.Closed:
                 u_coll['status'] = CollectionStatus.Closed
                 u_coll['substatus'] = CollectionStatus.Closed
                 coll.status = CollectionStatus.Closed
