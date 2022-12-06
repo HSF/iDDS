@@ -35,7 +35,7 @@ class IDDSController(MethodView):
         """ Not supported. """
         return Response(status=HTTP_STATUS_CODE.BadRequest, content_type='application/json')()
 
-    def get_request(sel):
+    def get_request(self):
         return request
 
     def get_username(self):
@@ -55,8 +55,19 @@ class IDDSController(MethodView):
             return json_dumps(message)
 
     def generate_http_response(self, status_code, data=None, exc_cls=None, exc_msg=None):
-        resp = Response(response=json_dumps(data, sort_keys=True, indent=4) if data is not None else data, status=status_code, content_type='application/json')
-        if exc_cls:
-            resp.headers['ExceptionClass'] = exc_cls
-            resp.headers['ExceptionMessage'] = self.generate_message(exc_cls, exc_msg)
+        enable_json_outputs = self.get_request().args.get('json_outputs', None)
+        if enable_json_outputs and enable_json_outputs.upper == 'TRUE':
+            error = None
+            if exc_cls:
+                error = {'ExceptionClass': exc_cls,
+                         'ExceptionMessage': self.generate_message(exc_cls, exc_msg)}
+            response = {'ret_code': status_code,
+                        'data': data,
+                        'error': error}
+            resp = Response(response=json_dumps(response, sort_keys=True, indent=4), status=HTTP_STATUS_CODE.OK, content_type='application/json')
+        else:
+            resp = Response(response=json_dumps(data, sort_keys=True, indent=4) if data is not None else data, status=status_code, content_type='application/json')
+            if exc_cls:
+                resp.headers['ExceptionClass'] = exc_cls
+                resp.headers['ExceptionMessage'] = self.generate_message(exc_cls, exc_msg)
         return resp

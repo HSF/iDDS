@@ -73,6 +73,11 @@ class BaseRestClient(object):
         self.original_user_cert = None
         self.original_user_token = None
 
+        self.json_outputs = False
+
+    def enable_json_outputs(self):
+        self.json_outputs = True
+
     def get_user_proxy(sellf):
         """
         Get the user proxy.
@@ -135,12 +140,18 @@ class BaseRestClient(object):
         full_url = url
         if path is not None:
             full_url = '/'.join([full_url, path])
+
+        if params is None:
+            params = {}
+        if self.json_outputs:
+            params['json_outputs'] = 'true'
         if params:
             full_url += "?"
             if isinstance(params, str):
                 full_url += quote(params)
             else:
                 full_url += urlencode(params, doseq=doseq)
+
         return full_url
 
     def get_request_response(self, url, type='GET', data=None, headers=None, auth_setup_step=False):

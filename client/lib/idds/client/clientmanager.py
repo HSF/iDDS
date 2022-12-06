@@ -67,6 +67,8 @@ class ClientManager:
         self.oidc_token = None
         self.vo = None
 
+        self.enable_json_outputs = False
+
         self.configuration = ConfigParser.ConfigParser()
 
         self.client = None
@@ -90,6 +92,9 @@ class ClientManager:
                                        'auth_setup': auth_setup},
                                  timeout=self.timeout)
 
+            if self.enable_json_outputs:
+                self.client.enable_json_outputs()
+
     def get_local_config_root(self):
         local_cfg_root = get_local_config_root(self.local_config_root)
         return local_cfg_root
@@ -105,7 +110,8 @@ class ClientManager:
                      'auth_type': 'IDDS_AUTH_TYPE',
                      'oidc_token': 'IDDS_OIDC_TOKEN',
                      'vo': 'IDDS_VO',
-                     'auth_no_verify': 'IDDS_AUTH_NO_VERIFY'}
+                     'auth_no_verify': 'IDDS_AUTH_NO_VERIFY',
+                     'enable_json_outputs': 'IDDS_ENABLE_JSON_OUTPUTS'}
 
         if not section:
             section = self.get_section(name)
@@ -175,6 +181,8 @@ class ClientManager:
 
         self.vo = self.get_config_value(config, None, 'vo', current=self.vo, default=None)
 
+        self.enable_json_outputs = self.get_config_value(config, None, 'enable_json_outputs',
+                                                         current=self.enable_json_outputs, default=None)
         self.configuration = config
 
     def set_local_configuration(self, name, value):
@@ -200,6 +208,7 @@ class ClientManager:
             self.set_local_configuration(name='x509_proxy', value=self.x509_proxy)
             self.set_local_configuration(name='oidc_token', value=self.oidc_token)
             self.set_local_configuration(name='vo', value=self.vo)
+            self.set_local_configuration(name='enable_json_outputs', value=self.enable_json_outputs)
 
             with open(local_cfg, 'w') as configfile:
                 self.configuration.write(configfile)
