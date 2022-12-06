@@ -682,3 +682,7 @@ def get_contents_ext_ids(request_id=None, transform_id=None, workload_id=None, c
     """
     return orm_contents.get_contents_ext_ids(request_id=request_id, transform_id=transform_id, workload_id=workload_id,
                                              coll_id=coll_id, status=status, session=session)
+
+
+def combine_contents_ext(contents, contents_ext, with_status_name=False):
+    return orm_contents.combine_contents_ext(contents, contents_ext, with_status_name=with_status_name)

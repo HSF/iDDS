@@ -771,3 +771,26 @@ def get_contents_ext_ids(request_id=None, transform_id=None, workload_id=None, c
                                   (transform_id, error))
     except Exception as error:
         raise error
+
+
+def combine_contents_ext(contents, contents_ext, with_status_name=False):
+    contents_ext_map = {}
+    for content in contents_ext:
+        contents_ext_map[content['content_id']] = content
+
+    rets = []
+    for content in contents:
+        content_id = content['content_id']
+        if content_id in contents_ext_map:
+            ret = contents_ext_map[content_id]
+        else:
+            ret = {'content_id': content_id}
+        if with_status_name:
+            ret['status'] = content['status'].name
+        else:
+            ret['status'] = content['status']
+        ret['scope'] = content['scope']
+        ret['name'] = content['name']
+
+        rets.append(ret)
+    return rets

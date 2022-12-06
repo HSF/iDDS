@@ -319,20 +319,14 @@ def generate_content_ext_messages(request_id, transform_id, workload_id, work, f
     i_msg_type = MessageType.ContentExt
     i_msg_type_str = MessageTypeStr.ContentExt
 
-    content_map = {}
+    output_contents = []
     for map_id in input_output_maps:
         outputs = input_output_maps[map_id]['outputs'] if 'outputs' in input_output_maps[map_id] else []
         for content in outputs:
-            content_map[content['content_id']] = content
+            # content_map[content['content_id']] = content
+            output_contents += outputs
 
-    files_message = []
-    for file in files:
-        file['status'] = file['status'].name
-        content_id = file['content_id']
-        content = content_map[content_id]
-        file['scope'] = content['scope']
-        file['name'] = content['name']
-        files_message.append(file)
+    files_message = core_catalog.combine_contents_ext(output_contents, files, with_status_name=True)
     msg_content = {'msg_type': i_msg_type_str.value,
                    'request_id': request_id,
                    'workload_id': workload_id,
