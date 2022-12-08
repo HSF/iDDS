@@ -163,14 +163,23 @@ class Request(BASE, ModelBase):
 
     @property
     def request_metadata(self):
-        if self._request_metadata and 'workflow' in self._request_metadata:
-            workflow = self._request_metadata['workflow']
-            workflow_data = None
-            if self._processing_metadata and 'workflow_data' in self._processing_metadata:
-                workflow_data = self._processing_metadata['workflow_data']
-            if workflow is not None and workflow_data is not None:
-                workflow.metadata = workflow_data
-                self._request_metadata['workflow'] = workflow
+        if self._request_metadata:
+            if 'workflow' in self._request_metadata:
+                workflow = self._request_metadata['workflow']
+                workflow_data = None
+                if self._processing_metadata and 'workflow_data' in self._processing_metadata:
+                    workflow_data = self._processing_metadata['workflow_data']
+                if workflow is not None and workflow_data is not None:
+                    workflow.metadata = workflow_data
+                    self._request_metadata['workflow'] = workflow
+            if 'build_workflow' in self._request_metadata:
+                build_workflow = self._request_metadata['build_workflow']
+                build_workflow_data = None
+                if self._processing_metadata and 'build_workflow_data' in self._processing_metadata:
+                    build_workflow_data = self._processing_metadata['build_workflow_data']
+                if build_workflow is not None and build_workflow_data is not None:
+                    build_workflow.metadata = build_workflow_data
+                    self._request_metadata['build_workflow'] = build_workflow
         return self._request_metadata
 
     @request_metadata.setter
@@ -179,9 +188,13 @@ class Request(BASE, ModelBase):
             self._request_metadata = request_metadata
         if self._processing_metadata is None:
             self._processing_metadata = {}
-        if request_metadata and 'workflow' in request_metadata:
-            workflow = request_metadata['workflow']
-            self._processing_metadata['workflow_data'] = workflow.metadata
+        if request_metadata:
+            if 'workflow' in request_metadata:
+                workflow = request_metadata['workflow']
+                self._processing_metadata['workflow_data'] = workflow.metadata
+            if 'build_workflow' in request_metadata:
+                build_workflow = request_metadata['build_workflow']
+                self._processing_metadata['build_workflow_data'] = build_workflow.metadata
 
     @property
     def processing_metadata(self):
@@ -193,7 +206,7 @@ class Request(BASE, ModelBase):
             self._processing_metadata = {}
         if processing_metadata:
             for k in processing_metadata:
-                if k != 'workflow_data':
+                if k != 'workflow_data' and k != 'build_workflow_data':
                     self._processing_metadata[k] = processing_metadata[k]
 
     def _items_extend(self):
@@ -201,13 +214,22 @@ class Request(BASE, ModelBase):
                 ('processing_metadata', self.processing_metadata)]
 
     def update(self, values, flush=True, session=None):
-        if values and 'request_metadata' in values and 'workflow' in values['request_metadata']:
-            workflow = values['request_metadata']['workflow']
+        if values and 'request_metadata' in values:
+            if 'workflow' in values['request_metadata']:
+                workflow = values['request_metadata']['workflow']
 
-            if workflow is not None:
-                if 'processing_metadata' not in values:
-                    values['processing_metadata'] = {}
-                values['processing_metadata']['workflow_data'] = workflow.metadata
+                if workflow is not None:
+                    if 'processing_metadata' not in values:
+                        values['processing_metadata'] = {}
+                    values['processing_metadata']['workflow_data'] = workflow.metadata
+            if 'build_workflow' in values['request_metadata']:
+                build_workflow = values['request_metadata']['build_workflow']
+
+                if build_workflow is not None:
+                    if 'processing_metadata' not in values:
+                        values['processing_metadata'] = {}
+                    values['processing_metadata']['build_workflow_data'] = build_workflow.metadata
+
         if values and 'request_metadata' in values:
             del values['request_metadata']
         if values and 'processing_metadata' in values:

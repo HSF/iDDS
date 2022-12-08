@@ -418,14 +418,23 @@ def get_requests(request_id=None, workload_id=None, with_detail=False, with_meta
                     # t2 = dict(t)
                     t2 = dict(zip(t.keys(), t))
 
-                    if 'request_metadata' in t2 and t2['request_metadata'] and 'workflow' in t2['request_metadata']:
-                        workflow = t2['request_metadata']['workflow']
-                        workflow_data = None
-                        if 'processing_metadata' in t2 and t2['processing_metadata'] and 'workflow_data' in t2['processing_metadata']:
-                            workflow_data = t2['processing_metadata']['workflow_data']
-                        if workflow is not None and workflow_data is not None:
-                            workflow.metadata = workflow_data
-                            t2['request_metadata']['workflow'] = workflow
+                    if 'request_metadata' in t2 and t2['request_metadata']:
+                        if 'workflow' in t2['request_metadata']:
+                            workflow = t2['request_metadata']['workflow']
+                            workflow_data = None
+                            if 'processing_metadata' in t2 and t2['processing_metadata'] and 'workflow_data' in t2['processing_metadata']:
+                                workflow_data = t2['processing_metadata']['workflow_data']
+                            if workflow is not None and workflow_data is not None:
+                                workflow.metadata = workflow_data
+                                t2['request_metadata']['workflow'] = workflow
+                        if 'build_workflow' in t2['request_metadata']:
+                            build_workflow = t2['request_metadata']['build_workflow']
+                            build_workflow_data = None
+                            if 'processing_metadata' in t2 and t2['processing_metadata'] and 'build_workflow_data' in t2['processing_metadata']:
+                                build_workflow_data = t2['processing_metadata']['build_workflow_data']
+                            if build_workflow is not None and build_workflow_data is not None:
+                                build_workflow.metadata = build_workflow_data
+                                t2['request_metadata']['build_workflow'] = build_workflow
 
                     rets.append(t2)
             return rets
@@ -485,14 +494,23 @@ def get_requests(request_id=None, workload_id=None, with_detail=False, with_meta
                     # t2 = dict(t)
                     t2 = dict(zip(t.keys(), t))
 
-                    if 'request_metadata' in t2 and t2['request_metadata'] and 'workflow' in t2['request_metadata']:
-                        workflow = t2['request_metadata']['workflow']
-                        workflow_data = None
-                        if 'processing_metadata' in t2 and t2['processing_metadata'] and 'workflow_data' in t2['processing_metadata']:
-                            workflow_data = t2['processing_metadata']['workflow_data']
-                        if workflow is not None and workflow_data is not None:
-                            workflow.metadata = workflow_data
-                            t2['request_metadata']['workflow'] = workflow
+                    if 'request_metadata' in t2 and t2['request_metadata']:
+                        if 'workflow' in t2['request_metadata']:
+                            workflow = t2['request_metadata']['workflow']
+                            workflow_data = None
+                            if 'processing_metadata' in t2 and t2['processing_metadata'] and 'workflow_data' in t2['processing_metadata']:
+                                workflow_data = t2['processing_metadata']['workflow_data']
+                            if workflow is not None and workflow_data is not None:
+                                workflow.metadata = workflow_data
+                                t2['request_metadata']['workflow'] = workflow
+                        if 'build_workflow' in t2['request_metadata']:
+                            build_workflow = t2['request_metadata']['build_workflow']
+                            build_workflow_data = None
+                            if 'processing_metadata' in t2 and t2['processing_metadata'] and 'build_workflow_data' in t2['processing_metadata']:
+                                build_workflow_data = t2['processing_metadata']['build_workflow_data']
+                            if build_workflow is not None and build_workflow_data is not None:
+                                build_workflow.metadata = build_workflow_data
+                                t2['request_metadata']['build_workflow'] = build_workflow
 
                     rets.append(t2)
             return rets
@@ -631,14 +649,23 @@ def get_requests(request_id=None, workload_id=None, with_detail=False, with_meta
                     # t2 = dict(t)
                     t2 = dict(zip(t.keys(), t))
 
-                    if 'request_metadata' in t2 and t2['request_metadata'] and 'workflow' in t2['request_metadata']:
-                        workflow = t2['request_metadata']['workflow']
-                        workflow_data = None
-                        if 'processing_metadata' in t2 and t2['processing_metadata'] and 'workflow_data' in t2['processing_metadata']:
-                            workflow_data = t2['processing_metadata']['workflow_data']
-                        if workflow is not None and workflow_data is not None:
-                            workflow.metadata = workflow_data
-                            t2['request_metadata']['workflow'] = workflow
+                    if 'request_metadata' in t2 and t2['request_metadata']:
+                        if 'workflow' in t2['request_metadata']:
+                            workflow = t2['request_metadata']['workflow']
+                            workflow_data = None
+                            if 'processing_metadata' in t2 and t2['processing_metadata'] and 'workflow_data' in t2['processing_metadata']:
+                                workflow_data = t2['processing_metadata']['workflow_data']
+                            if workflow is not None and workflow_data is not None:
+                                workflow.metadata = workflow_data
+                                t2['request_metadata']['workflow'] = workflow
+                        if 'build_workflow' in t2['request_metadata']:
+                            build_workflow = t2['request_metadata']['build_workflow']
+                            build_workflow_data = None
+                            if 'processing_metadata' in t2 and t2['processing_metadata'] and 'build_workflow_data' in t2['processing_metadata']:
+                                build_workflow_data = t2['processing_metadata']['build_workflow_data']
+                            if build_workflow is not None and build_workflow_data is not None:
+                                build_workflow.metadata = build_workflow_data
+                                t2['request_metadata']['build_workflow'] = build_workflow
 
                     rets.append(t2)
             return rets
@@ -806,7 +833,7 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, req
 
 
 @transactional_session
-def update_request(request_id, parameters, session=None):
+def update_request(request_id, parameters, update_request_metadata=False, session=None):
     """
     update an request.
 
@@ -826,16 +853,25 @@ def update_request(request_id, parameters, session=None):
         if 'update_poll_period' in parameters and type(parameters['update_poll_period']) not in [datetime.timedelta]:
             parameters['update_poll_period'] = datetime.timedelta(seconds=parameters['update_poll_period'])
 
-        if 'request_metadata' in parameters and 'workflow' in parameters['request_metadata']:
-            workflow = parameters['request_metadata']['workflow']
-
-            if workflow is not None:
-                workflow.refresh_works()
-                if 'processing_metadata' not in parameters or not parameters['processing_metadata']:
-                    parameters['processing_metadata'] = {}
-                parameters['processing_metadata']['workflow_data'] = workflow.metadata
-
         if 'request_metadata' in parameters:
+            if 'workflow' in parameters['request_metadata']:
+                workflow = parameters['request_metadata']['workflow']
+
+                if workflow is not None:
+                    workflow.refresh_works()
+                    if 'processing_metadata' not in parameters or not parameters['processing_metadata']:
+                        parameters['processing_metadata'] = {}
+                    parameters['processing_metadata']['workflow_data'] = workflow.metadata
+            if 'build_workflow' in parameters['request_metadata']:
+                build_workflow = parameters['request_metadata']['build_workflow']
+
+                if build_workflow is not None:
+                    build_workflow.refresh_works()
+                    if 'processing_metadata' not in parameters or not parameters['processing_metadata']:
+                        parameters['processing_metadata'] = {}
+                    parameters['processing_metadata']['build_workflow_data'] = build_workflow.metadata
+
+        if 'request_metadata' in parameters and not update_request_metadata:
             del parameters['request_metadata']
         if 'processing_metadata' in parameters:
             parameters['_processing_metadata'] = parameters['processing_metadata']
