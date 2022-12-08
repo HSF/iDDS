@@ -121,6 +121,14 @@ CREATE INDEX CONTENTS_DEP_IDX ON CONTENTS (request_id, transform_id, content_dep
 -- 2022.12.01
 alter table requests modify username VARCHAR2(50) default null;
 
+-- 2022.12.06
+alter table collections add ext_files NUMBER(10);
+alter table collections add processed_ext_files NUMBER(10);
+alter table collections add failed_ext_files NUMBER(10);
+alter table collections add missing_ext_files NUMBER(10);
+
+
+-- 2022.12.08
 -- oracle 19
 CREATE TABLE CONTENTS_ext
 (
@@ -201,11 +209,13 @@ CREATE TABLE CONTENTS_ext
 	hs06sec NUMBER(12),
         memory_leak VARCHAR2(10),
 	memory_leak_x2 VARCHAR2(10),
-	job_label VARCHAR2(20)
+	job_label VARCHAR2(20),
         CONSTRAINT CONTENT_EXT_PK PRIMARY KEY (content_id),
-	CONSTRAINT CONTENT_EXT_TRANSFORM_ID_FK FOREIGN KEY(transform_id) REFERENCES TRANSFORMS(transform_id),
+	CONSTRAINT CONTENT_EXT_TRANSFORM_ID_FK FOREIGN KEY(transform_id) REFERENCES TRANSFORMS(transform_id)
 )
-PCTFREE 0
-PARTITION BY REFERENCE(CONTENT_EXT_TRANSFORM_ID_FK);
+PCTFREE 3
+PARTITION BY RANGE(TRANSFORM_ID)
+INTERVAL ( 100000 )
+( PARTITION initial_part VALUES LESS THAN (1) );
 
-CREATE INDEX CONTENTS_EXT_RTF_IDX ON CONTENTS (request_id, transform_id, workload_id, coll_id, content_id, PandaID, status) LOCAL;
+CREATE INDEX CONTENTS_EXT_RTF_IDX ON CONTENTS_ext (request_id, transform_id, workload_id, coll_id, content_id, PandaID, status) LOCAL;
