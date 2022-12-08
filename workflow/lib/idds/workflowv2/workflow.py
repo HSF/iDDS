@@ -622,6 +622,7 @@ class WorkflowBase(Base):
         if self.logger is None:
             self.setup_logger()
 
+        self.build_work = None
         self._works = {}
         self.works = {}
         self.work_sequence = {}  # order list
@@ -1257,6 +1258,15 @@ class WorkflowBase(Base):
 
         self.independent_works.append(work.get_internal_id())
 
+    def add_build_work(self, work, initial=False, primary=False):
+        self.build_work = work
+        self.build_work.set_build_work()
+
+    def has_to_build_work(self):
+        if self.build_work is not None:
+            return True
+        return False
+
     def add_condition(self, cond):
         self.first_initial = False
         cond_works = cond.all_works()
@@ -1825,6 +1835,8 @@ class WorkflowBase(Base):
         self.num_total_works = 0
 
         self.last_updated_at = datetime.datetime.utcnow()
+        if self.build_work:
+            self.build_work.clean_works()
 
         self.terminated_works = []
         self.current_running_works = []
@@ -1979,6 +1991,7 @@ class Workflow(Base):
 
         self.template = WorkflowBase(name=name, workload_id=workload_id, lifetime=lifetime, pending_time=pending_time, logger=logger)
 
+        self.build_work = None
         # parent_num_run is string.
         self.parent_num_run = None
         self._num_run = 0
@@ -2021,7 +2034,8 @@ class Workflow(Base):
 
     @property
     def metadata(self):
-        run_metadata = {'parent_num_run': self.parent_num_run,
+        run_metadata = {'build': self.get_build_metadata(),
+                        'parent_num_run': self.parent_num_run,
                         'num_run': self._num_run,
                         'runs': {}}
         for run_id in self.runs:
@@ -2034,6 +2048,8 @@ class Workflow(Base):
     def metadata(self, value):
         self.template.load_metadata()
         run_metadata = value
+        build_metadata = run_metadata['build']
+        self.set_build_metadata(build_metadata)
         self.parent_num_run = run_metadata['parent_num_run']
         self._num_run = run_metadata['num_run']
         runs = run_metadata['runs']
@@ -2185,6 +2201,45 @@ class Workflow(Base):
     def add_work(self, work, initial=False, primary=False):
         self.template.add_work(work, initial, primary)
 
+    def add_build_work(self, work, initial=False, primary=False):
+        self.template.add_build_work(work, initial, primary)
+
+    def get_build_metadata(self):
+        if self.build_work is not None:
+            return self.build_work.metadata
+
+        build_work = self.template.get_build_work()
+        if build_work is not None:
+            return build_work.metadata
+        return None
+
+    def set_build_metadata(self, metadata):
+        if self.build_work is not None:
+            self.build_work.metadata = metadata
+
+        build_work = self.template.get_build_work()
+        if build_work is not None:
+            self.build_work = self.template.copy()
+            self.build_work.metadata = metadata
+
+    def get_buil_work(self):
+        if self.build_work is not None:
+            return self.build_work
+        build_work = self.template.get_build_work()
+        if build_work is not None:
+            self.build_work = self.template.copy()
+            self.build_work.sign()
+            return self.build_work
+
+    def has_to_build_work(self):
+        build_work = self.get_buil_work()
+        if build_work is None:
+            return False
+
+        if not (build_work.is_started() or build_work.is_starting()):
+            return True
+        return False
+
     def add_condition(self, cond):
         self.template.add_condition(cond)
 
@@ -2221,6 +2276,16 @@ class Workflow(Base):
 
     def get_new_works(self, synchronize=True):
         self.logger.info("%s get_new_works" % self.get_internal_id())
+
+        build_work = self.get_build_work()
+        if build_work:
+            if not (build_work.is_started() or build_work.is_starting()):
+                return build_work
+            elif not build_work.is_terminated():
+                return []
+            elif build_work.is_terminated() and not build_work.is_finished():
+                return []
+
         self.log_debug("synchronizing works")
         if synchronize:
             self.sync_works(to_cancel=self.to_cancel)
@@ -2232,6 +2297,16 @@ class Workflow(Base):
         return works
 
     def get_current_works(self):
+        build_work = self.get_build_work()
+        if build_work:
+            if (build_work.is_started() or build_work.is_starting()):
+                if (not build_work.is_terminated()):
+                    return [build_work]
+                elif not build_work.is_finished():
+                    return []
+            else:
+                return []
+
         self.sync_works(to_cancel=self.to_cancel)
         if self.runs:
             return self.runs[str(self.num_run)].get_current_works()
@@ -2239,11 +2314,20 @@ class Workflow(Base):
 
     def get_all_works(self, synchronize=True):
         self.logger.info("%s get_all_works" % self.get_internal_id())
+        works = []
+
+        build_work = self.get_build_work()
+        if build_work:
+            if build_work.is_finished():
+                works = [build_work]
+            else:
+                return [build_work]
+
         if synchronize:
             self.sync_works(to_cancel=self.to_cancel)
-        works = []
         if self.runs:
-            works = self.runs[str(self.num_run)].get_all_works(synchronize=False)
+            run_works = self.runs[str(self.num_run)].get_all_works(synchronize=False)
+            works = works + run_works
         self.logger.info("%s get_all_works done" % self.get_internal_id())
         return works
 
@@ -2264,13 +2348,33 @@ class Workflow(Base):
         self.parent_num_run = None
         self._num_run = 0
         self.runs = {}
+        self.build_work = None
 
     def is_to_expire(self, expired_at=None, pending_time=None, request_id=None):
+        build_work = self.get_build_work()
+        if build_work:
+            if not build_work.is_terminated():
+                return build_work.is_to_expire(expired_at=expired_at, pending_time=pending_time, request_id=request_id)
+            elif build_work.is_terminated() and not build_work.is_finished():
+                return False
+            else:
+                pass
+
         if self.runs:
             return self.runs[str(self.num_run)].is_to_expire(expired_at=expired_at, pending_time=pending_time, request_id=request_id)
         return False
 
     def is_terminated(self, synchronize=True):
+        build_work = self.get_build_work()
+        if build_work:
+            if build_work.is_terminated():
+                if not build_work.is_finished():
+                    return True
+                else:
+                    pass
+            else:
+                return False
+
         if self.runs:
             if self.runs[str(self.num_run)].is_terminated(synchronize=synchronize):
                 if not self.runs[str(self.num_run)].has_loop_condition() or not self.runs[str(self.num_run)].get_loop_condition_status():
@@ -2279,31 +2383,94 @@ class Workflow(Base):
 
     def is_finished(self, synchronize=True):
         if self.is_terminated(synchronize=synchronize):
+            build_work = self.get_build_work()
+            if build_work:
+                if build_work.is_terminated():
+                    if not build_work.is_finished():
+                        return False
+                    else:
+                        pass
+                else:
+                    return False
             return self.runs[str(self.num_run)].is_finished(synchronize=False)
         return False
 
     def is_subfinished(self, synchronize=True):
         if self.is_terminated(synchronize=synchronize):
+            build_work = self.get_build_work()
+            if build_work:
+                if build_work.is_terminated():
+                    if not build_work.is_finished():
+                        return False
+                    else:
+                        pass
+                else:
+                    return False
             return self.runs[str(self.num_run)].is_subfinished(synchronize=False)
         return False
 
     def is_failed(self, synchronize=True):
         if self.is_terminated(synchronize=synchronize):
+            build_work = self.get_build_work()
+            if build_work:
+                if build_work.is_terminated():
+                    if not build_work.is_finished():
+                        return True
+                    else:
+                        pass
+                else:
+                    return False
             return self.runs[str(self.num_run)].is_failed(synchronize=False)
         return False
 
     def is_expired(self, synchronize=True):
         if self.is_terminated(synchronize=synchronize):
+            build_work = self.get_build_work()
+            if build_work:
+                if build_work.is_terminated():
+                    if not build_work.is_finished():
+                        return False
+                    else:
+                        pass
+                else:
+                    if build_work.is_expired():
+                        return True
+                    else:
+                        return False
             return self.runs[str(self.num_run)].is_expired(synchronize=False)
         return False
 
     def is_cancelled(self, synchronize=True):
         if self.is_terminated(synchronize=synchronize):
+            build_work = self.get_build_work()
+            if build_work:
+                if build_work.is_terminated():
+                    if not build_work.is_finished():
+                        return False
+                    else:
+                        pass
+                else:
+                    if build_work.is_cancelled():
+                        return True
+                    else:
+                        return False
             return self.runs[str(self.num_run)].is_cancelled(synchronize=False)
         return False
 
     def is_suspended(self, synchronize=True):
         if self.is_terminated(synchronize=synchronize):
+            build_work = self.get_build_work()
+            if build_work:
+                if build_work.is_terminated():
+                    if not build_work.is_finished():
+                        return False
+                    else:
+                        pass
+                else:
+                    if build_work.is_suspended():
+                        return True
+                    else:
+                        return False
             return self.runs[str(self.num_run)].is_suspended(synchronize=False)
         return False
 
@@ -2342,6 +2509,13 @@ class Workflow(Base):
     def sync_works(self, to_cancel=False):
         if to_cancel:
             self.to_cancel = to_cancel
+
+        build_work = self.get_build_work()
+        if build_work:
+            if not build_work.is_terminated():
+                return
+            elif build_work.is_terminated() and not build_work.is_finished():
+                return
 
         self.refresh_works()
         # position is end.
