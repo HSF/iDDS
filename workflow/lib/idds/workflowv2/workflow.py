@@ -1262,6 +1262,9 @@ class WorkflowBase(Base):
         self.build_work = work
         self.build_work.set_build_work()
 
+    def get_build_work(self):
+        return self.build_work
+
     def has_to_build_work(self):
         if self.build_work is not None:
             return True
@@ -2222,7 +2225,7 @@ class Workflow(Base):
             self.build_work = self.template.copy()
             self.build_work.metadata = metadata
 
-    def get_buil_work(self):
+    def get_build_work(self):
         if self.build_work is not None:
             return self.build_work
         build_work = self.template.get_build_work()

@@ -64,6 +64,7 @@ class MessagingSender(PluginBase, threading.Thread):
 
         if not hasattr(self, 'channels'):
             raise Exception('"channels" is required but not defined.')
+        self.channels = json.loads(self.channels)
 
         self.broker_timeout = 3600
 
@@ -110,7 +111,6 @@ class MessagingSender(PluginBase, threading.Thread):
             conns = []
             for broker, port in broker_addresses:
                 conn = stomp.Connection12(host_and_ports=[(broker, port)],
-                                          vhost=self.vhost,
                                           keepalive=True,
                                           heartbeats=(60000, 60000),     # one minute
                                           timeout=timeout)

@@ -279,8 +279,8 @@ class Clerk(BaseAgent):
     def get_work_tag_attribute(self, work_tag, attribute):
         work_tag_attribute = work_tag + "_" + attribute
         work_tag_attribute_value = None
-        if not hasattr(self, work_tag_attribute):
-            work_tag_attribute_value = int(self.work_tag_attribute)
+        if hasattr(self, work_tag_attribute):
+            work_tag_attribute_value = int(getattr(self, work_tag_attribute))
         return work_tag_attribute_value
 
     def generate_transform(self, req, work):

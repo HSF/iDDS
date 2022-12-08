@@ -644,7 +644,7 @@ def add_contents_ext(contents, bulk_size=10000, session=None):
 
     try:
         for sub_param in sub_params:
-            session.bulk_insert_mappings(models.Content, sub_param)
+            session.bulk_insert_mappings(models.Content_ext, sub_param)
         content_ids = [None for _ in range(len(contents))]
         return content_ids
     except IntegrityError as error:
@@ -666,7 +666,7 @@ def update_contents_ext(parameters, session=None):
 
     """
     try:
-        session.bulk_update_mappings(models.Content, parameters)
+        session.bulk_update_mappings(models.Content_ext, parameters)
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('Content cannot be found: %s' % (error))
 
@@ -704,7 +704,7 @@ def get_contents_ext(request_id=None, transform_id=None, workload_id=None, coll_
             query = query.filter(models.Content_ext.coll_id == coll_id)
         if status is not None:
             query = query.filter(models.Content_ext.status.in_(status))
-        query = query.order_by(asc(models.Content.request_id), asc(models.Content.transform_id), asc(models.Content.map_id))
+        query = query.order_by(asc(models.Content_ext.request_id), asc(models.Content_ext.transform_id), asc(models.Content_ext.map_id))
 
         tmp = query.all()
         rets = []
@@ -758,7 +758,7 @@ def get_contents_ext_ids(request_id=None, transform_id=None, workload_id=None, c
             query = query.filter(models.Content_ext.coll_id == coll_id)
         if status is not None:
             query = query.filter(models.Content_ext.status.in_(status))
-        query = query.order_by(asc(models.Content.request_id), asc(models.Content.transform_id), asc(models.Content.map_id))
+        query = query.order_by(asc(models.Content_ext.request_id), asc(models.Content_ext.transform_id), asc(models.Content_ext.map_id))
 
         tmp = query.all()
         rets = []
