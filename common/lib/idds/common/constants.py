@@ -142,6 +142,8 @@ class RequestStatus(IDDSEnum):
     ToFinish = 18
     ToForceFinish = 19
     Terminating = 20
+    Building = 21
+    Built = 22
 
 
 class RequestLocking(IDDSEnum):
@@ -222,6 +224,8 @@ class TransformStatus(IDDSEnum):
     ToFinish = 18
     ToForceFinish = 19
     Terminating = 20
+    Building = 21
+    Built = 22
 
 
 class TransformLocking(IDDSEnum):

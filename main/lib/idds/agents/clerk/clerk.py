@@ -130,7 +130,7 @@ class Clerk(BaseAgent):
 
             self.show_queue_size()
 
-            req_status = [RequestStatus.New, RequestStatus.Extend]
+            req_status = [RequestStatus.New, RequestStatus.Extend, RequestStatus.Built]
             reqs_new = core_requests.get_requests_by_status_type(status=req_status, locking=True,
                                                                  not_lock=True,
                                                                  new_poll=True, only_return_id=True,
@@ -395,6 +395,68 @@ class Clerk(BaseAgent):
             self.logger.warn(log_pre + "Handle new request error result: %s" % str(ret_req))
         return ret_req
 
+    def has_to_build_work(self, req):
+        try:
+            if req['status'] in [RequestStatus.New] and 'build_workflow' in req['request_metadata']:
+                log_pre = self.get_log_prefix(req)
+                self.logger.info(log_pre + "has build work")
+                return True
+                # workflow = req['request_metadata']['build_workflow']
+                # if workflow.has_to_build_work():
+                #     log_pre = self.get_log_prefix(req)
+                #     self.logger.info(log_pre + "has to_build work")
+                #     return True
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+        return False
+
+    def handle_build_request(self, req):
+        try:
+            log_pre = self.get_log_prefix(req)
+            self.logger.info(log_pre + "handle build request")
+
+            workflow = req['request_metadata']['build_workflow']
+            build_work = workflow.get_build_work()
+            build_work.add_proxy(workflow.get_proxy())
+            transform = self.generate_transform(req, build_work)
+            self.logger.debug(log_pre + "Processing request(%s): new build transforms: %s" % (req['request_id'],
+                                                                                              str(transform)))
+
+            ret_req = {'request_id': req['request_id'],
+                       'parameters': {'status': RequestStatus.Building,
+                                      'locking': RequestLocking.Idle,
+                                      # 'processing_metadata': processing_metadata,
+                                      'request_metadata': req['request_metadata']},
+                       'new_transforms': [transform]}
+            ret_req['parameters'] = self.load_poll_period(req, ret_req['parameters'])
+            self.logger.info(log_pre + "Handle build request result: %s" % str(ret_req))
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+            retries = req['new_retries'] + 1
+            if not req['max_new_retries'] or retries < req['max_new_retries']:
+                req_status = req['status']
+            else:
+                req_status = RequestStatus.Failed
+
+            # increase poll period
+            new_poll_period = int(req['new_poll_period'].total_seconds() * self.poll_period_increase_rate)
+            if new_poll_period > self.max_new_poll_period:
+                new_poll_period = self.max_new_poll_period
+
+            error = {'submit_err': {'msg': truncate_string('%s' % (ex), length=200)}}
+
+            ret_req = {'request_id': req['request_id'],
+                       'parameters': {'status': req_status,
+                                      'locking': RequestLocking.Idle,
+                                      'new_retries': retries,
+                                      'new_poll_period': new_poll_period,
+                                      'errors': req['errors'] if req['errors'] else {}}}
+            ret_req['parameters']['errors'].update(error)
+            self.logger.warn(log_pre + "Handle build request error result: %s" % str(ret_req))
+        return ret_req
+
     def update_request(self, req):
         new_tf_ids, update_tf_ids = [], []
         try:
@@ -463,13 +525,16 @@ class Clerk(BaseAgent):
         self.number_workers += 1
         try:
             if event:
-                req_status = [RequestStatus.New, RequestStatus.Extend]
+                req_status = [RequestStatus.New, RequestStatus.Extend, RequestStatus.Built]
                 req = self.get_request(request_id=event._request_id, status=req_status, locking=True)
                 if not req:
                     self.logger.error("Cannot find request for event: %s" % str(event))
                 elif req:
                     log_pre = self.get_log_prefix(req)
-                    ret = self.handle_new_request(req)
+                    if self.has_to_build_work(req):
+                        ret = self.handle_build_request(req)
+                    else:
+                        ret = self.handle_new_request(req)
                     new_tf_ids, update_tf_ids = self.update_request(ret)
                     for tf_id in new_tf_ids:
                         self.logger.info(log_pre + "NewTransformEvent(transform_id: %s)" % str(tf_id))
