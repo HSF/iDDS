@@ -80,6 +80,23 @@ class RequestClient(BaseRestClient):
         r = self.get_request_response(url, type='PUT', data=data)
         return r
 
+    def update_build_request(self, request_id, parameters):
+        """
+        Update Build Request to the Head service.
+
+        :param request_id: the request.
+        :param kwargs: other attributes of the request.
+
+        :raise exceptions if it's not updated successfully.
+        """
+        path = self.REQUEST_BASEURL
+        path += "/build"
+        url = self.build_url(self.host, path=os.path.join(path, str(request_id)))
+
+        data = parameters
+        r = self.get_request_response(url, type='POST', data=data)
+        return r
+
     def get_requests(self, request_id=None, workload_id=None, with_detail=False, with_metadata=False, with_transform=False, with_processing=False):
         """
         Get request from the Head service.

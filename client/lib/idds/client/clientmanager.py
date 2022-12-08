@@ -419,6 +419,70 @@ class ClientManager:
         return request_id
 
     @exception_handler
+    def submit_build(self, workflow, username=None, userdn=None, use_dataset_name=True):
+        """
+        Submit the workflow as a request to iDDS server.
+
+        :param workflow: The workflow to be submitted.
+        """
+        self.setup_client()
+
+        props = {
+            'scope': 'workflow',
+            'name': workflow.name,
+            'requester': 'panda',
+            'request_type': RequestType.Workflow,
+            'username': username if username else workflow.username,
+            'userdn': userdn if userdn else workflow.userdn,
+            'transform_tag': 'workflow',
+            'status': RequestStatus.New,
+            'priority': 0,
+            'lifetime': workflow.lifetime,
+            'workload_id': workflow.get_workload_id(),
+            'request_metadata': {'version': release_version, 'workload_id': workflow.get_workload_id(), 'build_workflow': workflow}
+        }
+
+        if self.client.original_user_name:
+            props['username'] = self.client.original_user_name
+        if self.client.original_user_dn:
+            props['userdn'] = self.client.original_user_dn
+
+        if self.auth_type == 'x509_proxy':
+            workflow.add_proxy()
+
+        if use_dataset_name:
+            primary_init_work = workflow.get_primary_initial_collection()
+            if primary_init_work:
+                if type(primary_init_work) in [Collection, CollectionV1]:
+                    props['scope'] = primary_init_work.scope
+                    props['name'] = primary_init_work.name
+                else:
+                    props['scope'] = primary_init_work['scope']
+                    props['name'] = primary_init_work['name']
+
+        # print(props)
+        request_id = self.client.add_request(**props)
+        return request_id
+
+    @exception_handler
+    def update_build(self, request_id, signature, workflow):
+        """
+        Submit the workflow as a request to iDDS server.
+
+        :param workflow: The workflow to be submitted.
+        """
+        self.setup_client()
+
+        parameters = {
+            'request_id': request_id,
+            'signature': signature,
+            'workflow': workflow
+        }
+
+        ret = self.client.update_build_request(request_id=request_id, parameters=parameters)
+        return ret
+
+    @exception_handler
     def abort(self, request_id=None, workload_id=None):
         """
         Abort requests.
