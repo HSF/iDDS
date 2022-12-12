@@ -788,7 +788,7 @@ class Clerk(BaseAgent):
                         works = wf.get_all_works()
                         if works:
                             for work in works:
-                                if not work.is_terminated():
+                                if (work.is_started() or work.is_starting()) and not work.is_terminated():
                                     if not to_abort_transform_id or to_abort_transform_id == work.get_work_id():
                                         self.logger.info(log_pre + "AbortTransformEvent(transform_id: %s)" % str(work.get_work_id()))
                                         event = AbortTransformEvent(publisher_id=self.id,
