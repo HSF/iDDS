@@ -107,6 +107,9 @@ class Finisher(Poller):
         try:
             processing, update_collections, messages = sync_processing(processing, self.agent_attributes, terminate=True, logger=self.logger, log_prefix=log_prefix)
 
+            if processing['status'] == ProcessingStatus.Terminating and is_process_terminated(processing['substatus']):
+                processing['status'] = processing['substatus']
+
             update_processing = {'processing_id': processing['processing_id'],
                                  'parameters': {'status': processing['status'],
                                                 'locking': ProcessingLocking.Idle}}
@@ -141,9 +144,6 @@ class Finisher(Poller):
                     self.logger.info(log_pre + "process_terminated_processing")
                     ret = self.handle_terminated_processing(pr, log_prefix=log_pre)
                     self.logger.info(log_pre + "process_terminated_processing result: %s" % str(ret))
-
-                    if pr['status'] == ProcessingStatus.Terminating and is_process_terminated(pr['substatus']):
-                        pr['status'] = pr['substatus']
 
                     self.update_processing(ret, pr)
                     self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
