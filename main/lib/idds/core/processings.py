@@ -284,9 +284,26 @@ def update_processing_with_collection_contents(updated_processing, new_processin
                                         session=session)
 
 
+def resolve_input_dependency_id(new_input_dependency_contents, session=None):
+    coll_ids = []
+    for content in new_input_dependency_contents:
+        coll_ids.append(content['content_id'])
+    contents = orm_contents.get_contents(coll_id=coll_ids, session=session)
+    content_name_id_map = {}
+    for content in contents:
+        if content['coll_id'] not in content_name_id_map:
+            content_name_id_map[content['coll_id']] = {}
+        content_name_id_map[content['coll_id']][content['name']] = content['content_id']
+    for content in new_input_dependency_contents:
+        content_dep_id = content_name_id_map[content['coll_id']][content['name']]
+        content['content_dep_id'] = content_dep_id
+    return new_input_dependency_contents
+
+
 @transactional_session
 def update_processing_contents(update_processing, update_contents, update_messages=None, new_contents=None,
                                update_dep_contents=None, update_collections=None, messages=None,
+                               new_input_dependency_contents=None,
                                message_bulk_size=2000, session=None):
     """
     Update processing with contents.
@@ -300,6 +317,9 @@ def update_processing_contents(update_processing, update_contents, update_messag
         orm_contents.update_contents(update_contents, session=session)
     if new_contents:
         orm_contents.add_contents(new_contents, session=session)
+    if new_input_dependency_contents:
+        new_input_dependency_contents = resolve_input_dependency_id(new_input_dependency_contents, session=session)
+        orm_contents.add_contents(new_input_dependency_contents, session=session)
     if update_dep_contents:
         request_id, update_dep_contents_status_name, update_dep_contents_status = update_dep_contents
         for status_name in update_dep_contents_status_name:
