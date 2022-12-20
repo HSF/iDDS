@@ -611,8 +611,8 @@ def get_output_contents_by_request_id_status(request_id, name, content_status, l
     return contents
 
 
-def get_contents_ext_items():
-    return orm_contents.get_contents_ext_items()
+def get_contents_ext_maps():
+    return orm_contents.get_contents_ext_maps()
 
 
 @transactional_session

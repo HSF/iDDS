@@ -592,7 +592,7 @@ def delete_content(content_id=None, session=None):
 
 
 def get_contents_ext_items():
-    default_params = {'PandaID': None, 'jobDefinitionID': None, 'schedulerID': None,
+    default_params = {'pandaID': None, 'jobDefinitionID': None, 'schedulerID': None,
                       'pilotID': None, 'creationTime': None, 'modificationTime': None,
                       'startTime': None, 'endTime': None, 'prodSourceLabel': None,
                       'prodUserID': None, 'assignedPriority': None, 'currentPriority': None,
@@ -616,6 +616,34 @@ def get_contents_ext_items():
                       'avgSWAP': None, 'avgPSS': None, 'maxWalltime': None, 'diskIO': None,
                       'failedAttempt': None, 'hs06': None, 'hs06sec': None,
                       'memory_leak': None, 'memory_leak_x2': None, 'job_label': None}
+    return default_params
+
+
+def get_contents_ext_maps():
+    default_params = {'panda_id': 'PandaID', 'job_definition_id': 'jobDefinitionID', 'scheduler_id': 'schedulerID',
+                      'pilot_id': 'pilotID', 'creation_time': 'creationTime', 'modification_time': 'modificationTime',
+                      'start_time': 'startTime', 'end_time': 'endTime', 'prod_source_label': 'prodSourceLabel',
+                      'prod_user_id': 'prodUserID', 'assigned_priority': 'assignedPriority', 'current_priority': 'currentPriority',
+                      'attempt_nr': 'attemptNr', 'max_attempt': 'maxAttempt', 'max_cpu_count': 'maxCpuCount',
+                      'max_cpu_unit': 'maxCpuUnit', 'max_disk_count': 'maxDiskCount', 'max_disk_unit': 'maxDiskUnit',
+                      'min_ram_count': 'minRamCount', 'min_ram_unit': 'minRamUnit', 'cpu_consumption_time': 'cpuConsumptionTime',
+                      'cpu_consumption_unit': 'cpuConsumptionUnit', 'job_status': 'jobStatus', 'job_name': 'jobName',
+                      'trans_exit_code': 'transExitCode', 'pilot_error_code': 'pilotErrorCode', 'pilot_error_diag': 'pilotErrorDiag',
+                      'exe_error_code': 'exeErrorCode', 'exe_error_diag': 'exeErrorDiag', 'sup_error_code': 'supErrorCode',
+                      'sup_error_diag': 'supErrorDiag', 'ddm_error_code': 'ddmErrorCode', 'ddm_error_diag': 'ddmErrorDiag',
+                      'brokerage_error_cdode': 'brokerageErrorCode', 'brokerage_error_diag': 'brokerageErrorDiag',
+                      'job_dispatcher_error_code': 'jobDispatcherErrorCode', 'job_dispatcher_error_diag': 'jobDispatcherErrorDiag',
+                      'task_buffer_error_code': 'taskBufferErrorCode', 'task_buffer_error_diag': 'taskBufferErrorDiag',
+                      'computing_site': 'computingSite', 'computing_element': 'computingElement',
+                      'grid': 'grid', 'cloud': 'cloud', 'cpu_conversion': 'cpuConversion', 'task_id': 'taskID',
+                      'vo': 'VO', 'pilot_timing': 'pilotTiming', 'working_group': 'workingGroup',
+                      'processing_type': 'processingType', 'prod_user_name': 'prodUserName', 'core_count': 'coreCount',
+                      'n_input_files': 'nInputFiles', 'req_id': 'reqID', 'jedi_task_id': 'jediTaskID',
+                      'actual_core_count': 'actualCoreCount', 'max_rss': 'maxRSS', 'max_vmem': 'maxVMEM',
+                      'max_swap': 'maxSWAP', 'max_pss': 'maxPSS', 'avg_rss': 'avgRSS', 'avg_vmem': 'avgVMEM',
+                      'avg_swap': 'avgSWAP', 'avg_pss': 'avgPSS', 'max_walltime': 'maxWalltime', 'disk_io': 'diskIO',
+                      'failed_attempt': 'failedAttempt', 'hs06': 'hs06', 'hs06sec': 'hs06sec',
+                      'memory_leak': 'memory_leak', 'memory_leak_x2': 'memory_leak_x2', 'job_label': 'job_label'}
     return default_params
 
 
@@ -745,7 +773,7 @@ def get_contents_ext_ids(request_id=None, transform_id=None, workload_id=None, c
                               models.Content_ext.workload_id,
                               models.Content_ext.coll_id,
                               models.Content_ext.content_id,
-                              models.Content_ext.PandaID,
+                              models.Content_ext.panda_id,
                               models.Content_ext.status)
         query = query.with_hint(models.Content_ext, "INDEX(CONTENTS_EXT CONTENTS_EXT_RTF_IDX)")
         if request_id:
