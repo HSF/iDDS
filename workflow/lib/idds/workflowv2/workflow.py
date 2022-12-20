@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2021
+# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2022
 
 import copy
 import datetime
@@ -2051,7 +2051,7 @@ class Workflow(Base):
     def metadata(self, value):
         self.template.load_metadata()
         run_metadata = value
-        build_metadata = run_metadata['build']
+        build_metadata = run_metadata['build'] if 'build' in run_metadata else {}
         self.set_build_metadata(build_metadata)
         self.parent_num_run = run_metadata['parent_num_run']
         self._num_run = run_metadata['num_run']
