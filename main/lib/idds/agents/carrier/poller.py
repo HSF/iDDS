@@ -196,7 +196,8 @@ class Poller(BaseAgent):
                                                                     update_dep_contents=processing.get('update_dep_contents', None),
                                                                     messages=processing.get('messages', None),
                                                                     update_messages=processing.get('update_messages', None),
-                                                                    new_contents=processing.get('new_contents', None))
+                                                                    new_contents=processing.get('new_contents', None),
+                                                                    new_input_dependency_contents=processing.get('new_input_dependency_contents', None))
                     except exceptions.DatabaseException as ex:
                         if 'ORA-00060' in str(ex):
                             self.logger.warn(log_prefix + "(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
@@ -244,7 +245,7 @@ class Poller(BaseAgent):
                                                                     logger=self.logger,
                                                                     log_prefix=log_prefix)
 
-            process_status, new_contents, ret_msgs, update_contents, parameters, new_contents_ext, update_contents_ext = ret_handle_update_processing
+            process_status, new_contents, new_input_dependency_contents, ret_msgs, update_contents, parameters, new_contents_ext, update_contents_ext = ret_handle_update_processing
 
             proc = processing['processing_metadata']['processing']
             work = proc.work
@@ -288,6 +289,7 @@ class Poller(BaseAgent):
             ret = {'update_processing': update_processing,
                    'update_contents': update_contents,
                    'new_contents': new_contents,
+                   'new_input_dependency_contents': new_input_dependency_contents,
                    'messages': ret_msgs,
                    'new_contents_ext': new_contents_ext,
                    'update_contents_ext': update_contents_ext,

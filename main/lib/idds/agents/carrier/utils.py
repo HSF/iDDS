@@ -190,20 +190,30 @@ def get_ext_contents(transform_id, work):
     return contents_ids
 
 
-def resolve_input_dependency_id(request_id, new_input_dep_coll_ids, new_input_dependency_contents):
-    contents = core_catalog.get_contents_by_coll_id_status(coll_id=new_input_dep_coll_ids)
-    content_name_id_map = {}
-    for content in contents:
-        if content['coll_id'] not in content_name_id_map:
-            content_name_id_map[content['coll_id']] = {}
-        content_name_id_map[content['coll_id']][content['name']] = content['content_id']
-    for content in new_input_dependency_contents:
-        content_dep_id = content_name_id_map[content['coll_id']][content['name']]
-        content['content_dep_id'] = content_dep_id
+def resolve_input_dependency_id(request_id, new_input_dep_coll_ids, new_input_dependency_contents, logger=None, log_prefix=''):
+    logger = get_logger(logger)
+
+    logger.info(log_prefix + "resolve_input_dependency_id: new_input_dep_coll_ids: %s" % (str(new_input_dep_coll_ids)))
+    logger.info(log_prefix + "resolve_input_dependency_id: len(new_input_dependency_contents): %s" % len(new_input_dependency_contents))
+
+    if new_input_dep_coll_ids:
+        contents = core_catalog.get_contents_by_coll_id_status(coll_id=new_input_dep_coll_ids)
+        content_name_id_map = {}
+        for content in contents:
+            if content['coll_id'] not in content_name_id_map:
+                content_name_id_map[content['coll_id']] = {}
+            content_name_id_map[content['coll_id']][content['name']] = content['content_id']
+        for content in new_input_dependency_contents:
+            if content['coll_id'] in content_name_id_map and content['name'] in content_name_id_map[content['coll_id']]:
+                content_dep_id = content_name_id_map[content['coll_id']][content['name']]
+                content['content_dep_id'] = content_dep_id
     return new_input_dependency_contents
 
 
-def get_new_contents(request_id, transform_id, workload_id, new_input_output_maps):
+def get_new_contents(request_id, transform_id, workload_id, new_input_output_maps, logger=None, log_prefix=''):
+    logger = get_logger(logger)
+
+    logger.debug(log_prefix + "get_new_contents")
     new_input_contents, new_output_contents, new_log_contents = [], [], []
     new_input_dependency_contents = []
     new_input_dep_coll_ids = []
@@ -228,7 +238,7 @@ def get_new_contents(request_id, transform_id, workload_id, new_input_output_map
             content = get_new_content(request_id, transform_id, workload_id, map_id, log_content, content_relation_type=ContentRelationType.Log)
             new_log_contents.append(content)
 
-        new_input_dependency_contents = resolve_input_dependency_id(request_id, new_input_dep_coll_ids, new_input_dependency_contents)
+    # new_input_dependency_contents = resolve_input_dependency_id(request_id, new_input_dep_coll_ids, new_input_dependency_contents, logger=logger, log_prefix=log_prefix)
     return new_input_contents, new_output_contents, new_log_contents, new_input_dependency_contents
 
 
@@ -442,10 +452,11 @@ def handle_new_processing(processing, agent_attributes, logger=None, log_prefix=
 
     if not status:
         logger.error(log_prefix + "Failed to submit processing (status: %s, workload_id: %s, errors: %s)" % (status, workload_id, errors))
-        return False, processing, [], [], [], errors
+        return False, processing, [], [], [], [], errors
 
     ret_msgs = []
     new_contents = []
+    new_input_dependency_contents = []
     update_collections = []
     if proc.workload_id:
         processing['workload_id'] = proc.workload_id
@@ -462,9 +473,10 @@ def handle_new_processing(processing, agent_attributes, logger=None, log_prefix=
         request_id = processing['request_id']
         transform_id = processing['transform_id']
         workload_id = processing['workload_id']
-        ret_new_contents = get_new_contents(request_id, transform_id, workload_id, new_input_output_maps)
+        ret_new_contents = get_new_contents(request_id, transform_id, workload_id, new_input_output_maps, logger=logger, log_prefix=log_prefix)
         new_input_contents, new_output_contents, new_log_contents, new_input_dependency_contents = ret_new_contents
-        new_contents = new_input_contents + new_output_contents + new_log_contents + new_input_dependency_contents
+        # new_contents = new_input_contents + new_output_contents + new_log_contents + new_input_dependency_contents
+        new_contents = new_input_contents + new_output_contents + new_log_contents
 
         # not generate new messages
         # if new_input_contents:
@@ -473,7 +485,7 @@ def handle_new_processing(processing, agent_attributes, logger=None, log_prefix=
         # if new_output_contents:
         #     msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='file', files=new_input_contents, relation_type='output')
         #     ret_msgs = ret_msgs + msgs
-    return True, processing, update_collections, new_contents, ret_msgs, errors
+    return True, processing, update_collections, new_contents, new_input_dependency_contents, ret_msgs, errors
 
 
 def get_updated_contents_by_request(request_id, transform_id, workload_id, work, terminated=False, input_output_maps=None,
@@ -836,9 +848,9 @@ def handle_update_processing(processing, agent_attributes, logger=None, log_pref
 
     if work.require_ext_contents():
         contents_ext = get_ext_contents(transform_id, work)
-        job_info_items = core_catalog.get_contents_ext_items()
+        job_info_maps = core_catalog.get_contents_ext_maps()
         ret_poll_processing = work.poll_processing_updates(processing, input_output_maps, contents_ext=contents_ext,
-                                                           job_info_items=job_info_items, log_prefix=log_prefix)
+                                                           job_info_maps=job_info_maps, log_prefix=log_prefix)
         process_status, content_updates, new_input_output_maps1, updated_contents_full, parameters, new_contents_ext, update_contents_ext = ret_poll_processing
     else:
         ret_poll_processing = work.poll_processing_updates(processing, input_output_maps, log_prefix=log_prefix)
@@ -853,7 +865,8 @@ def handle_update_processing(processing, agent_attributes, logger=None, log_pref
 
     ret_new_contents = get_new_contents(request_id, transform_id, workload_id, new_input_output_maps)
     new_input_contents, new_output_contents, new_log_contents, new_input_dependency_contents = ret_new_contents
-    new_contents = new_input_contents + new_output_contents + new_log_contents + new_input_dependency_contents
+    # new_contents = new_input_contents + new_output_contents + new_log_contents + new_input_dependency_contents
+    new_contents = new_input_contents + new_output_contents + new_log_contents
 
     content_updates_missing, updated_contents_full_missing = poll_missing_outputs(input_output_maps)
 
@@ -872,7 +885,7 @@ def handle_update_processing(processing, agent_attributes, logger=None, log_pref
                                  files=updated_contents_full, relation_type='output')
         ret_msgs = ret_msgs + msgs
 
-    return process_status, new_contents, ret_msgs, content_updates + content_updates_missing, parameters, new_contents_ext, update_contents_ext
+    return process_status, new_contents, new_input_dependency_contents, ret_msgs, content_updates + content_updates_missing, parameters, new_contents_ext, update_contents_ext
 
 
 def handle_trigger_processing(processing, agent_attributes, logger=None, log_prefix=''):
@@ -934,7 +947,7 @@ def handle_trigger_processing(processing, agent_attributes, logger=None, log_pre
             ret_msgs = ret_msgs + msgs
 
         # not flusht updated_contents here
-        # content_updates = content_updates + updated_contents
+        content_updates = content_updates + updated_contents
 
         # updated_contents_full_output_input_deps = updated_contents_full_output + updated_contents_full_input_deps
         # if updated_contents_full_output or updated_contents_full_input_deps or updated_contents_full_input:
@@ -954,12 +967,13 @@ def handle_trigger_processing(processing, agent_attributes, logger=None, log_pre
                 for trigger_tf_id in updated_input_contents:
                     logger.debug(log_prefix + "trigger_release_inputs: updated_input_contents[%s][:3] %s" % (trigger_tf_id,
                                                                                                              updated_input_contents[trigger_tf_id][:3]))
-                    trigger_req_id = updated_input_contents[trigger_tf_id][0]['request_id']
-                    trigger_workload_id = updated_input_contents[trigger_tf_id][0]['workload_id']
+                    if updated_input_contents[trigger_tf_id]:
+                        trigger_req_id = updated_input_contents[trigger_tf_id][0]['request_id']
+                        trigger_workload_id = updated_input_contents[trigger_tf_id][0]['workload_id']
 
-                    msgs = generate_messages(trigger_req_id, trigger_tf_id, trigger_workload_id, work, msg_type='file',
-                                             files=updated_input_contents[trigger_tf_id], relation_type='input')
-                    ret_msgs = ret_msgs + msgs
+                        msgs = generate_messages(trigger_req_id, trigger_tf_id, trigger_workload_id, work, msg_type='file',
+                                                 files=updated_input_contents[trigger_tf_id], relation_type='input')
+                        ret_msgs = ret_msgs + msgs
     return processing['substatus'], content_updates, ret_msgs, {}, update_contents_status_name, update_contents_status
 
 
@@ -1251,7 +1265,7 @@ def sync_collection_status(request_id, transform_id, workload_id, work, input_ou
                   'missing_ext_files': coll.missing_ext_files}
         if terminate:
             if work.require_ext_contents():
-                if coll.processed_files == coll.ext_processed_files and coll.failed_files == coll.failed_ext_files:
+                if coll.processed_files == coll.processed_ext_files and coll.failed_files == coll.failed_ext_files:
                     all_ext_updated = True
                 if (force_close_collection or (close_collection and all_updates_flushed and all_ext_updated)
                    or coll.status == CollectionStatus.Closed):        # noqa W503
