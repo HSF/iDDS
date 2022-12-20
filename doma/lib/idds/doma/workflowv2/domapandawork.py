@@ -748,6 +748,7 @@ class DomaPanDAWork(Work):
         return update_contents
 
     def get_panda_job_status(self, jobids):
+        jobids = list(jobids)
         self.logger.debug("get_panda_job_status, jobids[:10]: %s" % str(jobids[:10]))
         try:
             from pandaclient import Client
@@ -951,7 +952,7 @@ class DomaPanDAWork(Work):
         self.logger.debug("get_update_contents, update_contents[:3]: %s" % (str(update_contents[:3])))
         return update_contents, update_contents_full, contents_ext_full
 
-    def get_contents_ext_detail(self, contents_ext_full, contents_ext_ids, job_info_items={}):
+    def get_contents_ext_detail(self, contents_ext_full, contents_ext_ids, job_info_maps={}):
         contents_ext_full_ids = set(contents_ext_full.keys())
         new_ids = contents_ext_full_ids - contents_ext_ids
         to_update_ids = contents_ext_full_ids - new_ids
@@ -967,20 +968,20 @@ class DomaPanDAWork(Work):
                                'coll_id': content['coll_id'],
                                'map_id': content['map_id'],
                                'status': content['status']}
-            for job_info_item in job_info_items:
-                new_content_ext[job_info_item] = getattr(job_info, job_info_item)
+            for job_info_item in job_info_maps:
+                new_content_ext[job_info_item] = getattr(job_info, job_info_maps[job_info_item])
 
             new_contents_ext.append(new_content_ext)
         for to_update_id in to_update_ids:
             content = contents_ext_full[new_id]['content']
             job_info = contents_ext_full[new_id]['job_info']
             update_content_ext = {'content_id': content['content_id'], 'status': content['status']}
-            for job_info_item in job_info_items:
-                update_content_ext[job_info_item] = getattr(job_info, job_info_item)
+            for job_info_item in job_info_maps:
+                update_content_ext[job_info_item] = getattr(job_info, job_info_maps[job_info_item])
             update_contents_ext.append(update_content_ext)
         return new_contents_ext, update_contents_ext
 
-    def get_contents_ext(self, input_output_maps, contents_ext, contents_ext_full, job_info_items={}):
+    def get_contents_ext(self, input_output_maps, contents_ext, contents_ext_full, job_info_maps={}):
         contents_ext_ids = [content['content_id'] for content in contents_ext]
         contents_ext_ids = set(contents_ext_ids)
         contents_ext_panda_ids = [content['PandaID'] for content in contents_ext]
@@ -1038,13 +1039,13 @@ class DomaPanDAWork(Work):
             left_panda_ids = to_check_panda_ids - checked_panda_ids
             left_panda_ids = list(left_panda_ids)
 
-        new_contents_ext1, update_contents_ext1 = self.get_contents_ext_detail(contents_ext_full, contents_ext_ids, job_info_items)
+        new_contents_ext1, update_contents_ext1 = self.get_contents_ext_detail(contents_ext_full, contents_ext_ids, job_info_maps)
         new_contents_ext = new_contents_ext + new_contents_ext1
         update_contents_ext = update_contents_ext + update_contents_ext1
 
         return new_contents_ext, update_contents_ext, left_panda_ids
 
-    def poll_panda_task(self, processing=None, input_output_maps=None, contents_ext=None, job_info_items={}, log_prefix=''):
+    def poll_panda_task(self, processing=None, input_output_maps=None, contents_ext=None, job_info_maps={}, log_prefix=''):
         task_id = None
         try:
             from pandaclient import Client
@@ -1062,7 +1063,7 @@ class DomaPanDAWork(Work):
                     self.logger.debug(log_prefix + "poll_panda_task, task_info[0]: %s" % str(task_info[0]))
                     if task_info[0] != 0:
                         self.logger.warn(log_prefix + "poll_panda_task %s, error getting task status, task_info: %s" % (task_id, str(task_info)))
-                        return ProcessingStatus.Running, [], []
+                        return ProcessingStatus.Running, [], [], [], []
 
                     task_info = task_info[1]
 
@@ -1086,7 +1087,7 @@ class DomaPanDAWork(Work):
                                                                                                          inputname_jobid_map)
 
                     new_contents_ext, update_contents_ext, left_jobs = self.get_contents_ext(input_output_maps, contents_ext,
-                                                                                             contents_ext_full, job_info_items)
+                                                                                             contents_ext_full, job_info_maps)
                     # if left_jobs:
                     #     processing_status = ProcessingStatus.Running
 
@@ -1158,7 +1159,7 @@ class DomaPanDAWork(Work):
     def require_ext_contents(self):
         return True
 
-    def poll_processing_updates(self, processing, input_output_maps, contents_ext=None, job_info_items={}, log_prefix=''):
+    def poll_processing_updates(self, processing, input_output_maps, contents_ext=None, job_info_maps={}, log_prefix=''):
         """
         *** Function called by Carrier agent.
         """
@@ -1172,7 +1173,7 @@ class DomaPanDAWork(Work):
             ret_poll_panda_task = self.poll_panda_task(processing=processing,
                                                        input_output_maps=input_output_maps,
                                                        contents_ext=contents_ext,
-                                                       job_info_items=job_info_items,
+                                                       job_info_maps=job_info_maps,
                                                        log_prefix=log_prefix)
 
             processing_status, update_contents, update_contents_full, new_contents_ext, update_contents_ext = ret_poll_panda_task
