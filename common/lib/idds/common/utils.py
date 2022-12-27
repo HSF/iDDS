@@ -62,7 +62,7 @@ def setup_logging(name, stream=None, loglevel=None):
                             format='%(asctime)s\t%(threadName)s\t%(name)s\t%(levelname)s\t%(message)s')
 
 
-def get_logger((name, filename=None, loglevel=None):
+def get_logger(name, filename=None, loglevel=None):
     """
     Setup logging
     """
@@ -76,10 +76,10 @@ def get_logger((name, filename=None, loglevel=None):
         filename = name + ".log"
     formatter = '%(asctime)s\t%(threadName)s\t%(name)s\t%(levelname)s\t%(message)s'
 
-    handler = longging.FileHandler(filename)
+    handler = logging.FileHandler(filename)
     handler.setFormatter(formatter)
     logger = logging.getLogger(name)
-    logger.setLevel(level)
+    logger.setLevel(loglevel)
     logger.addHandler(handler)
     return logger
 
