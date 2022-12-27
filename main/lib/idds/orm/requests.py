@@ -173,6 +173,32 @@ def get_request_ids_by_workload_id(workload_id, session=None):
 
 
 @read_session
+def get_request_ids_by_name(name, session=None):
+    """
+    Get request ids or raise a NoObject exception.
+
+    :param name: name of the request.
+    :param session: The database session in use.
+
+    :raises NoObject: If no request is founded.
+
+    :returns: Request {name:id} dict.
+    """
+    try:
+        query = session.query(models.Request.request_id, models.Request.name)\
+                       .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_SCOPE_NAME_IDX)")\
+                       .filter(models.Request.name.like(name.replace('*', '%')))
+        tmp = query.all()
+        ret_ids = {}
+        if tmp:
+            for req in tmp:
+                ret_ids[req[1]] = req[0]
+        return ret_ids
+    except sqlalchemy.orm.exc.NoResultFound as error:
+        raise exceptions.NoObject('request with name:%s cannot be found: %s' % (name, error))
+
+
+@read_session
 def get_request_ids(request_id=None, workload_id=None, session=None):
     """
     Get request id or raise a NoObject exception.

@@ -142,6 +142,21 @@ def get_request_ids_by_workload_id(workload_id, session=None):
     return orm_requests.get_request_ids_by_workload_id(workload_id, session=session)
 
 
+@read_session
+def get_request_ids_by_name(name, session=None):
+    """
+    Get request ids or raise a NoObject exception.
+
+    :param name: name of the request.
+    :param session: The database session in use.
+
+    :raises NoObject: If no request is founded.
+
+    :returns: Request {name:id} dict.
+    """
+    return orm_requests.get_request_ids_by_name(name, session=session)
+
+
 @transactional_session
 def get_request_by_id_status(request_id, status=None, locking=False, session=None):
     req = orm_requests.get_request_by_id_status(request_id=request_id, status=status, locking=locking, session=session)

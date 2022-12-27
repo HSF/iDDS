@@ -123,6 +123,21 @@ class RequestClient(BaseRestClient):
 
         return requests
 
+    def get_request_id_by_name(self, name):
+        """
+        Get request id by name.
+
+        :param name: the request name.
+
+        :returns {name:id} dict.
+        """
+        path = self.REQUEST_BASEURL
+        path += "/name"
+
+        url = self.build_url(self.host, path=os.path.join(path, name))
+        r = self.get_request_response(url, type='GET', data=None)
+        return r
+
     def abort_request(self, request_id, workload_id=None):
         """
         Abort Request.
