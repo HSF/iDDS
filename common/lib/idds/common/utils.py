@@ -62,6 +62,28 @@ def setup_logging(name, stream=None, loglevel=None):
                             format='%(asctime)s\t%(threadName)s\t%(name)s\t%(levelname)s\t%(message)s')
 
 
+def get_logger((name, filename=None, loglevel=None):
+    """
+    Setup logging
+    """
+    if loglevel is None:
+        if config_has_section('common') and config_has_option('common', 'loglevel'):
+            loglevel = getattr(logging, config_get('common', 'loglevel').upper())
+        else:
+            loglevel = logging.INFO
+
+    if filename is None:
+        filename = name + ".log"
+    formatter = '%(asctime)s\t%(threadName)s\t%(name)s\t%(levelname)s\t%(message)s'
+
+    handler = longging.FileHandler(filename)
+    handler.setFormatter(formatter)
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+    logger.addHandler(handler)
+    return logger
+
+
 def get_rest_url_prefix():
     if config_has_section('rest') and config_has_option('rest', 'url_prefix'):
         url_prefix = config_get('rest', 'url_prefix')

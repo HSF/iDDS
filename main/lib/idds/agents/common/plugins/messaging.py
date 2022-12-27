@@ -19,7 +19,7 @@ import traceback
 import stomp
 
 from idds.common.plugin.plugin_base import PluginBase
-from idds.common.utils import setup_logging
+from idds.common.utils import setup_logging, get_logger
 
 
 setup_logging(__name__)
@@ -37,7 +37,8 @@ class MessagingListener(stomp.ConnectionListener):
         self.name = "MessagingListener"
         self.__broker = broker
         self.__output_queue = output_queue
-        self.logger = logging.getLogger(self.__class__.__name__)
+        # self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger = get_logger(self.__class__.__name__, filename="MessageLister.log")
 
     def on_error(self, frame):
         '''
