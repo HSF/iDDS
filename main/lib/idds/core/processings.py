@@ -287,7 +287,7 @@ def update_processing_with_collection_contents(updated_processing, new_processin
 def resolve_input_dependency_id(new_input_dependency_contents, session=None):
     coll_ids = []
     for content in new_input_dependency_contents:
-        coll_ids.append(content['content_id'])
+        coll_ids.append(content['coll_id'])
     contents = orm_contents.get_contents(coll_id=coll_ids, session=session)
     content_name_id_map = {}
     for content in contents:
