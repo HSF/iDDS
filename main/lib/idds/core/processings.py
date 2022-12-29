@@ -303,7 +303,7 @@ def resolve_input_dependency_id(new_input_dependency_contents, session=None):
 @transactional_session
 def update_processing_contents(update_processing, update_contents, update_messages=None, new_contents=None,
                                update_dep_contents=None, update_collections=None, messages=None,
-                               new_input_dependency_contents=None,
+                               new_update_contents=None, new_input_dependency_contents=None,
                                message_bulk_size=2000, session=None):
     """
     Update processing with contents.
@@ -315,6 +315,10 @@ def update_processing_contents(update_processing, update_contents, update_messag
         orm_collections.update_collections(update_collections, session=session)
     if update_contents:
         orm_contents.update_contents(update_contents, session=session)
+    if new_update_contents:
+        # first add and then delete, to trigger the trigger 'update_content_dep_status'.
+        orm_contents.add_contents_update(new_update_contents, session=session)
+        orm_contents.delete_contents_update(session=session)
     if new_contents:
         orm_contents.add_contents(new_contents, session=session)
     if new_input_dependency_contents:

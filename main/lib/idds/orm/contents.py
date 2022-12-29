@@ -648,6 +648,49 @@ def get_contents_ext_maps():
 
 
 @transactional_session
+def add_contents_update(contents, bulk_size=10000, session=None):
+    """
+    Add contents update.
+
+    :param contents: dict of contents.
+    :param session: session.
+
+    :raises DuplicatedObject: If a collection with the same name exists.
+    :raises DatabaseException: If there is a database error.
+
+    :returns: content ids.
+    """
+    sub_params = [contents[i:i + bulk_size] for i in range(0, len(contents), bulk_size)]
+
+    try:
+        for sub_param in sub_params:
+            session.bulk_insert_mappings(models.Content_update, sub_param)
+        content_ids = [None for _ in range(len(contents))]
+        return content_ids
+    except IntegrityError as error:
+        raise exceptions.DuplicatedObject('Duplicated objects: %s' % (error))
+    except DatabaseError as error:
+        raise exceptions.DatabaseException(error)
+
+
+@transactional_session
+def delete_contents_update(session=None):
+    """
+    delete a content.
+
+    :param content_id: The id of the content.
+    :param session: The database session in use.
+
+    :raises NoObject: If no content is founded.
+    :raises DatabaseException: If there is a database error.
+    """
+    try:
+        session.query(models.Content_update).delete()
+    except Exception as error:
+        raise exceptions.NoObject('Content_update deletion error: %s' % (error))
+
+
+@transactional_session
 def add_contents_ext(contents, bulk_size=10000, session=None):
     """
     Add contents ext.

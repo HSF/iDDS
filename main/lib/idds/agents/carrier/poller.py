@@ -197,6 +197,7 @@ class Poller(BaseAgent):
                                                                     messages=processing.get('messages', None),
                                                                     update_messages=processing.get('update_messages', None),
                                                                     new_contents=processing.get('new_contents', None),
+                                                                    new_update_contents=processing.get('new_update_contents', None),
                                                                     new_input_dependency_contents=processing.get('new_input_dependency_contents', None))
                     except exceptions.DatabaseException as ex:
                         if 'ORA-00060' in str(ex):
