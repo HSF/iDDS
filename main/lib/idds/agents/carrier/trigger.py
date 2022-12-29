@@ -77,7 +77,7 @@ class Trigger(Poller):
                                                                self.agent_attributes,
                                                                logger=self.logger,
                                                                log_prefix=log_prefix)
-            process_status, update_contents, ret_msgs, parameters, update_dep_contents_status_name, update_dep_contents_status = ret_trigger_processing
+            process_status, update_contents, ret_msgs, parameters, update_dep_contents_status_name, update_dep_contents_status, new_update_contents = ret_trigger_processing
 
             new_process_status = process_status
             if is_process_terminated(process_status):
@@ -96,6 +96,7 @@ class Trigger(Poller):
             ret = {'update_processing': update_processing,
                    'update_contents': update_contents,
                    'messages': ret_msgs,
+                   'new_update_contents': new_update_contents,
                    'update_dep_contents': (processing['request_id'], update_dep_contents_status_name, update_dep_contents_status),
                    'processing_status': new_process_status}
         except exceptions.ProcessFormatNotSupported as ex:
