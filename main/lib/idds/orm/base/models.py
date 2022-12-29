@@ -564,6 +564,13 @@ class Content(BASE, ModelBase):
                    Index('CONTENTS_REQ_TF_COLL_IDX', 'request_id', 'transform_id', 'coll_id', 'status'))
 
 
+class Content_update(BASE, ModelBase):
+    """Represents a content update"""
+    __tablename__ = 'contents_update'
+    content_id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    substatus = Column(EnumWithValue(ContentStatus))
+
+
 class Content_ext(BASE, ModelBase):
     """Represents a content extension"""
     __tablename__ = 'contents_ext'
@@ -731,7 +738,7 @@ def register_models(engine):
     """
 
     # models = (Request, Workprogress, Transform, Workprogress2transform, Processing, Collection, Content, Health, Message)
-    models = (Request, Transform, Processing, Collection, Content, Content_ext, Health, Message, Command)
+    models = (Request, Transform, Processing, Collection, Content, Content_update, Content_ext, Health, Message, Command)
 
     for model in models:
         # if not engine.has_table(model.__tablename__, model.metadata.schema):
@@ -744,7 +751,18 @@ def unregister_models(engine):
     """
 
     # models = (Request, Workprogress, Transform, Workprogress2transform, Processing, Collection, Content, Health, Message)
-    models = (Request, Transform, Processing, Collection, Content, Content_ext, Health, Message, Command)
+    models = (Request, Transform, Processing, Collection, Content, Content_update, Content_ext, Health, Message, Command)
 
     for model in models:
         model.metadata.drop_all(engine)   # pylint: disable=maybe-no-member
+
+
+@event.listens_for(Content_update.__table__, "after_create")
+def _update_content_dep_status(target, connection, **kw):
+    DDL("""
+        CREATE TRIGGER update_content_dep_status BEFORE DELETE ON contents_update
+        for each row
+        BEGIN
+            UPDATE contents set substatus = :old.substatus where contents.content_dep_id = :old.content_id;
+        END;
+    """)
