@@ -678,7 +678,6 @@ def delete_contents_update(session=None):
     """
     delete a content.
 
-    :param content_id: The id of the content.
     :param session: The database session in use.
 
     :raises NoObject: If no content is founded.

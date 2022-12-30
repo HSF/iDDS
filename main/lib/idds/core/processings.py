@@ -318,7 +318,7 @@ def update_processing_contents(update_processing, update_contents, update_messag
     if new_update_contents:
         # first add and then delete, to trigger the trigger 'update_content_dep_status'.
         orm_contents.add_contents_update(new_update_contents, session=session)
-        orm_contents.delete_contents_update(session=session)
+        # orm_contents.delete_contents_update(session=session)
     if new_contents:
         orm_contents.add_contents(new_contents, session=session)
     if new_input_dependency_contents:

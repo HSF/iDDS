@@ -932,7 +932,7 @@ def handle_update_processing(processing, agent_attributes, logger=None, log_pref
     return process_status, new_contents, new_input_dependency_contents, ret_msgs, content_updates + content_updates_missing, parameters, new_contents_ext, update_contents_ext
 
 
-def handle_trigger_processing(processing, agent_attributes, logger=None, log_prefix=''):
+def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=False, logger=None, log_prefix=''):
     logger = get_logger(logger)
 
     ret_msgs = []
@@ -947,8 +947,11 @@ def handle_trigger_processing(processing, agent_attributes, logger=None, log_pre
     work.set_agent_attributes(agent_attributes, processing)
 
     if not work.use_dependency_to_release_jobs():
-        return processing['substatus'], [], [], {}
+        return processing['substatus'], [], [], {}, {}, {}, []
     else:
+        if trigger_new_updates:
+            # delete information in the contents_update table, to invoke the trigger.
+            core_catalog.delete_contents_update()
         input_output_maps = get_input_output_maps(transform_id, work)
         logger.debug(log_prefix + "input_output_maps.keys[:2]: %s" % str(list(input_output_maps.keys())[:2]))
 

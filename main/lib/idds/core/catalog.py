@@ -611,6 +611,35 @@ def get_output_contents_by_request_id_status(request_id, name, content_status, l
     return contents
 
 
+@transactional_session
+def add_contents_update(contents, bulk_size=10000, session=None):
+    """
+    Add contents update.
+
+    :param contents: dict of contents.
+    :param session: session.
+
+    :raises DuplicatedObject: If a collection with the same name exists.
+    :raises DatabaseException: If there is a database error.
+
+    :returns: content ids.
+    """
+    return orm_contents.add_contents_update(contents, bulk_size=bulk_size, session=session)
+
+
+@transactional_session
+def delete_contents_update(session=None):
+    """
+    delete a content.
+
+    :param session: The database session in use.
+
+    :raises NoObject: If no content is founded.
+    :raises DatabaseException: If there is a database error.
+    """
+    return orm_contents.delete_contents_update(session=session)
+
+
 def get_contents_ext_maps():
     return orm_contents.get_contents_ext_maps()
 

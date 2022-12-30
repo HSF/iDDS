@@ -70,11 +70,12 @@ class Trigger(Poller):
                 self.logger.error(traceback.format_exc())
         return []
 
-    def handle_trigger_processing(self, processing):
+    def handle_trigger_processing(self, processing, trigger_new_updates=False):
         try:
             log_prefix = self.get_log_prefix(processing)
             ret_trigger_processing = handle_trigger_processing(processing,
                                                                self.agent_attributes,
+                                                               trigger_new_updates=trigger_new_updates,
                                                                logger=self.logger,
                                                                log_prefix=log_prefix)
             process_status, update_contents, ret_msgs, parameters, update_dep_contents_status_name, update_dep_contents_status, new_update_contents = ret_trigger_processing
@@ -163,6 +164,11 @@ class Trigger(Poller):
                     # self.logger.info(log_pre + "process_trigger_processing result: %s" % str(ret))
 
                     self.update_processing(ret, pr)
+
+                    new_update_contents = ret.get('new_update_contents', None)
+                    if new_update_contents:
+                        ret = self.handle_trigger_processing(pr, trigger_new_updates=True)
+                        self.update_processing(ret, pr)
 
                     if (('processing_status' in ret and ret['processing_status'] == ProcessingStatus.Terminating)
                         or (event._content and 'Terminated' in event._content and event._content['Terminated'])):   # noqa W503
