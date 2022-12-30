@@ -74,6 +74,13 @@ def get_logger(name, filename=None, loglevel=None):
 
     if filename is None:
         filename = name + ".log"
+    if not filename.startswith("/"):
+        if config_has_section('common') and config_has_option('common', 'logdir'):
+            logdir = config_get('common', 'logdir')
+        if not logdir:
+            logdir = '/var/log/idds'
+        filename = os.path.join(logdir, filename)
+
     formatter = '%(asctime)s\t%(threadName)s\t%(name)s\t%(levelname)s\t%(message)s'
 
     handler = logging.FileHandler(filename)
