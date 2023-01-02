@@ -51,12 +51,12 @@ class EventType(Enum):
 
 
 class Event(object):
-    def __init__(self, publisher_id, event_type=EventType.Event, content=None):
+    def __init__(self, publisher_id, event_type=EventType.Event, content=None, counter=1):
         self._id = str(uuid.uuid4())
         self._publisher_id = publisher_id
         self._event_type = event_type
         self._timestamp = time.time()
-        self._counter = 1
+        self._counter = counter
         self._content = content
 
     def to_json(self):
@@ -72,8 +72,8 @@ class Event(object):
 
 
 class StateClaimEvent(Event):
-    def __init__(self, publisher_id, event_bus_state, content=None):
-        super(StateClaimEvent, self).__init__(publisher_id, event_type=EventType.StateClaim, content=content)
+    def __init__(self, publisher_id, event_bus_state, content=None, counter=1):
+        super(StateClaimEvent, self).__init__(publisher_id, event_type=EventType.StateClaim, content=content, counter=counter)
         self._event_bus_state = event_bus_state
 
     def to_json(self):
@@ -83,8 +83,8 @@ class StateClaimEvent(Event):
 
 
 class DemandEvent(Event):
-    def __init__(self, publisher_id, demand_type, content=None):
-        super(DemandEvent, self).__init__(publisher_id, event_type=EventType.Demand, content=content)
+    def __init__(self, publisher_id, demand_type, content=None, counter=1):
+        super(DemandEvent, self).__init__(publisher_id, event_type=EventType.Demand, content=content, counter=counter)
         self._demand_type = demand_type
 
     def to_json(self):
@@ -94,8 +94,8 @@ class DemandEvent(Event):
 
 
 class NewRequestEvent(Event):
-    def __init__(self, publisher_id, request_id, content=None):
-        super(NewRequestEvent, self).__init__(publisher_id, event_type=EventType.NewRequest, content=content)
+    def __init__(self, publisher_id, request_id, content=None, counter=1):
+        super(NewRequestEvent, self).__init__(publisher_id, event_type=EventType.NewRequest, content=content, counter=counter)
         self._request_id = request_id
 
     def to_json(self):
@@ -105,8 +105,8 @@ class NewRequestEvent(Event):
 
 
 class UpdateRequestEvent(Event):
-    def __init__(self, publisher_id, request_id, content=None):
-        super(UpdateRequestEvent, self).__init__(publisher_id, event_type=EventType.UpdateRequest, content=content)
+    def __init__(self, publisher_id, request_id, content=None, counter=1):
+        super(UpdateRequestEvent, self).__init__(publisher_id, event_type=EventType.UpdateRequest, content=content, counter=counter)
         self._request_id = request_id
 
     def to_json(self):
@@ -116,8 +116,8 @@ class UpdateRequestEvent(Event):
 
 
 class AbortRequestEvent(Event):
-    def __init__(self, publisher_id, request_id, content=None):
-        super(AbortRequestEvent, self).__init__(publisher_id, event_type=EventType.AbortRequest, content=content)
+    def __init__(self, publisher_id, request_id, content=None, counter=1):
+        super(AbortRequestEvent, self).__init__(publisher_id, event_type=EventType.AbortRequest, content=content, counter=counter)
         self._request_id = request_id
 
     def to_json(self):
@@ -127,8 +127,8 @@ class AbortRequestEvent(Event):
 
 
 class ResumeRequestEvent(Event):
-    def __init__(self, publisher_id, request_id, content=None):
-        super(ResumeRequestEvent, self).__init__(publisher_id, event_type=EventType.ResumeRequest, content=content)
+    def __init__(self, publisher_id, request_id, content=None, counter=1):
+        super(ResumeRequestEvent, self).__init__(publisher_id, event_type=EventType.ResumeRequest, content=content, counter=counter)
         self._request_id = request_id
 
     def to_json(self):
@@ -138,8 +138,8 @@ class ResumeRequestEvent(Event):
 
 
 class ExpireRequestEvent(Event):
-    def __init__(self, publisher_id, request_id, content=None):
-        super(ExpireRequestEvent, self).__init__(publisher_id, event_type=EventType.ExpireRequest, content=content)
+    def __init__(self, publisher_id, request_id, content=None, counter=1):
+        super(ExpireRequestEvent, self).__init__(publisher_id, event_type=EventType.ExpireRequest, content=content, counter=counter)
         self._request_id = request_id
 
     def to_json(self):
@@ -149,8 +149,8 @@ class ExpireRequestEvent(Event):
 
 
 class UpdateCommandEvent(Event):
-    def __init__(self, publisher_id, command_id, content=None):
-        super(UpdateCommandEvent, self).__init__(publisher_id, event_type=EventType.UpdateCommand, content=content)
+    def __init__(self, publisher_id, command_id, content=None, counter=1):
+        super(UpdateCommandEvent, self).__init__(publisher_id, event_type=EventType.UpdateCommand, content=content, counter=counter)
         self._command_id = command_id
 
     def to_json(self):
@@ -160,8 +160,8 @@ class UpdateCommandEvent(Event):
 
 
 class NewTransformEvent(Event):
-    def __init__(self, publisher_id, transform_id, content=None):
-        super(NewTransformEvent, self).__init__(publisher_id, event_type=EventType.NewTransform, content=content)
+    def __init__(self, publisher_id, transform_id, content=None, counter=1):
+        super(NewTransformEvent, self).__init__(publisher_id, event_type=EventType.NewTransform, content=content, counter=counter)
         self._transform_id = transform_id
 
     def to_json(self):
@@ -171,8 +171,8 @@ class NewTransformEvent(Event):
 
 
 class UpdateTransformEvent(Event):
-    def __init__(self, publisher_id, transform_id, content=None):
-        super(UpdateTransformEvent, self).__init__(publisher_id, event_type=EventType.UpdateTransform, content=content)
+    def __init__(self, publisher_id, transform_id, content=None, counter=1):
+        super(UpdateTransformEvent, self).__init__(publisher_id, event_type=EventType.UpdateTransform, content=content, counter=counter)
         self._transform_id = transform_id
 
     def to_json(self):
@@ -182,8 +182,8 @@ class UpdateTransformEvent(Event):
 
 
 class AbortTransformEvent(Event):
-    def __init__(self, publisher_id, transform_id, content=None):
-        super(AbortTransformEvent, self).__init__(publisher_id, event_type=EventType.AbortTransform, content=content)
+    def __init__(self, publisher_id, transform_id, content=None, counter=1):
+        super(AbortTransformEvent, self).__init__(publisher_id, event_type=EventType.AbortTransform, content=content, counter=counter)
         self._transform_id = transform_id
 
     def to_json(self):
@@ -193,8 +193,8 @@ class AbortTransformEvent(Event):
 
 
 class ResumeTransformEvent(Event):
-    def __init__(self, publisher_id, transform_id, content=None):
-        super(ResumeTransformEvent, self).__init__(publisher_id, event_type=EventType.ResumeTransform, content=content)
+    def __init__(self, publisher_id, transform_id, content=None, counter=1):
+        super(ResumeTransformEvent, self).__init__(publisher_id, event_type=EventType.ResumeTransform, content=content, counter=counter)
         self._transform_id = transform_id
 
     def to_json(self):
@@ -204,8 +204,8 @@ class ResumeTransformEvent(Event):
 
 
 class NewProcessingEvent(Event):
-    def __init__(self, publisher_id, processing_id, content=None):
-        super(NewProcessingEvent, self).__init__(publisher_id, event_type=EventType.NewProcessing, content=content)
+    def __init__(self, publisher_id, processing_id, content=None, counter=1):
+        super(NewProcessingEvent, self).__init__(publisher_id, event_type=EventType.NewProcessing, content=content, counter=counter)
         self._processing_id = processing_id
 
     def to_json(self):
@@ -215,8 +215,8 @@ class NewProcessingEvent(Event):
 
 
 class UpdateProcessingEvent(Event):
-    def __init__(self, publisher_id, processing_id, content=None):
-        super(UpdateProcessingEvent, self).__init__(publisher_id, event_type=EventType.UpdateProcessing, content=content)
+    def __init__(self, publisher_id, processing_id, content=None, counter=1):
+        super(UpdateProcessingEvent, self).__init__(publisher_id, event_type=EventType.UpdateProcessing, content=content, counter=counter)
         self._processing_id = processing_id
 
     def to_json(self):
@@ -226,8 +226,8 @@ class UpdateProcessingEvent(Event):
 
 
 class AbortProcessingEvent(Event):
-    def __init__(self, publisher_id, processing_id, content=None):
-        super(AbortProcessingEvent, self).__init__(publisher_id, event_type=EventType.AbortProcessing, content=content)
+    def __init__(self, publisher_id, processing_id, content=None, counter=1):
+        super(AbortProcessingEvent, self).__init__(publisher_id, event_type=EventType.AbortProcessing, content=content, counter=counter)
         self._processing_id = processing_id
 
     def to_json(self):
@@ -237,8 +237,8 @@ class AbortProcessingEvent(Event):
 
 
 class ResumeProcessingEvent(Event):
-    def __init__(self, publisher_id, processing_id, content=None):
-        super(ResumeProcessingEvent, self).__init__(publisher_id, event_type=EventType.ResumeProcessing, content=content)
+    def __init__(self, publisher_id, processing_id, content=None, counter=1):
+        super(ResumeProcessingEvent, self).__init__(publisher_id, event_type=EventType.ResumeProcessing, content=content, counter=counter)
         self._processing_id = processing_id
 
     def to_json(self):
@@ -248,8 +248,8 @@ class ResumeProcessingEvent(Event):
 
 
 class SyncProcessingEvent(Event):
-    def __init__(self, publisher_id, processing_id, content=None):
-        super(SyncProcessingEvent, self).__init__(publisher_id, event_type=EventType.SyncProcessing, content=content)
+    def __init__(self, publisher_id, processing_id, content=None, counter=1):
+        super(SyncProcessingEvent, self).__init__(publisher_id, event_type=EventType.SyncProcessing, content=content, counter=counter)
         self._processing_id = processing_id
 
     def to_json(self):
@@ -259,8 +259,8 @@ class SyncProcessingEvent(Event):
 
 
 class TerminatedProcessingEvent(Event):
-    def __init__(self, publisher_id, processing_id, content=None):
-        super(TerminatedProcessingEvent, self).__init__(publisher_id, event_type=EventType.TerminatedProcessing, content=content)
+    def __init__(self, publisher_id, processing_id, content=None, counter=1):
+        super(TerminatedProcessingEvent, self).__init__(publisher_id, event_type=EventType.TerminatedProcessing, content=content, counter=counter)
         self._processing_id = processing_id
 
     def to_json(self):
@@ -270,8 +270,8 @@ class TerminatedProcessingEvent(Event):
 
 
 class TriggerProcessingEvent(Event):
-    def __init__(self, publisher_id, processing_id, content=None):
-        super(TriggerProcessingEvent, self).__init__(publisher_id, event_type=EventType.TriggerProcessing, content=content)
+    def __init__(self, publisher_id, processing_id, content=None, counter=1):
+        super(TriggerProcessingEvent, self).__init__(publisher_id, event_type=EventType.TriggerProcessing, content=content, counter=counter)
         self._processing_id = processing_id
 
     def to_json(self):
