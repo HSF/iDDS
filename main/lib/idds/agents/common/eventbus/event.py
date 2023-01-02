@@ -56,12 +56,14 @@ class Event(object):
         self._publisher_id = publisher_id
         self._event_type = event_type
         self._timestamp = time.time()
+        self._counter = 1
         self._content = content
 
     def to_json(self):
         ret = {'id': self._id, 'publisher_id': self._publisher_id,
                'event_type': (self._event_type.name, self._event_type.value),
                'timestamp': self._timestamp,
+               'counter': self._counter,
                'content': self._content}
         return ret
 
