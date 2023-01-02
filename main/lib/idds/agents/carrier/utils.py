@@ -561,16 +561,17 @@ def get_updated_contents_by_input_output_maps(input_output_maps=None, logger=Non
             input_content_update_status = ContentStatus.Missing
         if input_content_update_status:
             for content in inputs:
-                u_content = {'content_id': content['content_id'],
-                             'status': input_content_update_status,
-                             'substatus': input_content_update_status}
-                updated_contents.append(u_content)
-                content['status'] = input_content_update_status
-                content['substatus'] = input_content_update_status
-                updated_contents_full_input.append(content)
-                u_content_substatus = {'content_id': content['content_id'],
-                                       'substatus': content['substatus']}
-                new_update_contents.append(u_content_substatus)
+                if content['substatus'] != input_content_update_status:
+                    u_content = {'content_id': content['content_id'],
+                                 'status': input_content_update_status,
+                                 'substatus': input_content_update_status}
+                    updated_contents.append(u_content)
+                    content['status'] = input_content_update_status
+                    content['substatus'] = input_content_update_status
+                    updated_contents_full_input.append(content)
+                    u_content_substatus = {'content_id': content['content_id'],
+                                           'substatus': content['substatus']}
+                    new_update_contents.append(u_content_substatus)
 
         output_content_update_status = None
         if is_all_contents_available(inputs):
@@ -580,16 +581,17 @@ def get_updated_contents_by_input_output_maps(input_output_maps=None, logger=Non
             output_content_update_status = ContentStatus.Missing
         if output_content_update_status:
             for content in outputs:
-                u_content = {'content_id': content['content_id'],
-                             'status': output_content_update_status,
-                             'substatus': output_content_update_status}
-                updated_contents.append(u_content)
-                content['status'] = output_content_update_status
-                content['substatus'] = output_content_update_status
-                updated_contents_full_output.append(content)
-                u_content_substatus = {'content_id': content['content_id'],
-                                       'substatus': content['substatus']}
-                new_update_contents.append(u_content_substatus)
+                if content['substatus'] != output_content_update_status:
+                    u_content = {'content_id': content['content_id'],
+                                 'status': output_content_update_status,
+                                 'substatus': output_content_update_status}
+                    updated_contents.append(u_content)
+                    content['status'] = output_content_update_status
+                    content['substatus'] = output_content_update_status
+                    updated_contents_full_output.append(content)
+                    u_content_substatus = {'content_id': content['content_id'],
+                                           'substatus': content['substatus']}
+                    new_update_contents.append(u_content_substatus)
     return updated_contents, updated_contents_full_input, updated_contents_full_output, updated_contents_full_input_deps, new_update_contents
 
 
@@ -1211,7 +1213,7 @@ def sync_collection_status(request_id, transform_id, workload_id, work, input_ou
             if content['status'] in [ContentStatus.Available, ContentStatus.Mapped,
                                      ContentStatus.Available.value, ContentStatus.Mapped.value,
                                      ContentStatus.FakeAvailable, ContentStatus.FakeAvailable.value]:
-                coll_status[content['coll_id']]['processed_extfiles'] += 1
+                coll_status[content['coll_id']]['processed_ext_files'] += 1
             elif content['status'] in [ContentStatus.Failed, ContentStatus.FinalFailed]:
                 coll_status[content['coll_id']]['failed_ext_files'] += 1
             elif content['status'] in [ContentStatus.Lost, ContentStatus.Deleted, ContentStatus.Missing]:
@@ -1344,6 +1346,10 @@ def sync_processing(processing, agent_attributes, terminate=False, logger=None, 
             msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='content_ext', files=contents_ext,
                                      relation_type='output', input_output_maps=input_output_maps)
             messages += msgs
+
+        if processing['status'] == ProcessingStatus.Terminating and is_process_terminated(processing['substatus']):
+            processing['status'] = processing['substatus']
+
     return processing, update_collections, messages
 
 
