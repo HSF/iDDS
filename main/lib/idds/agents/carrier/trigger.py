@@ -152,6 +152,7 @@ class Trigger(Poller):
         self.number_workers += 1
         try:
             if event:
+                original_event = event
                 # pr_status = [ProcessingStatus.New]
                 self.logger.info("process_trigger_processing, event: %s" % str(event))
                 pr = self.get_processing(processing_id=event._processing_id, status=None, locking=True)
@@ -173,7 +174,8 @@ class Trigger(Poller):
                     if (('processing_status' in ret and ret['processing_status'] == ProcessingStatus.Terminating)
                         or (event._content and 'Terminated' in event._content and event._content['Terminated'])):   # noqa W503
                         self.logger.info(log_pre + "TerminatedProcessingEvent(processing_id: %s)" % pr['processing_id'])
-                        event = TerminatedProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'], content=event._content)
+                        event = TerminatedProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'], content=event._content,
+                                                          counter=original_event._counter)
                         self.event_bus.send(event)
                     else:
                         if ((event._content and 'has_updates' in event._content and event._content['has_updates'])
@@ -181,7 +183,8 @@ class Trigger(Poller):
                             or ('new_contents' in ret and ret['new_contents'])          # noqa W503
                             or ('messages' in ret and ret['messages'])):                # noqa E129
                             self.logger.info(log_pre + "SyncProcessingEvent(processing_id: %s)" % pr['processing_id'])
-                            event = SyncProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'])
+                            event = SyncProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'],
+                                                        counter=original_event._counter)
                             self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)

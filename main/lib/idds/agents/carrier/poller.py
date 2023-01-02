@@ -198,6 +198,8 @@ class Poller(BaseAgent):
                                                                     update_messages=processing.get('update_messages', None),
                                                                     new_contents=processing.get('new_contents', None),
                                                                     new_update_contents=processing.get('new_update_contents', None),
+                                                                    new_contents_ext=processing.get('new_contents_ext', None),
+                                                                    update_contents_ext=processing.get('update_contents_ext', None),
                                                                     new_input_dependency_contents=processing.get('new_input_dependency_contents', None))
                     except exceptions.DatabaseException as ex:
                         if 'ORA-00060' in str(ex):
@@ -348,6 +350,7 @@ class Poller(BaseAgent):
         self.number_workers += 1
         try:
             if event:
+                original_event = event
                 self.logger.info("process_update_processing, event: %s" % str(event))
 
                 pr = self.get_processing(processing_id=event._processing_id, status=None, locking=True)
@@ -368,18 +371,23 @@ class Poller(BaseAgent):
                             event_content['has_updates'] = True
                         if is_process_terminated(pr['substatus']):
                             event_content['Terminated'] = True
-                        event = TriggerProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'], content=event_content)
+                        event = TriggerProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'], content=event_content,
+                                                       counter=original_event._counter)
                         self.event_bus.send(event)
                     elif 'processing_status' in ret and ret['processing_status'] == ProcessingStatus.Terminating:
                         self.logger.info(log_pre + "TerminatedProcessingEvent(processing_id: %s)" % pr['processing_id'])
-                        event = TerminatedProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'])
+                        event = TerminatedProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'],
+                                                          counter=original_event._counter)
                         self.event_bus.send(event)
                     else:
                         if (('update_contents' in ret and ret['update_contents'])
                             or ('new_contents' in ret and ret['new_contents'])       # noqa W503
+                            or ('new_contents_ext' in ret and ret['new_contents_ext'])       # noqa W503
+                            or ('update_contents_ext' in ret and ret['update_contents_ext'])       # noqa W503
                             or ('messages' in ret and ret['messages'])):             # noqa E129
                             self.logger.info(log_pre + "SyncProcessingEvent(processing_id: %s)" % pr['processing_id'])
-                            event = SyncProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'])
+                            event = SyncProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'],
+                                                        counter=original_event._counter)
                             self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
