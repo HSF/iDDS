@@ -834,7 +834,8 @@ def get_contents_ext_ids(request_id=None, transform_id=None, workload_id=None, c
         rets = []
         if tmp:
             for t in tmp:
-                rets.append(t.to_dict())
+                t2 = dict(zip(t.keys(), t))
+                rets.append(t2)
         return rets
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('No record can be found with (transform_id=%s): %s' %

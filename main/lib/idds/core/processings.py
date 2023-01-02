@@ -304,6 +304,7 @@ def resolve_input_dependency_id(new_input_dependency_contents, session=None):
 def update_processing_contents(update_processing, update_contents, update_messages=None, new_contents=None,
                                update_dep_contents=None, update_collections=None, messages=None,
                                new_update_contents=None, new_input_dependency_contents=None,
+                               new_contents_ext=None, update_contents_ext=None,
                                message_bulk_size=2000, session=None):
     """
     Update processing with contents.
@@ -321,6 +322,10 @@ def update_processing_contents(update_processing, update_contents, update_messag
         # orm_contents.delete_contents_update(session=session)
     if new_contents:
         orm_contents.add_contents(new_contents, session=session)
+    if new_contents_ext:
+        orm_contents.add_contents_ext(new_contents_ext, session=session)
+    if update_contents_ext:
+        orm_contents.update_contents_ext(update_contents_ext, session=session)
     if new_input_dependency_contents:
         new_input_dependency_contents = resolve_input_dependency_id(new_input_dependency_contents, session=session)
         orm_contents.add_contents(new_input_dependency_contents, session=session)

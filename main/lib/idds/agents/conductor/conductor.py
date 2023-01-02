@@ -19,7 +19,8 @@ except ImportError:
 
 from idds.common.constants import (Sections, MessageStatus, MessageDestination)
 from idds.common.exceptions import AgentPluginError, IDDSException
-from idds.common.utils import setup_logging, get_logger
+# from idds.common.utils import setup_logging, get_logger
+from idds.common.utils import setup_logging
 from idds.core import messages as core_messages
 from idds.agents.common.baseagent import BaseAgent
 
