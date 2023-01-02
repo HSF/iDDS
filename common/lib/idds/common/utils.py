@@ -82,13 +82,14 @@ def get_logger(name, filename=None, loglevel=None):
             logdir = '/var/log/idds'
         filename = os.path.join(logdir, filename)
 
-    formatter = '%(asctime)s\t%(threadName)s\t%(name)s\t%(levelname)s\t%(message)s'
+    formatter = logging.Formatter('%(asctime)s\t%(threadName)s\t%(name)s\t%(levelname)s\t%(message)s')
 
     handler = logging.FileHandler(filename)
     handler.setFormatter(formatter)
     logger = logging.getLogger(name)
     logger.setLevel(loglevel)
     logger.addHandler(handler)
+    logger.propagate = False
     return logger
 
 

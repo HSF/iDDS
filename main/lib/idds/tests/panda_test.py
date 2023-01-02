@@ -60,7 +60,7 @@ if ret[0] == 0:
     ret_jobs = ret_jobs + ret[1]
     print(len(ret_jobs))
 
-sys.exit(0)
+# sys.exit(0)
 
 """
 jediTaskID = 998
@@ -92,10 +92,11 @@ task_ids = []
 # task_ids = [2549, 2560]
 # task_ids = [i for i in range(3692, 3723)]
 # task_ids = [3834, 3835, 3836]
-task_ids = []
+# task_ids = [i for i in range(141294, 142200)] + [i for i in range(141003, 141077)] + [i for i in range(141145, 141255)]
+task_ids = [140954, 140955, 142228]
 for task_id in task_ids:
     print("Killing %s" % task_id)
-    # Client.killTask(task_id)
+    Client.killTask(task_id)
 
 """
 jobids = []

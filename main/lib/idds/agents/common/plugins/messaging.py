@@ -38,7 +38,7 @@ class MessagingListener(stomp.ConnectionListener):
         self.__broker = broker
         self.__output_queue = output_queue
         # self.logger = logging.getLogger(self.__class__.__name__)
-        self.logger = get_logger(self.__class__.__name__, filename="MessageLister.log")
+        self.logger = get_logger(self.__class__.__name__)
 
     def on_error(self, frame):
         '''
@@ -70,6 +70,9 @@ class MessagingSender(PluginBase, threading.Thread):
         self.broker_timeout = 3600
 
         self.conns = []
+
+    def setup_logger(self):
+        self.logger = get_logger(self.__class__.__name__)
 
     def stop(self):
         self.graceful_stop.set()

@@ -19,7 +19,7 @@ except ImportError:
 
 from idds.common.constants import Sections
 from idds.common.exceptions import AgentPluginError, IDDSException
-from idds.common.utils import setup_logging
+from idds.common.utils import setup_logging, get_logger
 from idds.common.utils import json_dumps
 from idds.core import messages as core_messages, catalog as core_catalog
 from idds.agents.common.baseagent import BaseAgent
@@ -43,6 +43,7 @@ class Receiver(BaseAgent):
         self.bulk_message_delay = int(bulk_message_delay)
         self.bulk_message_size = int(bulk_message_size)
         self.message_queue = Queue()
+        self.logger_receiver = get_logger(self.__class__.__name__)
 
     def __del__(self):
         self.stop_receiver()
@@ -68,7 +69,7 @@ class Receiver(BaseAgent):
             while not self.message_queue.empty():
                 msg = self.message_queue.get(False)
                 if msg:
-                    # self.logger.debug("Received message: %s" % str(msg))
+                    self.logger_receiver.debug("Received message: %s" % str(msg))
                     msgs.append(msg)
         except Exception as error:
             self.logger.error("Failed to get output messages: %s, %s" % (error, traceback.format_exc()))
