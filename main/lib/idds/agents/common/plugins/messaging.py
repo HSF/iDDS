@@ -30,7 +30,7 @@ class MessagingListener(stomp.ConnectionListener):
     '''
     Messaging Listener
     '''
-    def __init__(self, broker, output_queue):
+    def __init__(self, broker, output_queue, logger=None):
         '''
         __init__
         '''
@@ -38,7 +38,10 @@ class MessagingListener(stomp.ConnectionListener):
         self.__broker = broker
         self.__output_queue = output_queue
         # self.logger = logging.getLogger(self.__class__.__name__)
-        self.logger = get_logger(self.__class__.__name__)
+        if logger:
+            self.logger = logger
+        else:
+            self.logger = get_logger(self.__class__.__name__)
 
     def on_error(self, frame):
         '''
@@ -53,11 +56,12 @@ class MessagingListener(stomp.ConnectionListener):
 
 
 class MessagingSender(PluginBase, threading.Thread):
-    def __init__(self, name="MessagingSender", **kwargs):
+    def __init__(self, name="MessagingSender", logger=None, **kwargs):
         threading.Thread.__init__(self, name=name)
-        super(MessagingSender, self).__init__(name=name, **kwargs)
+        super(MessagingSender, self).__init__(name=name, logger=logger, **kwargs)
 
-        self.setup_logger()
+        if logger:
+            self.logger = logger
         self.graceful_stop = threading.Event()
         self.request_queue = None
         self.output_queue = None
@@ -71,8 +75,17 @@ class MessagingSender(PluginBase, threading.Thread):
 
         self.conns = []
 
-    def setup_logger(self):
-        self.logger = get_logger(self.__class__.__name__)
+    def setup_logger(self, logger):
+        if logger:
+            self.logger = logger
+        else:
+            self.logger = get_logger(self.__class__.__name__)
+
+    def set_logger(self, logger):
+        self.logger = logger
+
+    def get_logger(self):
+        return self.logger
 
     def stop(self):
         self.graceful_stop.set()
@@ -200,14 +213,14 @@ class MessagingSender(PluginBase, threading.Thread):
 
 
 class MessagingReceiver(MessagingSender):
-    def __init__(self, name="MessagingReceiver", **kwargs):
-        super(MessagingReceiver, self).__init__(name=name, **kwargs)
+    def __init__(self, name="MessagingReceiver", logger=None, **kwargs):
+        super(MessagingReceiver, self).__init__(name=name, logger=logger, **kwargs)
         self.listener = None
         self.receiver_conns = []
 
     def get_listener(self, broker):
         if self.listener is None:
-            self.listener = MessagingListener(broker, self.output_queue)
+            self.listener = MessagingListener(broker, self.output_queue, logger=self.logger)
         return self.listener
 
     def subscribe(self):
@@ -264,8 +277,8 @@ class MessagingReceiver(MessagingSender):
 
 
 class MessagingMessager(MessagingReceiver):
-    def __init__(self, name="MessagingMessager", **kwargs):
-        super(MessagingMessager, self).__init__(name=name, **kwargs)
+    def __init__(self, name="MessagingMessager", logger=None, **kwargs):
+        super(MessagingMessager, self).__init__(name=name, logger=logger, **kwargs)
 
     def execute_send_subscribe(self):
         try:

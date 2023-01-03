@@ -19,8 +19,7 @@ except ImportError:
 
 from idds.common.constants import (Sections, MessageStatus, MessageDestination)
 from idds.common.exceptions import AgentPluginError, IDDSException
-# from idds.common.utils import setup_logging, get_logger
-from idds.common.utils import setup_logging
+from idds.common.utils import setup_logging, get_logger
 from idds.core import messages as core_messages
 from idds.agents.common.baseagent import BaseAgent
 
@@ -56,7 +55,7 @@ class Conductor(BaseAgent):
         if replay_times is None:
             replay_times = 3
         self.replay_times = int(replay_times)
-        # self.logger = get_logger(self.__class__.__name__)
+        self.logger = get_logger(self.__class__.__name__)
 
     def __del__(self):
         self.stop_notifier()
@@ -104,6 +103,7 @@ class Conductor(BaseAgent):
         self.logger.info("Starting notifier: %s" % self.notifier)
         self.notifier.set_request_queue(self.message_queue)
         self.notifier.set_response_queue(self.output_message_queue)
+        self.notifier.set_logger(self.logger)
         self.notifier.start()
 
     def stop_notifier(self):

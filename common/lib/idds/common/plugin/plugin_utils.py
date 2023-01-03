@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
 
 
 """
@@ -57,7 +57,7 @@ def load_plugin_attributes(config_section, name, plugin):
     return attrs
 
 
-def load_plugin(config_section, name, plugin):
+def load_plugin(config_section, name, plugin, logger=None):
     """
     Load plugin attributes
     """
@@ -67,11 +67,12 @@ def load_plugin(config_section, name, plugin):
     plugin_class = plugin[k + 1:]
     module = __import__(plugin_modules, fromlist=[None])
     cls = getattr(module, plugin_class)
+    attrs['logger'] = logger
     impl = cls(**attrs)
     return impl
 
 
-def load_plugins(config_section):
+def load_plugins(config_section, logger=None):
     """
     Load plugins
     """
@@ -82,5 +83,5 @@ def load_plugins(config_section):
             if option.startswith('plugin.'):
                 if option.count('.') == 1:
                     plugin_name = option.replace('plugin.', '').strip()
-                    plugins[plugin_name] = load_plugin(config_section, plugin_name, value)
+                    plugins[plugin_name] = load_plugin(config_section, plugin_name, value, logger=logger)
     return plugins
