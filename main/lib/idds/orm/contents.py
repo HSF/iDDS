@@ -274,7 +274,7 @@ def get_match_contents(coll_id, scope, name, content_type=None, min_id=None, max
 
 
 @read_session
-def get_contents(scope=None, name=None, coll_id=None, status=None, to_json=False, session=None):
+def get_contents(scope=None, name=None, coll_id=None, status=None, relation_type=None, to_json=False, session=None):
     """
     Get content or raise a NoObject exception.
 
@@ -313,155 +313,9 @@ def get_contents(scope=None, name=None, coll_id=None, status=None, to_json=False
             query = query.filter(models.Content.name.like(name.replace('*', '%')))
         if status is not None:
             query = query.filter(models.Content.status.in_(status))
+        if relation_type:
+            query = query.filter(models.Content.content_relation_type == relation_type)
 
-        tmp = query.all()
-        rets = []
-        if tmp:
-            for t in tmp:
-                if to_json:
-                    rets.append(t.to_dict_json())
-                else:
-                    rets.append(t.to_dict())
-        return rets
-    except sqlalchemy.orm.exc.NoResultFound as error:
-        raise exceptions.NoObject('No record can be found with (scope=%s, name=%s, coll_id=%s): %s' %
-                                  (scope, name, coll_id, error))
-    except Exception as error:
-        raise error
-
-
-@read_session
-def get_contents_by_request_transform(request_id=None, transform_id=None, workload_id=None, status=None, status_updated=False, session=None):
-    """
-    Get content or raise a NoObject exception.
-
-    :param request_id: request id.
-    :param transform_id: transform id.
-    :param workload_id: workload id.
-
-    :param session: The database session in use.
-
-    :raises NoObject: If no content is founded.
-
-    :returns: list of contents.
-    """
-
-    try:
-        if status is not None:
-            if not isinstance(status, (tuple, list)):
-                status = [status]
-
-        query = session.query(models.Content)
-        query = query.with_hint(models.Content, "INDEX(CONTENTS CONTENTS_REQ_TF_COLL_IDX)", 'oracle')
-        if request_id:
-            query = query.filter(models.Content.request_id == request_id)
-        if transform_id:
-            query = query.filter(models.Content.transform_id == transform_id)
-        if workload_id:
-            query = query.filter(models.Content.workload_id == workload_id)
-        if status is not None:
-            query = query.filter(models.Content.substatus.in_(status))
-        if status_updated:
-            query = query.filter(models.Content.status != models.Content.substatus)
-        query = query.order_by(asc(models.Content.request_id), asc(models.Content.transform_id), asc(models.Content.map_id))
-
-        tmp = query.all()
-        rets = []
-        if tmp:
-            for t in tmp:
-                rets.append(t.to_dict())
-        return rets
-    except sqlalchemy.orm.exc.NoResultFound as error:
-        raise exceptions.NoObject('No record can be found with (transform_id=%s): %s' %
-                                  (transform_id, error))
-    except Exception as error:
-        raise error
-
-
-@read_session
-def get_contents_by_content_ids(content_ids, request_id=None, bulk_size=1000, session=None):
-    """
-    Get content or raise a NoObject exception.
-
-    :param request_id: request id.
-    :param content_ids: list of content id.
-    :param workload_id: workload id.
-
-    :param session: The database session in use.
-
-    :raises NoObject: If no content is founded.
-
-    :returns: list of contents.
-    """
-    try:
-        if content_ids:
-            if not isinstance(content_ids, (list, tuple)):
-                content_ids = [content_ids]
-
-        chunks = [content_ids[i:i + bulk_size] for i in range(0, len(content_ids), bulk_size)]
-        ret = []
-        for chunk in chunks:
-            ret_chunk = get_contents_by_content_ids_real(chunk, request_id=request_id)
-            ret = ret + ret_chunk
-        return ret
-    except Exception as error:
-        raise error
-
-
-@read_session
-def get_contents_by_content_ids_real(content_ids, request_id=None, session=None):
-    """
-    Get content or raise a NoObject exception.
-
-    :param request_id: request id.
-    :param content_ids: list of content id.
-    :param workload_id: workload id.
-
-    :param session: The database session in use.
-
-    :raises NoObject: If no content is founded.
-
-    :returns: list of contents.
-    """
-    try:
-        query = session.query(models.Content)
-        query = query.with_hint(models.Content, "INDEX(CONTENTS CONTENTS_REQ_TF_COLL_IDX)", 'oracle')
-        if request_id:
-            query = query.filter(models.Content.request_id == request_id)
-        query = query.filter(models.Content.content_id.in_(content_ids))
-        ret = query.all()
-        rets = [t.to_dict() for t in ret]
-        return rets
-    except Exception as error:
-        raise error
-
-
-@read_session
-def get_input_contents(request_id, coll_id, name=None, to_json=False, session=None):
-    """
-    Get content or raise a NoObject exception.
-
-    :param request_id: request id.
-    :param coll_id: collection id.
-    :param name: content name.
-    :param to_json: return json format.
-
-    :param session: The database session in use.
-
-    :raises NoObject: If no content is founded.
-
-    :returns: list of contents.
-    """
-
-    try:
-        query = session.query(models.Content)
-        query = query.with_hint(models.Content, "INDEX(CONTENTS CONTENTS_REQ_TF_COLL_IDX)", 'oracle')
-        query = query.filter(models.Content.request_id == request_id)
-        query = query.filter(models.Content.coll_id == coll_id)
-
-        if name:
-            query = query.filter(models.Content.name == name)
-        # query = query.filter(models.Content.content_relation_type == ContentRelationType.Input)
         query = query.order_by(asc(models.Content.map_id))
 
         tmp = query.all()
@@ -474,8 +328,8 @@ def get_input_contents(request_id, coll_id, name=None, to_json=False, session=No
                     rets.append(t.to_dict())
         return rets
     except sqlalchemy.orm.exc.NoResultFound as error:
-        raise exceptions.NoObject('No record can be found with (transform_id=%s, coll_id=%s, name=%s): %s' %
-                                  (request_id, coll_id, name, error))
+        raise exceptions.NoObject('No record can be found with (coll_id=%s, name=%s): %s' %
+                                  (coll_id, name, error))
     except Exception as error:
         raise error
 

@@ -16,7 +16,7 @@ operations related to Catalog(Collections and Contents).
 
 from idds.common import exceptions
 from idds.common.constants import (CollectionType, CollectionStatus, CollectionLocking,
-                                   CollectionRelationType, ContentStatus)
+                                   CollectionRelationType, ContentStatus, ContentRelationType)
 from idds.orm.base.session import read_session, transactional_session
 from idds.orm import (transforms as orm_transforms,
                       collections as orm_collections,
@@ -314,7 +314,17 @@ def get_contents(coll_scope=None, coll_name=None, request_id=None, workload_id=N
 
     coll_ids = [coll['coll_id'] for coll in collections]
     if coll_ids:
-        rets = orm_contents.get_contents(coll_id=coll_ids, status=status, to_json=to_json, session=session)
+        if relation_type is None:
+            content_relation_type = None
+        else:
+            if relation_type == CollectionRelationType.Output:
+                content_relation_type = ContentRelationType.Output
+            elif relation_type == CollectionRelationType.Input:
+                content_relation_type = ContentRelationType.Input
+            elif relation_type == CollectionRelationType.Log:
+                content_relation_type = ContentRelationType.Log
+        rets = orm_contents.get_contents(coll_id=coll_ids, status=status, to_json=to_json,
+                                         relation_type=content_relation_type, session=session)
     else:
         rets = []
     return rets
