@@ -950,6 +950,7 @@ class DomaPanDAWork(Work):
 
         self.logger.debug("get_update_contents, num_updated_contents: %s, num_unupdated_contents: %s" % (num_updated_contents, num_unupdated_contents))
         self.logger.debug("get_update_contents, update_contents[:3]: %s" % (str(update_contents[:3])))
+        self.logger.debug("get_update_contents, contents_ext_full[:3]: %s" % (str({k: contents_ext_full[k] for k in list(contents_ext_full.keys())[:3]})))
         return update_contents, update_contents_full, contents_ext_full
 
     def get_contents_ext_detail(self, contents_ext_full, contents_ext_ids, job_info_maps={}):
@@ -970,6 +971,8 @@ class DomaPanDAWork(Work):
                                'status': content['status']}
             for job_info_item in job_info_maps:
                 new_content_ext[job_info_item] = getattr(job_info, job_info_maps[job_info_item])
+                if new_content_ext[job_info_item] == 'NULL':
+                    new_content_ext[job_info_item] = None
 
             new_contents_ext.append(new_content_ext)
         for to_update_id in to_update_ids:
@@ -978,13 +981,17 @@ class DomaPanDAWork(Work):
             update_content_ext = {'content_id': content['content_id'], 'status': content['status']}
             for job_info_item in job_info_maps:
                 update_content_ext[job_info_item] = getattr(job_info, job_info_maps[job_info_item])
+                if update_content_ext[job_info_item] == 'NULL':
+                    update_content_ext[job_info_item] = None
             update_contents_ext.append(update_content_ext)
         return new_contents_ext, update_contents_ext
 
     def get_contents_ext(self, input_output_maps, contents_ext, contents_ext_full, job_info_maps={}):
+        self.logger.debug("get_contents_ext, len(contents_ext): %s" % (str(len(contents_ext))))
+        self.logger.debug("get_contents_ext, contents_ext[:3]: %s" % (str(contents_ext[:3])))
         contents_ext_ids = [content['content_id'] for content in contents_ext]
         contents_ext_ids = set(contents_ext_ids)
-        contents_ext_panda_ids = [content['PandaID'] for content in contents_ext]
+        contents_ext_panda_ids = [content['panda_id'] for content in contents_ext]
         contents_ext_panda_ids = set(contents_ext_panda_ids)
 
         new_contents_ext, update_contents_ext = [], []
@@ -1043,6 +1050,9 @@ class DomaPanDAWork(Work):
         new_contents_ext = new_contents_ext + new_contents_ext1
         update_contents_ext = update_contents_ext + update_contents_ext1
 
+        self.logger.debug("get_contents_ext, new_contents_ext[:1]: %s" % (str(new_contents_ext[:1])))
+        self.logger.debug("get_contents_ext, update_contents_ext[:1]: %s" % (str(update_contents_ext[:1])))
+        self.logger.debug("get_contents_ext, left_panda_ids[:3]: %s" % (str(left_panda_ids[:3])))
         return new_contents_ext, update_contents_ext, left_panda_ids
 
     def poll_panda_task(self, processing=None, input_output_maps=None, contents_ext=None, job_info_maps={}, log_prefix=''):

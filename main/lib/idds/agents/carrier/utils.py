@@ -1265,7 +1265,7 @@ def sync_collection_status(request_id, transform_id, workload_id, work, input_ou
                   'failed_ext_files': coll.failed_ext_files,
                   'missing_ext_files': coll.missing_ext_files}
         if terminate:
-            if work.require_ext_contents():
+            if coll in output_collections and work.require_ext_contents():
                 if coll.processed_files == coll.processed_ext_files and coll.failed_files == coll.failed_ext_files:
                     all_ext_updated = True
                 if (force_close_collection or (close_collection and all_updates_flushed and all_ext_updated)
