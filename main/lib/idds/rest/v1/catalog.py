@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019-2020
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
 
 
 import traceback
@@ -116,7 +116,7 @@ class Contents(IDDSController):
 class ContentsOutputExt(IDDSController):
     """ Catalog """
 
-    def get(self, request_id, workload_id, transform_id):
+    def get(self, request_id, workload_id, transform_id, group_by_jedi_task_id=False):
         """ Get contents by request_id, workload_id and transform_id.
         HTTP Success:
             200 OK
@@ -139,17 +139,40 @@ class ContentsOutputExt(IDDSController):
                 transform_id = None
             else:
                 transform_id = int(transform_id)
+            if group_by_jedi_task_id:
+                if type(group_by_jedi_task_id) in [bool]:
+                    pass
+                else:
+                    if type(group_by_jedi_task_id) in [str] and group_by_jedi_task_id.lower() in ['true']:
+                        group_by_jedi_task_id = True
+                    else:
+                        group_by_jedi_task_id = False
+            else:
+                group_by_jedi_task_id = False
 
-            if transform_id is None:
-                self.generate_http_response(HTTP_STATUS_CODE.BadRequest,
-                                            exc_cls=exceptions.BadRequest.__name__,
-                                            exc_msg="Transform_id must not be None")
+            if request_id is None:
+                return self.generate_http_response(HTTP_STATUS_CODE.BadRequest,
+                                                   exc_cls=exceptions.BadRequest.__name__,
+                                                   exc_msg="request_id must not be None")
 
-            contents = get_contents(request_id=request_id, workload_id=workload_id, transform_id=transform_id,
-                                    relation_type=CollectionRelationType.Output)
-            contents_ext = get_contents_ext(request_id=request_id, workload_id=workload_id, transform_id=transform_id)
+            else:
+                contents = get_contents(request_id=request_id, workload_id=workload_id, transform_id=transform_id,
+                                        relation_type=CollectionRelationType.Output)
+                contents_ext = get_contents_ext(request_id=request_id, workload_id=workload_id, transform_id=transform_id)
 
-            rets = combine_contents_ext(contents, contents_ext, with_status_name=True)
+                ret_contents = combine_contents_ext(contents, contents_ext, with_status_name=True)
+                rets = {}
+                for content in ret_contents:
+                    if group_by_jedi_task_id:
+                        jedi_task_id = content.get('jedi_task_id', 'None')
+                        if jedi_task_id not in rets:
+                            rets[jedi_task_id] = []
+                        rets[jedi_task_id].append(content)
+                    else:
+                        transform_id = content.get('transform_id')
+                        if transform_id not in rets:
+                            rets[transform_id] = []
+                        rets[transform_id].append(content)
         except exceptions.NoObject as error:
             return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
         except exceptions.IDDSException as error:
@@ -181,7 +204,7 @@ def get_blueprint():
                     view_func=contents_view, methods=['get', ])  # get contents
 
     contents_ext_view = ContentsOutputExt.as_view('contents_output_ext')
-    bp.add_url_rule('/catalog/contents_output_ext/<request_id>/<workload_id>/<transform_id>',
+    bp.add_url_rule('/catalog/contents_output_ext/<request_id>/<workload_id>/<transform_id>/<group_by_jedi_task_id>',
                     view_func=contents_ext_view, methods=['get', ])
 
     return bp

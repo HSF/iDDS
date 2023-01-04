@@ -173,7 +173,7 @@ class CatalogClient(BaseRestClient):
         r = self.get_request_response(url, type='POST', data=contents)
         return r
 
-    def get_contents_output_ext(self, request_id=None, workload_id=None, transform_id=None):
+    def get_contents_output_ext(self, request_id=None, workload_id=None, transform_id=None, group_by_jedi_task_id=False):
         """
         Get output extension contents from the Head service.
 
@@ -191,7 +191,8 @@ class CatalogClient(BaseRestClient):
         if transform_id is None:
             transform_id = 'null'
 
-        url = self.build_url(self.host, path=os.path.join(path, str(request_id), str(workload_id), str(transform_id)))
+        url = self.build_url(self.host, path=os.path.join(path, str(request_id), str(workload_id),
+                                                          str(transform_id), str(group_by_jedi_task_id)))
 
         contents = self.get_request_response(url, type='GET')
         return contents

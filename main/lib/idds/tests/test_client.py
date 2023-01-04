@@ -38,9 +38,34 @@ def test():
     cm1 = ClientManager(host=atlas_host)
     cm1 = ClientManager(host=doma_host)
     cm1 = ClientManager(host=dev_host)
-    request_id = 389
+    request_id = 414
 
     ret = cm1.get_requests(request_id, with_detail=True)
+    print(json_dumps(ret, sort_keys=True, indent=4))
+
+    cm1.setup_json_outputs()
+    ret = cm1.get_requests(request_id, with_detail=True)
+    print(json_dumps(ret, sort_keys=True, indent=4))
+
+    ret = cm1.get_request_id_by_name(name='test_workflow.idds.1672836584.9900262.test')
+    print(json_dumps(ret, sort_keys=True, indent=4))
+
+    ret = cm1.get_request_id_by_name(name='test_workflow.idds.1672836584.9900262.test1')
+    print(json_dumps(ret, sort_keys=True, indent=4))
+
+    ret = cm1.get_request_id_by_name(name='test_workflow.idds*')
+    print(json_dumps(ret, sort_keys=True, indent=4))
+
+    ret = cm1.get_contents_output_ext(request_id=request_id)
+    print(json_dumps(ret, sort_keys=True, indent=4))
+
+    ret = cm1.get_contents_output_ext(request_id=request_id, group_by_jedi_task_id=True)
+    print(json_dumps(ret, sort_keys=True, indent=4))
+
+    ret = cm1.get_contents_output_ext(request_id=None)
+    print(json_dumps(ret, sort_keys=True, indent=4))
+
+    ret = cm1.get_contents_output_ext(request_id=99999)
     print(json_dumps(ret, sort_keys=True, indent=4))
 
 

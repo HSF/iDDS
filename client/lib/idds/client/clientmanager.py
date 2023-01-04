@@ -95,6 +95,11 @@ class ClientManager:
             if self.enable_json_outputs:
                 self.client.enable_json_outputs()
 
+    def setup_json_outputs(self):
+        self.enable_json_outputs = True
+        if self.client:
+            self.client.enable_json_outputs()
+
     def get_local_config_root(self):
         local_cfg_root = get_local_config_root(self.local_config_root)
         return local_cfg_root
@@ -553,6 +558,20 @@ class ClientManager:
         return reqs
 
     @exception_handler
+    def get_request_id_by_name(self, name):
+        """
+        Get request id by name.
+
+        :param name: the request name.
+
+        :returns {name:id} dict.
+        """
+        self.setup_client()
+
+        ret = self.client.get_request_id_by_name(name=name)
+        return ret
+
+    @exception_handler
     def get_status(self, request_id=None, workload_id=None, with_detail=False, with_metadata=False):
         """
         Get the status progress report of requests.
@@ -669,3 +688,19 @@ class ClientManager:
         msgs = self.client.get_messages(request_id=request_id, workload_id=workload_id)
         logging.info("Retrieved %s messages for request_id: %s, workload_id: %s" % (len(msgs), request_id, workload_id))
         return (0, msgs)
+
+    @exception_handler
+    def get_contents_output_ext(self, request_id=None, workload_id=None, transform_id=None, group_by_jedi_task_id=False):
+        """
+        Get output extension contents from the Head service.
+
+        :param request_id: the request id.
+        :param workload_id: the workload id.
+        :param transform_id: the transform id.
+
+        :raise exceptions if it's not got successfully.
+        """
+        self.setup_client()
+
+        return self.client.get_contents_output_ext(workload_id=workload_id, request_id=request_id, transform_id=transform_id,
+                                                   group_by_jedi_task_id=group_by_jedi_task_id)
