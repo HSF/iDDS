@@ -152,7 +152,7 @@ class MessagingSender(PluginBase, threading.Thread):
             if not conn.is_connected():
                 # conn.start()
                 conn.connect(self.username, self.password, wait=True)
-                return conn, queue_dest
+                return conn, queue_dest, destination
         except Exception as error:
             self.logger.error("Failed to connect to message broker(will re-resolve brokers): %s" % str(error))
 
@@ -166,16 +166,16 @@ class MessagingSender(PluginBase, threading.Thread):
             queue_dest = self.channels[destination]['destination']
             if not conn.is_connected():
                 conn.connect(self.username, self.password, wait=True)
-                return conn, queue_dest
+                return conn, queue_dest, destination
         except Exception as error:
             self.logger.error("Failed to connect to message broker(will re-resolve brokers): %s" % str(error))
 
     def send_message(self, msg):
         destination = msg['destination'] if 'destination' in msg else 'default'
-        conn, queue_dest = self.get_connection(destination)
+        conn, queue_dest, destination = self.get_connection(destination)
 
-        self.logger.info("Sending message to message broker: %s" % msg['msg_id'])
-        self.logger.debug("Sending message to message broker: %s" % json.dumps(msg['msg_content']))
+        self.logger.info("Sending message to message broker(%s): %s" % (destination, msg['msg_id']))
+        self.logger.debug("Sending message to message broker(%s): %s" % (destination, json.dumps(msg['msg_content'])))
         conn.send(body=json.dumps(msg['msg_content']),
                   destination=queue_dest,
                   id='atlas-idds-messaging',

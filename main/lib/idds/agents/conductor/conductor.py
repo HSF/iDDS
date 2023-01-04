@@ -64,9 +64,10 @@ class Conductor(BaseAgent):
         """
         Get messages
         """
+        destination = [MessageDestination.Outside, MessageDestination.ContentExt]
         messages = core_messages.retrieve_messages(status=MessageStatus.New,
                                                    bulk_size=self.retrieve_bulk_size,
-                                                   destination=MessageDestination.Outside)
+                                                   destination=destination)
 
         # self.logger.debug("Main thread get %s new messages" % len(messages))
         if messages:
@@ -79,7 +80,7 @@ class Conductor(BaseAgent):
             messages_d = core_messages.retrieve_messages(status=MessageStatus.Delivered,
                                                          retries=retry, delay=delay,
                                                          bulk_size=self.retrieve_bulk_size,
-                                                         destination=MessageDestination.Outside)
+                                                         destination=destination)
             if messages_d:
                 self.logger.info("Main thread get %s retries messages" % len(messages_d))
                 retry_messages += messages_d
@@ -142,6 +143,8 @@ class Conductor(BaseAgent):
                     num_contents = 0
                     messages = self.get_messages()
                     for message in messages:
+                        message['destination'] = message['destination'].name
+
                         num_contents += message['num_contents']
                         self.message_queue.put(message)
                     while not self.message_queue.empty():
