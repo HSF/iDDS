@@ -56,11 +56,13 @@ class IDDSController(MethodView):
 
     def generate_http_response(self, status_code, data=None, exc_cls=None, exc_msg=None):
         enable_json_outputs = self.get_request().args.get('json_outputs', None)
-        if enable_json_outputs and enable_json_outputs.upper == 'TRUE':
+        if enable_json_outputs and enable_json_outputs.upper() == 'TRUE':
             error = None
             if exc_cls:
                 error = {'ExceptionClass': exc_cls,
                          'ExceptionMessage': self.generate_message(exc_cls, exc_msg)}
+            if status_code == HTTP_STATUS_CODE.OK:
+                status_code = 0
             response = {'ret_code': status_code,
                         'data': data,
                         'error': error}
