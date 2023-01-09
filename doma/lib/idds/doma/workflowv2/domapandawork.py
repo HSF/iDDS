@@ -43,7 +43,7 @@ class DomaPanDAWork(Work):
                  output_collections=None, log_collections=None,
                  logger=None, dependency_map=None, task_name="",
                  task_queue=None, queue=None, processing_type=None,
-                 prodSourceLabel='test', task_type='test',
+                 prodSourceLabel='test', task_type='lsst',
                  maxwalltime=90000, maxattempt=5, core_count=1,
                  encode_command_line=False,
                  num_retries=5,
@@ -78,6 +78,8 @@ class DomaPanDAWork(Work):
         self.panda_verify_host = None
 
         self.dependency_map = dependency_map
+        if self.dependency_map is None:
+            self.dependency_map = {}
         self.dependency_map_deleted = []
         # self.logger.setLevel(logging.DEBUG)
 
@@ -322,9 +324,10 @@ class DomaPanDAWork(Work):
         return unmapped_jobs
 
     def has_dependency(self):
-        for job in self.dependency_map:
-            if "dependencies" in job and job["dependencies"]:
-                return True
+        if self.dependency_map:
+            for job in self.dependency_map:
+                if "dependencies" in job and job["dependencies"]:
+                    return True
         return False
 
     def get_parent_work_names(self):
@@ -388,12 +391,18 @@ class DomaPanDAWork(Work):
                                                        'logs': [],
                                                        'inputs': [input_content],
                                                        'outputs': [output_content]}
+                    uni_input_name = {}
                     for input_d in inputs_dependency:
                         task_name = input_d['task']
                         input_name = input_d['inputname']
-                        input_d_coll = task_name_to_coll_map[task_name]['outputs'][0]
-                        input_d_content = self.map_file_to_content(input_d_coll['coll_id'], input_d_coll['scope'], input_name)
-                        new_input_output_maps[next_key]['inputs_dependency'].append(input_d_content)
+                        task_name_input_name = task_name + input_name
+                        if task_name_input_name not in uni_input_name:
+                            uni_input_name[task_name_input_name] = None
+                            input_d_coll = task_name_to_coll_map[task_name]['outputs'][0]
+                            input_d_content = self.map_file_to_content(input_d_coll['coll_id'], input_d_coll['scope'], input_name)
+                            new_input_output_maps[next_key]['inputs_dependency'].append(input_d_content)
+                        else:
+                            self.logger.debug("get_new_input_output_maps, duplicated input dependency for job %s: %s" % (job['name'], str(job["dependencies"])))
 
                     # all inputs are parsed. move it to dependency_map_deleted
                     # self.dependency_map_deleted.append(job)
@@ -438,6 +447,8 @@ class DomaPanDAWork(Work):
         self.task_name = self.task_name + "_" + str(self.get_request_id()) + "_" + str(self.get_work_id())
 
         in_files = []
+        if self.dependency_map is None:
+            self.dependency_map = {}
         for job in self.dependency_map:
             in_files.append(job['name'])
 
@@ -449,15 +460,29 @@ class DomaPanDAWork(Work):
             task_param_map['site'] = self.queue
         task_param_map['workingGroup'] = self.working_group
         task_param_map['nFilesPerJob'] = 1
-        task_param_map['nFiles'] = len(in_files)
-        task_param_map['noInput'] = True
-        task_param_map['pfnList'] = in_files
+        if in_files:
+            task_param_map['inputPreStaging'] = True
+            task_param_map['nFiles'] = len(in_files)
+            task_param_map['noInput'] = True
+            task_param_map['pfnList'] = in_files
+        else:
+            # task_param_map['inputPreStaging'] = True
+            in_files = ['pseudo_file']
+            task_param_map['nFiles'] = len(in_files)
+            task_param_map['noInput'] = True
+            task_param_map['pfnList'] = in_files
+
         task_param_map['taskName'] = self.task_name
         task_param_map['userName'] = self.username if self.username else 'iDDS'
         task_param_map['taskPriority'] = self.task_priority
         task_param_map['architecture'] = ''
         task_param_map['transUses'] = ''
         task_param_map['transHome'] = None
+
+        executable = self.executable
+        if self.task_type == 'lsst_build':
+            executable = str(self.get_request_id()) + " " + str(self.signature) + " " + self.executable
+
         if self.encode_command_line:
             # task_param_map['transPath'] = 'https://atlpan.web.cern.ch/atlpan/bash-c-enc'
             task_param_map['transPath'] = 'https://storage.googleapis.com/drp-us-central1-containers/bash-c-enc'
@@ -478,7 +503,7 @@ class DomaPanDAWork(Work):
             # task_param_map['ramUnit'] = 'MB'
             task_param_map['ramUnit'] = 'MBPerCoreFixed'
 
-        task_param_map['inputPreStaging'] = True
+        # task_param_map['inputPreStaging'] = True
         task_param_map['prestagingRuleID'] = 123
         task_param_map['nChunksToWait'] = 1
         task_param_map['maxCpuCount'] = self.core_count
@@ -488,7 +513,7 @@ class DomaPanDAWork(Work):
         task_param_map['log'] = self.task_log
         task_param_map['jobParameters'] = [
             {'type': 'constant',
-             'value': self.executable,  # noqa: E501
+             'value': executable,  # noqa: E501
              },
         ]
 
@@ -1103,7 +1128,8 @@ class DomaPanDAWork(Work):
 
                     return processing_status, updated_contents, update_contents_full, new_contents_ext, update_contents_ext
                 else:
-                    return ProcessingStatus.Running, [], [], [], []
+                    self.logger.error("poll_panda_task, task_id (%s) cannot be found" % task_id)
+                    return ProcessingStatus.Failed, [], [], [], []
         except Exception as ex:
             msg = "Failed to check the processing (%s) status: %s" % (str(processing['processing_id']), str(ex))
             self.logger.error(log_prefix + msg)
@@ -1161,7 +1187,21 @@ class DomaPanDAWork(Work):
             self.logger.error(log_prefix + msg)
 
     def abort_processing(self, processing, log_prefix=''):
-        self.kill_processing_force(processing, log_prefix=log_prefix)
+        try:
+            has_task = False
+            if processing:
+                proc = processing['processing_metadata']['processing']
+                task_id = proc.workload_id
+                if task_id:
+                    has_task = True
+                    self.kill_processing_force(processing, log_prefix=log_prefix)
+
+            if not has_task:
+                self.status = WorkStatus.Failed
+        except Exception as ex:
+            msg = "Failed to abort the processing (%s) status: %s" % (str(processing['processing_id']), str(ex))
+            # raise exceptions.IDDSException(msg)
+            self.logger.error(log_prefix + msg)
 
     def resume_processing(self, processing, log_prefix=''):
         self.reactivate_processing(processing, log_prefix=log_prefix)
