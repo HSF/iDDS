@@ -168,7 +168,8 @@ class Clerk(BaseAgent):
                           RequestStatus.ToSuspend, RequestStatus.Suspending,
                           RequestStatus.ToExpire, RequestStatus.Expiring,
                           RequestStatus.ToFinish, RequestStatus.ToForceFinish,
-                          RequestStatus.ToResume, RequestStatus.Resuming]
+                          RequestStatus.ToResume, RequestStatus.Resuming,
+                          RequestStatus.Building]
             reqs = core_requests.get_requests_by_status_type(status=req_status, time_period=None,
                                                              locking=True, bulk_size=self.retrieve_bulk_size,
                                                              not_lock=True, update_poll=True, only_return_id=True)
@@ -283,8 +284,11 @@ class Clerk(BaseAgent):
             work_tag_attribute_value = int(getattr(self, work_tag_attribute))
         return work_tag_attribute_value
 
-    def generate_transform(self, req, work):
-        wf = req['request_metadata']['workflow']
+    def generate_transform(self, req, work, build=False):
+        if build:
+            wf = req['request_metadata']['build_workflow']
+        else:
+            wf = req['request_metadata']['workflow']
 
         work.set_request_id(req['request_id'])
         work.username = req['username']
@@ -417,18 +421,22 @@ class Clerk(BaseAgent):
             self.logger.info(log_pre + "handle build request")
 
             workflow = req['request_metadata']['build_workflow']
-            build_work = workflow.get_build_work()
-            build_work.add_proxy(workflow.get_proxy())
-            transform = self.generate_transform(req, build_work)
+            works = workflow.get_new_works()
+            transforms = []
+            for work in works:
+                new_work = work
+                new_work.add_proxy(workflow.get_proxy())
+                transform = self.generate_transform(req, new_work, build=True)
+                transforms.append(transform)
             self.logger.debug(log_pre + "Processing request(%s): new build transforms: %s" % (req['request_id'],
-                                                                                              str(transform)))
+                                                                                              str(transforms)))
 
             ret_req = {'request_id': req['request_id'],
                        'parameters': {'status': RequestStatus.Building,
                                       'locking': RequestLocking.Idle,
                                       # 'processing_metadata': processing_metadata,
                                       'request_metadata': req['request_metadata']},
-                       'new_transforms': [transform]}
+                       'new_transforms': transforms}
             ret_req['parameters'] = self.load_poll_period(req, ret_req['parameters'])
             self.logger.info(log_pre + "Handle build request result: %s" % str(ret_req))
         except Exception as ex:
@@ -556,7 +564,10 @@ class Clerk(BaseAgent):
         """
         log_pre = self.get_log_prefix(req)
         self.logger.info(log_pre + " handle_update_request: request_id: %s" % req['request_id'])
-        wf = req['request_metadata']['workflow']
+        if 'workflow' in req['request_metadata']:
+            wf = req['request_metadata']['workflow']
+        else:
+            wf = req['request_metadata']['build_workflow']
 
         to_abort = False
         to_abort_transform_id = None
@@ -636,6 +647,92 @@ class Clerk(BaseAgent):
         self.logger.info(log_pre + "Handle update request result: %s" % str(ret))
         return ret
 
+    def handle_update_build_request_real(self, req, event):
+        """
+        process build request
+        """
+        log_pre = self.get_log_prefix(req)
+        self.logger.info(log_pre + " handle_update_build_request: request_id: %s" % req['request_id'])
+        wf = req['request_metadata']['build_workflow']
+
+        to_abort = False
+        to_abort_transform_id = None
+        if (event and event._content and 'cmd_type' in event._content and event._content['cmd_type']
+            and event._content['cmd_type'] in [CommandType.AbortRequest, CommandType.ExpireRequest]):    # noqa W503
+            to_abort = True
+            self.logger.info(log_pre + "to_abort: %s" % to_abort)
+            if (event and event._content and 'cmd_content' in event._content and event._content['cmd_content']
+                and 'transform_id' in event._content['cmd_content']):                                    # noqa W503
+                to_abort_transform_id = event._content['cmd_content']['transform_id']
+                self.logger.info(log_pre + "to_abort_transform_id: %s" % to_abort_transform_id)
+
+        if to_abort and not to_abort_transform_id:
+            wf.to_cancel = True
+
+        # current works
+        works = wf.get_all_works()
+        # print(works)
+        for work in works:
+            # print(work.get_work_id())
+            tf = core_transforms.get_transform(transform_id=work.get_work_id())
+            if tf:
+                transform_work = tf['transform_metadata']['work']
+                # work_status = WorkStatus(tf['status'].value)
+                # work.set_status(work_status)
+                work.sync_work_data(status=tf['status'], substatus=tf['substatus'], work=transform_work, workload_id=tf['workload_id'])
+                self.logger.info(log_pre + "transform status: %s, work status: %s" % (tf['status'], work.status))
+        wf.refresh_works()
+
+        new_transforms = []
+        if req['status'] in [RequestStatus.Building] and not wf.to_cancel:
+            # new works
+            works = wf.get_new_works()
+            for work in works:
+                # new_work = work.copy()
+                new_work = work
+                new_work.add_proxy(wf.get_proxy())
+                new_transform = self.generate_transform(req, new_work, build=True)
+                new_transforms.append(new_transform)
+            self.logger.debug(log_pre + " Processing build request(%s): new transforms: %s" % (req['request_id'], str(new_transforms)))
+
+        req_status = RequestStatus.Building
+        if wf.is_terminated():
+            if wf.is_finished(synchronize=False):
+                req_status = RequestStatus.Failed
+            else:
+                if to_abort and not to_abort_transform_id:
+                    req_status = RequestStatus.Cancelled
+                elif wf.is_expired(synchronize=False):
+                    req_status = RequestStatus.Expired
+                elif wf.is_subfinished(synchronize=False):
+                    req_status = RequestStatus.SubFinished
+                elif wf.is_failed(synchronize=False):
+                    req_status = RequestStatus.Failed
+                else:
+                    req_status = RequestStatus.Failed
+            # req_msg = wf.get_terminated_msg()
+        else:
+            if wf.is_to_expire(req['expired_at'], self.pending_time, request_id=req['request_id']):
+                wf.expired = True
+                event_content = {'request_id': req['request_id'],
+                                 'cmd_type': CommandType.ExpireRequest,
+                                 'cmd_content': {}}
+                self.logger.debug(log_pre + "ExpireRequestEvent(request_id: %s)" % req['request_id'])
+                event = ExpireRequestEvent(publisher_id=self.id, request_id=req['request_id'], content=event_content)
+                self.event_bus.send(event)
+
+        parameters = {'status': req_status,
+                      'locking': RequestLocking.Idle,
+                      'request_metadata': req['request_metadata']
+                      }
+        parameters = self.load_poll_period(req, parameters)
+
+        ret = {'request_id': req['request_id'],
+               'parameters': parameters,
+               'new_transforms': new_transforms}   # 'update_transforms': update_transforms}
+        self.logger.info(log_pre + "Handle update request result: %s" % str(ret))
+        return ret
+
     def handle_update_request(self, req, event):
         """
         process running request
@@ -643,7 +740,10 @@ class Clerk(BaseAgent):
         try:
             # if self.release_helper:
             #     self.release_inputs(req['request_id'])
-            ret_req = self.handle_update_request_real(req, event)
+            if req['status'] in [RequestStatus.Building]:
+                ret_req = self.handle_update_build_request_real(req, event=event)
+            else:
+                ret_req = self.handle_update_request_real(req, event)
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
@@ -678,7 +778,8 @@ class Clerk(BaseAgent):
                               RequestStatus.ToSuspend, RequestStatus.Suspending,
                               RequestStatus.ToExpire, RequestStatus.Expiring,
                               RequestStatus.ToFinish, RequestStatus.ToForceFinish,
-                              RequestStatus.ToResume, RequestStatus.Resuming]
+                              RequestStatus.ToResume, RequestStatus.Resuming,
+                              RequestStatus.Building]
 
                 req = self.get_request(request_id=event._request_id, status=req_status, locking=True)
                 if not req:
@@ -722,7 +823,13 @@ class Clerk(BaseAgent):
             if to_abort and to_abort_transform_id:
                 req_status = req['status']
             else:
-                wf = req['request_metadata']['workflow']
+                if req['status'] in [RequestStatus.Building]:
+                    wf = req['request_metadata']['build_workflow']
+                else:
+                    if 'workflow' in req['request_metadata']:
+                        wf = req['request_metadata']['workflow']
+                    else:
+                        wf = req['request_metadata']['build_workflow']
                 wf.to_cancel = True
                 req_status = RequestStatus.Cancelling
 
@@ -784,7 +891,13 @@ class Clerk(BaseAgent):
                         if event and event._content and event._content['cmd_content'] and 'transform_id' in event._content['cmd_content']:
                             to_abort_transform_id = event._content['cmd_content']['transform_id']
 
-                        wf = req['request_metadata']['workflow']
+                        if req['status'] in [RequestStatus.Building]:
+                            wf = req['request_metadata']['build_workflow']
+                        else:
+                            if 'workflow' in req['request_metadata']:
+                                wf = req['request_metadata']['workflow']
+                            else:
+                                wf = req['request_metadata']['build_workflow']
                         works = wf.get_all_works()
                         if works:
                             for work in works:
@@ -802,6 +915,11 @@ class Clerk(BaseAgent):
                             self.event_bus.send(event)
 
                         self.handle_command(event, cmd_status=CommandStatus.Processed, errors=None)
+        except AssertionError as ex:
+            self.logger.error("process_abort_request, Failed to process event: %s" % str(event))
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+            self.handle_command(event, cmd_status=CommandStatus.Processed, errors=str(ex))
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
