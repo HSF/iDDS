@@ -166,7 +166,7 @@ class Finisher(Poller):
         process abort processing
         """
         try:
-            processing, update_collections, update_contents = handle_abort_processing(processing, self.agent_attributes, logger=self.logger, log_prefix=log_prefix)
+            processing, update_collections, update_contents, messages = handle_abort_processing(processing, self.agent_attributes, logger=self.logger, log_prefix=log_prefix)
 
             update_processing = {'processing_id': processing['processing_id'],
                                  'parameters': {'status': processing['status'],
@@ -174,6 +174,7 @@ class Finisher(Poller):
             ret = {'update_processing': update_processing,
                    'update_collections': update_collections,
                    'update_contents': update_contents,
+                   'messages': messages
                    }
             return ret
         except Exception as ex:

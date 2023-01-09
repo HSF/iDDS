@@ -1356,9 +1356,9 @@ def sync_processing(processing, agent_attributes, terminate=False, logger=None, 
 def handle_abort_processing(processing, agent_attributes, logger=None, log_prefix=''):
     logger = get_logger(logger)
 
-    request_id = processing['request_id']
-    transform_id = processing['transform_id']
-    workload_id = processing['workload_id']
+    # request_id = processing['request_id']
+    # transform_id = processing['transform_id']
+    # workload_id = processing['workload_id']
 
     proc = processing['processing_metadata']['processing']
     work = proc.work
@@ -1366,22 +1366,23 @@ def handle_abort_processing(processing, agent_attributes, logger=None, log_prefi
 
     work.abort_processing(processing, log_prefix=log_prefix)
 
-    input_collections = work.get_input_collections()
-    output_collections = work.get_output_collections()
-    log_collections = work.get_log_collections()
+    # input_collections = work.get_input_collections()
+    # output_collections = work.get_output_collections()
+    # log_collections = work.get_log_collections()
 
     # input_output_maps = get_input_output_maps(transform_id, work)
-    update_collections, all_updates_flushed = sync_collection_status(request_id, transform_id, workload_id, work,
-                                                                     input_output_maps=None, close_collection=True,
-                                                                     force_close_collection=True)
+    # update_collections, all_updates_flushed = sync_collection_status(request_id, transform_id, workload_id, work,
+    #                                                                  input_output_maps=None, close_collection=True,
+    #                                                                  force_close_collection=True)
 
-    for coll in input_collections + output_collections + log_collections:
-        coll.status = CollectionStatus.Closed
-        coll.substatus = CollectionStatus.Closed
+    # for coll in input_collections + output_collections + log_collections:
+    #     coll.status = CollectionStatus.Closed
+    #     coll.substatus = CollectionStatus.Closed
+    processing, update_collections, messages = sync_processing(processing, agent_attributes, terminate=True, logger=logger, log_prefix=log_prefix)
     update_contents = []
 
     # processing['status'] = ProcessingStatus.Cancelled
-    return processing, update_collections, update_contents
+    return processing, update_collections, update_contents, messages
 
 
 def reactive_contents(request_id, transform_id, workload_id, work, input_output_maps):
