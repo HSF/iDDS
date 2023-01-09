@@ -1513,6 +1513,7 @@ class Work(Base):
             #    self.arguments = re.sub(key, str(self.parameters.get_param_value(key)), self.arguments)
             # self.arguments = self.arguments.format(**self.parameters)
             pass
+        self.sign()
         if not self.is_initialized():
             self.set_initialized()
 
