@@ -274,7 +274,8 @@ def get_match_contents(coll_id, scope, name, content_type=None, min_id=None, max
 
 
 @read_session
-def get_contents(scope=None, name=None, coll_id=None, status=None, relation_type=None, to_json=False, session=None):
+def get_contents(scope=None, name=None, transform_id=None, coll_id=None, status=None,
+                 relation_type=None, to_json=False, session=None):
     """
     Get content or raise a NoObject exception.
 
@@ -305,6 +306,8 @@ def get_contents(scope=None, name=None, coll_id=None, status=None, relation_type
         query = session.query(models.Content)
         query = query.with_hint(models.Content, "INDEX(CONTENTS CONTENTS_ID_NAME_IDX)", 'oracle')
 
+        if transform_id:
+            query = query.filter(models.Content.transform_id == transform_id)
         if coll_id:
             query = query.filter(models.Content.coll_id.in_(coll_id))
         if scope:
@@ -330,6 +333,54 @@ def get_contents(scope=None, name=None, coll_id=None, status=None, relation_type
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('No record can be found with (coll_id=%s, name=%s): %s' %
                                   (coll_id, name, error))
+    except Exception as error:
+        raise error
+
+
+@read_session
+def get_contents_by_request_transform(request_id=None, transform_id=None, workload_id=None, status=None, status_updated=False, session=None):
+    """
+    Get content or raise a NoObject exception.
+
+    :param request_id: request id.
+    :param transform_id: transform id.
+    :param workload_id: workload id.
+
+    :param session: The database session in use.
+
+    :raises NoObject: If no content is founded.
+
+    :returns: list of contents.
+    """
+
+    try:
+        if status is not None:
+            if not isinstance(status, (tuple, list)):
+                status = [status]
+
+        query = session.query(models.Content)
+        query = query.with_hint(models.Content, "INDEX(CONTENTS CONTENTS_REQ_TF_COLL_IDX)", 'oracle')
+        if request_id:
+            query = query.filter(models.Content.request_id == request_id)
+        if transform_id:
+            query = query.filter(models.Content.transform_id == transform_id)
+        if workload_id:
+            query = query.filter(models.Content.workload_id == workload_id)
+        if status is not None:
+            query = query.filter(models.Content.substatus.in_(status))
+        if status_updated:
+            query = query.filter(models.Content.status != models.Content.substatus)
+        query = query.order_by(asc(models.Content.request_id), asc(models.Content.transform_id), asc(models.Content.map_id))
+
+        tmp = query.all()
+        rets = []
+        if tmp:
+            for t in tmp:
+                rets.append(t.to_dict())
+        return rets
+    except sqlalchemy.orm.exc.NoResultFound as error:
+        raise exceptions.NoObject('No record can be found with (transform_id=%s): %s' %
+                                  (transform_id, error))
     except Exception as error:
         raise error
 
