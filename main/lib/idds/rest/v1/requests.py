@@ -247,7 +247,7 @@ class RequestName(IDDSController):
 class RequestBuild(IDDSController):
     """ Create, Update, get and delete Request. """
 
-    def post(self):
+    def post(self, request_id):
         """ update build request result.
         HTTP Success:
             200 OK
@@ -257,10 +257,10 @@ class RequestBuild(IDDSController):
         """
         try:
             parameters = self.get_request().data and json_loads(self.get_request().data)
-            if 'request_id' not in parameters or 'signature' not in parameters or 'workflow' not in parameters:
-                raise exceptions.IDDSException("request_id/signature/workflow are required")
+            if 'signature' not in parameters or 'workflow' not in parameters:
+                raise exceptions.IDDSException("signature and workflow are required")
 
-            request_id = parameters['request_id']
+            # request_id = parameters['request_id']
             signature = parameters['signature']
             workflow = parameters['workflow']
 

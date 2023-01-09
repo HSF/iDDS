@@ -470,24 +470,6 @@ class ClientManager:
         return request_id
 
     @exception_handler
-    def update_build(self, request_id, signature, workflow):
-        """
-        Submit the workflow as a request to iDDS server.
-
-        :param workflow: The workflow to be submitted.
-        """
-        self.setup_client()
-
-        parameters = {
-            'request_id': request_id,
-            'signature': signature,
-            'workflow': workflow
-        }
-
-        ret = self.client.update_build_request(request_id=request_id, parameters=parameters)
-        return ret
-
-    @exception_handler
     def abort(self, request_id=None, workload_id=None):
         """
         Abort requests.
@@ -704,3 +686,18 @@ class ClientManager:
 
         return self.client.get_contents_output_ext(workload_id=workload_id, request_id=request_id, transform_id=transform_id,
                                                    group_by_jedi_task_id=group_by_jedi_task_id)
+
+    @exception_handler
+    def update_build_request(self, request_id, signature, workflow):
+        """
+        Update Build Request to the Head service.
+
+        :param request_id: the request.
+        :param signature: the signature of the request.
+        :param workflow: the workflow of the request.
+
+        :raise exceptions if it's not updated successfully.
+        """
+        self.setup_client()
+
+        return self.client.update_build_request(request_id=request_id, signature=signature, workflow=workflow)

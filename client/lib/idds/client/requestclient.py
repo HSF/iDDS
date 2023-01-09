@@ -80,12 +80,13 @@ class RequestClient(BaseRestClient):
         r = self.get_request_response(url, type='PUT', data=data)
         return r
 
-    def update_build_request(self, request_id, parameters):
+    def update_build_request(self, request_id, signature, workflow):
         """
         Update Build Request to the Head service.
 
         :param request_id: the request.
-        :param kwargs: other attributes of the request.
+        :param signature: the signature of the request.
+        :param workflow: the workflow of the request.
 
         :raise exceptions if it's not updated successfully.
         """
@@ -93,7 +94,8 @@ class RequestClient(BaseRestClient):
         path += "/build"
         url = self.build_url(self.host, path=os.path.join(path, str(request_id)))
 
-        data = parameters
+        data = {'signature': signature,
+                'workflow': workflow}
         r = self.get_request_response(url, type='POST', data=data)
         return r
 
