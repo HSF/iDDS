@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@@cern.ch>, 2021 - 2022
+# - Wen Guan, <wen.guan@@cern.ch>, 2021 - 2023
 
 import datetime
 import base64
@@ -258,14 +258,20 @@ class OIDCAuthentication(BaseAuthentication):
             # check audience
             decoded_token = jwt.decode(token, verify=False, options={"verify_signature": False})
             audience = decoded_token['aud']
-            if auth_config['client_id'] != audience:
+            if audience not in [auth_config['audience'], auth_config['client_id']]:
                 # discovery_endpoint = auth_config['oidc_config_url']
-                return False, "The audience of the token doesn't match vo configuration.", None
+                return False, "The audience %s of the token doesn't match vo configuration(client_id: %s)." % (audience, auth_config['client_id']), None
 
             public_key = self.get_public_key(token, endpoint_config['jwks_uri'])
             # decode token only with RS256
+            if 'iss' in decoded_token and decoded_token['iss'] and decoded_token['iss'] != endpoint_config['issuer'] and endpoint_config['issuer'].startswith(decoded_token['iss']):
+                # iss is missing the last '/' in access tokens
+                issuer = decoded_token['iss']
+            else:
+                issuer = endpoint_config['issuer']
+
             decoded = jwt.decode(token, public_key, verify=True, algorithms='RS256',
-                                 audience=audience, issuer=endpoint_config['issuer'])
+                                 audience=audience, issuer=issuer)
             decoded['vo'] = vo
             if 'name' in decoded:
                 username = decoded['name']
@@ -319,7 +325,8 @@ class OIDCAuthenticationUtils(object):
 
     def get_token_info(self, token):
         try:
-            enc = token['id_token'].split('.')[1]
+            # enc = token['id_token'].split('.')[1]
+            enc = token.split('.')[1]
             enc += '=' * (-len(enc) % 4)
             dec = json.loads(base64.urlsafe_b64decode(enc.encode()))
             exp_time = datetime.datetime.utcfromtimestamp(dec['exp'])
