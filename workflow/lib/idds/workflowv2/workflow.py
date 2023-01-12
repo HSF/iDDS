@@ -776,6 +776,7 @@ class WorkflowBase(Base):
                                         'status': work.status.value if work.status else work.status,
                                         'substatus': work.substatus.value if work.substatus else work.substatus,
                                         'next_works': work.next_works,
+                                        'signature': work.signature,
                                         'transforming': work.transforming}
         self.add_metadata_item('works', work_metadata)
 
@@ -796,6 +797,7 @@ class WorkflowBase(Base):
                                         'status': work.status.value if work.status else work.status,
                                         'substatus': work.substatus.value if work.substatus else work.substatus,
                                         'next_works': work.next_works,
+                                        'signature': work.signature,
                                         'transforming': work.transforming}
                 if work.last_updated_at and (not self.last_updated_at or work.last_updated_at > self.last_updated_at):
                     self.last_updated_at = work.last_updated_at
@@ -810,6 +812,8 @@ class WorkflowBase(Base):
                     self._works[k].workload_id = work_metadata[k]['workload_id'] if 'workload_id' in work_metadata[k] else None
                     self._works[k].external_id = work_metadata[k]['external_id'] if 'external_id' in work_metadata[k] else None
                     self._works[k].transforming = work_metadata[k]['transforming']
+                    if 'signature' in work_metadata[k]:
+                        self._works[k].signature = work_metadata[k]['signature']
                     self._works[k].status = WorkStatus(work_metadata[k]['status']) if work_metadata[k]['status'] else work_metadata[k]['status']
                     self._works[k].substatus = WorkStatus(work_metadata[k]['substatus']) if work_metadata[k]['substatus'] else work_metadata[k]['substatus']
                     self._works[k].next_works = work_metadata[k]['next_works'] if 'next_works' in work_metadata[k] else []
