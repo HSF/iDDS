@@ -271,7 +271,8 @@ class RequestBuild(IDDSController):
                 raise exceptions.IDDSException("Request (request_id: %s, status: %s) is not in Building status" % (request_id, req['status']))
 
             build_workflow = req['request_metadata']['build_workflow']
-            build_work = build_workflow.get_build_work()
+            works = build_workflow.get_all_works()
+            build_work = works[0]
             if build_work.get_signature() != signature:
                 raise exceptions.IDDSException("Request (request_id: %s) has a different signature(%s != %s)" % (request_id,
                                                                                                                  signature,

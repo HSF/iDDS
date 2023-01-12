@@ -63,7 +63,7 @@ class IDDSController(MethodView):
                          'ExceptionMessage': self.generate_message(exc_cls, exc_msg)}
             if status_code == HTTP_STATUS_CODE.OK:
                 status_code = 0
-            response = {'ret_code': status_code,
+            response = {'status': status_code,
                         'data': data,
                         'error': error}
             resp = Response(response=json_dumps(response, sort_keys=True, indent=4), status=HTTP_STATUS_CODE.OK, content_type='application/json')
