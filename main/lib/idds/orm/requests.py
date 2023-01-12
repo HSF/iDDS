@@ -897,8 +897,12 @@ def update_request(request_id, parameters, update_request_metadata=False, sessio
                         parameters['processing_metadata'] = {}
                     parameters['processing_metadata']['build_workflow_data'] = build_workflow.metadata
 
-        if 'request_metadata' in parameters and not update_request_metadata:
-            del parameters['request_metadata']
+        if 'request_metadata' in parameters:
+            if not update_request_metadata:
+                del parameters['request_metadata']
+            else:
+                parameters['_request_metadata'] = parameters['request_metadata']
+                del parameters['request_metadata']
         if 'processing_metadata' in parameters:
             parameters['_processing_metadata'] = parameters['processing_metadata']
             del parameters['processing_metadata']
