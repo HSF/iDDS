@@ -49,6 +49,12 @@ def setup_logging(name, stream=None, loglevel=None):
         else:
             loglevel = logging.INFO
 
+    if os.environ.get('IDDS_LOG_LEVEL', None):
+        idds_log_level = os.environ.get('IDDS_LOG_LEVEL', None)
+        idds_log_level = idds_log_level.upper()
+        if idds_log_level in ["DEBUG", "CRITICAL", "ERROR", "WARNING", "INFO"]:
+            loglevel = getattr(logging, idds_log_level)
+
     if stream is None:
         if config_has_section('common') and config_has_option('common', 'logdir'):
             logging.basicConfig(filename=os.path.join(config_get('common', 'logdir'), name),
