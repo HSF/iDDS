@@ -480,8 +480,8 @@ class DomaPanDAWork(Work):
         task_param_map['transHome'] = None
 
         executable = self.executable
-        if self.task_type == 'lsst_build':
-            executable = str(self.get_request_id()) + " " + str(self.signature) + " " + self.executable
+        executable = "export IDDS_BUILD_REQUEST_ID=" + str(self.get_request_id()) + ";"
+        executable += "export IDDS_BUIL_SIGNATURE=" + str(self.signature) + "; " + self.executable
 
         if self.encode_command_line:
             # task_param_map['transPath'] = 'https://atlpan.web.cern.ch/atlpan/bash-c-enc'
@@ -978,50 +978,49 @@ class DomaPanDAWork(Work):
         self.logger.debug("get_update_contents, contents_ext_full[:3]: %s" % (str({k: contents_ext_full[k] for k in list(contents_ext_full.keys())[:3]})))
         return update_contents, update_contents_full, contents_ext_full
 
-    def get_contents_ext_detail(self, contents_ext_full, contents_ext_ids, job_info_maps={}):
-        contents_ext_full_ids = set(contents_ext_full.keys())
-        new_ids = contents_ext_full_ids - contents_ext_ids
-        to_update_ids = contents_ext_full_ids - new_ids
-        new_contents_ext, update_contents_ext = [], []
+    def get_contents_ext_detail(self, new_contents_ext, update_contents_ext, job_info_maps={}):
+        new_contents_ext_d, update_contents_ext_d = [], []
 
-        for new_id in new_ids:
-            content = contents_ext_full[new_id]['content']
-            job_info = contents_ext_full[new_id]['job_info']
-            new_content_ext = {'content_id': content['content_id'],
-                               'request_id': content['request_id'],
-                               'transform_id': content['transform_id'],
-                               'workload_id': content['workload_id'],
-                               'coll_id': content['coll_id'],
-                               'map_id': content['map_id'],
-                               'status': content['status']}
+        for content_id in new_contents_ext:
+            content = new_contents_ext[content_id]['content']
+            job_info = new_contents_ext[content_id]['job_info']
+            new_content_ext_d = {'content_id': content['content_id'],
+                                 'request_id': content['request_id'],
+                                 'transform_id': content['transform_id'],
+                                 'workload_id': content['workload_id'],
+                                 'coll_id': content['coll_id'],
+                                 'map_id': content['map_id'],
+                                 'status': content['status']}
             for job_info_item in job_info_maps:
-                new_content_ext[job_info_item] = getattr(job_info, job_info_maps[job_info_item])
-                if new_content_ext[job_info_item] == 'NULL':
-                    new_content_ext[job_info_item] = None
+                new_content_ext_d[job_info_item] = getattr(job_info, job_info_maps[job_info_item])
+                if new_content_ext_d[job_info_item] == 'NULL':
+                    new_content_ext_d[job_info_item] = None
+            new_contents_ext_d.append(new_content_ext_d)
 
-            new_contents_ext.append(new_content_ext)
-        for to_update_id in to_update_ids:
-            content = contents_ext_full[new_id]['content']
-            job_info = contents_ext_full[new_id]['job_info']
-            update_content_ext = {'content_id': content['content_id'], 'status': content['status']}
+        for content_id in update_contents_ext:
+            content = update_contents_ext[content_id]['content']
+            job_info = update_contents_ext[content_id]['job_info']
+            update_content_ext_d = {'content_id': content['content_id'],
+                                    'status': content['status']}
             for job_info_item in job_info_maps:
-                update_content_ext[job_info_item] = getattr(job_info, job_info_maps[job_info_item])
-                if update_content_ext[job_info_item] == 'NULL':
-                    update_content_ext[job_info_item] = None
-            update_contents_ext.append(update_content_ext)
-        return new_contents_ext, update_contents_ext
+                update_content_ext_d[job_info_item] = getattr(job_info, job_info_maps[job_info_item])
+                if update_content_ext_d[job_info_item] == 'NULL':
+                    update_content_ext_d[job_info_item] = None
+
+            update_contents_ext_d.append(update_content_ext_d)
+
+        return new_contents_ext_d, update_contents_ext_d
 
     def get_contents_ext(self, input_output_maps, contents_ext, contents_ext_full, job_info_maps={}):
         self.logger.debug("get_contents_ext, len(contents_ext): %s" % (str(len(contents_ext))))
         self.logger.debug("get_contents_ext, contents_ext[:3]: %s" % (str(contents_ext[:3])))
-        contents_ext_ids = [content['content_id'] for content in contents_ext]
-        contents_ext_ids = set(contents_ext_ids)
-        contents_ext_panda_ids = [content['panda_id'] for content in contents_ext]
-        contents_ext_panda_ids = set(contents_ext_panda_ids)
 
-        new_contents_ext, update_contents_ext = [], []
-        terminated_contents, terminated_contents_full = [], {}
-        terminated_contents_full_no_panda, terminated_contents_full_no_panda_full = [], {}
+        contents_ext_dict = {content['content_id']: content for content in contents_ext}
+
+        left_contents = []
+        to_check_panda_ids = {}
+        new_contents_ext, update_contents_ext = {}, {}
+        new_need_poll_contents_ext, update_need_poll_contents_ext = {}, {}
 
         for map_id in input_output_maps:
             # inputs = input_output_maps[map_id]['inputs']
@@ -1030,55 +1029,51 @@ class DomaPanDAWork(Work):
             for content in outputs:
                 if content['substatus'] in [ContentStatus.Available, ContentStatus.Failed, ContentStatus.FinalFailed,
                                             ContentStatus.Lost, ContentStatus.Deleted, ContentStatus.Missing]:
-                    # terminated_contents.append(content['content_id'])
-                    # terminated_contents_full[content['content_id']] = content
-                    if content['content_metadata'] and 'panda_id' in content['content_metadata']:
-                        terminated_contents.append(content['content_metadata']['panda_id'])
-                        terminated_contents_full[content['content_metadata']['panda_id']] = content
+                    if content['content_id'] not in contents_ext_dict:
+                        if content['content_id'] in contents_ext_full:
+                            new_contents_ext[content['content_id']] = contents_ext_full[content['content_id']]
+                        else:
+                            new_need_poll_contents_ext[content['content_id']] = content
+                            if content['content_metadata'] and 'panda_id' in content['content_metadata']:
+                                to_check_panda_ids[content['content_metadata']['panda_id']] = content['content_id']
                     else:
-                        terminated_contents_full_no_panda.append(content['content_id'])
-                        terminated_contents_full_no_panda_full[content['content_id']] = content
+                        content_ext = contents_ext_dict[content['content_id']]
+                        panda_id = None
+                        if content['content_metadata'] and 'panda_id' in content['content_metadata']:
+                            panda_id = content['content_metadata']['panda_id']
+                        if content['substatus'] != content_ext['status'] or panda_id != content_ext['panda_id']:
+                            if content['content_id'] in contents_ext_full:
+                                update_contents_ext[content['content_id']] = contents_ext_full[content['content_id']]
+                            else:
+                                update_need_poll_contents_ext[content['content_id']] = content
+                                if panda_id:
+                                    to_check_panda_ids[panda_id] = content['content_id']
+                else:
+                    left_contents.append(content)
 
-        to_check_panda_ids = []
-        terminated_contents = set(terminated_contents)
-        contents_ext_full_panda_ids = [contents_ext_full[content_id]['job_info'].PandaID for content_id in contents_ext_full]
-        contents_ext_full_panda_ids = set(contents_ext_full_panda_ids)
-        to_check_panda_ids = terminated_contents - contents_ext_panda_ids - contents_ext_full_panda_ids
-
-        terminated_contents_full_no_panda = set(terminated_contents_full_no_panda)
-        final_term_contents = terminated_contents_full_no_panda - contents_ext_ids
-        for content_id in final_term_contents:
-            new_content_ext = {'content_id': content['content_id'],
-                               'request_id': content['request_id'],
-                               'transform_id': content['transform_id'],
-                               'workload_id': content['workload_id'],
-                               'coll_id': content['coll_id'],
-                               'map_id': content['map_id'],
-                               'status': content['status']}
-            new_contents_ext.append(new_content_ext)
-
-        left_panda_ids = []
         if to_check_panda_ids:
-            checked_panda_ids = []
-            ret_job_infos = self.get_panda_job_status(to_check_panda_ids)
+            to_check_panda_ids_list = list(to_check_panda_ids.keys())
+            ret_job_infos = self.get_panda_job_status(to_check_panda_ids_list)
             for job_info in ret_job_infos:
-                checked_panda_ids.append(job_info.PandaID)
-                content = terminated_contents_full[job_info.PandaID]
-                contents_ext_full[content['content_id']] = {'content': content, 'job_info': job_info}
+                content_id = to_check_panda_ids[job_info.PandaID]
+                del to_check_panda_ids[job_info.PandaID]
+                if content_id in new_need_poll_contents_ext:
+                    new_contents_ext[content_id] = {'content': new_need_poll_contents_ext[content_id], 'job_info': job_info}
+                    del new_need_poll_contents_ext[content_id]
+                else:
+                    update_contents_ext[content_id] = {'content': update_need_poll_contents_ext[content_id], 'job_info': job_info}
+                    del update_need_poll_contents_ext[content_id]
+        for content_id in new_need_poll_contents_ext:
+            left_contents.append(new_need_poll_contents_ext[content_id])
+        for content_id in update_need_poll_contents_ext:
+            left_contents.append(update_need_poll_contents_ext[content_id])
 
-            to_check_panda_ids = set(to_check_panda_ids)
-            checked_panda_ids = set(checked_panda_ids)
-            left_panda_ids = to_check_panda_ids - checked_panda_ids
-            left_panda_ids = list(left_panda_ids)
+        new_contents_ext_d, update_contents_ext_d = self.get_contents_ext_detail(new_contents_ext, update_contents_ext, job_info_maps)
 
-        new_contents_ext1, update_contents_ext1 = self.get_contents_ext_detail(contents_ext_full, contents_ext_ids, job_info_maps)
-        new_contents_ext = new_contents_ext + new_contents_ext1
-        update_contents_ext = update_contents_ext + update_contents_ext1
-
-        self.logger.debug("get_contents_ext, new_contents_ext[:1]: %s" % (str(new_contents_ext[:1])))
-        self.logger.debug("get_contents_ext, update_contents_ext[:1]: %s" % (str(update_contents_ext[:1])))
-        self.logger.debug("get_contents_ext, left_panda_ids[:3]: %s" % (str(left_panda_ids[:3])))
-        return new_contents_ext, update_contents_ext, left_panda_ids
+        self.logger.debug("get_contents_ext, new_contents_ext_d[:1]: %s" % (str(new_contents_ext_d[:1])))
+        self.logger.debug("get_contents_ext, update_contents_ext_d[:1]: %s" % (str(update_contents_ext_d[:1])))
+        self.logger.debug("get_contents_ext, left_contents[:3]: %s" % (str(left_contents[:3])))
+        return new_contents_ext_d, update_contents_ext_d, left_contents
 
     def poll_panda_task(self, processing=None, input_output_maps=None, contents_ext=None, job_info_maps={}, log_prefix=''):
         task_id = None
@@ -1121,8 +1116,8 @@ class DomaPanDAWork(Work):
                                                                                                          inputname_mapid_map,
                                                                                                          inputname_jobid_map)
 
-                    new_contents_ext, update_contents_ext, left_jobs = self.get_contents_ext(input_output_maps, contents_ext,
-                                                                                             contents_ext_full, job_info_maps)
+                    new_contents_ext, update_contents_ext, left_contents = self.get_contents_ext(input_output_maps, contents_ext,
+                                                                                                 contents_ext_full, job_info_maps)
                     # if left_jobs:
                     #     processing_status = ProcessingStatus.Running
 
