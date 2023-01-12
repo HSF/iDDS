@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2022
+# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2023
 
 
 """
@@ -64,6 +64,7 @@ class ClientManager:
         self.config = None
         self.auth_type = None
         self.x509_proxy = None
+        self.oidc_token_file = None
         self.oidc_token = None
         self.vo = None
 
@@ -87,6 +88,7 @@ class ClientManager:
             self.client = Client(host=self.host,
                                  auth={'auth_type': self.auth_type,
                                        'client_proxy': self.x509_proxy,
+                                       'oidc_token_file': self.oidc_token_file,
                                        'oidc_token': self.oidc_token,
                                        'vo': self.vo,
                                        'auth_setup': auth_setup},
@@ -113,6 +115,7 @@ class ClientManager:
                      'local_config_root': 'IDDS_LOCAL_CONFIG_ROOT',
                      'config': 'IDDS_CONFIG',
                      'auth_type': 'IDDS_AUTH_TYPE',
+                     'oidc_token_file': 'IDDS_OIDC_TOKEN_FILE',
                      'oidc_token': 'IDDS_OIDC_TOKEN',
                      'vo': 'IDDS_VO',
                      'auth_no_verify': 'IDDS_AUTH_NO_VERIFY',
@@ -139,6 +142,7 @@ class ClientManager:
                          'auth_type': 'common',
                          'host': 'rest',
                          'x509_proxy': 'x509_proxy',
+                         'oidc_token_file': 'oidc',
                          'oidc_token': 'oidc',
                          'vo': 'oidc'}
         if name in name_sections:
@@ -178,9 +182,13 @@ class ClientManager:
                 self.x509_proxy = proxy
 
         if self.get_local_config_root():
+            self.oidc_token_file = self.get_config_value(config, None, 'oidc_token_file', current=self.oidc_token_file,
+                                                         default=os.path.join(self.get_local_config_root(), '.token'))
             self.oidc_token = self.get_config_value(config, None, 'oidc_token', current=self.oidc_token,
-                                                    default=os.path.join(self.get_local_config_root(), '.token'))
+                                                    default=None)
         else:
+            self.oidc_token_file = self.get_config_value(config, None, 'oidc_token_file', current=self.oidc_token_file,
+                                                         default=None)
             self.oidc_token = self.get_config_value(config, None, 'oidc_token', current=self.oidc_token,
                                                     default=None)
 
@@ -211,6 +219,7 @@ class ClientManager:
             self.set_local_configuration(name='auth_type', value=self.auth_type)
             self.set_local_configuration(name='host', value=self.host)
             self.set_local_configuration(name='x509_proxy', value=self.x509_proxy)
+            self.set_local_configuration(name='oidc_token_file', value=self.oidc_token_file)
             self.set_local_configuration(name='oidc_token', value=self.oidc_token)
             self.set_local_configuration(name='vo', value=self.vo)
             self.set_local_configuration(name='enable_json_outputs', value=self.enable_json_outputs)
@@ -219,8 +228,8 @@ class ClientManager:
                 self.configuration.write(configfile)
 
     def setup_local_configuration(self, local_config_root=None, config=None, host=None,
-                                  auth_type=None, x509_proxy=None,
-                                  oidc_token=None, vo=None):
+                                  auth_type=None, x509_proxy=None, oidc_token=None,
+                                  oidc_token_file=None, vo=None):
 
         if 'IDDS_CONFIG' in os.environ and os.environ['IDDS_CONFIG']:
             if config is None:
@@ -234,6 +243,7 @@ class ClientManager:
         self.host = host
         self.auth_type = auth_type
         self.x509_proxy = x509_proxy
+        self.oidc_token_file = oidc_token_file
         self.oidc_token = oidc_token
         self.vo = vo
 
@@ -293,11 +303,11 @@ class ClientManager:
             logging.error("Failed to get token.")
         else:
             oidc_util = OIDCAuthenticationUtils()
-            status, output = oidc_util.save_token(self.oidc_token, token)
+            status, output = oidc_util.save_token(self.oidc_token_file, token)
             if status:
-                logging.info("Token is saved to %s" % (self.oidc_token))
+                logging.info("Token is saved to %s" % (self.oidc_token_file))
             else:
-                logging.info("Failed to save token to %s: (status: %s, output: %s)" % (self.oidc_token, status, output))
+                logging.info("Failed to save token to %s: (status: %s, output: %s)" % (self.oidc_token_file, status, output))
 
     def refresh_oidc_token(self):
         """"
@@ -306,21 +316,21 @@ class ClientManager:
         self.setup_client(auth_setup=True)
 
         oidc_util = OIDCAuthenticationUtils()
-        status, token = oidc_util.load_token(self.oidc_token)
+        status, token = oidc_util.load_token(self.oidc_token_file)
         if not status:
             logging.error("Token %s cannot be loaded: %s" % (status, token))
             return
 
         is_expired, output = oidc_util.is_token_expired(token)
         if is_expired:
-            logging.error("Token %s is already expired(%s). Cannot refresh." % self.oidc_token, output)
+            logging.error("Token %s is already expired(%s). Cannot refresh." % self.oidc_token_file, output)
         else:
             new_token = self.client.refresh_id_token(self.vo, token['refresh_token'])
-            status, data = oidc_util.save_token(self.oidc_token, new_token)
+            status, data = oidc_util.save_token(self.oidc_token_file, new_token)
             if status:
-                logging.info("New token saved to %s" % self.oidc_token)
+                logging.info("New token saved to %s" % self.oidc_token_file)
             else:
-                logging.info("Failed to save token to %s: %s" % (self.oidc_token, data))
+                logging.info("Failed to save token to %s: %s" % (self.oidc_token_file, data))
 
     @exception_handler
     def clean_oidc_token(self):
@@ -330,11 +340,11 @@ class ClientManager:
         self.setup_client(auth_setup=True)
 
         oidc_util = OIDCAuthenticationUtils()
-        status, output = oidc_util.clean_token(self.oidc_token)
+        status, output = oidc_util.clean_token(self.oidc_token_file)
         if status:
-            logging.info("Token %s is cleaned" % self.oidc_token)
+            logging.info("Token %s is cleaned" % self.oidc_token_file)
         else:
-            logging.error("Failed to clean token %s: status: %s, output: %s" % (self.oidc_token, status, output))
+            logging.error("Failed to clean token %s: status: %s, output: %s" % (self.oidc_token_file, status, output))
 
     @exception_handler
     def check_oidc_token_status(self):
@@ -344,14 +354,21 @@ class ClientManager:
         self.setup_client(auth_setup=True)
 
         oidc_util = OIDCAuthenticationUtils()
-        status, token = oidc_util.load_token(self.oidc_token)
-        if not status:
-            logging.error("Token %s cannot be loaded: status: %s, error: %s" % (self.oidc_token, status, token))
-            return
+        if self.oidc_token:
+            token = self.oidc_token
+        else:
+            status, token = oidc_util.load_token(self.oidc_token_file)
+            if not status:
+                logging.error("Token %s cannot be loaded: status: %s, error: %s" % (self.oidc_token_file, status, token))
+                return
+            token = token['id_token']
 
         status, token_info = oidc_util.get_token_info(token)
         if status:
-            logging.info("Token path: %s" % self.oidc_token)
+            if self.oidc_token:
+                logging.info("ID token: %s" % self.oidc_token)
+            else:
+                logging.info("Token path: %s" % self.oidc_token_file)
             for k in token_info:
                 logging.info("Token %s: %s" % (k, token_info[k]))
         else:

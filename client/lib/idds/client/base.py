@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2023
 
 
 """
@@ -51,6 +51,7 @@ class BaseRestClient(object):
         self.retries = 2
 
         self.auth_type = None
+        self.oidc_token_file = None
         self.oidc_token = None
         self.vo = None
         self.auth_setup = False
@@ -59,6 +60,8 @@ class BaseRestClient(object):
                 self.auth_type = self.auth['auth_type']
             if 'client_proxy' in self.auth:
                 self.client_proxy = self.auth['client_proxy']
+            if 'oidc_token_file' in self.auth:
+                self.oidc_token_file = self.auth['oidc_token_file']
             if 'oidc_token' in self.auth:
                 self.oidc_token = self.auth['oidc_token']
             if 'vo' in self.auth:
@@ -120,12 +123,25 @@ class BaseRestClient(object):
                 raise exceptions.RestException("Cannot find a valid x509 proxy.")
         elif self.auth_type in ['oidc']:
             if not self.auth_setup:
-                if not self.oidc_token or not os.path.exists(self.oidc_token):
+                if not self.oidc_token and (not self.oidc_token_file or not os.path.exists(self.oidc_token_file)):
                     raise exceptions.RestException("Cannot find oidc token.")
                 if not self.vo:
                     raise exceptions.RestException("vo is not defined for oidc authentication.")
         else:
             logging.error("auth_type %s is not supported." % str(self.auth_type))
+
+    def get_oidc_token(self):
+        if self.oidc_token:
+            return self.oidc_token
+        else:
+            oidc_utils = OIDCAuthenticationUtils()
+            status, token = oidc_utils.load_token(self.oidc_token_file)
+            if not status:
+                raise exceptions.IDDSException("Token %s cannot be loaded: %s" % (self.oidc_token_file, str(token)))
+            is_expired, errors = oidc_utils.is_token_expired(token)
+            if is_expired:
+                raise exceptions.IDDSException("Token is already expired: %s" % errors)
+            return token['id_token']
 
     def build_url(self, url, path=None, params=None, doseq=False):
         """
@@ -208,14 +224,8 @@ class BaseRestClient(object):
                         else:
                             return
                     else:
-                        oidc_utils = OIDCAuthenticationUtils()
-                        status, token = oidc_utils.load_token(self.oidc_token)
-                        if not status:
-                            raise exceptions.IDDSException("Token %s cannot be loaded: %s" % (self.oidc_token, str(token)))
-                        is_expired, errors = oidc_utils.is_token_expired(token)
-                        if is_expired:
-                            raise exceptions.IDDSException("Token is already expired: %s" % errors)
-                        headers['X-IDDS-Auth-Token'] = token['id_token']
+                        id_token = self.get_oidc_token()
+                        headers['X-IDDS-Auth-Token'] = id_token
 
                         if type == 'GET':
                             result = self.session.get(url, timeout=self.timeout, headers=headers, verify=False)
