@@ -121,11 +121,18 @@ class ClientManager:
                      'auth_no_verify': 'IDDS_AUTH_NO_VERIFY',
                      'enable_json_outputs': 'IDDS_ENABLE_JSON_OUTPUTS'}
 
+        additional_name_envs = {'oidc_token': 'OIDC_AUTH_ID_TOKEN',
+                                'oidc_token_file': 'OIDC_AUTH_TOKEN_FILE',
+                                'vo': 'OIDC_AUTH_VO'}
         if not section:
             section = self.get_section(name)
 
         if name in name_envs:
             env_value = os.environ.get(name_envs[name], None)
+            if env_value and len(env_value.strip()) > 0:
+                return env_value
+        if name in additional_name_envs:
+            env_value = os.environ.get(additional_name_envs[name], None)
             if env_value and len(env_value.strip()) > 0:
                 return env_value
 
