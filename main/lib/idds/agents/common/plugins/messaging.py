@@ -104,6 +104,10 @@ class MessagingSender(PluginBase, threading.Thread):
         for name in self.channels:
             channel = self.channels[name]
             brokers = channel['brokers']
+            if type(brokers) in [list, tuple]:
+                pass
+            else:
+                brokers = brokers.split(",")
             # destination = channel['destination']
             # username = channel['username']
             # password = channel['password']
