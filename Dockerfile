@@ -136,6 +136,12 @@ RUN sed -i "s/WSGISocketPrefix\ \/var\/log\/idds\/wsgisocks\/wsgi/WSGISocketPref
 # for idds daemons
 RUN ln -fs /opt/idds/config/idds/supervisord_idds.ini /etc/supervisord.d/idds.ini
 
+# for syslog-ng
+RUN mv /etc/syslog-ng/syslog-ng.conf /etc/syslog-ng/syslog-ng.conf.back
+ADD main/tools/syslog-ng/syslog-ng.conf /etc/syslog-ng/
+ADD main/tools/syslog-ng/idds.conf /etc/syslog-ng/conf.d/
+ADD main/tools/syslog-ng/http.conf /etc/syslog-ng/conf.d/
+
 RUN chmod -R 777 /opt/idds/config
 RUN chmod -R 777 /var/log/idds
 RUN chmod -R 777 /var/idds
