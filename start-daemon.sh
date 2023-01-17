@@ -199,6 +199,7 @@ else
 fi
 
 echo "start syslog-ng"
-/usr/sbin/syslog-ng --no-caps
+# /usr/sbin/syslog-ng -F --no-caps --persist-file=/var/log/idds/syslog-ng.persist -p /var/log/idds/syslog-ng.pid
+/usr/sbin/syslog-ng  --no-caps --persist-file=/var/log/idds/syslog-ng.persist -p /var/log/idds/syslog-ng.pid
 
 trap : TERM INT; sleep infinity & wait
