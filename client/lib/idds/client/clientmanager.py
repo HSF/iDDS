@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2022
+# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2023
 
 
 """
@@ -64,8 +64,11 @@ class ClientManager:
         self.config = None
         self.auth_type = None
         self.x509_proxy = None
+        self.oidc_token_file = None
         self.oidc_token = None
         self.vo = None
+
+        self.enable_json_outputs = False
 
         self.configuration = ConfigParser.ConfigParser()
 
@@ -85,10 +88,19 @@ class ClientManager:
             self.client = Client(host=self.host,
                                  auth={'auth_type': self.auth_type,
                                        'client_proxy': self.x509_proxy,
+                                       'oidc_token_file': self.oidc_token_file,
                                        'oidc_token': self.oidc_token,
                                        'vo': self.vo,
                                        'auth_setup': auth_setup},
                                  timeout=self.timeout)
+
+            if self.enable_json_outputs:
+                self.client.enable_json_outputs()
+
+    def setup_json_outputs(self):
+        self.enable_json_outputs = True
+        if self.client:
+            self.client.enable_json_outputs()
 
     def get_local_config_root(self):
         local_cfg_root = get_local_config_root(self.local_config_root)
@@ -103,15 +115,24 @@ class ClientManager:
                      'local_config_root': 'IDDS_LOCAL_CONFIG_ROOT',
                      'config': 'IDDS_CONFIG',
                      'auth_type': 'IDDS_AUTH_TYPE',
+                     'oidc_token_file': 'IDDS_OIDC_TOKEN_FILE',
                      'oidc_token': 'IDDS_OIDC_TOKEN',
                      'vo': 'IDDS_VO',
-                     'auth_no_verify': 'IDDS_AUTH_NO_VERIFY'}
+                     'auth_no_verify': 'IDDS_AUTH_NO_VERIFY',
+                     'enable_json_outputs': 'IDDS_ENABLE_JSON_OUTPUTS'}
 
+        additional_name_envs = {'oidc_token': 'OIDC_AUTH_ID_TOKEN',
+                                'oidc_token_file': 'OIDC_AUTH_TOKEN_FILE',
+                                'vo': 'OIDC_AUTH_VO'}
         if not section:
             section = self.get_section(name)
 
         if name in name_envs:
             env_value = os.environ.get(name_envs[name], None)
+            if env_value and len(env_value.strip()) > 0:
+                return env_value
+        if name in additional_name_envs:
+            env_value = os.environ.get(additional_name_envs[name], None)
             if env_value and len(env_value.strip()) > 0:
                 return env_value
 
@@ -128,6 +149,7 @@ class ClientManager:
                          'auth_type': 'common',
                          'host': 'rest',
                          'x509_proxy': 'x509_proxy',
+                         'oidc_token_file': 'oidc',
                          'oidc_token': 'oidc',
                          'vo': 'oidc'}
         if name in name_sections:
@@ -167,14 +189,20 @@ class ClientManager:
                 self.x509_proxy = proxy
 
         if self.get_local_config_root():
+            self.oidc_token_file = self.get_config_value(config, None, 'oidc_token_file', current=self.oidc_token_file,
+                                                         default=os.path.join(self.get_local_config_root(), '.token'))
             self.oidc_token = self.get_config_value(config, None, 'oidc_token', current=self.oidc_token,
-                                                    default=os.path.join(self.get_local_config_root(), '.token'))
+                                                    default=None)
         else:
+            self.oidc_token_file = self.get_config_value(config, None, 'oidc_token_file', current=self.oidc_token_file,
+                                                         default=None)
             self.oidc_token = self.get_config_value(config, None, 'oidc_token', current=self.oidc_token,
                                                     default=None)
 
         self.vo = self.get_config_value(config, None, 'vo', current=self.vo, default=None)
 
+        self.enable_json_outputs = self.get_config_value(config, None, 'enable_json_outputs',
+                                                         current=self.enable_json_outputs, default=None)
         self.configuration = config
 
     def set_local_configuration(self, name, value):
@@ -198,15 +226,17 @@ class ClientManager:
             self.set_local_configuration(name='auth_type', value=self.auth_type)
             self.set_local_configuration(name='host', value=self.host)
             self.set_local_configuration(name='x509_proxy', value=self.x509_proxy)
+            self.set_local_configuration(name='oidc_token_file', value=self.oidc_token_file)
             self.set_local_configuration(name='oidc_token', value=self.oidc_token)
             self.set_local_configuration(name='vo', value=self.vo)
+            self.set_local_configuration(name='enable_json_outputs', value=self.enable_json_outputs)
 
             with open(local_cfg, 'w') as configfile:
                 self.configuration.write(configfile)
 
     def setup_local_configuration(self, local_config_root=None, config=None, host=None,
-                                  auth_type=None, x509_proxy=None,
-                                  oidc_token=None, vo=None):
+                                  auth_type=None, x509_proxy=None, oidc_token=None,
+                                  oidc_token_file=None, vo=None):
 
         if 'IDDS_CONFIG' in os.environ and os.environ['IDDS_CONFIG']:
             if config is None:
@@ -220,6 +250,7 @@ class ClientManager:
         self.host = host
         self.auth_type = auth_type
         self.x509_proxy = x509_proxy
+        self.oidc_token_file = oidc_token_file
         self.oidc_token = oidc_token
         self.vo = vo
 
@@ -279,11 +310,11 @@ class ClientManager:
             logging.error("Failed to get token.")
         else:
             oidc_util = OIDCAuthenticationUtils()
-            status, output = oidc_util.save_token(self.oidc_token, token)
+            status, output = oidc_util.save_token(self.oidc_token_file, token)
             if status:
-                logging.info("Token is saved to %s" % (self.oidc_token))
+                logging.info("Token is saved to %s" % (self.oidc_token_file))
             else:
-                logging.info("Failed to save token to %s: (status: %s, output: %s)" % (self.oidc_token, status, output))
+                logging.info("Failed to save token to %s: (status: %s, output: %s)" % (self.oidc_token_file, status, output))
 
     def refresh_oidc_token(self):
         """"
@@ -292,21 +323,21 @@ class ClientManager:
         self.setup_client(auth_setup=True)
 
         oidc_util = OIDCAuthenticationUtils()
-        status, token = oidc_util.load_token(self.oidc_token)
+        status, token = oidc_util.load_token(self.oidc_token_file)
         if not status:
             logging.error("Token %s cannot be loaded: %s" % (status, token))
             return
 
         is_expired, output = oidc_util.is_token_expired(token)
         if is_expired:
-            logging.error("Token %s is already expired(%s). Cannot refresh." % self.oidc_token, output)
+            logging.error("Token %s is already expired(%s). Cannot refresh." % self.oidc_token_file, output)
         else:
             new_token = self.client.refresh_id_token(self.vo, token['refresh_token'])
-            status, data = oidc_util.save_token(self.oidc_token, new_token)
+            status, data = oidc_util.save_token(self.oidc_token_file, new_token)
             if status:
-                logging.info("New token saved to %s" % self.oidc_token)
+                logging.info("New token saved to %s" % self.oidc_token_file)
             else:
-                logging.info("Failed to save token to %s: %s" % (self.oidc_token, data))
+                logging.info("Failed to save token to %s: %s" % (self.oidc_token_file, data))
 
     @exception_handler
     def clean_oidc_token(self):
@@ -316,11 +347,11 @@ class ClientManager:
         self.setup_client(auth_setup=True)
 
         oidc_util = OIDCAuthenticationUtils()
-        status, output = oidc_util.clean_token(self.oidc_token)
+        status, output = oidc_util.clean_token(self.oidc_token_file)
         if status:
-            logging.info("Token %s is cleaned" % self.oidc_token)
+            logging.info("Token %s is cleaned" % self.oidc_token_file)
         else:
-            logging.error("Failed to clean token %s: status: %s, output: %s" % (self.oidc_token, status, output))
+            logging.error("Failed to clean token %s: status: %s, output: %s" % (self.oidc_token_file, status, output))
 
     @exception_handler
     def check_oidc_token_status(self):
@@ -330,14 +361,21 @@ class ClientManager:
         self.setup_client(auth_setup=True)
 
         oidc_util = OIDCAuthenticationUtils()
-        status, token = oidc_util.load_token(self.oidc_token)
-        if not status:
-            logging.error("Token %s cannot be loaded: status: %s, error: %s" % (self.oidc_token, status, token))
-            return
+        if self.oidc_token:
+            token = self.oidc_token
+        else:
+            status, token = oidc_util.load_token(self.oidc_token_file)
+            if not status:
+                logging.error("Token %s cannot be loaded: status: %s, error: %s" % (self.oidc_token_file, status, token))
+                return
+            token = token['id_token']
 
         status, token_info = oidc_util.get_token_info(token)
         if status:
-            logging.info("Token path: %s" % self.oidc_token)
+            if self.oidc_token:
+                logging.info("ID token: %s" % self.oidc_token)
+            else:
+                logging.info("Token path: %s" % self.oidc_token_file)
             for k in token_info:
                 logging.info("Token %s: %s" % (k, token_info[k]))
         else:
@@ -385,6 +423,52 @@ class ClientManager:
             'lifetime': workflow.lifetime,
             'workload_id': workflow.get_workload_id(),
             'request_metadata': {'version': release_version, 'workload_id': workflow.get_workload_id(), 'workflow': workflow}
+        }
+
+        if self.client.original_user_name:
+            props['username'] = self.client.original_user_name
+        if self.client.original_user_dn:
+            props['userdn'] = self.client.original_user_dn
+
+        if self.auth_type == 'x509_proxy':
+            workflow.add_proxy()
+
+        if use_dataset_name:
+            primary_init_work = workflow.get_primary_initial_collection()
+            if primary_init_work:
+                if type(primary_init_work) in [Collection, CollectionV1]:
+                    props['scope'] = primary_init_work.scope
+                    props['name'] = primary_init_work.name
+                else:
+                    props['scope'] = primary_init_work['scope']
+                    props['name'] = primary_init_work['name']
+
+        # print(props)
+        request_id = self.client.add_request(**props)
+        return request_id
+
+    @exception_handler
+    def submit_build(self, workflow, username=None, userdn=None, use_dataset_name=True):
+        """
+        Submit the workflow as a request to iDDS server.
+
+        :param workflow: The workflow to be submitted.
+        """
+        self.setup_client()
+
+        props = {
+            'scope': 'workflow',
+            'name': workflow.name,
+            'requester': 'panda',
+            'request_type': RequestType.Workflow,
+            'username': username if username else workflow.username,
+            'userdn': userdn if userdn else workflow.userdn,
+            'transform_tag': 'workflow',
+            'status': RequestStatus.New,
+            'priority': 0,
+            'lifetime': workflow.lifetime,
+            'workload_id': workflow.get_workload_id(),
+            'request_metadata': {'version': release_version, 'workload_id': workflow.get_workload_id(), 'build_workflow': workflow}
         }
 
         if self.client.original_user_name:
@@ -478,6 +562,20 @@ class ClientManager:
 
         reqs = self.client.get_requests(request_id=request_id, workload_id=workload_id, with_detail=with_detail, with_metadata=with_metadata)
         return reqs
+
+    @exception_handler
+    def get_request_id_by_name(self, name):
+        """
+        Get request id by name.
+
+        :param name: the request name.
+
+        :returns {name:id} dict.
+        """
+        self.setup_client()
+
+        ret = self.client.get_request_id_by_name(name=name)
+        return ret
 
     @exception_handler
     def get_status(self, request_id=None, workload_id=None, with_detail=False, with_metadata=False):
@@ -596,3 +694,34 @@ class ClientManager:
         msgs = self.client.get_messages(request_id=request_id, workload_id=workload_id)
         logging.info("Retrieved %s messages for request_id: %s, workload_id: %s" % (len(msgs), request_id, workload_id))
         return (0, msgs)
+
+    @exception_handler
+    def get_contents_output_ext(self, request_id=None, workload_id=None, transform_id=None, group_by_jedi_task_id=False):
+        """
+        Get output extension contents from the Head service.
+
+        :param request_id: the request id.
+        :param workload_id: the workload id.
+        :param transform_id: the transform id.
+
+        :raise exceptions if it's not got successfully.
+        """
+        self.setup_client()
+
+        return self.client.get_contents_output_ext(workload_id=workload_id, request_id=request_id, transform_id=transform_id,
+                                                   group_by_jedi_task_id=group_by_jedi_task_id)
+
+    @exception_handler
+    def update_build_request(self, request_id, signature, workflow):
+        """
+        Update Build Request to the Head service.
+
+        :param request_id: the request.
+        :param signature: the signature of the request.
+        :param workflow: the workflow of the request.
+
+        :raise exceptions if it's not updated successfully.
+        """
+        self.setup_client()
+
+        return self.client.update_build_request(request_id=request_id, signature=signature, workflow=workflow)

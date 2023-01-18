@@ -112,3 +112,110 @@ CREATE INDEX COMMANDS_TYPE_ST_PR_IDX ON COMMANDS (cmd_type, status, destination,
 alter table transforms add name VARCHAR2(255);
 alter table collections add failed_files NUMBER(10);
 alter table collections add missing_files NUMBER(10);
+
+
+-- 2022.11.30
+alter table contents add content_dep_id NUMBER(12);
+CREATE INDEX CONTENTS_DEP_IDX ON CONTENTS (request_id, transform_id, content_dep_id) LOCAL;
+
+-- 2022.12.01
+alter table requests modify username VARCHAR2(50) default null;
+
+-- 2022.12.06
+alter table collections add ext_files NUMBER(10);
+alter table collections add processed_ext_files NUMBER(10);
+alter table collections add failed_ext_files NUMBER(10);
+alter table collections add missing_ext_files NUMBER(10);
+
+
+-- 2022.12.08
+-- oracle 19
+CREATE TABLE CONTENTS_ext
+(
+        content_id NUMBER(12) constraint CONTENT_EXT_PK_NN NOT NULL,
+        transform_id NUMBER(12) constraint CONTENT_EXT_TF_ID_NN NOT NULL,
+        coll_id NUMBER(14),
+        request_id NUMBER(12),
+        workload_id NUMBER(10),
+        map_id NUMBER(12) DEFAULT 0,
+        status NUMBER(2) constraint CONTENT_EXT_STATUS_NN NOT NULL,
+	panda_id NUMBER(14),
+	job_definition_id NUMBER(12),
+	scheduler_id VARCHAR2(128),
+        pilot_id VARCHAR2(200),
+	creation_time DATE,
+	modification_time DATE,
+        start_time DATE,
+	end_time DATE,
+	prod_source_label VARCHAR2(20),
+        prod_user_id VARCHAR2(250),
+	assigned_priority NUMBER(5),
+	current_priority NUMBER(5),
+        attempt_nr NUMBER(5),
+	max_attempt NUMBER(5),
+	max_cpu_count NUMBER(5),
+        max_cpu_unit VARCHAR2(32),
+	max_disk_count NUMBER(12),
+	max_disk_unit VARCHAR2(10),
+        min_ram_count NUMBER(12),
+	min_ram_unit VARCHAR2(10),
+	cpu_consumption_time NUMBER(12),
+        cpu_consumption_unit VARCHAR2(128),
+	job_status VARCHAR2(10),
+	job_name VARCHAR2(255),
+        trans_exit_code NUMBER(5),
+	pilot_error_code NUMBER(5),
+	pilot_error_diag VARCHAR2(500),
+        exe_error_code NUMBER(5),
+	exe_error_diag VARCHAR2(500),
+	sup_error_code NUMBER(5),
+        sup_error_diag VARCHAR2(250),
+	ddm_error_code NUMBER(5),
+	ddm_error_diag VARCHAR2(500),
+        brokerage_error_code NUMBER(5),
+	brokerage_error_diag VARCHAR2(250),
+        job_dispatcher_error_code NUMBER(5),
+	job_dispatcher_error_diag VARCHAR2(250),
+        task_buffer_error_code NUMBER(5),
+	task_buffer_error_diag VARCHAR2(300),
+        computing_site VARCHAR2(128),
+	computing_element VARCHAR2(128),
+        grid VARCHAR2(50),
+	cloud VARCHAR2(50),
+	cpu_conversion float(20),
+	task_id NUMBER(12),
+        vo VARCHAR2(16),
+	pilot_timing VARCHAR2(100),
+	working_group VARCHAR2(20),
+        processing_type VARCHAR2(64),
+	prod_user_name VARCHAR2(60),
+	core_count NUMBER(5),
+        n_input_files NUMBER(10),
+	req_id NUMBER(12),
+	jedi_task_id NUMBER(12),
+        actual_core_count NUMBER(5),
+	max_rss NUMBER(12),
+	max_vmem NUMBER(12),
+        max_swap NUMBER(12),
+	max_pss NUMBER(12),
+	avg_rss NUMBER(12),
+	avg_vmem NUMBER(12),
+        avg_swap NUMBER(12),
+	avg_pss NUMBER(12),
+	max_walltime NUMBER(12),
+	disk_io NUMBER(12),
+        failed_attempt NUMBER(5),
+	hs06 NUMBER(12),
+	hs06sec NUMBER(12),
+        memory_leak VARCHAR2(10),
+	memory_leak_x2 VARCHAR2(10),
+	job_label VARCHAR2(20),
+        CONSTRAINT CONTENT_EXT_PK PRIMARY KEY (content_id),
+	CONSTRAINT CONTENT_EXT_TRANSFORM_ID_FK FOREIGN KEY(transform_id) REFERENCES TRANSFORMS(transform_id)
+)
+PCTFREE 3
+PARTITION BY RANGE(TRANSFORM_ID)
+INTERVAL ( 100000 )
+( PARTITION initial_part VALUES LESS THAN (1) );
+
+CREATE INDEX CONTENTS_EXT_RTF_IDX ON CONTENTS_ext (request_id, transform_id, workload_id, coll_id, content_id, panda_id, status) LOCAL;

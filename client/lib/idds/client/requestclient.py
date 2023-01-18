@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
 
 
 """
@@ -80,6 +80,25 @@ class RequestClient(BaseRestClient):
         r = self.get_request_response(url, type='PUT', data=data)
         return r
 
+    def update_build_request(self, request_id, signature, workflow):
+        """
+        Update Build Request to the Head service.
+
+        :param request_id: the request.
+        :param signature: the signature of the request.
+        :param workflow: the workflow of the request.
+
+        :raise exceptions if it's not updated successfully.
+        """
+        path = self.REQUEST_BASEURL
+        path += "/build"
+        url = self.build_url(self.host, path=os.path.join(path, str(request_id)))
+
+        data = {'signature': signature,
+                'workflow': workflow}
+        r = self.get_request_response(url, type='POST', data=data)
+        return r
+
     def get_requests(self, request_id=None, workload_id=None, with_detail=False, with_metadata=False, with_transform=False, with_processing=False):
         """
         Get request from the Head service.
@@ -105,6 +124,21 @@ class RequestClient(BaseRestClient):
         #         request['status'] = RequestStatus(request['status'])
 
         return requests
+
+    def get_request_id_by_name(self, name):
+        """
+        Get request id by name.
+
+        :param name: the request name.
+
+        :returns {name:id} dict.
+        """
+        path = self.REQUEST_BASEURL
+        path += "/name"
+
+        url = self.build_url(self.host, path=os.path.join(path, name))
+        r = self.get_request_response(url, type='GET', data=None)
+        return r
 
     def abort_request(self, request_id, workload_id=None):
         """

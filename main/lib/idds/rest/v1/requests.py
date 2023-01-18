@@ -21,7 +21,9 @@ from idds.common.constants import (MessageType, MessageStatus,
                                    MessageSource, MessageDestination,
                                    CommandType)
 from idds.common.utils import json_loads
-from idds.core.requests import add_request, get_requests
+from idds.core.requests import (add_request, get_requests,
+                                get_request, update_request,
+                                get_request_ids_by_name)
 from idds.core.messages import add_message
 from idds.core.commands import add_command
 from idds.rest.v1.controller import IDDSController
@@ -216,6 +218,80 @@ class Request(IDDSController):
         pprint.pprint(self.get_request().url_rule)
 
 
+class RequestName(IDDSController):
+    """ Get id from name. """
+
+    def get(self, name):
+        """ Get id from name.
+        HTTP Success:
+            200 OK
+        HTTP Error:
+            404 Not Found
+            500 InternalError
+        :returns: {name:id} dict.
+        """
+        try:
+            rets = get_request_ids_by_name(name)
+        except exceptions.NoObject as error:
+            return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
+        except exceptions.IDDSException as error:
+            return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=error.__class__.__name__, exc_msg=error)
+        except Exception as error:
+            print(error)
+            print(format_exc())
+            return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
+
+        return self.generate_http_response(HTTP_STATUS_CODE.OK, data=rets)
+
+
+class RequestBuild(IDDSController):
+    """ Create, Update, get and delete Request. """
+
+    def post(self, request_id):
+        """ update build request result.
+        HTTP Success:
+            200 OK
+        HTTP Error:
+            400 Bad request
+            500 Internal Error
+        """
+        try:
+            parameters = self.get_request().data and json_loads(self.get_request().data)
+            if 'signature' not in parameters or 'workflow' not in parameters:
+                raise exceptions.IDDSException("signature and workflow are required")
+
+            # request_id = parameters['request_id']
+            signature = parameters['signature']
+            workflow = parameters['workflow']
+
+            req = get_request(request_id=request_id)
+            if not req:
+                raise exceptions.IDDSException("Request %s is not found" % request_id)
+            if req['status'] not in [RequestStatus.Building]:
+                raise exceptions.IDDSException("Request (request_id: %s, status: %s) is not in Building status" % (request_id, req['status']))
+
+            build_workflow = req['request_metadata']['build_workflow']
+            works = build_workflow.get_all_works()
+            build_work = works[0]
+            if build_work.get_signature() != signature:
+                raise exceptions.IDDSException("Request (request_id: %s) has a different signature(%s != %s)" % (request_id,
+                                                                                                                 signature,
+                                                                                                                 build_work.get_signature()))
+            req['request_metadata']['workflow'] = workflow
+
+            parameters = {'status': RequestStatus.Built,
+                          'request_metadata': req['request_metadata']}
+            update_request(request_id=req['request_id'], parameters=parameters, update_request_metadata=True)
+        except exceptions.IDDSException as error:
+            return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=error.__class__.__name__, exc_msg=error)
+        except Exception as error:
+            print(error)
+            print(format_exc())
+            return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
+
+        return self.generate_http_response(HTTP_STATUS_CODE.OK, data={'request_id': request_id})
+
+
 class RequestAbort(IDDSController):
     """ Abort Request. """
 
@@ -354,6 +430,12 @@ def get_blueprint():
     bp.add_url_rule('/request/<request_id>/<workload_id>/<with_detail>/<with_metadata>', view_func=request_view, methods=['get', ])
     bp.add_url_rule('/request/<request_id>/<workload_id>/<with_detail>/<with_metadata>/<with_transform>', view_func=request_view, methods=['get', ])
     bp.add_url_rule('/request/<request_id>/<workload_id>/<with_detail>/<with_metadata>/<with_transform>/<with_processing>', view_func=request_view, methods=['get', ])
+
+    request_name2id = RequestName.as_view('request_name')
+    bp.add_url_rule('/request/name/<name>', view_func=request_name2id, methods=['get', ])
+
+    request_build = RequestBuild.as_view('request_build')
+    bp.add_url_rule('/request/build/<request_id>', view_func=request_build, methods=['post', ])
 
     request_abort = RequestAbort.as_view('request_abort')
     bp.add_url_rule('/request/abort/<request_id>/<workload_id>', view_func=request_abort, methods=['put', ])

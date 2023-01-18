@@ -19,12 +19,12 @@ from idds.common import exceptions
 
 
 class PluginBase(object):
-    def __init__(self, **kwargs):
+    def __init__(self, logger=None, **kwargs):
         for key in kwargs:
             setattr(self, key, kwargs[key])
 
-        self.logger = None
-        self.setup_logger()
+        self.logger = logger
+        self.setup_logger(self.logger)
         self.plugins = self.load_plugins(kwargs)
 
     def get_class_name(self):
@@ -39,8 +39,19 @@ class PluginBase(object):
         else:
             self.logger = logging.getLogger(self.get_class_name())
 
+    @property
+    def logger(self):
+        return self._logger
+
+    @logger.setter
+    def logger(self, logger):
+        self._logger = logger
+
     def set_logger(self, logger):
         self.logger = logger
+
+    def get_logger(self):
+        return self.logger
 
     def __call__(self, **kwargs):
         return exceptions.NotImplementedException(self.get_class_name())
@@ -61,7 +72,7 @@ class PluginBase(object):
                 attrs[attr_name] = value
         return attrs
 
-    def load_plugin(self, name, plugin, kwargs):
+    def load_plugin(self, name, plugin, logger, kwargs):
         """
         Load plugin
         """
@@ -71,10 +82,11 @@ class PluginBase(object):
         plugin_class = plugin[k + 1:]
         module = __import__(plugin_modules, fromlist=[None])
         cls = getattr(module, plugin_class)
+        attrs['logger'] = logger
         impl = cls(**attrs)
         return impl
 
-    def load_plugins(self, kwargs):
+    def load_plugins(self, kwargs, logger=None):
         if not kwargs:
             return {}
 
@@ -83,5 +95,5 @@ class PluginBase(object):
             if key.startswith('plugin.'):
                 if key.count('.') == 1:
                     plugin_name = key.replace('plugin.', '').strip()
-                    plugins[plugin_name] = self.load_plugin(plugin_name, value, kwargs)
+                    plugins[plugin_name] = self.load_plugin(plugin_name, value, logger=logger, kwargs=kwargs)
         return plugins

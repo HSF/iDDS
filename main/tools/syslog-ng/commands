@@ -1,0 +1,3 @@
+python main/tools/syslog-ng/config_syslog_ng.py  -s '/var/log/idds/*.log' -d /dev/stdout -f IDDS -p -c /etc/syslog-ng/conf.d/idds.conf
+python main/tools/syslog-ng/config_syslog_ng.py  -s '/var/log/idds/http*log' -d /dev/stdout -f IDDS -p -c /etc/syslog-ng/conf.d/http.conf
+

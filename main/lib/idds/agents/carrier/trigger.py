@@ -70,13 +70,15 @@ class Trigger(Poller):
                 self.logger.error(traceback.format_exc())
         return []
 
-    def handle_trigger_processing(self, processing):
+    def handle_trigger_processing(self, processing, trigger_new_updates=False):
         try:
             log_prefix = self.get_log_prefix(processing)
-            process_status, update_contents, ret_msgs, parameters = handle_trigger_processing(processing,
-                                                                                              self.agent_attributes,
-                                                                                              logger=self.logger,
-                                                                                              log_prefix=log_prefix)
+            ret_trigger_processing = handle_trigger_processing(processing,
+                                                               self.agent_attributes,
+                                                               trigger_new_updates=trigger_new_updates,
+                                                               logger=self.logger,
+                                                               log_prefix=log_prefix)
+            process_status, update_contents, ret_msgs, parameters, update_dep_contents_status_name, update_dep_contents_status, new_update_contents = ret_trigger_processing
 
             new_process_status = process_status
             if is_process_terminated(process_status):
@@ -95,6 +97,8 @@ class Trigger(Poller):
             ret = {'update_processing': update_processing,
                    'update_contents': update_contents,
                    'messages': ret_msgs,
+                   'new_update_contents': new_update_contents,
+                   'update_dep_contents': (processing['request_id'], update_dep_contents_status_name, update_dep_contents_status),
                    'processing_status': new_process_status}
         except exceptions.ProcessFormatNotSupported as ex:
             self.logger.error(ex)
@@ -148,6 +152,7 @@ class Trigger(Poller):
         self.number_workers += 1
         try:
             if event:
+                original_event = event
                 # pr_status = [ProcessingStatus.New]
                 self.logger.info("process_trigger_processing, event: %s" % str(event))
                 pr = self.get_processing(processing_id=event._processing_id, status=None, locking=True)
@@ -161,10 +166,16 @@ class Trigger(Poller):
 
                     self.update_processing(ret, pr)
 
+                    new_update_contents = ret.get('new_update_contents', None)
+                    if new_update_contents:
+                        ret = self.handle_trigger_processing(pr, trigger_new_updates=True)
+                        self.update_processing(ret, pr)
+
                     if (('processing_status' in ret and ret['processing_status'] == ProcessingStatus.Terminating)
                         or (event._content and 'Terminated' in event._content and event._content['Terminated'])):   # noqa W503
                         self.logger.info(log_pre + "TerminatedProcessingEvent(processing_id: %s)" % pr['processing_id'])
-                        event = TerminatedProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'], content=event._content)
+                        event = TerminatedProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'], content=event._content,
+                                                          counter=original_event._counter)
                         self.event_bus.send(event)
                     else:
                         if ((event._content and 'has_updates' in event._content and event._content['has_updates'])
@@ -172,7 +183,8 @@ class Trigger(Poller):
                             or ('new_contents' in ret and ret['new_contents'])          # noqa W503
                             or ('messages' in ret and ret['messages'])):                # noqa E129
                             self.logger.info(log_pre + "SyncProcessingEvent(processing_id: %s)" % pr['processing_id'])
-                            event = SyncProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'])
+                            event = SyncProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'],
+                                                        counter=original_event._counter)
                             self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)

@@ -18,7 +18,7 @@ from idds.agents.common.eventbus.event import (EventType,
 
 from .utils import (handle_abort_processing,
                     handle_resume_processing,
-                    is_process_terminated,
+                    # is_process_terminated,
                     sync_processing)
 from .poller import Poller
 
@@ -132,29 +132,30 @@ class Finisher(Poller):
         self.number_workers += 1
         try:
             if event:
-                pr = self.get_processing(processing_id=event._processing_id, locking=True)
-                if not pr:
-                    self.logger.error("Cannot find processing for event: %s" % str(event))
+                if event._counter > 3:
+                    self.logger.warn("Event counter is bigger than 3, skip event: %s" % str(event))
                 else:
-                    log_pre = self.get_log_prefix(pr)
+                    original_event = event
+                    pr = self.get_processing(processing_id=event._processing_id, locking=True)
+                    if not pr:
+                        self.logger.error("Cannot find processing for event: %s" % str(event))
+                    else:
+                        log_pre = self.get_log_prefix(pr)
 
-                    self.logger.info(log_pre + "process_terminated_processing")
-                    ret = self.handle_terminated_processing(pr, log_prefix=log_pre)
-                    self.logger.info(log_pre + "process_terminated_processing result: %s" % str(ret))
+                        self.logger.info(log_pre + "process_terminated_processing")
+                        ret = self.handle_terminated_processing(pr, log_prefix=log_pre)
+                        self.logger.info(log_pre + "process_terminated_processing result: %s" % str(ret))
 
-                    if pr['status'] == ProcessingStatus.Terminating and is_process_terminated(pr['substatus']):
-                        pr['status'] = pr['substatus']
-
-                    self.update_processing(ret, pr)
-                    self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
-                    event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'])
-                    self.event_bus.send(event)
-
-                    if pr['status'] not in [ProcessingStatus.Finished, ProcessingStatus.Failed, ProcessingStatus.SubFinished]:
-                        # some files are missing, poll it.
-                        self.logger.info(log_pre + "UpdateProcessingEvent(processing_id: %s)" % pr['processing_id'])
-                        event = UpdateProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'])
+                        self.update_processing(ret, pr)
+                        self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
+                        event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'])
                         self.event_bus.send(event)
+
+                        if pr['status'] not in [ProcessingStatus.Finished, ProcessingStatus.Failed, ProcessingStatus.SubFinished]:
+                            # some files are missing, poll it.
+                            self.logger.info(log_pre + "UpdateProcessingEvent(processing_id: %s)" % pr['processing_id'])
+                            event = UpdateProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'], counter=original_event._counter + 1)
+                            self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
@@ -165,7 +166,7 @@ class Finisher(Poller):
         process abort processing
         """
         try:
-            processing, update_collections, update_contents = handle_abort_processing(processing, self.agent_attributes, logger=self.logger, log_prefix=log_prefix)
+            processing, update_collections, update_contents, messages = handle_abort_processing(processing, self.agent_attributes, logger=self.logger, log_prefix=log_prefix)
 
             update_processing = {'processing_id': processing['processing_id'],
                                  'parameters': {'status': processing['status'],
@@ -173,6 +174,7 @@ class Finisher(Poller):
             ret = {'update_processing': update_processing,
                    'update_collections': update_collections,
                    'update_contents': update_contents,
+                   'messages': messages
                    }
             return ret
         except Exception as ex:

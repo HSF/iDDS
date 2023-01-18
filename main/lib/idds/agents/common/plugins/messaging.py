@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
 
 
 import logging
@@ -19,7 +19,7 @@ import traceback
 import stomp
 
 from idds.common.plugin.plugin_base import PluginBase
-from idds.common.utils import setup_logging
+from idds.common.utils import setup_logging, get_logger
 
 
 setup_logging(__name__)
@@ -30,14 +30,18 @@ class MessagingListener(stomp.ConnectionListener):
     '''
     Messaging Listener
     '''
-    def __init__(self, broker, output_queue):
+    def __init__(self, broker, output_queue, logger=None):
         '''
         __init__
         '''
         self.name = "MessagingListener"
         self.__broker = broker
         self.__output_queue = output_queue
-        self.logger = logging.getLogger(self.__class__.__name__)
+        # self.logger = logging.getLogger(self.__class__.__name__)
+        if logger:
+            self.logger = logger
+        else:
+            self.logger = get_logger(self.__class__.__name__)
 
     def on_error(self, frame):
         '''
@@ -46,38 +50,42 @@ class MessagingListener(stomp.ConnectionListener):
         self.logger.error('[broker] [%s]: %s', self.__broker, frame.body)
 
     def on_message(self, frame):
-        # self.logger.info('[broker] [%s]: %s', self.__broker, body)
+        self.logger.debug('[broker] [%s]: %s', self.__broker, frame.body)
         self.__output_queue.put(frame.body)
         pass
 
 
 class MessagingSender(PluginBase, threading.Thread):
-    def __init__(self, name="MessagingSender", **kwargs):
+    def __init__(self, name="MessagingSender", logger=None, **kwargs):
         threading.Thread.__init__(self, name=name)
-        super(MessagingSender, self).__init__(name=name, **kwargs)
+        super(MessagingSender, self).__init__(name=name, logger=logger, **kwargs)
 
-        self.setup_logger()
+        if logger:
+            self.logger = logger
         self.graceful_stop = threading.Event()
         self.request_queue = None
         self.output_queue = None
         self.response_queue = None
 
-        if not hasattr(self, 'brokers'):
-            raise Exception('brokers is required but not defined.')
-        else:
-            self.brokers = [b.strip() for b in self.brokers.split(',')]
-        if not hasattr(self, 'port'):
-            raise Exception('port is required but not defined.')
-        if not hasattr(self, 'vhost'):
-            self.vhost = None
-        if not hasattr(self, 'destination'):
-            raise Exception('destination is required but not defined.')
-        if not hasattr(self, 'broker_timeout'):
-            self.broker_timeout = 60
-        else:
-            self.broker_timeout = int(self.broker_timeout)
+        if not hasattr(self, 'channels'):
+            raise Exception('"channels" is required but not defined.')
+        self.channels = json.loads(self.channels)
+
+        self.broker_timeout = 3600
 
         self.conns = []
+
+    def setup_logger(self, logger):
+        if logger:
+            self.logger = logger
+        else:
+            self.logger = get_logger(self.__class__.__name__)
+
+    def set_logger(self, logger):
+        self.logger = logger
+
+    def get_logger(self):
+        return self.logger
 
     def stop(self):
         self.graceful_stop.set()
@@ -92,69 +100,88 @@ class MessagingSender(PluginBase, threading.Thread):
         self.response_queue = response_queue
 
     def connect_to_messaging_brokers(self, sender=True):
-        broker_addresses = []
-        for b in self.brokers:
-            try:
-                if ":" in b:
+        channel_conns = {}
+        for name in self.channels:
+            channel = self.channels[name]
+            brokers = channel['brokers']
+            if type(brokers) in [list, tuple]:
+                pass
+            else:
+                brokers = brokers.split(",")
+            # destination = channel['destination']
+            # username = channel['username']
+            # password = channel['password']
+            broker_timeout = channel['broker_timeout']
+
+            broker_addresses = []
+            for b in brokers:
+                try:
                     b, port = b.split(":")
-                else:
-                    port = self.port
 
-                addrinfos = socket.getaddrinfo(b, 0, socket.AF_INET, 0, socket.IPPROTO_TCP)
-                for addrinfo in addrinfos:
-                    b_addr = addrinfo[4][0]
-                    broker_addresses.append((b_addr, port))
-            except socket.gaierror as error:
-                self.logger.error('Cannot resolve hostname %s: %s' % (b, str(error)))
+                    addrinfos = socket.getaddrinfo(b, 0, socket.AF_INET, 0, socket.IPPROTO_TCP)
+                    for addrinfo in addrinfos:
+                        b_addr = addrinfo[4][0]
+                        broker_addresses.append((b_addr, port))
+                except socket.gaierror as error:
+                    self.logger.error('Cannot resolve hostname %s: %s' % (b, str(error)))
 
-        self.logger.info("Resolved broker addresses: %s" % broker_addresses)
+            self.logger.info("Resolved broker addresses for channel %s: %s" % (name, broker_addresses))
 
-        timeout = None
-        if sender:
-            timeout = self.broker_timeout
+            timeout = broker_timeout
 
-        conns = []
-        for broker, port in broker_addresses:
-            conn = stomp.Connection12(host_and_ports=[(broker, port)],
-                                      vhost=self.vhost,
-                                      keepalive=True,
-                                      heartbeats=(60000, 60000),     # one minute
-                                      timeout=timeout)
-            conns.append(conn)
-        return conns
+            conns = []
+            for broker, port in broker_addresses:
+                conn = stomp.Connection12(host_and_ports=[(broker, port)],
+                                          keepalive=True,
+                                          heartbeats=(60000, 60000),     # one minute
+                                          timeout=timeout)
+                conns.append(conn)
+            channel_conns[name] = conns
+        return channel_conns
 
     def disconnect(self, conns):
-        for conn in conns:
-            try:
-                conn.disconnect()
-            except Exception:
-                pass
+        for name in conns:
+            for conn in conns[name]:
+                try:
+                    conn.disconnect()
+                except Exception:
+                    pass
 
-    def get_connection(self):
+    def get_connection(self, destination):
         try:
-            conn = random.sample(self.conns, 1)[0]
+            if destination not in self.conns:
+                destination = 'default'
+            conn = random.sample(self.conns[destination], 1)[0]
+            queue_dest = self.channels[destination]['destination']
             if not conn.is_connected():
                 # conn.start()
                 conn.connect(self.username, self.password, wait=True)
-                return conn
+                return conn, queue_dest, destination
         except Exception as error:
             self.logger.error("Failed to connect to message broker(will re-resolve brokers): %s" % str(error))
 
         self.disconnect(self.conns)
 
-        self.conns = self.connect_to_messaging_brokers(sender=True)
-        conn = random.sample(self.conns, 1)[0]
-        if not conn.is_connected():
-            conn.connect(self.username, self.password, wait=True)
-            return conn
+        try:
+            self.conns = self.connect_to_messaging_brokers(sender=True)
+            if destination not in self.conns:
+                destination = 'default'
+            conn = random.sample(self.conns[destination], 1)[0]
+            queue_dest = self.channels[destination]['destination']
+            if not conn.is_connected():
+                conn.connect(self.username, self.password, wait=True)
+                return conn, queue_dest, destination
+        except Exception as error:
+            self.logger.error("Failed to connect to message broker(will re-resolve brokers): %s" % str(error))
 
     def send_message(self, msg):
-        conn = self.get_connection()
+        destination = msg['destination'] if 'destination' in msg else 'default'
+        conn, queue_dest, destination = self.get_connection(destination)
 
-        self.logger.info("Sending message to message broker: %s" % msg['msg_id'])
-        self.logger.debug("Sending message to message broker: %s" % json.dumps(msg['msg_content']))
+        self.logger.info("Sending message to message broker(%s): %s" % (destination, msg['msg_id']))
+        self.logger.debug("Sending message to message broker(%s): %s" % (destination, json.dumps(msg['msg_content'])))
         conn.send(body=json.dumps(msg['msg_content']),
-                  destination=self.destination,
+                  destination=queue_dest,
                   id='atlas-idds-messaging',
                   ack='auto',
                   headers={'persistent': 'true',
@@ -190,24 +217,25 @@ class MessagingSender(PluginBase, threading.Thread):
 
 
 class MessagingReceiver(MessagingSender):
-    def __init__(self, name="MessagingReceiver", **kwargs):
-        super(MessagingReceiver, self).__init__(name=name, **kwargs)
+    def __init__(self, name="MessagingReceiver", logger=None, **kwargs):
+        super(MessagingReceiver, self).__init__(name=name, logger=logger, **kwargs)
         self.listener = None
         self.receiver_conns = []
 
     def get_listener(self, broker):
         if self.listener is None:
-            self.listener = MessagingListener(broker, self.output_queue)
+            self.listener = MessagingListener(broker, self.output_queue, logger=self.logger)
         return self.listener
 
     def subscribe(self):
         self.receiver_conns = self.connect_to_messaging_brokers()
 
-        for conn in self.receiver_conns:
-            self.logger.info('connecting to %s' % conn.transport._Transport__host_and_ports[0][0])
-            conn.set_listener('message-receiver', self.get_listener(conn.transport._Transport__host_and_ports[0]))
-            conn.connect(self.username, self.password, wait=True)
-            conn.subscribe(destination=self.destination, id='atlas-idds-messaging', ack='auto')
+        for name in self.receiver_conns:
+            for conn in self.receiver_conns[name]:
+                self.logger.info('connecting to %s' % conn.transport._Transport__host_and_ports[0][0])
+                conn.set_listener('message-receiver', self.get_listener(conn.transport._Transport__host_and_ports[0]))
+                conn.connect(self.channels[name]['username'], self.channels[name]['password'], wait=True)
+                conn.subscribe(destination=self.channels[name]['destination'], id='atlas-idds-messaging', ack='auto')
 
     def execute_subscribe(self):
         try:
@@ -218,12 +246,13 @@ class MessagingReceiver(MessagingSender):
         while not self.graceful_stop.is_set():
             has_failed_connection = False
             try:
-                for conn in self.receiver_conns:
-                    if not conn.is_connected():
-                        conn.set_listener('message-receiver', self.get_listener(conn.transport._Transport__host_and_ports[0]))
-                        # conn.start()
-                        conn.connect(self.username, self.password, wait=True)
-                        conn.subscribe(destination=self.destination, id='atlas-idds-messaging', ack='auto')
+                for name in self.receiver_conns:
+                    for conn in self.receiver_conns[name]:
+                        if not conn.is_connected():
+                            conn.set_listener('message-receiver', self.get_listener(conn.transport._Transport__host_and_ports[0]))
+                            # conn.start()
+                            conn.connect(self.channels[name]['username'], self.channels[name]['password'], wait=True)
+                            conn.subscribe(destination=self.channels[name]['destination'], id='atlas-idds-messaging', ack='auto')
                 time.sleep(0.1)
             except Exception as error:
                 self.logger.error("Messaging receiver throws an exception: %s, %s" % (error, traceback.format_exc()))
@@ -252,8 +281,8 @@ class MessagingReceiver(MessagingSender):
 
 
 class MessagingMessager(MessagingReceiver):
-    def __init__(self, name="MessagingMessager", **kwargs):
-        super(MessagingMessager, self).__init__(name=name, **kwargs)
+    def __init__(self, name="MessagingMessager", logger=None, **kwargs):
+        super(MessagingMessager, self).__init__(name=name, logger=logger, **kwargs)
 
     def execute_send_subscribe(self):
         try:
@@ -280,12 +309,13 @@ class MessagingMessager(MessagingReceiver):
             # subscribe
             has_failed_connection = False
             try:
-                for conn in self.receiver_conns:
-                    if not conn.is_connected():
-                        conn.set_listener('message-receiver', self.get_listener(conn.transport._Transport__host_and_ports[0]))
-                        # conn.start()
-                        conn.connect(self.username, self.password, wait=True)
-                        conn.subscribe(destination=self.destination, id='atlas-idds-messaging', ack='auto')
+                for name in self.receiver_conns:
+                    for conn in self.receiver_conns[name]:
+                        if not conn.is_connected():
+                            conn.set_listener('message-receiver', self.get_listener(conn.transport._Transport__host_and_ports[0]))
+                            # conn.start()
+                            conn.connect(self.channels[name]['username'], self.channels[name]['password'], wait=True)
+                            conn.subscribe(destination=self.channels[name]['destination'], id='atlas-idds-messaging', ack='auto')
             except Exception as error:
                 self.logger.error("Messaging receiver throws an exception: %s, %s" % (error, traceback.format_exc()))
                 has_failed_connection = True

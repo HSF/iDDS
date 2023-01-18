@@ -27,7 +27,7 @@ from .atlaspandawork import ATLASPandaWork
 
 class ATLASLocalPandaWork(ATLASPandaWork):
     def __init__(self, task_parameters=None,
-                 work_tag='atlas', exec_type='panda', work_id=None,
+                 work_tag='atlaslocalpanda', exec_type='panda', work_id=None,
                  primary_input_collection=None, other_input_collections=None,
                  input_collections=None,
                  primary_output_collection=None, other_output_collections=None,

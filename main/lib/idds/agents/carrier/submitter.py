@@ -16,6 +16,7 @@ from idds.common.utils import setup_logging, truncate_string
 from idds.core import processings as core_processings
 from idds.agents.common.eventbus.event import (EventType,
                                                NewProcessingEvent,
+                                               SyncProcessingEvent,
                                                UpdateTransformEvent)
 
 from .utils import handle_new_processing
@@ -75,10 +76,11 @@ class Submitter(Poller):
             # transform_id = processing['transform_id']
             # transform = core_transforms.get_transform(transform_id=transform_id)
             # work = transform['transform_metadata']['work']
-            status, processing, update_colls, new_contents, msgs, errors = handle_new_processing(processing,
-                                                                                                 self.agent_attributes,
-                                                                                                 logger=self.logger,
-                                                                                                 log_prefix=log_prefix)
+            ret_new_processing = handle_new_processing(processing,
+                                                       self.agent_attributes,
+                                                       logger=self.logger,
+                                                       log_prefix=log_prefix)
+            status, processing, update_colls, new_contents, new_input_dependency_contents, msgs, errors = ret_new_processing
 
             if not status:
                 raise exceptions.ProcessSubmitFailed(str(errors))
@@ -104,6 +106,7 @@ class Submitter(Poller):
                    'update_collections': update_colls,
                    'update_contents': [],
                    'new_contents': new_contents,
+                   'new_input_dependency_contents': new_input_dependency_contents,
                    'messages': msgs,
                    }
         except Exception as ex:
@@ -155,9 +158,9 @@ class Submitter(Poller):
                     event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'], content=submit_event_content)
                     self.event_bus.send(event)
 
-                    # self.logger.info(log_pre + "SyncProcessingEvent(processing_id: %s)" % pr['processing_id'])
-                    # event = SyncProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'])
-                    # self.event_bus.send(event)
+                    self.logger.info(log_pre + "SyncProcessingEvent(processing_id: %s)" % pr['processing_id'])
+                    event = SyncProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'])
+                    self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())

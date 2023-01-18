@@ -72,6 +72,11 @@ class Collection(Base):
         self.failed_files = 0
         self.missing_files = 0
 
+        self.ext_files = 0
+        self.processed_ext_files = 0
+        self.failed_ext_files = 0
+        self.missing_ext_files = 0
+
     @property
     def internal_id(self):
         return self.get_metadata_item('internal_id')
@@ -1817,6 +1822,9 @@ class Work(Base):
         """
         return False
 
+    def require_ext_contents(self):
+        return False
+
     def set_work_name_to_coll_map(self, work_name_to_coll_map):
         self.work_name_to_coll_map = work_name_to_coll_map
 
@@ -2115,7 +2123,7 @@ class Work(Base):
             if forcing:
                 proc.toforcefinish = True
 
-    def poll_processing_updates(self, processing, input_output_maps):
+    def poll_processing_updates(self, processing, input_output_maps, contents_ext=None, log_prefix=''):
         """
         *** Function called by Carrier agent.
         """

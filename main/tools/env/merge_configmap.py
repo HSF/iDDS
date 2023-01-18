@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2022
+# - Wen Guan, <wen.guan@cern.ch>, 2022 - 2023
 
 
 import argparse
@@ -49,6 +49,14 @@ def as_parse_env(dct):
     return dct
 
 
+def convert_section_json(data_conf):
+    for section in data_conf:
+        for item in data_conf[section]:
+            if type(data_conf[section][item]) in [list, tuple, dict]:
+                data_conf[section][item] = json.dumps(data_conf[section][item])
+    return data_conf
+
+
 def merge_configs(source_file_path, dest_file_path):
     """
     Merge  configuration file.
@@ -60,6 +68,7 @@ def merge_configs(source_file_path, dest_file_path):
                 data = json.load(f, object_hook=as_parse_env)
                 if dest_file_path in data:
                     data_conf = data[dest_file_path]
+                    data_conf = convert_section_json(data_conf)
                     parser = configparser.ConfigParser()
                     parser.read(dest_file_path)
                     parser.read_dict(data_conf)
