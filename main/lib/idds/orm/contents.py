@@ -471,7 +471,7 @@ def update_dep_contents(request_id, content_dep_ids, status, bulk_size=1000, ses
         params = {'substatus': status}
         chunks = [content_dep_ids[i:i + bulk_size] for i in range(0, len(content_dep_ids), bulk_size)]
         for chunk in chunks:
-            session.query(models.Content).with_hint(models.Content, "INDEX(CONTENTS CONTENTS_DEP_IDX)")\
+            session.query(models.Content).with_hint(models.Content, "INDEX(CONTENTS CONTENTS_DEP_IDX)", "oracle")\
                    .filter(models.Content.request_id == request_id)\
                    .filter(models.Content.content_id.in_(chunk))\
                    .update(params, synchronize_session=False)
@@ -668,7 +668,7 @@ def get_contents_ext(request_id=None, transform_id=None, workload_id=None, coll_
                 status = [status]
 
         query = session.query(models.Content_ext)
-        query = query.with_hint(models.Content_ext, "INDEX(CONTENTS_EXT CONTENTS_EXT_RTF_IDX)")
+        query = query.with_hint(models.Content_ext, "INDEX(CONTENTS_EXT CONTENTS_EXT_RTF_IDX)", "oracle")
         if request_id:
             query = query.filter(models.Content_ext.request_id == request_id)
         if transform_id:
@@ -722,7 +722,7 @@ def get_contents_ext_ids(request_id=None, transform_id=None, workload_id=None, c
                               models.Content_ext.content_id,
                               models.Content_ext.panda_id,
                               models.Content_ext.status)
-        query = query.with_hint(models.Content_ext, "INDEX(CONTENTS_EXT CONTENTS_EXT_RTF_IDX)")
+        query = query.with_hint(models.Content_ext, "INDEX(CONTENTS_EXT CONTENTS_EXT_RTF_IDX)", "oracle")
         if request_id:
             query = query.filter(models.Content_ext.request_id == request_id)
         if transform_id:
