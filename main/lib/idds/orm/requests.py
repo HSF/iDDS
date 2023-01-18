@@ -186,7 +186,7 @@ def get_request_ids_by_name(name, session=None):
     """
     try:
         query = session.query(models.Request.request_id, models.Request.name)\
-                       .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_SCOPE_NAME_IDX)")\
+                       .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_SCOPE_NAME_IDX)", "oracle")\
                        .filter(models.Request.name.like(name.replace('*', '%')))
         tmp = query.all()
         ret_ids = {}
