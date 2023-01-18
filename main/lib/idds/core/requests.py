@@ -111,6 +111,23 @@ def add_request(scope=None, name=None, requester=None, request_type=None,
 
 
 @read_session
+def get_request(request_id, to_json=False, session=None):
+    """
+    Get a request or raise a NoObject exception.
+
+    :param request_id: The id of the request.
+    :param to_json: return json format.
+
+    :param session: The database session in use.
+
+    :raises NoObject: If no request is founded.
+
+    :returns: Request.
+    """
+    return orm_requests.get_request(request_id=request_id, to_json=to_json, session=session)
+
+
+@read_session
 def get_request_ids_by_workload_id(workload_id, session=None):
     """
     Get request id or raise a NoObject exception.
@@ -123,6 +140,21 @@ def get_request_ids_by_workload_id(workload_id, session=None):
     :returns: Request ids.
     """
     return orm_requests.get_request_ids_by_workload_id(workload_id, session=session)
+
+
+@read_session
+def get_request_ids_by_name(name, session=None):
+    """
+    Get request ids or raise a NoObject exception.
+
+    :param name: name of the request.
+    :param session: The database session in use.
+
+    :raises NoObject: If no request is founded.
+
+    :returns: Request {name:id} dict.
+    """
+    return orm_requests.get_request_ids_by_name(name, session=session)
 
 
 @transactional_session
@@ -183,14 +215,14 @@ def cancel_requests(request_id=None, workload_id=None, session=None):
 
 
 @transactional_session
-def update_request(request_id, parameters, session=None):
+def update_request(request_id, parameters, update_request_metadata=False, session=None):
     """
     update an request.
 
     :param request_id: the request id.
     :param parameters: A dictionary of parameters.
     """
-    return orm_requests.update_request(request_id, parameters, session=session)
+    return orm_requests.update_request(request_id, parameters, update_request_metadata=update_request_metadata, session=session)
 
 
 def generate_collection(transform, collection, relation_type=CollectionRelationType.Input):

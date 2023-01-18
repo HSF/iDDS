@@ -1,0 +1,7 @@
+#!/bin/bash
+IFS=';' read -ra ADDR <<< "$@"
+
+for i in "${ADDR[@]}"; do
+    echo $i
+    eval $i
+done

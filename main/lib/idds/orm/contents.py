@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2020
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
 
 
 """
@@ -274,7 +274,8 @@ def get_match_contents(coll_id, scope, name, content_type=None, min_id=None, max
 
 
 @read_session
-def get_contents(scope=None, name=None, coll_id=None, status=None, to_json=False, session=None):
+def get_contents(scope=None, name=None, transform_id=None, coll_id=None, status=None,
+                 relation_type=None, to_json=False, session=None):
     """
     Get content or raise a NoObject exception.
 
@@ -305,6 +306,8 @@ def get_contents(scope=None, name=None, coll_id=None, status=None, to_json=False
         query = session.query(models.Content)
         query = query.with_hint(models.Content, "INDEX(CONTENTS CONTENTS_ID_NAME_IDX)", 'oracle')
 
+        if transform_id:
+            query = query.filter(models.Content.transform_id == transform_id)
         if coll_id:
             query = query.filter(models.Content.coll_id.in_(coll_id))
         if scope:
@@ -313,6 +316,10 @@ def get_contents(scope=None, name=None, coll_id=None, status=None, to_json=False
             query = query.filter(models.Content.name.like(name.replace('*', '%')))
         if status is not None:
             query = query.filter(models.Content.status.in_(status))
+        if relation_type:
+            query = query.filter(models.Content.content_relation_type == relation_type)
+
+        query = query.order_by(asc(models.Content.map_id))
 
         tmp = query.all()
         rets = []
@@ -324,8 +331,8 @@ def get_contents(scope=None, name=None, coll_id=None, status=None, to_json=False
                     rets.append(t.to_dict())
         return rets
     except sqlalchemy.orm.exc.NoResultFound as error:
-        raise exceptions.NoObject('No record can be found with (scope=%s, name=%s, coll_id=%s): %s' %
-                                  (scope, name, coll_id, error))
+        raise exceptions.NoObject('No record can be found with (coll_id=%s, name=%s): %s' %
+                                  (coll_id, name, error))
     except Exception as error:
         raise error
 
@@ -374,108 +381,6 @@ def get_contents_by_request_transform(request_id=None, transform_id=None, worklo
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('No record can be found with (transform_id=%s): %s' %
                                   (transform_id, error))
-    except Exception as error:
-        raise error
-
-
-@read_session
-def get_contents_by_content_ids(content_ids, request_id=None, bulk_size=1000, session=None):
-    """
-    Get content or raise a NoObject exception.
-
-    :param request_id: request id.
-    :param content_ids: list of content id.
-    :param workload_id: workload id.
-
-    :param session: The database session in use.
-
-    :raises NoObject: If no content is founded.
-
-    :returns: list of contents.
-    """
-    try:
-        if content_ids:
-            if not isinstance(content_ids, (list, tuple)):
-                content_ids = [content_ids]
-
-        chunks = [content_ids[i:i + bulk_size] for i in range(0, len(content_ids), bulk_size)]
-        ret = []
-        for chunk in chunks:
-            ret_chunk = get_contents_by_content_ids_real(chunk, request_id=request_id)
-            ret = ret + ret_chunk
-        return ret
-    except Exception as error:
-        raise error
-
-
-@read_session
-def get_contents_by_content_ids_real(content_ids, request_id=None, session=None):
-    """
-    Get content or raise a NoObject exception.
-
-    :param request_id: request id.
-    :param content_ids: list of content id.
-    :param workload_id: workload id.
-
-    :param session: The database session in use.
-
-    :raises NoObject: If no content is founded.
-
-    :returns: list of contents.
-    """
-    try:
-        query = session.query(models.Content)
-        query = query.with_hint(models.Content, "INDEX(CONTENTS CONTENTS_REQ_TF_COLL_IDX)", 'oracle')
-        if request_id:
-            query = query.filter(models.Content.request_id == request_id)
-        query = query.filter(models.Content.content_id.in_(content_ids))
-        ret = query.all()
-        rets = [t.to_dict() for t in ret]
-        return rets
-    except Exception as error:
-        raise error
-
-
-@read_session
-def get_input_contents(request_id, coll_id, name=None, to_json=False, session=None):
-    """
-    Get content or raise a NoObject exception.
-
-    :param request_id: request id.
-    :param coll_id: collection id.
-    :param name: content name.
-    :param to_json: return json format.
-
-    :param session: The database session in use.
-
-    :raises NoObject: If no content is founded.
-
-    :returns: list of contents.
-    """
-
-    try:
-        query = session.query(models.Content)
-        query = query.with_hint(models.Content, "INDEX(CONTENTS CONTENTS_REQ_TF_COLL_IDX)", 'oracle')
-        query = query.filter(models.Content.request_id == request_id)
-        query = query.filter(models.Content.coll_id == coll_id)
-
-        if name:
-            query = query.filter(models.Content.name == name)
-        # query = query.filter(models.Content.content_relation_type == ContentRelationType.Input)
-        query = query.order_by(asc(models.Content.map_id))
-
-        tmp = query.all()
-        rets = []
-        if tmp:
-            for t in tmp:
-                if to_json:
-                    rets.append(t.to_dict_json())
-                else:
-                    rets.append(t.to_dict())
-        return rets
-    except sqlalchemy.orm.exc.NoResultFound as error:
-        raise exceptions.NoObject('No record can be found with (transform_id=%s, coll_id=%s, name=%s): %s' %
-                                  (request_id, coll_id, name, error))
     except Exception as error:
         raise error
 
@@ -550,6 +455,31 @@ def update_contents(parameters, session=None):
 
 
 @transactional_session
+def update_dep_contents(request_id, content_dep_ids, status, bulk_size=1000, session=None):
+    """
+    update dependency contents.
+
+    :param content_dep_ids: list of content dependency id.
+    :param status: Content status.
+    :param session: The database session in use.
+
+    :raises NoObject: If no content is founded.
+    :raises DatabaseException: If there is a database error.
+
+    """
+    try:
+        params = {'substatus': status}
+        chunks = [content_dep_ids[i:i + bulk_size] for i in range(0, len(content_dep_ids), bulk_size)]
+        for chunk in chunks:
+            session.query(models.Content).with_hint(models.Content, "INDEX(CONTENTS CONTENTS_DEP_IDX)", "oracle")\
+                   .filter(models.Content.request_id == request_id)\
+                   .filter(models.Content.content_id.in_(chunk))\
+                   .update(params, synchronize_session=False)
+    except sqlalchemy.orm.exc.NoResultFound as error:
+        raise exceptions.NoObject('Content cannot be found: %s' % (error))
+
+
+@transactional_session
 def delete_content(content_id=None, session=None):
     """
     delete a content.
@@ -564,3 +494,279 @@ def delete_content(content_id=None, session=None):
         session.query(models.Content).filter_by(content_id=content_id).delete()
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('Content %s cannot be found: %s' % (content_id, error))
+
+
+def get_contents_ext_items():
+    default_params = {'pandaID': None, 'jobDefinitionID': None, 'schedulerID': None,
+                      'pilotID': None, 'creationTime': None, 'modificationTime': None,
+                      'startTime': None, 'endTime': None, 'prodSourceLabel': None,
+                      'prodUserID': None, 'assignedPriority': None, 'currentPriority': None,
+                      'attemptNr': None, 'maxAttempt': None, 'maxCpuCount': None,
+                      'maxCpuUnit': None, 'maxDiskCount': None, 'maxDiskUnit': None,
+                      'minRamCount': None, 'maxRamUnit': None, 'cpuConsumptionTime': None,
+                      'cpuConsumptionUnit': None, 'jobStatus': None, 'jobName': None,
+                      'transExitCode': None, 'pilotErrorCode': None, 'pilotErrorDiag': None,
+                      'exeErrorCode': None, 'exeErrorDiag': None, 'supErrorCode': None,
+                      'supErrorDiag': None, 'ddmErrorCode': None, 'ddmErrorDiag': None,
+                      'brokerageErrorCode': None, 'brokerageErrorDiag': None,
+                      'jobDispatcherErrorCode': None, 'jobDispatcherErrorDiag': None,
+                      'taskBufferErrorCode': None, 'taskBufferErrorDiag': None,
+                      'computingSite': None, 'computingElement': None,
+                      'grid': None, 'cloud': None, 'cpuConversion': None, 'taskID': None,
+                      'vo': None, 'pilotTiming': None, 'workingGroup': None,
+                      'processingType': None, 'prodUserName': None, 'coreCount': None,
+                      'nInputFiles': None, 'reqID': None, 'jediTaskID': None,
+                      'actualCoreCount': None, 'maxRSS': None, 'maxVMEM': None,
+                      'maxSWAP': None, 'maxPSS': None, 'avgRSS': None, 'avgVMEM': None,
+                      'avgSWAP': None, 'avgPSS': None, 'maxWalltime': None, 'diskIO': None,
+                      'failedAttempt': None, 'hs06': None, 'hs06sec': None,
+                      'memory_leak': None, 'memory_leak_x2': None, 'job_label': None}
+    return default_params
+
+
+def get_contents_ext_maps():
+    default_params = {'panda_id': 'PandaID', 'job_definition_id': 'jobDefinitionID', 'scheduler_id': 'schedulerID',
+                      'pilot_id': 'pilotID', 'creation_time': 'creationTime', 'modification_time': 'modificationTime',
+                      'start_time': 'startTime', 'end_time': 'endTime', 'prod_source_label': 'prodSourceLabel',
+                      'prod_user_id': 'prodUserID', 'assigned_priority': 'assignedPriority', 'current_priority': 'currentPriority',
+                      'attempt_nr': 'attemptNr', 'max_attempt': 'maxAttempt', 'max_cpu_count': 'maxCpuCount',
+                      'max_cpu_unit': 'maxCpuUnit', 'max_disk_count': 'maxDiskCount', 'max_disk_unit': 'maxDiskUnit',
+                      'min_ram_count': 'minRamCount', 'min_ram_unit': 'minRamUnit', 'cpu_consumption_time': 'cpuConsumptionTime',
+                      'cpu_consumption_unit': 'cpuConsumptionUnit', 'job_status': 'jobStatus', 'job_name': 'jobName',
+                      'trans_exit_code': 'transExitCode', 'pilot_error_code': 'pilotErrorCode', 'pilot_error_diag': 'pilotErrorDiag',
+                      'exe_error_code': 'exeErrorCode', 'exe_error_diag': 'exeErrorDiag', 'sup_error_code': 'supErrorCode',
+                      'sup_error_diag': 'supErrorDiag', 'ddm_error_code': 'ddmErrorCode', 'ddm_error_diag': 'ddmErrorDiag',
+                      'brokerage_error_cdode': 'brokerageErrorCode', 'brokerage_error_diag': 'brokerageErrorDiag',
+                      'job_dispatcher_error_code': 'jobDispatcherErrorCode', 'job_dispatcher_error_diag': 'jobDispatcherErrorDiag',
+                      'task_buffer_error_code': 'taskBufferErrorCode', 'task_buffer_error_diag': 'taskBufferErrorDiag',
+                      'computing_site': 'computingSite', 'computing_element': 'computingElement',
+                      'grid': 'grid', 'cloud': 'cloud', 'cpu_conversion': 'cpuConversion', 'task_id': 'taskID',
+                      'vo': 'VO', 'pilot_timing': 'pilotTiming', 'working_group': 'workingGroup',
+                      'processing_type': 'processingType', 'prod_user_name': 'prodUserName', 'core_count': 'coreCount',
+                      'n_input_files': 'nInputFiles', 'req_id': 'reqID', 'jedi_task_id': 'jediTaskID',
+                      'actual_core_count': 'actualCoreCount', 'max_rss': 'maxRSS', 'max_vmem': 'maxVMEM',
+                      'max_swap': 'maxSWAP', 'max_pss': 'maxPSS', 'avg_rss': 'avgRSS', 'avg_vmem': 'avgVMEM',
+                      'avg_swap': 'avgSWAP', 'avg_pss': 'avgPSS', 'max_walltime': 'maxWalltime', 'disk_io': 'diskIO',
+                      'failed_attempt': 'failedAttempt', 'hs06': 'hs06', 'hs06sec': 'hs06sec',
+                      'memory_leak': 'memory_leak', 'memory_leak_x2': 'memory_leak_x2', 'job_label': 'job_label'}
+    return default_params
+
+
+@transactional_session
+def add_contents_update(contents, bulk_size=10000, session=None):
+    """
+    Add contents update.
+
+    :param contents: dict of contents.
+    :param session: session.
+
+    :raises DuplicatedObject: If a collection with the same name exists.
+    :raises DatabaseException: If there is a database error.
+
+    :returns: content ids.
+    """
+    sub_params = [contents[i:i + bulk_size] for i in range(0, len(contents), bulk_size)]
+
+    try:
+        for sub_param in sub_params:
+            session.bulk_insert_mappings(models.Content_update, sub_param)
+        content_ids = [None for _ in range(len(contents))]
+        return content_ids
+    except IntegrityError as error:
+        raise exceptions.DuplicatedObject('Duplicated objects: %s' % (error))
+    except DatabaseError as error:
+        raise exceptions.DatabaseException(error)
+
+
+@transactional_session
+def delete_contents_update(session=None):
+    """
+    delete a content.
+
+    :param session: The database session in use.
+
+    :raises NoObject: If no content is founded.
+    :raises DatabaseException: If there is a database error.
+    """
+    try:
+        session.query(models.Content_update).delete()
+    except Exception as error:
+        raise exceptions.NoObject('Content_update deletion error: %s' % (error))
+
+
+@transactional_session
+def add_contents_ext(contents, bulk_size=10000, session=None):
+    """
+    Add contents ext.
+
+    :param contents: dict of contents.
+    :param session: session.
+
+    :raises DuplicatedObject: If a collection with the same name exists.
+    :raises DatabaseException: If there is a database error.
+
+    :returns: content ids.
+    """
+    default_params = get_contents_ext_items()
+    default_params['status'] = ContentStatus.New
+
+    for content in contents:
+        for key in default_params:
+            if key not in content:
+                content[key] = default_params[key]
+
+    sub_params = [contents[i:i + bulk_size] for i in range(0, len(contents), bulk_size)]
+
+    try:
+        for sub_param in sub_params:
+            session.bulk_insert_mappings(models.Content_ext, sub_param)
+        content_ids = [None for _ in range(len(contents))]
+        return content_ids
+    except IntegrityError as error:
+        raise exceptions.DuplicatedObject('Duplicated objects: %s' % (error))
+    except DatabaseError as error:
+        raise exceptions.DatabaseException(error)
+
+
+@transactional_session
+def update_contents_ext(parameters, session=None):
+    """
+    update contents ext.
+
+    :param parameters: list of dictionary of parameters.
+    :param session: The database session in use.
+
+    :raises NoObject: If no content is founded.
+    :raises DatabaseException: If there is a database error.
+
+    """
+    try:
+        session.bulk_update_mappings(models.Content_ext, parameters)
+    except sqlalchemy.orm.exc.NoResultFound as error:
+        raise exceptions.NoObject('Content cannot be found: %s' % (error))
+
+
+@read_session
+def get_contents_ext(request_id=None, transform_id=None, workload_id=None, coll_id=None, status=None, session=None):
+    """
+    Get content or raise a NoObject exception.
+
+    :param request_id: request id.
+    :param transform_id: transform id.
+    :param workload_id: workload id.
+
+    :param session: The database session in use.
+
+    :raises NoObject: If no content is founded.
+
+    :returns: list of contents.
+    """
+
+    try:
+        if status is not None:
+            if not isinstance(status, (tuple, list)):
+                status = [status]
+
+        query = session.query(models.Content_ext)
+        query = query.with_hint(models.Content_ext, "INDEX(CONTENTS_EXT CONTENTS_EXT_RTF_IDX)", "oracle")
+        if request_id:
+            query = query.filter(models.Content_ext.request_id == request_id)
+        if transform_id:
+            query = query.filter(models.Content_ext.transform_id == transform_id)
+        if workload_id:
+            query = query.filter(models.Content_ext.workload_id == workload_id)
+        if coll_id:
+            query = query.filter(models.Content_ext.coll_id == coll_id)
+        if status is not None:
+            query = query.filter(models.Content_ext.status.in_(status))
+        query = query.order_by(asc(models.Content_ext.request_id), asc(models.Content_ext.transform_id), asc(models.Content_ext.map_id))
+
+        tmp = query.all()
+        rets = []
+        if tmp:
+            for t in tmp:
+                rets.append(t.to_dict())
+        return rets
+    except sqlalchemy.orm.exc.NoResultFound as error:
+        raise exceptions.NoObject('No record can be found with (transform_id=%s): %s' %
+                                  (transform_id, error))
+    except Exception as error:
+        raise error
+
+
+@read_session
+def get_contents_ext_ids(request_id=None, transform_id=None, workload_id=None, coll_id=None, status=None, session=None):
+    """
+    Get content or raise a NoObject exception.
+
+    :param request_id: request id.
+    :param transform_id: transform id.
+    :param workload_id: workload id.
+
+    :param session: The database session in use.
+
+    :raises NoObject: If no content is founded.
+
+    :returns: list of content ids.
+    """
+
+    try:
+        if status is not None:
+            if not isinstance(status, (tuple, list)):
+                status = [status]
+
+        query = session.query(models.Content_ext.request_id,
+                              models.Content_ext.transform_id,
+                              models.Content_ext.workload_id,
+                              models.Content_ext.coll_id,
+                              models.Content_ext.content_id,
+                              models.Content_ext.panda_id,
+                              models.Content_ext.status)
+        query = query.with_hint(models.Content_ext, "INDEX(CONTENTS_EXT CONTENTS_EXT_RTF_IDX)", "oracle")
+        if request_id:
+            query = query.filter(models.Content_ext.request_id == request_id)
+        if transform_id:
+            query = query.filter(models.Content_ext.transform_id == transform_id)
+        if workload_id:
+            query = query.filter(models.Content_ext.workload_id == workload_id)
+        if coll_id:
+            query = query.filter(models.Content_ext.coll_id == coll_id)
+        if status is not None:
+            query = query.filter(models.Content_ext.status.in_(status))
+        query = query.order_by(asc(models.Content_ext.request_id), asc(models.Content_ext.transform_id), asc(models.Content_ext.map_id))
+
+        tmp = query.all()
+        rets = []
+        if tmp:
+            for t in tmp:
+                t2 = dict(zip(t.keys(), t))
+                rets.append(t2)
+        return rets
+    except sqlalchemy.orm.exc.NoResultFound as error:
+        raise exceptions.NoObject('No record can be found with (transform_id=%s): %s' %
+                                  (transform_id, error))
+    except Exception as error:
+        raise error
+
+
+def combine_contents_ext(contents, contents_ext, with_status_name=False):
+    contents_ext_map = {}
+    for content in contents_ext:
+        contents_ext_map[content['content_id']] = content
+
+    rets = []
+    for content in contents:
+        content_id = content['content_id']
+        if content_id in contents_ext_map:
+            ret = contents_ext_map[content_id]
+        else:
+            ret = {'content_id': content_id}
+        if with_status_name:
+            ret['status'] = content['status'].name
+        else:
+            ret['status'] = content['status']
+        ret['scope'] = content['scope']
+        ret['name'] = content['name']
+
+        rets.append(ret)
+    return rets

@@ -24,7 +24,7 @@ from idds.agents.common.eventbus.event import (EventType,
                                                SyncProcessingEvent,
                                                TerminatedProcessingEvent)
 
-from .utils import handle_update_processing, is_process_terminated
+from .utils import handle_update_processing, is_process_terminated, is_process_finished
 
 setup_logging(__name__)
 
@@ -143,10 +143,28 @@ class Poller(BaseAgent):
                 self.logger.error(traceback.format_exc())
         return None
 
+    def get_work_tag_attribute(self, work_tag, attribute):
+        work_tag_attribute = work_tag + "_" + attribute
+        work_tag_attribute_value = None
+        if hasattr(self, work_tag_attribute):
+            work_tag_attribute_value = int(getattr(self, work_tag_attribute))
+        return work_tag_attribute_value
+
     def load_poll_period(self, processing, parameters):
-        if self.new_poll_period and processing['new_poll_period'] != self.new_poll_period:
+        proc = processing['processing_metadata']['processing']
+        work = proc.work
+        work_tag = work.get_work_tag()
+
+        work_tag_new_poll_period = self.get_work_tag_attribute(work_tag, "new_poll_period")
+        if work_tag_new_poll_period:
+            parameters['new_poll_period'] = work_tag_new_poll_period
+        elif self.new_poll_period and processing['new_poll_period'] != self.new_poll_period:
             parameters['new_poll_period'] = self.new_poll_period
-        if self.update_poll_period and processing['update_poll_period'] != self.update_poll_period:
+
+        work_tag_update_poll_period = self.get_work_tag_attribute(work_tag, "update_poll_period")
+        if work_tag_update_poll_period:
+            parameters['update_poll_period'] = work_tag_update_poll_period
+        elif self.update_poll_period and processing['update_poll_period'] != self.update_poll_period:
             parameters['update_poll_period'] = self.update_poll_period
         return parameters
 
@@ -175,9 +193,14 @@ class Poller(BaseAgent):
                         core_processings.update_processing_contents(update_processing=processing.get('update_processing', None),
                                                                     update_collections=processing.get('update_collections', None),
                                                                     update_contents=processing.get('update_contents', None),
+                                                                    update_dep_contents=processing.get('update_dep_contents', None),
                                                                     messages=processing.get('messages', None),
                                                                     update_messages=processing.get('update_messages', None),
-                                                                    new_contents=processing.get('new_contents', None))
+                                                                    new_contents=processing.get('new_contents', None),
+                                                                    new_update_contents=processing.get('new_update_contents', None),
+                                                                    new_contents_ext=processing.get('new_contents_ext', None),
+                                                                    update_contents_ext=processing.get('update_contents_ext', None),
+                                                                    new_input_dependency_contents=processing.get('new_input_dependency_contents', None))
                     except exceptions.DatabaseException as ex:
                         if 'ORA-00060' in str(ex):
                             self.logger.warn(log_prefix + "(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
@@ -220,10 +243,12 @@ class Poller(BaseAgent):
     def handle_update_processing(self, processing):
         try:
             log_prefix = self.get_log_prefix(processing)
-            process_status, new_contents, ret_msgs, update_contents, parameters = handle_update_processing(processing,
-                                                                                                           self.agent_attributes,
-                                                                                                           logger=self.logger,
-                                                                                                           log_prefix=log_prefix)
+            ret_handle_update_processing = handle_update_processing(processing,
+                                                                    self.agent_attributes,
+                                                                    logger=self.logger,
+                                                                    log_prefix=log_prefix)
+
+            process_status, new_contents, new_input_dependency_contents, ret_msgs, update_contents, parameters, new_contents_ext, update_contents_ext = ret_handle_update_processing
 
             proc = processing['processing_metadata']['processing']
             work = proc.work
@@ -233,6 +258,14 @@ class Poller(BaseAgent):
                 new_process_status = process_status
                 if is_process_terminated(process_status):
                     new_process_status = ProcessingStatus.Terminating
+                    if is_process_finished(process_status):
+                        new_process_status = ProcessingStatus.Terminating
+                    else:
+                        retries = processing['update_retries'] + 1
+                        if processing['max_update_retries'] and retries < processing['max_update_retries']:
+                            work.reactivate_processing(processing, log_prefix=log_prefix)
+                            process_status = ProcessingStatus.Running
+                            new_process_status = ProcessingStatus.Running
 
             update_processing = {'processing_id': processing['processing_id'],
                                  'parameters': {'status': new_process_status,
@@ -259,7 +292,10 @@ class Poller(BaseAgent):
             ret = {'update_processing': update_processing,
                    'update_contents': update_contents,
                    'new_contents': new_contents,
+                   'new_input_dependency_contents': new_input_dependency_contents,
                    'messages': ret_msgs,
+                   'new_contents_ext': new_contents_ext,
+                   'update_contents_ext': update_contents_ext,
                    'processing_status': new_process_status}
 
         except exceptions.ProcessFormatNotSupported as ex:
@@ -314,6 +350,7 @@ class Poller(BaseAgent):
         self.number_workers += 1
         try:
             if event:
+                original_event = event
                 self.logger.info("process_update_processing, event: %s" % str(event))
 
                 pr = self.get_processing(processing_id=event._processing_id, status=None, locking=True)
@@ -334,18 +371,23 @@ class Poller(BaseAgent):
                             event_content['has_updates'] = True
                         if is_process_terminated(pr['substatus']):
                             event_content['Terminated'] = True
-                        event = TriggerProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'], content=event_content)
+                        event = TriggerProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'], content=event_content,
+                                                       counter=original_event._counter)
                         self.event_bus.send(event)
                     elif 'processing_status' in ret and ret['processing_status'] == ProcessingStatus.Terminating:
                         self.logger.info(log_pre + "TerminatedProcessingEvent(processing_id: %s)" % pr['processing_id'])
-                        event = TerminatedProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'])
+                        event = TerminatedProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'],
+                                                          counter=original_event._counter)
                         self.event_bus.send(event)
                     else:
                         if (('update_contents' in ret and ret['update_contents'])
                             or ('new_contents' in ret and ret['new_contents'])       # noqa W503
+                            or ('new_contents_ext' in ret and ret['new_contents_ext'])       # noqa W503
+                            or ('update_contents_ext' in ret and ret['update_contents_ext'])       # noqa W503
                             or ('messages' in ret and ret['messages'])):             # noqa E129
                             self.logger.info(log_pre + "SyncProcessingEvent(processing_id: %s)" % pr['processing_id'])
-                            event = SyncProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'])
+                            event = SyncProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'],
+                                                        counter=original_event._counter)
                             self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)

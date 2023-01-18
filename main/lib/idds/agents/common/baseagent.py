@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
 
 import os
 import socket
@@ -34,11 +34,11 @@ class BaseAgent(TimerScheduler, PluginBase):
     The base IDDS agent class
     """
 
-    def __init__(self, num_threads=1, name=None, **kwargs):
+    def __init__(self, num_threads=1, name=None, logger=None, **kwargs):
         super(BaseAgent, self).__init__(num_threads, name=name)
         self.name = self.__class__.__name__
         self.id = str(uuid.uuid4())[:8]
-        self.logger = None
+        self.logger = logger
         self.setup_logger(self.logger)
 
         self.config_section = Sections.Common
@@ -91,7 +91,7 @@ class BaseAgent(TimerScheduler, PluginBase):
         self.plugin_sequence = load_plugin_sequence(self.config_section)
 
     def load_plugins(self):
-        self.plugins = load_plugins(self.config_section)
+        self.plugins = load_plugins(self.config_section, logger=self.logger)
         """
         for plugin_name in self.plugin_sequence:
             if plugin_name not in self.plugins:

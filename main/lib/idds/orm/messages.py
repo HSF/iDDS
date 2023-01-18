@@ -132,6 +132,12 @@ def retrieve_messages(bulk_size=1000, msg_type=None, status=None, source=None,
     """
     messages = []
     try:
+        if destination is not None:
+            if not isinstance(destination, (list, tuple)):
+                destination = [destination]
+            if len(destination) == 1:
+                destination = [destination[0], destination[0]]
+
         query = session.query(models.Message)
         if request_id is not None:
             query = query.with_hint(models.Message, "INDEX(MESSAGES MESSAGES_TYPE_ST_IDX)", 'oracle')
@@ -149,7 +155,7 @@ def retrieve_messages(bulk_size=1000, msg_type=None, status=None, source=None,
         if source is not None:
             query = query.filter_by(source=source)
         if destination is not None:
-            query = query.filter_by(destination=destination)
+            query = query.filter(models.Message.destination.in_(destination))
         if request_id is not None:
             query = query.filter_by(request_id=request_id)
         if workload_id is not None:

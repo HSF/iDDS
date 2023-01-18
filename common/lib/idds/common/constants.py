@@ -142,6 +142,8 @@ class RequestStatus(IDDSEnum):
     ToFinish = 18
     ToForceFinish = 19
     Terminating = 20
+    Building = 21
+    Built = 22
 
 
 class RequestLocking(IDDSEnum):
@@ -222,6 +224,8 @@ class TransformStatus(IDDSEnum):
     ToFinish = 18
     ToForceFinish = 19
     Terminating = 20
+    Building = 21
+    Built = 22
 
 
 class TransformLocking(IDDSEnum):
@@ -349,6 +353,7 @@ class MessageType(IDDSEnum):
     ProcessingWork = 11
     HealthHeartbeat = 12
     IDDSCommunication = 13
+    ContentExt = 14
     UnknownFile = 97
     UnknownCollection = 98
     UnknownWork = 99
@@ -372,6 +377,7 @@ class MessageTypeStr(IDDSEnum):
     UnknownFile = 'file_unknown'
     UnknownCollection = 'collection_unknown'
     UnknownWork = 'work_unknown'
+    ContentExt = 'content_ext'
 
 
 TransformType2MessageTypeMap = {
@@ -431,6 +437,7 @@ class MessageDestination(IDDSEnum):
     Carrier = 3
     Conductor = 4
     Outside = 5
+    ContentExt = 6
 
 
 class CommandType(IDDSEnum):

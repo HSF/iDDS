@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019-2020
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
 
 
 import traceback
@@ -14,8 +14,8 @@ import traceback
 from flask import Blueprint
 
 from idds.common import exceptions
-from idds.common.constants import HTTP_STATUS_CODE
-from idds.core.catalog import get_collections, get_contents
+from idds.common.constants import HTTP_STATUS_CODE, CollectionRelationType
+from idds.core.catalog import get_collections, get_contents, get_contents_ext, combine_contents_ext
 from idds.rest.v1.controller import IDDSController
 
 
@@ -113,6 +113,78 @@ class Contents(IDDSController):
         return self.generate_http_response(HTTP_STATUS_CODE.OK, data=rets)
 
 
+class ContentsOutputExt(IDDSController):
+    """ Catalog """
+
+    def get(self, request_id, workload_id, transform_id, group_by_jedi_task_id=False):
+        """ Get contents by request_id, workload_id and transform_id.
+        HTTP Success:
+            200 OK
+        HTTP Error:
+            404 Not Found
+            500 InternalError
+        :returns: contents.
+        """
+
+        try:
+            if request_id in ['null', 'None']:
+                request_id = None
+            else:
+                request_id = int(request_id)
+            if workload_id in ['null', 'None']:
+                workload_id = None
+            else:
+                workload_id = int(workload_id)
+            if transform_id in ['null', 'None']:
+                transform_id = None
+            else:
+                transform_id = int(transform_id)
+            if group_by_jedi_task_id:
+                if type(group_by_jedi_task_id) in [bool]:
+                    pass
+                else:
+                    if type(group_by_jedi_task_id) in [str] and group_by_jedi_task_id.lower() in ['true']:
+                        group_by_jedi_task_id = True
+                    else:
+                        group_by_jedi_task_id = False
+            else:
+                group_by_jedi_task_id = False
+
+            if request_id is None:
+                return self.generate_http_response(HTTP_STATUS_CODE.BadRequest,
+                                                   exc_cls=exceptions.BadRequest.__name__,
+                                                   exc_msg="request_id must not be None")
+
+            else:
+                contents = get_contents(request_id=request_id, workload_id=workload_id, transform_id=transform_id,
+                                        relation_type=CollectionRelationType.Output)
+                contents_ext = get_contents_ext(request_id=request_id, workload_id=workload_id, transform_id=transform_id)
+
+                ret_contents = combine_contents_ext(contents, contents_ext, with_status_name=True)
+                rets = {}
+                for content in ret_contents:
+                    if group_by_jedi_task_id:
+                        jedi_task_id = content.get('jedi_task_id', 'None')
+                        if jedi_task_id not in rets:
+                            rets[jedi_task_id] = []
+                        rets[jedi_task_id].append(content)
+                    else:
+                        transform_id = content.get('transform_id')
+                        if transform_id not in rets:
+                            rets[transform_id] = []
+                        rets[transform_id].append(content)
+        except exceptions.NoObject as error:
+            return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
+        except exceptions.IDDSException as error:
+            return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=error.__class__.__name__, exc_msg=error)
+        except Exception as error:
+            print(error)
+            print(traceback.format_exc())
+            return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
+
+        return self.generate_http_response(HTTP_STATUS_CODE.OK, data=rets)
+
+
 """----------------------
    Web service url maps
 ----------------------"""
@@ -130,5 +202,9 @@ def get_blueprint():
     contents_view = Contents.as_view('contents')
     bp.add_url_rule('/catalog/contents/<coll_scope>/<coll_name>/<request_id>/<workload_id>/<relation_type>/<status>',
                     view_func=contents_view, methods=['get', ])  # get contents
+
+    contents_ext_view = ContentsOutputExt.as_view('contents_output_ext')
+    bp.add_url_rule('/catalog/contents_output_ext/<request_id>/<workload_id>/<transform_id>/<group_by_jedi_task_id>',
+                    view_func=contents_ext_view, methods=['get', ])
 
     return bp

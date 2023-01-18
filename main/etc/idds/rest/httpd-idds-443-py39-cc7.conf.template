@@ -8,6 +8,7 @@
 
 TimeOut 600
 KeepAliveTimeout 600
+SSLSessionCacheTimeout 600
 
 # Built-in modules
 LoadModule ssl_module /usr/lib64/httpd/modules/mod_ssl.so

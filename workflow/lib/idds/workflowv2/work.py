@@ -72,6 +72,11 @@ class Collection(Base):
         self.failed_files = 0
         self.missing_files = 0
 
+        self.ext_files = 0
+        self.processed_ext_files = 0
+        self.failed_ext_files = 0
+        self.missing_ext_files = 0
+
     @property
     def internal_id(self):
         return self.get_metadata_item('internal_id')
@@ -583,6 +588,8 @@ class Work(Base):
 
         self.sliced_global_parameters = None
 
+        self.is_build_work = False
+
         """
         self._running_data_names = []
         for name in ['internal_id', 'template_work_id', 'initialized', 'sequence_id', 'parameters', 'work_id', 'transforming', 'workdir',
@@ -776,6 +783,33 @@ class Work(Base):
     @substatus.setter
     def substatus(self, value):
         self.add_metadata_item('substatus', value.value if value else value)
+
+    @property
+    def is_build_work(self):
+        st = self.get_metadata_item('is_build_work', False)
+        return st
+
+    @is_build_work.setter
+    def is_build_work(self, value):
+        self.add_metadata_item('is_build_work', value)
+
+    def set_build_work(self):
+        self.is_build_work = True
+
+    @property
+    def signature(self):
+        st = self.get_metadata_item('signature', None)
+        return st
+
+    @signature.setter
+    def signature(self, value):
+        self.add_metadata_item('signature', value)
+
+    def sign(self):
+        self.signature = str(uuid.uuid4())
+
+    def get_signature(self):
+        return self.signature
 
     @property
     def polling_retries(self):
@@ -1248,6 +1282,7 @@ class Work(Base):
         self.terminated_msg = ""
         self.output_data = {}
         self.parameters_for_next_task = None
+        self.last_updated_at = datetime.datetime.utcnow()
 
     def set_agent_attributes(self, attrs, req_attributes=None):
         if attrs and self.class_name in attrs:
@@ -1359,6 +1394,31 @@ class Work(Base):
         self.backup_to_release_inputs['0'] = []
         return to_release_inputs
 
+    def is_to_expire(self, expired_at=None, pending_time=None, request_id=None):
+        if expired_at:
+            if type(expired_at) in [str]:
+                expired_at = str_to_date(expired_at)
+            if expired_at < datetime.datetime.utcnow():
+                self.logger.info("Request(%s) expired_at(%s) is smaller than utc now(%s), expiring" % (request_id,
+                                                                                                       expired_at,
+                                                                                                       datetime.datetime.utcnow()))
+                return True
+
+        if pending_time:
+            act_pending_time = float(pending_time)
+            act_pending_seconds = int(86400 * act_pending_time)
+            if self.last_updated_at + datetime.timedelta(seconds=act_pending_seconds) < datetime.datetime.utcnow():
+                log_str = "Request(%s) last updated at(%s) + pending seconds(%s)" % (request_id,
+                                                                                     self.last_updated_at,
+                                                                                     act_pending_seconds)
+                log_str += " is smaller than utc now(%s), expiring" % (datetime.datetime.utcnow())
+                self.logger.info(log_str)
+                return True
+        return False
+
+    def is_starting(self):
+        return self.transforming
+
     def is_started(self):
         return self.started or self.submitted
 
@@ -1453,6 +1513,7 @@ class Work(Base):
             #    self.arguments = re.sub(key, str(self.parameters.get_param_value(key)), self.arguments)
             # self.arguments = self.arguments.format(**self.parameters)
             pass
+        self.sign()
         if not self.is_initialized():
             self.set_initialized()
 
@@ -1799,6 +1860,9 @@ class Work(Base):
         """
         return False
 
+    def require_ext_contents(self):
+        return False
+
     def set_work_name_to_coll_map(self, work_name_to_coll_map):
         self.work_name_to_coll_map = work_name_to_coll_map
 
@@ -2097,7 +2161,7 @@ class Work(Base):
             if forcing:
                 proc.toforcefinish = True
 
-    def poll_processing_updates(self, processing, input_output_maps):
+    def poll_processing_updates(self, processing, input_output_maps, contents_ext=None, log_prefix=''):
         """
         *** Function called by Carrier agent.
         """

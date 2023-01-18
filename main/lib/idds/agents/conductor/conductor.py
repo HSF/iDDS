@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
 
 import time
 import traceback
@@ -19,7 +19,7 @@ except ImportError:
 
 from idds.common.constants import (Sections, MessageStatus, MessageDestination)
 from idds.common.exceptions import AgentPluginError, IDDSException
-from idds.common.utils import setup_logging
+from idds.common.utils import setup_logging, get_logger
 from idds.core import messages as core_messages
 from idds.agents.common.baseagent import BaseAgent
 
@@ -55,6 +55,7 @@ class Conductor(BaseAgent):
         if replay_times is None:
             replay_times = 3
         self.replay_times = int(replay_times)
+        self.logger = get_logger(self.__class__.__name__)
 
     def __del__(self):
         self.stop_notifier()
@@ -63,9 +64,10 @@ class Conductor(BaseAgent):
         """
         Get messages
         """
+        destination = [MessageDestination.Outside, MessageDestination.ContentExt]
         messages = core_messages.retrieve_messages(status=MessageStatus.New,
                                                    bulk_size=self.retrieve_bulk_size,
-                                                   destination=MessageDestination.Outside)
+                                                   destination=destination)
 
         # self.logger.debug("Main thread get %s new messages" % len(messages))
         if messages:
@@ -78,7 +80,7 @@ class Conductor(BaseAgent):
             messages_d = core_messages.retrieve_messages(status=MessageStatus.Delivered,
                                                          retries=retry, delay=delay,
                                                          bulk_size=self.retrieve_bulk_size,
-                                                         destination=MessageDestination.Outside)
+                                                         destination=destination)
             if messages_d:
                 self.logger.info("Main thread get %s retries messages" % len(messages_d))
                 retry_messages += messages_d
@@ -102,6 +104,7 @@ class Conductor(BaseAgent):
         self.logger.info("Starting notifier: %s" % self.notifier)
         self.notifier.set_request_queue(self.message_queue)
         self.notifier.set_response_queue(self.output_message_queue)
+        self.notifier.set_logger(self.logger)
         self.notifier.start()
 
     def stop_notifier(self):
@@ -140,6 +143,8 @@ class Conductor(BaseAgent):
                     num_contents = 0
                     messages = self.get_messages()
                     for message in messages:
+                        message['destination'] = message['destination'].name
+
                         num_contents += message['num_contents']
                         self.message_queue.put(message)
                     while not self.message_queue.empty():

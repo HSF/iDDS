@@ -49,6 +49,12 @@ def setup_logging(name, stream=None, loglevel=None):
         else:
             loglevel = logging.INFO
 
+    if os.environ.get('IDDS_LOG_LEVEL', None):
+        idds_log_level = os.environ.get('IDDS_LOG_LEVEL', None)
+        idds_log_level = idds_log_level.upper()
+        if idds_log_level in ["DEBUG", "CRITICAL", "ERROR", "WARNING", "INFO"]:
+            loglevel = getattr(logging, idds_log_level)
+
     if stream is None:
         if config_has_section('common') and config_has_option('common', 'logdir'):
             logging.basicConfig(filename=os.path.join(config_get('common', 'logdir'), name),
@@ -60,6 +66,37 @@ def setup_logging(name, stream=None, loglevel=None):
     else:
         logging.basicConfig(stream=stream, level=loglevel,
                             format='%(asctime)s\t%(threadName)s\t%(name)s\t%(levelname)s\t%(message)s')
+
+
+def get_logger(name, filename=None, loglevel=None):
+    """
+    Setup logging
+    """
+    if loglevel is None:
+        if config_has_section('common') and config_has_option('common', 'loglevel'):
+            loglevel = getattr(logging, config_get('common', 'loglevel').upper())
+        else:
+            loglevel = logging.INFO
+
+    if filename is None:
+        filename = name + ".log"
+    if not filename.startswith("/"):
+        logdir = None
+        if config_has_section('common') and config_has_option('common', 'logdir'):
+            logdir = config_get('common', 'logdir')
+        if not logdir:
+            logdir = '/var/log/idds'
+        filename = os.path.join(logdir, filename)
+
+    formatter = logging.Formatter('%(asctime)s\t%(threadName)s\t%(name)s\t%(levelname)s\t%(message)s')
+
+    handler = logging.FileHandler(filename)
+    handler.setFormatter(formatter)
+    logger = logging.getLogger(name)
+    logger.setLevel(loglevel)
+    logger.addHandler(handler)
+    logger.propagate = False
+    return logger
 
 
 def get_rest_url_prefix():

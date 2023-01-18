@@ -1216,6 +1216,9 @@ class WorkflowBase(Base):
 
         self.independent_works.append(work.get_internal_id())
 
+    def has_to_build_work(self):
+        return False
+
     def add_condition(self, cond):
         self.first_initial = False
         cond_works = cond.all_works()
@@ -2095,6 +2098,9 @@ class Workflow(Base):
 
     def add_work(self, work, initial=False, primary=False):
         self.template.add_work(work, initial, primary)
+
+    def has_to_build_work(self):
+        return False
 
     def add_condition(self, cond):
         self.template.add_condition(cond)
