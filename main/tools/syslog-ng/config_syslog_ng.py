@@ -14,10 +14,11 @@ def get_files(source):
         sources.append(name)
     return sources
 
-
+# multi-line-mode(indented)
+# multi-line-mode(regexp) multi-line-prefix("[0-9]{4}\.[0-9]{2}\.[0-9]{2}\.") flags(no-parse)
 def get_file_template():
     template = """source s_${filename} {
-    file("$source");
+    file("$source" multi-line-mode(indented));
 };
 destination d_${filename} {
     file(
@@ -32,7 +33,7 @@ log { source(s_${filename}); destination(d_${filename}); };
 
 def get_pipe_template():
     template = """source s_${filename} {
-    file("$source");
+    file("$source" multi-line-mode(indented));
 };
 destination d_${filename} {
     pipe(
