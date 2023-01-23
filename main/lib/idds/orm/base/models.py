@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2023
 
 
 """
@@ -740,6 +740,27 @@ def register_models(engine):
     # models = (Request, Workprogress, Transform, Workprogress2transform, Processing, Collection, Content, Health, Message)
     models = (Request, Transform, Processing, Collection, Content, Content_update, Content_ext, Health, Message, Command)
 
+    func = DDL("""
+        SET search_path TO %s;
+        CREATE OR REPLACE FUNCTION update_dep_contents_status()
+        RETURNS TRIGGER AS $$
+        BEGIN
+            UPDATE %s.contents set substatus = old.substatus where %s.contents.content_dep_id = old.content_id;
+            RETURN OLD;
+        END;
+        $$ LANGUAGE PLPGSQL
+    """ % (DEFAULT_SCHEMA_NAME, DEFAULT_SCHEMA_NAME, DEFAULT_SCHEMA_NAME))
+
+    trigger_ddl = DDL("""
+        SET search_path TO %s;
+        DROP TRIGGER IF EXISTS update_content_dep_status ON %s.contents_update;
+        CREATE TRIGGER update_content_dep_status BEFORE DELETE ON %s.contents_update
+        for each row EXECUTE PROCEDURE update_dep_contents_status();
+    """ % (DEFAULT_SCHEMA_NAME, DEFAULT_SCHEMA_NAME, DEFAULT_SCHEMA_NAME))
+
+    event.listen(Content_update.__table__, "after_create", func.execute_if(dialect="postgresql"))
+    event.listen(Content_update.__table__, "after_create", trigger_ddl.execute_if(dialect="postgresql"))
+
     for model in models:
         # if not engine.has_table(model.__tablename__, model.metadata.schema):
         model.metadata.create_all(engine)   # pylint: disable=maybe-no-member
@@ -753,16 +774,17 @@ def unregister_models(engine):
     # models = (Request, Workprogress, Transform, Workprogress2transform, Processing, Collection, Content, Health, Message)
     models = (Request, Transform, Processing, Collection, Content, Content_update, Content_ext, Health, Message, Command)
 
+    func = DDL("""
+        SET search_path TO %s;
+        DROP FUNCTION IF EXISTS update_dep_contents_status;
+    """ % (DEFAULT_SCHEMA_NAME))
+    trigger_ddl = DDL("""
+        SET search_path TO %s;
+        DROP TRIGGER IF EXISTS update_content_dep_status ON %s.contents_update;
+    """ % (DEFAULT_SCHEMA_NAME, DEFAULT_SCHEMA_NAME))
+
+    event.listen(Content_update.__table__, "before_drop", func.execute_if(dialect="postgresql"))
+    event.listen(Content_update.__table__, "before_drop", trigger_ddl.execute_if(dialect="postgresql"))
+
     for model in models:
         model.metadata.drop_all(engine)   # pylint: disable=maybe-no-member
-
-
-@event.listens_for(Content_update.__table__, "after_create")
-def _update_content_dep_status(target, connection, **kw):
-    DDL("""
-        CREATE TRIGGER update_content_dep_status BEFORE DELETE ON contents_update
-        for each row
-        BEGIN
-            UPDATE contents set substatus = :old.substatus where contents.content_dep_id = :old.content_id;
-        END;
-    """)
