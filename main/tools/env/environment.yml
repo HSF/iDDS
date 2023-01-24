@@ -27,6 +27,7 @@ dependencies:
   - pyjwt
   - cryptography
   - redis
+  - alembic
   - idds-common==0.11.5
   - idds-workflow==0.11.5
   - idds-client==0.11.5

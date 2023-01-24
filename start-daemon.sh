@@ -39,6 +39,20 @@ else
         -d /opt/idds/config/idds/idds.cfg
 fi
 
+if [ -f /opt/idds/config/idds/alembic.ini ]; then
+    echo "alembic.ini already mounted."
+else
+    echo "alembic.ini not found. will generate one."
+    python3 /opt/idds/tools/env/merge_idds_configs.py \
+        -s /opt/idds/config_default/alembic.ini $IDDS_OVERRIDE_IDDS_CONFIGS \
+        --use-env \
+        --prefix IDDS_CFG_ALEMBIC \
+        -d /opt/idds/config/idds/alembic.ini
+    python3 /opt/idds/tools/env/merge_configmap.py \
+        -s /opt/idds/configmap/idds_configmap.json \
+        -d /opt/idds/config/idds/alembic.ini
+fi
+
 if [ -f /opt/idds/config/idds/auth.cfg ]; then
     echo "auth.cfg already mounted."
 else
@@ -157,6 +171,10 @@ fi
 
 # create database if not exists
 python /opt/idds/tools/env/create_database.py
+# upgrade database
+export ALEMBIC_CONFIG=/opt/idds/config/idds/alembic.ini
+alembic upgrade head
+# configure monitor
 python /opt/idds/tools/env/config_monitor.py -s ${IDDS_HOME}/monitor/data/conf.js.template -d ${IDDS_HOME}/monitor/data/conf.js  --host ${IDDS_SERVER}
 
 if ! [ -f /opt/idds/config/.token ]; then
