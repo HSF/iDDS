@@ -1252,8 +1252,8 @@ class DomaPanDAWork(Work):
                                                        log_prefix=log_prefix)
 
             processing_status, update_contents, update_contents_full, new_contents_ext, update_contents_ext = ret_poll_panda_task
-            # self.logger.debug(log_prefix + "poll_processing_updates, processing_status: %s" % str(processing_status))
-            # self.logger.debug(log_prefix + "poll_processing_updates, update_contents[:10]: %s" % str(update_contents[:10]))
+            self.logger.debug(log_prefix + "poll_processing_updates, processing_status: %s" % str(processing_status))
+            self.logger.debug(log_prefix + "poll_processing_updates, update_contents[:10]: %s" % str(update_contents[:10]))
 
             if update_contents:
                 proc.has_new_updates()
