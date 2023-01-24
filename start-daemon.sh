@@ -43,11 +43,7 @@ if [ -f /opt/idds/config/idds/alembic.ini ]; then
     echo "alembic.ini already mounted."
 else
     echo "alembic.ini not found. will generate one."
-    python3 /opt/idds/tools/env/merge_idds_configs.py \
-        -s /opt/idds/config_default/alembic.ini $IDDS_OVERRIDE_IDDS_CONFIGS \
-        --use-env \
-        --prefix IDDS_CFG_ALEMBIC \
-        -d /opt/idds/config/idds/alembic.ini
+    cp /opt/idds/config_default/alembic.ini /opt/idds/config/idds/alembic.ini
     python3 /opt/idds/tools/env/merge_configmap.py \
         -s /opt/idds/configmap/idds_configmap.json \
         -d /opt/idds/config/idds/alembic.ini
