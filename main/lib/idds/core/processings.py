@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2023
 
 
 """
@@ -16,7 +16,7 @@ operations related to Processings.
 import datetime
 
 from idds.orm.base.session import read_session, transactional_session
-from idds.common.constants import ProcessingLocking, ProcessingStatus, GranularityType
+from idds.common.constants import ProcessingLocking, ProcessingStatus, GranularityType, ContentRelationType
 from idds.orm import (processings as orm_processings,
                       collections as orm_collections,
                       contents as orm_contents,
@@ -288,7 +288,7 @@ def resolve_input_dependency_id(new_input_dependency_contents, session=None):
     coll_ids = []
     for content in new_input_dependency_contents:
         coll_ids.append(content['coll_id'])
-    contents = orm_contents.get_contents(coll_id=coll_ids, session=session)
+    contents = orm_contents.get_contents(coll_id=coll_ids, relation_type=ContentRelationType.Output, session=session)
     content_name_id_map = {}
     for content in contents:
         if content['coll_id'] not in content_name_id_map:
