@@ -1104,9 +1104,10 @@ def get_content_id_from_job_id(request_id, workload_id, transform_id, job_id, in
     return content_id, to_update_jobid
 
 
-def handle_messages_processing(messages):
-    logger = get_logger()
-    log_prefix = "<Message>"
+def handle_messages_processing(messages, logger=None, log_prefix=''):
+    logger = get_logger(logger)
+    if not log_prefix:
+        log_prefix = "<Message>"
 
     update_processings = []
     terminated_processings = []
