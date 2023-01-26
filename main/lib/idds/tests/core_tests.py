@@ -9,7 +9,7 @@ from idds.core.transforms import get_transforms, get_transform          # noqa F
 from idds.core.workprogress import get_workprogresses    # noqa F401
 from idds.core.processings import get_processings        # noqa F401
 from idds.core import transforms as core_transforms      # noqa F401
-from idds.orm.contents import get_input_contents
+from idds.orm.contents import get_contents
 from idds.core.transforms import release_inputs_by_collection, release_inputs_by_collection_old     # noqa F401
 from idds.workflowv2.workflow import Workflow            # noqa F401
 from idds.workflowv2.work import Work                    # noqa F401
@@ -65,9 +65,9 @@ def release_inputs_test():
                             {'map_id': 7, 'status': ContentStatus.Available, 'retries': 0, 'scope': 'pseudo_dataset', 'substatus': ContentStatus.Available, 'path': None, 'name': 'u_huanlin_panda_test_ci_imsim_w26_20210714T214732Z.qgraph+31_isr_226983_36+1626299263.3909254-24148+31', 'locking': ContentLocking.Idle, 'created_at': datetime.datetime(2021, 7, 14, 21, 48, 10), 'content_id': 2254919, 'min_id': 0, 'bytes': 1, 'updated_at': datetime.datetime(2021, 7, 14, 22, 8, 30), 'coll_id': 4042, 'max_id': 1, 'md5': None, 'accessed_at': datetime.datetime(2021, 7, 14, 22, 8, 30), 'request_id': 107, 'content_type': ContentType.File, 'adler32': '12345678', 'expired_at': datetime.datetime(2021, 8, 13, 21, 48, 10), 'workload_id': 1626299273, 'content_relation_type': ContentRelationType.Output, 'processing_id': None, 'content_metadata': {'events': 1, 'panda_id': 1412278}, 'transform_id': 2021, 'storage_id': None}]}   # noqa E501
 
     for coll_id in to_release_inputs:
-        contents = get_input_contents(request_id=to_release_inputs[coll_id][0]['request_id'],
-                                      coll_id=coll_id,
-                                      name=None)
+        contents = get_contents(request_id=to_release_inputs[coll_id][0]['request_id'],
+                                coll_id=coll_id,
+                                name=None)
         print(len(contents))
         in_dep_contents = []
         for content in contents:
@@ -170,7 +170,8 @@ def print_workflow_template(workflow, layers=0):
 # reqs = get_requests(request_id=380474, with_request=True, with_detail=False, with_metadata=True)
 # reqs = get_requests(request_id=381520, with_request=True, with_detail=False, with_metadata=True)
 # reqs = get_requests(request_id=28182323, with_request=True, with_detail=False, with_metadata=True)
-reqs = get_requests(request_id=385554, with_request=True, with_detail=False, with_metadata=True)
+# reqs = get_requests(request_id=385554, with_request=True, with_detail=False, with_metadata=True)
+reqs = get_requests(request_id=474, with_request=True, with_detail=False, with_metadata=True)
 for req in reqs:
     # print(req['request_id'])
     # print(req)
@@ -178,11 +179,11 @@ for req in reqs:
     # print(json_dumps(req, sort_keys=True, indent=4))
     # show_works(req)
     pass
-    workflow = req['request_metadata']['workflow']
+    workflow = req['request_metadata']['build_workflow']
     # workflow.get_new_works()
     print(workflow.runs.keys())
     # print(workflow.runs["1"])
-    # print(json_dumps(workflow.runs["1"], sort_keys=True, indent=4))
+    print(json_dumps(workflow.runs["1"], sort_keys=True, indent=4))
 
     # print(workflow.runs["1"].works.keys())
     # print(workflow.runs["1"].has_loop_condition())
@@ -201,6 +202,11 @@ for req in reqs:
     print_workflow(workflow)
     new_works = workflow.get_new_works()
     print('new_works:' + str(new_works))
+    all_works = workflow.get_all_works()
+    print('all_works:' + str(all_works))
+    for work in all_works:
+        print("work %s signature: %s" % (work.get_work_id(), work.signature))
+
     # print("workflow template")
     # print_workflow_template(workflow)
 
@@ -229,7 +235,7 @@ sys.exit(0)
 """
 
 
-tfs = get_transforms(request_id=2818)
+tfs = get_transforms(request_id=470)
 # tfs = get_transforms(transform_id=350723)
 for tf in tfs:
     # print(tf)

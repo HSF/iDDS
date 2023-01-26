@@ -53,6 +53,7 @@ def migrate():
     old_request_id = 2603
     old_request_id = 2802
     old_request_id = 2816
+    old_request_id = 3178
 
     # old_request_id = 1
     # for old_request_id in [152]:
@@ -62,9 +63,9 @@ def migrate():
         reqs = cm1.get_requests(request_id=old_request_id, with_metadata=True)
 
         # cm2 = ClientManager(host=dev_host)
-        # cm2 = ClientManager(host=doma_host)
+        cm2 = ClientManager(host=doma_host)
         # cm2 = ClientManager(host=atlas_host)
-        cm2 = ClientManager(host=slac_k8s_dev_host)
+        # cm2 = ClientManager(host=slac_k8s_dev_host)
         # cm2 = ClientManager(host=cern_k8s_dev_host)
         # print(reqs)
 
