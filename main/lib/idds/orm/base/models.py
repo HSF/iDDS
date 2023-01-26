@@ -569,6 +569,10 @@ class Content_update(BASE, ModelBase):
     __tablename__ = 'contents_update'
     content_id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
     substatus = Column(EnumWithValue(ContentStatus))
+    request_id = Column(BigInteger().with_variant(Integer, "sqlite"))
+    transform_id = Column(BigInteger().with_variant(Integer, "sqlite"))
+    workload_id = Column(Integer())
+    coll_id = Column(BigInteger().with_variant(Integer, "sqlite"))
 
 
 class Content_ext(BASE, ModelBase):

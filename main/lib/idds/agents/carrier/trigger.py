@@ -15,6 +15,7 @@ from idds.common.constants import ProcessingStatus, ProcessingLocking
 from idds.common.utils import setup_logging, truncate_string
 from idds.core import processings as core_processings
 from idds.agents.common.eventbus.event import (EventType,
+                                               UpdateTransformEvent,
                                                TriggerProcessingEvent,
                                                TerminatedProcessingEvent,
                                                SyncProcessingEvent)
@@ -78,7 +79,9 @@ class Trigger(Poller):
                                                                trigger_new_updates=trigger_new_updates,
                                                                logger=self.logger,
                                                                log_prefix=log_prefix)
-            process_status, update_contents, ret_msgs, parameters, update_dep_contents_status_name, update_dep_contents_status, new_update_contents = ret_trigger_processing
+            process_status, update_contents, ret_msgs, parameters, update_dep_contents_status_name, update_dep_contents_status, new_update_contents, ret_update_transforms = ret_trigger_processing
+
+            self.logger.debug(log_prefix + "handle_trigger_processing: ret_update_transforms: %s" % str(ret_update_transforms))
 
             new_process_status = process_status
             if is_process_terminated(process_status):
@@ -98,6 +101,7 @@ class Trigger(Poller):
                    'update_contents': update_contents,
                    'messages': ret_msgs,
                    'new_update_contents': new_update_contents,
+                   'update_transforms': ret_update_transforms,
                    'update_dep_contents': (processing['request_id'], update_dep_contents_status_name, update_dep_contents_status),
                    'processing_status': new_process_status}
         except exceptions.ProcessFormatNotSupported as ex:
@@ -168,8 +172,19 @@ class Trigger(Poller):
 
                     new_update_contents = ret.get('new_update_contents', None)
                     if new_update_contents:
-                        ret = self.handle_trigger_processing(pr, trigger_new_updates=True)
-                        self.update_processing(ret, pr)
+                        ret1 = self.handle_trigger_processing(pr, trigger_new_updates=True)
+                        self.logger.info(log_pre + "process_trigger_processing1 result: %s" % str(ret1))
+                        self.update_processing(ret1, pr)
+                        if 'update_transforms' in ret1 and ret1['update_transforms']:
+                            # contents for some other transforms are updated.
+                            for update_transform in ret1['update_transforms']:
+                                if 'transform_id' in update_transform:
+                                    update_transform_id = update_transform['transform_id']
+                                    event = UpdateTransformEvent(publisher_id=self.id,
+                                                                 transform_id=update_transform_id,
+                                                                 content={'event': 'Trigger'})
+                                    self.logger.info(log_pre + "Trigger UpdateTransformEvent(transform_id: %s" % update_transform_id)
+                                    self.event_bus.send(event)
 
                     if (('processing_status' in ret and ret['processing_status'] == ProcessingStatus.Terminating)
                         or (event._content and 'Terminated' in event._content and event._content['Terminated'])):   # noqa W503

@@ -535,7 +535,11 @@ def get_updated_contents_by_input_output_maps(input_output_maps=None, logger=Non
                              'status': content['substatus']}
                 updated_contents.append(u_content)
                 u_content_substatus = {'content_id': content['content_id'],
-                                       'substatus': content['substatus']}
+                                       'substatus': content['substatus'],
+                                       'request_id': content['request_id'],
+                                       'transform_id': content['transform_id'],
+                                       'workload_id': content['workload_id'],
+                                       'coll_id': content['coll_id']}
                 new_update_contents.append(u_content_substatus)
                 updated_contents_full_input.append(content)
         for content in outputs:
@@ -544,7 +548,11 @@ def get_updated_contents_by_input_output_maps(input_output_maps=None, logger=Non
                              'status': content['substatus']}
                 updated_contents.append(u_content)
                 u_content_substatus = {'content_id': content['content_id'],
-                                       'substatus': content['substatus']}
+                                       'substatus': content['substatus'],
+                                       'request_id': content['request_id'],
+                                       'transform_id': content['transform_id'],
+                                       'workload_id': content['workload_id'],
+                                       'coll_id': content['coll_id']}
                 new_update_contents.append(u_content_substatus)
                 updated_contents_full_output.append(content)
         for content in inputs_dependency:
@@ -570,7 +578,11 @@ def get_updated_contents_by_input_output_maps(input_output_maps=None, logger=Non
                     content['substatus'] = input_content_update_status
                     updated_contents_full_input.append(content)
                     u_content_substatus = {'content_id': content['content_id'],
-                                           'substatus': content['substatus']}
+                                           'substatus': content['substatus'],
+                                           'request_id': content['request_id'],
+                                           'transform_id': content['transform_id'],
+                                           'workload_id': content['workload_id'],
+                                           'coll_id': content['coll_id']}
                     new_update_contents.append(u_content_substatus)
 
         output_content_update_status = None
@@ -590,7 +602,11 @@ def get_updated_contents_by_input_output_maps(input_output_maps=None, logger=Non
                     content['substatus'] = output_content_update_status
                     updated_contents_full_output.append(content)
                     u_content_substatus = {'content_id': content['content_id'],
-                                           'substatus': content['substatus']}
+                                           'substatus': content['substatus'],
+                                           'request_id': content['request_id'],
+                                           'transform_id': content['transform_id'],
+                                           'workload_id': content['workload_id'],
+                                           'coll_id': content['coll_id']}
                     new_update_contents.append(u_content_substatus)
     return updated_contents, updated_contents_full_input, updated_contents_full_output, updated_contents_full_input_deps, new_update_contents
 
@@ -939,6 +955,7 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
 
     ret_msgs = []
     content_updates = []
+    ret_update_transforms = []
 
     request_id = processing['request_id']
     transform_id = processing['transform_id']
@@ -953,7 +970,9 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
     else:
         if trigger_new_updates:
             # delete information in the contents_update table, to invoke the trigger.
-            core_catalog.delete_contents_update()
+            ret_update_transforms = core_catalog.delete_contents_update()
+            logger.debug(log_prefix + "delete_contents_update: %s" % str(ret_update_transforms))
+
         input_output_maps = get_input_output_maps(transform_id, work)
         logger.debug(log_prefix + "input_output_maps.keys[:2]: %s" % str(list(input_output_maps.keys())[:2]))
 
@@ -975,7 +994,7 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
 
         content_updates = content_updates + updated_contents
 
-    return processing['substatus'], content_updates, ret_msgs, {}, {}, {}, new_update_contents
+    return processing['substatus'], content_updates, ret_msgs, {}, {}, {}, new_update_contents, ret_update_transforms
 
 
 def get_content_status_from_panda_msg_status(status):

@@ -418,10 +418,12 @@ class Transformer(BaseAgent):
 
         # link processings
         new_processing_model, processing_model = None, None
+        ret_processing_id = None
 
         processing = work.get_processing(input_output_maps=[], without_creating=True)
         self.logger.debug(log_pre + "work get_processing: %s" % processing)
         if processing and processing.processing_id:
+            ret_processing_id = processing.processing_id
             processing_model = core_processings.get_processing(processing_id=processing.processing_id)
             work.sync_processing(processing, processing_model)
             proc = processing_model['processing_metadata']['processing']
@@ -479,7 +481,7 @@ class Transformer(BaseAgent):
         ret = {'transform': transform,
                'transform_parameters': transform_parameters,
                'new_processing': new_processing_model}
-        return ret, is_terminated
+        return ret, is_terminated, ret_processing_id
 
     def handle_update_transform(self, transform, event):
         """
@@ -489,9 +491,9 @@ class Transformer(BaseAgent):
             log_pre = self.get_log_prefix(transform)
 
             self.logger.info(log_pre + "handle_update_transform: %s" % transform)
-            ret, is_terminated = self.handle_update_transform_real(transform, event)
+            ret, is_terminated, ret_processing_id = self.handle_update_transform_real(transform, event)
             self.logger.info(log_pre + "handle_update_transform result: %s" % str(ret))
-            return ret, is_terminated
+            return ret, is_terminated, ret_processing_id
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
@@ -517,7 +519,7 @@ class Transformer(BaseAgent):
 
             ret = {'transform': transform, 'transform_parameters': transform_parameters}
             self.logger.warn(log_pre + "handle_update_transform exception result: %s" % str(ret))
-        return ret, False
+        return ret, False, None
 
     def process_update_transform(self, event):
         self.number_workers += 1
@@ -535,7 +537,7 @@ class Transformer(BaseAgent):
                 else:
                     log_pre = self.get_log_prefix(tf)
 
-                    ret, is_terminated = self.handle_update_transform(tf, event)
+                    ret, is_terminated, ret_processing_id = self.handle_update_transform(tf, event)
                     new_pr_ids, update_pr_ids = self.update_transform(ret)
 
                     if is_terminated or (event._content and 'event' in event._content and event._content['event'] == 'submitted'):
@@ -547,8 +549,12 @@ class Transformer(BaseAgent):
                         event = NewProcessingEvent(publisher_id=self.id, processing_id=pr_id, content=event._content)
                         self.event_bus.send(event)
                     for pr_id in update_pr_ids:
-                        self.logger.info(log_pre + "NewProcessingEvent(processing_id: %s)" % pr_id)
+                        self.logger.info(log_pre + "UpdateProcessingEvent(processing_id: %s)" % pr_id)
                         event = UpdateProcessingEvent(publisher_id=self.id, processing_id=pr_id, content=event._content)
+                        self.event_bus.send(event)
+                    if ret_processing_id and (event._content and 'event' in event._content and event._content['event'] == 'Trigger'):
+                        self.logger.info(log_pre + "UpdateProcessingEvent(processing_id: %s)" % ret_processing_id)
+                        event = UpdateProcessingEvent(publisher_id=self.id, processing_id=ret_processing_id)
                         self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)

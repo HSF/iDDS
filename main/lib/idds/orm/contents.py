@@ -589,7 +589,21 @@ def delete_contents_update(session=None):
     :raises DatabaseException: If there is a database error.
     """
     try:
+        subquery = session.query(models.Content_update.content_id).subquery()
+        query = session.query(models.Content.request_id,
+                              models.Content.transform_id,
+                              models.Content.workload_id,
+                              models.Content.coll_id)
+        query = query.filter(models.Content.content_id.in_(subquery))
+
+        tmp = query.distinct()
+        rets = []
+        if tmp:
+            for t in tmp:
+                t2 = dict(zip(t.keys(), t))
+                rets.append(t2)
         session.query(models.Content_update).delete()
+        return rets
     except Exception as error:
         raise exceptions.NoObject('Content_update deletion error: %s' % (error))
 
