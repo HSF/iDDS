@@ -219,3 +219,22 @@ INTERVAL ( 100000 )
 ( PARTITION initial_part VALUES LESS THAN (1) );
 
 CREATE INDEX CONTENTS_EXT_RTF_IDX ON CONTENTS_ext (request_id, transform_id, workload_id, coll_id, content_id, panda_id, status) LOCAL;
+
+
+-- 2022.12.29
+create table contents_update(content_id number(12), substatus number(2))
+CREATE TRIGGER update_content_dep_status before delete ON contents_update
+     for each row
+        BEGIN
+           update contents set substatus = :old.substatus where contents.content_dep_id = :old.content_id;
+        END;
+
+-- 2023.01.24
+alter table CONTENTS_ext modify max_cpu_count NUMBER(12);
+
+-- 2023.01.25
+alter table contents_update add (
+	request_id NUMBER(12),
+	transform_id NUMBER(12),
+	workload_id NUMBER(10),
+	coll_id NUMBER(14));
