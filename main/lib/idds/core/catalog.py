@@ -635,25 +635,25 @@ def get_updated_transforms_by_content_status(request_id=None, transform_id=None)
 
 
 @transactional_session
-def update_contents_to_others_by_dep_id(request_id=None, transform_id=None):
+def update_contents_to_others_by_dep_id(request_id=None, transform_id=None, session=None):
     """
     Update contents to others by content_dep_id.
 
     :param request_id: The Request id.
     :param transfomr_id: The transform id.
     """
-    return orm_contents.update_contents_to_others_by_dep_id(request_id=request_id, transform_id=transform_id)
+    return orm_contents.update_contents_to_others_by_dep_id(request_id=request_id, transform_id=transform_id, session=session)
 
 
 @transactional_session
-def update_contents_from_others_by_dep_id(request_id=None, transform_id=None):
+def update_contents_from_others_by_dep_id(request_id=None, transform_id=None, session=None):
     """
     Update contents from others by content_dep_id
 
     :param request_id: The Request id.
     :param transfomr_id: The transform id.
     """
-    return orm_contents.update_contents_from_others_by_dep_id(request_id=request_id, transform_id=transform_id)
+    return orm_contents.update_contents_from_others_by_dep_id(request_id=request_id, transform_id=transform_id, session=session)
 
 
 @transactional_session
