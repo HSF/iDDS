@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2021
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2023
 
 
 """
@@ -621,6 +621,41 @@ def get_output_contents_by_request_id_status(request_id, name, content_status, l
     return contents
 
 
+@read_session
+def get_updated_transforms_by_content_status(request_id=None, transform_id=None):
+    """
+    Get updated transform ids by content status
+
+    :param request_id: The Request id.
+    :param transfomr_id: The transform id.
+
+    :returns list
+    """
+    return orm_contents.get_updated_transforms_by_content_status(request_id=request_id, transform_id=transform_id)
+
+
+@transactional_session
+def update_contents_to_others_by_dep_id(request_id=None, transform_id=None):
+    """
+    Update contents to others by content_dep_id.
+
+    :param request_id: The Request id.
+    :param transfomr_id: The transform id.
+    """
+    return orm_contents.update_contents_to_others_by_dep_id(request_id=request_id, transform_id=transform_id)
+
+
+@transactional_session
+def update_contents_from_others_by_dep_id(request_id=None, transform_id=None):
+    """
+    Update contents from others by content_dep_id
+
+    :param request_id: The Request id.
+    :param transfomr_id: The transform id.
+    """
+    return orm_contents.update_contents_from_others_by_dep_id(request_id=request_id, transform_id=transform_id)
+
+
 @transactional_session
 def add_contents_update(contents, bulk_size=10000, session=None):
     """
@@ -638,7 +673,7 @@ def add_contents_update(contents, bulk_size=10000, session=None):
 
 
 @transactional_session
-def delete_contents_update(session=None):
+def delete_contents_update(request_id=None, transform_id=None, session=None):
     """
     delete a content.
 
@@ -647,7 +682,7 @@ def delete_contents_update(session=None):
     :raises NoObject: If no content is founded.
     :raises DatabaseException: If there is a database error.
     """
-    return orm_contents.delete_contents_update(session=session)
+    return orm_contents.delete_contents_update(request_id=request_id, transform_id=transform_id, session=session)
 
 
 def get_contents_ext_maps():

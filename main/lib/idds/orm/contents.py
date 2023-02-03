@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2023
 
 
 """
@@ -455,7 +455,7 @@ def update_contents(parameters, session=None):
 
 
 @transactional_session
-def update_dep_contents(request_id, content_dep_ids, status, bulk_size=1000, session=None):
+def update_dep_contents(request_id, content_dep_ids, status, bulk_size=10000, session=None):
     """
     update dependency contents.
 
@@ -494,6 +494,70 @@ def delete_content(content_id=None, session=None):
         session.query(models.Content).filter_by(content_id=content_id).delete()
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('Content %s cannot be found: %s' % (content_id, error))
+
+
+@transactional_session
+def update_contents_to_others_by_dep_id(request_id=None, transform_id=None, session=None):
+    """
+    Update contents to others by content_dep_id.
+
+    :param request_id: The Request id.
+    :param transfomr_id: The transform id.
+    """
+    try:
+        idds_proc = sqlalchemy.text("CALL %s.update_contents_from_others(:request_id, :transform_id)" % session.schema)
+        session.execute(idds_proc, {"request_id": request_id, "transform_id": transform_id})
+    except Exception as ex:
+        raise ex
+
+
+@transactional_session
+def update_contents_from_others_by_dep_id(request_id=None, transform_id=None, session=None):
+    """
+    Update contents from others by content_dep_id
+
+    :param request_id: The Request id.
+    :param transfomr_id: The transform id.
+    """
+    try:
+        idds_proc = sqlalchemy.text("CALL %s.update_contents_from_others(:request_id, :transform_id)" % session.schema)
+        session.execute(idds_proc, {"request_id": request_id, "transform_id": transform_id})
+    except Exception as ex:
+        raise ex
+
+
+@read_session
+def get_updated_transforms_by_content_status(request_id=None, transform_id=None, session=None):
+    """
+    Get updated transform ids by content status
+
+    :param request_id: The Request id.
+
+    :returns list
+    """
+    try:
+        query = session.query(models.Content.request_id,
+                              models.Content.transform_id,
+                              models.Content.workload_id,
+                              models.Content.coll_id)
+        query = query.with_hint(models.Content, "INDEX(CONTENTS CONTENTS_ID_NAME_IDX)", 'oracle')
+
+        if request_id:
+            query = query.filter(models.Content.request_id_id == request_id)
+        if transform_id:
+            query = query.filter(models.Content.transform_id == transform_id)
+
+        query = query.filter(models.Content.status != models.Content.substatus)
+        tmp = query.distinct()
+
+        rets = []
+        if tmp:
+            for t in tmp:
+                t2 = dict(zip(t.keys(), t))
+                rets.append(t2)
+        return rets
+    except Exception as error:
+        raise error
 
 
 def get_contents_ext_items():
@@ -579,7 +643,7 @@ def add_contents_update(contents, bulk_size=10000, session=None):
 
 
 @transactional_session
-def delete_contents_update(session=None):
+def delete_contents_update(request_id=None, transform_id=None, session=None):
     """
     delete a content.
 
@@ -589,21 +653,13 @@ def delete_contents_update(session=None):
     :raises DatabaseException: If there is a database error.
     """
     try:
-        subquery = session.query(models.Content_update.content_id).subquery()
-        query = session.query(models.Content.request_id,
-                              models.Content.transform_id,
-                              models.Content.workload_id,
-                              models.Content.coll_id)
-        query = query.filter(models.Content.content_id.in_(subquery))
-
-        tmp = query.distinct()
-        rets = []
-        if tmp:
-            for t in tmp:
-                t2 = dict(zip(t.keys(), t))
-                rets.append(t2)
-        session.query(models.Content_update).delete()
-        return rets
+        del_query = session.query(models.Content_update)
+        if request_id:
+            del_query = del_query.filter(models.Content_update.request_id == request_id)
+        if transform_id:
+            del_query = del_query.filter(models.Content_update.transform_id == transform_id)
+        del_query.with_for_update(nowait=True, skip_locked=True)
+        del_query.delete()
     except Exception as error:
         raise exceptions.NoObject('Content_update deletion error: %s' % (error))
 

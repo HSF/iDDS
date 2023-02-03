@@ -319,8 +319,10 @@ def update_processing_contents(update_processing, update_contents, update_messag
         orm_contents.update_contents(update_contents, session=session)
     if new_update_contents:
         # first add and then delete, to trigger the trigger 'update_content_dep_status'.
+        # too slow
         orm_contents.add_contents_update(new_update_contents, session=session)
         # orm_contents.delete_contents_update(session=session)
+        pass
     if new_contents:
         orm_contents.add_contents(new_contents, session=session)
     if new_contents_ext:
