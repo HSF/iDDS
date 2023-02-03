@@ -6,13 +6,14 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2023
 
 import traceback
 
 from idds.common import exceptions
 from idds.common.constants import ProcessingStatus, ProcessingLocking
 from idds.common.utils import setup_logging, truncate_string
+from idds.core import catalog as core_catalog
 from idds.core import processings as core_processings
 from idds.agents.common.eventbus.event import (EventType,
                                                UpdateTransformEvent,
@@ -168,23 +169,23 @@ class Trigger(Poller):
                     ret = self.handle_trigger_processing(pr)
                     # self.logger.info(log_pre + "process_trigger_processing result: %s" % str(ret))
 
+                    new_update_contents = ret.get('new_update_contents', None)
+                    ret['new_update_contents'] = None
                     self.update_processing(ret, pr)
 
-                    new_update_contents = ret.get('new_update_contents', None)
                     if new_update_contents:
-                        ret1 = self.handle_trigger_processing(pr, trigger_new_updates=True)
-                        self.logger.info(log_pre + "process_trigger_processing1 result: %s" % str(ret1))
-                        self.update_processing(ret1, pr)
-                        if 'update_transforms' in ret1 and ret1['update_transforms']:
-                            # contents for some other transforms are updated.
-                            for update_transform in ret1['update_transforms']:
-                                if 'transform_id' in update_transform:
-                                    update_transform_id = update_transform['transform_id']
-                                    event = UpdateTransformEvent(publisher_id=self.id,
-                                                                 transform_id=update_transform_id,
-                                                                 content={'event': 'Trigger'})
-                                    self.logger.info(log_pre + "Trigger UpdateTransformEvent(transform_id: %s" % update_transform_id)
-                                    self.event_bus.send(event)
+                        core_catalog.update_contents_to_others_by_dep_id(request_id=pr['request_id'], transform_id=pr['transform_id'])
+                        # core_catalog.delete_contents_update(request_id=pr['request_id'], transform_id=pr['transform_id'])
+                        update_transforms = core_catalog.get_updated_transforms_by_content_status(request_id=pr['request_id'])
+                        self.logger.info(log_pre + "update_transforms: %s" % str(update_transforms))
+                        for update_transform in update_transforms:
+                            if 'transform_id' in update_transform:
+                                update_transform_id = update_transform['transform_id']
+                                event = UpdateTransformEvent(publisher_id=self.id,
+                                                             transform_id=update_transform_id,
+                                                             content={'event': 'Trigger'})
+                                self.logger.info(log_pre + "Trigger UpdateTransformEvent(transform_id: %s" % update_transform_id)
+                                self.event_bus.send(event)
 
                     if (('processing_status' in ret and ret['processing_status'] == ProcessingStatus.Terminating)
                         or (event._content and 'Terminated' in event._content and event._content['Terminated'])):   # noqa W503

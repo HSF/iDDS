@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2022
+# - Wen Guan, <wen.guan@cern.ch>, 2022 - 2023
 
 import json
 import logging
@@ -970,9 +970,11 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
     else:
         if trigger_new_updates:
             # delete information in the contents_update table, to invoke the trigger.
-            ret_update_transforms = core_catalog.delete_contents_update()
-            logger.debug(log_prefix + "delete_contents_update: %s" % str(ret_update_transforms))
+            # ret_update_transforms = core_catalog.delete_contents_update(request_id=request_id, transform_id=transform_id)
+            # logger.debug(log_prefix + "delete_contents_update: %s" % str(ret_update_transforms))
+            pass
 
+        core_catalog.update_contents_from_others_by_dep_id(request_id=request_id, transform_id=transform_id)
         input_output_maps = get_input_output_maps(transform_id, work)
         logger.debug(log_prefix + "input_output_maps.keys[:2]: %s" % str(list(input_output_maps.keys())[:2]))
 
@@ -994,7 +996,17 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
 
         content_updates = content_updates + updated_contents
 
-    return processing['substatus'], content_updates, ret_msgs, {}, {}, {}, new_update_contents, ret_update_transforms
+    # update_dep_contents_status_name = {}
+    # update_dep_contents_status = {}
+    # for content in new_update_contents:
+    #     if content['substatus'] not in update_dep_contents_status_name:
+    #         update_dep_contents_status_name[content['substatus'].name] = content['substatus']
+    #         update_dep_contents_status[content['substatus'].name] = []
+    #     update_dep_contents_status[content['substatus'].name].append(content['content_id'])
+
+    # return processing['substatus'], content_updates, ret_msgs, {}, {}, {}, new_update_contents, ret_update_transforms
+    # return processing['substatus'], content_updates, ret_msgs, {}, update_dep_contents_status_name, update_dep_contents_status, [], ret_update_transforms
+    return processing['substatus'], content_updates, ret_msgs, {}, {}, {}, [], ret_update_transforms
 
 
 def get_content_status_from_panda_msg_status(status):
