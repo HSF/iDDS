@@ -10,6 +10,8 @@
 
 import re
 
+from idds.common import authentication
+
 
 # /DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=wguan/CN=667815/CN=Wen Guan/CN=1883443395
 def get_user_name_from_dn1(dn):
@@ -93,7 +95,17 @@ if __name__ == '__main__':
     dn = "/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=wguan/CN=667815/CN=Wen Guan/CN=1883443395"
     username = get_user_name_from_dn(dn)
     print(username)
+    username = authentication.get_user_name_from_dn(dn)
+    print("auth: " + username)
 
     dn = 'CN=203633261,CN=Wen Guan,CN=667815,CN=wguan,OU=Users,OU=Organic Units,DC=cern,DC=ch'
     username = get_user_name_from_dn(dn)
     print(username)
+    username = authentication.get_user_name_from_dn(dn)
+    print("auth: " + username)
+
+    dn = "/DC=ch/DC=cern/OU=Organic+Units/OU=Users/CN=atlpilo1/CN=614260/CN=Robot%3A+ATLAS+Pilot1"
+    username = get_user_name_from_dn(dn)
+    print(username)
+    username = authentication.get_user_name_from_dn(dn)
+    print("auth: " + username)
