@@ -14,6 +14,7 @@ source /etc/profile.d/conda.sh
 conda activate /opt/idds;
 
 export IDDS_HOME=/opt/idds
+export ALEMBIC_CONFIG=/opt/idds/config/idds/alembic.ini
 
 if [ -f /etc/grid-security/hostkey.pem ]; then
     echo "host certificate is already created."
@@ -168,8 +169,8 @@ fi
 # create database if not exists
 python /opt/idds/tools/env/create_database.py
 # upgrade database
-export ALEMBIC_CONFIG=/opt/idds/config/idds/alembic.ini
 alembic upgrade head
+
 # configure monitor
 python /opt/idds/tools/env/config_monitor.py -s ${IDDS_HOME}/monitor/data/conf.js.template -d ${IDDS_HOME}/monitor/data/conf.js  --host ${IDDS_SERVER}
 

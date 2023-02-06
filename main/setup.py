@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2023
 
 
 import glob
@@ -130,6 +130,8 @@ data_files = [
     ('tools/env/', glob.glob('tools/env/*')),
 ]
 
+print(data_files)
+
 scripts = glob.glob('bin/*')
 
 setup(
@@ -142,7 +144,7 @@ setup(
     author='IRIS-HEP Team',
     author_email='atlas-adc-panda@cern.ch',
     python_requires='>=3.6',
-    packages=find_packages('lib/'),
+    packages=find_packages(where='lib'),
     package_dir={'': 'lib'},
     install_requires=install_requires,
     extras_require=extras_requires,
