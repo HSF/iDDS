@@ -238,3 +238,50 @@ alter table contents_update add (
 	transform_id NUMBER(12),
 	workload_id NUMBER(10),
 	coll_id NUMBER(14));
+
+-- 2023.02.01
+--- update (select c.content_id, c.substatus as c_substatus, t.substatus as t_substatus from  contents c inner join
+-- (select content_id, substatus from contents where request_id=486 and transform_id=3027 and content_relation_type =1 and status != substatus) t
+--- on c.content_dep_id = t.content_id where c.request_id=486 and c.substatus != t.substatus) set c_substatus = t_substatus;
+
+--- remove 
+"""
+CREATE OR REPLACE FUNCTION update_contents_to_others(request_id_in IN NUMBER, transform_id_in IN NUMBER)
+RETURN NUMBER
+IS num_rows NUMBER;
+BEGIN
+    update (select c.content_id, c.substatus as c_substatus, t.substatus as t_substatus from  contents c inner join
+    (select content_id, substatus from contents where request_id = request_id_in and transform_id = transform_id_in and content_relation_type = 1 and status != substatus) t
+    on c.content_dep_id = t.content_id where c.request_id = request_id_in and c.substatus != t.substatus) set c_substatus = t_substatus;
+    
+    num_rows := SQL%rowcount;
+    RETURN (num_rows);
+END;
+
+CREATE OR REPLACE FUNCTION update_contents_from_others(request_id_in IN NUMBER, transform_id_in IN NUMBER)
+RETURN NUMBER
+IS num_rows NUMBER;
+BEGIN
+    update (select c.content_id, c.substatus as c_substatus, t.substatus as t_substatus from  contents c inner join
+    (select content_id, substatus from contents where request_id = request_id_in and content_relation_type = 1 and status != 0) t
+    on c.content_dep_id = t.content_id where c.request_id = request_id_in and c.transform_id = transform_id_in and c.substatus != t.substatus) set c_substatus = t_substatus;
+
+    num_rows := SQL%rowcount;
+    RETURN (num_rows);
+END;
+"""
+
+CREATE OR REPLACE procedure update_contents_from_others(request_id_in NUMBER, transform_id_in NUMBER) AS
+BEGIN
+    update (select c.content_id, c.substatus as c_substatus, t.substatus as t_substatus from  contents c inner join
+    (select content_id, substatus from contents where request_id = request_id_in and content_relation_type = 1 and status != 0) t
+    on c.content_dep_id = t.content_id where c.request_id = request_id_in and c.transform_id = transform_id_in and c.substatus != t.substatus) set c_substatus = t_substatus;
+END;
+
+
+CREATE OR REPLACE procedure update_contents_to_others(request_id_in NUMBER, transform_id_in NUMBER) AS
+BEGIN
+    update (select c.content_id, c.substatus as c_substatus, t.substatus as t_substatus from  contents c inner join
+    (select content_id, substatus from contents where request_id = request_id_in and transform_id = transform_id_in and content_relation_type = 1 and status != substatus) t
+    on c.content_dep_id = t.content_id where c.request_id = request_id_in and c.substatus != t.substatus) set c_substatus = t_substatus;
+END;
