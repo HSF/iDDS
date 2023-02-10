@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2023
 
 
 """
@@ -137,6 +137,11 @@ def retrieve_messages(bulk_size=1000, msg_type=None, status=None, source=None,
                 destination = [destination]
             if len(destination) == 1:
                 destination = [destination[0], destination[0]]
+        if msg_type is not None:
+            if not isinstance(msg_type, (list, tuple)):
+                msg_type = [msg_type]
+            if len(msg_type) == 1:
+                msg_type = [msg_type[0], msg_type[0]]
 
         query = session.query(models.Message)
         if request_id is not None:
@@ -149,7 +154,7 @@ def retrieve_messages(bulk_size=1000, msg_type=None, status=None, source=None,
             query = query.with_hint(models.Message, "INDEX(MESSAGES MESSAGES_TYPE_ST_IDX)", 'oracle')
 
         if msg_type is not None:
-            query = query.filter_by(msg_type=msg_type)
+            query = query.filter(models.Message.msg_type.in_(msg_type))
         if status is not None:
             query = query.filter_by(status=status)
         if source is not None:

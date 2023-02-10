@@ -1372,6 +1372,9 @@ class Work(Base):
         self.backup_to_release_inputs['0'] = []
         return to_release_inputs
 
+    def is_starting(self):
+        return self.transforming
+
     def is_started(self):
         return self.started or self.submitted
 

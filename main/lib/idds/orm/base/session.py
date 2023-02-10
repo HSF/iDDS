@@ -210,6 +210,7 @@ def get_session():
             _LOCK.release()
     assert _MAKER
     session = scoped_session(_MAKER)
+    session.schema = DEFAULT_SCHEMA_NAME
     return session
 
 

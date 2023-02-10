@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2023
 
 import time
 import traceback
@@ -93,7 +93,9 @@ class Receiver(BaseAgent):
                 try:
                     time_start = time.time()
                     output_messages = self.get_output_messages()
-                    update_processings, terminated_processings, update_contents, msgs = handle_messages_processing(output_messages)
+                    update_processings, terminated_processings, update_contents, msgs = handle_messages_processing(output_messages,
+                                                                                                                   logger=self.logger,
+                                                                                                                   log_prefix=log_prefix)
 
                     if msgs:
                         # self.logger.debug(log_prefix + "adding messages[:3]: %s" % json_dumps(msgs[:3]))

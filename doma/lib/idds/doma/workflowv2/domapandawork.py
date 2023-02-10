@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2022
+# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2023
 # - Sergey Padolski, <spadolski@bnl.gov>, 2020
 
 
@@ -120,6 +120,36 @@ class DomaPanDAWork(Work):
         if self.is_finished():
             return True
         return False
+
+    @property
+    def dependency_map(self):
+        return self._dependency_map
+
+    @dependency_map.setter
+    def dependency_map(self, value):
+        if value:
+            if type(value) not in [list, tuple]:
+                raise exceptions.IDDSException("dependency_map should be a list or tuple")
+            item_names = {}
+            for item in value:
+                item_name = item['name']
+                inputs_dependency = item["dependencies"]
+                if item_name not in item_names:
+                    item_names[item_name] = item
+                else:
+                    raise exceptions.IDDSException("duplicated item with the same name: %s" % item_name)
+
+                uni_input_name = {}
+                for input_d in inputs_dependency:
+                    task_name = input_d['task']
+                    input_name = input_d['inputname']
+                    task_name_input_name = task_name + input_name
+                    if task_name_input_name not in uni_input_name:
+                        uni_input_name[task_name_input_name] = None
+                    else:
+                        raise exceptions.IDDSException("duplicated input dependency for item %s: %s" % (item_name, inputs_dependency))
+
+        self._dependency_map = value
 
     def load_panda_config(self):
         panda_config = ConfigParser.ConfigParser()
@@ -1222,8 +1252,8 @@ class DomaPanDAWork(Work):
                                                        log_prefix=log_prefix)
 
             processing_status, update_contents, update_contents_full, new_contents_ext, update_contents_ext = ret_poll_panda_task
-            # self.logger.debug(log_prefix + "poll_processing_updates, processing_status: %s" % str(processing_status))
-            # self.logger.debug(log_prefix + "poll_processing_updates, update_contents[:10]: %s" % str(update_contents[:10]))
+            self.logger.debug(log_prefix + "poll_processing_updates, processing_status: %s" % str(processing_status))
+            self.logger.debug(log_prefix + "poll_processing_updates, update_contents[:3]: %s" % str(update_contents[:3]))
 
             if update_contents:
                 proc.has_new_updates()

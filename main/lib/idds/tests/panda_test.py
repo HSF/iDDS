@@ -93,7 +93,11 @@ task_ids = []
 # task_ids = [i for i in range(3692, 3723)]
 # task_ids = [3834, 3835, 3836]
 # task_ids = [i for i in range(141294, 142200)] + [i for i in range(141003, 141077)] + [i for i in range(141145, 141255)]
-task_ids = [140954, 140955, 142228]
+# task_ids = [140954, 140955, 142228]
+# task_ids = [i for i in range(142507, 142651)]
+# task_ids = [i for i in range(140349, 140954)] + [142268, 142651]
+# task_ids = [1851] + [i for i in range(4336, 4374)] + [i for i in range(133965, 136025)]
+task_ids = [832, 2347, 3045, 66860, 67036] + [i for i in range(121273, 140349)]
 for task_id in task_ids:
     print("Killing %s" % task_id)
     Client.killTask(task_id)

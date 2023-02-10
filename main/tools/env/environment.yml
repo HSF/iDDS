@@ -5,7 +5,7 @@ dependencies:
 - pip:
   - argcomplete
   - requests                         # requests
-  - SQLAlchemy                       # db orm
+  - SQLAlchemy==1.4.46               # db orm, SQLAlchemy 2.0 has been deployed. Howerever it crashed iDDS.
   - urllib3                          # url connections
   - retrying                         # retrying behavior
   # - mysqlclient                      # mysql python client
@@ -27,6 +27,7 @@ dependencies:
   - pyjwt
   - cryptography
   - redis
+  - alembic
   - idds-common==0.11.5
   - idds-workflow==0.11.5
   - idds-client==0.11.5

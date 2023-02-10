@@ -311,7 +311,9 @@ class ATLASStageinWork(DataWork):
                             scope_name = '%s:%s' % (lock['scope'], lock['name'])
                             if lock['state'] == 'OK':
                                 replicases_status[scope_name] = ContentStatus.Available   # 'OK'
-            return processing, rule['state'], replicases_status
+                return processing, rule['state'], replicases_status
+            else:
+                return processing, 'notOk', replicases_status
         except RucioRuleNotFound as ex:
             msg = "rule(%s) not found: %s" % (str(rule_id), str(ex))
             raise exceptions.ProcessNotFound(msg)

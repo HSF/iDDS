@@ -14,6 +14,7 @@ source /etc/profile.d/conda.sh
 conda activate /opt/idds;
 
 export IDDS_HOME=/opt/idds
+export ALEMBIC_CONFIG=/opt/idds/config/idds/alembic.ini
 
 if [ -f /etc/grid-security/hostkey.pem ]; then
     echo "host certificate is already created."
@@ -37,6 +38,16 @@ else
     python3 /opt/idds/tools/env/merge_configmap.py \
         -s /opt/idds/configmap/idds_configmap.json \
         -d /opt/idds/config/idds/idds.cfg
+fi
+
+if [ -f /opt/idds/config/idds/alembic.ini ]; then
+    echo "alembic.ini already mounted."
+else
+    echo "alembic.ini not found. will generate one."
+    cp /opt/idds/config_default/alembic.ini /opt/idds/config/idds/alembic.ini
+    python3 /opt/idds/tools/env/merge_configmap.py \
+        -s /opt/idds/configmap/idds_configmap.json \
+        -d /opt/idds/config/idds/alembic.ini
 fi
 
 if [ -f /opt/idds/config/idds/auth.cfg ]; then
@@ -157,6 +168,10 @@ fi
 
 # create database if not exists
 python /opt/idds/tools/env/create_database.py
+# upgrade database
+alembic upgrade head
+
+# configure monitor
 python /opt/idds/tools/env/config_monitor.py -s ${IDDS_HOME}/monitor/data/conf.js.template -d ${IDDS_HOME}/monitor/data/conf.js  --host ${IDDS_SERVER}
 
 if ! [ -f /opt/idds/config/.token ]; then

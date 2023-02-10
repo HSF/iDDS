@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2023
 
 
 """
@@ -16,7 +16,7 @@ operations related to Processings.
 import datetime
 
 from idds.orm.base.session import read_session, transactional_session
-from idds.common.constants import ProcessingLocking, ProcessingStatus, GranularityType
+from idds.common.constants import ProcessingLocking, ProcessingStatus, GranularityType, ContentRelationType
 from idds.orm import (processings as orm_processings,
                       collections as orm_collections,
                       contents as orm_contents,
@@ -287,8 +287,9 @@ def update_processing_with_collection_contents(updated_processing, new_processin
 def resolve_input_dependency_id(new_input_dependency_contents, session=None):
     coll_ids = []
     for content in new_input_dependency_contents:
-        coll_ids.append(content['coll_id'])
-    contents = orm_contents.get_contents(coll_id=coll_ids, session=session)
+        if content['coll_id'] not in coll_ids:
+            coll_ids.append(content['coll_id'])
+    contents = orm_contents.get_contents(coll_id=coll_ids, relation_type=ContentRelationType.Output, session=session)
     content_name_id_map = {}
     for content in contents:
         if content['coll_id'] not in content_name_id_map:
@@ -318,8 +319,10 @@ def update_processing_contents(update_processing, update_contents, update_messag
         orm_contents.update_contents(update_contents, session=session)
     if new_update_contents:
         # first add and then delete, to trigger the trigger 'update_content_dep_status'.
+        # too slow
         orm_contents.add_contents_update(new_update_contents, session=session)
         # orm_contents.delete_contents_update(session=session)
+        pass
     if new_contents:
         orm_contents.add_contents(new_contents, session=session)
     if new_contents_ext:
