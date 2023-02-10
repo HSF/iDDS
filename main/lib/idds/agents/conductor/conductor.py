@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2023
 
 import time
 import traceback
@@ -17,7 +17,7 @@ except ImportError:
     # Python 2
     from Queue import Queue
 
-from idds.common.constants import (Sections, MessageStatus, MessageDestination)
+from idds.common.constants import (Sections, MessageStatus, MessageDestination, MessageType)
 from idds.common.exceptions import AgentPluginError, IDDSException
 from idds.common.utils import setup_logging, get_logger
 from idds.core import messages as core_messages
@@ -73,6 +73,11 @@ class Conductor(BaseAgent):
         if messages:
             self.logger.info("Main thread get %s new messages" % len(messages))
 
+        msg_type = [MessageType.StageInCollection, MessageType.StageInWork,
+                    MessageType.ActiveLearningCollection, MessageType.ActiveLearningWork,
+                    MessageType.HyperParameterOptCollection, MessageType.HyperParameterOptWork,
+                    MessageType.ProcessingCollection, MessageType.ProcessingWork,
+                    MessageType.UnknownCollection, MessageType.UnknownWork]
         retry_messages = []
         for retry in range(1, self.replay_times + 1):
             delay = int(self.delay) * (retry ** 3)
@@ -80,7 +85,8 @@ class Conductor(BaseAgent):
             messages_d = core_messages.retrieve_messages(status=MessageStatus.Delivered,
                                                          retries=retry, delay=delay,
                                                          bulk_size=self.retrieve_bulk_size,
-                                                         destination=destination)
+                                                         destination=destination,
+                                                         msg_type=msg_type)
             if messages_d:
                 self.logger.info("Main thread get %s retries messages" % len(messages_d))
                 retry_messages += messages_d
