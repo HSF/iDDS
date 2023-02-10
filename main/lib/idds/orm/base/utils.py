@@ -6,15 +6,19 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2023
 
 
 """
 Utils to create the database or destroy the database
 """
 
+import os
 import traceback
 from typing import Union
+
+from alembic.config import Config
+from alembic import command
 
 import sqlalchemy
 # from sqlalchemy.engine import reflection
@@ -43,6 +47,11 @@ def build_database(echo=True, tests=False):
                 print(traceback.format_exc())
 
     models.register_models(engine)
+
+    # record the head version of alembic
+    alembic_cfg_file = os.environ.get("ALEMBIC_CONFIG")
+    alembic_cfg = Config(alembic_cfg_file)
+    command.stamp(alembic_cfg, "head")
 
 
 def destroy_database(echo=True):

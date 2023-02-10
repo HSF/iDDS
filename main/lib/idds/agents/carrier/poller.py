@@ -144,10 +144,11 @@ class Poller(BaseAgent):
         return None
 
     def get_work_tag_attribute(self, work_tag, attribute):
-        work_tag_attribute = work_tag + "_" + attribute
         work_tag_attribute_value = None
-        if hasattr(self, work_tag_attribute):
-            work_tag_attribute_value = int(getattr(self, work_tag_attribute))
+        if work_tag:
+            work_tag_attribute = work_tag + "_" + attribute
+            if hasattr(self, work_tag_attribute):
+                work_tag_attribute_value = int(getattr(self, work_tag_attribute))
         return work_tag_attribute_value
 
     def load_poll_period(self, processing, parameters):

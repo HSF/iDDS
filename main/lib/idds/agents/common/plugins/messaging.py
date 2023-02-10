@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2023
 
 
 import logging
@@ -103,60 +103,69 @@ class MessagingSender(PluginBase, threading.Thread):
         channel_conns = {}
         for name in self.channels:
             channel = self.channels[name]
-            brokers = channel['brokers']
-            if type(brokers) in [list, tuple]:
-                pass
+            if channel and 'brokers' in channel:
+                brokers = channel['brokers']
+                if type(brokers) in [list, tuple]:
+                    pass
+                else:
+                    brokers = brokers.split(",")
+                # destination = channel['destination']
+                # username = channel['username']
+                # password = channel['password']
+                broker_timeout = channel['broker_timeout']
+
+                broker_addresses = []
+                for b in brokers:
+                    try:
+                        b, port = b.split(":")
+
+                        addrinfos = socket.getaddrinfo(b, 0, socket.AF_INET, 0, socket.IPPROTO_TCP)
+                        for addrinfo in addrinfos:
+                            b_addr = addrinfo[4][0]
+                            broker_addresses.append((b_addr, port))
+                    except socket.gaierror as error:
+                        self.logger.error('Cannot resolve hostname %s: %s' % (b, str(error)))
+
+                self.logger.info("Resolved broker addresses for channel %s: %s" % (name, broker_addresses))
+
+                timeout = broker_timeout
+
+                conns = []
+                for broker, port in broker_addresses:
+                    conn = stomp.Connection12(host_and_ports=[(broker, port)],
+                                              keepalive=True,
+                                              heartbeats=(60000, 60000),     # one minute
+                                              timeout=timeout)
+                    conns.append(conn)
+                channel_conns[name] = conns
             else:
-                brokers = brokers.split(",")
-            # destination = channel['destination']
-            # username = channel['username']
-            # password = channel['password']
-            broker_timeout = channel['broker_timeout']
-
-            broker_addresses = []
-            for b in brokers:
-                try:
-                    b, port = b.split(":")
-
-                    addrinfos = socket.getaddrinfo(b, 0, socket.AF_INET, 0, socket.IPPROTO_TCP)
-                    for addrinfo in addrinfos:
-                        b_addr = addrinfo[4][0]
-                        broker_addresses.append((b_addr, port))
-                except socket.gaierror as error:
-                    self.logger.error('Cannot resolve hostname %s: %s' % (b, str(error)))
-
-            self.logger.info("Resolved broker addresses for channel %s: %s" % (name, broker_addresses))
-
-            timeout = broker_timeout
-
-            conns = []
-            for broker, port in broker_addresses:
-                conn = stomp.Connection12(host_and_ports=[(broker, port)],
-                                          keepalive=True,
-                                          heartbeats=(60000, 60000),     # one minute
-                                          timeout=timeout)
-                conns.append(conn)
-            channel_conns[name] = conns
+                channel_conns[name] = None
         return channel_conns
 
     def disconnect(self, conns):
         for name in conns:
-            for conn in conns[name]:
-                try:
-                    conn.disconnect()
-                except Exception:
-                    pass
+            if conns[name]:
+                for conn in conns[name]:
+                    try:
+                        conn.disconnect()
+                    except Exception:
+                        pass
 
     def get_connection(self, destination):
         try:
             if destination not in self.conns:
                 destination = 'default'
-            conn = random.sample(self.conns[destination], 1)[0]
-            queue_dest = self.channels[destination]['destination']
-            if not conn.is_connected():
-                # conn.start()
-                conn.connect(self.username, self.password, wait=True)
-                return conn, queue_dest, destination
+            if self.conns[destination]:
+                conn = random.sample(self.conns[destination], 1)[0]
+                queue_dest = self.channels[destination]['destination']
+                username = self.channels[destination]['username']
+                password = self.channels[destination]['password']
+                if not conn.is_connected():
+                    # conn.start()
+                    conn.connect(username, password, wait=True)
+                    return conn, queue_dest, destination
+            else:
+                return None, None, destination
         except Exception as error:
             self.logger.error("Failed to connect to message broker(will re-resolve brokers): %s" % str(error))
 
@@ -178,15 +187,18 @@ class MessagingSender(PluginBase, threading.Thread):
         destination = msg['destination'] if 'destination' in msg else 'default'
         conn, queue_dest, destination = self.get_connection(destination)
 
-        self.logger.info("Sending message to message broker(%s): %s" % (destination, msg['msg_id']))
-        self.logger.debug("Sending message to message broker(%s): %s" % (destination, json.dumps(msg['msg_content'])))
-        conn.send(body=json.dumps(msg['msg_content']),
-                  destination=queue_dest,
-                  id='atlas-idds-messaging',
-                  ack='auto',
-                  headers={'persistent': 'true',
-                           'vo': 'atlas',
-                           'msg_type': str(msg['msg_type']).lower()})
+        if conn:
+            self.logger.info("Sending message to message broker(%s): %s" % (destination, msg['msg_id']))
+            self.logger.debug("Sending message to message broker(%s): %s" % (destination, json.dumps(msg['msg_content'])))
+            conn.send(body=json.dumps(msg['msg_content']),
+                      destination=queue_dest,
+                      id='atlas-idds-messaging',
+                      ack='auto',
+                      headers={'persistent': 'true',
+                               'vo': 'atlas',
+                               'msg_type': str(msg['msg_type']).lower()})
+        else:
+            self.logger.info("No brokers defined, discard(%s): %s" % (destination, msg['msg_id']))
 
     def execute_send(self):
         try:

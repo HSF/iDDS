@@ -18,6 +18,7 @@ CondaDir=${RootDir}/../.conda/iDDS
 
 echo 'Root dir: ' $RootDir
 export IDDS_HOME=$RootDir
+export ALEMBIC_CONFIG=${IDDS_HOME}/etc/idds/alembic.ini
 
 source /afs/cern.ch/user/w/wguan/workdisk/conda/setup.sh
 

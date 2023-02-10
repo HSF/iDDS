@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2022
+# - Wen Guan, <wen.guan@cern.ch>, 2022 - 2023
 
 import json
 import logging
@@ -405,6 +405,25 @@ def generate_messages(request_id, transform_id, workload_id, work, msg_type='fil
                'num_contents': num_msg_content,
                'msg_content': msg_content}
         return [msg]
+    elif msg_type == 'collection':
+        msg_type_contents = []
+        for coll in files:
+            msg_type_content = generate_collection_messages(request_id, transform_id, workload_id, work, coll, relation_type=relation_type)
+            msg_type_contents.append(msg_type_content)
+
+        msgs = []
+        for i_msg_type, msg_content, num_msg_content in msg_type_contents:
+            msg = {'msg_type': i_msg_type,
+                   'status': MessageStatus.New,
+                   'source': MessageSource.Carrier,
+                   'destination': MessageDestination.Outside,
+                   'request_id': request_id,
+                   'workload_id': workload_id,
+                   'transform_id': transform_id,
+                   'num_contents': num_msg_content,
+                   'msg_content': msg_content}
+            msgs.append(msg)
+        return msgs
     elif msg_type == 'work':
         # link collections
         input_collections = work.get_input_collections()
@@ -535,7 +554,11 @@ def get_updated_contents_by_input_output_maps(input_output_maps=None, logger=Non
                              'status': content['substatus']}
                 updated_contents.append(u_content)
                 u_content_substatus = {'content_id': content['content_id'],
-                                       'substatus': content['substatus']}
+                                       'substatus': content['substatus'],
+                                       'request_id': content['request_id'],
+                                       'transform_id': content['transform_id'],
+                                       'workload_id': content['workload_id'],
+                                       'coll_id': content['coll_id']}
                 new_update_contents.append(u_content_substatus)
                 updated_contents_full_input.append(content)
         for content in outputs:
@@ -544,7 +567,11 @@ def get_updated_contents_by_input_output_maps(input_output_maps=None, logger=Non
                              'status': content['substatus']}
                 updated_contents.append(u_content)
                 u_content_substatus = {'content_id': content['content_id'],
-                                       'substatus': content['substatus']}
+                                       'substatus': content['substatus'],
+                                       'request_id': content['request_id'],
+                                       'transform_id': content['transform_id'],
+                                       'workload_id': content['workload_id'],
+                                       'coll_id': content['coll_id']}
                 new_update_contents.append(u_content_substatus)
                 updated_contents_full_output.append(content)
         for content in inputs_dependency:
@@ -570,7 +597,11 @@ def get_updated_contents_by_input_output_maps(input_output_maps=None, logger=Non
                     content['substatus'] = input_content_update_status
                     updated_contents_full_input.append(content)
                     u_content_substatus = {'content_id': content['content_id'],
-                                           'substatus': content['substatus']}
+                                           'substatus': content['substatus'],
+                                           'request_id': content['request_id'],
+                                           'transform_id': content['transform_id'],
+                                           'workload_id': content['workload_id'],
+                                           'coll_id': content['coll_id']}
                     new_update_contents.append(u_content_substatus)
 
         output_content_update_status = None
@@ -590,7 +621,11 @@ def get_updated_contents_by_input_output_maps(input_output_maps=None, logger=Non
                     content['substatus'] = output_content_update_status
                     updated_contents_full_output.append(content)
                     u_content_substatus = {'content_id': content['content_id'],
-                                           'substatus': content['substatus']}
+                                           'substatus': content['substatus'],
+                                           'request_id': content['request_id'],
+                                           'transform_id': content['transform_id'],
+                                           'workload_id': content['workload_id'],
+                                           'coll_id': content['coll_id']}
                     new_update_contents.append(u_content_substatus)
     return updated_contents, updated_contents_full_input, updated_contents_full_output, updated_contents_full_input_deps, new_update_contents
 
@@ -939,6 +974,7 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
 
     ret_msgs = []
     content_updates = []
+    ret_update_transforms = []
 
     request_id = processing['request_id']
     transform_id = processing['transform_id']
@@ -953,7 +989,11 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
     else:
         if trigger_new_updates:
             # delete information in the contents_update table, to invoke the trigger.
-            core_catalog.delete_contents_update()
+            # ret_update_transforms = core_catalog.delete_contents_update(request_id=request_id, transform_id=transform_id)
+            # logger.debug(log_prefix + "delete_contents_update: %s" % str(ret_update_transforms))
+            pass
+
+        core_catalog.update_contents_from_others_by_dep_id(request_id=request_id, transform_id=transform_id)
         input_output_maps = get_input_output_maps(transform_id, work)
         logger.debug(log_prefix + "input_output_maps.keys[:2]: %s" % str(list(input_output_maps.keys())[:2]))
 
@@ -975,7 +1015,17 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
 
         content_updates = content_updates + updated_contents
 
-    return processing['substatus'], content_updates, ret_msgs, {}, {}, {}, new_update_contents
+    # update_dep_contents_status_name = {}
+    # update_dep_contents_status = {}
+    # for content in new_update_contents:
+    #     if content['substatus'] not in update_dep_contents_status_name:
+    #         update_dep_contents_status_name[content['substatus'].name] = content['substatus']
+    #         update_dep_contents_status[content['substatus'].name] = []
+    #     update_dep_contents_status[content['substatus'].name].append(content['content_id'])
+
+    # return processing['substatus'], content_updates, ret_msgs, {}, {}, {}, new_update_contents, ret_update_transforms
+    # return processing['substatus'], content_updates, ret_msgs, {}, update_dep_contents_status_name, update_dep_contents_status, [], ret_update_transforms
+    return processing['substatus'], content_updates, ret_msgs, {}, {}, {}, [], ret_update_transforms
 
 
 def get_content_status_from_panda_msg_status(status):
@@ -1104,9 +1154,10 @@ def get_content_id_from_job_id(request_id, workload_id, transform_id, job_id, in
     return content_id, to_update_jobid
 
 
-def handle_messages_processing(messages):
-    logger = get_logger()
-    log_prefix = "<Message>"
+def handle_messages_processing(messages, logger=None, log_prefix=''):
+    logger = get_logger(logger)
+    if not log_prefix:
+        log_prefix = "<Message>"
 
     update_processings = []
     terminated_processings = []
@@ -1172,6 +1223,7 @@ def sync_collection_status(request_id, transform_id, workload_id, work, input_ou
 
     all_updates_flushed = True
     coll_status = {}
+    messages = []
     for map_id in input_output_maps:
         inputs = input_output_maps[map_id]['inputs'] if 'inputs' in input_output_maps[map_id] else []
         # inputs_dependency = input_output_maps[map_id]['inputs_dependency'] if 'inputs_dependency' in input_output_maps[map_id] else []
@@ -1264,6 +1316,20 @@ def sync_collection_status(request_id, transform_id, workload_id, work, input_ou
                   'processed_ext_files': coll.processed_ext_files,
                   'failed_ext_files': coll.failed_ext_files,
                   'missing_ext_files': coll.missing_ext_files}
+
+        if coll in input_collections:
+            if coll.total_files == coll.processed_files + coll.failed_files + coll.missing_files:
+                coll_db = core_catalog.get_collection(coll_id=coll.coll_id)
+                coll.status = coll_db['status']
+                if coll.status is not None and coll.status != CollectionStatus.Closed:
+                    u_coll['status'] = CollectionStatus.Closed
+                    u_coll['substatus'] = CollectionStatus.Closed
+                    coll.status = CollectionStatus.Closed
+                    coll.substatus = CollectionStatus.Closed
+
+                    msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='collection', files=[coll], relation_type='input')
+                    messages += msgs
+
         if terminate:
             if coll in output_collections and work.require_ext_contents():
                 if coll.processed_files == coll.processed_ext_files and coll.failed_files == coll.failed_ext_files:
@@ -1281,7 +1347,7 @@ def sync_collection_status(request_id, transform_id, workload_id, work, input_ou
                 coll.substatus = CollectionStatus.Closed
 
         update_collections.append(u_coll)
-    return update_collections, all_updates_flushed
+    return update_collections, all_updates_flushed, messages
 
 
 def sync_work_status(request_id, transform_id, workload_id, work):
@@ -1321,16 +1387,19 @@ def sync_processing(processing, agent_attributes, terminate=False, logger=None, 
     work = proc.work
     work.set_agent_attributes(agent_attributes, processing)
 
-    input_output_maps = get_input_output_maps(transform_id, work)
-    update_collections, all_updates_flushed = sync_collection_status(request_id, transform_id, workload_id, work,
-                                                                     input_output_maps=input_output_maps,
-                                                                     close_collection=True, terminate=terminate)
-
     messages = []
+    input_output_maps = get_input_output_maps(transform_id, work)
+    update_collections, all_updates_flushed, msgs = sync_collection_status(request_id, transform_id, workload_id, work,
+                                                                           input_output_maps=input_output_maps,
+                                                                           close_collection=True, terminate=terminate)
+
+    messages += msgs
+
     sync_work_status(request_id, transform_id, workload_id, work)
     logger.info(log_prefix + "sync_processing: work status: %s" % work.get_status())
     if terminate and work.is_terminated():
-        messages = generate_messages(request_id, transform_id, workload_id, work, msg_type='work')
+        msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='work')
+        messages += msgs
         if work.is_finished():
             # processing['status'] = ProcessingStatus.Finished
             processing['status'] = processing['substatus']

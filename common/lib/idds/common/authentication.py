@@ -392,6 +392,7 @@ def get_user_name_from_dn1(dn):
         username = username.replace('/CN=limited proxy', '')
         username = username.replace('limited proxy', '')
         username = re.sub('/CN=Robot:[^/]+', '', username)
+        username = re.sub('/CN=Robot[^/]+', '', username)
         username = re.sub('/CN=nickname:[^/]+', '', username)
         pat = re.compile('.*/CN=([^\/]+)/CN=([^\/]+)')         # noqa W605
         mat = pat.match(username)
@@ -428,6 +429,7 @@ def get_user_name_from_dn2(dn):
         username = username.replace(',CN=limited proxy', '')
         username = username.replace('limited proxy', '')
         username = re.sub(',CN=Robot:[^/]+', '', username)
+        username = re.sub(',CN=Robot[^/]+', '', username)
         username = re.sub(',CN=nickname:[^/]+', '', username)
         pat = re.compile('.*,CN=([^\,]+),CN=([^\,]+)')         # noqa W605
         mat = pat.match(username)

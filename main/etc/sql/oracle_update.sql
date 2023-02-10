@@ -219,3 +219,69 @@ INTERVAL ( 100000 )
 ( PARTITION initial_part VALUES LESS THAN (1) );
 
 CREATE INDEX CONTENTS_EXT_RTF_IDX ON CONTENTS_ext (request_id, transform_id, workload_id, coll_id, content_id, panda_id, status) LOCAL;
+
+
+-- 2022.12.29
+create table contents_update(content_id number(12), substatus number(2))
+CREATE TRIGGER update_content_dep_status before delete ON contents_update
+     for each row
+        BEGIN
+           update contents set substatus = :old.substatus where contents.content_dep_id = :old.content_id;
+        END;
+
+-- 2023.01.24
+alter table CONTENTS_ext modify max_cpu_count NUMBER(12);
+
+-- 2023.01.25
+alter table contents_update add (
+	request_id NUMBER(12),
+	transform_id NUMBER(12),
+	workload_id NUMBER(10),
+	coll_id NUMBER(14));
+
+-- 2023.02.01
+--- update (select c.content_id, c.substatus as c_substatus, t.substatus as t_substatus from  contents c inner join
+-- (select content_id, substatus from contents where request_id=486 and transform_id=3027 and content_relation_type =1 and status != substatus) t
+--- on c.content_dep_id = t.content_id where c.request_id=486 and c.substatus != t.substatus) set c_substatus = t_substatus;
+
+--- remove 
+"""
+CREATE OR REPLACE FUNCTION update_contents_to_others(request_id_in IN NUMBER, transform_id_in IN NUMBER)
+RETURN NUMBER
+IS num_rows NUMBER;
+BEGIN
+    update (select c.content_id, c.substatus as c_substatus, t.substatus as t_substatus from  contents c inner join
+    (select content_id, substatus from contents where request_id = request_id_in and transform_id = transform_id_in and content_relation_type = 1 and status != substatus) t
+    on c.content_dep_id = t.content_id where c.request_id = request_id_in and c.substatus != t.substatus) set c_substatus = t_substatus;
+    
+    num_rows := SQL%rowcount;
+    RETURN (num_rows);
+END;
+
+CREATE OR REPLACE FUNCTION update_contents_from_others(request_id_in IN NUMBER, transform_id_in IN NUMBER)
+RETURN NUMBER
+IS num_rows NUMBER;
+BEGIN
+    update (select c.content_id, c.substatus as c_substatus, t.substatus as t_substatus from  contents c inner join
+    (select content_id, substatus from contents where request_id = request_id_in and content_relation_type = 1 and status != 0) t
+    on c.content_dep_id = t.content_id where c.request_id = request_id_in and c.transform_id = transform_id_in and c.substatus != t.substatus) set c_substatus = t_substatus;
+
+    num_rows := SQL%rowcount;
+    RETURN (num_rows);
+END;
+"""
+
+CREATE OR REPLACE procedure update_contents_from_others(request_id_in NUMBER, transform_id_in NUMBER) AS
+BEGIN
+    update (select c.content_id, c.substatus as c_substatus, t.substatus as t_substatus from  contents c inner join
+    (select content_id, substatus from contents where request_id = request_id_in and content_relation_type = 1 and status != 0) t
+    on c.content_dep_id = t.content_id where c.request_id = request_id_in and c.transform_id = transform_id_in and c.substatus != t.substatus) set c_substatus = t_substatus;
+END;
+
+
+CREATE OR REPLACE procedure update_contents_to_others(request_id_in NUMBER, transform_id_in NUMBER) AS
+BEGIN
+    update (select c.content_id, c.substatus as c_substatus, t.substatus as t_substatus from  contents c inner join
+    (select content_id, substatus from contents where request_id = request_id_in and transform_id = transform_id_in and content_relation_type = 1 and status != substatus) t
+    on c.content_dep_id = t.content_id where c.request_id = request_id_in and c.substatus != t.substatus) set c_substatus = t_substatus;
+END;
