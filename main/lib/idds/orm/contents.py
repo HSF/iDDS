@@ -505,7 +505,7 @@ def update_contents_to_others_by_dep_id(request_id=None, transform_id=None, sess
     :param transfomr_id: The transform id.
     """
     try:
-        idds_proc = sqlalchemy.text("CALL %s.update_contents_from_others(:request_id, :transform_id)" % session.schema)
+        idds_proc = sqlalchemy.text("CALL %s.update_contents_to_others(:request_id, :transform_id)" % session.schema)
         session.execute(idds_proc, {"request_id": request_id, "transform_id": transform_id})
     except Exception as ex:
         raise ex
