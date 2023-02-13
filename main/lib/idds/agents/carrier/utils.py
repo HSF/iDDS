@@ -1025,7 +1025,8 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
 
     # return processing['substatus'], content_updates, ret_msgs, {}, {}, {}, new_update_contents, ret_update_transforms
     # return processing['substatus'], content_updates, ret_msgs, {}, update_dep_contents_status_name, update_dep_contents_status, [], ret_update_transforms
-    return processing['substatus'], content_updates, ret_msgs, {}, {}, {}, [], ret_update_transforms
+    # return processing['substatus'], content_updates, ret_msgs, {}, {}, {}, [], ret_update_transforms
+    return processing['substatus'], content_updates, ret_msgs, {}, {}, {}, new_update_contents, ret_update_transforms
 
 
 def get_content_status_from_panda_msg_status(status):

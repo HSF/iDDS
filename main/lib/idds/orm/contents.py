@@ -543,7 +543,7 @@ def get_updated_transforms_by_content_status(request_id=None, transform_id=None,
         query = query.with_hint(models.Content, "INDEX(CONTENTS CONTENTS_ID_NAME_IDX)", 'oracle')
 
         if request_id:
-            query = query.filter(models.Content.request_id_id == request_id)
+            query = query.filter(models.Content.request_id == request_id)
         if transform_id:
             query = query.filter(models.Content.transform_id == transform_id)
 
