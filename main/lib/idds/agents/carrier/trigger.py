@@ -44,9 +44,10 @@ class Trigger(Poller):
         Get trigger processing
         """
         try:
+            self.show_queue_size()
             if not self.is_ok_to_run_more_processings():
                 return []
-            self.show_queue_size()
+            # self.show_queue_size()
 
             processing_status = [ProcessingStatus.ToTrigger, ProcessingStatus.Triggering]
             processings = core_processings.get_processings_by_status(status=processing_status,
@@ -171,26 +172,39 @@ class Trigger(Poller):
 
                     new_update_contents = ret.get('new_update_contents', None)
                     ret['new_update_contents'] = None
+                    ret_update_contents = ret.get('update_contents', None)
                     self.update_processing(ret, pr)
 
-                    if new_update_contents:
+                    if new_update_contents or ret_update_contents:
+                        self.logger.info(log_pre + "update_contents_to_others_by_dep_id")
                         core_catalog.update_contents_to_others_by_dep_id(request_id=pr['request_id'], transform_id=pr['transform_id'])
+                        self.logger.info(log_pre + "update_contents_to_others_by_dep_id done")
+
                         # core_catalog.delete_contents_update(request_id=pr['request_id'], transform_id=pr['transform_id'])
                         update_transforms = core_catalog.get_updated_transforms_by_content_status(request_id=pr['request_id'])
                         self.logger.info(log_pre + "update_transforms: %s" % str(update_transforms))
                         for update_transform in update_transforms:
                             if 'transform_id' in update_transform:
                                 update_transform_id = update_transform['transform_id']
-                                event = UpdateTransformEvent(publisher_id=self.id,
-                                                             transform_id=update_transform_id,
-                                                             content={'event': 'Trigger'})
-                                self.logger.info(log_pre + "Trigger UpdateTransformEvent(transform_id: %s" % update_transform_id)
-                                self.event_bus.send(event)
+                                if update_transform_id != pr['transform_id']:
+                                    event = UpdateTransformEvent(publisher_id=self.id,
+                                                                 transform_id=update_transform_id,
+                                                                 content={'event': 'Trigger'})
+                                    self.logger.info(log_pre + "Trigger UpdateTransformEvent(transform_id: %s)" % update_transform_id)
+                                    self.event_bus.send(event)
+                                else:
+                                    ret1 = self.handle_trigger_processing(pr)
+                                    new_update_contents = ret1.get('new_update_contents', None)
+                                    ret1['new_update_contents'] = None
+                                    self.update_processing(ret1, pr)
+                                    # pass
 
                     if (('processing_status' in ret and ret['processing_status'] == ProcessingStatus.Terminating)
                         or (event._content and 'Terminated' in event._content and event._content['Terminated'])):   # noqa W503
                         self.logger.info(log_pre + "TerminatedProcessingEvent(processing_id: %s)" % pr['processing_id'])
-                        event = TerminatedProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'], content=event._content,
+                        event = TerminatedProcessingEvent(publisher_id=self.id,
+                                                          processing_id=pr['processing_id'],
+                                                          content=event._content,
                                                           counter=original_event._counter)
                         self.event_bus.send(event)
                     else:
