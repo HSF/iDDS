@@ -1075,7 +1075,7 @@ def get_workload_id_transform_id_map(workload_id):
         return None
 
     request_ids = []
-    if not workload_id_transform_id_map or workload_id not in workload_id_transform_id_map:
+    if not workload_id_transform_id_map or workload_id not in workload_id_transform_id_map or len(workload_id_transform_id_map[workload_id]) < 5:
         processing_status = [ProcessingStatus.New,
                              ProcessingStatus.Submitting, ProcessingStatus.Submitted,
                              ProcessingStatus.Running, ProcessingStatus.FinishedOnExec,
@@ -1091,7 +1091,11 @@ def get_workload_id_transform_id_map(workload_id):
             processing = proc['processing_metadata']['processing']
             work = processing.work
             if work.use_dependency_to_release_jobs():
-                workload_id_transform_id_map[proc['workload_id']] = (proc['request_id'], proc['transform_id'], proc['processing_id'])
+                workload_id_transform_id_map[proc['workload_id']] = (proc['request_id'],
+                                                                     proc['transform_id'],
+                                                                     proc['processing_id'],
+                                                                     proc['status'].value,
+                                                                     proc['substatus'].value)
                 if proc['request_id'] not in request_ids:
                     request_ids.append(proc['request_id'])
 
@@ -1179,19 +1183,22 @@ def handle_messages_processing(messages, logger=None, log_prefix=''):
             continue
 
         logger.debug(log_prefix + "Received message: %s" % str(ori_msg))
-        logger.debug(log_prefix + "(request_id, transform_id, processing_id): %s" % str(ret_req_tf_pr_id))
+        logger.debug(log_prefix + "(request_id, transform_id, processing_id, status, substatus): %s" % str(ret_req_tf_pr_id))
 
         if msg['msg_type'] in ['task_status']:
             workload_id = msg['taskid']
             status = msg['status']
             if status in ['pending']:   # 'prepared'
-                req_id, tf_id, processing_id = ret_req_tf_pr_id
-                # new_processings.append((req_id, tf_id, processing_id, workload_id, status))
-                if processing_id not in update_processings:
-                    update_processings.append(processing_id)
-                    logger.debug(log_prefix + "Add to update processing: %s" % str(processing_id))
+                req_id, tf_id, processing_id, r_status, r_substatus = ret_req_tf_pr_id
+                if r_status < ProcessingStatus.Submitted.value:
+                    # new_processings.append((req_id, tf_id, processing_id, workload_id, status))
+                    if processing_id not in update_processings:
+                        update_processings.append(processing_id)
+                        logger.debug(log_prefix + "Add to update processing: %s" % str(processing_id))
+                else:
+                    logger.debug(log_prefix + "Processing %s is already in status(%s), not add it to update processing" % (str(processing_id), r_status))
             elif status in ['finished', 'done']:
-                req_id, tf_id, processing_id = ret_req_tf_pr_id
+                req_id, tf_id, processing_id, r_status, r_substatus = ret_req_tf_pr_id
                 # update_processings.append((processing_id, status))
                 if processing_id not in update_processings:
                     terminated_processings.append(processing_id)
@@ -1203,7 +1210,7 @@ def handle_messages_processing(messages, logger=None, log_prefix=''):
             status = msg['status']
             inputs = msg['inputs']
             if inputs and status in ['finished']:
-                req_id, tf_id, processing_id = ret_req_tf_pr_id
+                req_id, tf_id, processing_id, r_status, r_substatus = ret_req_tf_pr_id
                 content_id, to_update_jobid = get_content_id_from_job_id(req_id, workload_id, tf_id, job_id, inputs)
                 if content_id:
                     if to_update_jobid:
