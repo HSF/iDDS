@@ -24,5 +24,8 @@ transform_id = 26788   # 3028, 3029
 # ret = core_catalog.update_contents_to_others_by_dep_id(request_id=request_id, transform_id=transform_id)
 # print(ret)
 
-ret = core_catalog.update_contents_from_others_by_dep_id(request_id=request_id, transform_id=transform_id)
+# ret = core_catalog.update_contents_from_others_by_dep_id(request_id=request_id, transform_id=transform_id)
+# print(ret)
+
+ret = core_catalog.get_updated_transforms_by_content_status(request_id=3350)
 print(ret)

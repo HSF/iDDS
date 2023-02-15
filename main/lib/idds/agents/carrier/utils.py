@@ -993,7 +993,10 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
             # logger.debug(log_prefix + "delete_contents_update: %s" % str(ret_update_transforms))
             pass
 
+        logger.debug(log_prefix + "update_contents_from_others_by_dep_id")
         core_catalog.update_contents_from_others_by_dep_id(request_id=request_id, transform_id=transform_id)
+        logger.debug(log_prefix + "update_contents_from_others_by_dep_id done")
+
         input_output_maps = get_input_output_maps(transform_id, work)
         logger.debug(log_prefix + "input_output_maps.keys[:2]: %s" % str(list(input_output_maps.keys())[:2]))
 
@@ -1176,6 +1179,7 @@ def handle_messages_processing(messages, logger=None, log_prefix=''):
             continue
 
         logger.debug(log_prefix + "Received message: %s" % str(ori_msg))
+        logger.debug(log_prefix + "(request_id, transform_id, processing_id): %s" % str(ret_req_tf_pr_id))
 
         if msg['msg_type'] in ['task_status']:
             workload_id = msg['taskid']
@@ -1185,11 +1189,13 @@ def handle_messages_processing(messages, logger=None, log_prefix=''):
                 # new_processings.append((req_id, tf_id, processing_id, workload_id, status))
                 if processing_id not in update_processings:
                     update_processings.append(processing_id)
+                    logger.debug(log_prefix + "Add to update processing: %s" % str(processing_id))
             elif status in ['finished', 'done']:
                 req_id, tf_id, processing_id = ret_req_tf_pr_id
                 # update_processings.append((processing_id, status))
                 if processing_id not in update_processings:
                     terminated_processings.append(processing_id)
+                    logger.debug(log_prefix + "Add to terminated processing: %s" % str(processing_id))
 
         if msg['msg_type'] in ['job_status']:
             workload_id = msg['taskid']
@@ -1213,6 +1219,7 @@ def handle_messages_processing(messages, logger=None, log_prefix=''):
                     update_contents.append(u_content)
                     if processing_id not in update_processings:
                         update_processings.append(processing_id)
+                        logger.debug(log_prefix + "Add to update processing: %s" % str(processing_id))
 
     return update_processings, terminated_processings, update_contents, []
 

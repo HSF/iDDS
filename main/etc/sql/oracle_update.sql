@@ -285,3 +285,9 @@ BEGIN
     (select content_id, substatus from contents where request_id = request_id_in and transform_id = transform_id_in and content_relation_type = 1) t
     on c.content_dep_id = t.content_id where c.request_id = request_id_in and c.substatus != t.substatus) set c_substatus = t_substatus;
 END;
+
+
+
+-- 2023.02.14
+drop index CONTENTS_REQ_TF_COLL_IDX
+CREATE INDEX CONTENTS_REQ_TF_COLL_IDX ON CONTENTS (request_id, transform_id, workload_id, coll_id, status, substatus) LOCAL;

@@ -540,7 +540,7 @@ def get_updated_transforms_by_content_status(request_id=None, transform_id=None,
                               models.Content.transform_id,
                               models.Content.workload_id,
                               models.Content.coll_id)
-        query = query.with_hint(models.Content, "INDEX(CONTENTS CONTENTS_ID_NAME_IDX)", 'oracle')
+        query = query.with_hint(models.Content, "INDEX(CONTENTS CONTENTS_REQ_TF_COLL_IDX)", 'oracle')
 
         if request_id:
             query = query.filter(models.Content.request_id == request_id)

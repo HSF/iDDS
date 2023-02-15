@@ -372,6 +372,7 @@ class Poller(BaseAgent):
                             event_content['has_updates'] = True
                         if is_process_terminated(pr['substatus']):
                             event_content['Terminated'] = True
+                        self.logger.info(log_pre + "TriggerProcessingEvent(processing_id: %s)" % pr['processing_id'])
                         event = TriggerProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'], content=event_content,
                                                        counter=original_event._counter)
                         self.event_bus.send(event)
