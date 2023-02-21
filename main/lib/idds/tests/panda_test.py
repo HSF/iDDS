@@ -33,8 +33,8 @@ jediTaskID = 10517    # 10607
 jediTaskID = 146329
 ret = Client.getJediTaskDetails({'jediTaskID': jediTaskID}, True, True, verbose=False)
 print(ret)
-ret = Client.getTaskStatus(jediTaskID, verbose=False)
-print(ret)
+# ret = Client.getTaskStatus(jediTaskID, verbose=False)
+# print(ret)
 
 # ret = Client.getTaskStatus(jediTaskID, verbose=False)
 # print(ret)
@@ -100,7 +100,8 @@ task_ids = []
 # task_ids = [i for i in range(140349, 140954)] + [142268, 142651]
 # task_ids = [1851] + [i for i in range(4336, 4374)] + [i for i in range(133965, 136025)]
 # task_ids = [832, 2347, 3045, 66860, 67036] + [i for i in range(121273, 140349)]
-task_ids = []
+task_ids = [i for i in range(144088, 144111)] + [144891, 144892]
+# task_ids = []
 for task_id in task_ids:
     print("Killing %s" % task_id)
     Client.killTask(task_id)

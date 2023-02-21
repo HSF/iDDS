@@ -10,7 +10,7 @@
 
 import json
 import logging
-
+import time
 
 from idds.common.constants import (ProcessingStatus,
                                    CollectionStatus,
@@ -1162,6 +1162,29 @@ def get_content_id_from_job_id(request_id, workload_id, transform_id, job_id, in
     return content_id, to_update_jobid
 
 
+def whether_to_process_pending_workload_id(workload_id, logger=None, log_prefix=''):
+    cache = get_redis_cache()
+    processed_pending_workload_id_map_key = "processed_pending_workload_id_map"
+    processed_pending_workload_id_map = cache.get(processed_pending_workload_id_map_key, default={})
+    processed_pending_workload_id_map_time_key = "processed_pending_workload_id_map_time"
+    processed_pending_workload_id_map_time = cache.get(processed_pending_workload_id_map_time_key, default=None)
+
+    workload_id = str(workload_id)
+    if workload_id in processed_pending_workload_id_map:
+        return False
+
+    processed_pending_workload_id_map[workload_id] = time.time()
+    if processed_pending_workload_id_map_time is None or processed_pending_workload_id_map_time + 86400 < time.time():
+        cache.set(processed_pending_workload_id_map_time_key, int(time.time()), expire_seconds=86400)
+
+        for workload_id in processed_pending_workload_id_map.keys():
+            if processed_pending_workload_id_map[workload_id] + 86400 < time.time():
+                del processed_pending_workload_id_map[workload_id]
+
+    cache.set(processed_pending_workload_id_map_key, processed_pending_workload_id_map, expire_seconds=86400)
+    return True
+
+
 def handle_messages_processing(messages, logger=None, log_prefix=''):
     logger = get_logger(logger)
     if not log_prefix:
@@ -1190,13 +1213,13 @@ def handle_messages_processing(messages, logger=None, log_prefix=''):
             status = msg['status']
             if status in ['pending']:   # 'prepared'
                 req_id, tf_id, processing_id, r_status, r_substatus = ret_req_tf_pr_id
-                if r_status < ProcessingStatus.Submitted.value:
+                if whether_to_process_pending_workload_id(workload_id, logger=logger, log_prefix=log_prefix):
                     # new_processings.append((req_id, tf_id, processing_id, workload_id, status))
                     if processing_id not in update_processings:
                         update_processings.append(processing_id)
                         logger.debug(log_prefix + "Add to update processing: %s" % str(processing_id))
                 else:
-                    logger.debug(log_prefix + "Processing %s is already in status(%s), not add it to update processing" % (str(processing_id), r_status))
+                    logger.debug(log_prefix + "Processing %s is already processed, not add it to update processing" % (str(processing_id)))
             elif status in ['finished', 'done']:
                 req_id, tf_id, processing_id, r_status, r_substatus = ret_req_tf_pr_id
                 # update_processings.append((processing_id, status))
