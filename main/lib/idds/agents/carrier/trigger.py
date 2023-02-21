@@ -34,10 +34,21 @@ class Trigger(Poller):
 
     def __init__(self, num_threads=1, poll_period=10, retries=3, retrieve_bulk_size=2,
                  name='Trigger', message_bulk_size=1000, **kwargs):
+        self.set_max_workers()
+        if hasattr(self, 'trigger_max_number_workers'):
+            self.max_number_workers = int(self.trigger_max_number_workers)
+
+        num_threads = self.max_number_workers * 2
         super(Trigger, self).__init__(num_threads=num_threads, name=name, **kwargs)
 
         if hasattr(self, 'trigger_max_number_workers'):
             self.max_number_workers = int(self.trigger_max_number_workers)
+        self.number_msg_workers = 0
+
+    def is_ok_to_run_more_msg_processings(self):
+        if self.number_msg_workers >= self.max_number_workers:
+            return False
+        return True
 
     def get_trigger_processings(self):
         """
@@ -154,8 +165,7 @@ class Trigger(Poller):
                    'update_contents': []}
         return ret
 
-    def process_trigger_processing(self, event):
-        self.number_workers += 1
+    def process_trigger_processing_real(self, event):
         try:
             if event:
                 original_event = event
@@ -219,13 +229,26 @@ class Trigger(Poller):
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
+
+    def process_trigger_processing(self, event):
+        self.number_workers += 1
+        self.process_trigger_processing_real(event)
         self.number_workers -= 1
+
+    def process_msg_trigger_processing(self, event):
+        self.number_msg_workers += 1
+        self.process_trigger_processing_real(event)
+        self.number_msg_workers -= 1
 
     def init_event_function_map(self):
         self.event_func_map = {
             EventType.TriggerProcessing: {
                 'pre_check': self.is_ok_to_run_more_processings,
                 'exec_func': self.process_trigger_processing
+            },
+            EventType.MsgTriggerProcessing: {
+                'pre_check': self.is_ok_to_run_more_msg_processings,
+                'exec_func': self.process_msg_trigger_processing
             }
         }
 

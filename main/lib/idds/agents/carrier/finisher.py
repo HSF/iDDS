@@ -32,6 +32,11 @@ class Finisher(Poller):
 
     def __init__(self, num_threads=1, poll_time_period=10, retries=3, retrieve_bulk_size=2,
                  message_bulk_size=1000, **kwargs):
+        self.set_max_workers()
+        if hasattr(self, 'finisher_max_number_workers'):
+            self.max_number_workers = int(self.finisher_max_number_workers)
+        num_threads = self.max_number_workers
+
         super(Finisher, self).__init__(num_threads=num_threads, name='Finisher',
                                        poll_time_period=poll_time_period, retries=retries,
                                        retrieve_bulk_size=retrieve_bulk_size,

@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2022
+# - Wen Guan, <wen.guan@cern.ch>, 2022 - 2023
 
 import time
 import uuid
@@ -46,6 +46,7 @@ class EventType(Enum):
     SyncProcessing = 34
     TerminatedProcessing = 35
     TriggerProcessing = 36
+    MsgTriggerProcessing = 37
 
     UpdateCommand = 40
 
@@ -276,5 +277,16 @@ class TriggerProcessingEvent(Event):
 
     def to_json(self):
         ret = super(TriggerProcessingEvent, self).to_json()
+        ret['processing_id'] = self._processing_id
+        return ret
+
+
+class MsgTriggerProcessingEvent(Event):
+    def __init__(self, publisher_id, processing_id, content=None, counter=1):
+        super(MsgTriggerProcessingEvent, self).__init__(publisher_id, event_type=EventType.MsgTriggerProcessing, content=content, counter=counter)
+        self._processing_id = processing_id
+
+    def to_json(self):
+        ret = super(MsgTriggerProcessingEvent, self).to_json()
         ret['processing_id'] = self._processing_id
         return ret
