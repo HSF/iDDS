@@ -36,7 +36,7 @@ class Receiver(BaseAgent):
     Receiver works to receive workload management messages to update task/job status.
     """
 
-    def __init__(self, num_threads=1, bulk_message_delay=5, bulk_message_size=2000,
+    def __init__(self, num_threads=1, bulk_message_delay=30, bulk_message_size=2000,
                  random_delay=None, **kwargs):
         super(Receiver, self).__init__(num_threads=num_threads, name='Receiver', **kwargs)
         self.config_section = Sections.Carrier
@@ -118,6 +118,7 @@ class Receiver(BaseAgent):
                         self.event_bus.send(event)
 
                     time_delay = self.bulk_message_delay - (time.time() - time_start)
+                    time_delay = self.bulk_message_delay
                     if time_delay > 0:
                         time.sleep(time_delay)
                 except IDDSException as error:

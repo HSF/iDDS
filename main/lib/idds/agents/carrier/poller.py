@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2023
 
 import datetime
 import random
@@ -184,6 +184,13 @@ class Poller(BaseAgent):
                 processing['update_processing']['parameters']['locking'] = ProcessingLocking.Idle
                 # self.logger.debug("wen: %s" % str(processing))
                 processing['update_processing']['parameters']['updated_at'] = datetime.datetime.utcnow()
+                # check update_processing status
+                if 'status' in processing['update_processing']['parameters']:
+                    new_status = processing['update_processing']['parameters']['status']
+                    if new_status == ProcessingStatus.Submitting and processing_model['status'].value > ProcessingStatus.Submitting.value:
+                        processing['update_processing']['parameters']['status'] = ProcessingStatus.Submitted
+
+                self.logger.info(log_prefix + "update_processing: %s" % (processing['update_processing']['parameters']))
 
                 retry = True
                 retry_num = 0
