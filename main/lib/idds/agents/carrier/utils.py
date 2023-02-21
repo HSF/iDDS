@@ -10,7 +10,7 @@
 
 import json
 import logging
-
+import time
 
 from idds.common.constants import (ProcessingStatus,
                                    CollectionStatus,
@@ -993,7 +993,10 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
             # logger.debug(log_prefix + "delete_contents_update: %s" % str(ret_update_transforms))
             pass
 
+        logger.debug(log_prefix + "update_contents_from_others_by_dep_id")
         core_catalog.update_contents_from_others_by_dep_id(request_id=request_id, transform_id=transform_id)
+        logger.debug(log_prefix + "update_contents_from_others_by_dep_id done")
+
         input_output_maps = get_input_output_maps(transform_id, work)
         logger.debug(log_prefix + "input_output_maps.keys[:2]: %s" % str(list(input_output_maps.keys())[:2]))
 
@@ -1025,7 +1028,8 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
 
     # return processing['substatus'], content_updates, ret_msgs, {}, {}, {}, new_update_contents, ret_update_transforms
     # return processing['substatus'], content_updates, ret_msgs, {}, update_dep_contents_status_name, update_dep_contents_status, [], ret_update_transforms
-    return processing['substatus'], content_updates, ret_msgs, {}, {}, {}, [], ret_update_transforms
+    # return processing['substatus'], content_updates, ret_msgs, {}, {}, {}, [], ret_update_transforms
+    return processing['substatus'], content_updates, ret_msgs, {}, {}, {}, new_update_contents, ret_update_transforms
 
 
 def get_content_status_from_panda_msg_status(status):
@@ -1071,7 +1075,7 @@ def get_workload_id_transform_id_map(workload_id):
         return None
 
     request_ids = []
-    if not workload_id_transform_id_map or workload_id not in workload_id_transform_id_map:
+    if not workload_id_transform_id_map or workload_id not in workload_id_transform_id_map or len(workload_id_transform_id_map[workload_id]) < 5:
         processing_status = [ProcessingStatus.New,
                              ProcessingStatus.Submitting, ProcessingStatus.Submitted,
                              ProcessingStatus.Running, ProcessingStatus.FinishedOnExec,
@@ -1087,7 +1091,11 @@ def get_workload_id_transform_id_map(workload_id):
             processing = proc['processing_metadata']['processing']
             work = processing.work
             if work.use_dependency_to_release_jobs():
-                workload_id_transform_id_map[proc['workload_id']] = (proc['request_id'], proc['transform_id'], proc['processing_id'])
+                workload_id_transform_id_map[proc['workload_id']] = (proc['request_id'],
+                                                                     proc['transform_id'],
+                                                                     proc['processing_id'],
+                                                                     proc['status'].value,
+                                                                     proc['substatus'].value)
                 if proc['request_id'] not in request_ids:
                     request_ids.append(proc['request_id'])
 
@@ -1154,6 +1162,29 @@ def get_content_id_from_job_id(request_id, workload_id, transform_id, job_id, in
     return content_id, to_update_jobid
 
 
+def whether_to_process_pending_workload_id(workload_id, logger=None, log_prefix=''):
+    cache = get_redis_cache()
+    processed_pending_workload_id_map_key = "processed_pending_workload_id_map"
+    processed_pending_workload_id_map = cache.get(processed_pending_workload_id_map_key, default={})
+    processed_pending_workload_id_map_time_key = "processed_pending_workload_id_map_time"
+    processed_pending_workload_id_map_time = cache.get(processed_pending_workload_id_map_time_key, default=None)
+
+    workload_id = str(workload_id)
+    if workload_id in processed_pending_workload_id_map:
+        return False
+
+    processed_pending_workload_id_map[workload_id] = time.time()
+    if processed_pending_workload_id_map_time is None or processed_pending_workload_id_map_time + 86400 < time.time():
+        cache.set(processed_pending_workload_id_map_time_key, int(time.time()), expire_seconds=86400)
+
+        for workload_id in processed_pending_workload_id_map.keys():
+            if processed_pending_workload_id_map[workload_id] + 86400 < time.time():
+                del processed_pending_workload_id_map[workload_id]
+
+    cache.set(processed_pending_workload_id_map_key, processed_pending_workload_id_map, expire_seconds=86400)
+    return True
+
+
 def handle_messages_processing(messages, logger=None, log_prefix=''):
     logger = get_logger(logger)
     if not log_prefix:
@@ -1175,20 +1206,26 @@ def handle_messages_processing(messages, logger=None, log_prefix=''):
             continue
 
         logger.debug(log_prefix + "Received message: %s" % str(ori_msg))
+        logger.debug(log_prefix + "(request_id, transform_id, processing_id, status, substatus): %s" % str(ret_req_tf_pr_id))
 
         if msg['msg_type'] in ['task_status']:
             workload_id = msg['taskid']
             status = msg['status']
             if status in ['pending']:   # 'prepared'
-                req_id, tf_id, processing_id = ret_req_tf_pr_id
-                # new_processings.append((req_id, tf_id, processing_id, workload_id, status))
-                if processing_id not in update_processings:
-                    update_processings.append(processing_id)
+                req_id, tf_id, processing_id, r_status, r_substatus = ret_req_tf_pr_id
+                if whether_to_process_pending_workload_id(workload_id, logger=logger, log_prefix=log_prefix):
+                    # new_processings.append((req_id, tf_id, processing_id, workload_id, status))
+                    if processing_id not in update_processings:
+                        update_processings.append(processing_id)
+                        logger.debug(log_prefix + "Add to update processing: %s" % str(processing_id))
+                else:
+                    logger.debug(log_prefix + "Processing %s is already processed, not add it to update processing" % (str(processing_id)))
             elif status in ['finished', 'done']:
-                req_id, tf_id, processing_id = ret_req_tf_pr_id
+                req_id, tf_id, processing_id, r_status, r_substatus = ret_req_tf_pr_id
                 # update_processings.append((processing_id, status))
                 if processing_id not in update_processings:
                     terminated_processings.append(processing_id)
+                    logger.debug(log_prefix + "Add to terminated processing: %s" % str(processing_id))
 
         if msg['msg_type'] in ['job_status']:
             workload_id = msg['taskid']
@@ -1196,7 +1233,7 @@ def handle_messages_processing(messages, logger=None, log_prefix=''):
             status = msg['status']
             inputs = msg['inputs']
             if inputs and status in ['finished']:
-                req_id, tf_id, processing_id = ret_req_tf_pr_id
+                req_id, tf_id, processing_id, r_status, r_substatus = ret_req_tf_pr_id
                 content_id, to_update_jobid = get_content_id_from_job_id(req_id, workload_id, tf_id, job_id, inputs)
                 if content_id:
                     if to_update_jobid:
@@ -1212,6 +1249,7 @@ def handle_messages_processing(messages, logger=None, log_prefix=''):
                     update_contents.append(u_content)
                     if processing_id not in update_processings:
                         update_processings.append(processing_id)
+                        logger.debug(log_prefix + "Add to update processing: %s" % str(processing_id))
 
     return update_processings, terminated_processings, update_contents, []
 

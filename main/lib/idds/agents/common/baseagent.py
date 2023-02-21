@@ -66,6 +66,13 @@ class BaseAgent(TimerScheduler, PluginBase):
 
         self.cache = get_redis_cache()
 
+    def set_max_workers(self):
+        self.number_workers = 0
+        if not hasattr(self, 'max_number_workers') or not self.max_number_workers:
+            self.max_number_workers = 3
+        else:
+            self.max_number_workers = int(self.max_number_workers)
+
     def get_event_bus(self):
         self.event_bus
 

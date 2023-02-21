@@ -622,7 +622,7 @@ def get_output_contents_by_request_id_status(request_id, name, content_status, l
 
 
 @read_session
-def get_updated_transforms_by_content_status(request_id=None, transform_id=None):
+def get_updated_transforms_by_content_status(request_id=None, transform_id=None, session=None):
     """
     Get updated transform ids by content status
 
@@ -631,7 +631,7 @@ def get_updated_transforms_by_content_status(request_id=None, transform_id=None)
 
     :returns list
     """
-    return orm_contents.get_updated_transforms_by_content_status(request_id=request_id, transform_id=transform_id)
+    return orm_contents.get_updated_transforms_by_content_status(request_id=request_id, transform_id=transform_id, session=session)
 
 
 @transactional_session

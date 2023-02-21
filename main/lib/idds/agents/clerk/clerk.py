@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2023
 
 import datetime
 import random
@@ -42,6 +42,8 @@ class Clerk(BaseAgent):
     """
 
     def __init__(self, num_threads=1, poll_period=10, retrieve_bulk_size=10, pending_time=None, **kwargs):
+        self.set_max_workers()
+        num_threads = self.max_number_workers
         super(Clerk, self).__init__(num_threads=num_threads, name='Clerk', **kwargs)
         self.poll_period = int(poll_period)
         self.retrieve_bulk_size = int(retrieve_bulk_size)

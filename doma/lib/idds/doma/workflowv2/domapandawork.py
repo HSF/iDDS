@@ -658,7 +658,9 @@ class DomaPanDAWork(Work):
     def get_processing_status_from_panda_status(self, task_status):
         if task_status in ['registered', 'defined', 'assigning']:
             processing_status = ProcessingStatus.Submitting
-        elif task_status in ['ready', 'pending', 'scouting', 'scouted', 'prepared', 'topreprocess', 'preprocessing']:
+        elif task_status in ['ready', 'scouting', 'scouted', 'prepared', 'topreprocess', 'preprocessing']:
+            processing_status = ProcessingStatus.Submitting
+        elif task_status in ['pending']:
             processing_status = ProcessingStatus.Submitted
         elif task_status in ['running', 'toretry', 'toincexec', 'throttled']:
             processing_status = ProcessingStatus.Running

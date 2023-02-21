@@ -561,7 +561,7 @@ class Content(BASE, ModelBase):
                    Index('CONTENTS_STATUS_UPDATED_IDX', 'status', 'locking', 'updated_at', 'created_at'),
                    Index('CONTENTS_ID_NAME_IDX', 'coll_id', 'scope', 'name', 'status'),
                    Index('CONTENTS_DEP_IDX', 'request_id', 'transform_id', 'content_dep_id'),
-                   Index('CONTENTS_REQ_TF_COLL_IDX', 'request_id', 'transform_id', 'coll_id', 'status'))
+                   Index('CONTENTS_REQ_TF_COLL_IDX', 'request_id', 'transform_id', 'workload_id', 'coll_id', 'status', 'substatus'))
 
 
 class Content_update(BASE, ModelBase):
