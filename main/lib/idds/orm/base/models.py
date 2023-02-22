@@ -833,10 +833,10 @@ def create_proc_to_update_contents():
         BEGIN
             UPDATE %s.contents set substatus = d.substatus from
             (select content_id, content_dep_id, substatus from %s.contents where request_id = request_id_in and transform_id = transform_id_in and content_relation_type = 1 and status != 0) d
-            where %s.contents.request_id = request_id_in and %s.contents.substatus != d.substatus and d.content_id = %s.contents.content_dep_id;
+            where %s.contents.request_id = request_id_in and %s.contents.content_relation_type = 3 and %s.contents.substatus != d.substatus and d.content_id = %s.contents.content_dep_id;
         END;
         $$ LANGUAGE PLPGSQL
-    """ % (DEFAULT_SCHEMA_NAME, DEFAULT_SCHEMA_NAME, DEFAULT_SCHEMA_NAME,
+    """ % (DEFAULT_SCHEMA_NAME, DEFAULT_SCHEMA_NAME, DEFAULT_SCHEMA_NAME, DEFAULT_SCHEMA_NAME,
            DEFAULT_SCHEMA_NAME, DEFAULT_SCHEMA_NAME, DEFAULT_SCHEMA_NAME))
 
     func2 = DDL("""
@@ -847,11 +847,11 @@ def create_proc_to_update_contents():
 
             UPDATE %s.contents set substatus = d.substatus from
             (select content_id, content_dep_id, substatus from %s.contents where request_id = request_id_in and content_relation_type = 1 and status != 0) d
-            where %s.contents.request_id = request_id_in and %s.contents.transform_id = transform_id_in and %s.contents.substatus != d.substatus and d.content_id = %s.contents.content_dep_id;
+            where %s.contents.request_id = request_id_in and %s.contents.transform_id = transform_id_in and %s.contents.content_relation_type = 3 and %s.contents.substatus != d.substatus and d.content_id = %s.contents.content_dep_id;
         END;
         $$ LANGUAGE PLPGSQL
     """ % (DEFAULT_SCHEMA_NAME, DEFAULT_SCHEMA_NAME, DEFAULT_SCHEMA_NAME, DEFAULT_SCHEMA_NAME,
-           DEFAULT_SCHEMA_NAME, DEFAULT_SCHEMA_NAME, DEFAULT_SCHEMA_NAME))
+           DEFAULT_SCHEMA_NAME, DEFAULT_SCHEMA_NAME, DEFAULT_SCHEMA_NAME, DEFAULT_SCHEMA_NAME))
 
     event.listen(Content.__table__, "after_create", func1.execute_if(dialect="postgresql"))
     event.listen(Content.__table__, "after_create", func2.execute_if(dialect="postgresql"))

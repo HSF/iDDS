@@ -11,6 +11,7 @@
 import json
 import logging
 import time
+import threading
 
 from idds.common.constants import (ProcessingStatus,
                                    CollectionStatus,
@@ -984,7 +985,7 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
     work = proc.work
     work.set_agent_attributes(agent_attributes, processing)
 
-    if not work.use_dependency_to_release_jobs():
+    if (not work.use_dependency_to_release_jobs()) or workload_id is None:
         return processing['substatus'], [], [], {}, {}, {}, []
     else:
         if trigger_new_updates:
@@ -1063,19 +1064,38 @@ def get_collection_id_transform_id_map(coll_id, request_id, request_ids=[]):
     return coll_tf_id_map[coll_id]
 
 
-def get_workload_id_transform_id_map(workload_id):
+workload_id_lock = threading.Lock()
+
+
+def get_workload_id_transform_id_map(workload_id, logger=None, log_prefix=''):
     cache = get_redis_cache()
     workload_id_transform_id_map_key = "all_worloadid2transformid_map"
     workload_id_transform_id_map = cache.get(workload_id_transform_id_map_key, default={})
 
     workload_id_transform_id_map_notexist_key = "all_worloadid2transformid_map_notexist"
-    workload_id_transform_id_map_notexist = cache.get(workload_id_transform_id_map_notexist_key, default=[])
+    workload_id_transform_id_map_notexist = cache.get(workload_id_transform_id_map_notexist_key, default={})
 
-    if workload_id in workload_id_transform_id_map_notexist:
+    if type(workload_id_transform_id_map_notexist) in (list, tuple):
+        workload_id_transform_id_map_notexist = {}
+
+    workload_id_str = str(workload_id)
+    if workload_id_str in workload_id_transform_id_map:
+        return workload_id_transform_id_map[workload_id_str]
+
+    if workload_id_str in workload_id_transform_id_map_notexist and workload_id_transform_id_map_notexist[workload_id_str] + 600 < time.time():
         return None
 
+    # lock area
+    workload_id_lock.acquire()
+
+    workload_id_transform_id_map = cache.get(workload_id_transform_id_map_key, default={})
+    workload_id_transform_id_map_notexist = cache.get(workload_id_transform_id_map_notexist_key, default={})
+
+    if type(workload_id_transform_id_map_notexist) in (list, tuple):
+        workload_id_transform_id_map_notexist = {}
+
     request_ids = []
-    if not workload_id_transform_id_map or workload_id not in workload_id_transform_id_map or len(workload_id_transform_id_map[workload_id]) < 5:
+    if not workload_id_transform_id_map or workload_id_str not in workload_id_transform_id_map or len(workload_id_transform_id_map[workload_id_str]) < 5:
         processing_status = [ProcessingStatus.New,
                              ProcessingStatus.Submitting, ProcessingStatus.Submitted,
                              ProcessingStatus.Running, ProcessingStatus.FinishedOnExec,
@@ -1091,26 +1111,42 @@ def get_workload_id_transform_id_map(workload_id):
             processing = proc['processing_metadata']['processing']
             work = processing.work
             if work.use_dependency_to_release_jobs():
-                workload_id_transform_id_map[proc['workload_id']] = (proc['request_id'],
-                                                                     proc['transform_id'],
-                                                                     proc['processing_id'],
-                                                                     proc['status'].value,
-                                                                     proc['substatus'].value)
+                workload_id_transform_id_map[str(proc['workload_id'])] = (proc['request_id'],
+                                                                          proc['transform_id'],
+                                                                          proc['processing_id'],
+                                                                          proc['status'].value,
+                                                                          proc['substatus'].value)
                 if proc['request_id'] not in request_ids:
                     request_ids.append(proc['request_id'])
 
         cache.set(workload_id_transform_id_map_key, workload_id_transform_id_map)
 
+        for key in workload_id_transform_id_map:
+            if key in workload_id_transform_id_map_notexist:
+                del workload_id_transform_id_map_notexist[key]
+
     # renew the collection to transform map
     if request_ids:
         get_collection_id_transform_id_map(coll_id=None, request_id=request_ids[0], request_ids=request_ids)
 
-    # for tasks running in some other instances
-    if workload_id not in workload_id_transform_id_map:
-        workload_id_transform_id_map_notexist.append(workload_id)
-        return None
+    keys = list(workload_id_transform_id_map_notexist.keys())
+    for key in keys:
+        if workload_id_transform_id_map_notexist[key] + 7200 < time.time():
+            del workload_id_transform_id_map_notexist[key]
 
-    return workload_id_transform_id_map[workload_id]
+    cache.set(workload_id_transform_id_map_notexist_key, workload_id_transform_id_map_notexist)
+    # for tasks running in some other instances
+    if workload_id_str not in workload_id_transform_id_map:
+        if workload_id_str not in workload_id_transform_id_map_notexist:
+            workload_id_transform_id_map_notexist[workload_id_str] = time.time()
+            cache.set(workload_id_transform_id_map_notexist_key, workload_id_transform_id_map_notexist)
+
+        workload_id_lock.release()
+        return None
+    else:
+        workload_id_lock.release()
+
+    return workload_id_transform_id_map[workload_id_str]
 
 
 def get_input_name_content_id_map(request_id, workload_id, transform_id):
@@ -1162,6 +1198,9 @@ def get_content_id_from_job_id(request_id, workload_id, transform_id, job_id, in
     return content_id, to_update_jobid
 
 
+pending_lock = threading.Lock()
+
+
 def whether_to_process_pending_workload_id(workload_id, logger=None, log_prefix=''):
     cache = get_redis_cache()
     processed_pending_workload_id_map_key = "processed_pending_workload_id_map"
@@ -1173,15 +1212,21 @@ def whether_to_process_pending_workload_id(workload_id, logger=None, log_prefix=
     if workload_id in processed_pending_workload_id_map:
         return False
 
+    # lock area
+    pending_lock.acquire()
+    processed_pending_workload_id_map = cache.get(processed_pending_workload_id_map_key, default={})
+
     processed_pending_workload_id_map[workload_id] = time.time()
     if processed_pending_workload_id_map_time is None or processed_pending_workload_id_map_time + 86400 < time.time():
         cache.set(processed_pending_workload_id_map_time_key, int(time.time()), expire_seconds=86400)
 
-        for workload_id in processed_pending_workload_id_map.keys():
+        keys = list(processed_pending_workload_id_map.keys())
+        for workload_id in keys:
             if processed_pending_workload_id_map[workload_id] + 86400 < time.time():
                 del processed_pending_workload_id_map[workload_id]
 
     cache.set(processed_pending_workload_id_map_key, processed_pending_workload_id_map, expire_seconds=86400)
+    pending_lock.release()
     return True
 
 
@@ -1199,19 +1244,19 @@ def handle_messages_processing(messages, logger=None, log_prefix=''):
         if 'taskid' not in msg or not msg['taskid']:
             continue
 
-        workload_id = msg['taskid']
-        ret_req_tf_pr_id = get_workload_id_transform_id_map(workload_id)
-        if not ret_req_tf_pr_id:
-            # request is submitted by some other instances
-            continue
-
         logger.debug(log_prefix + "Received message: %s" % str(ori_msg))
-        logger.debug(log_prefix + "(request_id, transform_id, processing_id, status, substatus): %s" % str(ret_req_tf_pr_id))
 
         if msg['msg_type'] in ['task_status']:
             workload_id = msg['taskid']
             status = msg['status']
             if status in ['pending']:   # 'prepared'
+                ret_req_tf_pr_id = get_workload_id_transform_id_map(workload_id, logger=logger, log_prefix=log_prefix)
+                if not ret_req_tf_pr_id:
+                    # request is submitted by some other instances
+                    logger.debug(log_prefix + "No matched workload_id, discard message: %s" % str(ori_msg))
+                    continue
+
+                logger.debug(log_prefix + "(request_id, transform_id, processing_id, status, substatus): %s" % str(ret_req_tf_pr_id))
                 req_id, tf_id, processing_id, r_status, r_substatus = ret_req_tf_pr_id
                 if whether_to_process_pending_workload_id(workload_id, logger=logger, log_prefix=log_prefix):
                     # new_processings.append((req_id, tf_id, processing_id, workload_id, status))
@@ -1221,6 +1266,13 @@ def handle_messages_processing(messages, logger=None, log_prefix=''):
                 else:
                     logger.debug(log_prefix + "Processing %s is already processed, not add it to update processing" % (str(processing_id)))
             elif status in ['finished', 'done']:
+                ret_req_tf_pr_id = get_workload_id_transform_id_map(workload_id, logger=logger, log_prefix=log_prefix)
+                if not ret_req_tf_pr_id:
+                    # request is submitted by some other instances
+                    logger.debug(log_prefix + "No matched workload_id, discard message: %s" % str(ori_msg))
+                    continue
+
+                logger.debug(log_prefix + "(request_id, transform_id, processing_id, status, substatus): %s" % str(ret_req_tf_pr_id))
                 req_id, tf_id, processing_id, r_status, r_substatus = ret_req_tf_pr_id
                 # update_processings.append((processing_id, status))
                 if processing_id not in update_processings:
@@ -1233,6 +1285,14 @@ def handle_messages_processing(messages, logger=None, log_prefix=''):
             status = msg['status']
             inputs = msg['inputs']
             if inputs and status in ['finished']:
+                ret_req_tf_pr_id = get_workload_id_transform_id_map(workload_id, logger=logger, log_prefix=log_prefix)
+                if not ret_req_tf_pr_id:
+                    # request is submitted by some other instances
+                    logger.debug(log_prefix + "No matched workload_id, discard message: %s" % str(ori_msg))
+                    continue
+
+                logger.debug(log_prefix + "(request_id, transform_id, processing_id, status, substatus): %s" % str(ret_req_tf_pr_id))
+
                 req_id, tf_id, processing_id, r_status, r_substatus = ret_req_tf_pr_id
                 content_id, to_update_jobid = get_content_id_from_job_id(req_id, workload_id, tf_id, job_id, inputs)
                 if content_id:
@@ -1355,7 +1415,7 @@ def sync_collection_status(request_id, transform_id, workload_id, work, input_ou
                   'failed_ext_files': coll.failed_ext_files,
                   'missing_ext_files': coll.missing_ext_files}
 
-        if coll in input_collections:
+        if coll in input_collections and (workload_id is not None):
             if coll.total_files == coll.processed_files + coll.failed_files + coll.missing_files:
                 coll_db = core_catalog.get_collection(coll_id=coll.coll_id)
                 coll.status = coll_db['status']
