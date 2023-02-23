@@ -186,12 +186,13 @@ class Trigger(Poller):
                     self.update_processing(ret, pr)
 
                     if new_update_contents or ret_update_contents:
-                        self.logger.info(log_pre + "update_contents_to_others_by_dep_id")
-                        core_catalog.update_contents_to_others_by_dep_id(request_id=pr['request_id'], transform_id=pr['transform_id'])
-                        self.logger.info(log_pre + "update_contents_to_others_by_dep_id done")
+                        # self.logger.info(log_pre + "update_contents_to_others_by_dep_id")
+                        # core_catalog.update_contents_to_others_by_dep_id(request_id=pr['request_id'], transform_id=pr['transform_id'])
+                        # self.logger.info(log_pre + "update_contents_to_others_by_dep_id done")
 
                         # core_catalog.delete_contents_update(request_id=pr['request_id'], transform_id=pr['transform_id'])
-                        update_transforms = core_catalog.get_updated_transforms_by_content_status(request_id=pr['request_id'])
+                        update_transforms = core_catalog.get_updated_transforms_by_content_status(request_id=pr['request_id'],
+                                                                                                  transform_id=pr['transform_id'])
                         self.logger.info(log_pre + "update_transforms: %s" % str(update_transforms))
                         for update_transform in update_transforms:
                             if 'transform_id' in update_transform:
@@ -202,12 +203,6 @@ class Trigger(Poller):
                                                                  content={'event': 'Trigger'})
                                     self.logger.info(log_pre + "Trigger UpdateTransformEvent(transform_id: %s)" % update_transform_id)
                                     self.event_bus.send(event)
-                                else:
-                                    ret1 = self.handle_trigger_processing(pr)
-                                    new_update_contents = ret1.get('new_update_contents', None)
-                                    ret1['new_update_contents'] = None
-                                    self.update_processing(ret1, pr)
-                                    # pass
 
                     if (('processing_status' in ret and ret['processing_status'] == ProcessingStatus.Terminating)
                         or (event._content and 'Terminated' in event._content and event._content['Terminated'])):   # noqa W503

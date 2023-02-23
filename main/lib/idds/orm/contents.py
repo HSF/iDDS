@@ -16,6 +16,7 @@ operations related to Requests.
 import datetime
 
 import sqlalchemy
+from sqlalchemy import and_
 from sqlalchemy import func
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.sql.expression import asc
@@ -536,6 +537,16 @@ def get_updated_transforms_by_content_status(request_id=None, transform_id=None,
     :returns list
     """
     try:
+        subquery = session.query(models.Content.content_id,
+                                 models.Content.substatus)
+        subquery = subquery.with_hint(models.Content, "INDEX(CONTENTS CONTENTS_REQ_TF_COLL_IDX)", 'oracle')
+        if request_id:
+            subquery = subquery.filter(models.Content.request_id == request_id)
+        if transform_id:
+            subquery = subquery.filter(models.Content.transform_id == transform_id)
+        subquery = subquery.filter(models.Content.content_relation_type == 1)
+        subquery = subquery.subquery()
+
         query = session.query(models.Content.request_id,
                               models.Content.transform_id,
                               models.Content.workload_id,
@@ -544,10 +555,10 @@ def get_updated_transforms_by_content_status(request_id=None, transform_id=None,
 
         if request_id:
             query = query.filter(models.Content.request_id == request_id)
-        if transform_id:
-            query = query.filter(models.Content.transform_id == transform_id)
+        query = query.filter(models.Content.content_relation_type == 3)
+        query = query.join(subquery, and_(models.Content.content_dep_id == subquery.c.content_id,
+                                          models.Content.substatus != subquery.c.substatus))
 
-        query = query.filter(models.Content.status != models.Content.substatus)
         tmp = query.distinct()
 
         rets = []
