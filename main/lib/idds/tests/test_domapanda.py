@@ -45,11 +45,11 @@ task_queue = 'DOMA_LSST_GOOGLE_TEST'
 # task_queue = 'DOMA_LSST_SLAC_TEST'
 task_queue = 'SLAC_Rubin'
 
-task_cloud = 'EU'
-task_queue = 'CC-IN2P3_TEST'
+# task_cloud = 'EU'
+# task_queue = 'CC-IN2P3_TEST'
 
-task_cloud = 'EU'
-task_queue = 'LANCS_TEST'
+# task_cloud = 'EU'
+# task_queue = 'LANCS_TEST'
 
 
 def randStr(chars=string.ascii_lowercase + string.digits, N=10):
