@@ -290,4 +290,24 @@ END;
 
 -- 2023.02.14
 drop index CONTENTS_REQ_TF_COLL_IDX
-CREATE INDEX CONTENTS_REQ_TF_COLL_IDX ON CONTENTS (request_id, transform_id, workload_id, coll_id, status, substatus) LOCAL;
+CREATE INDEX CONTENTS_REQ_TF_COLL_IDX ON CONTENTS (request_id, transform_id, workload_id, coll_id, content_relation_type, status, substatus) LOCAL;
+
+
+-- 2023.02.22
+
+CREATE OR REPLACE procedure update_contents_from_others(request_id_in NUMBER, transform_id_in NUMBER) AS
+BEGIN
+    update (select c.content_id, c.substatus as c_substatus, t.substatus as t_substatus from  
+    (select content_id, substatus, content_dep_id from contents where request_id = request_id_in and transform_id = transform_id_in and content_relation_type = 3) c inner join
+    (select content_id, substatus from contents where request_id = request_id_in and content_relation_type = 1) t
+    on c.content_dep_id = t.content_id where c.substatus != t.substatus) set c_substatus = t_substatus;
+END;
+
+
+CREATE OR REPLACE procedure update_contents_to_others(request_id_in NUMBER, transform_id_in NUMBER) AS
+BEGIN
+    update (select c.content_id, c.substatus as c_substatus, t.substatus as t_substatus from  
+    (select content_id, substatus, content_dep_id from contents where request_id = request_id_in and content_relation_type = 3) c inner join
+    (select content_id, substatus from contents where request_id = request_id_in and transform_id = transform_id_in and content_relation_type = 1) t
+    on c.content_dep_id = t.content_id where c.substatus != t.substatus) set c_substatus = t_substatus;
+END;
