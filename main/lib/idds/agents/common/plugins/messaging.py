@@ -73,6 +73,11 @@ class MessagingSender(PluginBase, threading.Thread):
 
         self.broker_timeout = 3600
 
+        if not hasattr(self, 'timetolive'):
+            self.timetolive = 12 * 3600 * 1000     # milliseconds
+        else:
+            self.timetolive = int(self.timetolive)
+
         self.conns = []
 
     def setup_logger(self, logger):
@@ -195,6 +200,7 @@ class MessagingSender(PluginBase, threading.Thread):
                       id='atlas-idds-messaging',
                       ack='auto',
                       headers={'persistent': 'true',
+                               'ttl': self.timetolive,
                                'vo': 'atlas',
                                'msg_type': str(msg['msg_type']).lower()})
         else:
