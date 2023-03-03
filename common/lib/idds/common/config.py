@@ -227,7 +227,7 @@ def get_config():
 
     if not __HAS_CONFIG:
         local_cfg = get_local_cfg_file()
-        if os.path.exists(local_cfg):
+        if local_cfg and os.path.exists(local_cfg):
             __CONFIG.read(local_cfg)
             __HAS_CONFIG = True
         else:
