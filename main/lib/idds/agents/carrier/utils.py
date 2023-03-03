@@ -1230,7 +1230,33 @@ def whether_to_process_pending_workload_id(workload_id, logger=None, log_prefix=
     return True
 
 
-def handle_messages_processing(messages, logger=None, log_prefix=''):
+update_processing_lock = threading.Lock()
+
+
+def whether_to_update_processing(processing_id, interval=300):
+    cache = get_redis_cache()
+    ret = False
+
+    update_processing_lock.acquire()
+    update_processing_map_key = "update_processing_map"
+    update_processing_map = cache.get(update_processing_map_key, default={})
+
+    processing_id_str = str(processing_id)
+    if processing_id_str not in update_processing_map or update_processing_map[processing_id_str] + interval < time.time():
+        update_processing_map[processing_id_str] = time.time()
+        ret = True
+
+    keys = list(update_processing_map.keys())
+    for key in keys:
+        if update_processing_map[key] + 86400 < time.time():
+            del update_processing_map[key]
+
+    cache.set(update_processing_map_key, default=update_processing_map)
+    update_processing_lock.release()
+    return ret
+
+
+def handle_messages_processing(messages, logger=None, log_prefix='', update_processing_interval=300):
     logger = get_logger(logger)
     if not log_prefix:
         log_prefix = "<Message>"
@@ -1307,7 +1333,8 @@ def handle_messages_processing(messages, logger=None, log_prefix=''):
                         #             # 'status': get_content_status_from_panda_msg_status(status)}
 
                     update_contents.append(u_content)
-                    if processing_id not in update_processings:
+                    # if processing_id not in update_processings:
+                    if processing_id not in update_processings and whether_to_update_processing(processing_id, update_processing_interval):
                         update_processings.append(processing_id)
                         logger.debug(log_prefix + "Add to update processing: %s" % str(processing_id))
 

@@ -777,7 +777,8 @@ class DomaPanDAWork(Work):
         elif jobstatus in ['failed', 'closed', 'cancelled', 'lost', 'broken', 'missing']:
             attempt_nr = int(job_info.attemptNr) if job_info.attemptNr else 0
             max_attempt = int(job_info.maxAttempt) if job_info.maxAttempt else 0
-            if (attempt_nr >= max_attempt) and (attempt_nr >= self.maxAttempt):
+            self_maxAttempt = int(self.maxAttempt) if self.maxAttempt else 0
+            if (attempt_nr >= max_attempt) and (attempt_nr >= self_maxAttempt):
                 return ContentStatus.FinalFailed
             else:
                 return ContentStatus.Failed

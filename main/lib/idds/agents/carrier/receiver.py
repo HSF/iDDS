@@ -37,13 +37,18 @@ class Receiver(BaseAgent):
     """
 
     def __init__(self, num_threads=1, bulk_message_delay=30, bulk_message_size=2000,
-                 random_delay=None, **kwargs):
+                 random_delay=None, update_processing_interval=300, **kwargs):
         super(Receiver, self).__init__(num_threads=num_threads, name='Receiver', **kwargs)
         self.config_section = Sections.Carrier
         self.bulk_message_delay = int(bulk_message_delay)
         self.bulk_message_size = int(bulk_message_size)
         self.message_queue = Queue()
         self.logger = get_logger(self.__class__.__name__)
+        self.update_processing_interval = update_processing_interval
+        if self.update_processing_interval:
+            self.update_processing_interval = int(self.update_processing_interval)
+        else:
+            self.update_processing_interval = 300
 
     def __del__(self):
         self.stop_receiver()
@@ -95,7 +100,8 @@ class Receiver(BaseAgent):
                     output_messages = self.get_output_messages()
                     update_processings, terminated_processings, update_contents, msgs = handle_messages_processing(output_messages,
                                                                                                                    logger=self.logger,
-                                                                                                                   log_prefix=log_prefix)
+                                                                                                                   log_prefix=log_prefix,
+                                                                                                                   update_processing_interval=self.update_processing_interval)
 
                     if msgs:
                         # self.logger.debug(log_prefix + "adding messages[:3]: %s" % json_dumps(msgs[:3]))
