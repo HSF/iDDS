@@ -157,8 +157,8 @@ def get_processing_by_id_status(processing_id, status=None, locking=False, sessi
     """
 
     try:
-        query = session.query(models.Processing).with_hint(models.Processing, "INDEX(PROCESSINGS PROCESSINGS_PK)", 'oracle')\
-                                                .filter(models.Processing.processing_id == processing_id)
+        query = session.query(models.Processing)\
+                       .filter(models.Processing.processing_id == processing_id)
 
         if status:
             if not isinstance(status, (list, tuple)):

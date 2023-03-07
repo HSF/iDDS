@@ -199,8 +199,8 @@ def get_transform_by_id_status(transform_id, status=None, locking=False, session
     """
 
     try:
-        query = session.query(models.Transform).with_hint(models.Transform, "INDEX(TRANSFORMS TRANSFORMS_PK)", 'oracle')\
-                                               .filter(models.Transform.transform_id == transform_id)
+        query = session.query(models.Transform)\
+                       .filter(models.Transform.transform_id == transform_id)
 
         if status:
             if not isinstance(status, (list, tuple)):

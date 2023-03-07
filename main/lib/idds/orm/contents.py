@@ -193,14 +193,12 @@ def get_content(content_id=None, coll_id=None, scope=None, name=None, content_ty
         else:
             if content_type in [ContentType.File, ContentType.File.value]:
                 query = session.query(models.Content)\
-                               .with_hint(models.Content, "INDEX(CONTENTS CONTENTS_ID_NAME_IDX)", 'oracle')\
                                .filter(models.Content.coll_id == coll_id)\
                                .filter(models.Content.scope == scope)\
                                .filter(models.Content.name == name)\
                                .filter(models.Content.content_type == content_type)
             else:
                 query = session.query(models.Content)\
-                               .with_hint(models.Content, "INDEX(CONTENTS CONTENTS_ID_NAME_IDX)", 'oracle')\
                                .filter(models.Content.coll_id == coll_id)\
                                .filter(models.Content.scope == scope)\
                                .filter(models.Content.name == name)\
@@ -246,7 +244,6 @@ def get_match_contents(coll_id, scope, name, content_type=None, min_id=None, max
 
     try:
         query = session.query(models.Content)\
-                       .with_hint(models.Content, "INDEX(CONTENTS CONTENTS_ID_NAME_IDX)", 'oracle')\
                        .filter(models.Content.coll_id == coll_id)\
                        .filter(models.Content.scope == scope)\
                        .filter(models.Content.name.like(name.replace('*', '%')))
@@ -305,7 +302,6 @@ def get_contents(scope=None, name=None, transform_id=None, coll_id=None, status=
                 coll_id = [coll_id[0], coll_id[0]]
 
         query = session.query(models.Content)
-        query = query.with_hint(models.Content, "INDEX(CONTENTS CONTENTS_ID_NAME_IDX)", 'oracle')
 
         if transform_id:
             query = query.filter(models.Content.transform_id == transform_id)
@@ -360,7 +356,6 @@ def get_contents_by_request_transform(request_id=None, transform_id=None, worklo
                 status = [status]
 
         query = session.query(models.Content)
-        query = query.with_hint(models.Content, "INDEX(CONTENTS CONTENTS_REQ_TF_COLL_IDX)", 'oracle')
         if request_id:
             query = query.filter(models.Content.request_id == request_id)
         if transform_id:
@@ -398,7 +393,6 @@ def get_content_status_statistics(coll_id=None, session=None):
     """
     try:
         query = session.query(models.Content.status, func.count(models.Content.content_id))
-        query = query.with_hint(models.Content, "INDEX(CONTENTS CONTENTS_ID_NAME_IDX)", 'oracle')
         if coll_id:
             query = query.filter(models.Content.coll_id == coll_id)
         query = query.group_by(models.Content.status)
@@ -472,7 +466,7 @@ def update_dep_contents(request_id, content_dep_ids, status, bulk_size=10000, se
         params = {'substatus': status}
         chunks = [content_dep_ids[i:i + bulk_size] for i in range(0, len(content_dep_ids), bulk_size)]
         for chunk in chunks:
-            session.query(models.Content).with_hint(models.Content, "INDEX(CONTENTS CONTENTS_DEP_IDX)", "oracle")\
+            session.query(models.Content)\
                    .filter(models.Content.request_id == request_id)\
                    .filter(models.Content.content_id.in_(chunk))\
                    .update(params, synchronize_session=False)
@@ -749,7 +743,6 @@ def get_contents_ext(request_id=None, transform_id=None, workload_id=None, coll_
                 status = [status]
 
         query = session.query(models.Content_ext)
-        query = query.with_hint(models.Content_ext, "INDEX(CONTENTS_EXT CONTENTS_EXT_RTF_IDX)", "oracle")
         if request_id:
             query = query.filter(models.Content_ext.request_id == request_id)
         if transform_id:
@@ -803,7 +796,6 @@ def get_contents_ext_ids(request_id=None, transform_id=None, workload_id=None, c
                               models.Content_ext.content_id,
                               models.Content_ext.panda_id,
                               models.Content_ext.status)
-        query = query.with_hint(models.Content_ext, "INDEX(CONTENTS_EXT CONTENTS_EXT_RTF_IDX)", "oracle")
         if request_id:
             query = query.filter(models.Content_ext.request_id == request_id)
         if transform_id:

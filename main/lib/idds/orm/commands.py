@@ -98,14 +98,6 @@ def retrieve_command(cmd_type=None, status=None, source=None,
     command = []
     try:
         query = session.query(models.Command)
-        if request_id is not None:
-            query = query.with_hint(models.Command, "INDEX(COMMANDS COMMANDS_TYPE_ST_IDX)", 'oracle')
-        elif transform_id:
-            query = query.with_hint(models.Command, "INDEX(COMMANDS COMMANDS_TYPE_ST_TF_IDX)", 'oracle')
-        elif processing_id is not None:
-            query = query.with_hint(models.Command, "INDEX(COMMANDS COMMANDS_TYPE_ST_PR_IDX)", 'oracle')
-        else:
-            query = query.with_hint(models.Command, "INDEX(COMMANDS COMMANDS_TYPE_ST_IDX)", 'oracle')
 
         if cmd_type is not None:
             query = query.filter_by(cmd_type=cmd_type)
@@ -151,7 +143,6 @@ def delete_command(command, session=None):
     try:
         if command_condition:
             session.query(models.Command).\
-                with_hint(models.Command, "index(command COMMANDS_PK)", 'oracle').\
                 filter(or_(*command_condition)).\
                 delete(synchronize_session=False)
     except IntegrityError as e:
