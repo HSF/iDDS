@@ -12,6 +12,7 @@ import time
 import uuid
 
 from enum import Enum
+from deepdiff import DeepDiff
 
 from idds.common.utils import json_dumps
 
@@ -60,6 +61,25 @@ class Event(object):
         self._counter = counter
         self._content = content
 
+    def get_event_id(self):
+        return self._id
+
+    def able_to_merge(self, event):
+        if self._event_type == event._event_type and self.get_event_id() == event.get_event_id() and self._counter == event._counter:
+            if (self._content is None and event._content is None):
+                return True
+            elif (self._content is not None and event._content is not None):
+                ddiff = DeepDiff(self._content, event._content, ignore_order=True)
+                if not ddiff:
+                    return True
+        return False
+
+    def merge(self, event):
+        if self.able_to_merge(event):
+            return True, None
+        else:
+            return False, event
+
     def to_json(self):
         ret = {'id': self._id, 'publisher_id': self._publisher_id,
                'event_type': (self._event_type.name, self._event_type.value),
@@ -99,6 +119,9 @@ class NewRequestEvent(Event):
         super(NewRequestEvent, self).__init__(publisher_id, event_type=EventType.NewRequest, content=content, counter=counter)
         self._request_id = request_id
 
+    def get_event_id(self):
+        return self._request_id
+
     def to_json(self):
         ret = super(NewRequestEvent, self).to_json()
         ret['request_id'] = self._request_id
@@ -109,6 +132,9 @@ class UpdateRequestEvent(Event):
     def __init__(self, publisher_id, request_id, content=None, counter=1):
         super(UpdateRequestEvent, self).__init__(publisher_id, event_type=EventType.UpdateRequest, content=content, counter=counter)
         self._request_id = request_id
+
+    def get_event_id(self):
+        return self._request_id
 
     def to_json(self):
         ret = super(UpdateRequestEvent, self).to_json()
@@ -121,6 +147,9 @@ class AbortRequestEvent(Event):
         super(AbortRequestEvent, self).__init__(publisher_id, event_type=EventType.AbortRequest, content=content, counter=counter)
         self._request_id = request_id
 
+    def get_event_id(self):
+        return self._request_id
+
     def to_json(self):
         ret = super(AbortRequestEvent, self).to_json()
         ret['request_id'] = self._request_id
@@ -131,6 +160,9 @@ class ResumeRequestEvent(Event):
     def __init__(self, publisher_id, request_id, content=None, counter=1):
         super(ResumeRequestEvent, self).__init__(publisher_id, event_type=EventType.ResumeRequest, content=content, counter=counter)
         self._request_id = request_id
+
+    def get_event_id(self):
+        return self._request_id
 
     def to_json(self):
         ret = super(ResumeRequestEvent, self).to_json()
@@ -143,6 +175,9 @@ class ExpireRequestEvent(Event):
         super(ExpireRequestEvent, self).__init__(publisher_id, event_type=EventType.ExpireRequest, content=content, counter=counter)
         self._request_id = request_id
 
+    def get_event_id(self):
+        return self._request_id
+
     def to_json(self):
         ret = super(ExpireRequestEvent, self).to_json()
         ret['request_id'] = self._request_id
@@ -153,6 +188,9 @@ class UpdateCommandEvent(Event):
     def __init__(self, publisher_id, command_id, content=None, counter=1):
         super(UpdateCommandEvent, self).__init__(publisher_id, event_type=EventType.UpdateCommand, content=content, counter=counter)
         self._command_id = command_id
+
+    def get_event_id(self):
+        return self._command_id
 
     def to_json(self):
         ret = super(UpdateCommandEvent, self).to_json()
@@ -165,6 +203,9 @@ class NewTransformEvent(Event):
         super(NewTransformEvent, self).__init__(publisher_id, event_type=EventType.NewTransform, content=content, counter=counter)
         self._transform_id = transform_id
 
+    def get_event_id(self):
+        return self._transform_id
+
     def to_json(self):
         ret = super(NewTransformEvent, self).to_json()
         ret['transform_id'] = self._transform_id
@@ -175,6 +216,9 @@ class UpdateTransformEvent(Event):
     def __init__(self, publisher_id, transform_id, content=None, counter=1):
         super(UpdateTransformEvent, self).__init__(publisher_id, event_type=EventType.UpdateTransform, content=content, counter=counter)
         self._transform_id = transform_id
+
+    def get_event_id(self):
+        return self._transform_id
 
     def to_json(self):
         ret = super(UpdateTransformEvent, self).to_json()
@@ -187,6 +231,9 @@ class AbortTransformEvent(Event):
         super(AbortTransformEvent, self).__init__(publisher_id, event_type=EventType.AbortTransform, content=content, counter=counter)
         self._transform_id = transform_id
 
+    def get_event_id(self):
+        return self._transform_id
+
     def to_json(self):
         ret = super(AbortTransformEvent, self).to_json()
         ret['transform_id'] = self._transform_id
@@ -197,6 +244,9 @@ class ResumeTransformEvent(Event):
     def __init__(self, publisher_id, transform_id, content=None, counter=1):
         super(ResumeTransformEvent, self).__init__(publisher_id, event_type=EventType.ResumeTransform, content=content, counter=counter)
         self._transform_id = transform_id
+
+    def get_event_id(self):
+        return self._transform_id
 
     def to_json(self):
         ret = super(ResumeTransformEvent, self).to_json()
@@ -209,6 +259,9 @@ class NewProcessingEvent(Event):
         super(NewProcessingEvent, self).__init__(publisher_id, event_type=EventType.NewProcessing, content=content, counter=counter)
         self._processing_id = processing_id
 
+    def get_event_id(self):
+        return self._processing_id
+
     def to_json(self):
         ret = super(NewProcessingEvent, self).to_json()
         ret['processing_id'] = self._processing_id
@@ -219,6 +272,9 @@ class UpdateProcessingEvent(Event):
     def __init__(self, publisher_id, processing_id, content=None, counter=1):
         super(UpdateProcessingEvent, self).__init__(publisher_id, event_type=EventType.UpdateProcessing, content=content, counter=counter)
         self._processing_id = processing_id
+
+    def get_event_id(self):
+        return self._processing_id
 
     def to_json(self):
         ret = super(UpdateProcessingEvent, self).to_json()
@@ -231,6 +287,9 @@ class AbortProcessingEvent(Event):
         super(AbortProcessingEvent, self).__init__(publisher_id, event_type=EventType.AbortProcessing, content=content, counter=counter)
         self._processing_id = processing_id
 
+    def get_event_id(self):
+        return self._processing_id
+
     def to_json(self):
         ret = super(AbortProcessingEvent, self).to_json()
         ret['processing_id'] = self._processing_id
@@ -241,6 +300,9 @@ class ResumeProcessingEvent(Event):
     def __init__(self, publisher_id, processing_id, content=None, counter=1):
         super(ResumeProcessingEvent, self).__init__(publisher_id, event_type=EventType.ResumeProcessing, content=content, counter=counter)
         self._processing_id = processing_id
+
+    def get_event_id(self):
+        return self._processing_id
 
     def to_json(self):
         ret = super(ResumeProcessingEvent, self).to_json()
@@ -253,6 +315,9 @@ class SyncProcessingEvent(Event):
         super(SyncProcessingEvent, self).__init__(publisher_id, event_type=EventType.SyncProcessing, content=content, counter=counter)
         self._processing_id = processing_id
 
+    def get_event_id(self):
+        return self._processing_id
+
     def to_json(self):
         ret = super(SyncProcessingEvent, self).to_json()
         ret['processing_id'] = self._processing_id
@@ -263,6 +328,9 @@ class TerminatedProcessingEvent(Event):
     def __init__(self, publisher_id, processing_id, content=None, counter=1):
         super(TerminatedProcessingEvent, self).__init__(publisher_id, event_type=EventType.TerminatedProcessing, content=content, counter=counter)
         self._processing_id = processing_id
+
+    def get_event_id(self):
+        return self._processing_id
 
     def to_json(self):
         ret = super(TerminatedProcessingEvent, self).to_json()
@@ -275,6 +343,9 @@ class TriggerProcessingEvent(Event):
         super(TriggerProcessingEvent, self).__init__(publisher_id, event_type=EventType.TriggerProcessing, content=content, counter=counter)
         self._processing_id = processing_id
 
+    def get_event_id(self):
+        return self._processing_id
+
     def to_json(self):
         ret = super(TriggerProcessingEvent, self).to_json()
         ret['processing_id'] = self._processing_id
@@ -285,6 +356,9 @@ class MsgTriggerProcessingEvent(Event):
     def __init__(self, publisher_id, processing_id, content=None, counter=1):
         super(MsgTriggerProcessingEvent, self).__init__(publisher_id, event_type=EventType.MsgTriggerProcessing, content=content, counter=counter)
         self._processing_id = processing_id
+
+    def get_event_id(self):
+        return self._processing_id
 
     def to_json(self):
         ret = super(MsgTriggerProcessingEvent, self).to_json()

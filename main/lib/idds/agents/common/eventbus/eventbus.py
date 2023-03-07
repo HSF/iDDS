@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2022
+# - Wen Guan, <wen.guan@cern.ch>, 2022 - 2023
 
 import logging
 import uuid
@@ -14,7 +14,8 @@ import uuid
 from idds.common.constants import Sections
 from idds.common.config import config_has_section, config_list_options
 
-from .localeventbusbackend import LocalEventBusBackend
+# from .localeventbusbackend import LocalEventBusBackend
+from .localeventbusbackendopt import LocalEventBusBackendOpt
 
 
 class Singleton(object):
@@ -46,7 +47,7 @@ class EventBus(Singleton):
                 # self.backend = MsgEventBusBackend(**attrs)
                 pass
             else:
-                self.backend = LocalEventBusBackend(logger=self.logger, **attrs)
+                self.backend = LocalEventBusBackendOpt(logger=self.logger, **attrs)
 
     def setup_logger(self, logger=None):
         """

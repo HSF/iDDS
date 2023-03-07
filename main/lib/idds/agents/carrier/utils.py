@@ -1251,7 +1251,7 @@ def whether_to_update_processing(processing_id, interval=300):
         if update_processing_map[key] + 86400 < time.time():
             del update_processing_map[key]
 
-    cache.set(update_processing_map_key, default=update_processing_map)
+    cache.set(update_processing_map_key, update_processing_map, expire_seconds=86400)
     update_processing_lock.release()
     return ret
 
@@ -1262,6 +1262,7 @@ def handle_messages_processing(messages, logger=None, log_prefix='', update_proc
         log_prefix = "<Message>"
 
     update_processings = []
+    update_processings_by_job = []
     terminated_processings = []
     update_contents = []
 
@@ -1334,11 +1335,12 @@ def handle_messages_processing(messages, logger=None, log_prefix='', update_proc
 
                     update_contents.append(u_content)
                     # if processing_id not in update_processings:
-                    if processing_id not in update_processings and whether_to_update_processing(processing_id, update_processing_interval):
-                        update_processings.append(processing_id)
-                        logger.debug(log_prefix + "Add to update processing: %s" % str(processing_id))
+                    # if processing_id not in update_processings and whether_to_update_processing(processing_id, update_processing_interval):
+                    if processing_id not in update_processings_by_job:
+                        update_processings_by_job.append(processing_id)
+                        logger.debug(log_prefix + "Add to update processing by job: %s" % str(processing_id))
 
-    return update_processings, terminated_processings, update_contents, []
+    return update_processings, update_processings_by_job, terminated_processings, update_contents, []
 
 
 def sync_collection_status(request_id, transform_id, workload_id, work, input_output_maps=None,
