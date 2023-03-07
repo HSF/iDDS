@@ -311,3 +311,29 @@ BEGIN
     (select content_id, substatus from contents where request_id = request_id_in and transform_id = transform_id_in and content_relation_type = 1) t
     on c.content_dep_id = t.content_id where c.substatus != t.substatus) set c_substatus = t_substatus;
 END;
+
+
+
+--- 2023.03.06
+drop index PROCESSINGS_STATUS_POLL_IDX;
+CREATE INDEX PROCESSINGS_STATUS_POLL_IDX ON PROCESSINGS (status, processing_id, locking, updated_at, new_poll_period, update_poll_period, created_at) LOCAL;
+
+CREATE INDEX CONTENTS_REL_IDX ON CONTENTS  (request_id, content_relation_type, transform_id) LOCAL;
+CREATE INDEX CONTENTS_TF_IDX ON CONTENTS  (transform_id, request_id, map_id) LOCAL;
+
+CREATE INDEX CONTENTS_EXT_RTW_IDX ON contents_ext (request_id, transform_id, workload_id);
+CREATE INDEX CONTENTS_EXT_RTM_IDX ON contents_ext (request_id, transform_id, map_id);
+
+CREATE INDEX COMMANDS_STATUS_IDX on commands (status, locking, updated_at);
+
+CREATE INDEX MESSAGES_ST_IDX on messages (status, destination, created_at);
+CREATE INDEX MESSAGES_TYPE_STU_IDX on messages (msg_type, status, destination, retries, updated_at, created_at);
+
+CREATE INDEX REQUESTS_STATUS_POLL_IDX on REQUESTS (status, priority, locking, updated_at, new_poll_period, update_poll_period, next_poll_at, created_at, request_id) LOCAL;
+
+CREATE INDEX TRANSFORMS_REQ_IDX on transforms (request_id, transform_id);
+CREATE INDEX TRANSFORMS_STATUS_POLL_IDX on transforms (status, locking, updated_at, new_poll_period, update_poll_period, created_at, transform_id) LOCAL;
+
+CREATE INDEX COLLECTIONS_REQ_IDX on collections (request_id, transform_id, updated_at);
+
+

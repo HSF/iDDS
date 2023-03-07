@@ -171,7 +171,7 @@ def print_workflow_template(workflow, layers=0):
 # reqs = get_requests(request_id=381520, with_request=True, with_detail=False, with_metadata=True)
 # reqs = get_requests(request_id=28182323, with_request=True, with_detail=False, with_metadata=True)
 # reqs = get_requests(request_id=385554, with_request=True, with_detail=False, with_metadata=True)
-reqs = get_requests(request_id=474, with_request=True, with_detail=False, with_metadata=True)
+reqs = get_requests(request_id=456473, with_request=True, with_detail=False, with_metadata=True)
 for req in reqs:
     # print(req['request_id'])
     # print(req)
@@ -179,11 +179,18 @@ for req in reqs:
     # print(json_dumps(req, sort_keys=True, indent=4))
     # show_works(req)
     pass
-    workflow = req['request_metadata']['build_workflow']
-    # workflow.get_new_works()
-    print(workflow.runs.keys())
-    # print(workflow.runs["1"])
-    print(json_dumps(workflow.runs["1"], sort_keys=True, indent=4))
+    if 'build_workflow' in req['request_metadata']:
+        workflow = req['request_metadata']['build_workflow']
+        # workflow.get_new_works()
+        print(workflow.runs.keys())
+        # print(workflow.runs["1"])
+        print(json_dumps(workflow.runs["1"], sort_keys=True, indent=4))
+    elif 'workflow' in req['request_metadata']:
+        workflow = req['request_metadata']['workflow']
+        # workflow.get_new_works()
+        print(workflow.runs.keys())
+        # print(workflow.runs["1"])
+        print(json_dumps(workflow.runs["1"], sort_keys=True, indent=4))
 
     # print(workflow.runs["1"].works.keys())
     # print(workflow.runs["1"].has_loop_condition())
