@@ -522,6 +522,44 @@ def update_contents_from_others_by_dep_id(request_id=None, transform_id=None, se
 
 
 @read_session
+def get_update_contents_from_others_by_dep_id(request_id=None, transform_id=None, session=None):
+    """
+    Get contents to update from others by content_dep_id
+
+    :param request_id: The Request id.
+    :param transfomr_id: The transform id.
+    """
+    try:
+        subquery = session.query(models.Content.content_id,
+                                 models.Content.substatus)
+        if request_id:
+            subquery = subquery.filter(models.Content.request_id == request_id)
+        subquery = subquery.filter(models.Content.content_relation_type == 1)\
+                           .filter(models.Content.substatus != ContentStatus.New)
+        subquery = subquery.subquery()
+
+        query = session.query(models.Content.content_id,
+                              subquery.c.substatus)
+        if request_id:
+            query = query.filter(models.Content.request_id == request_id)
+        if transform_id:
+            query = query.filter(models.Content.transform_id == transform_id)
+        query = query.filter(models.Content.content_relation_type == 3)
+        query = query.join(subquery, and_(models.Content.content_dep_id == subquery.c.content_id,
+                                          models.Content.substatus != subquery.c.substatus))
+
+        tmp = query.distinct()
+        rets = []
+        if tmp:
+            for t in tmp:
+                t2 = dict(zip(t.keys(), t))
+                rets.append(t2)
+        return rets
+    except Exception as ex:
+        raise ex
+
+
+@read_session
 def get_updated_transforms_by_content_status(request_id=None, transform_id=None, session=None):
     """
     Get updated transform ids by content status

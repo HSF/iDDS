@@ -171,7 +171,7 @@ def print_workflow_template(workflow, layers=0):
 # reqs = get_requests(request_id=381520, with_request=True, with_detail=False, with_metadata=True)
 # reqs = get_requests(request_id=28182323, with_request=True, with_detail=False, with_metadata=True)
 # reqs = get_requests(request_id=385554, with_request=True, with_detail=False, with_metadata=True)
-reqs = get_requests(request_id=456473, with_request=True, with_detail=False, with_metadata=True)
+reqs = get_requests(request_id=456469, with_request=True, with_detail=False, with_metadata=True)
 for req in reqs:
     # print(req['request_id'])
     # print(req)
@@ -215,9 +215,12 @@ for req in reqs:
         print("work %s signature: %s" % (work.get_work_id(), work.signature))
 
     # print("workflow template")
-    # print_workflow_template(workflow)
+    print_workflow_template(workflow)
 
     # workflow.sync_works()
+
+    print("workflow template")
+    print(json_dumps(workflow.template, sort_keys=True, indent=4))
 
 sys.exit(0)
 

@@ -199,6 +199,17 @@ def delete_messages(messages, session=None):
         raise exceptions.DatabaseException(e.args)
 
 
+@transactional_session
+def clean_old_messages(request_id, session=None):
+    """
+    Delete messages whose request id is older than request_id.
+
+    :param request_id: request id..
+    """
+    session.query(models.Message)\
+           .filter(models.Message.request_id <= request_id)\
+           .delete(synchronize_session=False)
+
 # @transactional_session
 # def update_messages(messages, session=None):
 #     """

@@ -566,8 +566,8 @@ class Content(BASE, ModelBase):
                    Index('CONTENTS_STATUS_UPDATED_IDX', 'status', 'locking', 'updated_at', 'created_at'),
                    Index('CONTENTS_ID_NAME_IDX', 'coll_id', 'scope', 'name', 'status'),
                    Index('CONTENTS_DEP_IDX', 'request_id', 'transform_id', 'content_dep_id'),
-                   Index('CONTENTS_REL_IDX', 'request_id', 'content_relation_type', 'transform_id'),
-                   Index('CONTENTS_TF_IDX', 'transform_id', 'request_id', 'map_id'),
+                   Index('CONTENTS_REL_IDX', 'request_id', 'content_relation_type', 'transform_id', 'substatus'),
+                   Index('CONTENTS_TF_IDX', 'transform_id', 'request_id', 'coll_id', 'map_id', 'content_relation_type'),
                    Index('CONTENTS_REQ_TF_COLL_IDX', 'request_id', 'transform_id', 'workload_id', 'coll_id', 'content_relation_type', 'status', 'substatus'))
 
 

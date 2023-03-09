@@ -955,3 +955,29 @@ def clean_next_poll_at(status, session=None):
     params = {'next_poll_at': datetime.datetime.utcnow()}
     session.query(models.Request).filter(models.Request.status.in_(status))\
            .update(params, synchronize_session=False)
+
+
+@read_session
+def get_last_request_id(status, older_than=None, session=None):
+    """
+    Get last request id which is older than a timestamp.
+
+    :param status: status of the request.
+    :param older_than: days older than current timestamp.
+
+    :returns request_id
+    """
+    if not isinstance(status, (list, tuple)):
+        status = [status]
+    if len(status) == 1:
+        status = [status[0], status[0]]
+
+    query = session.query(models.Request.request_id)
+    if status:
+        query = query.filter(models.Request.status.in_(status))
+    query = query.filter(models.Request.updated_at <= datetime.datetime.utcnow() - datetime.timedelta(days=older_than))
+    query = query.order_by(desc(models.Request.request_id))
+    ret = query.one()
+    if ret:
+        return ret[0]
+    return ret

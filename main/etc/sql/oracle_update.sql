@@ -318,8 +318,8 @@ END;
 drop index PROCESSINGS_STATUS_POLL_IDX;
 CREATE INDEX PROCESSINGS_STATUS_POLL_IDX ON PROCESSINGS (status, processing_id, locking, updated_at, new_poll_period, update_poll_period, created_at) LOCAL;
 
-CREATE INDEX CONTENTS_REL_IDX ON CONTENTS  (request_id, content_relation_type, transform_id) LOCAL;
-CREATE INDEX CONTENTS_TF_IDX ON CONTENTS  (transform_id, request_id, map_id) LOCAL;
+CREATE INDEX CONTENTS_REL_IDX ON CONTENTS  (request_id, content_relation_type, transform_id, substatus) LOCAL;
+CREATE INDEX CONTENTS_TF_IDX ON CONTENTS  (transform_id, request_id, coll_id, map_id, content_relation_type) LOCAL;
 
 CREATE INDEX CONTENTS_EXT_RTW_IDX ON contents_ext (request_id, transform_id, workload_id);
 CREATE INDEX CONTENTS_EXT_RTM_IDX ON contents_ext (request_id, transform_id, map_id);

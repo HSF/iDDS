@@ -995,7 +995,9 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
             pass
 
         logger.debug(log_prefix + "update_contents_from_others_by_dep_id")
-        core_catalog.update_contents_from_others_by_dep_id(request_id=request_id, transform_id=transform_id)
+        # core_catalog.update_contents_from_others_by_dep_id(request_id=request_id, transform_id=transform_id)
+        to_triggered_contents = core_catalog.get_update_contents_from_others_by_dep_id(request_id=request_id, transform_id=transform_id)
+        core_catalog.update_contents(to_triggered_contents)
         logger.debug(log_prefix + "update_contents_from_others_by_dep_id done")
 
         input_output_maps = get_input_output_maps(transform_id, work)
