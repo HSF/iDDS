@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2023
 
 
 """
@@ -454,3 +454,16 @@ def clean_next_poll_at(status, session=None):
     :param status: status of the request
     """
     orm_requests.clean_next_poll_at(status=status, session=session)
+
+
+@read_session
+def get_last_request_id(status, older_than=None, session=None):
+    """
+    Get last request id which is older than a timestamp.
+
+    :param status: status of the request.
+    :param older_than: days older than current timestamp.
+
+    :returns request_id
+    """
+    return orm_requests.get_last_request_id(status=status, older_than=older_than, session=session)

@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2023
 
 """
 Main start entry point for iDDS service
@@ -38,7 +38,8 @@ AGENTS = {
     'trigger': ['idds.agents.carrier.trigger.Trigger', Sections.Carrier],
     'finisher': ['idds.agents.carrier.finisher.Finisher', Sections.Carrier],
     'conductor': ['idds.agents.conductor.conductor.Conductor', Sections.Conductor],
-    'consumer': ['idds.agents.conductor.consumer.Consumer', Sections.Consumer]
+    'consumer': ['idds.agents.conductor.consumer.Consumer', Sections.Consumer],
+    'archiver': ['idds.agents.conductor.archive.archiver', Sections.Archiver]
 }
 
 RUNNING_AGENTS = []
