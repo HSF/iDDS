@@ -15,7 +15,7 @@ import traceback
 
 from idds.common import exceptions
 from idds.common.constants import Sections, ProcessingStatus, ProcessingLocking
-from idds.common.utils import setup_logging, truncate_string
+from idds.common.utils import setup_logging, truncate_string, json_dumps
 from idds.core import processings as core_processings
 from idds.agents.common.baseagent import BaseAgent
 from idds.agents.common.eventbus.event import (EventType,
@@ -233,6 +233,7 @@ class Poller(BaseAgent):
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
+            self.logger.warn("Failed to update_processings: %s" % json_dumps(processing))
             try:
                 processing_id = processing['update_processing']['processing_id']
 
