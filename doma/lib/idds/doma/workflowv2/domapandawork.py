@@ -1028,6 +1028,9 @@ class DomaPanDAWork(Work):
                 new_content_ext_d[job_info_item] = getattr(job_info, job_info_maps[job_info_item])
                 if new_content_ext_d[job_info_item] == 'NULL':
                     new_content_ext_d[job_info_item] = None
+                if new_content_ext_d[job_info_item] is None:
+                    del new_content_ext_d[job_info_item]
+
             new_contents_ext_d.append(new_content_ext_d)
 
         for content_id in update_contents_ext:
@@ -1039,6 +1042,8 @@ class DomaPanDAWork(Work):
                 update_content_ext_d[job_info_item] = getattr(job_info, job_info_maps[job_info_item])
                 if update_content_ext_d[job_info_item] == 'NULL':
                     update_content_ext_d[job_info_item] = None
+                if update_content_ext_d[job_info_item] is None:
+                    del update_content_ext_d[job_info_item]
 
             update_contents_ext_d.append(update_content_ext_d)
 
