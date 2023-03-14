@@ -35,7 +35,7 @@ class Archiver(BaseAgent):
         if not older_than:
             older_than = 30
         self.older_than = int(older_than)      # days
-        self.config_section = Sections.Archive
+        self.config_section = Sections.Archiver
 
     def clean_messages(self):
         try:

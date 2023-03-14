@@ -289,6 +289,7 @@ class ContentStatus(IDDSEnum):
     Mapped = 7
     FakeAvailable = 8
     Missing = 9
+    Cancelled = 10
 
 
 class ContentLocking(IDDSEnum):

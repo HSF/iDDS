@@ -1110,7 +1110,7 @@ class DomaPanDAWork(Work):
 
         self.logger.debug("get_contents_ext, new_contents_ext_d[:1]: %s" % (str(new_contents_ext_d[:1])))
         self.logger.debug("get_contents_ext, update_contents_ext_d[:1]: %s" % (str(update_contents_ext_d[:1])))
-        self.logger.debug("get_contents_ext, left_contents[:3]: %s" % (str(left_contents[:3])))
+        self.logger.debug("get_contents_ext, left_contents[:1]: %s" % (str(left_contents[:3])))
         return new_contents_ext_d, update_contents_ext_d, left_contents
 
     def poll_panda_task(self, processing=None, input_output_maps=None, contents_ext=None, job_info_maps={}, log_prefix=''):

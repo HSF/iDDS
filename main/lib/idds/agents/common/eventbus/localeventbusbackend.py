@@ -69,6 +69,12 @@ class LocalEventBusBackend(threading.Thread):
                 return event
             return None
 
+    def clean_event(self, event):
+        pass
+
+    def fail_event(self, event):
+        pass
+
     def execute(self):
         while not self.graceful_stop.is_set():
             try:

@@ -977,7 +977,7 @@ def get_last_request_id(status, older_than=None, session=None):
         query = query.filter(models.Request.status.in_(status))
     query = query.filter(models.Request.updated_at <= datetime.datetime.utcnow() - datetime.timedelta(days=older_than))
     query = query.order_by(desc(models.Request.request_id))
-    ret = query.one()
+    ret = query.first()
     if ret:
         return ret[0]
     return ret

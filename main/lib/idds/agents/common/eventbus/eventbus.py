@@ -16,6 +16,7 @@ from idds.common.config import config_has_section, config_list_options
 
 # from .localeventbusbackend import LocalEventBusBackend
 from .localeventbusbackendopt import LocalEventBusBackendOpt
+from .dbeventbusbackend import DBEventBusBackend
 
 
 class Singleton(object):
@@ -42,12 +43,19 @@ class EventBus(Singleton):
             self.setup_logger(logger)
             self.config_section = Sections.EventBus
             attrs = self.load_attributes()
-            if 'backend' in attrs and attrs['backend'] == 'message':
-                # ToBeDone
-                # self.backend = MsgEventBusBackend(**attrs)
-                pass
-            else:
+            self.backend = None
+            if 'backend' in attrs:
+                if attrs['backend'] == 'message':
+                    # ToBeDone
+                    # self.backend = MsgEventBusBackend(**attrs)
+                    pass
+                elif attrs['backend'] == "database":
+                    if 'to_archive' not in attrs:
+                        attrs['to_archive'] = True
+                    self.backend = DBEventBusBackend(**attrs)
+            if self.backend is None:
                 self.backend = LocalEventBusBackendOpt(logger=self.logger, **attrs)
+            self.logger.info("EventBus backend : %s" % self.backend)
 
     def setup_logger(self, logger=None):
         """
@@ -87,6 +95,12 @@ class EventBus(Singleton):
 
     def send(self, event):
         return self.publish_event(event)
+
+    def clean_event(self, event):
+        self.backend.clean_event(event)
+
+    def fail_event(self, event):
+        self.backend.fail_event(event)
 
     def stop(self):
         self.backend.stop()

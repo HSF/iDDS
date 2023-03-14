@@ -33,6 +33,7 @@ from idds.common.constants import (RequestType, RequestStatus, RequestLocking,
                                    MessageSource, MessageDestination,
                                    CommandType, CommandStatus, CommandLocking,
                                    CommandLocation)
+from idds.common.event import (EventType, EventStatus)
 from idds.common.utils import date_to_str
 from idds.orm.base.enum import EnumSymbol
 from idds.orm.base.types import JSON, JSONString, EnumWithValue
@@ -136,18 +137,18 @@ class Request(BASE, ModelBase):
     scope = Column(String(SCOPE_LENGTH))
     name = Column(String(NAME_LENGTH))
     requester = Column(String(20))
-    request_type = Column(EnumWithValue(RequestType))
+    request_type = Column(EnumWithValue(RequestType), nullable=False)
     username = Column(String(20))
     userdn = Column(String(200))
     transform_tag = Column(String(20))
     workload_id = Column(Integer())
     priority = Column(Integer())
-    status = Column(EnumWithValue(RequestStatus))
+    status = Column(EnumWithValue(RequestStatus), nullable=False)
     substatus = Column(EnumWithValue(RequestStatus), default=0)
     oldstatus = Column(EnumWithValue(RequestStatus), default=0)
-    locking = Column(EnumWithValue(RequestLocking))
-    created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow)
-    updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    locking = Column(EnumWithValue(RequestLocking), nullable=False)
+    created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow, nullable=False)
+    updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
     next_poll_at = Column("next_poll_at", DateTime, default=datetime.datetime.utcnow)
     accessed_at = Column("accessed_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     expired_at = Column("expired_at", DateTime)
@@ -282,19 +283,19 @@ class Transform(BASE, ModelBase):
     """Represents a transform"""
     __tablename__ = 'transforms'
     transform_id = Column(BigInteger().with_variant(Integer, "sqlite"), Sequence('TRANSFORM_ID_SEQ', schema=DEFAULT_SCHEMA_NAME), primary_key=True)
-    request_id = Column(BigInteger().with_variant(Integer, "sqlite"))
+    request_id = Column(BigInteger().with_variant(Integer, "sqlite"), nullable=False)
     workload_id = Column(Integer())
-    transform_type = Column(EnumWithValue(TransformType))
+    transform_type = Column(EnumWithValue(TransformType), nullable=False)
     transform_tag = Column(String(20))
     priority = Column(Integer())
     safe2get_output_from_input = Column(Integer())
-    status = Column(EnumWithValue(TransformStatus))
+    status = Column(EnumWithValue(TransformStatus), nullable=False)
     substatus = Column(EnumWithValue(TransformStatus), default=0)
     oldstatus = Column(EnumWithValue(TransformStatus), default=0)
-    locking = Column(EnumWithValue(TransformLocking))
+    locking = Column(EnumWithValue(TransformLocking), nullable=False)
     retries = Column(Integer(), default=0)
-    created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow)
-    updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow, nullable=False)
+    updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
     next_poll_at = Column("next_poll_at", DateTime, default=datetime.datetime.utcnow)
     started_at = Column("started_at", DateTime)
     finished_at = Column("finished_at", DateTime)
@@ -386,19 +387,19 @@ class Processing(BASE, ModelBase):
     """Represents a processing"""
     __tablename__ = 'processings'
     processing_id = Column(BigInteger().with_variant(Integer, "sqlite"), Sequence('PROCESSING_ID_SEQ', schema=DEFAULT_SCHEMA_NAME), primary_key=True)
-    transform_id = Column(BigInteger().with_variant(Integer, "sqlite"))
-    request_id = Column(BigInteger().with_variant(Integer, "sqlite"))
+    transform_id = Column(BigInteger().with_variant(Integer, "sqlite"), nullable=False)
+    request_id = Column(BigInteger().with_variant(Integer, "sqlite"), nullable=False)
     workload_id = Column(Integer())
-    status = Column(EnumWithValue(ProcessingStatus))
+    status = Column(EnumWithValue(ProcessingStatus), nullable=False)
     substatus = Column(EnumWithValue(ProcessingStatus), default=0)
     oldstatus = Column(EnumWithValue(ProcessingStatus), default=0)
-    locking = Column(EnumWithValue(ProcessingLocking))
+    locking = Column(EnumWithValue(ProcessingLocking), nullable=False)
     submitter = Column(String(20))
     submitted_id = Column(Integer())
     granularity = Column(Integer())
     granularity_type = Column(EnumWithValue(GranularityType))
-    created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow)
-    updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow, nullable=False)
+    updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
     next_poll_at = Column("next_poll_at", DateTime, default=datetime.datetime.utcnow)
     poller_updated_at = Column("poller_updated_at", DateTime, default=datetime.datetime.utcnow)
     submitted_at = Column("submitted_at", DateTime)
@@ -480,17 +481,17 @@ class Collection(BASE, ModelBase):
     """Represents a collection"""
     __tablename__ = 'collections'
     coll_id = Column(BigInteger().with_variant(Integer, "sqlite"), Sequence('COLLECTION_ID_SEQ', schema=DEFAULT_SCHEMA_NAME), primary_key=True)
-    request_id = Column(BigInteger().with_variant(Integer, "sqlite"))
+    request_id = Column(BigInteger().with_variant(Integer, "sqlite"), nullable=False)
     workload_id = Column(Integer())
-    transform_id = Column(BigInteger().with_variant(Integer, "sqlite"))
-    coll_type = Column(EnumWithValue(CollectionType))
-    relation_type = Column(EnumWithValue(CollectionRelationType))
+    transform_id = Column(BigInteger().with_variant(Integer, "sqlite"), nullable=False)
+    coll_type = Column(EnumWithValue(CollectionType), nullable=False)
+    relation_type = Column(EnumWithValue(CollectionRelationType), nullable=False)
     scope = Column(String(SCOPE_LENGTH))
     name = Column(String(NAME_LENGTH))
     bytes = Column(Integer())
-    status = Column(EnumWithValue(CollectionStatus))
+    status = Column(EnumWithValue(CollectionStatus), nullable=False)
     substatus = Column(EnumWithValue(CollectionStatus), default=0)
-    locking = Column(EnumWithValue(CollectionLocking))
+    locking = Column(EnumWithValue(CollectionLocking), nullable=False)
     total_files = Column(Integer())
     storage_id = Column(Integer())
     new_files = Column(Integer())
@@ -504,8 +505,8 @@ class Collection(BASE, ModelBase):
     missing_ext_files = Column(Integer())
     processing_id = Column(Integer())
     retries = Column(Integer(), default=0)
-    created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow)
-    updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow, nullable=False)
+    updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
     next_poll_at = Column("next_poll_at", DateTime, default=datetime.datetime.utcnow)
     accessed_at = Column("accessed_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     expired_at = Column("expired_at", DateTime)
@@ -526,21 +527,21 @@ class Content(BASE, ModelBase):
     """Represents a content"""
     __tablename__ = 'contents'
     content_id = Column(BigInteger().with_variant(Integer, "sqlite"), Sequence('CONTENT_ID_SEQ', schema=DEFAULT_SCHEMA_NAME), primary_key=True)
-    transform_id = Column(BigInteger().with_variant(Integer, "sqlite"))
-    coll_id = Column(BigInteger().with_variant(Integer, "sqlite"))
-    request_id = Column(BigInteger().with_variant(Integer, "sqlite"))
+    transform_id = Column(BigInteger().with_variant(Integer, "sqlite"), nullable=False)
+    coll_id = Column(BigInteger().with_variant(Integer, "sqlite"), nullable=False)
+    request_id = Column(BigInteger().with_variant(Integer, "sqlite"), nullable=False)
     workload_id = Column(Integer())
-    map_id = Column(BigInteger().with_variant(Integer, "sqlite"), default=0)
+    map_id = Column(BigInteger().with_variant(Integer, "sqlite"), default=0, nullable=False)
     content_dep_id = Column(BigInteger())
     scope = Column(String(SCOPE_LENGTH))
     name = Column(String(LONG_NAME_LENGTH))
     min_id = Column(Integer(), default=0)
     max_id = Column(Integer(), default=0)
-    content_type = Column(EnumWithValue(ContentType))
-    content_relation_type = Column(EnumWithValue(ContentRelationType), default=0)
-    status = Column(EnumWithValue(ContentStatus))
+    content_type = Column(EnumWithValue(ContentType), nullable=False)
+    content_relation_type = Column(EnumWithValue(ContentRelationType), default=0, nullable=False)
+    status = Column(EnumWithValue(ContentStatus), nullable=False)
     substatus = Column(EnumWithValue(ContentStatus))
-    locking = Column(EnumWithValue(ContentLocking))
+    locking = Column(EnumWithValue(ContentLocking), nullable=False)
     bytes = Column(Integer())
     md5 = Column(String(32))
     adler32 = Column(String(8))
@@ -586,12 +587,12 @@ class Content_ext(BASE, ModelBase):
     """Represents a content extension"""
     __tablename__ = 'contents_ext'
     content_id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
-    transform_id = Column(BigInteger().with_variant(Integer, "sqlite"))
-    coll_id = Column(BigInteger().with_variant(Integer, "sqlite"))
-    request_id = Column(BigInteger().with_variant(Integer, "sqlite"))
+    transform_id = Column(BigInteger().with_variant(Integer, "sqlite"), nullable=False)
+    coll_id = Column(BigInteger().with_variant(Integer, "sqlite"), nullable=False)
+    request_id = Column(BigInteger().with_variant(Integer, "sqlite"), nullable=False)
     workload_id = Column(Integer())
-    map_id = Column(BigInteger().with_variant(Integer, "sqlite"), default=0)
-    status = Column(EnumWithValue(ContentStatus))
+    map_id = Column(BigInteger().with_variant(Integer, "sqlite"), default=0, nullable=False)
+    status = Column(EnumWithValue(ContentStatus), nullable=False)
     panda_id = Column(BigInteger())
     job_definition_id = Column(BigInteger())
     scheduler_id = Column(String(128))
@@ -694,20 +695,20 @@ class Message(BASE, ModelBase):
     msg_id = Column(BigInteger().with_variant(Integer, "sqlite"),
                     Sequence('MESSAGE_ID_SEQ', schema=DEFAULT_SCHEMA_NAME),
                     primary_key=True)
-    msg_type = Column(EnumWithValue(MessageType))
-    status = Column(EnumWithValue(MessageStatus))
+    msg_type = Column(EnumWithValue(MessageType), nullable=False)
+    status = Column(EnumWithValue(MessageStatus), nullable=False)
     substatus = Column(Integer())
-    locking = Column(EnumWithValue(MessageLocking))
-    source = Column(EnumWithValue(MessageSource))
-    destination = Column(EnumWithValue(MessageDestination))
-    request_id = Column(BigInteger().with_variant(Integer, "sqlite"))
+    locking = Column(EnumWithValue(MessageLocking), nullable=False)
+    source = Column(EnumWithValue(MessageSource), nullable=False)
+    destination = Column(EnumWithValue(MessageDestination), nullable=False)
+    request_id = Column(BigInteger().with_variant(Integer, "sqlite"), nullable=False)
     workload_id = Column(Integer())
-    transform_id = Column(Integer())
-    processing_id = Column(Integer())
+    transform_id = Column(Integer(), nullable=False)
+    processing_id = Column(Integer(), nullable=False)
     num_contents = Column(Integer())
     retries = Column(Integer(), default=0)
-    created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow)
-    updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow, nullable=False)
+    updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
     msg_content = Column(JSON())
 
     _table_args = (PrimaryKeyConstraint('msg_id', name='MESSAGES_PK'),
@@ -724,20 +725,20 @@ class Command(BASE, ModelBase):
     cmd_id = Column(BigInteger().with_variant(Integer, "sqlite"),
                     Sequence('COMMAND_ID_SEQ', schema=DEFAULT_SCHEMA_NAME),
                     primary_key=True)
-    request_id = Column(BigInteger().with_variant(Integer, "sqlite"))
+    request_id = Column(BigInteger().with_variant(Integer, "sqlite"), nullable=False)
     workload_id = Column(Integer())
     transform_id = Column(Integer())
     processing_id = Column(Integer())
     cmd_type = Column(EnumWithValue(CommandType))
-    status = Column(EnumWithValue(CommandStatus))
+    status = Column(EnumWithValue(CommandStatus), nullable=False)
     substatus = Column(Integer())
-    locking = Column(EnumWithValue(CommandLocking))
+    locking = Column(EnumWithValue(CommandLocking), nullable=False)
     username = Column(String(50))
     retries = Column(Integer(), default=0)
     source = Column(EnumWithValue(CommandLocation))
     destination = Column(EnumWithValue(CommandLocation))
-    created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow)
-    updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow, nullable=False)
+    updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
     cmd_content = Column(JSON())
     errors = Column(JSONString(1024))
 
@@ -746,6 +747,136 @@ class Command(BASE, ModelBase):
                    Index('COMMANDS_TYPE_ST_TF_IDX', 'cmd_type', 'status', 'destination', 'transform_id'),
                    Index('COMMANDS_TYPE_ST_PR_IDX', 'cmd_type', 'status', 'destination', 'processing_id'),
                    Index('COMMANDS_STATUS_IDX', 'status', 'locking', 'updated_at'))
+
+
+class EventPriority(BASE, ModelBase):
+    """Represents the operations events"""
+    __tablename__ = 'events_priority'
+    event_type = Column(EnumWithValue(EventType), primary_key=True, nullable=False)
+    event_actual_id = Column(Integer(), primary_key=True, nullable=False)
+    priority = Column(Integer(), default=1000, nullable=False)
+    last_processed_at = Column("last_processed_at", DateTime, default=datetime.datetime.utcnow, nullable=False)
+    updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
+
+    _table_args = (PrimaryKeyConstraint('event_type', 'event_actual_id', name='EVENTS_PR_PK'))
+
+
+class Event(BASE, ModelBase):
+    """Represents the operations events"""
+    __tablename__ = 'events'
+    event_id = Column(BigInteger().with_variant(Integer, "sqlite"),
+                      Sequence('EVENT_ID_SEQ', schema=DEFAULT_SCHEMA_NAME),
+                      primary_key=True)
+    event_type = Column(EnumWithValue(EventType), nullable=False)
+    event_actual_id = Column(Integer(), nullable=False)
+    priority = Column(Integer())
+    status = Column(EnumWithValue(EventStatus), nullable=False)
+    created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow, nullable=False)
+    processing_at = Column("processing_at", DateTime, default=None)
+    processed_at = Column("processed_at", DateTime, default=None)
+    content = Column(JSON())
+
+    @property
+    def _id(self):
+        if self.content and 'event' in self.content and self.content['event']:
+            return self.content['event']._id
+        return None
+
+    @property
+    def _publisher_id(self):
+        if self.content and 'event' in self.content and self.content['event']:
+            return self.content['event']._publisher_id
+        return None
+
+    @property
+    def _event_type(self):
+        if self.content and 'event' in self.content and self.content['event']:
+            return self.content['event']._event_type
+        return None
+
+    @property
+    def _timestamp(self):
+        if self.content and 'event' in self.content and self.content['event']:
+            return self.content['event']._timestamp
+        return None
+
+    @property
+    def _counter(self):
+        if self.content and 'event' in self.content and self.content['event']:
+            return self.content['event']._counter
+        return None
+
+    @property
+    def _content(self):
+        if self.content and 'event' in self.content and self.content['event']:
+            return self.content['event']._content
+        return None
+
+    @property
+    def has_changes(self):
+        if self.content and 'event' in self.content and self.content['event']:
+            return self.content['event'].has_changes
+        return None
+
+    def get_event_id(self):
+        if self.content and 'event' in self.content and self.content['event']:
+            return self.content['event'].get_event_id()
+        return None
+
+    def able_to_merge(self, event):
+        if self.content and 'event' in self.content and self.content['event']:
+            return self.content['event'].able_to_merge(event)
+        return False
+
+    def changed(self):
+        return self.has_changes
+
+    def merge(self, event):
+        if self.content and 'event' in self.content and self.content['event']:
+            return self.content['event'].merge(event)
+        return False, event
+
+    @property
+    def _request_id(self):
+        if self.content and 'event' in self.content and self.content['event']:
+            return self.content['event']._request_id
+        return None
+
+    @property
+    def _command_id(self):
+        if self.content and 'event' in self.content and self.content['event']:
+            return self.content['event']._command_id
+        return None
+
+    @property
+    def _transform_id(self):
+        if self.content and 'event' in self.content and self.content['event']:
+            return self.content['event']._transform_id
+        return None
+
+    @property
+    def _processing_id(self):
+        if self.content and 'event' in self.content and self.content['event']:
+            return self.content['event']._processing_id
+        return None
+
+    _table_args = (PrimaryKeyConstraint('event_id', name='EVENTS_PK'))
+
+
+class EventArchive(BASE, ModelBase):
+    """Represents the operations events"""
+    __tablename__ = 'events_archive'
+    event_id = Column(BigInteger(), primary_key=True)
+    event_type = Column(EnumWithValue(EventType), nullable=False)
+    event_actual_id = Column(Integer(), nullable=False)
+    priority = Column(Integer())
+    status = Column(EnumWithValue(EventStatus), nullable=False)
+    created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow, nullable=False)
+    processing_at = Column("processing_at", DateTime, default=None)
+    processed_at = Column("processed_at", DateTime, default=None)
+    content = Column(JSON())
+
+    _table_args = (PrimaryKeyConstraint('event_id', name='EVENTS_AR_PK'))
 
 
 def create_trigger():

@@ -10,6 +10,7 @@
 
 import os
 import socket
+import time
 import traceback
 import threading
 import uuid
@@ -54,6 +55,11 @@ class BaseAgent(TimerScheduler, PluginBase):
         else:
             self.poll_operation_time_period = int(self.poll_operation_time_period)
 
+        if not hasattr(self, 'event_interval_delay'):
+            self.event_interval_delay = 1
+        else:
+            self.event_interval_delay = int(self.event_interval_delay)
+
         self.plugins = {}
         self.plugin_sequence = []
 
@@ -63,6 +69,7 @@ class BaseAgent(TimerScheduler, PluginBase):
 
         self.event_bus = EventBus()
         self.event_func_map = {}
+        self.event_futures = {}
 
         self.cache = get_redis_cache()
 
@@ -115,14 +122,30 @@ class BaseAgent(TimerScheduler, PluginBase):
         return self.event_func_map
 
     def execute_event_schedule(self):
+        event_ids = list(self.event_futures.keys())
+        for event_id in event_ids:
+            event, future = self.event_futures[event_id]
+            if future.done():
+                ret = future.result()
+                if ret is None or ret == 0:
+                    self.event_bus.clean_event(event)
+                else:
+                    self.event_bus.fail_event(event)
+                del self.event_futures[event_id]
+
         event_funcs = self.get_event_function_map()
         for event_type in event_funcs:
             exec_func = event_funcs[event_type]['exec_func']
             pre_check = event_funcs[event_type]['pre_check']
-            if pre_check():
-                event = self.event_bus.get(event_type)
-                if event:
-                    self.executors.submit(exec_func, event)
+            to_exec_at = event_funcs[event_type].get("to_exec_at", None)
+            if to_exec_at is None or to_exec_at < time.time():
+                if pre_check():
+                    event = self.event_bus.get(event_type)
+                    if event:
+                        future = self.executors.submit(exec_func, event)
+                        self.event_futures[event._id] = (event, future)
+                    else:
+                        event_funcs[event_type].get("to_exec_at", time.time() + self.event_interval_delay)
 
     def execute(self):
         while not self.graceful_stop.is_set():

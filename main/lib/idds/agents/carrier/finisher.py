@@ -92,7 +92,11 @@ class Finisher(Poller):
 
                     self.logger.info(log_pre + "process_sync_processing")
                     ret = self.handle_sync_processing(pr, log_prefix=log_pre)
-                    self.logger.info(log_pre + "process_sync_processing result: %s" % str(ret))
+                    ret_copy = {}
+                    for ret_key in ret:
+                        if ret_key != 'messages':
+                            ret_copy[ret_key] = ret[ret_key]
+                    self.logger.info(log_pre + "process_sync_processing result: %s" % str(ret_copy))
 
                     self.update_processing(ret, pr)
 
@@ -149,7 +153,11 @@ class Finisher(Poller):
 
                         self.logger.info(log_pre + "process_terminated_processing")
                         ret = self.handle_terminated_processing(pr, log_prefix=log_pre)
-                        self.logger.info(log_pre + "process_terminated_processing result: %s" % str(ret))
+                        ret_copy = {}
+                        for ret_key in ret:
+                            if ret_key != 'messages':
+                                ret_copy[ret_key] = ret[ret_key]
+                        self.logger.info(log_pre + "process_terminated_processing result: %s" % str(ret_copy))
 
                         self.update_processing(ret, pr)
                         self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
@@ -221,7 +229,12 @@ class Finisher(Poller):
                         self.update_processing(ret, pr)
                     elif pr:
                         ret = self.handle_abort_processing(pr, log_prefix=log_pre)
-                        self.logger.info(log_pre + "process_abort_processing result: %s" % str(ret))
+                        ret_copy = {}
+                        for ret_key in ret:
+                            if ret_key != 'messages':
+                                ret_copy[ret_key] = ret[ret_key]
+                        self.logger.info(log_pre + "process_abort_processing result: %s" % str(ret_copy))
+
                         self.update_processing(ret, pr)
                         self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
                         event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'], content=event._content)
