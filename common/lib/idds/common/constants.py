@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2023
 
 """
 Constants.
@@ -338,6 +338,12 @@ class ProcessingStatus(IDDSEnum):
 class ProcessingLocking(IDDSEnum):
     Idle = 0
     Locking = 1
+
+
+class HealthStatus(IDDSEnum):
+    Default = 0
+    InActive = 1
+    Active = 2
 
 
 class MessageType(IDDSEnum):

@@ -85,3 +85,13 @@ def clean_health(older_than=3600, session=None):
     session.query(models.Health)\
            .filter(models.Health.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=older_than))\
            .delete()
+
+
+@transactional_session
+def update_health_item_status(item, status, session=None):
+    session.query(models.Health)\
+           .filter(models.Health.agent == item['agent'])\
+           .filter(models.Health.hostname == item['hostname'])\
+           .filter(models.Health.pid == item['pid'])\
+           .filter(models.Health.thread_id == item['thread_id'])\
+           .update({'status': status, 'updated_at': item['updated_at']})

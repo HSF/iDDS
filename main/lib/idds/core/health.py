@@ -6,18 +6,22 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2020
+# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2023
 
 
 """
 operations related to Health.
 """
 
+import datetime
 
+from idds.common.constants import HealthStatus
 from idds.orm import health as orm_health
+from idds.orm.base.session import read_session, transactional_session
 
 
-def add_health_item(agent, hostname, pid, thread_id, thread_name, payload):
+@transactional_session
+def add_health_item(agent, hostname, pid, thread_id, thread_name, payload, session=None):
     """
     Add a health item.
 
@@ -31,22 +35,67 @@ def add_health_item(agent, hostname, pid, thread_id, thread_name, payload):
     return orm_health.add_health_item(agent=agent, hostname=hostname, pid=pid,
                                       thread_id=thread_id,
                                       thread_name=thread_name,
-                                      payload=payload)
+                                      payload=payload,
+                                      session=session)
 
 
-def retrieve_health_items():
+@read_session
+def retrieve_health_items(session=None):
     """
     Retrieve health items.
 
     :returns healths: List of dictionaries
     """
-    return orm_health.retrieve_health_items()
+    return orm_health.retrieve_health_items(session=session)
 
 
-def clean_health(older_than=3600):
+@transactional_session
+def clean_health(older_than=3600, session=None):
     """
     Clearn items which is older than the time.
 
     :param older_than in seconds
     """
-    orm_health.clean_health(older_than=older_than)
+    orm_health.clean_health(older_than=older_than, session=session)
+
+
+@transactional_session
+def select_agent(name, newer_than=3600, session=None):
+    """
+    Select one active receiver.
+
+    :param older_than in seconds to be cleaned.
+    """
+    orm_health.clean_health(older_than=newer_than, session=session)
+    health_items = orm_health.retrieve_health_items(session=session)
+    selected_agent = None
+    selected_agent_diff = None
+    utc_now = datetime.datetime.utcnow()
+    for health_item in health_items:
+        if health_item['agent'] != 'name':
+            continue
+
+        updated_at = health_item['updated_at']
+        time_diff = utc_now - updated_at
+        if time_diff.total_seconds() > newer_than:
+            continue
+
+        if health_item['status'] == HealthStatus.Active:
+            selected_agent = health_item
+            break
+
+        if selected_agent is None:
+            selected_agent = health_item
+            selected_agent_diff = time_diff
+        else:
+            if time_diff < selected_agent_diff:
+                selected_agent = health_item
+                selected_agent_diff = time_diff
+
+    if selected_agent:
+        if selected_agent['status'] != HealthStatus.Active:
+            orm_health.update_health_item_status(selected_agent, status=HealthStatus.Active, session=session)
+    for health_item in health_items:
+        if health_item['status'] == HealthStatus.Active and health_item != selected_agent:
+            orm_health.update_health_item_status(selected_agent, status=HealthStatus.Default, session=session)
+    return selected_agent

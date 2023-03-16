@@ -32,7 +32,7 @@ from idds.common.constants import (RequestType, RequestStatus, RequestLocking,
                                    MessageType, MessageStatus, MessageLocking,
                                    MessageSource, MessageDestination,
                                    CommandType, CommandStatus, CommandLocking,
-                                   CommandLocation)
+                                   CommandLocation, HealthStatus)
 from idds.common.event import (EventType, EventStatus)
 from idds.common.utils import date_to_str
 from idds.orm.base.enum import EnumSymbol
@@ -683,6 +683,7 @@ class Health(BASE, ModelBase):
     thread_id = Column(BigInteger, autoincrement=False)
     thread_name = Column(String(255))
     payload = Column(String(255))
+    status = Column(EnumWithValue(HealthStatus), default=0, nullable=False)
     created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow)
     updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     _table_args = (PrimaryKeyConstraint('health_id', name='HEALTH_PK'),
