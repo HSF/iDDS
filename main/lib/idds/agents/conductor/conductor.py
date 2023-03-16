@@ -140,6 +140,8 @@ class Conductor(BaseAgent):
             self.logger.info("Starting main thread")
             self.load_plugins()
 
+            self.add_default_tasks()
+
             self.start_notifier()
 
             # self.add_health_message_task()

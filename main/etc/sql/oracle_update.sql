@@ -389,3 +389,7 @@ CREATE TABLE EVENTS_PRIORITY
     updated_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)),
     CONSTRAINT EVENTS_PR_PK PRIMARY KEY (event_type, event_actual_id) -- USING INDEX LOCAL,
 );
+
+
+--- 2023.03.16
+alter table HEALTH add (status NUMBER(2));

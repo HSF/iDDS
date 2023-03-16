@@ -57,6 +57,8 @@ class Archiver(BaseAgent):
         try:
             self.logger.info("Starting main thread")
 
+            self.add_default_tasks()
+
             self.logger.info("poll period: %s seconds" % self.poll_period)
             self.logger.info("older_than: %s days" % self.older_than)
 

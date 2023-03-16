@@ -184,6 +184,7 @@ class BaseAgent(TimerScheduler, PluginBase):
         thread_name = hb_thread.name
         core_health.add_health_item(agent=self.get_name(), hostname=hostname, pid=pid,
                                     thread_id=thread_id, thread_name=thread_name, payload=None)
+        core_health.clean_health(older_than=self.heartbeat_delay * 2)
 
     def add_default_tasks(self):
         task = self.create_task(task_func=self.health_heartbeat, task_output_queue=None,
