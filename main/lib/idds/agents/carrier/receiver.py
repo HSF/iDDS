@@ -136,7 +136,9 @@ class Receiver(BaseAgent):
 
         if update_contents:
             self.logger.info(log_prefix + "update_contents[:3]: %s" % json_dumps(update_contents[:3]))
-            core_catalog.update_contents(update_contents)
+            # instead of update contents directly, add contents to contents_update table.
+            # core_catalog.update_contents(update_contents)
+            core_catalog.add_contents_update(update_contents)
 
         for pr_id in update_processings_by_job:
             # self.logger.info(log_prefix + "TerminatedProcessingEvent(processing_id: %s)" % pr_id)

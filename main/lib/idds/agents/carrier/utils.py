@@ -994,6 +994,14 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
             # logger.debug(log_prefix + "delete_contents_update: %s" % str(ret_update_transforms))
             pass
 
+        logger.debug(log_prefix + "sync contents_update to contents")
+        contents_update_list = core_catalog.get_contents_update(request_id=request_id, transform_id=transform_id)
+        new_contents_update_list = [{'content_id': con['content_id'], 'substatus': con['substatus']} for con in contents_update_list]
+        core_catalog.update_contents(new_contents_update_list)
+        contents_id_list = [con['content_id'] for con in new_contents_update_list]
+        core_catalog.delete_contents_update(contents_id_list)
+        logger.debug(log_prefix + "sync contents_update to contents done")
+
         logger.debug(log_prefix + "update_contents_from_others_by_dep_id")
         # core_catalog.update_contents_from_others_by_dep_id(request_id=request_id, transform_id=transform_id)
         to_triggered_contents = core_catalog.get_update_contents_from_others_by_dep_id(request_id=request_id, transform_id=transform_id)
@@ -1327,11 +1335,17 @@ def handle_messages_processing(messages, logger=None, log_prefix='', update_proc
                 if content_id:
                     if to_update_jobid:
                         u_content = {'content_id': content_id,
+                                     'request_id': req_id,
+                                     'transform_id': tf_id,
+                                     'workload_id': workload_id,
                                      # 'status': get_content_status_from_panda_msg_status(status),
                                      'substatus': get_content_status_from_panda_msg_status(status),
                                      'content_metadata': {'panda_id': job_id}}
                     else:
                         u_content = {'content_id': content_id,
+                                     'request_id': req_id,
+                                     'transform_id': tf_id,
+                                     'workload_id': workload_id,
                                      'substatus': get_content_status_from_panda_msg_status(status)}
                         #             # 'status': get_content_status_from_panda_msg_status(status)}
 

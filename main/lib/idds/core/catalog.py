@@ -683,8 +683,18 @@ def add_contents_update(contents, bulk_size=10000, session=None):
     return orm_contents.add_contents_update(contents, bulk_size=bulk_size, session=session)
 
 
+@read_session
+def get_contents_update(request_id=None, transform_id=None, session=None):
+    """
+    Get contents update.
+
+    :param session: session.
+    """
+    return orm_contents.get_contents_update(request_id=request_id, transform_id=transform_id, session=session)
+
+
 @transactional_session
-def delete_contents_update(request_id=None, transform_id=None, session=None):
+def delete_contents_update(request_id=None, transform_id=None, contents=[], session=None):
     """
     delete a content.
 
@@ -693,7 +703,7 @@ def delete_contents_update(request_id=None, transform_id=None, session=None):
     :raises NoObject: If no content is founded.
     :raises DatabaseException: If there is a database error.
     """
-    return orm_contents.delete_contents_update(request_id=request_id, transform_id=transform_id, session=session)
+    return orm_contents.delete_contents_update(request_id=request_id, transform_id=transform_id, contents=contents, session=session)
 
 
 def get_contents_ext_maps():

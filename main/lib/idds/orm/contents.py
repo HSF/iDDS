@@ -685,8 +685,35 @@ def add_contents_update(contents, bulk_size=10000, session=None):
         raise exceptions.DatabaseException(error)
 
 
+@read_session
+def get_contents_update(request_id=None, transform_id=None, session=None):
+    """
+    Get contents update.
+
+    :param session: session.
+    """
+    try:
+        query = session.query(models.Content_update)
+        if request_id:
+            query = query.filter(models.Content_ext.request_id == request_id)
+        if transform_id:
+            query = query.filter(models.Content_ext.transform_id == transform_id)
+
+        tmp = query.all()
+        rets = []
+        if tmp:
+            for t in tmp:
+                rets.append(t.to_dict())
+        return rets
+    except sqlalchemy.orm.exc.NoResultFound as error:
+        raise exceptions.NoObject('No record can be found with (transform_id=%s): %s' %
+                                  (transform_id, error))
+    except Exception as error:
+        raise error
+
+
 @transactional_session
-def delete_contents_update(request_id=None, transform_id=None, session=None):
+def delete_contents_update(request_id=None, transform_id=None, contents=[], bulk_size=10000, session=None):
     """
     delete a content.
 
@@ -696,13 +723,27 @@ def delete_contents_update(request_id=None, transform_id=None, session=None):
     :raises DatabaseException: If there is a database error.
     """
     try:
-        del_query = session.query(models.Content_update)
-        if request_id:
-            del_query = del_query.filter(models.Content_update.request_id == request_id)
-        if transform_id:
-            del_query = del_query.filter(models.Content_update.transform_id == transform_id)
-        del_query.with_for_update(nowait=True, skip_locked=True)
-        del_query.delete()
+        if contents:
+            contents_sub_params = [contents[i:i + bulk_size] for i in range(0, len(contents), bulk_size)]
+
+            for contents_sub_param in contents_sub_params:
+                del_query = session.query(models.Content_update)
+                if request_id:
+                    del_query = del_query.filter(models.Content_update.request_id == request_id)
+                if transform_id:
+                    del_query = del_query.filter(models.Content_update.transform_id == transform_id)
+                if contents_sub_param:
+                    del_query = del_query.filter(models.Content_update.content_id.in_(contents_sub_param))
+                del_query.with_for_update(nowait=True, skip_locked=True)
+                del_query.delete()
+        else:
+            del_query = session.query(models.Content_update)
+            if request_id:
+                del_query = del_query.filter(models.Content_update.request_id == request_id)
+            if transform_id:
+                del_query = del_query.filter(models.Content_update.transform_id == transform_id)
+            del_query.with_for_update(nowait=True, skip_locked=True)
+            del_query.delete()
     except Exception as error:
         raise exceptions.NoObject('Content_update deletion error: %s' % (error))
 
