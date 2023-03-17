@@ -996,9 +996,16 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
 
         logger.debug(log_prefix + "sync contents_update to contents")
         contents_update_list = core_catalog.get_contents_update(request_id=request_id, transform_id=transform_id)
-        new_contents_update_list = [{'content_id': con['content_id'], 'substatus': con['substatus']} for con in contents_update_list]
+        new_contents_update_list = []
+        contents_id_list = []
+        for con in contents_update_list:
+            con_dict = {'content_id': con['content_id'],
+                        'substatus': con['substatus']}
+            if 'content_metadata' in con and con['content_metadata']:
+                con_dict['content_metadata'] = con['content_metadata']
+            new_contents_update_list.append(con_dict)
+            contents_id_list.append(con['content_id'])
         core_catalog.update_contents(new_contents_update_list)
-        contents_id_list = [con['content_id'] for con in new_contents_update_list]
         core_catalog.delete_contents_update(contents_id_list)
         logger.debug(log_prefix + "sync contents_update to contents done")
 

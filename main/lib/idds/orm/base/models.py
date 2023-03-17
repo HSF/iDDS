@@ -581,6 +581,7 @@ class Content_update(BASE, ModelBase):
     transform_id = Column(BigInteger().with_variant(Integer, "sqlite"))
     workload_id = Column(Integer())
     coll_id = Column(BigInteger().with_variant(Integer, "sqlite"))
+    content_metadata = Column(JSONString(100))
 
 
 class Content_ext(BASE, ModelBase):
