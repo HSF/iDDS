@@ -11,14 +11,15 @@
 import logging
 import time
 import threading
-import traceback
 import uuid
 
 from idds.common.event import StateClaimEvent, EventBusState
 from idds.core import events as core_events
 
+from .baseeventbusbackend import BaseEventBusBackend
 
-class DBEventBusBackend(threading.Thread):
+
+class DBEventBusBackend(BaseEventBusBackend):
     """
     Database Event Bus Backend
     """
@@ -73,13 +74,3 @@ class DBEventBusBackend(threading.Thread):
 
     def fail_event(self, event):
         core_events.fail_event(event, to_archive=self.to_archive)
-
-    def execute(self):
-        while not self.graceful_stop.is_set():
-            try:
-                self.graceful_stop.wait(0.1)
-            except Exception as error:
-                self.logger.critical("Caught an exception: %s\n%s" % (str(error), traceback.format_exc()))
-
-    def run(self):
-        self.execute()
