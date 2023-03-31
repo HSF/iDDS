@@ -8,10 +8,8 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2019 - 2023
 
-import os
-import socket
-import threading
 import time
+import threading
 import traceback
 try:
     # python 3
@@ -20,7 +18,7 @@ except ImportError:
     # Python 2
     from Queue import Queue
 
-from idds.common.constants import Sections
+from idds.common.constants import Sections, ReturnCode
 from idds.common.exceptions import AgentPluginError, IDDSException
 from idds.common.utils import setup_logging, get_logger
 from idds.common.utils import json_dumps
@@ -28,7 +26,8 @@ from idds.core import messages as core_messages, catalog as core_catalog
 from idds.core import health as core_health
 from idds.agents.common.baseagent import BaseAgent
 # from idds.agents.common.eventbus.event import TerminatedProcessingEvent
-from idds.agents.common.eventbus.event import TriggerProcessingEvent
+from idds.agents.common.eventbus.event import (EventType, MessageEvent,
+                                               TriggerProcessingEvent)
 
 from .utils import handle_messages_processing
 
@@ -40,9 +39,9 @@ class Receiver(BaseAgent):
     Receiver works to receive workload management messages to update task/job status.
     """
 
-    def __init__(self, num_threads=1, bulk_message_delay=5, bulk_message_size=2000,
-                 random_delay=None, update_processing_interval=300, num_receivers=1, **kwargs):
-        super(Receiver, self).__init__(num_threads=num_threads, name='Receiver', **kwargs)
+    def __init__(self, receiver_num_threads=8, num_threads=1, bulk_message_delay=30, bulk_message_size=2000,
+                 random_delay=None, update_processing_interval=300, mode='single', **kwargs):
+        super(Receiver, self).__init__(num_threads=receiver_num_threads, name='Receiver', **kwargs)
         self.config_section = Sections.Carrier
         self.bulk_message_delay = int(bulk_message_delay)
         self.bulk_message_size = int(bulk_message_size)
@@ -54,12 +53,12 @@ class Receiver(BaseAgent):
         else:
             self.update_processing_interval = 300
 
-        self.num_receivers = num_receivers
-        if not self.num_receivers:
-            self.num_receivers = 1
-        else:
-            self.num_receivers = int(num_receivers)
+        self.mode = mode
         self.selected_receiver = None
+
+        self.log_prefix = ''
+
+        self._lock = threading.RLock()
 
     def __del__(self):
         self.stop_receiver()
@@ -78,42 +77,46 @@ class Receiver(BaseAgent):
         if hasattr(self, 'receiver') and self.receiver:
             self.logger.info("Stopping receiver: %s" % self.receiver)
             self.receiver.stop()
+            self.receiver = None
 
     def is_receiver_started(self):
         if hasattr(self, 'receiver') and self.receiver:
             return True
         return False
 
+    def get_num_queued_messages(self):
+        return self.message_queue.qsize()
+
     def get_output_messages(self):
-        msgs = []
-        try:
-            while not self.message_queue.empty():
-                msg = self.message_queue.get(False)
-                if msg:
-                    self.logger.debug("Received message: %s" % str(msg))
-                    msgs.append(msg)
-        except Exception as error:
-            self.logger.error("Failed to get output messages: %s, %s" % (error, traceback.format_exc()))
-        return msgs
+        with self._lock:
+            msgs = []
+            try:
+                msg_size = 0
+                while not self.message_queue.empty():
+                    msg = self.message_queue.get(False)
+                    if msg:
+                        if msg_size < 10:
+                            self.logger.debug("Received message(only log first 10 messages): %s" % str(msg))
+                        msgs.append(msg)
+                        msg_size += 1
+                        if msg_size >= self.bulk_message_size:
+                            break
+            except Exception as error:
+                self.logger.error("Failed to get output messages: %s, %s" % (error, traceback.format_exc()))
+            if msgs:
+                total_msgs = self.get_num_queued_messages()
+                self.logger.info("process_messages: Get %s messages, left %s messages" % (len(msgs), total_msgs))
+            return msgs
 
     def is_selected(self):
         if not self.selected_receiver:
             return True
-        hostname = socket.getfqdn()
-        pid = os.getpid()
-        hb_thread = threading.current_thread()
-        thread_id = hb_thread.ident
-
-        if ('hostname' in self.selected_receiver and 'pid' in self.selected_receiver and 'agent' in self.selected_receiver
-            and 'thread_id' in self.selected_receiver and self.selected_receiver['hostname'] == hostname        # noqa W503
-            and self.selected_receiver['pid'] == pid and self.selected_receiver['agent'] == self.get_name()     # noqa W503
-            and self.selected_receiver['thread_id'] == thread_id):                                              # noqa W503
-            return True
-        return False
+        return self.is_self(self.selected_receiver)
 
     def monitor_receiver(self):
-        if self.num_receivers == 1:
-            self.selected_receiver = core_health.select_agent(name='Receiver', older_than=self.heartbeat_delay * 2)
+        if self.mode == "single":
+            self.logger.info("Receiver single mode")
+            self.selected_receiver = core_health.select_agent(name='Receiver', newer_than=self.heartbeat_delay * 2)
             self.logger.debug("Selected receiver: %s" % self.selected_receiver)
 
     def add_receiver_monitor_task(self):
@@ -122,8 +125,7 @@ class Receiver(BaseAgent):
                                 priority=1)
         self.add_task(task)
 
-    def process_messages(self, log_prefix):
-        output_messages = self.get_output_messages()
+    def handle_messages(self, output_messages, log_prefix):
         ret_msg_handle = handle_messages_processing(output_messages,
                                                     logger=self.logger,
                                                     log_prefix=log_prefix,
@@ -134,11 +136,13 @@ class Receiver(BaseAgent):
             # self.logger.debug(log_prefix + "adding messages[:3]: %s" % json_dumps(msgs[:3]))
             core_messages.add_messages(msgs, bulk_size=self.bulk_message_size)
 
+        num_to_update_contents = 0
         if update_contents:
             self.logger.info(log_prefix + "update_contents[:3]: %s" % json_dumps(update_contents[:3]))
             # instead of update contents directly, add contents to contents_update table.
             # core_catalog.update_contents(update_contents)
             core_catalog.add_contents_update(update_contents)
+            num_to_update_contents = len(update_contents)
 
         for pr_id in update_processings_by_job:
             # self.logger.info(log_prefix + "TerminatedProcessingEvent(processing_id: %s)" % pr_id)
@@ -152,7 +156,9 @@ class Receiver(BaseAgent):
             # self.logger.info(log_prefix + "TerminatedProcessingEvent(processing_id: %s)" % pr_id)
             # event = TerminatedProcessingEvent(publisher_id=self.id, processing_id=pr_id)
             self.logger.info(log_prefix + "TriggerProcessingEvent(processing_id: %s)" % pr_id)
-            event = TriggerProcessingEvent(publisher_id=self.id, processing_id=pr_id)
+            event = TriggerProcessingEvent(publisher_id=self.id, processing_id=pr_id,
+                                           content={'num_to_update_contents': num_to_update_contents})
+            event.set_has_updates()
             self.event_bus.send(event)
 
         for pr_id in terminated_processings:
@@ -160,7 +166,57 @@ class Receiver(BaseAgent):
             event = TriggerProcessingEvent(publisher_id=self.id,
                                            processing_id=pr_id,
                                            content={'Terminated': True, 'source': 'Receiver'})
+            event.set_terminating()
             self.event_bus.send(event)
+
+    def process_messages(self, log_prefix=None):
+        output_messages = self.get_output_messages()
+        has_messages = False
+        if output_messages:
+            self.logger.info("process_messages: Received %s messages" % (len(output_messages)))
+            self.handle_messages(output_messages, log_prefix=log_prefix)
+            self.logger.info("process_messages: Handled %s messages" % len(output_messages))
+            has_messages = True
+        return has_messages
+
+    def worker(self, log_prefix):
+        while not self.graceful_stop.is_set():
+            try:
+                has_messages = self.process_messages(log_prefix)
+                if not has_messages:
+                    time.sleep(1)
+            except IDDSException as error:
+                self.logger.error("Worker thread IDDSException: %s" % str(error))
+            except Exception as error:
+                self.logger.critical("Worker thread exception: %s\n%s" % (str(error), traceback.format_exc()))
+
+    def is_ok_to_run_more_workers(self):
+        if self.executors.has_free_workers():
+            return True
+        return False
+
+    def process_messages_event(self, event):
+        try:
+            pro_ret = ReturnCode.Ok.value
+            if event:
+                output_messages = event.get_message()
+                if output_messages:
+                    self.logger.info("process_messages: Received %s messages" % (len(output_messages)))
+                    self.handle_messages(output_messages, log_prefix=self.log_prefix)
+                    self.logger.info("process_messages: Handled %s messages" % len(output_messages))
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+            pro_ret = ReturnCode.Failed.value
+        return pro_ret
+
+    def init_event_function_map(self):
+        self.event_func_map = {
+            EventType.Message: {
+                'pre_check': self.is_ok_to_run_more_workers,
+                'exec_func': self.process_messages_event
+            }
+        }
 
     def run(self):
         """
@@ -168,9 +224,12 @@ class Receiver(BaseAgent):
         """
         try:
             self.logger.info("Starting main thread")
+            self.init_thread_info()
+
             self.add_default_tasks()
 
-            if self.num_receivers == 1:
+            if self.mode == "single":
+                self.logger.debug("single mode")
                 self.add_receiver_monitor_task()
 
             self.load_plugins()
@@ -178,24 +237,35 @@ class Receiver(BaseAgent):
             self.add_health_message_task()
 
             log_prefix = "<Message>"
+            self.log_prefix = log_prefix
+
+            # [self.executors.submit(self.worker, log_prefix) for i in range(self.executors.get_max_workers())]
+            self.init_event_function_map()
 
             while not self.graceful_stop.is_set():
                 try:
+                    self.execute_schedules()
+
                     time_start = time.time()
 
                     if self.is_selected():
                         if not self.is_receiver_started():
                             self.start_receiver()
-                        self.process_messages(log_prefix)
 
                     if not self.is_selected():
                         if self.is_receiver_started():
-                            self.stop_recevier()
+                            self.stop_receiver()
 
-                    time_delay = self.bulk_message_delay - (time.time() - time_start)
-                    time_delay = self.bulk_message_delay
-                    if time_delay > 0:
-                        time.sleep(time_delay)
+                    msg = self.get_output_messages()
+                    if msg:
+                        event = MessageEvent(message=msg)
+                        self.event_bus.send(event)
+
+                    if not msg:
+                        time_delay = self.bulk_message_delay - (time.time() - time_start)
+                        time_delay = self.bulk_message_delay
+                        if time_delay > 0:
+                            time.sleep(time_delay)
                 except IDDSException as error:
                     self.logger.error("Main thread IDDSException: %s" % str(error))
                 except Exception as error:
