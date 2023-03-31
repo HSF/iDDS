@@ -15,7 +15,7 @@ from deepdiff import DeepDiff
 
 from idds.common.constants import IDDSEnum
 from idds.common.dict_class import DictClass
-from idds.common.utils import json_dumps
+from idds.common.utils import json_dumps, merge_dict
 
 
 class EventBusState(IDDSEnum):
@@ -29,6 +29,7 @@ class EventType(IDDSEnum):
     Event = 0
     StateClaim = 1
     Demand = 2
+    Message = 3
 
     NewRequest = 10
     UpdateRequest = 11
@@ -52,6 +53,14 @@ class EventType(IDDSEnum):
 
     UpdateCommand = 40
 
+    Test = 90
+
+
+class EventPriority(IDDSEnum):
+    Low = 0
+    Medium = 10
+    High = 50
+
 
 class EventStatus(IDDSEnum):
     New = 0
@@ -68,18 +77,26 @@ class Event(DictClass):
         self._counter = counter
         self._content = content
         self.has_changes = False
+        self._requeue_counter = 0
 
     def get_event_id(self):
         return uuid.UUID(self._id).int % 1000000
 
+    @property
+    def event_type(self):
+        return self._event_type.name
+
     def able_to_merge(self, event):
+        if self._event_type == event._event_type and self.get_event_id() == event.get_event_id():
+            return True
         if self._event_type == event._event_type and self.get_event_id() == event.get_event_id() and self._counter == event._counter:
-            if (self._content is None and event._content is None):
-                return True
-            elif (self._content is not None and event._content is not None):
-                ddiff = DeepDiff(self._content, event._content, ignore_order=True)
-                if not ddiff:
-                    return True
+            return True
+            # if (self._content is None and event._content is None):
+            #     return True
+            # elif (self._content is not None and event._content is not None):
+            #     ddiff = DeepDiff(self._content, event._content, ignore_order=True)
+            #     if not ddiff:
+            #         return True
         return False
 
     def changed(self):
@@ -88,11 +105,34 @@ class Event(DictClass):
     def merge(self, event):
         self.has_changes = False
         if self.able_to_merge(event):
+            if event._counter:
+                if self._counter is None:
+                    self._counter = event._counter
+                    self.has_changes = True
+                elif self._counter and event._counter and self._counter < event._counter:
+                    self._counter = event._counter
+                    self.has_changes = True
+
+            if event._content:
+                if self._content is None:
+                    self._content = event._content
+                    self.has_changes = True
+                else:
+                    ddiff = DeepDiff(self._content, event._content, ignore_order=True)
+                    if ddiff:
+                        self._content = merge_dict(self._content, event._content)
+                        self.has_changes = True
             return True, None
         else:
             return False, event
 
-    def to_json(self):
+    def requeue(self):
+        self._requeue_counter += 1
+
+    def get_requeue_counter(self):
+        return self._requeue_counter
+
+    def to_json(self, strip=False):
         ret = {'id': self._id, 'publisher_id': self._publisher_id,
                'event_type': (self._event_type.name, self._event_type.value),
                'timestamp': self._timestamp,
@@ -109,15 +149,43 @@ class Event(DictClass):
     def fail(self):
         pass
 
+    def set_terminating(self):
+        if self._content is None:
+            self._content = {}
+        self._content['is_terminating'] = True
+
+    def is_terminating(self):
+        if self._content and ('is_terminating' in self._content and self._content['is_terminating']):
+            return True
+
+    def set_has_updates(self):
+        if self._content is None:
+            self._content = {}
+        self._content['has_updates'] = True
+
+    def has_updates(self):
+        if self._content and ('has_updates' in self._content and self._content['has_updates']
+            or 'num_to_update_contents' in self._content and self._content['num_to_update_contents']):     # noqa W503, E125, E128
+            return True
+
 
 class StateClaimEvent(Event):
     def __init__(self, publisher_id=None, event_bus_state=None, content=None, counter=1):
         super(StateClaimEvent, self).__init__(publisher_id, event_type=EventType.StateClaim, content=content, counter=counter)
         self._event_bus_state = event_bus_state
 
-    def to_json(self):
+    def to_json(self, strip=False):
         ret = super(StateClaimEvent, self).to_json()
         ret['event_bus_state'] = self._event_bus_state
+        return ret
+
+
+class TestEvent(Event):
+    def __init__(self, publisher_id=None, content=None, counter=1):
+        super(TestEvent, self).__init__(publisher_id, event_type=EventType.Test, content=content, counter=counter)
+
+    def to_json(self, strip=False):
+        ret = super(TestEvent, self).to_json()
         return ret
 
 
@@ -126,7 +194,7 @@ class DemandEvent(Event):
         super(DemandEvent, self).__init__(publisher_id, event_type=EventType.Demand, content=content, counter=counter)
         self._demand_type = demand_type
 
-    def to_json(self):
+    def to_json(self, strip=False):
         ret = super(DemandEvent, self).to_json()
         ret['demand_type'] = self._demand_type
         return ret
@@ -140,7 +208,7 @@ class NewRequestEvent(Event):
     def get_event_id(self):
         return self._request_id
 
-    def to_json(self):
+    def to_json(self, strip=False):
         ret = super(NewRequestEvent, self).to_json()
         ret['request_id'] = self._request_id
         return ret
@@ -154,7 +222,7 @@ class UpdateRequestEvent(Event):
     def get_event_id(self):
         return self._request_id
 
-    def to_json(self):
+    def to_json(self, strip=False):
         ret = super(UpdateRequestEvent, self).to_json()
         ret['request_id'] = self._request_id
         return ret
@@ -168,7 +236,7 @@ class AbortRequestEvent(Event):
     def get_event_id(self):
         return self._request_id
 
-    def to_json(self):
+    def to_json(self, strip=False):
         ret = super(AbortRequestEvent, self).to_json()
         ret['request_id'] = self._request_id
         return ret
@@ -182,7 +250,7 @@ class ResumeRequestEvent(Event):
     def get_event_id(self):
         return self._request_id
 
-    def to_json(self):
+    def to_json(self, strip=False):
         ret = super(ResumeRequestEvent, self).to_json()
         ret['request_id'] = self._request_id
         return ret
@@ -196,7 +264,7 @@ class ExpireRequestEvent(Event):
     def get_event_id(self):
         return self._request_id
 
-    def to_json(self):
+    def to_json(self, strip=False):
         ret = super(ExpireRequestEvent, self).to_json()
         ret['request_id'] = self._request_id
         return ret
@@ -210,7 +278,7 @@ class UpdateCommandEvent(Event):
     def get_event_id(self):
         return self._command_id
 
-    def to_json(self):
+    def to_json(self, strip=False):
         ret = super(UpdateCommandEvent, self).to_json()
         ret['command_id'] = self._command_id
         return ret
@@ -224,7 +292,7 @@ class NewTransformEvent(Event):
     def get_event_id(self):
         return self._transform_id
 
-    def to_json(self):
+    def to_json(self, strip=False):
         ret = super(NewTransformEvent, self).to_json()
         ret['transform_id'] = self._transform_id
         return ret
@@ -238,7 +306,7 @@ class UpdateTransformEvent(Event):
     def get_event_id(self):
         return self._transform_id
 
-    def to_json(self):
+    def to_json(self, strip=False):
         ret = super(UpdateTransformEvent, self).to_json()
         ret['transform_id'] = self._transform_id
         return ret
@@ -252,7 +320,7 @@ class AbortTransformEvent(Event):
     def get_event_id(self):
         return self._transform_id
 
-    def to_json(self):
+    def to_json(self, strip=False):
         ret = super(AbortTransformEvent, self).to_json()
         ret['transform_id'] = self._transform_id
         return ret
@@ -266,7 +334,7 @@ class ResumeTransformEvent(Event):
     def get_event_id(self):
         return self._transform_id
 
-    def to_json(self):
+    def to_json(self, strip=False):
         ret = super(ResumeTransformEvent, self).to_json()
         ret['transform_id'] = self._transform_id
         return ret
@@ -280,7 +348,7 @@ class NewProcessingEvent(Event):
     def get_event_id(self):
         return self._processing_id
 
-    def to_json(self):
+    def to_json(self, strip=False):
         ret = super(NewProcessingEvent, self).to_json()
         ret['processing_id'] = self._processing_id
         return ret
@@ -294,7 +362,7 @@ class UpdateProcessingEvent(Event):
     def get_event_id(self):
         return self._processing_id
 
-    def to_json(self):
+    def to_json(self, strip=False):
         ret = super(UpdateProcessingEvent, self).to_json()
         ret['processing_id'] = self._processing_id
         return ret
@@ -308,7 +376,7 @@ class AbortProcessingEvent(Event):
     def get_event_id(self):
         return self._processing_id
 
-    def to_json(self):
+    def to_json(self, strip=False):
         ret = super(AbortProcessingEvent, self).to_json()
         ret['processing_id'] = self._processing_id
         return ret
@@ -322,7 +390,7 @@ class ResumeProcessingEvent(Event):
     def get_event_id(self):
         return self._processing_id
 
-    def to_json(self):
+    def to_json(self, strip=False):
         ret = super(ResumeProcessingEvent, self).to_json()
         ret['processing_id'] = self._processing_id
         return ret
@@ -336,7 +404,7 @@ class SyncProcessingEvent(Event):
     def get_event_id(self):
         return self._processing_id
 
-    def to_json(self):
+    def to_json(self, strip=False):
         ret = super(SyncProcessingEvent, self).to_json()
         ret['processing_id'] = self._processing_id
         return ret
@@ -350,7 +418,7 @@ class TerminatedProcessingEvent(Event):
     def get_event_id(self):
         return self._processing_id
 
-    def to_json(self):
+    def to_json(self, strip=False):
         ret = super(TerminatedProcessingEvent, self).to_json()
         ret['processing_id'] = self._processing_id
         return ret
@@ -364,7 +432,7 @@ class TriggerProcessingEvent(Event):
     def get_event_id(self):
         return self._processing_id
 
-    def to_json(self):
+    def to_json(self, strip=False):
         ret = super(TriggerProcessingEvent, self).to_json()
         ret['processing_id'] = self._processing_id
         return ret
@@ -378,7 +446,25 @@ class MsgTriggerProcessingEvent(Event):
     def get_event_id(self):
         return self._processing_id
 
-    def to_json(self):
+    def to_json(self, strip=False):
         ret = super(MsgTriggerProcessingEvent, self).to_json()
         ret['processing_id'] = self._processing_id
+        return ret
+
+
+class MessageEvent(Event):
+    def __init__(self, publisher_id=None, message=None, content=None, counter=1):
+        super(MessageEvent, self).__init__(publisher_id, event_type=EventType.Message, content=content, counter=counter)
+        self._msg = message
+
+    def get_event_id(self):
+        return uuid.UUID(self._id).int % 1000000
+
+    def get_message(self):
+        return self._msg
+
+    def to_json(self, strip=False):
+        ret = super(MessageEvent, self).to_json()
+        if not strip:
+            ret['message'] = self._msg
         return ret

@@ -33,6 +33,7 @@ class Sections:
     EventBus = 'eventbus'
     Cache = 'cache'
     Archiver = 'archiver'
+    Coordinator = 'coordinator'
 
 
 class HTTP_STATUS_CODE:
@@ -297,6 +298,12 @@ class ContentLocking(IDDSEnum):
     Locking = 1
 
 
+class ContentFetchStatus(IDDSEnum):
+    New = 0
+    Fetching = 1
+    Fetched = 2
+
+
 class GranularityType(IDDSEnum):
     File = 0
     Event = 1
@@ -475,6 +482,12 @@ class CommandLocation(IDDSEnum):
     Conductor = 4
     Rest = 5
     Other = 6
+
+
+class ReturnCode(IDDSEnum):
+    Ok = 0
+    Failed = 255
+    Locked = 1
 
 
 def get_work_status_from_transform_processing_status(status):
