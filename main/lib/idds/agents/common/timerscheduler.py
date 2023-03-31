@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2020
+# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2023
 
 
 import heapq
@@ -15,6 +15,36 @@ import traceback
 from concurrent import futures
 
 from .timertask import TimerTask
+
+
+class IDDSThreadPoolExecutor(futures.ThreadPoolExecutor):
+    def __init__(self, max_workers=None, thread_name_prefix='',
+                 initializer=None, initargs=()):
+        self.futures = []
+        self._lock = threading.RLock()
+        super(IDDSThreadPoolExecutor, self).__init__(max_workers=max_workers,
+                                                     thread_name_prefix=thread_name_prefix,
+                                                     initializer=initializer,
+                                                     initargs=initargs)
+
+    def submit(self, fn, *args, **kwargs):
+        future = super(IDDSThreadPoolExecutor, self).submit(fn, *args, **kwargs)
+        with self._lock:
+            self.futures.append(future)
+        return future
+
+    def get_max_workers(self):
+        return self._max_workers
+
+    def get_num_workers(self):
+        with self._lock:
+            for future in self.futures.copy():
+                if future.done():
+                    self.futures.remove(future)
+            return len(self.futures)
+
+    def has_free_workers(self):
+        return self.get_num_workers() < self._max_workers
 
 
 class TimerScheduler(threading.Thread):
@@ -28,8 +58,8 @@ class TimerScheduler(threading.Thread):
         if self.num_threads < 1:
             self.num_threads = 1
         self.graceful_stop = threading.Event()
-        self.executors = futures.ThreadPoolExecutor(max_workers=self.num_threads,
-                                                    thread_name_prefix=name)
+        self.executors = IDDSThreadPoolExecutor(max_workers=self.num_threads,
+                                                thread_name_prefix=name)
 
         self._task_queue = []
         self._lock = threading.RLock()
