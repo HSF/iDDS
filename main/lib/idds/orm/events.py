@@ -45,7 +45,7 @@ def add_event(event, session=None):
                 old_event.merge(event)
                 if old_event.changed():
                     old_event_db['content']['event'] = old_event
-                    update_event(old_event, session=session)
+                    update_event(old_event.event_id, status=EventStatus.New, session=session)
                 merge = True
                 return None
         if not merge:
