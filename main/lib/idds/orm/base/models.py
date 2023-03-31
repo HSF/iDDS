@@ -28,7 +28,7 @@ from idds.common.constants import (RequestType, RequestStatus, RequestLocking,
                                    ProcessingStatus, ProcessingLocking,
                                    CollectionStatus, CollectionLocking, CollectionType,
                                    CollectionRelationType, ContentType, ContentRelationType,
-                                   ContentStatus, ContentLocking, GranularityType,
+                                   ContentStatus, ContentFetchStatus, ContentLocking, GranularityType,
                                    MessageType, MessageStatus, MessageLocking,
                                    MessageSource, MessageDestination,
                                    CommandType, CommandStatus, CommandLocking,
@@ -580,6 +580,7 @@ class Content_update(BASE, ModelBase):
     request_id = Column(BigInteger().with_variant(Integer, "sqlite"))
     transform_id = Column(BigInteger().with_variant(Integer, "sqlite"))
     workload_id = Column(Integer())
+    fetch_status = Column(EnumWithValue(ContentFetchStatus), default=0, nullable=False)
     coll_id = Column(BigInteger().with_variant(Integer, "sqlite"))
     content_metadata = Column(JSONString(100))
 
@@ -679,14 +680,15 @@ class Health(BASE, ModelBase):
                        Sequence('HEALTH_ID_SEQ', schema=DEFAULT_SCHEMA_NAME),
                        primary_key=True)
     agent = Column(String(30))
-    hostname = Column(String(127))
+    hostname = Column(String(500))
     pid = Column(Integer, autoincrement=False)
+    status = Column(EnumWithValue(HealthStatus), default=0, nullable=False)
     thread_id = Column(BigInteger, autoincrement=False)
     thread_name = Column(String(255))
-    payload = Column(String(255))
-    status = Column(EnumWithValue(HealthStatus), default=0, nullable=False)
+    payload = Column(String(2048))
     created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow)
     updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    payload = Column(String(2048))
     _table_args = (PrimaryKeyConstraint('health_id', name='HEALTH_PK'),
                    UniqueConstraint('agent', 'hostname', 'pid', 'thread_id', name='HEALTH_UK'))
 

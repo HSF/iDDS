@@ -50,13 +50,13 @@ def retrieve_health_items(session=None):
 
 
 @transactional_session
-def clean_health(older_than=3600, session=None):
+def clean_health(older_than=3600, hostname=None, pids=[], session=None):
     """
     Clearn items which is older than the time.
 
     :param older_than in seconds
     """
-    orm_health.clean_health(older_than=older_than, session=session)
+    orm_health.clean_health(older_than=older_than, hostname=hostname, pids=pids, session=session)
 
 
 @transactional_session
@@ -72,7 +72,7 @@ def select_agent(name, newer_than=3600, session=None):
     selected_agent_diff = None
     utc_now = datetime.datetime.utcnow()
     for health_item in health_items:
-        if health_item['agent'] != 'name':
+        if health_item['agent'] != name:
             continue
 
         updated_at = health_item['updated_at']
