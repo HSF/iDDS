@@ -477,10 +477,13 @@ class DomaPanDAWork(Work):
         self.task_name = self.task_name + "_" + str(self.get_request_id()) + "_" + str(self.get_work_id())
 
         in_files = []
+        has_dependencies = False
         if self.dependency_map is None:
             self.dependency_map = {}
         for job in self.dependency_map:
             in_files.append(job['name'])
+            if not has_dependencies and "dependencies" in job and job['dependencies']:
+                has_dependencies = True
 
         task_param_map = {}
         task_param_map['vo'] = self.vo
@@ -491,7 +494,8 @@ class DomaPanDAWork(Work):
         task_param_map['workingGroup'] = self.working_group
         task_param_map['nFilesPerJob'] = 1
         if in_files:
-            task_param_map['inputPreStaging'] = True
+            if has_dependencies:
+                task_param_map['inputPreStaging'] = True
             task_param_map['nFiles'] = len(in_files)
             task_param_map['noInput'] = True
             task_param_map['pfnList'] = in_files
@@ -932,7 +936,7 @@ class DomaPanDAWork(Work):
                 if content['substatus'] in [ContentStatus.Available]:
                     if 'panda_id' in content['content_metadata']:
                         finished_jobs.append(content['content_metadata']['panda_id'])
-                elif content['substatus'] in [ContentStatus.Failed, ContentStatus.FinalFailed,
+                elif content['substatus'] in [ContentStatus.FinalFailed,
                                               ContentStatus.Lost, ContentStatus.Deleted,
                                               ContentStatus.Missing]:
                     if 'panda_id' in content['content_metadata']:
