@@ -393,3 +393,9 @@ CREATE TABLE EVENTS_PRIORITY
 
 --- 2023.03.16
 alter table HEALTH add (status NUMBER(2));
+alter table contents_update add content_metadata CLOB;
+alter table health modify payload VARCHAR2(2048);
+
+
+--- 2023.03.29
+alter table contents_update add fetch_status NUMBER(2) DEFAULT 0;

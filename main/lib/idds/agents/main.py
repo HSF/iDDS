@@ -39,7 +39,8 @@ AGENTS = {
     'finisher': ['idds.agents.carrier.finisher.Finisher', Sections.Carrier],
     'conductor': ['idds.agents.conductor.conductor.Conductor', Sections.Conductor],
     'consumer': ['idds.agents.conductor.consumer.Consumer', Sections.Consumer],
-    'archiver': ['idds.agents.archive.archiver.Archiver', Sections.Archiver]
+    'archiver': ['idds.agents.archive.archiver.Archiver', Sections.Archiver],
+    'coordinator': ['idds.agents.coordinator.coordinator.Coordinator', Sections.Coordinator]
 }
 
 RUNNING_AGENTS = []
