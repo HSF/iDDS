@@ -970,6 +970,32 @@ def handle_update_processing(processing, agent_attributes, logger=None, log_pref
     return process_status, new_contents, new_input_dependency_contents, ret_msgs, content_updates + content_updates_missing, parameters, new_contents_ext, update_contents_ext
 
 
+def get_transform_id_dependency_map(transform_id, logger=None, log_prefix=''):
+    cache = get_redis_cache()
+    transform_id_dependcy_map_key = "transform_id_dependcy_map_%s" % transform_id
+    transform_id_dependcy_map = cache.get(transform_id_dependcy_map_key, default=[])
+    return transform_id_dependcy_map
+
+
+def set_transform_id_dependency_map(transform_id, transform_id_dependcy_map, logger=None, log_prefix=''):
+    cache = get_redis_cache()
+    transform_id_dependcy_map_key = "transform_id_dependcy_map_%s" % transform_id
+    cache.set(transform_id_dependcy_map_key, transform_id_dependcy_map)
+
+
+def get_updated_transforms_by_content_status(request_id=None, transform_id=None, logger=None, log_prefix=''):
+    logger = get_logger(logger)
+    logger.debug("get_updated_transforms_by_content_status starts")
+
+    update_transforms = get_transform_id_dependency_map(transform_id=transform_id, logger=logger, log_prefix=log_prefix)
+    if not update_transforms:
+        update_transforms = core_catalog.get_updated_transforms_by_content_status(request_id=request_id,
+                                                                                  transform_id=transform_id)
+        set_transform_id_dependency_map(transform_id, update_transforms, logger=logger, log_prefix=log_prefix)
+    logger.debug("get_updated_transforms_by_content_status ends")
+    return update_transforms
+
+
 def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=False, logger=None, log_prefix=''):
     logger = get_logger(logger)
 
@@ -995,18 +1021,20 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
             pass
 
         logger.debug(log_prefix + "sync contents_update to contents")
-        contents_update_list = core_catalog.get_contents_update(request_id=request_id, transform_id=transform_id)
+        core_catalog.set_fetching_contents_update(request_id=request_id, transform_id=transform_id, fetch=True)
+        contents_update_list = core_catalog.get_contents_update(request_id=request_id, transform_id=transform_id, fetch=True)
         new_contents_update_list = []
-        contents_id_list = []
+        # contents_id_list = []
         for con in contents_update_list:
             con_dict = {'content_id': con['content_id'],
                         'substatus': con['substatus']}
             if 'content_metadata' in con and con['content_metadata']:
                 con_dict['content_metadata'] = con['content_metadata']
             new_contents_update_list.append(con_dict)
-            contents_id_list.append(con['content_id'])
+            # contents_id_list.append(con['content_id'])
         core_catalog.update_contents(new_contents_update_list)
-        core_catalog.delete_contents_update(contents_id_list)
+        # core_catalog.delete_contents_update(contents=contents_id_list)
+        core_catalog.delete_contents_update(request_id=request_id, transform_id=transform_id, fetch=True)
         logger.debug(log_prefix + "sync contents_update to contents done")
 
         logger.debug(log_prefix + "update_contents_from_others_by_dep_id")
@@ -1036,6 +1064,11 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
 
         content_updates = content_updates + updated_contents
 
+        if content_updates or new_update_contents:
+            ret_update_transforms = get_updated_transforms_by_content_status(request_id=request_id,
+                                                                             transform_id=transform_id,
+                                                                             logger=logger,
+                                                                             log_prefix=log_prefix)
     # update_dep_contents_status_name = {}
     # update_dep_contents_status = {}
     # for content in new_update_contents:
@@ -1166,12 +1199,17 @@ def get_workload_id_transform_id_map(workload_id, logger=None, log_prefix=''):
     return workload_id_transform_id_map[workload_id_str]
 
 
+content_id_lock = threading.Lock()
+
+
 def get_input_name_content_id_map(request_id, workload_id, transform_id):
     cache = get_redis_cache()
     input_name_content_id_map_key = "transform_input_contentid_map_%s" % transform_id
     input_name_content_id_map = cache.get(input_name_content_id_map_key, default={})
 
     if not input_name_content_id_map:
+        content_id_lock.acquire()
+
         contents = core_catalog.get_contents_by_request_transform(request_id=request_id, transform_id=transform_id)
         input_name_content_id_map = {}
         for content in contents:
@@ -1179,6 +1217,8 @@ def get_input_name_content_id_map(request_id, workload_id, transform_id):
                 input_name_content_id_map[content['name']] = content['content_id']
 
         cache.set(input_name_content_id_map_key, input_name_content_id_map)
+
+        content_id_lock.release()
     return input_name_content_id_map
 
 
@@ -1288,12 +1328,12 @@ def handle_messages_processing(messages, logger=None, log_prefix='', update_proc
         if 'taskid' not in msg or not msg['taskid']:
             continue
 
-        logger.debug(log_prefix + "Received message: %s" % str(ori_msg))
-
         if msg['msg_type'] in ['task_status']:
             workload_id = msg['taskid']
             status = msg['status']
-            if status in ['pending']:   # 'prepared'
+            if status in ['pending1']:   # 'prepared'
+                logger.debug(log_prefix + "Received message: %s" % str(ori_msg))
+
                 ret_req_tf_pr_id = get_workload_id_transform_id_map(workload_id, logger=logger, log_prefix=log_prefix)
                 if not ret_req_tf_pr_id:
                     # request is submitted by some other instances
@@ -1310,6 +1350,8 @@ def handle_messages_processing(messages, logger=None, log_prefix='', update_proc
                 else:
                     logger.debug(log_prefix + "Processing %s is already processed, not add it to update processing" % (str(processing_id)))
             elif status in ['finished', 'done']:
+                logger.debug(log_prefix + "Received message: %s" % str(ori_msg))
+
                 ret_req_tf_pr_id = get_workload_id_transform_id_map(workload_id, logger=logger, log_prefix=log_prefix)
                 if not ret_req_tf_pr_id:
                     # request is submitted by some other instances
@@ -1329,6 +1371,8 @@ def handle_messages_processing(messages, logger=None, log_prefix='', update_proc
             status = msg['status']
             inputs = msg['inputs']
             if inputs and status in ['finished']:
+                logger.debug(log_prefix + "Received message: %s" % str(ori_msg))
+
                 ret_req_tf_pr_id = get_workload_id_transform_id_map(workload_id, logger=logger, log_prefix=log_prefix)
                 if not ret_req_tf_pr_id:
                     # request is submitted by some other instances
@@ -1367,7 +1411,7 @@ def handle_messages_processing(messages, logger=None, log_prefix='', update_proc
 
 
 def sync_collection_status(request_id, transform_id, workload_id, work, input_output_maps=None,
-                           close_collection=False, force_close_collection=False, terminate=False):
+                           close_collection=False, force_close_collection=False, abort=False, terminate=False):
     if input_output_maps is None:
         input_output_maps = get_input_output_maps(transform_id, work)
 
@@ -1416,7 +1460,8 @@ def sync_collection_status(request_id, transform_id, workload_id, work, input_ou
                                      ContentStatus.Available.value, ContentStatus.Mapped.value,
                                      ContentStatus.FakeAvailable, ContentStatus.FakeAvailable.value]:
                 coll_status[content['coll_id']]['processed_ext_files'] += 1
-            elif content['status'] in [ContentStatus.Failed, ContentStatus.FinalFailed]:
+            # elif content['status'] in [ContentStatus.Failed, ContentStatus.FinalFailed]:
+            elif content['status'] in [ContentStatus.FinalFailed]:
                 coll_status[content['coll_id']]['failed_ext_files'] += 1
             elif content['status'] in [ContentStatus.Lost, ContentStatus.Deleted, ContentStatus.Missing]:
                 coll_status[content['coll_id']]['missing_ext_files'] += 1
@@ -1481,16 +1526,26 @@ def sync_collection_status(request_id, transform_id, workload_id, work, input_ou
                     messages += msgs
 
         if terminate:
-            if coll in output_collections and work.require_ext_contents():
-                if coll.processed_files == coll.processed_ext_files and coll.failed_files == coll.failed_ext_files:
+            all_files_monitored = False
+            if coll.total_files == coll.processed_files + coll.failed_files + coll.missing_files:
+                all_files_monitored = True
+
+            if abort:
+                u_coll['status'] = CollectionStatus.Closed
+                u_coll['substatus'] = CollectionStatus.Closed
+                coll.status = CollectionStatus.Closed
+                coll.substatus = CollectionStatus.Closed
+            elif coll in output_collections:
+                if (not work.require_ext_contents() or (work.require_ext_contents()
+                    and coll.processed_files == coll.processed_ext_files and coll.failed_files == coll.failed_ext_files)):     # noqa E129, W503
                     all_ext_updated = True
-                if (force_close_collection or (close_collection and all_updates_flushed and all_ext_updated)
+                if (force_close_collection or (close_collection and all_updates_flushed and all_ext_updated and all_files_monitored)
                    or coll.status == CollectionStatus.Closed):        # noqa W503
                     u_coll['status'] = CollectionStatus.Closed
                     u_coll['substatus'] = CollectionStatus.Closed
                     coll.status = CollectionStatus.Closed
                     coll.substatus = CollectionStatus.Closed
-            elif force_close_collection or close_collection and all_updates_flushed or coll.status == CollectionStatus.Closed:
+            elif force_close_collection or (close_collection and all_updates_flushed and all_files_monitored) or coll.status == CollectionStatus.Closed:
                 u_coll['status'] = CollectionStatus.Closed
                 u_coll['substatus'] = CollectionStatus.Closed
                 coll.status = CollectionStatus.Closed
@@ -1526,7 +1581,7 @@ def sync_work_status(request_id, transform_id, workload_id, work):
             work.status = WorkStatus.SubFinished
 
 
-def sync_processing(processing, agent_attributes, terminate=False, logger=None, log_prefix=""):
+def sync_processing(processing, agent_attributes, terminate=False, abort=False, logger=None, log_prefix=""):
     logger = get_logger()
 
     request_id = processing['request_id']
@@ -1541,7 +1596,7 @@ def sync_processing(processing, agent_attributes, terminate=False, logger=None, 
     input_output_maps = get_input_output_maps(transform_id, work)
     update_collections, all_updates_flushed, msgs = sync_collection_status(request_id, transform_id, workload_id, work,
                                                                            input_output_maps=input_output_maps,
-                                                                           close_collection=True, terminate=terminate)
+                                                                           close_collection=True, abort=abort, terminate=terminate)
 
     messages += msgs
 
@@ -1551,8 +1606,8 @@ def sync_processing(processing, agent_attributes, terminate=False, logger=None, 
         msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='work')
         messages += msgs
         if work.is_finished():
-            # processing['status'] = ProcessingStatus.Finished
-            processing['status'] = processing['substatus']
+            processing['status'] = ProcessingStatus.Finished
+            # processing['status'] = processing['substatus']
         elif work.is_subfinished():
             processing['status'] = ProcessingStatus.SubFinished
         elif work.is_failed():
@@ -1597,7 +1652,7 @@ def handle_abort_processing(processing, agent_attributes, logger=None, log_prefi
     # for coll in input_collections + output_collections + log_collections:
     #     coll.status = CollectionStatus.Closed
     #     coll.substatus = CollectionStatus.Closed
-    processing, update_collections, messages = sync_processing(processing, agent_attributes, terminate=True, logger=logger, log_prefix=log_prefix)
+    processing, update_collections, messages = sync_processing(processing, agent_attributes, terminate=True, abort=True, logger=logger, log_prefix=log_prefix)
     update_contents = []
 
     # processing['status'] = ProcessingStatus.Cancelled
