@@ -138,6 +138,7 @@ class Conductor(BaseAgent):
         """
         try:
             self.logger.info("Starting main thread")
+            self.init_thread_info()
             self.load_plugins()
 
             self.add_default_tasks()
@@ -148,7 +149,7 @@ class Conductor(BaseAgent):
 
             while not self.graceful_stop.is_set():
                 # execute timer task
-                self.execute_once()
+                self.execute_schedules()
 
                 try:
                     num_contents = 0

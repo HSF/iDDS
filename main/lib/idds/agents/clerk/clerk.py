@@ -14,7 +14,8 @@ import time
 import traceback
 
 from idds.common import exceptions
-from idds.common.constants import (Sections, RequestStatus, RequestLocking,
+from idds.common.constants import (Sections, ReturnCode,
+                                   RequestStatus, RequestLocking,
                                    TransformStatus, CommandType,
                                    CommandStatus, CommandLocking)
 from idds.common.utils import setup_logging, truncate_string
@@ -775,18 +776,21 @@ class Clerk(BaseAgent):
 
     def process_update_request(self, event):
         self.number_workers += 1
+        pro_ret = ReturnCode.Ok.value
         try:
             if event:
-                req_status = [RequestStatus.Transforming, RequestStatus.ToCancel, RequestStatus.Cancelling,
-                              RequestStatus.ToSuspend, RequestStatus.Suspending,
-                              RequestStatus.ToExpire, RequestStatus.Expiring,
-                              RequestStatus.ToFinish, RequestStatus.ToForceFinish,
-                              RequestStatus.ToResume, RequestStatus.Resuming,
-                              RequestStatus.Building]
+                # req_status = [RequestStatus.Transforming, RequestStatus.ToCancel, RequestStatus.Cancelling,
+                #               RequestStatus.ToSuspend, RequestStatus.Suspending,
+                #               RequestStatus.ToExpire, RequestStatus.Expiring,
+                #               RequestStatus.ToFinish, RequestStatus.ToForceFinish,
+                #               RequestStatus.ToResume, RequestStatus.Resuming,
+                #               RequestStatus.Building]
 
-                req = self.get_request(request_id=event._request_id, status=req_status, locking=True)
+                # req = self.get_request(request_id=event._request_id, status=req_status, locking=True)
+                req = self.get_request(request_id=event._request_id, locking=True)
                 if not req:
                     self.logger.error("Cannot find request for event: %s" % str(event))
+                    pro_ret = ReturnCode.Locked.value
                 else:
                     log_pre = self.get_log_prefix(req)
                     ret = self.handle_update_request(req, event=event)
@@ -802,7 +806,9 @@ class Clerk(BaseAgent):
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
+            pro_ret = ReturnCode.Failed.value
         self.number_workers -= 1
+        return pro_ret
 
     def handle_abort_request(self, req, event):
         """
@@ -866,11 +872,13 @@ class Clerk(BaseAgent):
 
     def process_abort_request(self, event):
         self.number_workers += 1
+        pro_ret = ReturnCode.Ok.value
         try:
             if event:
                 req = self.get_request(request_id=event._request_id, locking=True)
                 if not req:
                     self.logger.error("Cannot find request for event: %s" % str(event))
+                    pro_ret = ReturnCode.Locked.value
                 else:
                     log_pre = self.get_log_prefix(req)
                     self.logger.info(log_pre + "process_abort_request event: %s" % str(event))
@@ -923,10 +931,13 @@ class Clerk(BaseAgent):
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
             self.handle_command(event, cmd_status=CommandStatus.Processed, errors=str(ex))
+            pro_ret = ReturnCode.Failed.value
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
+            pro_ret = ReturnCode.Failed.value
         self.number_workers -= 1
+        return pro_ret
 
     def handle_resume_request(self, req):
         """
@@ -960,11 +971,13 @@ class Clerk(BaseAgent):
 
     def process_resume_request(self, event):
         self.number_workers += 1
+        pro_ret = ReturnCode.Ok.value
         try:
             if event:
                 req = self.get_request(request_id=event._request_id, locking=True)
                 if not req:
                     self.logger.error("Cannot find request for event: %s" % str(event))
+                    pro_ret = ReturnCode.Locked.value
                 else:
                     log_pre = self.get_log_prefix(req)
                     self.logger.info(log_pre + "process_resume_request event: %s" % str(event))
@@ -1003,7 +1016,9 @@ class Clerk(BaseAgent):
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
+            pro_ret = ReturnCode.Failed.value
         self.number_workers -= 1
+        return pro_ret
 
     def clean_locks(self):
         self.logger.info("clean locking")
@@ -1039,6 +1054,7 @@ class Clerk(BaseAgent):
         """
         try:
             self.logger.info("Starting main thread")
+            self.init_thread_info()
 
             self.load_plugins()
 

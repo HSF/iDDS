@@ -56,6 +56,7 @@ class Archiver(BaseAgent):
         """
         try:
             self.logger.info("Starting main thread")
+            self.init_thread_info()
 
             self.add_default_tasks()
 
