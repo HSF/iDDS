@@ -683,18 +683,28 @@ def add_contents_update(contents, bulk_size=10000, session=None):
     return orm_contents.add_contents_update(contents, bulk_size=bulk_size, session=session)
 
 
+@transactional_session
+def set_fetching_contents_update(request_id=None, transform_id=None, fetch=False, session=None):
+    """
+    Set fetching contents update.
+
+    :param session: session.
+    """
+    return orm_contents.set_fetching_contents_update(request_id=request_id, transform_id=transform_id, fetch=fetch, session=session)
+
+
 @read_session
-def get_contents_update(request_id=None, transform_id=None, session=None):
+def get_contents_update(request_id=None, transform_id=None, fetch=False, session=None):
     """
     Get contents update.
 
     :param session: session.
     """
-    return orm_contents.get_contents_update(request_id=request_id, transform_id=transform_id, session=session)
+    return orm_contents.get_contents_update(request_id=request_id, transform_id=transform_id, fetch=fetch, session=session)
 
 
 @transactional_session
-def delete_contents_update(request_id=None, transform_id=None, contents=[], session=None):
+def delete_contents_update(request_id=None, transform_id=None, contents=[], fetch=False, session=None):
     """
     delete a content.
 
@@ -703,7 +713,7 @@ def delete_contents_update(request_id=None, transform_id=None, contents=[], sess
     :raises NoObject: If no content is founded.
     :raises DatabaseException: If there is a database error.
     """
-    return orm_contents.delete_contents_update(request_id=request_id, transform_id=transform_id, contents=contents, session=session)
+    return orm_contents.delete_contents_update(request_id=request_id, transform_id=transform_id, contents=contents, fetch=fetch, session=session)
 
 
 def get_contents_ext_maps():
