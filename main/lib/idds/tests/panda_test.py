@@ -104,7 +104,8 @@ task_ids = []
 # task_ids = [i for i in range(150050, 150065)]
 # task_ids = [150607, 150619, 150649, 150637, 150110, 150111]
 # task_ids = [150864, 150897, 150910]
-task_ids = [151114, 151115]
+# task_ids = [151114, 151115]
+task_ids = [i for i in range(151444, 151453)]
 # task_ids = []
 for task_id in task_ids:
     print("Killing %s" % task_id)

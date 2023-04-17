@@ -30,9 +30,10 @@ class Coordinator(BaseAgent):
     """
 
     def __init__(self, num_threads=1, coordination_interval_delay=300,
-                 interval_delay=30, max_queued_events=5,
+                 interval_delay=30, max_queued_events=10,
                  max_total_files_for_small_task=1000,
                  interval_delay_for_big_task=300,
+                 max_boost_interval_delay=3,
                  show_queued_events_time_interval=300, **kwargs):
         super(Coordinator, self).__init__(num_threads=num_threads, name='Coordinator', **kwargs)
         self.config_section = Sections.Coordinator
@@ -56,6 +57,7 @@ class Coordinator(BaseAgent):
             self.interval_delay = int(self.interval_delay)
         else:
             self.interval_delay = 30
+        self.max_boost_interval_delay = int(max_boost_interval_delay)
         self.max_queued_events = max_queued_events
         if self.max_queued_events:
             self.max_queued_events = int(self.max_queued_events)
@@ -126,6 +128,7 @@ class Coordinator(BaseAgent):
             priority = EventPriority.Low
 
         total_queued_events = self.accounts.get(event._event_type, {}).get('total_queued_events', 0)
+        # total_processed_events = self.accounts.get(event._event_type, {}).get('total_processed_events', 0)
         total_files = self.report.get(event.get_event_id(), {}).get("total_files", None)
         processed_files = self.report.get(event.get_event_id(), {}).get("processed_files", None)
         # lack_events = self.accounts.get(event._event_type, {}).get('lack_events', False)
@@ -140,7 +143,8 @@ class Coordinator(BaseAgent):
         if big_task and not to_finish:
             interval_delay = self.interval_delay_for_big_task
         elif total_queued_events and total_queued_events > self.max_queued_events:
-            interval_delay = self.interval_delay ** (total_queued_events * 1.0 / self.max_queued_events)
+            boost_times = 2 * min(int(total_queued_events * 1.0 / self.max_queued_events), self.max_boost_interval_delay)
+            interval_delay = self.interval_delay * boost_times
         else:
             interval_delay = self.interval_delay
         scheduled_time = self.get_schedule_time(event, interval_delay)
@@ -197,7 +201,7 @@ class Coordinator(BaseAgent):
                 self.events_ids[event.get_event_id()].append(event._id)
 
                 if event._event_type not in self.accounts:
-                    self.accounts[event._event_type] = {'total_queued_events': 1, 'lack_events': False}
+                    self.accounts[event._event_type] = {'total_queued_events': 1, 'total_processed_events': 0, 'lack_events': False}
                 else:
                     self.accounts[event._event_type]['total_queued_events'] += 1
 
@@ -216,6 +220,7 @@ class Coordinator(BaseAgent):
 
                             if event._event_type in self.accounts:
                                 self.accounts[event._event_type]['total_queued_events'] -= 1
+                                self.accounts[event._event_type]['total_processed_events'] += 1
 
                             self.logger.debug("Get event %s" % (event.to_json(strip=True)))
                             return event
@@ -264,6 +269,7 @@ class Coordinator(BaseAgent):
         if self.show_queued_events_time is None or self.show_queued_events_time + self.show_queued_events_time_interval < time.time():
             self.show_queued_events_time = time.time()
             for event_type in self.events_index:
+                self.logger.info("Number of events has processed: %s: %s" % (event_type.name, self.accounts.get(event_type, {}).get('total_processed_events', None)))
                 for prio in self.events_index[event_type]:
                     self.logger.info("Number of queued events: %s %s: %s" % (event_type.name, prio.name, len(self.events_index[event_type][prio])))
 
