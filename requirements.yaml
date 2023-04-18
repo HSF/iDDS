@@ -29,3 +29,4 @@ dependencies:
   - redis
   - alembic
   - deepdiff
+  - pyzmq
