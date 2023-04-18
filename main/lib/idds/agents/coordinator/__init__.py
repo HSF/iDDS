@@ -6,6 +6,4 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2023
-
-from idds.common.event import *     # noqa F401 F403
+# - Wen Guan, <wen.guan@cern.ch>, 2019

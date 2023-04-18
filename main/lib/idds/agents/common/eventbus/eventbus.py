@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2022
+# - Wen Guan, <wen.guan@cern.ch>, 2022 - 2023
 
 import logging
 import uuid
@@ -14,7 +14,10 @@ import uuid
 from idds.common.constants import Sections
 from idds.common.config import config_has_section, config_list_options
 
-from .localeventbusbackend import LocalEventBusBackend
+# from .localeventbusbackend import LocalEventBusBackend
+from .baseeventbusbackendopt import BaseEventBusBackendOpt
+from .dbeventbusbackend import DBEventBusBackend
+from .msgeventbusbackend import MsgEventBusBackend
 
 
 class Singleton(object):
@@ -41,12 +44,36 @@ class EventBus(Singleton):
             self.setup_logger(logger)
             self.config_section = Sections.EventBus
             attrs = self.load_attributes()
-            if 'backend' in attrs and attrs['backend'] == 'message':
-                # ToBeDone
-                # self.backend = MsgEventBusBackend(**attrs)
-                pass
-            else:
-                self.backend = LocalEventBusBackend(logger=self.logger, **attrs)
+            self.attrs = attrs
+            self._backend = None
+            self._orig_backend = None
+            if 'backend' in attrs:
+                if attrs['backend'] == 'message':
+                    self.backend = MsgEventBusBackend(logger=self.logger, **attrs)
+                elif attrs['backend'] == "database":
+                    if 'to_archive' not in attrs:
+                        attrs['to_archive'] = True
+                    self.backend = DBEventBusBackend(**attrs)
+            if self.backend is None:
+                self.backend = BaseEventBusBackendOpt(logger=self.logger, **attrs)
+            self.logger.info("EventBus backend : %s" % self.backend)
+            self.backend.start()
+
+    @property
+    def backend(self):
+        if self._backend and isinstance(self._backend, MsgEventBusBackend) and not self._backend.is_ok():
+            self._orig_backend = self._backend
+            self._backend = BaseEventBusBackendOpt(logger=self.logger, **self.attrs)
+            self.logger.critical("MsgEventBusBackend failed, switch to use BaseEventBusBackendOpt")
+        elif self._orig_backend and isinstance(self._orig_backend, MsgEventBusBackend) and self._orig_backend.is_ok():
+            self.logger.critical("MsgEventBusBackend is ok, switch back to use it")
+            self._backend = self._orig_backend
+            self._orig_backend = None
+        return self._backend
+
+    @backend.setter
+    def backend(self, value):
+        self._backend = value
 
     def setup_logger(self, logger=None):
         """
@@ -86,6 +113,27 @@ class EventBus(Singleton):
 
     def send(self, event):
         return self.publish_event(event)
+
+    def send_report(self, event, status, start_time, end_time, source, result):
+        return self.backend.send_report(event, status, start_time, end_time, source, result)
+
+    def clean_event(self, event):
+        self.backend.clean_event(event)
+
+    def fail_event(self, event):
+        self.backend.fail_event(event)
+
+    def set_manager(self, manager):
+        self.backend.set_manager(manager)
+
+    def get_manager(self):
+        return self.backend.get_manager()
+
+    def get_coordinator(self):
+        return self.backend.get_coordinator()
+
+    def set_coordinator(self, coordinator):
+        self.backend.set_coordinator(coordinator)
 
     def stop(self):
         self.backend.stop()

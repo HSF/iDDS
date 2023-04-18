@@ -160,7 +160,6 @@ def get_request_ids_by_workload_id(workload_id, session=None):
 
     try:
         query = session.query(models.Request.request_id)\
-                       .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_SCOPE_NAME_IDX)", 'oracle')\
                        .filter(models.Request.workload_id == workload_id)
         tmp = query.all()
         ret_ids = []
@@ -186,7 +185,6 @@ def get_request_ids_by_name(name, session=None):
     """
     try:
         query = session.query(models.Request.request_id, models.Request.name)\
-                       .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_SCOPE_NAME_IDX)", "oracle")\
                        .filter(models.Request.name.like(name.replace('*', '%')))
         tmp = query.all()
         ret_ids = {}
@@ -232,8 +230,8 @@ def get_request(request_id, to_json=False, session=None):
     """
 
     try:
-        query = session.query(models.Request).with_hint(models.Request, "INDEX(REQUESTS REQUESTS_SCOPE_NAME_IDX)", 'oracle')\
-                                             .filter(models.Request.request_id == request_id)
+        query = session.query(models.Request)\
+                       .filter(models.Request.request_id == request_id)
 
         ret = query.first()
         if not ret:
@@ -264,8 +262,8 @@ def get_request_by_id_status(request_id, status=None, locking=False, session=Non
     """
 
     try:
-        query = session.query(models.Request).with_hint(models.Request, "INDEX(REQUESTS REQUESTS_PK)", 'oracle')\
-                                             .filter(models.Request.request_id == request_id)
+        query = session.query(models.Request)\
+                       .filter(models.Request.request_id == request_id)
 
         if status:
             if not isinstance(status, (list, tuple)):
@@ -305,8 +303,7 @@ def get_requests(request_id=None, workload_id=None, with_detail=False, with_meta
     try:
         if with_request or not (with_transform or with_processing or with_detail or with_metadata):
             if with_metadata:
-                query = session.query(models.Request)\
-                               .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_SCOPE_NAME_IDX)", 'oracle')
+                query = session.query(models.Request)
 
                 if request_id:
                     query = query.filter(models.Request.request_id == request_id)
@@ -342,8 +339,7 @@ def get_requests(request_id=None, workload_id=None, with_detail=False, with_meta
                                       models.Request.next_poll_at,
                                       models.Request.accessed_at,
                                       models.Request.expired_at,
-                                      models.Request.errors)\
-                               .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_SCOPE_NAME_IDX)", 'oracle')
+                                      models.Request.errors)
 
                 if request_id:
                     query = query.filter(models.Request.request_id == request_id)
@@ -767,7 +763,6 @@ def get_requests_by_requester(scope, name, requester, to_json=False, session=Non
 
     try:
         query = session.query(models.Request)\
-                       .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_SCOPE_NAME_IDX)", 'oracle')\
                        .filter(models.Request.requester == requester)\
                        .filter(models.Request.scope == scope)\
                        .filter(models.Request.name.like(name.replace('*', '%')))
@@ -810,11 +805,9 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, req
                 status = [status[0], status[0]]
 
         if only_return_id:
-            query = session.query(models.Request.request_id)\
-                           .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_SCOPE_NAME_IDX)", 'oracle')
+            query = session.query(models.Request.request_id)
         else:
-            query = session.query(models.Request)\
-                           .with_hint(models.Request, "INDEX(REQUESTS REQUESTS_SCOPE_NAME_IDX)", 'oracle')
+            query = session.query(models.Request)
 
         if status:
             if by_substatus:
@@ -962,3 +955,29 @@ def clean_next_poll_at(status, session=None):
     params = {'next_poll_at': datetime.datetime.utcnow()}
     session.query(models.Request).filter(models.Request.status.in_(status))\
            .update(params, synchronize_session=False)
+
+
+@read_session
+def get_last_request_id(status, older_than=None, session=None):
+    """
+    Get last request id which is older than a timestamp.
+
+    :param status: status of the request.
+    :param older_than: days older than current timestamp.
+
+    :returns request_id
+    """
+    if not isinstance(status, (list, tuple)):
+        status = [status]
+    if len(status) == 1:
+        status = [status[0], status[0]]
+
+    query = session.query(models.Request.request_id)
+    if status:
+        query = query.filter(models.Request.status.in_(status))
+    query = query.filter(models.Request.updated_at <= datetime.datetime.utcnow() - datetime.timedelta(days=older_than))
+    query = query.order_by(desc(models.Request.request_id))
+    ret = query.first()
+    if ret:
+        return ret[0]
+    return ret

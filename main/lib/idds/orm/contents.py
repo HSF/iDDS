@@ -23,7 +23,7 @@ from sqlalchemy.sql.expression import asc
 
 from idds.common import exceptions
 from idds.common.constants import (ContentType, ContentStatus, ContentLocking,
-                                   ContentRelationType)
+                                   ContentFetchStatus, ContentRelationType)
 from idds.orm.base.session import read_session, transactional_session
 from idds.orm.base import models
 
@@ -193,14 +193,12 @@ def get_content(content_id=None, coll_id=None, scope=None, name=None, content_ty
         else:
             if content_type in [ContentType.File, ContentType.File.value]:
                 query = session.query(models.Content)\
-                               .with_hint(models.Content, "INDEX(CONTENTS CONTENTS_ID_NAME_IDX)", 'oracle')\
                                .filter(models.Content.coll_id == coll_id)\
                                .filter(models.Content.scope == scope)\
                                .filter(models.Content.name == name)\
                                .filter(models.Content.content_type == content_type)
             else:
                 query = session.query(models.Content)\
-                               .with_hint(models.Content, "INDEX(CONTENTS CONTENTS_ID_NAME_IDX)", 'oracle')\
                                .filter(models.Content.coll_id == coll_id)\
                                .filter(models.Content.scope == scope)\
                                .filter(models.Content.name == name)\
@@ -246,7 +244,6 @@ def get_match_contents(coll_id, scope, name, content_type=None, min_id=None, max
 
     try:
         query = session.query(models.Content)\
-                       .with_hint(models.Content, "INDEX(CONTENTS CONTENTS_ID_NAME_IDX)", 'oracle')\
                        .filter(models.Content.coll_id == coll_id)\
                        .filter(models.Content.scope == scope)\
                        .filter(models.Content.name.like(name.replace('*', '%')))
@@ -305,7 +302,6 @@ def get_contents(scope=None, name=None, transform_id=None, coll_id=None, status=
                 coll_id = [coll_id[0], coll_id[0]]
 
         query = session.query(models.Content)
-        query = query.with_hint(models.Content, "INDEX(CONTENTS CONTENTS_ID_NAME_IDX)", 'oracle')
 
         if transform_id:
             query = query.filter(models.Content.transform_id == transform_id)
@@ -360,7 +356,6 @@ def get_contents_by_request_transform(request_id=None, transform_id=None, worklo
                 status = [status]
 
         query = session.query(models.Content)
-        query = query.with_hint(models.Content, "INDEX(CONTENTS CONTENTS_REQ_TF_COLL_IDX)", 'oracle')
         if request_id:
             query = query.filter(models.Content.request_id == request_id)
         if transform_id:
@@ -398,7 +393,6 @@ def get_content_status_statistics(coll_id=None, session=None):
     """
     try:
         query = session.query(models.Content.status, func.count(models.Content.content_id))
-        query = query.with_hint(models.Content, "INDEX(CONTENTS CONTENTS_ID_NAME_IDX)", 'oracle')
         if coll_id:
             query = query.filter(models.Content.coll_id == coll_id)
         query = query.group_by(models.Content.status)
@@ -472,7 +466,7 @@ def update_dep_contents(request_id, content_dep_ids, status, bulk_size=10000, se
         params = {'substatus': status}
         chunks = [content_dep_ids[i:i + bulk_size] for i in range(0, len(content_dep_ids), bulk_size)]
         for chunk in chunks:
-            session.query(models.Content).with_hint(models.Content, "INDEX(CONTENTS CONTENTS_DEP_IDX)", "oracle")\
+            session.query(models.Content)\
                    .filter(models.Content.request_id == request_id)\
                    .filter(models.Content.content_id.in_(chunk))\
                    .update(params, synchronize_session=False)
@@ -528,7 +522,45 @@ def update_contents_from_others_by_dep_id(request_id=None, transform_id=None, se
 
 
 @read_session
-def get_updated_transforms_by_content_status(request_id=None, transform_id=None, session=None):
+def get_update_contents_from_others_by_dep_id(request_id=None, transform_id=None, session=None):
+    """
+    Get contents to update from others by content_dep_id
+
+    :param request_id: The Request id.
+    :param transfomr_id: The transform id.
+    """
+    try:
+        subquery = session.query(models.Content.content_id,
+                                 models.Content.substatus)
+        if request_id:
+            subquery = subquery.filter(models.Content.request_id == request_id)
+        subquery = subquery.filter(models.Content.content_relation_type == 1)\
+                           .filter(models.Content.substatus != ContentStatus.New)
+        subquery = subquery.subquery()
+
+        query = session.query(models.Content.content_id,
+                              subquery.c.substatus)
+        if request_id:
+            query = query.filter(models.Content.request_id == request_id)
+        if transform_id:
+            query = query.filter(models.Content.transform_id == transform_id)
+        query = query.filter(models.Content.content_relation_type == 3)
+        query = query.join(subquery, and_(models.Content.content_dep_id == subquery.c.content_id,
+                                          models.Content.substatus != subquery.c.substatus))
+
+        tmp = query.distinct()
+        rets = []
+        if tmp:
+            for t in tmp:
+                t2 = dict(zip(t.keys(), t))
+                rets.append(t2)
+        return rets
+    except Exception as ex:
+        raise ex
+
+
+@read_session
+def get_updated_transforms_by_content_status(request_id=None, transform_id=None, check_substatus=False, session=None):
     """
     Get updated transform ids by content status
 
@@ -539,7 +571,7 @@ def get_updated_transforms_by_content_status(request_id=None, transform_id=None,
     try:
         subquery = session.query(models.Content.content_id,
                                  models.Content.substatus)
-        subquery = subquery.with_hint(models.Content, "INDEX(CONTENTS CONTENTS_REQ_TF_COLL_IDX)", 'oracle')
+        # subquery = subquery.with_hint(models.Content, "INDEX(CONTENTS CONTENTS_REQ_TF_COLL_IDX)", 'oracle')
         if request_id:
             subquery = subquery.filter(models.Content.request_id == request_id)
         if transform_id:
@@ -551,14 +583,16 @@ def get_updated_transforms_by_content_status(request_id=None, transform_id=None,
                               models.Content.transform_id,
                               models.Content.workload_id,
                               models.Content.coll_id)
-        query = query.with_hint(models.Content, "INDEX(CONTENTS CONTENTS_REQ_TF_COLL_IDX)", 'oracle')
+        # query = query.with_hint(models.Content, "INDEX(CONTENTS CONTENTS_REQ_TF_COLL_IDX)", 'oracle')
 
         if request_id:
             query = query.filter(models.Content.request_id == request_id)
         query = query.filter(models.Content.content_relation_type == 3)
-        query = query.join(subquery, and_(models.Content.content_dep_id == subquery.c.content_id,
-                                          models.Content.substatus != subquery.c.substatus))
-
+        if check_substatus:
+            query = query.join(subquery, and_(models.Content.content_dep_id == subquery.c.content_id,
+                                              models.Content.substatus != subquery.c.substatus))
+        else:
+            query = query.join(subquery, and_(models.Content.content_dep_id == subquery.c.content_id))
         tmp = query.distinct()
 
         rets = []
@@ -654,7 +688,64 @@ def add_contents_update(contents, bulk_size=10000, session=None):
 
 
 @transactional_session
-def delete_contents_update(request_id=None, transform_id=None, session=None):
+def set_fetching_contents_update(request_id=None, transform_id=None, fetch=True, session=None):
+    """
+    Set fetching contents update.
+
+    :param session: session.
+    """
+    try:
+        if fetch:
+            query = session.query(models.Content_update)
+            if request_id:
+                query = query.filter(models.Content_update.request_id == request_id)
+            if transform_id:
+                query = query.filter(models.Content_update.transform_id == transform_id)
+            query.update({'fetch_status': ContentFetchStatus.Fetching})
+    except sqlalchemy.orm.exc.NoResultFound as error:
+        raise exceptions.NoObject('No record can be found with (transform_id=%s): %s' %
+                                  (transform_id, error))
+    except Exception as error:
+        raise error
+
+
+@read_session
+def get_contents_update(request_id=None, transform_id=None, fetch=False, session=None):
+    """
+    Get contents update.
+
+    :param session: session.
+    """
+    try:
+        if fetch:
+            query = session.query(models.Content_update)
+            if request_id:
+                query = query.filter(models.Content_update.request_id == request_id)
+            if transform_id:
+                query = query.filter(models.Content_update.transform_id == transform_id)
+            query = query.filter(models.Content_update.fetch_status == ContentFetchStatus.Fetching)
+        else:
+            query = session.query(models.Content_update)
+            if request_id:
+                query = query.filter(models.Content_update.request_id == request_id)
+            if transform_id:
+                query = query.filter(models.Content_update.transform_id == transform_id)
+
+        tmp = query.all()
+        rets = []
+        if tmp:
+            for t in tmp:
+                rets.append(t.to_dict())
+        return rets
+    except sqlalchemy.orm.exc.NoResultFound as error:
+        raise exceptions.NoObject('No record can be found with (transform_id=%s): %s' %
+                                  (transform_id, error))
+    except Exception as error:
+        raise error
+
+
+@transactional_session
+def delete_contents_update(request_id=None, transform_id=None, contents=[], bulk_size=1000, fetch=False, session=None):
     """
     delete a content.
 
@@ -664,13 +755,36 @@ def delete_contents_update(request_id=None, transform_id=None, session=None):
     :raises DatabaseException: If there is a database error.
     """
     try:
-        del_query = session.query(models.Content_update)
-        if request_id:
-            del_query = del_query.filter(models.Content_update.request_id == request_id)
-        if transform_id:
-            del_query = del_query.filter(models.Content_update.transform_id == transform_id)
-        del_query.with_for_update(nowait=True, skip_locked=True)
-        del_query.delete()
+        if fetch:
+            del_query = session.query(models.Content_update)
+            if request_id:
+                del_query = del_query.filter(models.Content_update.request_id == request_id)
+            if transform_id:
+                del_query = del_query.filter(models.Content_update.transform_id == transform_id)
+            del_query = del_query.filter(models.Content_update.fetch_status == ContentFetchStatus.Fetching)
+            del_query.delete()
+        else:
+            if contents:
+                contents_sub_params = [contents[i:i + bulk_size] for i in range(0, len(contents), bulk_size)]
+
+                for contents_sub_param in contents_sub_params:
+                    del_query = session.query(models.Content_update)
+                    if request_id:
+                        del_query = del_query.filter(models.Content_update.request_id == request_id)
+                    if transform_id:
+                        del_query = del_query.filter(models.Content_update.transform_id == transform_id)
+                    if contents_sub_param:
+                        del_query = del_query.filter(models.Content_update.content_id.in_(contents_sub_param))
+                    del_query.with_for_update(nowait=True, skip_locked=True)
+                    del_query.delete()
+            else:
+                del_query = session.query(models.Content_update)
+                if request_id:
+                    del_query = del_query.filter(models.Content_update.request_id == request_id)
+                if transform_id:
+                    del_query = del_query.filter(models.Content_update.transform_id == transform_id)
+                del_query.with_for_update(nowait=True, skip_locked=True)
+                del_query.delete()
     except Exception as error:
         raise exceptions.NoObject('Content_update deletion error: %s' % (error))
 
@@ -749,7 +863,6 @@ def get_contents_ext(request_id=None, transform_id=None, workload_id=None, coll_
                 status = [status]
 
         query = session.query(models.Content_ext)
-        query = query.with_hint(models.Content_ext, "INDEX(CONTENTS_EXT CONTENTS_EXT_RTF_IDX)", "oracle")
         if request_id:
             query = query.filter(models.Content_ext.request_id == request_id)
         if transform_id:
@@ -803,7 +916,6 @@ def get_contents_ext_ids(request_id=None, transform_id=None, workload_id=None, c
                               models.Content_ext.content_id,
                               models.Content_ext.panda_id,
                               models.Content_ext.status)
-        query = query.with_hint(models.Content_ext, "INDEX(CONTENTS_EXT CONTENTS_EXT_RTF_IDX)", "oracle")
         if request_id:
             query = query.filter(models.Content_ext.request_id == request_id)
         if transform_id:

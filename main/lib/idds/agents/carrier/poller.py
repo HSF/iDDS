@@ -14,8 +14,8 @@ import time
 import traceback
 
 from idds.common import exceptions
-from idds.common.constants import Sections, ProcessingStatus, ProcessingLocking
-from idds.common.utils import setup_logging, truncate_string
+from idds.common.constants import Sections, ReturnCode, ProcessingStatus, ProcessingLocking
+from idds.common.utils import setup_logging, truncate_string, json_dumps
 from idds.core import processings as core_processings
 from idds.agents.common.baseagent import BaseAgent
 from idds.agents.common.eventbus.event import (EventType,
@@ -233,6 +233,7 @@ class Poller(BaseAgent):
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
+            self.logger.warn("Failed to update_processings: %s" % json_dumps(processing))
             try:
                 processing_id = processing['update_processing']['processing_id']
 
@@ -359,6 +360,7 @@ class Poller(BaseAgent):
 
     def process_update_processing(self, event):
         self.number_workers += 1
+        pro_ret = ReturnCode.Ok.value
         try:
             if event:
                 original_event = event
@@ -367,6 +369,7 @@ class Poller(BaseAgent):
                 pr = self.get_processing(processing_id=event._processing_id, status=None, locking=True)
                 if not pr:
                     self.logger.error("Cannot find processing for event: %s" % str(event))
+                    pro_ret = ReturnCode.Locked.value
                 else:
                     log_pre = self.get_log_prefix(pr)
 
@@ -382,6 +385,7 @@ class Poller(BaseAgent):
                             event_content['has_updates'] = True
                         if is_process_terminated(pr['substatus']):
                             event_content['Terminated'] = True
+                            event_content['is_terminating'] = True
                         self.logger.info(log_pre + "TriggerProcessingEvent(processing_id: %s)" % pr['processing_id'])
                         event = TriggerProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'], content=event_content,
                                                        counter=original_event._counter)
@@ -390,6 +394,7 @@ class Poller(BaseAgent):
                         self.logger.info(log_pre + "TerminatedProcessingEvent(processing_id: %s)" % pr['processing_id'])
                         event = TerminatedProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'],
                                                           counter=original_event._counter)
+                        event.set_terminating()
                         self.event_bus.send(event)
                     else:
                         if (('update_contents' in ret and ret['update_contents'])
@@ -400,11 +405,14 @@ class Poller(BaseAgent):
                             self.logger.info(log_pre + "SyncProcessingEvent(processing_id: %s)" % pr['processing_id'])
                             event = SyncProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'],
                                                         counter=original_event._counter)
+                            event.set_has_updates()
                             self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
+            pro_ret = ReturnCode.Failed.value
         self.number_workers -= 1
+        return pro_ret
 
     def clean_locks(self):
         self.logger.info("clean locking")
@@ -424,6 +432,7 @@ class Poller(BaseAgent):
         """
         try:
             self.logger.info("Starting main thread")
+            self.init_thread_info()
 
             self.load_plugins()
             self.init()

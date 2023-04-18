@@ -50,6 +50,13 @@ cacher_dir = /data/idds
 # agents = clerk, marshaller, transformer, carrier, conductor, consumer
 agents = clerk, transformer, carrier, conductor
 
+[eventbus]
+# backend = database
+backend = message
+
+[coordinator]
+coordination_interval_delay = 300
+
 [clerk]
 num_threads = 3
 poll_time_period = 120

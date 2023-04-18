@@ -159,10 +159,12 @@ class Submitter(Poller):
                     self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
                     submit_event_content = {'event': 'submitted'}
                     event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'], content=submit_event_content)
+                    event.set_has_updates()
                     self.event_bus.send(event)
 
                     self.logger.info(log_pre + "SyncProcessingEvent(processing_id: %s)" % pr['processing_id'])
                     event = SyncProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'])
+                    event.set_has_updates()
                     self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
@@ -183,6 +185,7 @@ class Submitter(Poller):
         """
         try:
             self.logger.info("Starting main thread")
+            self.init_thread_info()
 
             self.load_plugins()
             self.init()

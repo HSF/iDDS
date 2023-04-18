@@ -921,7 +921,8 @@ class WorkflowBase(Base):
         self.global_parameters = gp
 
     def sync_global_parameters_from_work(self, work):
-        self.log_debug("work %s (%s) is_terminated, global_parameters: %s" % (work.get_internal_id(), str(work), str(self.global_parameters)))
+        self.log_debug("work %s (%s) is_terminated, global_parameters: %s" % (work.get_internal_id(), str(work.metadata),
+                                                                              str(self.global_parameters)))
         if isinstance(work, Work):
             if self.global_parameters:
                 for key in self.global_parameters:
@@ -1399,8 +1400,10 @@ class WorkflowBase(Base):
         self.next_works = next_works
 
     def enable_next_works(self, work, cond):
-        self.log_debug("Checking Work %s condition: %s" % (work.get_internal_id(),
-                                                           json_dumps(cond, sort_keys=True, indent=4)))
+        # self.log_debug("Checking Work %s condition: %s" % (work.get_internal_id(),
+        #                                                   json_dumps(cond, sort_keys=True, indent=4)))
+        self.log_debug("Checking Work %s condition: %s" % (work.get_internal_id(), cond.get_internal_id()))
+
         # load_conditions should cover it.
         # if cond and self.is_class_method(cond.cond):
         #     # cond_work_id = self.works[cond.cond['idds_method_class_id']]
@@ -1681,8 +1684,10 @@ class WorkflowBase(Base):
                                                                           json_dumps(self.work_conds[work.get_internal_id()], sort_keys=True, indent=4)))
                 for cond_id in self.work_conds[work.get_internal_id()]:
                     cond = self.conditions[cond_id]
-                    self.log_debug("Work %s has condition dependencie %s" % (work.get_internal_id(),
-                                                                             json_dumps(cond, sort_keys=True, indent=4)))
+                    # self.log_debug("Work %s has condition dependencie %s" % (work.get_internal_id(),
+                    #                                                          json_dumps(cond, sort_keys=True, indent=4)))
+                    self.log_debug("Work %s has condition dependencie %s" % (work.get_internal_id(), cond.get_internal_id()))
+
                     self.enable_next_works(work, cond)
 
             if work.is_terminated(synchronize=False):

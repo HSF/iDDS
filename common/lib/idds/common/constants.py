@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2023
 
 """
 Constants.
@@ -32,6 +32,8 @@ class Sections:
     Consumer = 'consumer'
     EventBus = 'eventbus'
     Cache = 'cache'
+    Archiver = 'archiver'
+    Coordinator = 'coordinator'
 
 
 class HTTP_STATUS_CODE:
@@ -288,11 +290,18 @@ class ContentStatus(IDDSEnum):
     Mapped = 7
     FakeAvailable = 8
     Missing = 9
+    Cancelled = 10
 
 
 class ContentLocking(IDDSEnum):
     Idle = 0
     Locking = 1
+
+
+class ContentFetchStatus(IDDSEnum):
+    New = 0
+    Fetching = 1
+    Fetched = 2
 
 
 class GranularityType(IDDSEnum):
@@ -336,6 +345,12 @@ class ProcessingStatus(IDDSEnum):
 class ProcessingLocking(IDDSEnum):
     Idle = 0
     Locking = 1
+
+
+class HealthStatus(IDDSEnum):
+    Default = 0
+    InActive = 1
+    Active = 2
 
 
 class MessageType(IDDSEnum):
@@ -467,6 +482,12 @@ class CommandLocation(IDDSEnum):
     Conductor = 4
     Rest = 5
     Other = 6
+
+
+class ReturnCode(IDDSEnum):
+    Ok = 0
+    Failed = 255
+    Locked = 1
 
 
 def get_work_status_from_transform_processing_status(status):

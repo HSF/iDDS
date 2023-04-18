@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2023
 
 
 """
@@ -114,3 +114,13 @@ def update_messages(messages, session=None):
     :param messages: The messages to be updated as a list of dictionaries.
     """
     return orm_messages.update_messages(messages=messages, session=session)
+
+
+@transactional_session
+def clean_old_messages(request_id, session=None):
+    """
+    Delete messages whose request id is older than request_id.
+
+    :param request_id: request id..
+    """
+    return orm_messages.clean_old_messages(request_id=request_id, session=session)

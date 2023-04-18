@@ -37,6 +37,8 @@ elif [ "$instance" == "slac" ]; then
     export PANDA_AUTH_VO=Rubin
 
     export PANDACACHE_URL=$PANDA_URL_SSL
+    export PANDA_SYS=/afs/cern.ch/user/w/wguan/workdisk/iDDS/.conda/iDDS/
+
     # export PANDA_CONFIG_ROOT=/afs/cern.ch/user/w/wguan/workdisk/iDDS/main/etc/panda/
     export PANDA_CONFIG_ROOT=~/.panda/
 else

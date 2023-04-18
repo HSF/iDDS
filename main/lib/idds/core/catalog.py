@@ -656,6 +656,17 @@ def update_contents_from_others_by_dep_id(request_id=None, transform_id=None, se
     return orm_contents.update_contents_from_others_by_dep_id(request_id=request_id, transform_id=transform_id, session=session)
 
 
+@read_session
+def get_update_contents_from_others_by_dep_id(request_id=None, transform_id=None, session=None):
+    """
+    Update contents from others by content_dep_id
+
+    :param request_id: The Request id.
+    :param transfomr_id: The transform id.
+    """
+    return orm_contents.get_update_contents_from_others_by_dep_id(request_id=request_id, transform_id=transform_id, session=session)
+
+
 @transactional_session
 def add_contents_update(contents, bulk_size=10000, session=None):
     """
@@ -673,7 +684,27 @@ def add_contents_update(contents, bulk_size=10000, session=None):
 
 
 @transactional_session
-def delete_contents_update(request_id=None, transform_id=None, session=None):
+def set_fetching_contents_update(request_id=None, transform_id=None, fetch=False, session=None):
+    """
+    Set fetching contents update.
+
+    :param session: session.
+    """
+    return orm_contents.set_fetching_contents_update(request_id=request_id, transform_id=transform_id, fetch=fetch, session=session)
+
+
+@read_session
+def get_contents_update(request_id=None, transform_id=None, fetch=False, session=None):
+    """
+    Get contents update.
+
+    :param session: session.
+    """
+    return orm_contents.get_contents_update(request_id=request_id, transform_id=transform_id, fetch=fetch, session=session)
+
+
+@transactional_session
+def delete_contents_update(request_id=None, transform_id=None, contents=[], fetch=False, session=None):
     """
     delete a content.
 
@@ -682,7 +713,7 @@ def delete_contents_update(request_id=None, transform_id=None, session=None):
     :raises NoObject: If no content is founded.
     :raises DatabaseException: If there is a database error.
     """
-    return orm_contents.delete_contents_update(request_id=request_id, transform_id=transform_id, session=session)
+    return orm_contents.delete_contents_update(request_id=request_id, transform_id=transform_id, contents=contents, fetch=fetch, session=session)
 
 
 def get_contents_ext_maps():

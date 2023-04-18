@@ -135,8 +135,7 @@ def get_workprogresses(request_id=None, to_json=False, session=None):
     """
 
     try:
-        query = session.query(models.Workprogress)\
-                       .with_hint(models.Workprogress, "INDEX(WORKPROGRESSES WORKPROGRESS_PK)", 'oracle')
+        query = session.query(models.Workprogress)
         if request_id is not None:
             query = query.filter(models.Workprogress.request_id == request_id)
         tmp = query.all()
@@ -169,7 +168,6 @@ def get_workprogress(workprogress_id, to_json=False, session=None):
 
     try:
         query = session.query(models.Workprogress)\
-                       .with_hint(models.Workprogress, "INDEX(WORKPROGRESSES WORKPROGRESS_PK)", 'oracle')\
                        .filter(models.Workprogress.workprogress_id == workprogress_id)
 
         ret = query.first()
@@ -208,7 +206,6 @@ def get_workprogresses_by_status(status, period=None, locking=False, bulk_size=N
             status = [status[0], status[0]]
 
         query = session.query(models.Workprogress)\
-                       .with_hint(models.Workprogress, "INDEX(WORKPROGRESSES WORKPROGRESS_STATUS_PRIO_IDX)", 'oracle')\
                        .filter(models.Workprogress.status.in_(status))\
                        .filter(models.Workprogress.next_poll_at < datetime.datetime.utcnow())
 

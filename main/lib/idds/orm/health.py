@@ -14,6 +14,7 @@ operations related to Health.
 """
 
 import datetime
+import re
 
 from sqlalchemy.exc import DatabaseError, IntegrityError
 
@@ -42,12 +43,16 @@ def add_health_item(agent, hostname, pid, thread_id, thread_name, payload, sessi
                         .filter(models.Health.hostname == hostname)\
                         .filter(models.Health.pid == pid)\
                         .filter(models.Health.thread_id == thread_id)\
-                        .update({'updated_at': datetime.datetime.utcnow()})
+                        .update({'updated_at': datetime.datetime.utcnow(),
+                                 'payload': payload})
         if not counts:
             new_h = models.Health(agent=agent, hostname=hostname, pid=pid,
                                   thread_id=thread_id, thread_name=thread_name,
                                   payload=payload)
             new_h.save(session=session)
+    except IntegrityError as e:
+        if re.match('.*ORA-00001.*', e.args[0]) or re.match('.*unique constraint.*', e.args[0]):
+            print("unique constraintviolated: %s" % str(e))
     except DatabaseError as e:
         raise exceptions.DatabaseException('Could not persist message: %s' % str(e))
 
@@ -75,13 +80,28 @@ def retrieve_health_items(session=None):
 
 
 @transactional_session
-def clean_health(older_than=3600, session=None):
+def clean_health(older_than=3600, hostname=None, pids=[], session=None):
     """
     Clearn items which is older than the time.
 
     :param older_than in seconds
     """
 
+    query = session.query(models.Health)
+    if older_than:
+        query = query.filter(models.Health.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=older_than))
+    if hostname:
+        query = query.filter(models.Health.hostname == hostname)
+    if pids:
+        query = query.filter(models.Health.pid.in_(pids))
+    query.delete()
+
+
+@transactional_session
+def update_health_item_status(item, status, session=None):
     session.query(models.Health)\
-           .filter(models.Health.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=older_than))\
-           .delete()
+           .filter(models.Health.agent == item['agent'])\
+           .filter(models.Health.hostname == item['hostname'])\
+           .filter(models.Health.pid == item['pid'])\
+           .filter(models.Health.thread_id == item['thread_id'])\
+           .update({'status': status, 'updated_at': item['updated_at']})

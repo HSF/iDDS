@@ -28,3 +28,5 @@ dependencies:
   - cryptography
   - redis
   - alembic
+  - deepdiff
+  - pyzmq

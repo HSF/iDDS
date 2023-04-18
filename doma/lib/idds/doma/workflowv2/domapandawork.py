@@ -477,10 +477,13 @@ class DomaPanDAWork(Work):
         self.task_name = self.task_name + "_" + str(self.get_request_id()) + "_" + str(self.get_work_id())
 
         in_files = []
+        has_dependencies = False
         if self.dependency_map is None:
             self.dependency_map = {}
         for job in self.dependency_map:
             in_files.append(job['name'])
+            if not has_dependencies and "dependencies" in job and job['dependencies']:
+                has_dependencies = True
 
         task_param_map = {}
         task_param_map['vo'] = self.vo
@@ -491,7 +494,8 @@ class DomaPanDAWork(Work):
         task_param_map['workingGroup'] = self.working_group
         task_param_map['nFilesPerJob'] = 1
         if in_files:
-            task_param_map['inputPreStaging'] = True
+            if has_dependencies:
+                task_param_map['inputPreStaging'] = True
             task_param_map['nFiles'] = len(in_files)
             task_param_map['noInput'] = True
             task_param_map['pfnList'] = in_files
@@ -932,7 +936,7 @@ class DomaPanDAWork(Work):
                 if content['substatus'] in [ContentStatus.Available]:
                     if 'panda_id' in content['content_metadata']:
                         finished_jobs.append(content['content_metadata']['panda_id'])
-                elif content['substatus'] in [ContentStatus.Failed, ContentStatus.FinalFailed,
+                elif content['substatus'] in [ContentStatus.FinalFailed,
                                               ContentStatus.Lost, ContentStatus.Deleted,
                                               ContentStatus.Missing]:
                     if 'panda_id' in content['content_metadata']:
@@ -1028,6 +1032,9 @@ class DomaPanDAWork(Work):
                 new_content_ext_d[job_info_item] = getattr(job_info, job_info_maps[job_info_item])
                 if new_content_ext_d[job_info_item] == 'NULL':
                     new_content_ext_d[job_info_item] = None
+                if new_content_ext_d[job_info_item] is None:
+                    del new_content_ext_d[job_info_item]
+
             new_contents_ext_d.append(new_content_ext_d)
 
         for content_id in update_contents_ext:
@@ -1039,6 +1046,8 @@ class DomaPanDAWork(Work):
                 update_content_ext_d[job_info_item] = getattr(job_info, job_info_maps[job_info_item])
                 if update_content_ext_d[job_info_item] == 'NULL':
                     update_content_ext_d[job_info_item] = None
+                if update_content_ext_d[job_info_item] is None:
+                    del update_content_ext_d[job_info_item]
 
             update_contents_ext_d.append(update_content_ext_d)
 
@@ -1105,7 +1114,7 @@ class DomaPanDAWork(Work):
 
         self.logger.debug("get_contents_ext, new_contents_ext_d[:1]: %s" % (str(new_contents_ext_d[:1])))
         self.logger.debug("get_contents_ext, update_contents_ext_d[:1]: %s" % (str(update_contents_ext_d[:1])))
-        self.logger.debug("get_contents_ext, left_contents[:3]: %s" % (str(left_contents[:3])))
+        self.logger.debug("get_contents_ext, left_contents[:1]: %s" % (str(left_contents[:3])))
         return new_contents_ext_d, update_contents_ext_d, left_contents
 
     def poll_panda_task(self, processing=None, input_output_maps=None, contents_ext=None, job_info_maps={}, log_prefix=''):

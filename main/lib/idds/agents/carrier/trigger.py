@@ -11,9 +11,8 @@
 import traceback
 
 from idds.common import exceptions
-from idds.common.constants import ProcessingStatus, ProcessingLocking
+from idds.common.constants import ProcessingStatus, ProcessingLocking, ReturnCode
 from idds.common.utils import setup_logging, truncate_string
-from idds.core import catalog as core_catalog
 from idds.core import processings as core_processings
 from idds.agents.common.eventbus.event import (EventType,
                                                UpdateTransformEvent,
@@ -21,7 +20,8 @@ from idds.agents.common.eventbus.event import (EventType,
                                                TerminatedProcessingEvent,
                                                SyncProcessingEvent)
 
-from .utils import handle_trigger_processing, is_process_terminated
+from .utils import (handle_trigger_processing,
+                    is_process_terminated)
 from .poller import Poller
 
 setup_logging(__name__)
@@ -166,6 +166,7 @@ class Trigger(Poller):
         return ret
 
     def process_trigger_processing_real(self, event):
+        pro_ret = ReturnCode.Ok.value
         try:
             if event:
                 original_event = event
@@ -174,25 +175,27 @@ class Trigger(Poller):
                 pr = self.get_processing(processing_id=event._processing_id, status=None, locking=True)
                 if not pr:
                     self.logger.error("Cannot find processing for event: %s" % str(event))
+                    pro_ret = ReturnCode.Locked.value
                 else:
                     log_pre = self.get_log_prefix(pr)
                     self.logger.info(log_pre + "process_trigger_processing")
                     ret = self.handle_trigger_processing(pr)
                     # self.logger.info(log_pre + "process_trigger_processing result: %s" % str(ret))
 
-                    new_update_contents = ret.get('new_update_contents', None)
+                    # new_update_contents = ret.get('new_update_contents', None)
                     ret['new_update_contents'] = None
-                    ret_update_contents = ret.get('update_contents', None)
+                    # ret_update_contents = ret.get('update_contents', None)
                     self.update_processing(ret, pr)
 
-                    if new_update_contents or ret_update_contents:
+                    update_transforms = ret.get('update_transforms', None)
+                    if update_transforms:
                         # self.logger.info(log_pre + "update_contents_to_others_by_dep_id")
                         # core_catalog.update_contents_to_others_by_dep_id(request_id=pr['request_id'], transform_id=pr['transform_id'])
                         # self.logger.info(log_pre + "update_contents_to_others_by_dep_id done")
 
                         # core_catalog.delete_contents_update(request_id=pr['request_id'], transform_id=pr['transform_id'])
-                        update_transforms = core_catalog.get_updated_transforms_by_content_status(request_id=pr['request_id'],
-                                                                                                  transform_id=pr['transform_id'])
+                        # update_transforms = get_updated_transforms_by_content_status(request_id=pr['request_id'],
+                        #                                                              transform_id=pr['transform_id'])
                         self.logger.info(log_pre + "update_transforms: %s" % str(update_transforms))
                         for update_transform in update_transforms:
                             if 'transform_id' in update_transform:
@@ -211,6 +214,7 @@ class Trigger(Poller):
                                                           processing_id=pr['processing_id'],
                                                           content=event._content,
                                                           counter=original_event._counter)
+                        event.set_terminating()
                         self.event_bus.send(event)
                     else:
                         if ((event._content and 'has_updates' in event._content and event._content['has_updates'])
@@ -219,21 +223,26 @@ class Trigger(Poller):
                             or ('messages' in ret and ret['messages'])):                # noqa E129
                             self.logger.info(log_pre + "SyncProcessingEvent(processing_id: %s)" % pr['processing_id'])
                             event = SyncProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'],
+                                                        content=event._content,
                                                         counter=original_event._counter)
                             self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
+            pro_ret = ReturnCode.Failed.value
+        return pro_ret
 
     def process_trigger_processing(self, event):
         self.number_workers += 1
-        self.process_trigger_processing_real(event)
+        ret = self.process_trigger_processing_real(event)
         self.number_workers -= 1
+        return ret
 
     def process_msg_trigger_processing(self, event):
         self.number_msg_workers += 1
-        self.process_trigger_processing_real(event)
+        ret = self.process_trigger_processing_real(event)
         self.number_msg_workers -= 1
+        return ret
 
     def init_event_function_map(self):
         self.event_func_map = {
@@ -253,6 +262,7 @@ class Trigger(Poller):
         """
         try:
             self.logger.info("Starting main thread")
+            self.init_thread_info()
 
             self.load_plugins()
             self.init()
