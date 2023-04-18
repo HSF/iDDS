@@ -33,7 +33,7 @@ class Conductor(BaseAgent):
     """
 
     def __init__(self, num_threads=1, retrieve_bulk_size=1000, threshold_to_release_messages=None,
-                 random_delay=None, delay=60, replay_times=3, **kwargs):
+                 random_delay=None, delay=60, interval_delay=10, replay_times=3, **kwargs):
         super(Conductor, self).__init__(num_threads=num_threads, name='Conductor', **kwargs)
         self.config_section = Sections.Conductor
         self.retrieve_bulk_size = int(retrieve_bulk_size)
@@ -55,6 +55,9 @@ class Conductor(BaseAgent):
         if replay_times is None:
             replay_times = 3
         self.replay_times = int(replay_times)
+        if not interval_delay:
+            interval_delay = 10
+        self.interval_delay = int(interval_delay)
         self.logger = get_logger(self.__class__.__name__)
 
     def __del__(self):
@@ -135,7 +138,10 @@ class Conductor(BaseAgent):
         """
         try:
             self.logger.info("Starting main thread")
+            self.init_thread_info()
             self.load_plugins()
+
+            self.add_default_tasks()
 
             self.start_notifier()
 
@@ -143,11 +149,13 @@ class Conductor(BaseAgent):
 
             while not self.graceful_stop.is_set():
                 # execute timer task
-                self.execute_once()
+                self.execute_schedules()
 
                 try:
                     num_contents = 0
                     messages = self.get_messages()
+                    if not messages:
+                        time.sleep(self.interval_delay)
                     for message in messages:
                         message['destination'] = message['destination'].name
 

@@ -10,7 +10,6 @@
 
 
 import logging
-import json
 import random
 import socket
 import threading
@@ -19,7 +18,7 @@ import traceback
 import stomp
 
 from idds.common.plugin.plugin_base import PluginBase
-from idds.common.utils import setup_logging, get_logger
+from idds.common.utils import setup_logging, get_logger, json_dumps, json_loads
 
 
 setup_logging(__name__)
@@ -69,7 +68,7 @@ class MessagingSender(PluginBase, threading.Thread):
 
         if not hasattr(self, 'channels'):
             raise Exception('"channels" is required but not defined.')
-        self.channels = json.loads(self.channels)
+        self.channels = json_loads(self.channels)
 
         self.broker_timeout = 3600
 
@@ -194,8 +193,8 @@ class MessagingSender(PluginBase, threading.Thread):
 
         if conn:
             self.logger.info("Sending message to message broker(%s): %s" % (destination, msg['msg_id']))
-            self.logger.debug("Sending message to message broker(%s): %s" % (destination, json.dumps(msg['msg_content'])))
-            conn.send(body=json.dumps(msg['msg_content']),
+            self.logger.debug("Sending message to message broker(%s): %s" % (destination, json_dumps(msg['msg_content'])))
+            conn.send(body=json_dumps(msg['msg_content']),
                       destination=queue_dest,
                       id='atlas-idds-messaging',
                       ack='auto',

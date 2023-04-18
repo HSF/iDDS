@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2022
+# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2023
 
 
 try:
@@ -47,6 +47,7 @@ class ATLASPandaWork(Work):
                  # maxwalltime=90000, maxattempt=5, core_count=1,
                  # encode_command_line=False,
                  num_retries=5,
+                 use_rucio=False,
                  # task_log=None,
                  # task_cloud=None,
                  # task_rss=0
@@ -84,6 +85,7 @@ class ATLASPandaWork(Work):
         self.retry_number = 0
         self.num_retries = num_retries
 
+        self.use_rucio = use_rucio
         self.load_panda_urls()
 
     def my_condition(self):
@@ -155,6 +157,8 @@ class ATLASPandaWork(Work):
         super(ATLASPandaWork, self).set_agent_attributes(attrs)
         if self.agent_attributes and 'num_retries' in self.agent_attributes and self.agent_attributes['num_retries']:
             self.num_retries = int(self.agent_attributes['num_retries'])
+        if self.class_name in attrs and 'use_rucio' in attrs[self.class_name]:
+            self.use_rucio = attrs[self.class_name]['use_rucio']
 
     def parse_task_parameters(self, task_parameters):
         if self.task_parameters:
@@ -307,17 +311,18 @@ class ATLASPandaWork(Work):
             else:
                 try:
                     if not coll.coll_type == CollectionType.PseudoDataset:
-                        client = self.get_rucio_client()
-                        did_meta = client.get_metadata(scope=coll.scope, name=coll.name)
+                        if self.use_rucio:
+                            client = self.get_rucio_client()
+                            did_meta = client.get_metadata(scope=coll.scope, name=coll.name)
 
-                        coll.coll_metadata['bytes'] = did_meta['bytes']
-                        coll.coll_metadata['total_files'] = did_meta['length']
-                        coll.coll_metadata['availability'] = did_meta['availability']
-                        coll.coll_metadata['events'] = did_meta['events']
-                        coll.coll_metadata['is_open'] = did_meta['is_open']
-                        coll.coll_metadata['run_number'] = did_meta['run_number']
-                        coll.coll_metadata['did_type'] = did_meta['did_type']
-                        coll.coll_metadata['list_all_files'] = False
+                            coll.coll_metadata['bytes'] = did_meta['bytes']
+                            coll.coll_metadata['total_files'] = did_meta['length']
+                            coll.coll_metadata['availability'] = did_meta['availability']
+                            coll.coll_metadata['events'] = did_meta['events']
+                            coll.coll_metadata['is_open'] = did_meta['is_open']
+                            coll.coll_metadata['run_number'] = did_meta['run_number']
+                            coll.coll_metadata['did_type'] = did_meta['did_type']
+                            coll.coll_metadata['list_all_files'] = False
 
                         if 'is_open' in coll.coll_metadata and not coll.coll_metadata['is_open']:
                             coll_status = CollectionStatus.Closed

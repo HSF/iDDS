@@ -144,14 +144,6 @@ def retrieve_messages(bulk_size=1000, msg_type=None, status=None, source=None,
                 msg_type = [msg_type[0], msg_type[0]]
 
         query = session.query(models.Message)
-        if request_id is not None:
-            query = query.with_hint(models.Message, "INDEX(MESSAGES MESSAGES_TYPE_ST_IDX)", 'oracle')
-        elif transform_id:
-            query = query.with_hint(models.Message, "INDEX(MESSAGES MESSAGES_TYPE_ST_TF_IDX)", 'oracle')
-        elif processing_id is not None:
-            query = query.with_hint(models.Message, "INDEX(MESSAGES MESSAGES_TYPE_ST_PR_IDX)", 'oracle')
-        else:
-            query = query.with_hint(models.Message, "INDEX(MESSAGES MESSAGES_TYPE_ST_IDX)", 'oracle')
 
         if msg_type is not None:
             query = query.filter(models.Message.msg_type.in_(msg_type))
@@ -201,12 +193,22 @@ def delete_messages(messages, session=None):
     try:
         if message_condition:
             session.query(models.Message).\
-                with_hint(models.Message, "index(messages MESSAGES_PK)", 'oracle').\
                 filter(or_(*message_condition)).\
                 delete(synchronize_session=False)
     except IntegrityError as e:
         raise exceptions.DatabaseException(e.args)
 
+
+@transactional_session
+def clean_old_messages(request_id, session=None):
+    """
+    Delete messages whose request id is older than request_id.
+
+    :param request_id: request id..
+    """
+    session.query(models.Message)\
+           .filter(models.Message.request_id <= request_id)\
+           .delete(synchronize_session=False)
 
 # @transactional_session
 # def update_messages(messages, session=None):

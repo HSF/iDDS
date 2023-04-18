@@ -311,3 +311,91 @@ BEGIN
     (select content_id, substatus from contents where request_id = request_id_in and transform_id = transform_id_in and content_relation_type = 1) t
     on c.content_dep_id = t.content_id where c.substatus != t.substatus) set c_substatus = t_substatus;
 END;
+
+
+
+--- 2023.03.06
+drop index PROCESSINGS_STATUS_POLL_IDX;
+drop index CONTENTS_REL_IDX;
+drop index CONTENTS_TF_IDX;
+drop index CONTENTS_EXT_RTW_IDX;
+drop index CONTENTS_EXT_RTM_IDX;
+drop index COMMANDS_STATUS_IDX;
+drop index MESSAGES_ST_IDX;
+drop index MESSAGES_TYPE_STU_IDX;
+drop index REQUESTS_STATUS_POLL_IDX;
+drop index TRANSFORMS_REQ_IDX;
+drop index TRANSFORMS_STATUS_POLL_IDX;
+drop index COLLECTIONS_REQ_IDX;
+
+CREATE INDEX PROCESSINGS_STATUS_POLL_IDX ON PROCESSINGS (status, processing_id, locking, updated_at, new_poll_period, update_poll_period, created_at) COMPRESS 3 LOCAL;
+
+CREATE INDEX CONTENTS_REL_IDX ON CONTENTS  (request_id, content_relation_type, transform_id, substatus) COMPRESS 3 LOCAL;
+CREATE INDEX CONTENTS_TF_IDX ON CONTENTS  (transform_id, request_id, coll_id, content_relation_type, map_id) COMPRESS 4 LOCAL;
+
+CREATE INDEX CONTENTS_EXT_RTW_IDX ON contents_ext (request_id, transform_id, workload_id) COMPRESS 3 ;
+CREATE INDEX CONTENTS_EXT_RTM_IDX ON contents_ext (request_id, transform_id, map_id) COMPRESS 2;
+
+CREATE INDEX COMMANDS_STATUS_IDX on commands (status, locking, updated_at) COMPRESS 2;
+
+CREATE INDEX MESSAGES_ST_IDX on messages (status, destination, created_at) COMPRESS 2;
+CREATE INDEX MESSAGES_TYPE_STU_IDX on messages (msg_type, status, destination, retries, updated_at, created_at) COMPRESS 3;
+
+CREATE INDEX REQUESTS_STATUS_POLL_IDX on REQUESTS (status, request_id, locking, priority, updated_at, new_poll_period, update_poll_period, next_poll_at, created_at) COMPRESS 3 LOCAL;
+
+CREATE INDEX TRANSFORMS_REQ_IDX on transforms (request_id, transform_id) COMPRESS 2;
+CREATE INDEX TRANSFORMS_STATUS_POLL_IDX on transforms (status, transform_id, locking, updated_at, new_poll_period, update_poll_period, created_at) COMPRESS 3 LOCAL;
+
+CREATE INDEX COLLECTIONS_REQ_IDX on collections (request_id, transform_id, updated_at) COMPRESS 2;
+
+
+-- 2023.03.10
+
+CREATE SEQUENCE EVENT_ID_SEQ MINVALUE 1 INCREMENT BY 1 START WITH 1 NOCACHE ORDER NOCYCLE GLOBAL;
+CREATE TABLE EVENTS
+(
+    event_id NUMBER(12) DEFAULT ON NULL EVENT_ID_SEQ.NEXTVAL constraint EVENT_ID_NN NOT NULL,
+    event_type NUMBER(12),
+    event_actual_id NUMBER(12),
+    priority NUMBER(12),
+    status NUMBER(2),
+    created_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)),
+    processing_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)),
+    processed_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)),
+    content CLOB,
+    CONSTRAINT EVENTS_PK PRIMARY KEY (event_id) -- USING INDEX LOCAL,
+);
+
+CREATE TABLE EVENTS_ARCHIVE
+(
+    event_id NUMBER(12),
+    event_type NUMBER(12),
+    event_actual_id NUMBER(12),
+    priority NUMBER(12),
+    status NUMBER(2),
+    created_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)),
+    processing_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)),
+    processed_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)),
+    content CLOB,
+    CONSTRAINT EVENTS_AR_PK PRIMARY KEY (event_id) -- USING INDEX LOCAL,
+);
+
+CREATE TABLE EVENTS_PRIORITY
+(
+    event_type NUMBER(12),
+    event_actual_id NUMBER(12),
+    priority NUMBER(12),
+    last_processed_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)),
+    updated_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)),
+    CONSTRAINT EVENTS_PR_PK PRIMARY KEY (event_type, event_actual_id) -- USING INDEX LOCAL,
+);
+
+
+--- 2023.03.16
+alter table HEALTH add (status NUMBER(2));
+alter table contents_update add content_metadata CLOB;
+alter table health modify payload VARCHAR2(2048);
+
+
+--- 2023.03.29
+alter table contents_update add fetch_status NUMBER(2) DEFAULT 0;

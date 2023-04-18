@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # You may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -16,6 +16,7 @@ Create Date: ${create_date}
 
 """
 from alembic import op
+from alembic import context
 import sqlalchemy as sa
 ${imports if imports else ""}
 
@@ -27,8 +28,12 @@ depends_on = ${repr(depends_on)}
 
 
 def upgrade() -> None:
-    ${upgrades if upgrades else "pass"}
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+        ${upgrades if upgrades else "pass"}
 
 
 def downgrade() -> None:
-    ${downgrades if downgrades else "pass"}
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+        ${downgrades if downgrades else "pass"}

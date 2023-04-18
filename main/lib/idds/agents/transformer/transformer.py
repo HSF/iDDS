@@ -15,7 +15,8 @@ import time
 import traceback
 
 from idds.common import exceptions
-from idds.common.constants import (Sections, TransformStatus, TransformLocking,
+from idds.common.constants import (Sections, ReturnCode,
+                                   TransformStatus, TransformLocking,
                                    CommandType, ProcessingStatus)
 from idds.common.utils import setup_logging, truncate_string
 from idds.core import (transforms as core_transforms,
@@ -525,17 +526,20 @@ class Transformer(BaseAgent):
 
     def process_update_transform(self, event):
         self.number_workers += 1
+        pro_ret = ReturnCode.Ok.value
         try:
             if event:
-                tf_status = [TransformStatus.Transforming,
-                             TransformStatus.ToCancel, TransformStatus.Cancelling,
-                             TransformStatus.ToSuspend, TransformStatus.Suspending,
-                             TransformStatus.ToExpire, TransformStatus.Expiring,
-                             TransformStatus.ToResume, TransformStatus.Resuming,
-                             TransformStatus.ToFinish, TransformStatus.ToForceFinish]
-                tf = self.get_transform(transform_id=event._transform_id, status=tf_status, locking=True)
+                # tf_status = [TransformStatus.Transforming,
+                #              TransformStatus.ToCancel, TransformStatus.Cancelling,
+                #              TransformStatus.ToSuspend, TransformStatus.Suspending,
+                #              TransformStatus.ToExpire, TransformStatus.Expiring,
+                #              TransformStatus.ToResume, TransformStatus.Resuming,
+                #              TransformStatus.ToFinish, TransformStatus.ToForceFinish]
+                # tf = self.get_transform(transform_id=event._transform_id, status=tf_status, locking=True)
+                tf = self.get_transform(transform_id=event._transform_id, locking=True)
                 if not tf:
                     self.logger.error("Cannot find transform for event: %s" % str(event))
+                    pro_ret = ReturnCode.Locked.value
                 else:
                     log_pre = self.get_log_prefix(tf)
 
@@ -561,7 +565,9 @@ class Transformer(BaseAgent):
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
+            pro_ret = ReturnCode.Failed.value
         self.number_workers -= 1
+        return pro_ret
 
     def handle_abort_transform(self, transform):
         """
@@ -600,12 +606,14 @@ class Transformer(BaseAgent):
 
     def process_abort_transform(self, event):
         self.number_workers += 1
+        pro_ret = ReturnCode.Ok.value
         try:
             if event:
                 self.logger.info("process_abort_transform: event: %s" % event)
                 tf = self.get_transform(transform_id=event._transform_id, locking=True)
                 if not tf:
                     self.logger.error("Cannot find transform for event: %s" % str(event))
+                    pro_ret = ReturnCode.Locked.value
                 else:
                     log_pre = self.get_log_prefix(tf)
                     self.logger.info(log_pre + "process_abort_transform")
@@ -640,7 +648,9 @@ class Transformer(BaseAgent):
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
+            pro_ret = ReturnCode.Failed.value
         self.number_workers -= 1
+        return pro_ret
 
     def handle_resume_transform(self, transform):
         """
@@ -672,12 +682,14 @@ class Transformer(BaseAgent):
 
     def process_resume_transform(self, event):
         self.number_workers += 1
+        pro_ret = ReturnCode.Ok.value
         try:
             if event:
                 self.logger.info("process_resume_transform: event: %s" % event)
                 tf = self.get_transform(transform_id=event._transform_id, locking=True)
                 if not tf:
                     self.logger.error("Cannot find transform for event: %s" % str(event))
+                    pro_ret = ReturnCode.Locked.value
                 else:
                     log_pre = self.get_log_prefix(tf)
 
@@ -715,7 +727,9 @@ class Transformer(BaseAgent):
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
+            pro_ret = ReturnCode.Failed.value
         self.number_workers -= 1
+        return pro_ret
 
     def clean_locks(self):
         self.logger.info("clean locking")
@@ -747,6 +761,7 @@ class Transformer(BaseAgent):
         """
         try:
             self.logger.info("Starting main thread")
+            self.init_thread_info()
 
             self.load_plugins()
 
