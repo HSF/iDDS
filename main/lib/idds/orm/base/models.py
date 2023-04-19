@@ -708,7 +708,7 @@ class Message(BASE, ModelBase):
     request_id = Column(BigInteger().with_variant(Integer, "sqlite"), nullable=False)
     workload_id = Column(Integer())
     transform_id = Column(Integer(), nullable=False)
-    processing_id = Column(Integer(), nullable=False)
+    processing_id = Column(Integer())
     num_contents = Column(Integer())
     retries = Column(Integer(), default=0)
     created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow, nullable=False)
