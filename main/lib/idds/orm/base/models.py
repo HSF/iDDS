@@ -238,12 +238,12 @@ class Request(BASE, ModelBase):
             del values['processing_metadata']
         super(Request, self).update(values, flush, session)
 
-    _table_args = (PrimaryKeyConstraint('request_id', name='REQUESTS_PK'),
-                   CheckConstraint('status IS NOT NULL', name='REQUESTS_STATUS_ID_NN'),
-                   # UniqueConstraint('name', 'scope', 'requester', 'request_type', 'transform_tag', 'workload_id', name='REQUESTS_NAME_SCOPE_UQ '),
-                   Index('REQUESTS_SCOPE_NAME_IDX', 'name', 'scope', 'workload_id'),
-                   Index('REQUESTS_STATUS_PRIO_IDX', 'status', 'priority', 'request_id', 'locking', 'updated_at', 'next_poll_at', 'created_at'),
-                   Index('REQUESTS_STATUS_POLL_IDX', 'status', 'priority', 'locking', 'updated_at', 'new_poll_period', 'update_poll_period', 'created_at', 'request_id'))
+    __table_args__ = (PrimaryKeyConstraint('request_id', name='REQUESTS_PK'),
+                      CheckConstraint('status IS NOT NULL', name='REQUESTS_STATUS_ID_NN'),
+                      # UniqueConstraint('name', 'scope', 'requester', 'request_type', 'transform_tag', 'workload_id', name='REQUESTS_NAME_SCOPE_UQ '),
+                      Index('REQUESTS_SCOPE_NAME_IDX', 'name', 'scope', 'workload_id'),
+                      Index('REQUESTS_STATUS_PRIO_IDX', 'status', 'priority', 'request_id', 'locking', 'updated_at', 'next_poll_at', 'created_at'),
+                      Index('REQUESTS_STATUS_POLL_IDX', 'status', 'priority', 'locking', 'updated_at', 'new_poll_period', 'update_poll_period', 'created_at', 'request_id'))
 
 
 class Workprogress(BASE, ModelBase):
@@ -271,12 +271,12 @@ class Workprogress(BASE, ModelBase):
     workprogress_metadata = Column(JSON())
     processing_metadata = Column(JSON())
 
-    _table_args = (PrimaryKeyConstraint('workprogress_id', name='WORKPROGRESS_PK'),
-                   ForeignKeyConstraint(['request_id'], ['requests.request_id'], name='REQ2WORKPROGRESS_REQ_ID_FK'),
-                   CheckConstraint('status IS NOT NULL', name='WORKPROGRESS_STATUS_ID_NN'),
-                   # UniqueConstraint('name', 'scope', 'requester', 'request_type', 'transform_tag', 'workload_id', name='REQUESTS_NAME_SCOPE_UQ '),
-                   Index('WORKPROGRESS_SCOPE_NAME_IDX', 'name', 'scope', 'workprogress_id'),
-                   Index('WORKPROGRESS_STATUS_PRIO_IDX', 'status', 'priority', 'workprogress_id', 'locking', 'updated_at', 'next_poll_at', 'created_at'))
+    __table_args__ = (PrimaryKeyConstraint('workprogress_id', name='WORKPROGRESS_PK'),
+                      ForeignKeyConstraint(['request_id'], ['requests.request_id'], name='REQ2WORKPROGRESS_REQ_ID_FK'),
+                      CheckConstraint('status IS NOT NULL', name='WORKPROGRESS_STATUS_ID_NN'),
+                      # UniqueConstraint('name', 'scope', 'requester', 'request_type', 'transform_tag', 'workload_id', name='REQUESTS_NAME_SCOPE_UQ '),
+                      Index('WORKPROGRESS_SCOPE_NAME_IDX', 'name', 'scope', 'workprogress_id'),
+                      Index('WORKPROGRESS_STATUS_PRIO_IDX', 'status', 'priority', 'workprogress_id', 'locking', 'updated_at', 'next_poll_at', 'created_at'))
 
 
 class Transform(BASE, ModelBase):
@@ -364,12 +364,12 @@ class Transform(BASE, ModelBase):
             del values['running_metadata']
         super(Transform, self).update(values, flush, session)
 
-    _table_args = (PrimaryKeyConstraint('transform_id', name='TRANSFORMS_PK'),
-                   CheckConstraint('status IS NOT NULL', name='TRANSFORMS_STATUS_ID_NN'),
-                   Index('TRANSFORMS_TYPE_TAG_IDX', 'transform_type', 'transform_tag', 'transform_id'),
-                   Index('TRANSFORMS_STATUS_UPDATED_AT_IDX', 'status', 'locking', 'updated_at', 'next_poll_at', 'created_at'),
-                   Index('TRANSFORMS_REQ_IDX', 'request_id', 'transform_id'),
-                   Index('TRANSFORMS_STATUS_POLL_IDX', 'status', 'locking', 'updated_at', 'new_poll_period', 'update_poll_period', 'created_at', 'transform_id'))
+    __table_args__ = (PrimaryKeyConstraint('transform_id', name='TRANSFORMS_PK'),
+                      CheckConstraint('status IS NOT NULL', name='TRANSFORMS_STATUS_ID_NN'),
+                      Index('TRANSFORMS_TYPE_TAG_IDX', 'transform_type', 'transform_tag', 'transform_id'),
+                      Index('TRANSFORMS_STATUS_UPDATED_AT_IDX', 'status', 'locking', 'updated_at', 'next_poll_at', 'created_at'),
+                      Index('TRANSFORMS_REQ_IDX', 'request_id', 'transform_id'),
+                      Index('TRANSFORMS_STATUS_POLL_IDX', 'status', 'locking', 'updated_at', 'new_poll_period', 'update_poll_period', 'created_at', 'transform_id'))
 
 
 class Workprogress2transform(BASE, ModelBase):
@@ -378,9 +378,9 @@ class Workprogress2transform(BASE, ModelBase):
     workprogress_id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
     transform_id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
 
-    _table_args = (PrimaryKeyConstraint('workprogress_id', 'transform_id', name='WP2TRANSFORM_PK'),
-                   ForeignKeyConstraint(['workprogress_id'], ['workprogresses.workprogress_id'], name='WP2TRANSFORM_WORK_ID_FK'),
-                   ForeignKeyConstraint(['transform_id'], ['transforms.transform_id'], name='WP2TRANSFORM_TRANS_ID_FK'))
+    __table_args__ = (PrimaryKeyConstraint('workprogress_id', 'transform_id', name='WP2TRANSFORM_PK'),
+                      ForeignKeyConstraint(['workprogress_id'], ['workprogresses.workprogress_id'], name='WP2TRANSFORM_WORK_ID_FK'),
+                      ForeignKeyConstraint(['transform_id'], ['transforms.transform_id'], name='WP2TRANSFORM_TRANS_ID_FK'))
 
 
 class Processing(BASE, ModelBase):
@@ -469,12 +469,12 @@ class Processing(BASE, ModelBase):
             del values['running_metadata']
         super(Transform, self).update(values, flush, session)
 
-    _table_args = (PrimaryKeyConstraint('processing_id', name='PROCESSINGS_PK'),
-                   ForeignKeyConstraint(['transform_id'], ['transforms.transform_id'], name='PROCESSINGS_TRANSFORM_ID_FK'),
-                   CheckConstraint('status IS NOT NULL', name='PROCESSINGS_STATUS_ID_NN'),
-                   CheckConstraint('transform_id IS NOT NULL', name='PROCESSINGS_TRANSFORM_ID_NN'),
-                   Index('PROCESSINGS_STATUS_UPDATED_IDX', 'status', 'locking', 'updated_at', 'next_poll_at', 'created_at'),
-                   Index('PROCESSINGS_STATUS_POLL_IDX', 'status', 'processing_id', 'locking', 'updated_at', 'new_poll_period', 'update_poll_period', 'created_at'))
+    __table_args__ = (PrimaryKeyConstraint('processing_id', name='PROCESSINGS_PK'),
+                      ForeignKeyConstraint(['transform_id'], ['transforms.transform_id'], name='PROCESSINGS_TRANSFORM_ID_FK'),
+                      CheckConstraint('status IS NOT NULL', name='PROCESSINGS_STATUS_ID_NN'),
+                      CheckConstraint('transform_id IS NOT NULL', name='PROCESSINGS_TRANSFORM_ID_NN'),
+                      Index('PROCESSINGS_STATUS_UPDATED_IDX', 'status', 'locking', 'updated_at', 'next_poll_at', 'created_at'),
+                      Index('PROCESSINGS_STATUS_POLL_IDX', 'status', 'processing_id', 'locking', 'updated_at', 'new_poll_period', 'update_poll_period', 'created_at'))
 
 
 class Collection(BASE, ModelBase):
@@ -512,15 +512,15 @@ class Collection(BASE, ModelBase):
     expired_at = Column("expired_at", DateTime)
     coll_metadata = Column(JSON())
 
-    _table_args = (PrimaryKeyConstraint('coll_id', name='COLLECTIONS_PK'),
-                   UniqueConstraint('name', 'scope', 'transform_id', 'relation_type', name='COLLECTIONS_NAME_SCOPE_UQ'),
-                   ForeignKeyConstraint(['transform_id'], ['transforms.transform_id'], name='COLLECTIONS_TRANSFORM_ID_FK'),
-                   CheckConstraint('status IS NOT NULL', name='COLLECTIONS_STATUS_ID_NN'),
-                   CheckConstraint('transform_id IS NOT NULL', name='COLLECTIONS_TRANSFORM_ID_NN'),
-                   Index('COLLECTIONS_STATUS_RELAT_IDX', 'status', 'relation_type'),
-                   Index('COLLECTIONS_TRANSFORM_IDX', 'transform_id', 'coll_id'),
-                   Index('COLLECTIONS_STATUS_UPDATED_IDX', 'status', 'locking', 'updated_at', 'next_poll_at', 'created_at'),
-                   Index('COLLECTIONS_REQ_IDX', 'request_id', 'transform_id', 'updated_at'),)
+    __table_args__ = (PrimaryKeyConstraint('coll_id', name='COLLECTIONS_PK'),
+                      UniqueConstraint('name', 'scope', 'transform_id', 'relation_type', name='COLLECTIONS_NAME_SCOPE_UQ'),
+                      ForeignKeyConstraint(['transform_id'], ['transforms.transform_id'], name='COLLECTIONS_TRANSFORM_ID_FK'),
+                      CheckConstraint('status IS NOT NULL', name='COLLECTIONS_STATUS_ID_NN'),
+                      CheckConstraint('transform_id IS NOT NULL', name='COLLECTIONS_TRANSFORM_ID_NN'),
+                      Index('COLLECTIONS_STATUS_RELAT_IDX', 'status', 'relation_type'),
+                      Index('COLLECTIONS_TRANSFORM_IDX', 'transform_id', 'coll_id'),
+                      Index('COLLECTIONS_STATUS_UPDATED_IDX', 'status', 'locking', 'updated_at', 'next_poll_at', 'created_at'),
+                      Index('COLLECTIONS_REQ_IDX', 'request_id', 'transform_id', 'updated_at'),)
 
 
 class Content(BASE, ModelBase):
@@ -555,21 +555,21 @@ class Content(BASE, ModelBase):
     expired_at = Column("expired_at", DateTime)
     content_metadata = Column(JSONString(100))
 
-    _table_args = (PrimaryKeyConstraint('content_id', name='CONTENTS_PK'),
-                   # UniqueConstraint('name', 'scope', 'coll_id', 'content_type', 'min_id', 'max_id', name='CONTENT_SCOPE_NAME_UQ'),
-                   # UniqueConstraint('name', 'scope', 'coll_id', 'min_id', 'max_id', name='CONTENT_SCOPE_NAME_UQ'),
-                   # UniqueConstraint('content_id', 'coll_id', name='CONTENTS_UQ'),
-                   UniqueConstraint('transform_id', 'coll_id', 'map_id', 'name', 'min_id', 'max_id', name='CONTENT_ID_UQ'),
-                   ForeignKeyConstraint(['transform_id'], ['transforms.transform_id'], name='CONTENTS_TRANSFORM_ID_FK'),
-                   ForeignKeyConstraint(['coll_id'], ['collections.coll_id'], name='CONTENTS_COLL_ID_FK'),
-                   CheckConstraint('status IS NOT NULL', name='CONTENTS_STATUS_ID_NN'),
-                   CheckConstraint('coll_id IS NOT NULL', name='CONTENTS_COLL_ID_NN'),
-                   Index('CONTENTS_STATUS_UPDATED_IDX', 'status', 'locking', 'updated_at', 'created_at'),
-                   Index('CONTENTS_ID_NAME_IDX', 'coll_id', 'scope', 'name', 'status'),
-                   Index('CONTENTS_DEP_IDX', 'request_id', 'transform_id', 'content_dep_id'),
-                   Index('CONTENTS_REL_IDX', 'request_id', 'content_relation_type', 'transform_id', 'substatus'),
-                   Index('CONTENTS_TF_IDX', 'transform_id', 'request_id', 'coll_id', 'map_id', 'content_relation_type'),
-                   Index('CONTENTS_REQ_TF_COLL_IDX', 'request_id', 'transform_id', 'workload_id', 'coll_id', 'content_relation_type', 'status', 'substatus'))
+    __table_args__ = (PrimaryKeyConstraint('content_id', name='CONTENTS_PK'),
+                      # UniqueConstraint('name', 'scope', 'coll_id', 'content_type', 'min_id', 'max_id', name='CONTENT_SCOPE_NAME_UQ'),
+                      # UniqueConstraint('name', 'scope', 'coll_id', 'min_id', 'max_id', name='CONTENT_SCOPE_NAME_UQ'),
+                      # UniqueConstraint('content_id', 'coll_id', name='CONTENTS_UQ'),
+                      UniqueConstraint('transform_id', 'coll_id', 'map_id', 'name', 'min_id', 'max_id', name='CONTENT_ID_UQ'),
+                      ForeignKeyConstraint(['transform_id'], ['transforms.transform_id'], name='CONTENTS_TRANSFORM_ID_FK'),
+                      ForeignKeyConstraint(['coll_id'], ['collections.coll_id'], name='CONTENTS_COLL_ID_FK'),
+                      CheckConstraint('status IS NOT NULL', name='CONTENTS_STATUS_ID_NN'),
+                      CheckConstraint('coll_id IS NOT NULL', name='CONTENTS_COLL_ID_NN'),
+                      Index('CONTENTS_STATUS_UPDATED_IDX', 'status', 'locking', 'updated_at', 'created_at'),
+                      Index('CONTENTS_ID_NAME_IDX', 'coll_id', 'scope', 'name', 'status'),
+                      Index('CONTENTS_DEP_IDX', 'request_id', 'transform_id', 'content_dep_id'),
+                      Index('CONTENTS_REL_IDX', 'request_id', 'content_relation_type', 'transform_id', 'substatus'),
+                      Index('CONTENTS_TF_IDX', 'transform_id', 'request_id', 'coll_id', 'map_id', 'content_relation_type'),
+                      Index('CONTENTS_REQ_TF_COLL_IDX', 'request_id', 'transform_id', 'workload_id', 'coll_id', 'content_relation_type', 'status', 'substatus'))
 
 
 class Content_update(BASE, ModelBase):
@@ -667,10 +667,10 @@ class Content_ext(BASE, ModelBase):
     memory_leak_x2 = Column(String(10))
     job_label = Column(String(20))
 
-    _table_args = (PrimaryKeyConstraint('content_id', name='CONTENTS_EXT_PK'),
-                   Index('CONTENTS_EXT_RTF_IDX', 'request_id', 'transform_id', 'workload_id', 'coll_id', 'content_id', 'panda_id', 'status'),
-                   Index('CONTENTS_EXT_RTW_IDX', 'request_id', 'transform_id', 'workload_id'),
-                   Index('CONTENTS_EXT_RTM_IDX', 'request_id', 'transform_id', 'map_id'))
+    __table_args__ = (PrimaryKeyConstraint('content_id', name='CONTENTS_EXT_PK'),
+                      Index('CONTENTS_EXT_RTF_IDX', 'request_id', 'transform_id', 'workload_id', 'coll_id', 'content_id', 'panda_id', 'status'),
+                      Index('CONTENTS_EXT_RTW_IDX', 'request_id', 'transform_id', 'workload_id'),
+                      Index('CONTENTS_EXT_RTM_IDX', 'request_id', 'transform_id', 'map_id'))
 
 
 class Health(BASE, ModelBase):
@@ -689,8 +689,8 @@ class Health(BASE, ModelBase):
     created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow)
     updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     payload = Column(String(2048))
-    _table_args = (PrimaryKeyConstraint('health_id', name='HEALTH_PK'),
-                   UniqueConstraint('agent', 'hostname', 'pid', 'thread_id', name='HEALTH_UK'))
+    __table_args__ = (PrimaryKeyConstraint('health_id', name='HEALTH_PK'),
+                      UniqueConstraint('agent', 'hostname', 'pid', 'thread_id', name='HEALTH_UK'))
 
 
 class Message(BASE, ModelBase):
@@ -715,12 +715,12 @@ class Message(BASE, ModelBase):
     updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
     msg_content = Column(JSON())
 
-    _table_args = (PrimaryKeyConstraint('msg_id', name='MESSAGES_PK'),
-                   Index('MESSAGES_TYPE_ST_IDX', 'msg_type', 'status', 'destination', 'request_id'),
-                   Index('MESSAGES_TYPE_ST_TF_IDX', 'msg_type', 'status', 'destination', 'transform_id'),
-                   Index('MESSAGES_TYPE_ST_PR_IDX', 'msg_type', 'status', 'destination', 'processing_id'),
-                   Index('MESSAGES_ST_IDX', 'status', 'destination', 'created_at'),
-                   Index('MESSAGES_TYPE_STU_IDX', 'msg_type', 'status', 'destination', 'retries', 'updated_at', 'created_at'))
+    __table_args__ = (PrimaryKeyConstraint('msg_id', name='MESSAGES_PK'),
+                      Index('MESSAGES_TYPE_ST_IDX', 'msg_type', 'status', 'destination', 'request_id'),
+                      Index('MESSAGES_TYPE_ST_TF_IDX', 'msg_type', 'status', 'destination', 'transform_id'),
+                      Index('MESSAGES_TYPE_ST_PR_IDX', 'msg_type', 'status', 'destination', 'processing_id'),
+                      Index('MESSAGES_ST_IDX', 'status', 'destination', 'created_at'),
+                      Index('MESSAGES_TYPE_STU_IDX', 'msg_type', 'status', 'destination', 'retries', 'updated_at', 'created_at'))
 
 
 class Command(BASE, ModelBase):
@@ -746,11 +746,11 @@ class Command(BASE, ModelBase):
     cmd_content = Column(JSON())
     errors = Column(JSONString(1024))
 
-    _table_args = (PrimaryKeyConstraint('cmd_id', name='COMMANDS_PK'),
-                   Index('COMMANDS_TYPE_ST_IDX', 'cmd_type', 'status', 'destination', 'request_id'),
-                   Index('COMMANDS_TYPE_ST_TF_IDX', 'cmd_type', 'status', 'destination', 'transform_id'),
-                   Index('COMMANDS_TYPE_ST_PR_IDX', 'cmd_type', 'status', 'destination', 'processing_id'),
-                   Index('COMMANDS_STATUS_IDX', 'status', 'locking', 'updated_at'))
+    __table_args__ = (PrimaryKeyConstraint('cmd_id', name='COMMANDS_PK'),
+                      Index('COMMANDS_TYPE_ST_IDX', 'cmd_type', 'status', 'destination', 'request_id'),
+                      Index('COMMANDS_TYPE_ST_TF_IDX', 'cmd_type', 'status', 'destination', 'transform_id'),
+                      Index('COMMANDS_TYPE_ST_PR_IDX', 'cmd_type', 'status', 'destination', 'processing_id'),
+                      Index('COMMANDS_STATUS_IDX', 'status', 'locking', 'updated_at'))
 
 
 class EventPriority(BASE, ModelBase):
@@ -762,7 +762,7 @@ class EventPriority(BASE, ModelBase):
     last_processed_at = Column("last_processed_at", DateTime, default=datetime.datetime.utcnow, nullable=False)
     updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
 
-    _table_args = (PrimaryKeyConstraint('event_type', 'event_actual_id', name='EVENTS_PR_PK'))
+    __table_args__ = (PrimaryKeyConstraint('event_type', 'event_actual_id', name='EVENTS_PR_PK'),)
 
 
 class Event(BASE, ModelBase):
@@ -864,7 +864,7 @@ class Event(BASE, ModelBase):
             return self.content['event']._processing_id
         return None
 
-    _table_args = (PrimaryKeyConstraint('event_id', name='EVENTS_PK'))
+    __table_args__ = (PrimaryKeyConstraint('event_id', name='EVENTS_PK'),)
 
 
 class EventArchive(BASE, ModelBase):
@@ -880,7 +880,7 @@ class EventArchive(BASE, ModelBase):
     processed_at = Column("processed_at", DateTime, default=None)
     content = Column(JSON())
 
-    _table_args = (PrimaryKeyConstraint('event_id', name='EVENTS_AR_PK'))
+    __table_args__ = (PrimaryKeyConstraint('event_id', name='EVENTS_AR_PK'),)
 
 
 def create_trigger():
