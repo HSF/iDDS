@@ -1,4 +1,3 @@
---- with schema doma_idds
 CREATE SEQUENCE doma_idds."REQUEST_ID_SEQ" START WITH 1
 
 CREATE TABLE doma_idds.requests (
@@ -30,31 +29,15 @@ CREATE TABLE doma_idds.requests (
 	errors VARCHAR(1024), 
 	request_metadata JSONB, 
 	processing_metadata JSONB, 
-	PRIMARY KEY (request_id)
+	CONSTRAINT "REQUESTS_PK" PRIMARY KEY (request_id), 
+	CONSTRAINT "REQUESTS_STATUS_ID_NN" CHECK (status IS NOT NULL)
 );
 
-CREATE SEQUENCE doma_idds."WORKPROGRESS_ID_SEQ" START WITH 1
+CREATE INDEX "REQUESTS_STATUS_POLL_IDX" ON doma_idds.requests (status, priority, locking, updated_at, new_poll_period, update_poll_period, created_at, request_id);
 
-CREATE TABLE doma_idds.workprogresses (
-	workprogress_id BIGINT NOT NULL, 
-	request_id BIGINT, 
-	workload_id INTEGER, 
-	scope VARCHAR(25), 
-	name VARCHAR(255), 
-	priority INTEGER, 
-	status INTEGER, 
-	substatus INTEGER, 
-	locking INTEGER, 
-	created_at TIMESTAMP WITHOUT TIME ZONE, 
-	updated_at TIMESTAMP WITHOUT TIME ZONE, 
-	next_poll_at TIMESTAMP WITHOUT TIME ZONE, 
-	accessed_at TIMESTAMP WITHOUT TIME ZONE, 
-	expired_at TIMESTAMP WITHOUT TIME ZONE, 
-	errors VARCHAR(1024), 
-	workprogress_metadata JSONB, 
-	processing_metadata JSONB, 
-	PRIMARY KEY (workprogress_id)
-);
+CREATE INDEX "REQUESTS_STATUS_PRIO_IDX" ON doma_idds.requests (status, priority, request_id, locking, updated_at, next_poll_at, created_at);
+
+CREATE INDEX "REQUESTS_SCOPE_NAME_IDX" ON doma_idds.requests (name, scope, workload_id);
 
 CREATE SEQUENCE doma_idds."TRANSFORM_ID_SEQ" START WITH 1
 
@@ -87,145 +70,18 @@ CREATE TABLE doma_idds.transforms (
 	errors VARCHAR(1024), 
 	transform_metadata JSONB, 
 	running_metadata JSONB, 
-	PRIMARY KEY (transform_id)
+	CONSTRAINT "TRANSFORMS_PK" PRIMARY KEY (transform_id), 
+	CONSTRAINT "TRANSFORMS_STATUS_ID_NN" CHECK (status IS NOT NULL)
 );
 
+CREATE INDEX "TRANSFORMS_TYPE_TAG_IDX" ON doma_idds.transforms (transform_type, transform_tag, transform_id);
 
-CREATE TABLE doma_idds.wp2transforms (
-	workprogress_id BIGINT NOT NULL, 
-	transform_id BIGINT NOT NULL, 
-	PRIMARY KEY (workprogress_id, transform_id)
-);
+CREATE INDEX "TRANSFORMS_REQ_IDX" ON doma_idds.transforms (request_id, transform_id);
 
-CREATE SEQUENCE doma_idds."PROCESSING_ID_SEQ" START WITH 1
+CREATE INDEX "TRANSFORMS_STATUS_POLL_IDX" ON doma_idds.transforms (status, locking, updated_at, new_poll_period, update_poll_period, created_at, transform_id);
 
-CREATE TABLE doma_idds.processings (
-	processing_id BIGINT NOT NULL, 
-	transform_id BIGINT NOT NULL, 
-	request_id BIGINT NOT NULL, 
-	workload_id INTEGER, 
-	status INTEGER NOT NULL, 
-	substatus INTEGER, 
-	oldstatus INTEGER, 
-	locking INTEGER NOT NULL, 
-	submitter VARCHAR(20), 
-	submitted_id INTEGER, 
-	granularity INTEGER, 
-	granularity_type INTEGER, 
-	created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL, 
-	updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL, 
-	next_poll_at TIMESTAMP WITHOUT TIME ZONE, 
-	poller_updated_at TIMESTAMP WITHOUT TIME ZONE, 
-	submitted_at TIMESTAMP WITHOUT TIME ZONE, 
-	finished_at TIMESTAMP WITHOUT TIME ZONE, 
-	expired_at TIMESTAMP WITHOUT TIME ZONE, 
-	new_retries INTEGER, 
-	update_retries INTEGER, 
-	max_new_retries INTEGER, 
-	max_update_retries INTEGER, 
-	new_poll_period INTERVAL, 
-	update_poll_period INTERVAL, 
-	errors VARCHAR(1024), 
-	processing_metadata JSONB, 
-	running_metadata JSONB, 
-	output_metadata JSONB, 
-	PRIMARY KEY (processing_id)
-);
+CREATE INDEX "TRANSFORMS_STATUS_UPDATED_AT_IDX" ON doma_idds.transforms (status, locking, updated_at, next_poll_at, created_at);
 
-CREATE SEQUENCE doma_idds."COLLECTION_ID_SEQ" START WITH 1
-
-CREATE TABLE doma_idds.collections (
-	coll_id BIGINT NOT NULL, 
-	request_id BIGINT NOT NULL, 
-	workload_id INTEGER, 
-	transform_id BIGINT NOT NULL, 
-	coll_type INTEGER NOT NULL, 
-	relation_type INTEGER NOT NULL, 
-	scope VARCHAR(25), 
-	name VARCHAR(255), 
-	bytes INTEGER, 
-	status INTEGER NOT NULL, 
-	substatus INTEGER, 
-	locking INTEGER NOT NULL, 
-	total_files INTEGER, 
-	storage_id INTEGER, 
-	new_files INTEGER, 
-	processed_files INTEGER, 
-	processing_files INTEGER, 
-	failed_files INTEGER, 
-	missing_files INTEGER, 
-	ext_files INTEGER, 
-	processed_ext_files INTEGER, 
-	failed_ext_files INTEGER, 
-	missing_ext_files INTEGER, 
-	processing_id INTEGER, 
-	retries INTEGER, 
-	created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL, 
-	updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL, 
-	next_poll_at TIMESTAMP WITHOUT TIME ZONE, 
-	accessed_at TIMESTAMP WITHOUT TIME ZONE, 
-	expired_at TIMESTAMP WITHOUT TIME ZONE, 
-	coll_metadata JSONB, 
-	PRIMARY KEY (coll_id)
-);
-
-CREATE SEQUENCE doma_idds."CONTENT_ID_SEQ" START WITH 1
-
-CREATE TABLE doma_idds.contents (
-	content_id BIGINT NOT NULL, 
-	transform_id BIGINT NOT NULL, 
-	coll_id BIGINT NOT NULL, 
-	request_id BIGINT NOT NULL, 
-	workload_id INTEGER, 
-	map_id BIGINT NOT NULL, 
-	content_dep_id BIGINT, 
-	scope VARCHAR(25), 
-	name VARCHAR(4000), 
-	min_id INTEGER, 
-	max_id INTEGER, 
-	content_type INTEGER NOT NULL, 
-	content_relation_type INTEGER NOT NULL, 
-	status INTEGER NOT NULL, 
-	substatus INTEGER, 
-	locking INTEGER NOT NULL, 
-	bytes INTEGER, 
-	md5 VARCHAR(32), 
-	adler32 VARCHAR(8), 
-	processing_id INTEGER, 
-	storage_id INTEGER, 
-	retries INTEGER, 
-	path VARCHAR(4000), 
-	created_at TIMESTAMP WITHOUT TIME ZONE, 
-	updated_at TIMESTAMP WITHOUT TIME ZONE, 
-	accessed_at TIMESTAMP WITHOUT TIME ZONE, 
-	expired_at TIMESTAMP WITHOUT TIME ZONE, 
-	content_metadata VARCHAR(100), 
-	PRIMARY KEY (content_id)
-);
-
-
-        SET search_path TO doma_idds;
-        CREATE OR REPLACE PROCEDURE update_contents_to_others(request_id_in int, transform_id_in int)
-        AS $$
-        BEGIN
-            UPDATE doma_idds.contents set substatus = d.substatus from
-            (select content_id, content_dep_id, substatus from doma_idds.contents where request_id = request_id_in and transform_id = transform_id_in and content_relation_type = 1 and status != 0) d
-            where doma_idds.contents.request_id = request_id_in and doma_idds.contents.content_relation_type = 3 and doma_idds.contents.substatus != d.substatus and d.content_id = doma_idds.contents.content_dep_id;
-        END;
-        $$ LANGUAGE PLPGSQL
-    
-
-        SET search_path TO doma_idds;
-        CREATE OR REPLACE PROCEDURE update_contents_from_others(request_id_in int, transform_id_in int)
-        AS $$
-        BEGIN
-
-            UPDATE doma_idds.contents set substatus = d.substatus from
-            (select content_id, content_dep_id, substatus from doma_idds.contents where request_id = request_id_in and content_relation_type = 1 and status != 0) d
-            where doma_idds.contents.request_id = request_id_in and doma_idds.contents.transform_id = transform_id_in and doma_idds.contents.content_relation_type = 3 and doma_idds.contents.substatus != d.substatus and d.content_id = doma_idds.contents.content_dep_id;
-        END;
-        $$ LANGUAGE PLPGSQL
-    
 
 CREATE TABLE doma_idds.contents_update (
 	content_id BIGSERIAL NOT NULL, 
@@ -233,6 +89,7 @@ CREATE TABLE doma_idds.contents_update (
 	request_id BIGINT, 
 	transform_id BIGINT, 
 	workload_id INTEGER, 
+	fetch_status INTEGER NOT NULL, 
 	coll_id BIGINT, 
 	content_metadata VARCHAR(100), 
 	PRIMARY KEY (content_id)
@@ -318,15 +175,21 @@ CREATE TABLE doma_idds.contents_ext (
 	memory_leak VARCHAR(10), 
 	memory_leak_x2 VARCHAR(10), 
 	job_label VARCHAR(20), 
-	PRIMARY KEY (content_id)
+	CONSTRAINT "CONTENTS_EXT_PK" PRIMARY KEY (content_id)
 );
+
+CREATE INDEX "CONTENTS_EXT_RTM_IDX" ON doma_idds.contents_ext (request_id, transform_id, map_id);
+
+CREATE INDEX "CONTENTS_EXT_RTF_IDX" ON doma_idds.contents_ext (request_id, transform_id, workload_id, coll_id, content_id, panda_id, status);
+
+CREATE INDEX "CONTENTS_EXT_RTW_IDX" ON doma_idds.contents_ext (request_id, transform_id, workload_id);
 
 CREATE SEQUENCE doma_idds."HEALTH_ID_SEQ" START WITH 1
 
 CREATE TABLE doma_idds.health (
 	health_id BIGINT NOT NULL, 
 	agent VARCHAR(30), 
-	hostname VARCHAR(127), 
+	hostname VARCHAR(500), 
 	pid INTEGER, 
 	status INTEGER NOT NULL, 
 	thread_id BIGINT, 
@@ -334,7 +197,8 @@ CREATE TABLE doma_idds.health (
 	created_at TIMESTAMP WITHOUT TIME ZONE, 
 	updated_at TIMESTAMP WITHOUT TIME ZONE, 
 	payload VARCHAR(2048), 
-	PRIMARY KEY (health_id)
+	CONSTRAINT "HEALTH_PK" PRIMARY KEY (health_id), 
+	CONSTRAINT "HEALTH_UK" UNIQUE (agent, hostname, pid, thread_id)
 );
 
 CREATE SEQUENCE doma_idds."MESSAGE_ID_SEQ" START WITH 1
@@ -356,8 +220,18 @@ CREATE TABLE doma_idds.messages (
 	created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL, 
 	updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL, 
 	msg_content JSONB, 
-	PRIMARY KEY (msg_id)
+	CONSTRAINT "MESSAGES_PK" PRIMARY KEY (msg_id)
 );
+
+CREATE INDEX "MESSAGES_TYPE_ST_IDX" ON doma_idds.messages (msg_type, status, destination, request_id);
+
+CREATE INDEX "MESSAGES_TYPE_STU_IDX" ON doma_idds.messages (msg_type, status, destination, retries, updated_at, created_at);
+
+CREATE INDEX "MESSAGES_TYPE_ST_TF_IDX" ON doma_idds.messages (msg_type, status, destination, transform_id);
+
+CREATE INDEX "MESSAGES_TYPE_ST_PR_IDX" ON doma_idds.messages (msg_type, status, destination, processing_id);
+
+CREATE INDEX "MESSAGES_ST_IDX" ON doma_idds.messages (status, destination, created_at);
 
 CREATE SEQUENCE doma_idds."COMMAND_ID_SEQ" START WITH 1
 
@@ -379,8 +253,16 @@ CREATE TABLE doma_idds.commands (
 	updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL, 
 	cmd_content JSONB, 
 	errors VARCHAR(1024), 
-	PRIMARY KEY (cmd_id)
+	CONSTRAINT "COMMANDS_PK" PRIMARY KEY (cmd_id)
 );
+
+CREATE INDEX "COMMANDS_STATUS_IDX" ON doma_idds.commands (status, locking, updated_at);
+
+CREATE INDEX "COMMANDS_TYPE_ST_IDX" ON doma_idds.commands (cmd_type, status, destination, request_id);
+
+CREATE INDEX "COMMANDS_TYPE_ST_PR_IDX" ON doma_idds.commands (cmd_type, status, destination, processing_id);
+
+CREATE INDEX "COMMANDS_TYPE_ST_TF_IDX" ON doma_idds.commands (cmd_type, status, destination, transform_id);
 
 
 CREATE TABLE doma_idds.events_priority (
@@ -389,7 +271,7 @@ CREATE TABLE doma_idds.events_priority (
 	priority INTEGER NOT NULL, 
 	last_processed_at TIMESTAMP WITHOUT TIME ZONE NOT NULL, 
 	updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL, 
-	PRIMARY KEY (event_type, event_actual_id)
+	CONSTRAINT "EVENTS_PR_PK" PRIMARY KEY (event_type, event_actual_id)
 );
 
 CREATE SEQUENCE doma_idds."EVENT_ID_SEQ" START WITH 1
@@ -404,7 +286,7 @@ CREATE TABLE doma_idds.events (
 	processing_at TIMESTAMP WITHOUT TIME ZONE, 
 	processed_at TIMESTAMP WITHOUT TIME ZONE, 
 	content JSONB, 
-	PRIMARY KEY (event_id)
+	CONSTRAINT "EVENTS_PK" PRIMARY KEY (event_id)
 );
 
 
@@ -418,6 +300,209 @@ CREATE TABLE doma_idds.events_archive (
 	processing_at TIMESTAMP WITHOUT TIME ZONE, 
 	processed_at TIMESTAMP WITHOUT TIME ZONE, 
 	content JSONB, 
-	PRIMARY KEY (event_id)
+	CONSTRAINT "EVENTS_AR_PK" PRIMARY KEY (event_id)
 );
 
+CREATE SEQUENCE doma_idds."WORKPROGRESS_ID_SEQ" START WITH 1
+
+CREATE TABLE doma_idds.workprogresses (
+	workprogress_id BIGINT NOT NULL, 
+	request_id BIGINT, 
+	workload_id INTEGER, 
+	scope VARCHAR(25), 
+	name VARCHAR(255), 
+	priority INTEGER, 
+	status INTEGER, 
+	substatus INTEGER, 
+	locking INTEGER, 
+	created_at TIMESTAMP WITHOUT TIME ZONE, 
+	updated_at TIMESTAMP WITHOUT TIME ZONE, 
+	next_poll_at TIMESTAMP WITHOUT TIME ZONE, 
+	accessed_at TIMESTAMP WITHOUT TIME ZONE, 
+	expired_at TIMESTAMP WITHOUT TIME ZONE, 
+	errors VARCHAR(1024), 
+	workprogress_metadata JSONB, 
+	processing_metadata JSONB, 
+	CONSTRAINT "WORKPROGRESS_PK" PRIMARY KEY (workprogress_id), 
+	CONSTRAINT "REQ2WORKPROGRESS_REQ_ID_FK" FOREIGN KEY(request_id) REFERENCES doma_idds.requests (request_id), 
+	CONSTRAINT "WORKPROGRESS_STATUS_ID_NN" CHECK (status IS NOT NULL)
+);
+
+CREATE INDEX "WORKPROGRESS_SCOPE_NAME_IDX" ON doma_idds.workprogresses (name, scope, workprogress_id);
+
+CREATE INDEX "WORKPROGRESS_STATUS_PRIO_IDX" ON doma_idds.workprogresses (status, priority, workprogress_id, locking, updated_at, next_poll_at, created_at);
+
+CREATE SEQUENCE doma_idds."PROCESSING_ID_SEQ" START WITH 1
+
+CREATE TABLE doma_idds.processings (
+	processing_id BIGINT NOT NULL, 
+	transform_id BIGINT NOT NULL, 
+	request_id BIGINT NOT NULL, 
+	workload_id INTEGER, 
+	status INTEGER NOT NULL, 
+	substatus INTEGER, 
+	oldstatus INTEGER, 
+	locking INTEGER NOT NULL, 
+	submitter VARCHAR(20), 
+	submitted_id INTEGER, 
+	granularity INTEGER, 
+	granularity_type INTEGER, 
+	created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL, 
+	updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL, 
+	next_poll_at TIMESTAMP WITHOUT TIME ZONE, 
+	poller_updated_at TIMESTAMP WITHOUT TIME ZONE, 
+	submitted_at TIMESTAMP WITHOUT TIME ZONE, 
+	finished_at TIMESTAMP WITHOUT TIME ZONE, 
+	expired_at TIMESTAMP WITHOUT TIME ZONE, 
+	new_retries INTEGER, 
+	update_retries INTEGER, 
+	max_new_retries INTEGER, 
+	max_update_retries INTEGER, 
+	new_poll_period INTERVAL, 
+	update_poll_period INTERVAL, 
+	errors VARCHAR(1024), 
+	processing_metadata JSONB, 
+	running_metadata JSONB, 
+	output_metadata JSONB, 
+	CONSTRAINT "PROCESSINGS_PK" PRIMARY KEY (processing_id), 
+	CONSTRAINT "PROCESSINGS_TRANSFORM_ID_FK" FOREIGN KEY(transform_id) REFERENCES doma_idds.transforms (transform_id), 
+	CONSTRAINT "PROCESSINGS_STATUS_ID_NN" CHECK (status IS NOT NULL), 
+	CONSTRAINT "PROCESSINGS_TRANSFORM_ID_NN" CHECK (transform_id IS NOT NULL)
+);
+
+CREATE INDEX "PROCESSINGS_STATUS_UPDATED_IDX" ON doma_idds.processings (status, locking, updated_at, next_poll_at, created_at);
+
+CREATE INDEX "PROCESSINGS_STATUS_POLL_IDX" ON doma_idds.processings (status, processing_id, locking, updated_at, new_poll_period, update_poll_period, created_at);
+
+CREATE SEQUENCE doma_idds."COLLECTION_ID_SEQ" START WITH 1
+
+CREATE TABLE doma_idds.collections (
+	coll_id BIGINT NOT NULL, 
+	request_id BIGINT NOT NULL, 
+	workload_id INTEGER, 
+	transform_id BIGINT NOT NULL, 
+	coll_type INTEGER NOT NULL, 
+	relation_type INTEGER NOT NULL, 
+	scope VARCHAR(25), 
+	name VARCHAR(255), 
+	bytes INTEGER, 
+	status INTEGER NOT NULL, 
+	substatus INTEGER, 
+	locking INTEGER NOT NULL, 
+	total_files INTEGER, 
+	storage_id INTEGER, 
+	new_files INTEGER, 
+	processed_files INTEGER, 
+	processing_files INTEGER, 
+	failed_files INTEGER, 
+	missing_files INTEGER, 
+	ext_files INTEGER, 
+	processed_ext_files INTEGER, 
+	failed_ext_files INTEGER, 
+	missing_ext_files INTEGER, 
+	processing_id INTEGER, 
+	retries INTEGER, 
+	created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL, 
+	updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL, 
+	next_poll_at TIMESTAMP WITHOUT TIME ZONE, 
+	accessed_at TIMESTAMP WITHOUT TIME ZONE, 
+	expired_at TIMESTAMP WITHOUT TIME ZONE, 
+	coll_metadata JSONB, 
+	CONSTRAINT "COLLECTIONS_PK" PRIMARY KEY (coll_id), 
+	CONSTRAINT "COLLECTIONS_NAME_SCOPE_UQ" UNIQUE (name, scope, transform_id, relation_type), 
+	CONSTRAINT "COLLECTIONS_TRANSFORM_ID_FK" FOREIGN KEY(transform_id) REFERENCES doma_idds.transforms (transform_id), 
+	CONSTRAINT "COLLECTIONS_STATUS_ID_NN" CHECK (status IS NOT NULL), 
+	CONSTRAINT "COLLECTIONS_TRANSFORM_ID_NN" CHECK (transform_id IS NOT NULL)
+);
+
+CREATE INDEX "COLLECTIONS_REQ_IDX" ON doma_idds.collections (request_id, transform_id, updated_at);
+
+CREATE INDEX "COLLECTIONS_TRANSFORM_IDX" ON doma_idds.collections (transform_id, coll_id);
+
+CREATE INDEX "COLLECTIONS_STATUS_RELAT_IDX" ON doma_idds.collections (status, relation_type);
+
+CREATE INDEX "COLLECTIONS_STATUS_UPDATED_IDX" ON doma_idds.collections (status, locking, updated_at, next_poll_at, created_at);
+
+
+CREATE TABLE doma_idds.wp2transforms (
+	workprogress_id BIGINT NOT NULL, 
+	transform_id BIGINT NOT NULL, 
+	CONSTRAINT "WP2TRANSFORM_PK" PRIMARY KEY (workprogress_id, transform_id), 
+	CONSTRAINT "WP2TRANSFORM_WORK_ID_FK" FOREIGN KEY(workprogress_id) REFERENCES doma_idds.workprogresses (workprogress_id), 
+	CONSTRAINT "WP2TRANSFORM_TRANS_ID_FK" FOREIGN KEY(transform_id) REFERENCES doma_idds.transforms (transform_id)
+);
+
+CREATE SEQUENCE doma_idds."CONTENT_ID_SEQ" START WITH 1
+
+CREATE TABLE doma_idds.contents (
+	content_id BIGINT NOT NULL, 
+	transform_id BIGINT NOT NULL, 
+	coll_id BIGINT NOT NULL, 
+	request_id BIGINT NOT NULL, 
+	workload_id INTEGER, 
+	map_id BIGINT NOT NULL, 
+	content_dep_id BIGINT, 
+	scope VARCHAR(25), 
+	name VARCHAR(4000), 
+	min_id INTEGER, 
+	max_id INTEGER, 
+	content_type INTEGER NOT NULL, 
+	content_relation_type INTEGER NOT NULL, 
+	status INTEGER NOT NULL, 
+	substatus INTEGER, 
+	locking INTEGER NOT NULL, 
+	bytes INTEGER, 
+	md5 VARCHAR(32), 
+	adler32 VARCHAR(8), 
+	processing_id INTEGER, 
+	storage_id INTEGER, 
+	retries INTEGER, 
+	path VARCHAR(4000), 
+	created_at TIMESTAMP WITHOUT TIME ZONE, 
+	updated_at TIMESTAMP WITHOUT TIME ZONE, 
+	accessed_at TIMESTAMP WITHOUT TIME ZONE, 
+	expired_at TIMESTAMP WITHOUT TIME ZONE, 
+	content_metadata VARCHAR(100), 
+	CONSTRAINT "CONTENTS_PK" PRIMARY KEY (content_id), 
+	CONSTRAINT "CONTENT_ID_UQ" UNIQUE (transform_id, coll_id, map_id, name, min_id, max_id), 
+	CONSTRAINT "CONTENTS_TRANSFORM_ID_FK" FOREIGN KEY(transform_id) REFERENCES doma_idds.transforms (transform_id), 
+	CONSTRAINT "CONTENTS_COLL_ID_FK" FOREIGN KEY(coll_id) REFERENCES doma_idds.collections (coll_id), 
+	CONSTRAINT "CONTENTS_STATUS_ID_NN" CHECK (status IS NOT NULL), 
+	CONSTRAINT "CONTENTS_COLL_ID_NN" CHECK (coll_id IS NOT NULL)
+);
+
+CREATE INDEX "CONTENTS_REQ_TF_COLL_IDX" ON doma_idds.contents (request_id, transform_id, workload_id, coll_id, content_relation_type, status, substatus);
+
+CREATE INDEX "CONTENTS_REL_IDX" ON doma_idds.contents (request_id, content_relation_type, transform_id, substatus);
+
+CREATE INDEX "CONTENTS_ID_NAME_IDX" ON doma_idds.contents (coll_id, scope, name, status);
+
+CREATE INDEX "CONTENTS_STATUS_UPDATED_IDX" ON doma_idds.contents (status, locking, updated_at, created_at);
+
+CREATE INDEX "CONTENTS_TF_IDX" ON doma_idds.contents (transform_id, request_id, coll_id, map_id, content_relation_type);
+
+CREATE INDEX "CONTENTS_DEP_IDX" ON doma_idds.contents (request_id, transform_id, content_dep_id);
+
+
+        SET search_path TO doma_idds;
+        CREATE OR REPLACE PROCEDURE update_contents_to_others(request_id_in int, transform_id_in int)
+        AS $$
+        BEGIN
+            UPDATE doma_idds.contents set substatus = d.substatus from
+            (select content_id, content_dep_id, substatus from doma_idds.contents where request_id = request_id_in and transform_id = transform_id_in and content_relation_type = 1 and status != 0) d
+            where doma_idds.contents.request_id = request_id_in and doma_idds.contents.content_relation_type = 3 and doma_idds.contents.substatus != d.substatus and d.content_id = doma_idds.contents.content_dep_id;
+        END;
+        $$ LANGUAGE PLPGSQL
+    
+
+        SET search_path TO doma_idds;
+        CREATE OR REPLACE PROCEDURE update_contents_from_others(request_id_in int, transform_id_in int)
+        AS $$
+        BEGIN
+
+            UPDATE doma_idds.contents set substatus = d.substatus from
+            (select content_id, content_dep_id, substatus from doma_idds.contents where request_id = request_id_in and content_relation_type = 1 and status != 0) d
+            where doma_idds.contents.request_id = request_id_in and doma_idds.contents.transform_id = transform_id_in and doma_idds.contents.content_relation_type = 3 and doma_idds.contents.substatus != d.substatus and d.content_id = doma_idds.contents.content_dep_id;
+        END;
+        $$ LANGUAGE PLPGSQL
+    
