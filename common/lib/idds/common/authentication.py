@@ -45,7 +45,9 @@ def decode_value(val):
     return int.from_bytes(decoded, 'big')
 
 
-def should_verify():
+def should_verify(no_verify=False):
+    if no_verify:
+        return False
     if os.environ.get('IDDS_AUTH_NO_VERIFY', None):
         return False
     return True
@@ -94,23 +96,23 @@ class OIDCAuthentication(BaseAuthentication):
 
     def get_auth_config(self, vo):
         ret = {'vo': vo, 'oidc_config_url': None, 'client_id': None,
-               'client_secret': None, 'audience': None}
+               'client_secret': None, 'audience': None, 'no_verify': True}
 
         if self.config and self.config.has_section(vo):
-            for name in ['oidc_config_url', 'client_id', 'client_secret', 'vo', 'audience']:
+            for name in ['oidc_config_url', 'client_id', 'client_secret', 'vo', 'audience', 'no_verify']:
                 if self.config.has_option(vo, name):
                     ret[name] = self.config.get(vo, name)
         return ret
 
-    def get_http_content(self, url):
+    def get_http_content(self, url, no_verify=False):
         try:
-            r = requests.get(url, allow_redirects=True, verify=should_verify())
+            r = requests.get(url, allow_redirects=True, verify=should_verify(no_verify))
             return r.content
         except Exception as error:
             return False, 'Failed to get http content for %s: %s' (str(url), str(error))
 
     def get_endpoint_config(self, auth_config):
-        content = self.get_http_content(auth_config['oidc_config_url'])
+        content = self.get_http_content(auth_config['oidc_config_url'], no_verify=auth_config['no_verify'])
         endpoint_config = json.loads(content)
         # ret = {'token_endpoint': , 'device_authorization_endpoint': None}
         return endpoint_config
@@ -134,7 +136,7 @@ class OIDCAuthentication(BaseAuthentication):
                                              # data=json.dumps(data),
                                              urlencode(data).encode(),
                                              timeout=self.timeout,
-                                             verify=should_verify(),
+                                             verify=should_verify(auth_config['no_verify']),
                                              headers=headers)
 
             if result is not None:
@@ -179,7 +181,7 @@ class OIDCAuthentication(BaseAuthentication):
                                              # data=json.dumps(data),
                                              urlencode(data).encode(),
                                              timeout=self.timeout,
-                                             verify=should_verify(),
+                                             verify=should_verify(auth_config['no_verify']),
                                              headers=headers)
             if result is not None:
                 if result.status_code == HTTP_STATUS_CODE.OK and result.text:
@@ -211,7 +213,7 @@ class OIDCAuthentication(BaseAuthentication):
                                              # data=json.dumps(data),
                                              urlencode(data).encode(),
                                              timeout=self.timeout,
-                                             verify=should_verify(),
+                                             verify=should_verify(auth_config['no_verify']),
                                              headers=headers)
 
             if result is not None:
@@ -226,7 +228,7 @@ class OIDCAuthentication(BaseAuthentication):
         except Exception as error:
             return False, 'Failed to refresh oidc token: ' + str(error)
 
-    def get_public_key(self, token, jwks_uri):
+    def get_public_key(self, token, jwks_uri, no_verify=False):
         headers = jwt.get_unverified_header(token)
         if headers is None or 'kid' not in headers:
             raise jwt.exceptions.InvalidTokenError('cannot extract kid from headers')
@@ -262,7 +264,7 @@ class OIDCAuthentication(BaseAuthentication):
                 # discovery_endpoint = auth_config['oidc_config_url']
                 return False, "The audience %s of the token doesn't match vo configuration(client_id: %s)." % (audience, auth_config['client_id']), None
 
-            public_key = self.get_public_key(token, endpoint_config['jwks_uri'])
+            public_key = self.get_public_key(token, endpoint_config['jwks_uri'], no_verify=auth_config['no_verify'])
             # decode token only with RS256
             if 'iss' in decoded_token and decoded_token['iss'] and decoded_token['iss'] != endpoint_config['issuer'] and endpoint_config['issuer'].startswith(decoded_token['iss']):
                 # iss is missing the last '/' in access tokens
