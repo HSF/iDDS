@@ -6,6 +6,9 @@ import datetime
 os.environ['PANDA_URL'] = 'http://pandaserver-doma.cern.ch:25080/server/panda'
 os.environ['PANDA_URL_SSL'] = 'https://pandaserver-doma.cern.ch:25443/server/panda'
 
+os.environ['PANDA_URL'] = 'http://rubin-panda-server-dev.slac.stanford.edu:80/server/panda'
+os.environ['PANDA_URL_SSL'] = 'https://rubin-panda-server-dev.slac.stanford.edu:8443/server/panda'
+
 from pandaclient import Client  # noqa E402
 
 """
@@ -27,7 +30,6 @@ for job_info in jobs_list:
             print(f._attributes)
             print(f.values())
             print(f.type)
-"""
 
 jediTaskID = 10517    # 10607
 jediTaskID = 146329
@@ -61,6 +63,7 @@ if ret[0] == 0:
         print(len(ret[1]))
     ret_jobs = ret_jobs + ret[1]
     print(len(ret_jobs))
+"""
 
 # sys.exit(0)
 
@@ -105,7 +108,8 @@ task_ids = []
 # task_ids = [150607, 150619, 150649, 150637, 150110, 150111]
 # task_ids = [150864, 150897, 150910]
 # task_ids = [151114, 151115]
-task_ids = [i for i in range(151444, 151453)]
+# task_ids = [i for i in range(151444, 151453)]
+task_ids = [i for i in range(45, 53)]
 # task_ids = []
 for task_id in task_ids:
     print("Killing %s" % task_id)
