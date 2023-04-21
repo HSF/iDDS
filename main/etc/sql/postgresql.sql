@@ -33,9 +33,9 @@ CREATE TABLE doma_idds.requests (
 	CONSTRAINT "REQUESTS_STATUS_ID_NN" CHECK (status IS NOT NULL)
 );
 
-CREATE INDEX "REQUESTS_STATUS_POLL_IDX" ON doma_idds.requests (status, priority, locking, updated_at, new_poll_period, update_poll_period, created_at, request_id);
-
 CREATE INDEX "REQUESTS_STATUS_PRIO_IDX" ON doma_idds.requests (status, priority, request_id, locking, updated_at, next_poll_at, created_at);
+
+CREATE INDEX "REQUESTS_STATUS_POLL_IDX" ON doma_idds.requests (status, priority, locking, updated_at, new_poll_period, update_poll_period, created_at, request_id);
 
 CREATE INDEX "REQUESTS_SCOPE_NAME_IDX" ON doma_idds.requests (name, scope, workload_id);
 
@@ -214,7 +214,7 @@ CREATE TABLE doma_idds.messages (
 	request_id BIGINT NOT NULL, 
 	workload_id INTEGER, 
 	transform_id INTEGER NOT NULL, 
-	processing_id INTEGER NOT NULL, 
+	processing_id INTEGER, 
 	num_contents INTEGER, 
 	retries INTEGER, 
 	created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL, 
