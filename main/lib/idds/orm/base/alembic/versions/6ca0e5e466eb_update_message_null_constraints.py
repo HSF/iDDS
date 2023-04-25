@@ -17,7 +17,6 @@ Create Date: 2023-04-25 16:58:29.975397+00:00
 """
 from alembic import op
 from alembic import context
-import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
@@ -30,14 +29,15 @@ depends_on = None
 def upgrade() -> None:
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
-        op.alter_column('messages', sa.Column('request_id'), nullable=True, schema=schema)
-        op.alter_column('messages', sa.Column('transform_id'), nullable=True, schema=schema)
-        op.alter_column('messages', sa.Column('processing_id'), nullable=True, schema=schema)
+        op.alter_column('messages', 'request_id', nullable=True, schema=schema)
+        op.alter_column('messages', 'transform_id', nullable=True, schema=schema)
+        op.alter_column('messages', 'processing_id', nullable=True, schema=schema)
 
 
 def downgrade() -> None:
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
-        op.alter_column('messages', sa.Column('request_id'), nullable=False, schema=schema)
-        op.alter_column('messages', sa.Column('transform_id'), nullable=False, schema=schema)
-        op.alter_column('messages', sa.Column('processing_id'), nullable=False, schema=schema)
+        # here doesn't update nullable to False, since the table may have null rows which will cause failure.
+        op.alter_column('messages', 'request_id', nullable=True, schema=schema)
+        op.alter_column('messages', 'transform_id', nullable=True, schema=schema)
+        op.alter_column('messages', 'processing_id', nullable=True, schema=schema)
