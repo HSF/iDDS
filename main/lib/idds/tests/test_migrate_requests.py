@@ -66,10 +66,10 @@ def migrate():
     for old_request_id in old_request_ids:    # noqa E115  # doma 183
         reqs = cm1.get_requests(request_id=old_request_id, with_metadata=True)
 
-        cm2 = ClientManager(host=dev_host)
+        # cm2 = ClientManager(host=dev_host)
         # cm2 = ClientManager(host=doma_host)
         # cm2 = ClientManager(host=atlas_host)
-        # cm2 = ClientManager(host=slac_k8s_dev_host)
+        cm2 = ClientManager(host=slac_k8s_dev_host)
         # cm2 = ClientManager(host=cern_k8s_dev_host)
         # print(reqs)
 
