@@ -239,7 +239,7 @@ class BaseAgent(TimerScheduler, PluginBase):
         thread_id = self.get_thread_id()
         thread_name = self.get_thread_name()
         payload = self.get_health_payload()
-        self.logger.debug("health heartbeat: agent %s, pid %s, thread %s, delay %s" % (self.get_name(), pid, thread_name, self.heartbeat_delay))
+        self.logger.debug("health heartbeat: agent %s, pid %s, thread %s, delay %s, payload %s" % (self.get_name(), pid, thread_name, self.heartbeat_delay, payload))
         core_health.add_health_item(agent=self.get_name(), hostname=hostname, pid=pid,
                                     thread_id=thread_id, thread_name=thread_name, payload=payload)
         core_health.clean_health(older_than=self.heartbeat_delay * 2)
