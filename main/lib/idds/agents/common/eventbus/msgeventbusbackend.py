@@ -322,7 +322,7 @@ class MsgEventBusBackend(BaseEventBusBackend):
 
     def set_manager(self, manager):
         if not manager:
-            return None
+            manager = self.get_manager()
 
         if (not self.manager or self.manager['connect'] != manager['connect']
             or self.manager['username'] != manager['username']                        # noqa W503, E129
