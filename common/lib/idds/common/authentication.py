@@ -45,11 +45,18 @@ def decode_value(val):
     return int.from_bytes(decoded, 'big')
 
 
-def should_verify(no_verify=False):
+def should_verify(no_verify=False, ssl_verify=None):
     if no_verify:
         return False
     if os.environ.get('IDDS_AUTH_NO_VERIFY', None):
         return False
+
+    if os.environ.get('IDDS_AUTH_SSL_VERIFY', None):
+        return os.environ.get('IDDS_AUTH_SSL_VERIFY', None)
+
+    if ssl_verify:
+        return ssl_verify
+
     return True
 
 
@@ -89,6 +96,14 @@ class BaseAuthentication(object):
                     allow_vos.append(t)
         return allow_vos
 
+    def get_ssl_verify(self):
+        section = 'common'
+        ssl_verify = None
+        if self.config and self.config.has_section(section):
+            if self.config.has_option(section, 'ssl_verify'):
+                ssl_verify = self.config.get(section, 'ssl_verify')
+        return ssl_verify
+
 
 class OIDCAuthentication(BaseAuthentication):
     def __init__(self, timeout=None):
@@ -96,17 +111,20 @@ class OIDCAuthentication(BaseAuthentication):
 
     def get_auth_config(self, vo):
         ret = {'vo': vo, 'oidc_config_url': None, 'client_id': None,
-               'client_secret': None, 'audience': None, 'no_verify': True}
+               'client_secret': None, 'audience': None, 'no_verify': False}
 
         if self.config and self.config.has_section(vo):
-            for name in ['oidc_config_url', 'client_id', 'client_secret', 'vo', 'audience', 'no_verify']:
+            for name in ['oidc_config_url', 'client_id', 'client_secret', 'vo', 'audience']:
                 if self.config.has_option(vo, name):
                     ret[name] = self.config.get(vo, name)
+            for name in ['no_verify']:
+                if self.config.has_option(vo, name):
+                    ret[name] = self.config.getboolean(vo, name)
         return ret
 
     def get_http_content(self, url, no_verify=False):
         try:
-            r = requests.get(url, allow_redirects=True, verify=should_verify(no_verify))
+            r = requests.get(url, allow_redirects=True, verify=should_verify(no_verify, self.get_ssl_verify()))
             return r.content
         except Exception as error:
             return False, 'Failed to get http content for %s: %s' (str(url), str(error))
@@ -136,7 +154,7 @@ class OIDCAuthentication(BaseAuthentication):
                                              # data=json.dumps(data),
                                              urlencode(data).encode(),
                                              timeout=self.timeout,
-                                             verify=should_verify(auth_config['no_verify']),
+                                             verify=should_verify(auth_config['no_verify'], self.get_ssl_verify()),
                                              headers=headers)
 
             if result is not None:
@@ -181,7 +199,7 @@ class OIDCAuthentication(BaseAuthentication):
                                              # data=json.dumps(data),
                                              urlencode(data).encode(),
                                              timeout=self.timeout,
-                                             verify=should_verify(auth_config['no_verify']),
+                                             verify=should_verify(auth_config['no_verify'], self.get_ssl_verify()),
                                              headers=headers)
             if result is not None:
                 if result.status_code == HTTP_STATUS_CODE.OK and result.text:
@@ -213,7 +231,7 @@ class OIDCAuthentication(BaseAuthentication):
                                              # data=json.dumps(data),
                                              urlencode(data).encode(),
                                              timeout=self.timeout,
-                                             verify=should_verify(auth_config['no_verify']),
+                                             verify=should_verify(auth_config['no_verify'], self.get_ssl_verify()),
                                              headers=headers)
 
             if result is not None:
@@ -234,7 +252,7 @@ class OIDCAuthentication(BaseAuthentication):
             raise jwt.exceptions.InvalidTokenError('cannot extract kid from headers')
         kid = headers['kid']
 
-        jwks_content = self.get_http_content(jwks_uri)
+        jwks_content = self.get_http_content(jwks_uri, no_verify=no_verify)
         jwks = json.loads(jwks_content)
         jwk = None
         for j in jwks.get('keys', []):
