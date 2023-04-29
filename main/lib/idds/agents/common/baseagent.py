@@ -225,7 +225,8 @@ class BaseAgent(TimerScheduler, PluginBase):
             and health_item['thread_id'] == thread_id):                                              # noqa W503
             ret = True
         if not ret:
-            self.logger.debug("is_self: hostname %s, pid %s, thread_id %s, agent %s, health %s" % (hostname, pid, thread_id, self.get_name(), health_item))
+            pass
+            # self.logger.debug("is_self: hostname %s, pid %s, thread_id %s, agent %s, health %s" % (hostname, pid, thread_id, self.get_name(), health_item))
         return ret
 
     def get_health_payload(self):
