@@ -10,7 +10,8 @@ os.environ['PANDA_CONFIG_ROOT'] = '~/.panda/'
 os.environ['PANDA_URL_SSL'] = 'https://rubin-panda-server-dev.slac.stanford.edu:8443/server/panda'
 os.environ['PANDA_URL'] = 'https://rubin-panda-server-dev.slac.stanford.edu:80/server/panda'
 
-from pandaclient import panda_api
+
+from pandaclient import panda_api             # noqa E402
 import pandaclient.idds_api                   # noqa E402
 import idds.common.utils as idds_utils        # noqa E402
 
