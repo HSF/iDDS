@@ -95,6 +95,7 @@ def select_agent(name, newer_than=3600, session=None):
     if selected_agent:
         if selected_agent['status'] != HealthStatus.Active:
             orm_health.update_health_item_status(selected_agent, status=HealthStatus.Active, session=session)
+            selected_agent['status'] = HealthStatus.Active
     for health_item in health_items:
         if health_item['agent'] == name and health_item['status'] == HealthStatus.Active and health_item['health_id'] != selected_agent['health_id']:
             orm_health.update_health_item_status(selected_agent, status=HealthStatus.Default, session=session)
