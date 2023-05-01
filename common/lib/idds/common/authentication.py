@@ -15,6 +15,8 @@ import jwt
 import os
 import re
 import requests
+import time
+
 
 try:
     import ConfigParser
@@ -60,14 +62,44 @@ def should_verify(no_verify=False, ssl_verify=None):
     return True
 
 
-class BaseAuthentication(object):
+class Singleton(object):
+    _instance = None
+
+    def __new__(class_, *args, **kwargs):
+        if not isinstance(class_._instance, class_):
+            class_._instance = object.__new__(class_, *args, **kwargs)
+            class_._instance._initialized = False
+        return class_._instance
+
+
+class BaseAuthentication(Singleton):
     def __init__(self, timeout=None):
         self.timeout = timeout
         self.config = self.load_auth_server_config()
         self.max_expires_in = 60
+
+        self.cache = {}
+        self.cache_time = 3600 * 6
+
         if self.config and self.config.has_section('common'):
             if self.config.has_option('common', 'max_expires_in'):
                 self.max_expires_in = self.config.getint('common', 'max_expires_in')
+
+        if self.config and self.config.has_section('common'):
+            if self.config.has_option('common', 'cache_time'):
+                self.cache_time = self.config.getint('common', 'cache_time')
+
+    def get_cache_value(self, key):
+        if key in self.cache and self.cache[key]['time'] + self.cache_time > time.time():
+            return self.cache[key]['value']
+        return None
+
+    def set_cache_value(self, key, value):
+        cache_keys = list(self.cache.keys())
+        for k in cache_keys:
+            if self.cache[k]['time'] + self.cache_time <= time.time():
+                del self.cache[k]
+        self.cache[key] = {'time': time.time(), 'value': value}
 
     def load_auth_server_config(self):
         config = ConfigParser.ConfigParser()
@@ -110,6 +142,10 @@ class OIDCAuthentication(BaseAuthentication):
         super(OIDCAuthentication, self).__init__(timeout=timeout)
 
     def get_auth_config(self, vo):
+        ret = self.get_cache_value(vo)
+        if ret:
+            return ret
+
         ret = {'vo': vo, 'oidc_config_url': None, 'client_id': None,
                'client_secret': None, 'audience': None, 'no_verify': False}
 
@@ -135,14 +171,26 @@ class OIDCAuthentication(BaseAuthentication):
         # ret = {'token_endpoint': , 'device_authorization_endpoint': None}
         return endpoint_config
 
-    def get_oidc_sign_url(self, vo):
-        try:
+    def get_auth_endpoint_config(self, vo):
+        auth_config = self.get_cache_value(vo)
+        endpoint_config_key = vo + "_endpoint_config"
+        endpoint_config = self.get_cache_value(endpoint_config_key)
+
+        if not auth_config or not endpoint_config:
             allow_vos = self.get_allow_vos()
             if vo not in allow_vos:
                 return False, "VO %s is not allowed." % vo
 
             auth_config = self.get_auth_config(vo)
             endpoint_config = self.get_endpoint_config(auth_config)
+
+            self.set_cache_value(vo, auth_config)
+            self.set_cache_value(endpoint_config_key, endpoint_config)
+        return auth_config, endpoint_config
+
+    def get_oidc_sign_url(self, vo):
+        try:
+            auth_config, endpoint_config = self.get_auth_endpoint_config(vo)
 
             data = {'client_id': auth_config['client_id'],
                     'scope': "openid profile email offline_access",
@@ -171,12 +219,7 @@ class OIDCAuthentication(BaseAuthentication):
 
     def get_id_token(self, vo, device_code, interval=5, expires_in=60):
         try:
-            allow_vos = self.get_allow_vos()
-            if vo not in allow_vos:
-                return False, "VO %s is not allowed." % vo
-
-            auth_config = self.get_auth_config(vo)
-            endpoint_config = self.get_endpoint_config(auth_config)
+            auth_config, endpoint_config = self.get_auth_endpoint_config(vo)
 
             data = {'client_id': auth_config['client_id'],
                     'client_secret': auth_config['client_secret'],
@@ -213,12 +256,7 @@ class OIDCAuthentication(BaseAuthentication):
 
     def refresh_id_token(self, vo, refresh_token):
         try:
-            allow_vos = self.get_allow_vos()
-            if vo not in allow_vos:
-                return False, "VO %s is not allowed." % vo
-
-            auth_config = self.get_auth_config(vo)
-            endpoint_config = self.get_endpoint_config(auth_config)
+            auth_config, endpoint_config = self.get_auth_endpoint_config(vo)
 
             data = {'client_id': auth_config['client_id'],
                     'client_secret': auth_config['client_secret'],
@@ -252,8 +290,12 @@ class OIDCAuthentication(BaseAuthentication):
             raise jwt.exceptions.InvalidTokenError('cannot extract kid from headers')
         kid = headers['kid']
 
-        jwks_content = self.get_http_content(jwks_uri, no_verify=no_verify)
-        jwks = json.loads(jwks_content)
+        jwks = self.get_cache_value(jwks_uri)
+        if not jwks:
+            jwks_content = self.get_http_content(jwks_uri, no_verify=no_verify)
+            jwks = json.loads(jwks_content)
+            self.set_cache_value(jwks_uri, jwks)
+
         jwk = None
         for j in jwks.get('keys', []):
             if j.get('kid') == kid:
@@ -268,12 +310,7 @@ class OIDCAuthentication(BaseAuthentication):
 
     def verify_id_token(self, vo, token):
         try:
-            allow_vos = self.get_allow_vos()
-            if vo not in allow_vos:
-                return False, "VO %s is not allowed." % vo, None
-
-            auth_config = self.get_auth_config(vo)
-            endpoint_config = self.get_endpoint_config(auth_config)
+            auth_config, endpoint_config = self.get_auth_endpoint_config(vo)
 
             # check audience
             decoded_token = jwt.decode(token, verify=False, options={"verify_signature": False})
