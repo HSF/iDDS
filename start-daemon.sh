@@ -25,6 +25,14 @@ elif [ -f /opt/idds/certs/hostkey.pem ]; then
     ln -fs /opt/idds/certs/hostcert.pem /etc/grid-security/hostcert.pem
     chmod 600 /etc/grid-security/hostkey.pem
 fi
+# setup intermediate certificate
+if [ ! -f /etc/grid-security/chain.pem ]; then
+  if [ -f /opt/idds/certs/chain.pem ]; then
+    ln -fs /opt/idds/certs/chain.pem /etc/grid-security/chain.pem
+  elif [ -f /etc/grid-security/hostcert.pem ]; then
+    ln -fs /etc/grid-security/hostcert.pem /etc/grid-security/chain.pem
+  fi
+fi
 
 if [ -f /opt/idds/config/idds/idds.cfg ]; then
     echo "idds.cfg already mounted."

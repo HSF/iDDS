@@ -40,8 +40,8 @@ def migrate():
     cern_k8s_dev_host = 'https://panda-idds-dev.cern.ch/idds'  # noqa F841
 
     # cm1 = ClientManager(host=atlas_host)
-    cm1 = ClientManager(host=doma_host)
-    # cm1 = ClientManager(host=slac_k8s_dev_host)
+    # cm1 = ClientManager(host=doma_host)
+    cm1 = ClientManager(host=slac_k8s_dev_host)
     # reqs = cm1.get_requests(request_id=290)
     # old_request_id = 298163
     # old_request_id = 350723
@@ -59,6 +59,9 @@ def migrate():
     old_request_id = 3628
 
     old_request_ids = [3628]
+
+    old_request_ids = [21]
+
     # old_request_id = 1
     # for old_request_id in [152]:
     # for old_request_id in [60]:    # noqa E115
