@@ -1,0 +1,5 @@
+
+# add rule to increase memory
+insert into retryactions(retryaction_id, retry_action, active, retry_description) values (2, 'increase_memory', 'Y', 'Job ran out of memory. Increase memory setting for next retry.');
+insert into retryerrors(retryerror_id, errorsource, errorcode, active, retryaction, description) values(1, 'transExitCode', 137, 'Y', 2, 'increase memory');
+
