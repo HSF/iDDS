@@ -315,10 +315,13 @@ def generate_file_messages(request_id, transform_id, workload_id, work, files, r
         file_message = {'scope': file['scope'],
                         'name': file['name'],
                         'path': file['path'],
+                        'map_id': file['map_id'],
+                        'content_id': file['content_id'],
                         'status': file_status}
         files_message.append(file_message)
     msg_content = {'msg_type': i_msg_type_str.value,
                    'request_id': request_id,
+                   'transform_id': transform_id,
                    'workload_id': workload_id,
                    'relation_type': relation_type,
                    'files': files_message}
@@ -341,6 +344,7 @@ def generate_content_ext_messages(request_id, transform_id, workload_id, work, f
     msg_content = {'msg_type': i_msg_type_str.value,
                    'request_id': request_id,
                    'workload_id': workload_id,
+                   'transform_id': transform_id,
                    'relation_type': relation_type,
                    'files': files_message}
     num_msg_content = len(files_message)
@@ -356,6 +360,7 @@ def generate_collection_messages(request_id, transform_id, workload_id, work, co
     msg_content = {'msg_type': i_msg_type_str.value,
                    'request_id': request_id,
                    'workload_id': workload_id,
+                   'transform_id': transform_id,
                    'relation_type': relation_type,
                    'collections': [{'scope': collection.scope,
                                     'name': coll_name,
@@ -371,6 +376,7 @@ def generate_work_messages(request_id, transform_id, workload_id, work, relation
     msg_content = {'msg_type': i_msg_type_str.value,
                    'request_id': request_id,
                    'workload_id': workload_id,
+                   'transform_id': transform_id,
                    'relation_type': relation_type,
                    'status': work.get_status().name,
                    'output': work.get_output_data(),
