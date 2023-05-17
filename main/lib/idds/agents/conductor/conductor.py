@@ -17,10 +17,11 @@ except ImportError:
     # Python 2
     from Queue import Queue
 
-from idds.common.constants import (Sections, MessageStatus, MessageDestination, MessageType)
+from idds.common.constants import (Sections, MessageStatus, MessageDestination, MessageType,
+                                   ContentStatus, ContentRelationType)
 from idds.common.exceptions import AgentPluginError, IDDSException
 from idds.common.utils import setup_logging, get_logger
-from idds.core import messages as core_messages
+from idds.core import messages as core_messages, catalog as core_catalog
 from idds.agents.common.baseagent import BaseAgent
 
 
@@ -132,6 +133,34 @@ class Conductor(BaseAgent):
             self.logger.error("Failed to get output messages: %s, %s" % (error, traceback.format_exc()))
         return msgs
 
+    def is_message_processed(self, message):
+        try:
+            retries = message['retries']
+            msg_type = message['msg_type']
+            if retries < 1:
+                return False
+            if msg_type not in [MessageType.ProcessingFile]:
+                return False
+            msg_content = message['msg_content']
+            request_id = message['request_id']
+            transform_id = message['transform_id']
+            if not ('files' in msg_content and msg_content['files']):
+                return False
+            files = msg_content['files']
+            one_file = files[0]
+            # only check one file in a message
+            map_id = one_file['map_id']
+            contents = core_catalog.get_contents_by_request_transform(request_id=request_id,
+                                                                      transform_id=transform_id,
+                                                                      map_id=map_id)
+            for content in contents:
+                if content['content_relation_type'] == ContentRelationType.Output and content['status'] != ContentStatus.New:
+                    return True
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+        return False
+
     def run(self):
         """
         Main run function.
@@ -156,11 +185,20 @@ class Conductor(BaseAgent):
                     messages = self.get_messages()
                     if not messages:
                         time.sleep(self.interval_delay)
+
+                    to_discard_messages = []
                     for message in messages:
                         message['destination'] = message['destination'].name
 
                         num_contents += message['num_contents']
-                        self.message_queue.put(message)
+                        if self.is_message_processed(message):
+                            self.logger.debug("message (msg_id: %s) is already processed, not resend it again" % message['msg_id'])
+                            to_discard_messages.append(message)
+                        else:
+                            self.message_queue.put(message)
+                    if to_discard_messages:
+                        self.clean_messages(to_discard_messages)
+
                     while not self.message_queue.empty():
                         time.sleep(1)
                     output_messages = self.get_output_messages()
