@@ -335,7 +335,7 @@ def get_contents(scope=None, name=None, transform_id=None, coll_id=None, status=
 
 
 @read_session
-def get_contents_by_request_transform(request_id=None, transform_id=None, workload_id=None, status=None, status_updated=False, session=None):
+def get_contents_by_request_transform(request_id=None, transform_id=None, workload_id=None, status=None, map_id=None, status_updated=False, session=None):
     """
     Get content or raise a NoObject exception.
 
@@ -364,6 +364,8 @@ def get_contents_by_request_transform(request_id=None, transform_id=None, worklo
             query = query.filter(models.Content.workload_id == workload_id)
         if status is not None:
             query = query.filter(models.Content.substatus.in_(status))
+        if map_id:
+            query = query.filter(models.Content.map_id == map_id)
         if status_updated:
             query = query.filter(models.Content.status != models.Content.substatus)
         query = query.order_by(asc(models.Content.request_id), asc(models.Content.transform_id), asc(models.Content.map_id))
