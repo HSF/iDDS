@@ -62,6 +62,8 @@ class MessagingSender(PluginBase, threading.Thread):
         if logger:
             self.logger = logger
         self.graceful_stop = threading.Event()
+        self.graceful_suspend = threading.Event()
+
         self.request_queue = None
         self.output_queue = None
         self.response_queue = None
@@ -93,6 +95,12 @@ class MessagingSender(PluginBase, threading.Thread):
 
     def stop(self):
         self.graceful_stop.set()
+
+    def suspend(self):
+        self.graceful_suspend.set()
+
+    def resume(self):
+        self.graceful_suspend.clear()
 
     def set_request_queue(self, request_queue):
         self.request_queue = request_queue
@@ -151,7 +159,8 @@ class MessagingSender(PluginBase, threading.Thread):
             if conns[name]:
                 for conn in conns[name]:
                     try:
-                        conn.disconnect()
+                        if conn.is_connected():
+                            conn.disconnect()
                     except Exception:
                         pass
 
@@ -261,27 +270,34 @@ class MessagingReceiver(MessagingSender):
             self.logger.error("Messaging receiver throws an exception: %s, %s" % (error, traceback.format_exc()))
 
         while not self.graceful_stop.is_set():
-            has_failed_connection = False
-            try:
-                for name in self.receiver_conns:
-                    for conn in self.receiver_conns[name]:
-                        if not conn.is_connected():
-                            conn.set_listener('message-receiver', self.get_listener(conn.transport._Transport__host_and_ports[0]))
-                            # conn.start()
-                            conn.connect(self.channels[name]['username'], self.channels[name]['password'], wait=True)
-                            conn.subscribe(destination=self.channels[name]['destination'], id='atlas-idds-messaging', ack='auto')
-                time.sleep(0.1)
-            except Exception as error:
-                self.logger.error("Messaging receiver throws an exception: %s, %s" % (error, traceback.format_exc()))
-                has_failed_connection = True
-
-            if has_failed_connection or len(self.receiver_conns) == 0:
+            if self.graceful_suspend.is_set():
                 try:
-                    # re-subscribe
                     self.disconnect(self.receiver_conns)
-                    self.subscribe()
                 except Exception as error:
                     self.logger.error("Messaging receiver throws an exception: %s, %s" % (error, traceback.format_exc()))
+                time.sleep(1)
+            else:
+                has_failed_connection = False
+                try:
+                    for name in self.receiver_conns:
+                        for conn in self.receiver_conns[name]:
+                            if not conn.is_connected():
+                                conn.set_listener('message-receiver', self.get_listener(conn.transport._Transport__host_and_ports[0]))
+                                # conn.start()
+                                conn.connect(self.channels[name]['username'], self.channels[name]['password'], wait=True)
+                                conn.subscribe(destination=self.channels[name]['destination'], id='atlas-idds-messaging', ack='auto')
+                    time.sleep(0.1)
+                except Exception as error:
+                    self.logger.error("Messaging receiver throws an exception: %s, %s" % (error, traceback.format_exc()))
+                    has_failed_connection = True
+
+                if has_failed_connection or len(self.receiver_conns) == 0:
+                    try:
+                        # re-subscribe
+                        self.disconnect(self.receiver_conns)
+                        self.subscribe()
+                    except Exception as error:
+                        self.logger.error("Messaging receiver throws an exception: %s, %s" % (error, traceback.format_exc()))
 
         self.logger.info('receiver graceful stop requested')
 
