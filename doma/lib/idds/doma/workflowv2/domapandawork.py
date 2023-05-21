@@ -793,6 +793,8 @@ class DomaPanDAWork(Work):
                 return ContentStatus.FinalFailed
             else:
                 return ContentStatus.Failed
+        elif jobstatus in ['activated']:
+            return ContentStatus.Activated
         else:
             return ContentStatus.Processing
 

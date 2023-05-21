@@ -1091,6 +1091,7 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
 
 def get_content_status_from_panda_msg_status(status):
     status_map = {'starting': ContentStatus.New,
+                  'activated': ContentStatus.Activated,
                   'running': ContentStatus.Processing,
                   'finished': ContentStatus.Available,
                   'failed': ContentStatus.Failed}
@@ -1376,7 +1377,9 @@ def handle_messages_processing(messages, logger=None, log_prefix='', update_proc
             job_id = msg['jobid']
             status = msg['status']
             inputs = msg['inputs']
-            if inputs and status in ['finished']:
+            # if inputs and status in ['finished']:
+            # add activated
+            if inputs and status in ['finished', 'activated']:
                 logger.debug(log_prefix + "Received message: %s" % str(ori_msg))
 
                 ret_req_tf_pr_id = get_workload_id_transform_id_map(workload_id, logger=logger, log_prefix=log_prefix)
