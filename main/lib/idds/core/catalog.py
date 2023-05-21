@@ -499,7 +499,7 @@ def get_match_contents(coll_scope, coll_name, scope, name, min_id=None, max_id=N
 
 
 @read_session
-def get_content_status_statistics(coll_id=None, session=None):
+def get_content_status_statistics(coll_id=None, transform_ids=None, session=None):
     """
     Get statistics group by status
 
@@ -508,7 +508,20 @@ def get_content_status_statistics(coll_id=None, session=None):
 
     :returns: statistics group by status, as a dict.
     """
-    return orm_contents.get_content_status_statistics(coll_id=coll_id, session=session)
+    return orm_contents.get_content_status_statistics(coll_id=coll_id, transform_ids=transform_ids, session=session)
+
+
+@read_session
+def get_content_status_statistics_by_relation_type(transform_ids, session=None):
+    """
+    Get statistics group by status
+
+    :param coll_id: Collection id.
+    :param session: The database session in use.
+
+    :returns: statistics group by status, as a dict.
+    """
+    return orm_contents.get_content_status_statistics_by_relation_type(transform_ids, session=session)
 
 
 @transactional_session

@@ -467,3 +467,13 @@ def get_last_request_id(status, older_than=None, session=None):
     :returns request_id
     """
     return orm_requests.get_last_request_id(status=status, older_than=older_than, session=session)
+
+
+@read_session
+def get_num_active_requests(active_status=None, session=None):
+    return orm_requests.get_num_active_requests(active_status=active_status, session=session)
+
+
+@read_session
+def get_active_requests(active_status=None, session=None):
+    return orm_requests.get_active_requests(active_status=active_status, session=session)

@@ -16,6 +16,7 @@ operations related to Processings.
 import datetime
 
 import sqlalchemy
+from sqlalchemy import func
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.sql.expression import asc
 
@@ -424,3 +425,42 @@ def clean_next_poll_at(status, session=None):
     params = {'next_poll_at': datetime.datetime.utcnow()}
     session.query(models.Processing).filter(models.Processing.status.in_(status))\
            .update(params, synchronize_session=False)
+
+
+@read_session
+def get_num_active_processings(active_status=None, session=None):
+    if active_status and not isinstance(active_status, (list, tuple)):
+        active_status = [active_status]
+    if active_status and len(active_status) == 1:
+        active_status = [active_status[0], active_status[0]]
+
+    try:
+        query = session.query(models.Processing.status, models.Processing.site, func.count(models.Processing.processing_id))
+        if active_status:
+            query = query.filter(models.Processing.status.in_(active_status))
+        query = query.group_by(models.Processing.status, models.Processing.site)
+        tmp = query.all()
+        return tmp
+    except Exception as error:
+        raise error
+
+
+@read_session
+def get_active_processings(active_status=None, session=None):
+    if active_status and not isinstance(active_status, (list, tuple)):
+        active_status = [active_status]
+    if active_status and len(active_status) == 1:
+        active_status = [active_status[0], active_status[0]]
+
+    try:
+        query = session.query(models.Processing.request_id,
+                              models.Processing.transform_id,
+                              models.Processing.processing_id,
+                              models.Processing.site,
+                              models.Processing.status)
+        if active_status:
+            query = query.filter(models.Processing.status.in_(active_status))
+        tmp = query.all()
+        return tmp
+    except Exception as error:
+        raise error

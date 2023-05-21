@@ -627,3 +627,13 @@ def get_work_name_to_coll_map(request_id):
                                                                             'workload_id': coll['workload_id'],
                                                                             'scope': coll['scope'], 'name': coll['name']})
     return work_name_to_coll_map
+
+
+@read_session
+def get_num_active_transforms(active_status=None, session=None):
+    return orm_transforms.get_num_active_transforms(active_status=active_status, session=session)
+
+
+@read_session
+def get_active_transforms(active_status=None, session=None):
+    return orm_transforms.get_active_transforms(active_status=active_status, session=session)

@@ -369,3 +369,13 @@ def clean_next_poll_at(status, session=None):
     :param status: status of the processing
     """
     orm_processings.clean_next_poll_at(status=status, session=session)
+
+
+@read_session
+def get_num_active_processings(active_status=None, session=None):
+    return orm_processings.get_num_active_processings(active_status=active_status, session=session)
+
+
+@read_session
+def get_active_processings(active_status=None, session=None):
+    return orm_processings.get_active_processings(active_status=active_status, session=session)
