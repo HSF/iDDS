@@ -720,6 +720,7 @@ class Message(BASE, ModelBase):
     fetching_id = Column(Integer())
     created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow, nullable=False)
     updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
+    poll_period = Column(Interval(), default=datetime.timedelta(seconds=300), nullable=False)
     msg_content = Column(JSON())
 
     __table_args__ = (PrimaryKeyConstraint('msg_id', name='MESSAGES_PK'),

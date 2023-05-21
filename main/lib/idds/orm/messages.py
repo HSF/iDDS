@@ -17,7 +17,7 @@ import datetime
 import re
 import copy
 
-from sqlalchemy import or_
+from sqlalchemy import or_, asc
 from sqlalchemy.exc import DatabaseError, IntegrityError
 
 from idds.common import exceptions
@@ -118,7 +118,7 @@ def update_messages(messages, bulk_size=1000, session=None):
 def retrieve_messages(bulk_size=1000, msg_type=None, status=None, source=None,
                       destination=None, request_id=None, workload_id=None,
                       transform_id=None, processing_id=None, fetching_id=None,
-                      retries=None, delay=None, session=None):
+                      use_poll_period=False, retries=None, delay=None, session=None):
     """
     Retrieve up to $bulk messages.
 
@@ -165,6 +165,10 @@ def retrieve_messages(bulk_size=1000, msg_type=None, status=None, source=None,
             query = query.filter_by(retries=retries)
         if delay:
             query = query.filter(models.Message.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=delay))
+        elif use_poll_period:
+            query = query.filter(models.Message.updated_at + models.Message.poll_period <= datetime.datetime.utcnow())
+
+        query = query.order_by(asc(models.Message.updated_at))
 
         if bulk_size:
             query = query.order_by(models.Message.created_at).limit(bulk_size)

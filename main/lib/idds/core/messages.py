@@ -48,7 +48,8 @@ def add_messages(messages, bulk_size=1000, session=None):
 @read_session
 def retrieve_messages(bulk_size=None, msg_type=None, status=None, destination=None,
                       source=None, request_id=None, workload_id=None, transform_id=None,
-                      processing_id=None, retries=None, delay=None, fetching_id=None, session=None):
+                      processing_id=None, use_poll_period=False, retries=None, delay=None,
+                      fetching_id=None, session=None):
     """
     Retrieve up to $bulk messages.
 

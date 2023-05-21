@@ -432,3 +432,4 @@ CREATE TABLE Throttlers
     CONSTRAINT THROTTLER_SITE_UQ UNIQUE (site)
 );
 
+alter table Messages add (poll_period INTERVAL DAY TO SECOND DEFAULT '00 00:05:00');
