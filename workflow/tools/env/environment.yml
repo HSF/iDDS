@@ -6,6 +6,7 @@ dependencies:
   - unittest2        # unit test tool
   - pep8             # checks for PEP8 code style compliance
   - flake8           # Wrapper around PyFlakes&pep8
+  - anytree
   - pytest           # python testing tool
   - nose             # nose test tools
   - idds-common==0.11.5
