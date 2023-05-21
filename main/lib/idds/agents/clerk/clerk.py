@@ -16,11 +16,15 @@ import traceback
 from idds.common import exceptions
 from idds.common.constants import (Sections, ReturnCode,
                                    RequestStatus, RequestLocking,
-                                   TransformStatus, CommandType,
-                                   CommandStatus, CommandLocking)
+                                   TransformStatus, ProcessingStatus,
+                                   ContentStatus, ContentRelationType,
+                                   CommandType, CommandStatus, CommandLocking)
 from idds.common.utils import setup_logging, truncate_string
 from idds.core import (requests as core_requests,
                        transforms as core_transforms,
+                       processings as core_processings,
+                       catalog as core_catalog,
+                       throttlers as core_throttlers,
                        commands as core_commands)
 from idds.agents.common.baseagent import BaseAgent
 from idds.agents.common.eventbus.event import (EventType,
@@ -34,6 +38,9 @@ from idds.agents.common.eventbus.event import (EventType,
                                                ResumeTransformEvent,
                                                ExpireRequestEvent)
 
+from idds.agents.common.cache.redis import get_redis_cache
+
+
 setup_logging(__name__)
 
 
@@ -42,7 +49,7 @@ class Clerk(BaseAgent):
     Clerk works to process requests and converts requests to transforms.
     """
 
-    def __init__(self, num_threads=1, poll_period=10, retrieve_bulk_size=10, pending_time=None, **kwargs):
+    def __init__(self, num_threads=1, poll_period=10, retrieve_bulk_size=10, cache_expire_seconds=300, pending_time=None, **kwargs):
         self.set_max_workers()
         num_threads = self.max_number_workers
         super(Clerk, self).__init__(num_threads=num_threads, name='Clerk', **kwargs)
@@ -53,6 +60,8 @@ class Clerk(BaseAgent):
             self.pending_time = float(pending_time)
         else:
             self.pending_time = None
+
+        self.cache_expire_seconds = int(cache_expire_seconds)
 
         if not hasattr(self, 'release_helper') or not self.release_helper:
             self.release_helper = False
@@ -69,6 +78,10 @@ class Clerk(BaseAgent):
             self.update_poll_period = self.poll_period
         else:
             self.update_poll_period = int(self.update_poll_period)
+        if not hasattr(self, 'throttle_poll_period') or not self.throttle_poll_period:
+            self.throttle_poll_period = self.poll_period
+        else:
+            self.throttle_poll_period = int(self.new_poll_period)
 
         if hasattr(self, 'poll_period_increase_rate'):
             self.poll_period_increase_rate = float(self.poll_period_increase_rate)
@@ -133,7 +146,7 @@ class Clerk(BaseAgent):
 
             self.show_queue_size()
 
-            req_status = [RequestStatus.New, RequestStatus.Extend, RequestStatus.Built]
+            req_status = [RequestStatus.New, RequestStatus.Extend, RequestStatus.Built, RequestStatus.Throttling]
             reqs_new = core_requests.get_requests_by_status_type(status=req_status, locking=True,
                                                                  not_lock=True,
                                                                  new_poll=True, only_return_id=True,
@@ -271,9 +284,11 @@ class Clerk(BaseAgent):
                 self.logger.error(traceback.format_exc())
         return None
 
-    def load_poll_period(self, req, parameters):
+    def load_poll_period(self, req, parameters, throttling=False):
         if self.new_poll_period and req['new_poll_period'] != self.new_poll_period:
             parameters['new_poll_period'] = self.new_poll_period
+        if throttling:
+            parameters['new_poll_period'] = self.throttle_poll_period
         if self.update_poll_period and req['update_poll_period'] != self.update_poll_period:
             parameters['update_poll_period'] = self.update_poll_period
         parameters['max_new_retries'] = req['max_new_retries'] if req['max_new_retries'] is not None else self.max_new_retries
@@ -342,6 +357,189 @@ class Clerk(BaseAgent):
 
         return new_transform
 
+    def get_num_active_requests(self, site_name):
+        cache = get_redis_cache()
+        num_requests = cache.get("num_requests", default=None)
+        if num_requests is None:
+            num_requests = {}
+            active_status = [RequestStatus.New, RequestStatus.Ready, RequestStatus.Throttling]
+            active_status1 = [RequestStatus.Transforming, RequestStatus.Terminating]
+            rets = core_requests.get_num_active_requests(active_status + active_status1)
+            for ret in rets:
+                status, site, count = ret
+                if site is None:
+                    site = 'Default'
+                if site not in num_requests:
+                    num_requests[site] = {'new': 0, 'processing': 0}
+                if status in active_status:
+                    num_requests[site]['new'] += count
+                elif status in active_status1:
+                    num_requests[site]['processing'] += count
+            cache.set("num_requests", num_requests, expire_seconds=self.cache_expire_seconds)
+        default_value = {'new': 0, 'processing': 0}
+        return num_requests.get(site_name, default_value)
+
+    def get_num_active_transforms(self, site_name):
+        cache = get_redis_cache()
+        num_transforms = cache.get("num_transforms", default=None)
+        if num_transforms is None:
+            num_transforms = {}
+            active_status = [TransformStatus.New, TransformStatus.Ready]
+            active_status1 = [TransformStatus.Transforming, TransformStatus.Terminating]
+            rets = core_transforms.get_num_active_transforms(active_status + active_status1)
+            for ret in rets:
+                status, site, count = ret
+                if site is None:
+                    site = 'Default'
+                if site not in num_transforms:
+                    num_transforms[site] = {'new': 0, 'processing': 0}
+                if status in active_status:
+                    num_transforms[site]['new'] += count
+                elif status in active_status1:
+                    num_transforms[site]['processing'] += count
+            cache.set("num_transforms", num_transforms, expire_seconds=self.cache_expire_seconds)
+        default_value = {'new': 0, 'processing': 0}
+        return num_transforms.get(site_name, default_value)
+
+    def get_num_active_processings(self, site_name):
+        cache = get_redis_cache()
+        num_processings = cache.get("num_processings", default=None)
+        active_transforms = cache.get("active_transforms", default={})
+        if num_processings is None:
+            num_processings = {}
+            active_status = [ProcessingStatus.New]
+            active_status1 = [ProcessingStatus.Submitting, ProcessingStatus.Submitted,
+                              ProcessingStatus.Running, ProcessingStatus.Terminating, ProcessingStatus.ToTrigger,
+                              ProcessingStatus.Triggering]
+            rets = core_processings.get_active_processings(active_status + active_status1)
+            for ret in rets:
+                req_id, trf_id, pr_id, site, status = ret
+                if site is None:
+                    site = 'Default'
+                if site not in num_processings:
+                    num_processings[site] = {'new': 0, 'processing': 0}
+                    active_transforms[site] = []
+                if status in active_status:
+                    num_processings[site]['new'] += 1
+                elif status in active_status1:
+                    num_processings[site]['processing'] += 1
+                active_transforms[site].append(trf_id)
+            cache.set("num_processings", num_processings, expire_seconds=self.cache_expire_seconds)
+            cache.set("active_transforms", active_transforms, expire_seconds=self.cache_expire_seconds)
+        default_value = {'new': 0, 'processing': 0}
+        return num_processings.get(site_name, default_value), active_transforms
+
+    def get_num_active_contents(self, site_name, active_transform_ids):
+        cache = get_redis_cache()
+        # 1. input contents not terminated
+        # 2. output contents not terminated
+        tf_id_site_map = {}
+        all_tf_ids = []
+        for site in active_transform_ids:
+            all_tf_ids += active_transform_ids[site]
+            for tf_id in active_transform_ids[site]:
+                tf_id_site_map[tf_id] = site
+
+        num_input_contents = cache.get("num_input_contents", default=None)
+        num_output_contents = cache.get("num_output_contents", default=None)
+        if num_input_contents is None or num_output_contents is None:
+            num_input_contents, num_output_contents = {}, {}
+            ret = core_catalog.get_content_status_statistics_by_relation_type(all_tf_ids)
+            for item in ret:
+                status, relation_type, transform_id, count = item
+                site = tf_id_site_map[transform_id]
+                if site not in num_input_contents:
+                    num_input_contents[site] = {'new': 0, 'activated': 0, 'processed': 0}
+                    num_output_contents[site] = {'new': 0, 'activated': 0, 'processed': 0}
+                if status in [ContentStatus.New]:
+                    if relation_type == ContentRelationType.Input:
+                        num_input_contents[site]['new'] += count
+                    elif relation_type == ContentRelationType.Output:
+                        num_output_contents[site]['new'] += count
+                if status in [ContentStatus.Activated]:
+                    if relation_type == ContentRelationType.Input:
+                        num_input_contents[site]['activated'] += count
+                    elif relation_type == ContentRelationType.Output:
+                        num_output_contents[site]['activated'] += count
+                else:
+                    if relation_type == ContentRelationType.Input:
+                        num_input_contents[site]['processed'] += count
+                    elif relation_type == ContentRelationType.Output:
+                        num_output_contents[site]['processed'] += count
+
+            cache.set("num_input_contents", num_input_contents, expire_seconds=self.cache_expire_seconds)
+            cache.set("num_output_contents", num_output_contents, expire_seconds=self.cache_expire_seconds)
+        default_value = {'new': 0, 'activated': 0, 'processed': 0}
+        return num_input_contents.get(site_name, default_value), num_output_contents.get(site_name, default_value)
+
+    def get_throttlers(self):
+        cache = get_redis_cache()
+        throttlers = cache.get("throttlers", default=None)
+        if throttlers is None:
+            throttler_items = core_throttlers.get_throttlers()
+            throttlers = {}
+            for item in throttler_items:
+                throttlers[item['site']] = {'num_requests': item['num_requests'],
+                                            'num_transforms': item['num_transforms'],
+                                            'num_processings': item['num_processings'],
+                                            'new_contents': item['new_contents'],
+                                            'queue_contents': item['queue_contents'],
+                                            'others': item['others'],
+                                            'status': item['status']}
+            cache.set("throttlers", throttlers, expire_seconds=self.cache_expire_seconds)
+        return throttlers
+
+    def whether_to_throttle(self, request):
+        try:
+            site = request['site']
+            if site is None:
+                site = 'Default'
+            throttlers = self.get_throttlers()
+            num_requests = self.get_num_active_requests(site)
+            num_transforms = self.get_num_active_transforms(site)
+            num_processings, active_transforms = self.get_num_active_processings(site)
+            num_input_contents, num_output_contents = self.get_num_active_contents(site, active_transforms)
+            self.logger.info("throttler(site: %s): active requests(%s), transforms(%s), processings(%s)" % (site, num_requests, num_transforms, num_processings))
+            self.logger.info("throttler(site: %s): active input contents(%s), output contents(%s)" % (site, num_input_contents, num_output_contents))
+
+            throttle_requests = throttlers.get(site, {}).get('num_requests', None)
+            throttle_transforms = throttlers.get(site, {}).get('num_transforms', None)
+            throttle_processings = throttlers.get(site, {}).get('num_processings', None)
+            throttle_new_jobs = throttlers.get(site, {}).get('new_contents', None)
+            throttle_queue_jobs = throttlers.get(site, {}).get('queue_contents', None)
+            if throttle_requests:
+                if num_requests['processing'] >= throttle_requests:
+                    self.logger.info("throttler(site: %s): num of processing requests (%s) is bigger than throttle_requests (%s), set throttling" % (site, num_requests['processing'], throttle_requests))
+                    return True
+            if throttle_transforms:
+                if num_transforms['processing'] >= throttle_transforms:
+                    self.logger.info("throttler(site: %s): num of processing transforms (%s) is bigger than throttle_transforms (%s), set throttling" % (site, num_transforms['processing'], throttle_transforms))
+                    return True
+            if throttle_processings:
+                if num_processings['processing'] >= throttle_processings:
+                    self.logger.info("throttler(site: %s): num of processing processings (%s) is bigger than throttle_processings (%s), set throttling" % (site, num_processings['processing'], throttle_processings))
+                    return True
+
+            new_jobs = num_input_contents['new']
+            released_jobs = num_input_contents['processed']
+            terminated_jobs = num_output_contents['processed']
+            queue_jobs = released_jobs - terminated_jobs
+
+            if throttle_new_jobs:
+                if new_jobs >= throttle_new_jobs:
+                    self.logger.info("throttler(site: %s): num of new jobs(not released) (%s) is bigger than throttle_new_jobs (%s), set throttling" % (site, new_jobs, throttle_new_jobs))
+                    return True
+            if throttle_queue_jobs:
+                if queue_jobs >= throttle_queue_jobs:
+                    self.logger.info("throttler(site: %s): num of queue jobs(released but not terminated) (%s) is bigger than throttle_queue_jobs (%s), set throttling" % (site, queue_jobs, throttle_queue_jobs))
+                    return True
+
+            return False
+        except Exception as ex:
+            self.logger.error("whether_to_throttle: %s" % str(ex))
+            self.logger.error(traceback.format_exc())
+        return False
+
     def get_log_prefix(self, req):
         return "<request_id=%s>" % req['request_id']
 
@@ -349,34 +547,42 @@ class Clerk(BaseAgent):
         try:
             log_pre = self.get_log_prefix(req)
             self.logger.info(log_pre + "Handle new request")
-            workflow = req['request_metadata']['workflow']
+            to_throttle = self.whether_to_throttle(req)
+            if to_throttle:
+                ret_req = {'request_id': req['request_id'],
+                           'parameters': {'status': RequestStatus.Throttling,
+                                          'locking': RequestLocking.Idle}}
+                ret_req['parameters'] = self.load_poll_period(req, ret_req['parameters'], throttling=True)
+                self.logger.info(log_pre + "Throttle new request result: %s" % str(ret_req))
+            else:
+                workflow = req['request_metadata']['workflow']
 
-            # wf = workflow.copy()
-            wf = workflow
-            works = wf.get_new_works()
-            transforms = []
-            for work in works:
-                # new_work = work.copy()
-                new_work = work
-                new_work.add_proxy(wf.get_proxy())
-                # new_work.set_request_id(req['request_id'])
-                # new_work.create_processing()
+                # wf = workflow.copy()
+                wf = workflow
+                works = wf.get_new_works()
+                transforms = []
+                for work in works:
+                    # new_work = work.copy()
+                    new_work = work
+                    new_work.add_proxy(wf.get_proxy())
+                    # new_work.set_request_id(req['request_id'])
+                    # new_work.create_processing()
 
-                transform = self.generate_transform(req, work)
-                transforms.append(transform)
-            self.logger.debug(log_pre + "Processing request(%s): new transforms: %s" % (req['request_id'],
-                                                                                        str(transforms)))
-            # processing_metadata = req['processing_metadata']
-            # processing_metadata = {'workflow_data': wf.get_running_data()}
+                    transform = self.generate_transform(req, work)
+                    transforms.append(transform)
+                self.logger.debug(log_pre + "Processing request(%s): new transforms: %s" % (req['request_id'],
+                                                                                            str(transforms)))
+                # processing_metadata = req['processing_metadata']
+                # processing_metadata = {'workflow_data': wf.get_running_data()}
 
-            ret_req = {'request_id': req['request_id'],
-                       'parameters': {'status': RequestStatus.Transforming,
-                                      'locking': RequestLocking.Idle,
-                                      # 'processing_metadata': processing_metadata,
-                                      'request_metadata': req['request_metadata']},
-                       'new_transforms': transforms}
-            ret_req['parameters'] = self.load_poll_period(req, ret_req['parameters'])
-            self.logger.info(log_pre + "Handle new request result: %s" % str(ret_req))
+                ret_req = {'request_id': req['request_id'],
+                           'parameters': {'status': RequestStatus.Transforming,
+                                          'locking': RequestLocking.Idle,
+                                          # 'processing_metadata': processing_metadata,
+                                          'request_metadata': req['request_metadata']},
+                           'new_transforms': transforms}
+                ret_req['parameters'] = self.load_poll_period(req, ret_req['parameters'])
+                self.logger.info(log_pre + "Handle new request result: %s" % str(ret_req))
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
@@ -537,7 +743,8 @@ class Clerk(BaseAgent):
         self.number_workers += 1
         try:
             if event:
-                req_status = [RequestStatus.New, RequestStatus.Extend, RequestStatus.Built]
+                # req_status = [RequestStatus.New, RequestStatus.Extend, RequestStatus.Built]
+                req_status = [RequestStatus.New, RequestStatus.Extend, RequestStatus.Built, RequestStatus.Throttling]
                 req = self.get_request(request_id=event._request_id, status=req_status, locking=True)
                 if not req:
                     self.logger.error("Cannot find request for event: %s" % str(event))
