@@ -30,7 +30,7 @@ from idds.common.constants import (RequestType, RequestStatus, RequestLocking,
                                    CollectionRelationType, ContentType, ContentRelationType,
                                    ContentStatus, ContentFetchStatus, ContentLocking, GranularityType,
                                    MessageType, MessageStatus, MessageLocking,
-                                   MessageSource, MessageDestination,
+                                   MessageSource, MessageDestination, ThrottlerStatus,
                                    CommandType, CommandStatus, CommandLocking,
                                    CommandLocation, HealthStatus)
 from idds.common.event import (EventType, EventStatus)
@@ -158,6 +158,7 @@ class Request(BASE, ModelBase):
     max_update_retries = Column(Integer(), default=0)
     new_poll_period = Column(Interval(), default=datetime.timedelta(seconds=1))
     update_poll_period = Column(Interval(), default=datetime.timedelta(seconds=10))
+    site = Column(String(50))
     errors = Column(JSONString(1024))
     _request_metadata = Column('request_metadata', JSON())
     _processing_metadata = Column('processing_metadata', JSON())
@@ -242,6 +243,7 @@ class Request(BASE, ModelBase):
                       CheckConstraint('status IS NOT NULL', name='REQUESTS_STATUS_ID_NN'),
                       # UniqueConstraint('name', 'scope', 'requester', 'request_type', 'transform_tag', 'workload_id', name='REQUESTS_NAME_SCOPE_UQ '),
                       Index('REQUESTS_SCOPE_NAME_IDX', 'name', 'scope', 'workload_id'),
+                      Index('REQUESTS_STATUS_SITE', 'status', 'site', 'request_id'),
                       Index('REQUESTS_STATUS_PRIO_IDX', 'status', 'priority', 'request_id', 'locking', 'updated_at', 'next_poll_at', 'created_at'),
                       Index('REQUESTS_STATUS_POLL_IDX', 'status', 'priority', 'locking', 'updated_at', 'new_poll_period', 'update_poll_period', 'created_at', 'request_id'))
 
@@ -306,6 +308,7 @@ class Transform(BASE, ModelBase):
     max_update_retries = Column(Integer(), default=0)
     new_poll_period = Column(Interval(), default=datetime.timedelta(seconds=1))
     update_poll_period = Column(Interval(), default=datetime.timedelta(seconds=10))
+    site = Column(String(50))
     name = Column(String(NAME_LENGTH))
     errors = Column(JSONString(1024))
     _transform_metadata = Column('transform_metadata', JSON())
@@ -369,6 +372,7 @@ class Transform(BASE, ModelBase):
                       Index('TRANSFORMS_TYPE_TAG_IDX', 'transform_type', 'transform_tag', 'transform_id'),
                       Index('TRANSFORMS_STATUS_UPDATED_AT_IDX', 'status', 'locking', 'updated_at', 'next_poll_at', 'created_at'),
                       Index('TRANSFORMS_REQ_IDX', 'request_id', 'transform_id'),
+                      Index('TRANSFORMS_STATUS_SITE', 'status', 'site', 'request_id', 'transform_id'),
                       Index('TRANSFORMS_STATUS_POLL_IDX', 'status', 'locking', 'updated_at', 'new_poll_period', 'update_poll_period', 'created_at', 'transform_id'))
 
 
@@ -411,6 +415,7 @@ class Processing(BASE, ModelBase):
     max_update_retries = Column(Integer(), default=0)
     new_poll_period = Column(Interval(), default=datetime.timedelta(seconds=1))
     update_poll_period = Column(Interval(), default=datetime.timedelta(seconds=10))
+    site = Column(String(50))
     errors = Column(JSONString(1024))
     _processing_metadata = Column('processing_metadata', JSON())
     _running_metadata = Column('running_metadata', JSON())
@@ -473,6 +478,7 @@ class Processing(BASE, ModelBase):
                       ForeignKeyConstraint(['transform_id'], ['transforms.transform_id'], name='PROCESSINGS_TRANSFORM_ID_FK'),
                       CheckConstraint('status IS NOT NULL', name='PROCESSINGS_STATUS_ID_NN'),
                       CheckConstraint('transform_id IS NOT NULL', name='PROCESSINGS_TRANSFORM_ID_NN'),
+                      Index('PROCESSINGS_STATUS_SITE', 'status', 'site', 'request_id', 'transform_id', 'processing_id'),
                       Index('PROCESSINGS_STATUS_UPDATED_IDX', 'status', 'locking', 'updated_at', 'next_poll_at', 'created_at'),
                       Index('PROCESSINGS_STATUS_POLL_IDX', 'status', 'processing_id', 'locking', 'updated_at', 'new_poll_period', 'update_poll_period', 'created_at'))
 
@@ -711,6 +717,7 @@ class Message(BASE, ModelBase):
     processing_id = Column(Integer())
     num_contents = Column(Integer())
     retries = Column(Integer(), default=0)
+    fetching_id = Column(Integer())
     created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow, nullable=False)
     updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
     msg_content = Column(JSON())
@@ -883,6 +890,25 @@ class EventArchive(BASE, ModelBase):
     __table_args__ = (PrimaryKeyConstraint('event_id', name='EVENTS_AR_PK'),)
 
 
+class Throttler(BASE, ModelBase):
+    """Represents the operations events"""
+    __tablename__ = 'throttlers'
+    throttler_id = Column(BigInteger(), primary_key=True)
+    site = Column(String(50), nullable=False)
+    status = Column(EnumWithValue(ThrottlerStatus), nullable=False)
+    num_requests = Column(Integer())
+    num_transforms = Column(Integer())
+    num_processings = Column(Integer())
+    new_contents = Column(Integer())
+    queue_contents = Column(Integer())
+    created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow, nullable=False)
+    updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
+    others = Column(JSON())
+
+    __table_args__ = (PrimaryKeyConstraint('throttler_id', name='THROTTLER_PK'),
+                      UniqueConstraint('site', name='THROTTLER_SITE_UQ'))
+
+
 def create_trigger():
     func = DDL("""
         SET search_path TO %s;
@@ -1019,7 +1045,7 @@ def register_models(engine):
     """
 
     # models = (Request, Workprogress, Transform, Workprogress2transform, Processing, Collection, Content, Health, Message)
-    models = (Request, Transform, Processing, Collection, Content, Content_update, Content_ext, Health, Message, Command)
+    models = (Request, Transform, Processing, Collection, Content, Content_update, Content_ext, Health, Message, Command, Throttler)
 
     create_proc_to_update_contents()
 
@@ -1034,7 +1060,7 @@ def unregister_models(engine):
     """
 
     # models = (Request, Workprogress, Transform, Workprogress2transform, Processing, Collection, Content, Health, Message)
-    models = (Request, Transform, Processing, Collection, Content, Content_update, Content_ext, Health, Message, Command)
+    models = (Request, Transform, Processing, Collection, Content, Content_update, Content_ext, Health, Message, Command, Throttler)
 
     drop_proc_to_update_contents()
 

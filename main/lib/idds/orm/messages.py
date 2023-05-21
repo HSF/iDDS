@@ -117,7 +117,7 @@ def update_messages(messages, bulk_size=1000, session=None):
 @read_session
 def retrieve_messages(bulk_size=1000, msg_type=None, status=None, source=None,
                       destination=None, request_id=None, workload_id=None,
-                      transform_id=None, processing_id=None,
+                      transform_id=None, processing_id=None, fetching_id=None,
                       retries=None, delay=None, session=None):
     """
     Retrieve up to $bulk messages.
@@ -173,7 +173,8 @@ def retrieve_messages(bulk_size=1000, msg_type=None, status=None, source=None,
         tmp = query.all()
         if tmp:
             for t in tmp:
-                messages.append(t.to_dict())
+                message = t.to_dict()
+                messages.append(message)
         return messages
     except IntegrityError as e:
         raise exceptions.DatabaseException(e.args)
