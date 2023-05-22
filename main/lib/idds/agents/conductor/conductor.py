@@ -37,8 +37,9 @@ class Conductor(BaseAgent):
     Conductor works to notify workload management that the data is available.
     """
 
-    def __init__(self, num_threads=1, retrieve_bulk_size=20, threshold_to_release_messages=None,
-                 random_delay=None, delay=300, interval_delay=10, max_retry_delay=3600, replay_times=3, mode='single', **kwargs):
+    def __init__(self, num_threads=1, retrieve_bulk_size=200, threshold_to_release_messages=None,
+                 random_delay=None, delay=300, interval_delay=10, max_retry_delay=3600,
+                 max_normal_retries=10, max_retries=30, replay_times=2, mode='single', **kwargs):
         super(Conductor, self).__init__(num_threads=num_threads, name='Conductor', **kwargs)
         self.config_section = Sections.Conductor
         self.retrieve_bulk_size = int(retrieve_bulk_size)
@@ -61,8 +62,11 @@ class Conductor(BaseAgent):
             max_retry_delay = 3600
         self.max_retry_delay = int(max_retry_delay)
 
+        self.max_normal_retries = int(max_normal_retries)
+        self.max_retries = int(max_retries)
+
         if replay_times is None:
-            replay_times = 3
+            replay_times = 2
         self.replay_times = int(replay_times)
         if not interval_delay:
             interval_delay = 10
@@ -112,18 +116,17 @@ class Conductor(BaseAgent):
         if messages:
             self.logger.info("Main thread get %s new messages" % len(messages))
 
-        msg_type = [MessageType.StageInCollection, MessageType.StageInWork,
-                    MessageType.ActiveLearningCollection, MessageType.ActiveLearningWork,
-                    MessageType.HyperParameterOptCollection, MessageType.HyperParameterOptWork,
-                    MessageType.ProcessingCollection, MessageType.ProcessingWork,
-                    MessageType.UnknownCollection, MessageType.UnknownWork]
+        # msg_type = [MessageType.StageInCollection, MessageType.StageInWork,
+        #             MessageType.ActiveLearningCollection, MessageType.ActiveLearningWork,
+        #             MessageType.HyperParameterOptCollection, MessageType.HyperParameterOptWork,
+        #             MessageType.ProcessingCollection, MessageType.ProcessingWork,
+        #             MessageType.UnknownCollection, MessageType.UnknownWork]
 
         retry_messages = []
         messages_d = core_messages.retrieve_messages(status=MessageStatus.Delivered,
                                                      use_poll_period=True,
                                                      bulk_size=self.retrieve_bulk_size,
-                                                     destination=destination,
-                                                     msg_type=msg_type)
+                                                     destination=destination)    # msg_type=msg_type)
         if messages_d:
             self.logger.info("Main thread get %s retries messages" % len(messages_d))
             retry_messages += messages_d
@@ -138,9 +141,12 @@ class Conductor(BaseAgent):
         to_updates = []
         for msg in msgs:
             retries = msg['retries']
-            rand_num = random.randint(1, retries + 1)
-            delay = int(self.delay) * rand_num
-            delay = min(delay, self.max_retry_delay)
+            if retries < self.max_normal_retries:
+                rand_num = random.randint(1, retries + 1)
+                delay = int(self.delay) * rand_num
+                delay = min(delay, self.max_retry_delay)
+            else:
+                delay = self.max_retry_delay
             to_updates.append({'msg_id': msg['msg_id'],
                                'retries': msg['retries'] + 1,
                                'poll_period': datetime.timedelta(seconds=delay),
@@ -175,31 +181,42 @@ class Conductor(BaseAgent):
         return msgs
 
     def is_message_processed(self, message):
+        retries = message['retries']
         try:
-            retries = message['retries']
+            if retries >= self.max_retries:
+                self.logger.info("message %s has reached max retries %s" % (message['msg_id'], self.max_retries))
+                return True
             msg_type = message['msg_type']
-            if retries < 1:
-                return False
             if msg_type not in [MessageType.ProcessingFile]:
-                return False
-            msg_content = message['msg_content']
-            request_id = message['request_id']
-            transform_id = message['transform_id']
-            if not ('files' in msg_content and msg_content['files']):
-                return False
-            files = msg_content['files']
-            one_file = files[0]
-            # only check one file in a message
-            map_id = one_file['map_id']
-            contents = core_catalog.get_contents_by_request_transform(request_id=request_id,
-                                                                      transform_id=transform_id,
-                                                                      map_id=map_id)
-            for content in contents:
-                if content['content_relation_type'] == ContentRelationType.Output and content['status'] != ContentStatus.New:
+                if retries < self.replay_times:
+                    return False
+                else:
                     return True
+            else:
+                msg_content = message['msg_content']
+                request_id = message['request_id']
+                transform_id = message['transform_id']
+                if 'files' not in msg_content or not msg_content['files']:
+                    return True
+                if 'relation_type' not in msg_content or msg_content['relation_type'] != 'input':
+                    return True
+
+                files = msg_content['files']
+                one_file = files[0]
+                # only check one file in a message
+                map_id = one_file['map_id']
+                contents = core_catalog.get_contents_by_request_transform(request_id=request_id,
+                                                                          transform_id=transform_id,
+                                                                          map_id=map_id)
+                for content in contents:
+                    if content['content_relation_type'] == ContentRelationType.Output and content['status'] != ContentStatus.New:
+                        return True
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
+
+            if retries < self.replay_times:
+                return False
         return False
 
     def run(self):

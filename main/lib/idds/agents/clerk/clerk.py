@@ -507,6 +507,7 @@ class Clerk(BaseAgent):
             throttle_processings = throttlers.get(site, {}).get('num_processings', None)
             throttle_new_jobs = throttlers.get(site, {}).get('new_contents', None)
             throttle_queue_jobs = throttlers.get(site, {}).get('queue_contents', None)
+            self.logger.info("throttler(site: %s): throttle_requests %s, throttle_transforms: %s, throttle_processings: %s" % (site, throttle_requests, throttle_transforms, throttle_processings))
             if throttle_requests:
                 if num_requests['processing'] >= throttle_requests:
                     self.logger.info("throttler(site: %s): num of processing requests (%s) is bigger than throttle_requests (%s), set throttling" % (site, num_requests['processing'], throttle_requests))
@@ -525,6 +526,8 @@ class Clerk(BaseAgent):
             terminated_jobs = num_output_contents['processed']
             queue_jobs = released_jobs - terminated_jobs
 
+            self.logger.info("throttler(site: %s): throttle_new_jobs: %s, throttle_queue_jobs: %s" % (site, throttle_new_jobs, throttle_queue_jobs))
+            self.logger.info("throttler(site: %s): new_jobs: %s, queue_jobs: %s" % (site, new_jobs, queue_jobs))
             if throttle_new_jobs:
                 if new_jobs >= throttle_new_jobs:
                     self.logger.info("throttler(site: %s): num of new jobs(not released) (%s) is bigger than throttle_new_jobs (%s), set throttling" % (site, new_jobs, throttle_new_jobs))

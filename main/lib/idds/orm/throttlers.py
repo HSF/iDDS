@@ -36,8 +36,8 @@ def add_throttler(site, status=ThrottlerStatus.Active, num_requests=None, num_tr
     try:
         old_throttlers = get_throttlers(site=site, session=session)
 
-        old_throttler = old_throttlers[0]
-        if old_throttler:
+        if old_throttlers:
+            old_throttler = old_throttlers[0]
             parameters = {}
             if status is not None:
                 parameters['status'] = status
