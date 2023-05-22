@@ -70,7 +70,7 @@ def retrieve_messages(bulk_size=None, msg_type=None, status=None, destination=No
                                           request_id=request_id, workload_id=workload_id,
                                           transform_id=transform_id, processing_id=processing_id,
                                           retries=retries, delay=delay, fetching_id=fetching_id,
-                                          session=session)
+                                          use_poll_period=use_poll_period, session=session)
 
 
 @read_session
