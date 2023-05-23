@@ -20,11 +20,12 @@ except ImportError:
     from Queue import Queue
 
 from idds.common.constants import (Sections, MessageStatus, MessageDestination, MessageType,
-                                   ContentStatus, ContentRelationType)
+                                   ProcessingStatus, ContentStatus, ContentRelationType)
 from idds.common.exceptions import AgentPluginError, IDDSException
 from idds.common.utils import setup_logging, get_logger
 from idds.core import (messages as core_messages,
                        catalog as core_catalog,
+                       processings as core_processings,
                        health as core_health)
 from idds.agents.common.baseagent import BaseAgent
 
@@ -209,8 +210,24 @@ class Conductor(BaseAgent):
                                                                           transform_id=transform_id,
                                                                           map_id=map_id)
                 for content in contents:
-                    if content['content_relation_type'] == ContentRelationType.Output and content['status'] != ContentStatus.New:
-                        return True
+                    if content['content_relation_type'] == ContentRelationType.Output:
+                        if (content['status'] == ContentStatus.Missing):
+                            workload_id = msg_content['workload_id']
+                            processings = core_processings.get_processings_by_transform_id(transform_id=transform_id)
+                            find_processing = None
+                            if processings:
+                                for processing in processings:
+                                    if processing['workload_id'] == workload_id:
+                                        find_processing = processing
+                            if find_processing and find_processing['status'] in [ProcessingStatus.Finished, ProcessingStatus.Failed,
+                                                                                 ProcessingStatus.Lost, ProcessingStatus.SubFinished,
+                                                                                 ProcessingStatus.Cancelled, ProcessingStatus.Expired,
+                                                                                 ProcessingStatus.Suspended, ProcessingStatus.Broken]:
+                                return True
+                            else:
+                                return False
+                        if (content['status'] != ContentStatus.New):
+                            return True
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
