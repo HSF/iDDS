@@ -26,7 +26,7 @@ conda env create --prefix=/opt/idds -f main/tools/env/environment.yml
 conda activate /opt/idds
 conda install -c conda-forge python-gfal2
 
-pip install rucio-clients-atlas rucio-clients panda-client
+pip install rucio-clients-atlas rucio-clients panda-client-light
 # root ca.crt to  /opt/idds/etc/ca.crt
 
 pip install requests SQLAlchemy urllib3 retrying mod_wsgi flask futures stomp.py cx-Oracle  unittest2 pep8 flake8 pytest nose sphinx recommonmark sphinx-rtd-theme nevergrad

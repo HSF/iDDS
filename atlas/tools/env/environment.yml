@@ -10,7 +10,7 @@ dependencies:
   - pytest           # python testing tool
   - nose             # nose test tools
   - stomp.py
-  - panda-client     # panda client
+  - panda-client-light     # panda client
   - rucio-clients
   - rucio-clients-atlas
   - idds-common==0.11.5
