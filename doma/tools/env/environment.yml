@@ -9,6 +9,6 @@ dependencies:
   - flake8           # Wrapper around PyFlakes&pep8
   - pytest           # python testing tool
   - nose             # nose test tools
-  - panda-client     # panda client
+  - panda-client-light     # panda client
   - idds-common==0.11.5
   - idds-workflow==0.11.5
