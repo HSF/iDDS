@@ -146,7 +146,7 @@ class MessagingSender(PluginBase, threading.Thread):
                 for broker, port in broker_addresses:
                     conn = stomp.Connection12(host_and_ports=[(broker, port)],
                                               keepalive=True,
-                                              heartbeats=(60000, 60000),     # one minute
+                                              heartbeats=(60000, 0),     # one minute
                                               timeout=timeout)
                     conns.append(conn)
                 channel_conns[name] = conns
