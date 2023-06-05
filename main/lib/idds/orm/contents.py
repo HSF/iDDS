@@ -335,7 +335,7 @@ def get_contents(scope=None, name=None, transform_id=None, coll_id=None, status=
 
 
 @read_session
-def get_contents_by_request_transform(request_id=None, transform_id=None, workload_id=None, status=None, status_updated=False, session=None):
+def get_contents_by_request_transform(request_id=None, transform_id=None, workload_id=None, status=None, map_id=None, status_updated=False, session=None):
     """
     Get content or raise a NoObject exception.
 
@@ -364,6 +364,8 @@ def get_contents_by_request_transform(request_id=None, transform_id=None, worklo
             query = query.filter(models.Content.workload_id == workload_id)
         if status is not None:
             query = query.filter(models.Content.substatus.in_(status))
+        if map_id:
+            query = query.filter(models.Content.map_id == map_id)
         if status_updated:
             query = query.filter(models.Content.status != models.Content.substatus)
         query = query.order_by(asc(models.Content.request_id), asc(models.Content.transform_id), asc(models.Content.map_id))
@@ -382,7 +384,7 @@ def get_contents_by_request_transform(request_id=None, transform_id=None, worklo
 
 
 @read_session
-def get_content_status_statistics(coll_id=None, session=None):
+def get_content_status_statistics(coll_id=None, transform_ids=None, session=None):
     """
     Get statistics group by status
 
@@ -392,9 +394,17 @@ def get_content_status_statistics(coll_id=None, session=None):
     :returns: statistics group by status, as a dict.
     """
     try:
+        if transform_ids and not isinstance(transform_ids, (list, tuple)):
+            transform_ids = [transform_ids]
+        if transform_ids and len(transform_ids) == 1:
+            transform_ids = [transform_ids[0], transform_ids[0]]
+
         query = session.query(models.Content.status, func.count(models.Content.content_id))
         if coll_id:
             query = query.filter(models.Content.coll_id == coll_id)
+        if transform_ids:
+            query = query.filter(models.Content.transform_id.in_(transform_ids))
+
         query = query.group_by(models.Content.status)
         tmp = query.all()
         rets = {}
@@ -402,6 +412,33 @@ def get_content_status_statistics(coll_id=None, session=None):
             for status, count in tmp:
                 rets[status] = count
         return rets
+    except Exception as error:
+        raise error
+
+
+@read_session
+def get_content_status_statistics_by_relation_type(transform_ids=None, session=None):
+    """
+    Get statistics group by status
+
+    :param coll_id: Collection id.
+    :param session: The database session in use.
+
+    :returns: statistics group by status, as a dict.
+    """
+    try:
+        if transform_ids and not isinstance(transform_ids, (list, tuple)):
+            transform_ids = [transform_ids]
+        if transform_ids and len(transform_ids) == 1:
+            transform_ids = [transform_ids[0], transform_ids[0]]
+
+        query = session.query(models.Content.status, models.Content.content_relation_type, models.Content.transform_id, func.count(models.Content.content_id))
+        if transform_ids:
+            query = query.filter(models.Content.transform_id.in_(transform_ids))
+
+        query = query.group_by(models.Content.status, models.Content.content_relation_type, models.Content.transform_id)
+        tmp = query.all()
+        return tmp
     except Exception as error:
         raise error
 

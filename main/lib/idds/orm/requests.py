@@ -17,7 +17,7 @@ import datetime
 import random
 
 import sqlalchemy
-from sqlalchemy import and_
+from sqlalchemy import and_, func
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.sql.expression import asc, desc
 
@@ -829,8 +829,10 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, req
         if locking_for_update:
             query = query.with_for_update(skip_locked=True)
         else:
-            query = query.order_by(asc(models.Request.updated_at))\
-                         .order_by(desc(models.Request.priority))
+            # query = query.order_by(asc(models.Request.updated_at))\
+            #              .order_by(desc(models.Request.priority))
+            query = query.order_by(desc(models.Request.priority))\
+                         .order_by(asc(models.Request.updated_at))
 
         if bulk_size:
             query = query.limit(bulk_size)
@@ -981,3 +983,38 @@ def get_last_request_id(status, older_than=None, session=None):
     if ret:
         return ret[0]
     return ret
+
+
+@read_session
+def get_num_active_requests(active_status=None, session=None):
+    if active_status and not isinstance(active_status, (list, tuple)):
+        active_status = [active_status]
+    if active_status and len(active_status) == 1:
+        active_status = [active_status[0], active_status[0]]
+
+    try:
+        query = session.query(models.Request.status, models.Request.site, func.count(models.Request.request_id))
+        if active_status:
+            query = query.filter(models.Request.status.in_(active_status))
+        query = query.group_by(models.Request.status, models.Request.site)
+        tmp = query.all()
+        return tmp
+    except Exception as error:
+        raise error
+
+
+@read_session
+def get_active_requests(active_status=None, session=None):
+    if active_status and not isinstance(active_status, (list, tuple)):
+        active_status = [active_status]
+    if active_status and len(active_status) == 1:
+        active_status = [active_status[0], active_status[0]]
+
+    try:
+        query = session.query(models.Request.request_id, models.Request.status, models.Request.site)
+        if active_status:
+            query = query.filter(models.Request.status.in_(active_status))
+        tmp = query.all()
+        return tmp
+    except Exception as error:
+        raise error

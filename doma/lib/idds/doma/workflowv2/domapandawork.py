@@ -544,6 +544,10 @@ class DomaPanDAWork(Work):
         task_param_map['maxWalltime'] = self.maxWalltime
         task_param_map['maxFailure'] = self.maxAttempt if self.maxAttempt else 5
         task_param_map['maxAttempt'] = self.maxAttempt if self.maxAttempt else 5
+        if task_param_map['maxAttempt'] < self.num_retries:
+            task_param_map['maxAttempt'] = self.num_retries
+        if task_param_map['maxFailure'] < self.num_retries:
+            task_param_map['maxFailure'] = self.num_retries
         task_param_map['log'] = self.task_log
         task_param_map['jobParameters'] = [
             {'type': 'constant',
@@ -673,9 +677,12 @@ class DomaPanDAWork(Work):
         elif task_status in ['finished', 'paused']:
             # finished, finishing, waiting it to be done
             processing_status = ProcessingStatus.SubFinished
-        elif task_status in ['failed', 'aborted', 'exhausted']:
+        elif task_status in ['failed', 'exhausted']:
             # aborting, tobroken
             processing_status = ProcessingStatus.Failed
+        elif task_status in ['aborted']:
+            # aborting, tobroken
+            processing_status = ProcessingStatus.Cancelled
         elif task_status in ['broken']:
             processing_status = ProcessingStatus.Broken
         else:
@@ -786,6 +793,8 @@ class DomaPanDAWork(Work):
                 return ContentStatus.FinalFailed
             else:
                 return ContentStatus.Failed
+        elif jobstatus in ['activated']:
+            return ContentStatus.Activated
         else:
             return ContentStatus.Processing
 
@@ -1117,6 +1126,28 @@ class DomaPanDAWork(Work):
         self.logger.debug("get_contents_ext, left_contents[:1]: %s" % (str(left_contents[:3])))
         return new_contents_ext_d, update_contents_ext_d, left_contents
 
+    def abort_contents(self, input_output_maps, updated_contents, contents_ext):
+        contents_ext_dict = {content['content_id']: content for content in contents_ext}
+        new_contents_ext = []
+
+        for map_id in input_output_maps:
+            outputs = input_output_maps[map_id]['outputs']
+            for content in outputs:
+                update_content = {'content_id': content['content_id'],
+                                  'substatus': ContentStatus.Missing}
+                updated_contents.append(update_content)
+                if content['content_id'] not in contents_ext_dict:
+                    new_content_ext = {'content_id': content['content_id'],
+                                       'request_id': content['request_id'],
+                                       'transform_id': content['transform_id'],
+                                       'workload_id': content['workload_id'],
+                                       'coll_id': content['coll_id'],
+                                       'map_id': content['map_id'],
+                                       'status': ContentStatus.Missing}
+                    new_contents_ext.append(new_content_ext)
+
+        return updated_contents, new_contents_ext
+
     def poll_panda_task(self, processing=None, input_output_maps=None, contents_ext=None, job_info_maps={}, log_prefix=''):
         task_id = None
         try:
@@ -1161,7 +1192,9 @@ class DomaPanDAWork(Work):
                     new_contents_ext, update_contents_ext, left_contents = self.get_contents_ext(input_output_maps, contents_ext,
                                                                                                  contents_ext_full, job_info_maps)
                     # if left_jobs:
-                    #     processing_status = ProcessingStatus.Running
+                    if processing_status in [ProcessingStatus.Cancelled]:
+                        updated_contents, new_contents_ext1 = self.abort_contents(input_output_maps, updated_contents, contents_ext)
+                        new_contents_ext = new_contents_ext + new_contents_ext1
 
                     return processing_status, updated_contents, update_contents_full, new_contents_ext, update_contents_ext
                 else:

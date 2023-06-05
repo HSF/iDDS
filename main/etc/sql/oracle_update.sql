@@ -399,3 +399,37 @@ alter table health modify payload VARCHAR2(2048);
 
 --- 2023.03.29
 alter table contents_update add fetch_status NUMBER(2) DEFAULT 0;
+
+
+-- 2023.05.18
+alter table requests add site VARCHAR2(50);
+CREATE INDEX REQUESTS_STATUS_SITE ON requests  (status, site, request_id) COMPRESS 3 LOCAL;
+
+alter table transforms add site VARCHAR2(50);
+CREATE INDEX TRANSFORMS_STATUS_SITE ON transforms  (status, site, request_id, transform_id) COMPRESS 3 LOCAL;
+
+alter table processings add site VARCHAR2(50);
+CREATE INDEX PROCESSINGS_STATUS_SITE ON processings  (status, site, request_id, transform_id, processing_id) COMPRESS 3 LOCAL;
+
+alter table messages add fetching_id NUMBER(12);
+
+
+CREATE SEQUENCE THROTTLER_ID_SEQ MINVALUE 1 INCREMENT BY 1 START WITH 1 NOCACHE ORDER NOCYCLE GLOBAL;
+CREATE TABLE Throttlers
+(
+    throttler_id NUMBER(12) DEFAULT ON NULL THROTTLER_ID_SEQ.NEXTVAL constraint THROTTLER_ID_NN NOT NULL,
+    site VARCHAR2(50),
+    status NUMBER(2),
+    num_requests NUMBER(12),
+    num_transforms NUMBER(12),
+    num_processings NUMBER(12),
+    new_contents NUMBER(12),
+    queue_contents NUMBER(12),
+    created_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)),
+    updated_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)),
+    others CLOB,
+    CONSTRAINT THROTTLER_PK PRIMARY KEY (throttler_id), -- USING INDEX LOCAL,
+    CONSTRAINT THROTTLER_SITE_UQ UNIQUE (site)
+);
+
+alter table Messages add (poll_period INTERVAL DAY TO SECOND DEFAULT '00 00:05:00');

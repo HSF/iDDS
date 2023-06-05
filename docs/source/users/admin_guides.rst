@@ -26,7 +26,7 @@ Environment setup on CENTOS 7
     conda activate /opt/idds
     pip install idds-server idds-doma idds-atlas idds-monitor idds-website
 
-    pip install rucio-clients-atlas rucio-clients panda-client
+    pip install rucio-clients-atlas rucio-clients panda-client-light
     # # add "auth_type = x509_proxy" to /opt/idds/etc/rucio.cfg
 
 2. setup environment after installed.

@@ -54,6 +54,7 @@ class Receiver(BaseAgent):
             self.update_processing_interval = 300
 
         self.mode = mode
+        self.selected = None
         self.selected_receiver = None
 
         self.log_prefix = ''
@@ -78,6 +79,16 @@ class Receiver(BaseAgent):
             self.logger.info("Stopping receiver: %s" % self.receiver)
             self.receiver.stop()
             self.receiver = None
+
+    def suspend_receiver(self):
+        if hasattr(self, 'receiver') and self.receiver:
+            self.logger.info("Stopping receiver: %s" % self.receiver)
+            self.receiver.suspend()
+
+    def resume_receiver(self):
+        if hasattr(self, 'receiver') and self.receiver:
+            self.logger.info("Stopping receiver: %s" % self.receiver)
+            self.receiver.resume()
 
     def is_receiver_started(self):
         if hasattr(self, 'receiver') and self.receiver:
@@ -109,9 +120,15 @@ class Receiver(BaseAgent):
             return msgs
 
     def is_selected(self):
+        selected = None
         if not self.selected_receiver:
-            return True
-        return self.is_self(self.selected_receiver)
+            selected = True
+        else:
+            selected = self.is_self(self.selected_receiver)
+        if self.selected is None or self.selected != selected:
+            self.logger.info("is_selected changed from %s to %s" % (self.selected, selected))
+        self.selected = selected
+        return self.selected
 
     def monitor_receiver(self):
         if self.mode == "single":
@@ -242,6 +259,8 @@ class Receiver(BaseAgent):
             # [self.executors.submit(self.worker, log_prefix) for i in range(self.executors.get_max_workers())]
             self.init_event_function_map()
 
+            self.start_receiver()
+
             while not self.graceful_stop.is_set():
                 try:
                     self.execute_schedules()
@@ -250,11 +269,11 @@ class Receiver(BaseAgent):
 
                     if self.is_selected():
                         if not self.is_receiver_started():
-                            self.start_receiver()
+                            self.resume_receiver()
 
                     if not self.is_selected():
                         if self.is_receiver_started():
-                            self.stop_receiver()
+                            self.suspend_receiver()
 
                     msg = self.get_output_messages()
                     if msg:

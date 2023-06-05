@@ -6,8 +6,8 @@ import datetime
 os.environ['PANDA_URL'] = 'http://pandaserver-doma.cern.ch:25080/server/panda'
 os.environ['PANDA_URL_SSL'] = 'https://pandaserver-doma.cern.ch:25443/server/panda'
 
-os.environ['PANDA_URL'] = 'http://rubin-panda-server-dev.slac.stanford.edu:80/server/panda'
-os.environ['PANDA_URL_SSL'] = 'https://rubin-panda-server-dev.slac.stanford.edu:8443/server/panda'
+# os.environ['PANDA_URL'] = 'http://rubin-panda-server-dev.slac.stanford.edu:80/server/panda'
+# os.environ['PANDA_URL_SSL'] = 'https://rubin-panda-server-dev.slac.stanford.edu:8443/server/panda'
 
 from pandaclient import Client  # noqa E402
 
@@ -67,22 +67,29 @@ if ret[0] == 0:
 
 # sys.exit(0)
 
-"""
-jediTaskID = 998
+
+jediTaskID = 152096
+# jediTaskID = 154357
+print(jediTaskID)
+
+ret = Client.getTaskStatus(jediTaskID)
+print(ret)
+
 ret = Client.getPandaIDsWithTaskID(jediTaskID, verbose=False)
-# print(ret)
+print(ret)
 jobids = ret[1]
-# print(jobids)
+print(jobids)
 
 ret = Client.getJobStatus(ids=jobids, verbose=False)
 print(ret)
 
 ret = Client.getFullJobStatus(ids=jobids, verbose=False)
-# print(ret)
+print(ret)
 
 ret = Client.getJediTaskDetails({'jediTaskID': jediTaskID}, True, True, verbose=False)
 print(ret)
-"""
+
+sys.exit(0)
 
 task_ids = []
 # task_ids = [1565, 1566, 1567, 1568, 1570, 1572, 1575, 1576, 1579, 1580, 1581, 1582, 1584, 1585, 1586, 1587, 1588, 1589, 1590, 1591, 1592, 1593, 1597, 1598, 1599, 1601, 1602, 1603, 1604, 1607, 1608, 1609, 1610, 1611, 1612, 1613, 1617]
