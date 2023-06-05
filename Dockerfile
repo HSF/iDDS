@@ -120,7 +120,7 @@ RUN ln -fs /opt/idds/config/ca.crt /opt/idds/etc/ca.crt
 RUN ln -fs /opt/idds/config/rucio.cfg /opt/idds/etc/rucio.cfg
 
 # for panda client to access panda
-RUN ln -fs /opt/idds/config/panda.cfg /opt/idds/etc/panda/panda.cfg
+# RUN ln -fs /opt/idds/config/panda.cfg /opt/idds/etc/panda/panda.cfg
 
 # for idds rest service
 RUN ln -fs /opt/idds/config/idds/idds.cfg /opt/idds/etc/idds/idds.cfg
