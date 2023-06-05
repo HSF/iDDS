@@ -146,6 +146,7 @@ class RequestStatus(IDDSEnum):
     Terminating = 20
     Building = 21
     Built = 22
+    Throttling = 23
 
 
 class RequestLocking(IDDSEnum):
@@ -291,6 +292,7 @@ class ContentStatus(IDDSEnum):
     FakeAvailable = 8
     Missing = 9
     Cancelled = 10
+    Activated = 11
 
 
 class ContentLocking(IDDSEnum):
@@ -429,6 +431,7 @@ class MessageStatus(IDDSEnum):
     Fetched = 1
     Delivered = 2
     Failed = 3
+    ConfirmDelivered = 4
 
 
 class MessageLocking(IDDSEnum):
@@ -482,6 +485,11 @@ class CommandLocation(IDDSEnum):
     Conductor = 4
     Rest = 5
     Other = 6
+
+
+class ThrottlerStatus(IDDSEnum):
+    InActive = 0
+    Active = 1
 
 
 class ReturnCode(IDDSEnum):

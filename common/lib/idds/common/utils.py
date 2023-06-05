@@ -19,6 +19,7 @@ import requests
 import subprocess
 import sys
 import tarfile
+import time
 # import traceback
 
 from enum import Enum
@@ -67,6 +68,7 @@ def setup_logging(name, stream=None, loglevel=None):
     else:
         logging.basicConfig(stream=stream, level=loglevel,
                             format='%(asctime)s\t%(threadName)s\t%(name)s\t%(levelname)s\t%(message)s')
+    logging.Formatter.converter = time.gmtime
 
 
 def get_logger(name, filename=None, loglevel=None):
@@ -538,7 +540,7 @@ def merge_dict(dict1, dict2):
             else:
                 if dict2[key] is None:
                     continue
-                elif isinstance(dict1[key], type(dict2[key])):
+                elif not isinstance(dict1[key], type(dict2[key])):
                     raise Exception("type of %s is different from %s, cannot merge" % (type(dict1[key]), type(dict2[key])))
                 elif dict1[key] == dict2[key]:
                     continue

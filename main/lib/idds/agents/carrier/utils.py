@@ -315,10 +315,13 @@ def generate_file_messages(request_id, transform_id, workload_id, work, files, r
         file_message = {'scope': file['scope'],
                         'name': file['name'],
                         'path': file['path'],
+                        'map_id': file['map_id'],
+                        'content_id': file['content_id'],
                         'status': file_status}
         files_message.append(file_message)
     msg_content = {'msg_type': i_msg_type_str.value,
                    'request_id': request_id,
+                   'transform_id': transform_id,
                    'workload_id': workload_id,
                    'relation_type': relation_type,
                    'files': files_message}
@@ -341,6 +344,7 @@ def generate_content_ext_messages(request_id, transform_id, workload_id, work, f
     msg_content = {'msg_type': i_msg_type_str.value,
                    'request_id': request_id,
                    'workload_id': workload_id,
+                   'transform_id': transform_id,
                    'relation_type': relation_type,
                    'files': files_message}
     num_msg_content = len(files_message)
@@ -356,6 +360,7 @@ def generate_collection_messages(request_id, transform_id, workload_id, work, co
     msg_content = {'msg_type': i_msg_type_str.value,
                    'request_id': request_id,
                    'workload_id': workload_id,
+                   'transform_id': transform_id,
                    'relation_type': relation_type,
                    'collections': [{'scope': collection.scope,
                                     'name': coll_name,
@@ -371,6 +376,7 @@ def generate_work_messages(request_id, transform_id, workload_id, work, relation
     msg_content = {'msg_type': i_msg_type_str.value,
                    'request_id': request_id,
                    'workload_id': workload_id,
+                   'transform_id': transform_id,
                    'relation_type': relation_type,
                    'status': work.get_status().name,
                    'output': work.get_output_data(),
@@ -1085,6 +1091,7 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
 
 def get_content_status_from_panda_msg_status(status):
     status_map = {'starting': ContentStatus.New,
+                  'activated': ContentStatus.Activated,
                   'running': ContentStatus.Processing,
                   'finished': ContentStatus.Available,
                   'failed': ContentStatus.Failed}
@@ -1370,7 +1377,9 @@ def handle_messages_processing(messages, logger=None, log_prefix='', update_proc
             job_id = msg['jobid']
             status = msg['status']
             inputs = msg['inputs']
-            if inputs and status in ['finished']:
+            # if inputs and status in ['finished']:
+            # add activated
+            if inputs and status in ['finished', 'activated']:
                 logger.debug(log_prefix + "Received message: %s" % str(ori_msg))
 
                 ret_req_tf_pr_id = get_workload_id_transform_id_map(workload_id, logger=logger, log_prefix=log_prefix)

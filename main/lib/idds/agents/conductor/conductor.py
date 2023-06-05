@@ -8,6 +8,8 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2019 - 2023
 
+import datetime
+import random
 import time
 import traceback
 try:
@@ -17,10 +19,14 @@ except ImportError:
     # Python 2
     from Queue import Queue
 
-from idds.common.constants import (Sections, MessageStatus, MessageDestination, MessageType)
+from idds.common.constants import (Sections, MessageStatus, MessageDestination, MessageType,
+                                   ProcessingStatus, ContentStatus, ContentRelationType)
 from idds.common.exceptions import AgentPluginError, IDDSException
 from idds.common.utils import setup_logging, get_logger
-from idds.core import messages as core_messages
+from idds.core import (messages as core_messages,
+                       catalog as core_catalog,
+                       processings as core_processings,
+                       health as core_health)
 from idds.agents.common.baseagent import BaseAgent
 
 
@@ -32,8 +38,9 @@ class Conductor(BaseAgent):
     Conductor works to notify workload management that the data is available.
     """
 
-    def __init__(self, num_threads=1, retrieve_bulk_size=1000, threshold_to_release_messages=None,
-                 random_delay=None, delay=60, interval_delay=10, replay_times=3, **kwargs):
+    def __init__(self, num_threads=1, retrieve_bulk_size=200, threshold_to_release_messages=None,
+                 random_delay=None, delay=300, interval_delay=10, max_retry_delay=3600,
+                 max_normal_retries=10, max_retries=30, replay_times=2, mode='single', **kwargs):
         super(Conductor, self).__init__(num_threads=num_threads, name='Conductor', **kwargs)
         self.config_section = Sections.Conductor
         self.retrieve_bulk_size = int(retrieve_bulk_size)
@@ -52,16 +59,50 @@ class Conductor(BaseAgent):
         if delay is None:
             delay = 60
         self.delay = int(delay)
+        if not max_retry_delay:
+            max_retry_delay = 3600
+        self.max_retry_delay = int(max_retry_delay)
+
+        self.max_normal_retries = int(max_normal_retries)
+        self.max_retries = int(max_retries)
+
         if replay_times is None:
-            replay_times = 3
+            replay_times = 2
         self.replay_times = int(replay_times)
         if not interval_delay:
             interval_delay = 10
         self.interval_delay = int(interval_delay)
         self.logger = get_logger(self.__class__.__name__)
 
+        self.mode = mode
+        self.selected = None
+        self.selected_conductor = None
+
     def __del__(self):
         self.stop_notifier()
+
+    def is_selected(self):
+        selected = None
+        if not self.selected_conductor:
+            selected = True
+        else:
+            selected = self.is_self(self.selected_conductor)
+        if self.selected is None or self.selected != selected:
+            self.logger.info("is_selected changed from %s to %s" % (self.selected, selected))
+        self.selected = selected
+        return self.selected
+
+    def monitor_conductor(self):
+        if self.mode == "single":
+            self.logger.info("Conductor single mode")
+            self.selected_conductor = core_health.select_agent(name='Conductor', newer_than=self.heartbeat_delay * 2)
+            self.logger.debug("Selected conductor: %s" % self.selected_conductor)
+
+    def add_conductor_monitor_task(self):
+        task = self.create_task(task_func=self.monitor_conductor, task_output_queue=None,
+                                task_args=tuple(), task_kwargs={}, delay_time=self.heartbeat_delay,
+                                priority=1)
+        self.add_task(task)
 
     def get_messages(self):
         """
@@ -76,33 +117,41 @@ class Conductor(BaseAgent):
         if messages:
             self.logger.info("Main thread get %s new messages" % len(messages))
 
-        msg_type = [MessageType.StageInCollection, MessageType.StageInWork,
-                    MessageType.ActiveLearningCollection, MessageType.ActiveLearningWork,
-                    MessageType.HyperParameterOptCollection, MessageType.HyperParameterOptWork,
-                    MessageType.ProcessingCollection, MessageType.ProcessingWork,
-                    MessageType.UnknownCollection, MessageType.UnknownWork]
-        retry_messages = []
-        for retry in range(1, self.replay_times + 1):
-            delay = int(self.delay) * (retry ** 3)
+        # msg_type = [MessageType.StageInCollection, MessageType.StageInWork,
+        #             MessageType.ActiveLearningCollection, MessageType.ActiveLearningWork,
+        #             MessageType.HyperParameterOptCollection, MessageType.HyperParameterOptWork,
+        #             MessageType.ProcessingCollection, MessageType.ProcessingWork,
+        #             MessageType.UnknownCollection, MessageType.UnknownWork]
 
-            messages_d = core_messages.retrieve_messages(status=MessageStatus.Delivered,
-                                                         retries=retry, delay=delay,
-                                                         bulk_size=self.retrieve_bulk_size,
-                                                         destination=destination,
-                                                         msg_type=msg_type)
-            if messages_d:
-                self.logger.info("Main thread get %s retries messages" % len(messages_d))
-                retry_messages += messages_d
+        retry_messages = []
+        messages_d = core_messages.retrieve_messages(status=MessageStatus.Delivered,
+                                                     use_poll_period=True,
+                                                     bulk_size=self.retrieve_bulk_size,
+                                                     destination=destination)    # msg_type=msg_type)
+        if messages_d:
+            self.logger.info("Main thread get %s retries messages" % len(messages_d))
+            retry_messages += messages_d
 
         return messages + retry_messages
 
-    def clean_messages(self, msgs):
+    def clean_messages(self, msgs, confirm=False):
         # core_messages.delete_messages(msgs)
+        msg_status = MessageStatus.Delivered
+        if confirm:
+            msg_status = MessageStatus.ConfirmDelivered
         to_updates = []
         for msg in msgs:
+            retries = msg['retries']
+            if retries < self.max_normal_retries:
+                rand_num = random.randint(1, retries + 1)
+                delay = int(self.delay) * rand_num
+                delay = min(delay, self.max_retry_delay)
+            else:
+                delay = self.max_retry_delay
             to_updates.append({'msg_id': msg['msg_id'],
                                'retries': msg['retries'] + 1,
-                               'status': MessageStatus.Delivered})
+                               'poll_period': datetime.timedelta(seconds=delay),
+                               'status': msg_status})
         core_messages.update_messages(to_updates)
 
     def start_notifier(self):
@@ -132,6 +181,61 @@ class Conductor(BaseAgent):
             self.logger.error("Failed to get output messages: %s, %s" % (error, traceback.format_exc()))
         return msgs
 
+    def is_message_processed(self, message):
+        retries = message['retries']
+        try:
+            if retries >= self.max_retries:
+                self.logger.info("message %s has reached max retries %s" % (message['msg_id'], self.max_retries))
+                return True
+            msg_type = message['msg_type']
+            if msg_type not in [MessageType.ProcessingFile]:
+                if retries < self.replay_times:
+                    return False
+                else:
+                    return True
+            else:
+                msg_content = message['msg_content']
+                request_id = message['request_id']
+                transform_id = message['transform_id']
+                if 'files' not in msg_content or not msg_content['files']:
+                    return True
+                if 'relation_type' not in msg_content or msg_content['relation_type'] != 'input':
+                    return True
+
+                files = msg_content['files']
+                one_file = files[0]
+                # only check one file in a message
+                map_id = one_file['map_id']
+                contents = core_catalog.get_contents_by_request_transform(request_id=request_id,
+                                                                          transform_id=transform_id,
+                                                                          map_id=map_id)
+                for content in contents:
+                    if content['content_relation_type'] == ContentRelationType.Output:
+                        if (content['status'] == ContentStatus.Missing):
+                            workload_id = msg_content['workload_id']
+                            processings = core_processings.get_processings_by_transform_id(transform_id=transform_id)
+                            find_processing = None
+                            if processings:
+                                for processing in processings:
+                                    if processing['workload_id'] == workload_id:
+                                        find_processing = processing
+                            if find_processing and find_processing['status'] in [ProcessingStatus.Finished, ProcessingStatus.Failed,
+                                                                                 ProcessingStatus.Lost, ProcessingStatus.SubFinished,
+                                                                                 ProcessingStatus.Cancelled, ProcessingStatus.Expired,
+                                                                                 ProcessingStatus.Suspended, ProcessingStatus.Broken]:
+                                return True
+                            else:
+                                return False
+                        if (content['status'] != ContentStatus.New):
+                            return True
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+
+            if retries < self.replay_times:
+                return False
+        return False
+
     def run(self):
         """
         Main run function.
@@ -143,6 +247,10 @@ class Conductor(BaseAgent):
 
             self.add_default_tasks()
 
+            if self.mode == "single":
+                self.logger.debug("single mode")
+                self.add_conductor_monitor_task()
+
             self.start_notifier()
 
             # self.add_health_message_task()
@@ -153,14 +261,26 @@ class Conductor(BaseAgent):
 
                 try:
                     num_contents = 0
-                    messages = self.get_messages()
-                    if not messages:
-                        time.sleep(self.interval_delay)
+                    if self.is_selected():
+                        messages = self.get_messages()
+                        if not messages:
+                            time.sleep(self.interval_delay)
+                    else:
+                        message = []
+
+                    to_discard_messages = []
                     for message in messages:
                         message['destination'] = message['destination'].name
 
                         num_contents += message['num_contents']
-                        self.message_queue.put(message)
+                        if self.is_message_processed(message):
+                            self.logger.debug("message (msg_id: %s) is already processed, not resend it again" % message['msg_id'])
+                            to_discard_messages.append(message)
+                        else:
+                            self.message_queue.put(message)
+                    if to_discard_messages:
+                        self.clean_messages(to_discard_messages, confirm=True)
+
                     while not self.message_queue.empty():
                         time.sleep(1)
                     output_messages = self.get_output_messages()

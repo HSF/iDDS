@@ -331,7 +331,7 @@ def get_contents(coll_scope=None, coll_name=None, request_id=None, workload_id=N
 
 
 @read_session
-def get_contents_by_request_transform(request_id=None, workload_id=None, transform_id=None, status=None, status_updated=False, session=None):
+def get_contents_by_request_transform(request_id=None, workload_id=None, transform_id=None, status=None, map_id=None, status_updated=False, session=None):
     """
     Get contents with request id, workload id and transform id.
 
@@ -343,7 +343,7 @@ def get_contents_by_request_transform(request_id=None, workload_id=None, transfo
     :returns: list of contents
     """
     ret = orm_contents.get_contents_by_request_transform(request_id=request_id, transform_id=transform_id,
-                                                         workload_id=workload_id, status=status,
+                                                         workload_id=workload_id, status=status, map_id=map_id,
                                                          status_updated=status_updated, session=session)
     return ret
 
@@ -499,7 +499,7 @@ def get_match_contents(coll_scope, coll_name, scope, name, min_id=None, max_id=N
 
 
 @read_session
-def get_content_status_statistics(coll_id=None, session=None):
+def get_content_status_statistics(coll_id=None, transform_ids=None, session=None):
     """
     Get statistics group by status
 
@@ -508,7 +508,20 @@ def get_content_status_statistics(coll_id=None, session=None):
 
     :returns: statistics group by status, as a dict.
     """
-    return orm_contents.get_content_status_statistics(coll_id=coll_id, session=session)
+    return orm_contents.get_content_status_statistics(coll_id=coll_id, transform_ids=transform_ids, session=session)
+
+
+@read_session
+def get_content_status_statistics_by_relation_type(transform_ids, session=None):
+    """
+    Get statistics group by status
+
+    :param coll_id: Collection id.
+    :param session: The database session in use.
+
+    :returns: statistics group by status, as a dict.
+    """
+    return orm_contents.get_content_status_statistics_by_relation_type(transform_ids, session=session)
 
 
 @transactional_session
