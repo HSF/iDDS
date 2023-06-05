@@ -39,13 +39,13 @@ def upgrade() -> None:
         schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
 
         op.add_column('requests', sa.Column('site', sa.String(50)), schema=schema)
-        op.create_index("REQUESTS_STATUS_SITE", "requests", ['status', 'site', 'request_id'])
+        op.create_index("REQUESTS_STATUS_SITE", "requests", ['status', 'site', 'request_id'], schema=schema)
 
         op.add_column('transforms', sa.Column('site', sa.String(50)), schema=schema)
-        op.create_index("TRANSFORMS_STATUS_SITE", "transforms", ['status', 'site', 'request_id', 'transform_id'])
+        op.create_index("TRANSFORMS_STATUS_SITE", "transforms", ['status', 'site', 'request_id', 'transform_id'], schema=schema)
 
         op.add_column('processings', sa.Column('site', sa.String(50)), schema=schema)
-        op.create_index("PROCESSINGS_STATUS_SITE", "processings", ['status', 'site', 'request_id', 'transform_id', 'processing_id'])
+        op.create_index("PROCESSINGS_STATUS_SITE", "processings", ['status', 'site', 'request_id', 'transform_id', 'processing_id'], schema=schema)
 
         op.add_column('messages', sa.Column('fetching_id', sa.Integer()), schema=schema)
 
@@ -60,9 +60,10 @@ def upgrade() -> None:
                         sa.Column('queue_contents', sa.Integer()),
                         sa.Column("created_at", sa.DateTime, default=datetime.datetime.utcnow, nullable=False),
                         sa.Column("updated_at", sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False),
-                        sa.Column('others', JSON()))
-        op.create_primary_key('THROTTLER_PK', 'throttlers', ['throttler_id'])
-        op.create_unique_constraint('THROTTLER_SITE_UQ', 'throttlers', ['site'])
+                        sa.Column('others', JSON()),
+                        schema=schema)
+        op.create_primary_key('THROTTLER_PK', 'throttlers', ['throttler_id'], schema=schema)
+        op.create_unique_constraint('THROTTLER_SITE_UQ', 'throttlers', ['site'], schema=schema)
 
 
 def downgrade() -> None:
@@ -70,16 +71,16 @@ def downgrade() -> None:
         schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
 
         op.drop_column('requests', 'site', schema=schema)
-        op.drop_index("REQUESTS_STATUS_SITE", "requests")
+        # op.drop_index("REQUESTS_STATUS_SITE", "requests", schema=schema)
 
         op.drop_column('transforms', 'site', schema=schema)
-        op.drop_index("TRANSFORMS_STATUS_SITE", "requests")
+        # op.drop_index("TRANSFORMS_STATUS_SITE", "transforms", schema=schema)
 
         op.drop_column('processings', 'site', schema=schema)
-        op.drop_index("PROCESSINGS_STATUS_SITE", "requests")
+        # op.drop_index("PROCESSINGS_STATUS_SITE", "processings", schema=schema)
 
         op.drop_column('messages', 'fetching_id', schema=schema)
 
-        op.drop_constraint('THROTTLER_SITE_UQ')
-        op.drop_constraint('THROTTLER_PK')
+        op.drop_constraint('THROTTLER_SITE_UQ', table_name='throttlers', schema=schema)
+        op.drop_constraint('THROTTLER_PK', table_name='throttlers', schema=schema)
         op.drop_table('throttlers')

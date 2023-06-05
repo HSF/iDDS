@@ -33,7 +33,7 @@ depends_on = None
 def upgrade() -> None:
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
-        op.add_column('messages', sa.Column('poll_period', sa.Interval, default=datetime.timedelta(seconds=300), nullable=False), schema=schema)
+        op.add_column('messages', sa.Column('poll_period', sa.Interval, default=datetime.timedelta(seconds=300)), schema=schema)
 
 
 def downgrade() -> None:
