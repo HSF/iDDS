@@ -6,14 +6,17 @@ import datetime
 os.environ['PANDA_URL'] = 'http://pandaserver-doma.cern.ch:25080/server/panda'
 os.environ['PANDA_URL_SSL'] = 'https://pandaserver-doma.cern.ch:25443/server/panda'
 
-# os.environ['PANDA_URL'] = 'http://rubin-panda-server-dev.slac.stanford.edu:80/server/panda'
-# os.environ['PANDA_URL_SSL'] = 'https://rubin-panda-server-dev.slac.stanford.edu:8443/server/panda'
+os.environ['PANDA_BEHIND_REAL_LB'] = "1"
+os.environ['PANDA_URL'] = 'http://rubin-panda-server-dev.slac.stanford.edu:80/server/panda'
+os.environ['PANDA_URL_SSL'] = 'https://rubin-panda-server-dev.slac.stanford.edu:8443/server/panda'
 
 from pandaclient import Client  # noqa E402
 
+
+# jobids = [52690679]
+jobids = [9]
 """
-jobids = [1408118]
-jobs_list_status = Client.getJobStatus(jobids, verbose=0)
+jobs_list_status = Client.getJobStatus(jobids, verbose=1)
 print(jobs_list_status)
 jobs_list = jobs_list_status[1]
 print(jobs_list)
@@ -30,7 +33,12 @@ for job_info in jobs_list:
             print(f._attributes)
             print(f.values())
             print(f.type)
+"""
 
+ret = Client.getFullJobStatus(ids=jobids, verbose=False)
+print(ret)
+
+"""
 jediTaskID = 10517    # 10607
 jediTaskID = 146329
 ret = Client.getJediTaskDetails({'jediTaskID': jediTaskID}, True, True, verbose=False)
