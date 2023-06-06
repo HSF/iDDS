@@ -266,7 +266,7 @@ class Conductor(BaseAgent):
                         if not messages:
                             time.sleep(self.interval_delay)
                     else:
-                        message = []
+                        messages = []
 
                     to_discard_messages = []
                     for message in messages:
