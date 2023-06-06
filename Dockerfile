@@ -35,7 +35,7 @@ rm -rf /var/cache/yum
 RUN yum install -y https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm
 RUN yum install -y postgresql14
 
-# RUN curl http://repository.egi.eu/sw/production/cas/1/current/repo-files/EGI-trustanchors.repo -o /etc/yum.repos.d/EGI-trustanchors.repo
+# RUN curl http://repository.egi.eu/sw/production/cas/1/current/repo-files/EGI-trustanchors.repo -o /etc/yum.repos.d/EGI-trustanchors.repo/
 RUN curl https://repository.egi.eu/sw/production/cas/1/current/repo-files/EGI-trustanchors.repo -o /etc/yum.repos.d/EGI-trustanchors.repo
 
 RUN yum install -y fetch-crl.noarch lcg-CA ca-policy-egi-core && \
@@ -120,7 +120,8 @@ RUN ln -fs /opt/idds/config/ca.crt /opt/idds/etc/ca.crt
 RUN ln -fs /opt/idds/config/rucio.cfg /opt/idds/etc/rucio.cfg
 
 # for panda client to access panda
-# RUN ln -fs /opt/idds/config/panda.cfg /opt/idds/etc/panda/panda.cfg
+RuN mkdir -p /opt/idds/etc/panda/
+RUN ln -fs /opt/idds/config/panda.cfg /opt/idds/etc/panda/panda.cfg
 
 # for idds rest service
 RUN ln -fs /opt/idds/config/idds/idds.cfg /opt/idds/etc/idds/idds.cfg
@@ -135,9 +136,10 @@ RUN sed -i "s/WSGISocketPrefix\ \/var\/log\/idds\/wsgisocks\/wsgi/WSGISocketPref
 
 # for idds daemons
 RUN ln -fs /opt/idds/config/idds/supervisord_idds.ini /etc/supervisord.d/idds.ini
-RUN ln -fs /opt/idds/config/idds/supervisord_iddsfake.ini /etc/supervisord.d/iddsfake.ini
+# RUN ln -fs /opt/idds/config/idds/supervisord_iddsfake.ini /etc/supervisord.d/iddsfake.ini
 RUN ln -fs /opt/idds/config/idds/supervisord_httpd.ini /etc/supervisord.d/httpd.ini
 # RUN ln -fs /opt/idds/config/idds/supervisord_syslog-ng.ini /etc/supervisord.d/syslog-ng.ini
+RUN ln -fs /opt/idds/config/idds/supervisord_logrotate.ini /etc/supervisord.d/logrotate.ini
 
 # for syslog-ng
 RUN mv /etc/syslog-ng/syslog-ng.conf /etc/syslog-ng/syslog-ng.conf.back

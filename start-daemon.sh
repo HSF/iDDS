@@ -130,9 +130,12 @@ if [ -f /opt/idds/config/idds/supervisord_idds.ini ]; then
 else
     echo "supervisord conf not found. will use the default one."
     cp /opt/idds/config_default/supervisord_idds.ini /opt/idds/config/idds/supervisord_idds.ini
-    cp /opt/idds/config_default/supervisord_iddsfake.ini /opt/idds/config/idds/supervisord_iddsfake.ini
+    # cp /opt/idds/config_default/supervisord_iddsfake.ini /opt/idds/config/idds/supervisord_iddsfake.ini
     cp /opt/idds/config_default/supervisord_httpd.ini /opt/idds/config/idds/supervisord_httpd.ini
     # cp /opt/idds/config_default/supervisord_syslog-ng.ini /opt/idds/config/idds/supervisord_syslog-ng.ini
+
+    cp /opt/idds/config_default/supervisord_logrotate.ini /opt/idds/config/idds/supervisord_logrotate.ini
+    cp /opt/idds/config_default/logrotate_idds /etc/logrotate.d/idds
 fi
 
 if [ -f /etc/grid-security/hostkey.pem ]; then
