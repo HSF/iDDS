@@ -1,0 +1,12 @@
+/var/log/idds/*.log {
+    daily
+    missingok
+    rotate 3
+    size 2G
+    compress
+    delaycompress
+    postrotate
+        /usr/bin/supervisorctl stop all > /dev/null 2>/dev/null || true
+        /usr/bin/supervisorctl start all > /dev/null 2>/dev/null || true
+    endscript
+}
