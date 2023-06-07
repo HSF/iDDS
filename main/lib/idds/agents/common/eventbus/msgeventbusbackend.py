@@ -206,7 +206,8 @@ class MsgEventBusBackend(BaseEventBusBackend):
     """
 
     def __init__(self, logger=None, coordinator_port=5556, socket_timeout=10, debug=False,
-                 timeout_threshold=5, failure_threshold=5, **kwargs):
+                 timeout_threshold=5, failure_threshold=5, failure_timeout=180,
+                 num_of_set_failed_at_threshold=10, **kwargs):
         super(MsgEventBusBackend, self).__init__()
         self._id = str(uuid.uuid4())[:8]
         self._state_claim_wait = 60
@@ -222,6 +223,10 @@ class MsgEventBusBackend(BaseEventBusBackend):
         self._password = ''.join(random.choice(string.ascii_uppercase + string.ascii_lowercase + string.digits) for _ in range(20))
 
         self._is_ok = True
+        self._failed_at = None
+        self._failure_timeout = int(failure_timeout)
+        self._num_of_set_failed_at = 0
+        self._num_of_set_failed_at_threshold = int(num_of_set_failed_at_threshold)
         self.num_success = 0
         self.num_failures = 0
         self.num_timeout = 0
@@ -456,8 +461,16 @@ class MsgEventBusBackend(BaseEventBusBackend):
         pass
 
     def is_ok(self):
-        if self.num_failures > self.failure_threshold or self.num_timeout > self.timeout_threshold:
+        if self._num_of_set_failed_at < self._num_of_set_failed_at_threshold and self._failed_at and self._failed_at + self._failure_timeout < time.time():
+            self._is_ok = True
+            self._failed_at = None
+            self.num_failures = 0
+            self.num_timeout = 0
+        elif self.num_failures > self.failure_threshold or self.num_timeout > self.timeout_threshold:
             self._is_ok = False
+            if not self._failed_at:
+                self._failed_at = time.time()
+                self._num_of_set_failed_at += 1
         else:
             self._is_ok = True
         return self._is_ok
