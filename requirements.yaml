@@ -31,4 +31,5 @@ dependencies:
   - deepdiff
   - pyzmq
   - anytree
+  - networkx
   - oic

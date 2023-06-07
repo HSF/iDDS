@@ -47,6 +47,7 @@ class EventBus(Singleton):
             self.attrs = attrs
             self._backend = None
             self._orig_backend = None
+            self._backup_backend = BaseEventBusBackendOpt(logger=self.logger, **attrs)
             if 'backend' in attrs:
                 if attrs['backend'] == 'message':
                     self.backend = MsgEventBusBackend(logger=self.logger, **attrs)
@@ -57,18 +58,20 @@ class EventBus(Singleton):
             if self.backend is None:
                 self.backend = BaseEventBusBackendOpt(logger=self.logger, **attrs)
             self.logger.info("EventBus backend : %s" % self.backend)
+            self._orig_backend = self.backend
             self.backend.start()
 
     @property
     def backend(self):
         if self._backend and isinstance(self._backend, MsgEventBusBackend) and not self._backend.is_ok():
-            self._orig_backend = self._backend
-            self._backend = BaseEventBusBackendOpt(logger=self.logger, **self.attrs)
+            # self._orig_backend = self._backend
+            # self._backend = BaseEventBusBackendOpt(logger=self.logger, **self.attrs)
+            self._backend = self._backup_backend
             self.logger.critical("MsgEventBusBackend failed, switch to use BaseEventBusBackendOpt")
         elif self._orig_backend and isinstance(self._orig_backend, MsgEventBusBackend) and self._orig_backend.is_ok():
             self.logger.critical("MsgEventBusBackend is ok, switch back to use it")
             self._backend = self._orig_backend
-            self._orig_backend = None
+            # self._orig_backend = None
         return self._backend
 
     @backend.setter
@@ -125,8 +128,12 @@ class EventBus(Singleton):
 
     def set_manager(self, manager):
         self.backend.set_manager(manager)
+        if self._orig_backend:
+            self._orig_backend.set_manager(manager)
 
     def get_manager(self):
+        if self._orig_backend:
+            return self._orig_backend.get_manager()
         return self.backend.get_manager()
 
     def get_coordinator(self):
