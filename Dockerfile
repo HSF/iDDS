@@ -140,6 +140,7 @@ RUN ln -fs /opt/idds/config/idds/supervisord_idds.ini /etc/supervisord.d/idds.in
 RUN ln -fs /opt/idds/config/idds/supervisord_httpd.ini /etc/supervisord.d/httpd.ini
 # RUN ln -fs /opt/idds/config/idds/supervisord_syslog-ng.ini /etc/supervisord.d/syslog-ng.ini
 RUN ln -fs /opt/idds/config/idds/supervisord_logrotate.ini /etc/supervisord.d/logrotate.ini
+RUN ln -fs /opt/idds/config/idds/logrotate_idds /etc/logrotate.d/idds
 
 # for syslog-ng
 RUN mv /etc/syslog-ng/syslog-ng.conf /etc/syslog-ng/syslog-ng.conf.back
