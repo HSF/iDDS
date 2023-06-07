@@ -135,7 +135,9 @@ else
     # cp /opt/idds/config_default/supervisord_syslog-ng.ini /opt/idds/config/idds/supervisord_syslog-ng.ini
 
     cp /opt/idds/config_default/supervisord_logrotate.ini /opt/idds/config/idds/supervisord_logrotate.ini
-    cp /opt/idds/config_default/logrotate_idds /etc/logrotate.d/idds
+    cp /opt/idds/config_default/logrotate_idds /opt/idds/config/idds/logrotate_idds
+    cp /opt/idds/config_default/logrotate_daemon /opt/idds/config/idds/logrotate_daemon
+    chmod +x /opt/idds/config/idds/logrotate_daemon
 fi
 
 if [ -f /etc/grid-security/hostkey.pem ]; then
