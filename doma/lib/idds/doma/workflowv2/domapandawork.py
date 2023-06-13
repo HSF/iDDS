@@ -1126,17 +1126,20 @@ class DomaPanDAWork(Work):
         self.logger.debug("get_contents_ext, left_contents[:1]: %s" % (str(left_contents[:3])))
         return new_contents_ext_d, update_contents_ext_d, left_contents
 
-    def abort_contents(self, input_output_maps, updated_contents, contents_ext):
+    def abort_contents(self, input_output_maps, updated_contents, contents_ext, to_update_new_contents_ext):
         contents_ext_dict = {content['content_id']: content for content in contents_ext}
         new_contents_ext = []
+        updated_contents_ids = [c['content_id'] for c in updated_contents]
+        new_contents_ext_ids = [c['content_id'] for c in to_update_new_contents_ext]
 
         for map_id in input_output_maps:
             outputs = input_output_maps[map_id]['outputs']
             for content in outputs:
-                update_content = {'content_id': content['content_id'],
-                                  'substatus': ContentStatus.Missing}
-                updated_contents.append(update_content)
-                if content['content_id'] not in contents_ext_dict:
+                if content['content_id'] not in updated_contents_ids:
+                    update_content = {'content_id': content['content_id'],
+                                      'substatus': ContentStatus.Missing}
+                    updated_contents.append(update_content)
+                if content['content_id'] not in contents_ext_dict and content['content_id'] not in new_contents_ext_ids:
                     new_content_ext = {'content_id': content['content_id'],
                                        'request_id': content['request_id'],
                                        'transform_id': content['transform_id'],
@@ -1193,7 +1196,7 @@ class DomaPanDAWork(Work):
                                                                                                  contents_ext_full, job_info_maps)
                     # if left_jobs:
                     if processing_status in [ProcessingStatus.Cancelled]:
-                        updated_contents, new_contents_ext1 = self.abort_contents(input_output_maps, updated_contents, contents_ext)
+                        updated_contents, new_contents_ext1 = self.abort_contents(input_output_maps, updated_contents, contents_ext, new_contents_ext)
                         new_contents_ext = new_contents_ext + new_contents_ext1
 
                     return processing_status, updated_contents, update_contents_full, new_contents_ext, update_contents_ext
