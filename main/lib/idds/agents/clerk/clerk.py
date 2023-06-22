@@ -1121,6 +1121,7 @@ class Clerk(BaseAgent):
                                 wf = req['request_metadata']['build_workflow']
                         works = wf.get_all_works()
                         if works:
+                            has_abort_work = False
                             for work in works:
                                 if (work.is_started() or work.is_starting()) and not work.is_terminated():
                                     if not to_abort_transform_id or to_abort_transform_id == work.get_work_id():
@@ -1129,6 +1130,12 @@ class Clerk(BaseAgent):
                                                                     transform_id=work.get_work_id(),
                                                                     content=event._content)
                                         self.event_bus.send(event)
+                                        has_abort_work = True
+                            if not has_abort_work:
+                                self.logger.info(log_pre + "not has abort work")
+                                self.logger.info(log_pre + "UpdateRequestEvent(request_id: %s)" % str(req['request_id']))
+                                event = UpdateRequestEvent(publisher_id=self.id, request_id=req['request_id'], content=event._content)
+                                self.event_bus.send(event)
                         else:
                             # no works. should trigger update request
                             self.logger.info(log_pre + "UpdateRequestEvent(request_id: %s)" % str(req['request_id']))
