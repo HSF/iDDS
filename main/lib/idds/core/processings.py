@@ -294,9 +294,20 @@ def resolve_input_dependency_id(new_input_dependency_contents, session=None):
     for content in contents:
         if content['coll_id'] not in content_name_id_map:
             content_name_id_map[content['coll_id']] = {}
-        content_name_id_map[content['coll_id']][content['name']] = content['content_id']
+        if content['name'] not in content_name_id_map[content['coll_id']]:
+            content_name_id_map[content['coll_id']][content['name']] = {}
+        # if content['map_id'] not in content_name_id_map[content['coll_id']][content['name']]:
+        #     content_name_id_map[content['coll_id']][content['name']][content['map_id']] = {}
+        content_name_id_map[content['coll_id']][content['name']][content['sub_map_id']] = content['content_id']
+        # content_name_id_map[content['coll_id']][content['name']] = content['content_id']
+
     for content in new_input_dependency_contents:
-        content_dep_id = content_name_id_map[content['coll_id']][content['name']]
+        if 'sub_map_id' not in content or content['sub_map_id'] is None:
+            content['sub_map_id'] = 0
+        dep_sub_map_id = content.get("dep_sub_map_id", 0)
+        if dep_sub_map_id is None:
+            dep_sub_map_id = 0
+        content_dep_id = content_name_id_map[content['coll_id']][content['name']][dep_sub_map_id]
         content['content_dep_id'] = content_dep_id
     return new_input_dependency_contents
 
