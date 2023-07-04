@@ -1893,7 +1893,7 @@ class WorkflowBase(Base):
         """
         *** Function called by Marshaller agent.
         """
-        return self.is_terminated(synchronize=synchronize) and self.num_finished_works == self.num_total_works
+        return self.is_terminated(synchronize=synchronize) and self.num_finished_works == self.num_total_works and (self.num_total_works > 0)
 
     def is_subfinished(self, synchronize=True):
         """
