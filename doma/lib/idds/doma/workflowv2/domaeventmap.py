@@ -13,6 +13,7 @@ Map between jobs and events
 """
 
 
+import datetime
 import os
 import pickle
 
@@ -31,10 +32,27 @@ class DomaEventMapJob(object):
             self.event_deps[event_index] = []
             job = self.events[event_index]
             deps = job.deps
+            dep_names = []
             for dep in deps:
                 # dep is gwjob
-                event_dep = job_event_map[dep.name]
-                self.event_deps[event_index].append(event_dep)
+                if dep.name not in dep_names:
+                    event_dep = job_event_map[dep.name]
+                    self.event_deps[event_index].append(event_dep)
+                else:
+                    raise Exception("duplicated dependencies %s in job %s of task %s" % (dep.name, self.name, self.task_name))
+
+    def get_dependency_map(self):
+        return self.event_deps
+
+    def dict(self):
+        ret = {}
+        ret['events'] = {}
+        for event_index in self.events:
+            job = self.events[event_index]
+            ret['events'][event_index] = {'name': job.name, 'deps': []}
+            ret['events'][event_index]['deps'] = self.event_deps[event_index]
+
+        return ret
 
     def set_event_status(self, event_index, status, reported):
         self.event_status[str(event_index)] = {'status': status, 'reported': reported}
@@ -96,14 +114,30 @@ class DomaEventMapTask(object):
     def add_job(self, job):
         self.jobs[job.name] = job
 
+    def dict(self):
+        ret = {}
+        for job_name in self.jobs:
+            ret[job_name] = self.jobs[job_name].dict()
+        return ret
+
     def get_job(self, job_name):
         return self.jobs.get(job_name, None)
 
+    def get_dependency_map(self):
+        dep_map = {}
+        for job_name in self.jobs:
+            job = self.jobs[job_name]
+            dep_map[job_name] = job.get_dependency_map()
+        return dep_map
+
 
 class DomaEventMap(object):
-    def __init__(self, name='doma_event_map.pickle', base_dir='./'):
+    def __init__(self, name=None, file_name='doma_event_map.pickle', base_dir='./'):
+        if not file_name:
+            file_name = 'doma_event_map.pickle'
+        self.file_name = file_name
         if not name:
-            name = 'doma_event_map.pickle'
+            name = "idds_event_" + datetime.datetime.utcnow().strftime("%Y_%m_%d_%H_%M_%S_%f")
         self.name = name
         self.base_dir = base_dir
         self.tasks = {}
@@ -114,14 +148,20 @@ class DomaEventMap(object):
     def get_task(self, task_name):
         return self.tasks.get(task_name, None)
 
+    def dict(self):
+        ret = {}
+        for task_name in self.tasks:
+            ret[task_name] = self.tasks[task_name].dict()
+        return ret
+
     def get_path(self):
-        if os.path.isabs(self.name):
-            path = self.name
+        if os.path.isabs(self.file_name):
+            path = self.file_name
         else:
             if self.base_dir:
-                path = os.path.join(self.base_dir, self.name)
+                path = os.path.join(self.base_dir, self.file_name)
             else:
-                path = self.name
+                path = self.file_name
         return path
 
     def save(self):
