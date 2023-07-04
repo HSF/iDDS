@@ -92,7 +92,7 @@ class Submitter(Poller):
                           'substatus': ProcessingStatus.Submitting,
                           'locking': ProcessingLocking.Idle,
                           'processing_metadata': processing['processing_metadata']}
-            parameters = self.load_poll_period(processing, parameters)
+            parameters = self.load_poll_period(processing, parameters, new=True)
 
             proc = processing['processing_metadata']['processing']
             if proc.submitted_at:
