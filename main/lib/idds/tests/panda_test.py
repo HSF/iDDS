@@ -7,11 +7,17 @@ os.environ['PANDA_URL'] = 'http://pandaserver-doma.cern.ch:25080/server/panda'
 os.environ['PANDA_URL_SSL'] = 'https://pandaserver-doma.cern.ch:25443/server/panda'
 
 os.environ['PANDA_BEHIND_REAL_LB'] = "1"
-os.environ['PANDA_URL'] = 'http://rubin-panda-server-dev.slac.stanford.edu:80/server/panda'
-os.environ['PANDA_URL_SSL'] = 'https://rubin-panda-server-dev.slac.stanford.edu:8443/server/panda'
+# os.environ['PANDA_URL'] = 'http://rubin-panda-server-dev.slac.stanford.edu:80/server/panda'
+# os.environ['PANDA_URL_SSL'] = 'https://rubin-panda-server-dev.slac.stanford.edu:8443/server/panda'
 
 from pandaclient import Client  # noqa E402
 
+
+task_ids = [i for i in range(157023, 157050)]
+for task_id in task_ids:
+    print("Killing %s" % task_id)
+    ret = Client.killTask(task_id)
+    print(ret)
 
 # jobids = [52690679]
 jobids = [9]
@@ -35,8 +41,18 @@ for job_info in jobs_list:
             print(f.type)
 """
 
-ret = Client.getFullJobStatus(ids=jobids, verbose=False)
+# ret = Client.getFullJobStatus(ids=jobids, verbose=False)
+# print(ret)
+
+jediTaskID = 156668
+ret = Client.get_files_in_datasets(jediTaskID, verbose=False)
 print(ret)
+
+panda_ids = [{'task_id': 157016, 'panda_id': 53943290}]
+ret = Client.get_events_status(panda_ids, verbose=True)
+print(ret)
+
+# sys.exit(0)
 
 """
 jediTaskID = 10517    # 10607
@@ -97,7 +113,7 @@ print(ret)
 ret = Client.getJediTaskDetails({'jediTaskID': jediTaskID}, True, True, verbose=False)
 print(ret)
 
-sys.exit(0)
+# sys.exit(0)
 
 task_ids = []
 # task_ids = [1565, 1566, 1567, 1568, 1570, 1572, 1575, 1576, 1579, 1580, 1581, 1582, 1584, 1585, 1586, 1587, 1588, 1589, 1590, 1591, 1592, 1593, 1597, 1598, 1599, 1601, 1602, 1603, 1604, 1607, 1608, 1609, 1610, 1611, 1612, 1613, 1617]
@@ -126,6 +142,8 @@ task_ids = []
 # task_ids = [i for i in range(151444, 151453)]
 task_ids = [i for i in range(45, 53)]
 # task_ids = []
+task_ids = [i for i in range(156974, 156981)]
+task_ids = [i for i in range(157023, 157050)]
 for task_id in task_ids:
     print("Killing %s" % task_id)
     Client.killTask(task_id)

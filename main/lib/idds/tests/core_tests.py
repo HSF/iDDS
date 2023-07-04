@@ -172,11 +172,12 @@ def print_workflow_template(workflow, layers=0):
 # reqs = get_requests(request_id=28182323, with_request=True, with_detail=False, with_metadata=True)
 # reqs = get_requests(request_id=385554, with_request=True, with_detail=False, with_metadata=True)
 reqs = get_requests(request_id=479187, with_request=True, with_detail=False, with_metadata=True)
+reqs = get_requests(request_id=4498, with_request=True, with_detail=False, with_metadata=True)
 for req in reqs:
     # print(req['request_id'])
     # print(req)
     # print(rets)
-    # print(json_dumps(req, sort_keys=True, indent=4))
+    print(json_dumps(req, sort_keys=True, indent=4))
     # show_works(req)
     pass
     if 'build_workflow' in req['request_metadata']:

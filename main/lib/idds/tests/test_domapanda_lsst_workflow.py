@@ -13,8 +13,9 @@
 Test lsst generic workflow.
 """
 
-# import json
+import json
 import logging
+import sys                                                    # noqa E402 F401
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -29,7 +30,7 @@ from lsst.ctrl.bps import generic_workflow as gw               # noqa #402
 # from idds.client.client import Client
 from idds.client.clientmanager import ClientManager   # noqa E402
 # from idds.common.constants import RequestType, RequestStatus
-# from idds.common.utils import get_rest_host
+from idds.common.utils import get_rest_host                               # noqa E402
 # from idds.tests.common import get_example_real_tape_stagein_request
 # from idds.tests.common import get_example_prodsys2_tape_stagein_request
 
@@ -37,9 +38,22 @@ from idds.client.clientmanager import ClientManager   # noqa E402
 # from idds.workflowv2.workflow import Condition, Workflow
 from idds.workflowv2.workflow import Workflow, Condition     # noqa E402
 # from idds.atlas.workflowv2.atlasstageinwork import ATLASStageinWork
-from idds.doma.workflowv2.domapandawork import DomaPanDAWork   # noqa E402
-from idds.doma.workflowv2.domatree import DomaTree             # noqa E402
-from idds.doma.workflowv2.domaeventmap import DomaEventMap     # noqa E402
+from idds.doma.workflowv2.domapandawork import DomaPanDAWork       # noqa E402
+from idds.doma.workflowv2.domapandaeswork import DomaPanDAESWork   # noqa E402
+from idds.doma.workflowv2.domatree import DomaTree                 # noqa E402
+from idds.doma.workflowv2.domaeventmap import DomaEventMap         # noqa E402
+
+
+task_cloud = 'US'
+task_queue = 'SLAC_Rubin'
+task_queue = 'SLAC_Rubin_Extra_Himem_32Cores'
+
+
+task_cloud = 'EU'
+task_queue = 'CC-IN2P3_TEST'
+
+# task_cloud = 'EU'
+# task_queue = 'LANCS_TEST'
 
 
 def setup_gw_workflow():
@@ -195,13 +209,63 @@ def construct_doma_jobs(generic_workflow):
     event_map1.load()
     print(event_map1)
 
+    return event_map
+
+
+def setup_workflow(event_map):
+    pending_time = 12
+    # pending_time = None
+    workflow = Workflow(pending_time=pending_time)
+    workflow.name = event_map.name
+
+    for task_name in event_map.tasks:
+        task = event_map.get_task(task_name)
+        executable = "cmd_line_es_decoder.py"
+        dependency_map = task.get_dependency_map()
+        work = DomaPanDAESWork(executable=executable,
+                               primary_input_collection={'scope': 'pseudo_dataset', 'name': 'pseudo_input_collection#1'},
+                               output_collections=[{'scope': 'pseudo_dataset', 'name': 'pseudo_output_collection#1'}],
+                               log_collections=[], es_dependency_map=dependency_map,
+                               task_name=task_name, task_queue=task_queue,
+                               encode_command_line=True,
+                               prodSourceLabel='managed',
+                               task_log={"dataset": "PandaJob_#{pandaid}/",
+                                         "destination": "local",
+                                         "param_type": "log",
+                                         "token": "local",
+                                         "type": "template",
+                                         "value": "log.tgz"},
+                               task_cloud=task_cloud)
+        workflow.add_work(work)
+    return workflow
+
 
 def test():
     gw_workflow = setup_gw_workflow()
     # print(json.dumps(gw_workflow))
     # gw_workflow = setup_gw_workflow2()
     test_show_jobs(gw_workflow)
-    construct_doma_jobs(gw_workflow)
+    event_map = construct_doma_jobs(gw_workflow)
+
+    print("event_map")
+    print(json.dumps(event_map.dict(), sort_keys=True, indent=4))
+    # sys.exit(0)
+
+    print("task_dep_map")
+
+    for task_name in event_map.tasks:
+        task = event_map.get_task(task_name)
+        print("task_name :%s" % task_name)
+        print(json.dumps(task.get_dependency_map(), sort_keys=True, indent=4))
+    workflow = setup_workflow(event_map)
+
+    # sys.exit(0)
+
+    host = get_rest_host()
+    wm = ClientManager(host=host)
+    # wm.set_original_user(user_name="wguandev")
+    request_id = wm.submit(workflow, use_dataset_name=False)
+    print(request_id)
 
 
 def test_load():
@@ -239,6 +303,7 @@ def test_load():
     event_job.acknowledge_event_report(to_report)   # update the report status, to avoid reporting it again
     to_report = event_job.get_events_to_report()
     print(to_report)
+
 
 def test1():
     # gw_workflow = setup_gw_workflow()
