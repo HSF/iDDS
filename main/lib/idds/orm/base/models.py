@@ -538,6 +538,8 @@ class Content(BASE, ModelBase):
     request_id = Column(BigInteger().with_variant(Integer, "sqlite"), nullable=False)
     workload_id = Column(Integer())
     map_id = Column(BigInteger().with_variant(Integer, "sqlite"), default=0, nullable=False)
+    sub_map_id = Column(BigInteger().with_variant(Integer, "sqlite"), default=0)
+    dep_sub_map_id = Column(BigInteger().with_variant(Integer, "sqlite"), default=0)
     content_dep_id = Column(BigInteger())
     scope = Column(String(SCOPE_LENGTH))
     name = Column(String(LONG_NAME_LENGTH))
@@ -554,6 +556,10 @@ class Content(BASE, ModelBase):
     processing_id = Column(Integer())
     storage_id = Column(Integer())
     retries = Column(Integer(), default=0)
+    external_coll_id = Column(BigInteger())
+    external_content_id = Column(BigInteger())
+    external_event_id = Column(BigInteger())
+    external_event_status = Column(EnumWithValue(ContentStatus))
     path = Column(String(4000))
     created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow)
     updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
@@ -565,7 +571,8 @@ class Content(BASE, ModelBase):
                       # UniqueConstraint('name', 'scope', 'coll_id', 'content_type', 'min_id', 'max_id', name='CONTENT_SCOPE_NAME_UQ'),
                       # UniqueConstraint('name', 'scope', 'coll_id', 'min_id', 'max_id', name='CONTENT_SCOPE_NAME_UQ'),
                       # UniqueConstraint('content_id', 'coll_id', name='CONTENTS_UQ'),
-                      UniqueConstraint('transform_id', 'coll_id', 'map_id', 'name', 'min_id', 'max_id', name='CONTENT_ID_UQ'),
+                      # UniqueConstraint('transform_id', 'coll_id', 'map_id', 'name', 'min_id', 'max_id', name='CONTENT_ID_UQ'),
+                      UniqueConstraint('transform_id', 'coll_id', 'map_id', 'sub_map_id', 'dep_sub_map_id', 'content_relation_type', 'name', 'min_id', 'max_id', name='CONTENT_ID_UQ'),
                       ForeignKeyConstraint(['transform_id'], ['transforms.transform_id'], name='CONTENTS_TRANSFORM_ID_FK'),
                       ForeignKeyConstraint(['coll_id'], ['collections.coll_id'], name='CONTENTS_COLL_ID_FK'),
                       CheckConstraint('status IS NOT NULL', name='CONTENTS_STATUS_ID_NN'),
