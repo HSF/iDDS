@@ -248,7 +248,7 @@ def get_update_contents(request_id, transform_id, workload_id, input_output_maps
         input_output_sub_maps = get_input_output_sub_maps(inputs, outputs, inputs_dependency)
         for sub_map_id in input_output_sub_maps:
             inputs_sub = input_output_sub_maps[sub_map_id]['inputs']
-            outputs_sub = input_output_sub_maps[sub_map_id]['inputs']
+            outputs_sub = input_output_sub_maps[sub_map_id]['outputs']
             inputs_dependency_sub = input_output_sub_maps[sub_map_id]['inputs_dependency']
 
             content_update_status = None
@@ -609,7 +609,7 @@ def get_updated_contents_by_input_output_maps(input_output_maps=None, logger=Non
 
         for sub_map_id in input_output_sub_maps:
             inputs_sub = input_output_sub_maps[sub_map_id]['inputs']
-            outputs_sub = input_output_sub_maps[sub_map_id]['inputs']
+            outputs_sub = input_output_sub_maps[sub_map_id]['outputs']
             inputs_dependency_sub = input_output_sub_maps[sub_map_id]['inputs_dependency']
 
             input_content_update_status = None
@@ -830,7 +830,7 @@ def trigger_release_inputs_no_deps(request_id, transform_id, workload_id, work, 
         input_output_sub_maps = get_input_output_sub_maps(inputs, outputs, inputs_dependency)
         for sub_map_id in input_output_sub_maps:
             inputs_sub = input_output_sub_maps[sub_map_id]['inputs']
-            # outputs_sub = input_output_sub_maps[sub_map_id]['inputs']
+            # outputs_sub = input_output_sub_maps[sub_map_id]['outputs']
             inputs_dependency_sub = input_output_sub_maps[sub_map_id]['inputs_dependency']
 
             if not inputs_dependency_sub:
@@ -880,7 +880,7 @@ def trigger_release_inputs(request_id, transform_id, workload_id, work, updated_
         input_output_sub_maps = get_input_output_sub_maps(inputs, outputs, inputs_dependency)
         for sub_map_id in input_output_sub_maps:
             inputs_sub = input_output_sub_maps[sub_map_id]['inputs']
-            outputs_sub = input_output_sub_maps[sub_map_id]['inputs']
+            outputs_sub = input_output_sub_maps[sub_map_id]['outputs']
             inputs_dependency_sub = input_output_sub_maps[sub_map_id]['inputs_dependency']
 
             input_content_update_status = None
@@ -935,7 +935,7 @@ def poll_missing_outputs(input_output_maps):
         input_output_sub_maps = get_input_output_sub_maps(inputs, outputs, inputs_dependency)
         for sub_map_id in input_output_sub_maps:
             inputs_sub = input_output_sub_maps[sub_map_id]['inputs']
-            outputs_sub = input_output_sub_maps[sub_map_id]['inputs']
+            outputs_sub = input_output_sub_maps[sub_map_id]['outputs']
             # inputs_dependency_sub = input_output_sub_maps[sub_map_id]['inputs_dependency']
 
             content_update_status = None

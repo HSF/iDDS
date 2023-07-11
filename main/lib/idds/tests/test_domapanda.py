@@ -44,10 +44,10 @@ task_queue = 'DOMA_LSST_GOOGLE_TEST'
 # task_queue = 'SLAC_TEST'
 # task_queue = 'DOMA_LSST_SLAC_TEST'
 task_queue = 'SLAC_Rubin'
-task_queue = 'SLAC_Rubin_Extra_Himem_32Cores'
+# task_queue = 'SLAC_Rubin_Extra_Himem_32Cores'
 
-task_cloud = 'EU'
-task_queue = 'CC-IN2P3_TEST'
+# task_cloud = 'EU'
+# task_queue = 'CC-IN2P3_TEST'
 
 # task_cloud = 'EU'
 # task_queue = 'LANCS_TEST'
@@ -138,6 +138,7 @@ def setup_workflow():
                           log_collections=[], dependency_map=taskN1.dependencies,
                           task_name=taskN1.name, task_queue=task_queue,
                           encode_command_line=True,
+                          task_priority=981,
                           prodSourceLabel='managed',
                           task_log={"dataset": "PandaJob_#{pandaid}/",
                                     "destination": "local",
@@ -152,6 +153,7 @@ def setup_workflow():
                           log_collections=[], dependency_map=taskN2.dependencies,
                           task_name=taskN2.name, task_queue=task_queue,
                           encode_command_line=True,
+                          task_priority=881,
                           prodSourceLabel='managed',
                           task_log={"dataset": "PandaJob_#{pandaid}/",
                                     "destination": "local",
@@ -166,6 +168,7 @@ def setup_workflow():
                           log_collections=[], dependency_map=taskN3.dependencies,
                           task_name=taskN3.name, task_queue=task_queue,
                           encode_command_line=True,
+                          task_priority=781,
                           prodSourceLabel='managed',
                           task_log={"dataset": "PandaJob_#{pandaid}/",
                                     "destination": "local",

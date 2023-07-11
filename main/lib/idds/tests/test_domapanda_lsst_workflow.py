@@ -46,11 +46,11 @@ from idds.doma.workflowv2.domaeventmap import DomaEventMap         # noqa E402
 
 task_cloud = 'US'
 task_queue = 'SLAC_Rubin'
-task_queue = 'SLAC_Rubin_Extra_Himem_32Cores'
+# task_queue = 'SLAC_Rubin_Extra_Himem_32Cores'
 
 
-task_cloud = 'EU'
-task_queue = 'CC-IN2P3_TEST'
+# task_cloud = 'EU'
+# task_queue = 'CC-IN2P3_TEST'
 
 # task_cloud = 'EU'
 # task_queue = 'LANCS_TEST'

@@ -14,6 +14,7 @@ from pandaclient import Client  # noqa E402
 
 
 task_ids = [i for i in range(157023, 157050)]
+task_ids = []
 for task_id in task_ids:
     print("Killing %s" % task_id)
     ret = Client.killTask(task_id)
@@ -48,7 +49,9 @@ jediTaskID = 156668
 ret = Client.get_files_in_datasets(jediTaskID, verbose=False)
 print(ret)
 
+print("get events")
 panda_ids = [{'task_id': 157016, 'panda_id': 53943290}]
+panda_ids = [{'task_id': 157076, 'panda_id': 53943504}]
 ret = Client.get_events_status(panda_ids, verbose=True)
 print(ret)
 
