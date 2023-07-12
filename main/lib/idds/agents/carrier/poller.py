@@ -55,6 +55,11 @@ class Poller(BaseAgent):
         else:
             self.update_poll_period = int(self.update_poll_period)
 
+        if not hasattr(self, 'update_poll_period_for_new_task') or not self.update_poll_period_for_new_task:
+            self.update_poll_period_for_new_task = 180
+        else:
+            self.update_poll_period_for_new_task = int(self.update_poll_period_for_new_task)
+
         if hasattr(self, 'poll_period_increase_rate'):
             self.poll_period_increase_rate = float(self.poll_period_increase_rate)
         else:
@@ -154,7 +159,7 @@ class Poller(BaseAgent):
                 work_tag_attribute_value = int(getattr(self, work_tag_attribute))
         return work_tag_attribute_value
 
-    def load_poll_period(self, processing, parameters):
+    def load_poll_period(self, processing, parameters, new=False):
         proc = processing['processing_metadata']['processing']
         work = proc.work
         work_tag = work.get_work_tag()
@@ -165,11 +170,14 @@ class Poller(BaseAgent):
         elif self.new_poll_period and processing['new_poll_period'] != self.new_poll_period:
             parameters['new_poll_period'] = self.new_poll_period
 
-        work_tag_update_poll_period = self.get_work_tag_attribute(work_tag, "update_poll_period")
-        if work_tag_update_poll_period:
-            parameters['update_poll_period'] = work_tag_update_poll_period
-        elif self.update_poll_period and processing['update_poll_period'] != self.update_poll_period:
-            parameters['update_poll_period'] = self.update_poll_period
+        if new:
+            parameters['update_poll_period'] = self.update_poll_period_for_new_task
+        else:
+            work_tag_update_poll_period = self.get_work_tag_attribute(work_tag, "update_poll_period")
+            if work_tag_update_poll_period:
+                parameters['update_poll_period'] = work_tag_update_poll_period
+            elif self.update_poll_period and processing['update_poll_period'] != self.update_poll_period:
+                parameters['update_poll_period'] = self.update_poll_period
         return parameters
 
     def get_log_prefix(self, processing):

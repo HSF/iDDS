@@ -69,7 +69,8 @@ class EventBus(Singleton):
             self._backend = self._backup_backend
             self.logger.critical("MsgEventBusBackend failed, switch to use BaseEventBusBackendOpt")
         elif self._orig_backend and isinstance(self._orig_backend, MsgEventBusBackend) and self._orig_backend.is_ok():
-            self.logger.critical("MsgEventBusBackend is ok, switch back to use it")
+            if self._backend != self._orig_backend:
+                self.logger.critical("MsgEventBusBackend is ok, switch back to use it")
             self._backend = self._orig_backend
             # self._orig_backend = None
         return self._backend

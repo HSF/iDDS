@@ -821,6 +821,9 @@ class Work(Base):
                     coll_metadata[k] = {'coll_id': coll.coll_id}
         self.add_metadata_item('collections', coll_metadata)
 
+    def with_sub_map_id(self):
+        return False
+
     @property
     def processings(self):
         return self._processings
@@ -1828,6 +1831,9 @@ class Work(Base):
     def require_ext_contents(self):
         return False
 
+    def has_external_content_id(self):
+        return False
+
     def set_work_name_to_coll_map(self, work_name_to_coll_map):
         self.work_name_to_coll_map = work_name_to_coll_map
 
@@ -2260,3 +2266,6 @@ class Work(Base):
             os.environ['X509_USER_PROXY'] = self.original_proxy
         else:
             del os.environ['X509_USER_PROXY']
+
+    def get_external_content_ids(self, processing, log_prefix=''):
+        return []

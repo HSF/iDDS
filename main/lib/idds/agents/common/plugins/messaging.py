@@ -102,6 +102,9 @@ class MessagingSender(PluginBase, threading.Thread):
     def resume(self):
         self.graceful_suspend.clear()
 
+    def is_processing(self):
+        return (not self.graceful_stop.is_set()) and (not self.graceful_suspend.is_set())
+
     def set_request_queue(self, request_queue):
         self.request_queue = request_queue
 
@@ -269,6 +272,7 @@ class MessagingReceiver(MessagingSender):
         except Exception as error:
             self.logger.error("Messaging receiver throws an exception: %s, %s" % (error, traceback.format_exc()))
 
+        sleep_count = 0
         while not self.graceful_stop.is_set():
             if self.graceful_suspend.is_set():
                 try:
@@ -276,7 +280,12 @@ class MessagingReceiver(MessagingSender):
                 except Exception as error:
                     self.logger.error("Messaging receiver throws an exception: %s, %s" % (error, traceback.format_exc()))
                 time.sleep(1)
+                sleep_count += 1
+                if sleep_count > 300:
+                    self.logger.info("graceful_suspend is set. sleeping")
+                    sleep_count = 0
             else:
+                sleep_count = 0
                 has_failed_connection = False
                 try:
                     for name in self.receiver_conns:

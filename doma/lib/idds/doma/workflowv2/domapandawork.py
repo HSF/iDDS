@@ -84,6 +84,7 @@ class DomaPanDAWork(Work):
         # self.logger.setLevel(logging.DEBUG)
 
         self.task_name = task_name
+        self.orig_task_name = self.task_name
         self.real_task_name = None
         self.set_work_name(task_name)
         self.task_queue = task_queue
@@ -210,7 +211,7 @@ class DomaPanDAWork(Work):
                 os.environ['PANDA_CONFIG_ROOT'] = self.panda_config_root
 
     def set_agent_attributes(self, attrs, req_attributes=None):
-        if 'life_time' not in attrs[self.class_name] or int(attrs[self.class_name]['life_time']) <= 0:
+        if self.class_name in attrs and ('life_time' not in attrs[self.class_name] or int(attrs[self.class_name]['life_time']) <= 0):
             attrs['life_time'] = None
         super(DomaPanDAWork, self).set_agent_attributes(attrs)
         if 'num_retries' in self.agent_attributes and self.agent_attributes['num_retries']:
@@ -533,7 +534,7 @@ class DomaPanDAWork(Work):
         task_param_map['cloud'] = self.task_cloud
         task_param_map['PandaSite'] = self.task_site
         if self.task_rss and self.task_rss > 0:
-            task_param_map['ramCount'] = self.task_rss
+            task_param_map['ramCount'] = self.task_rss / self.core_count if self.core_count else self.task_rss
             # task_param_map['ramUnit'] = 'MB'
             task_param_map['ramUnit'] = 'MBPerCoreFixed'
 
@@ -733,51 +734,6 @@ class DomaPanDAWork(Work):
                         updated_contents.append(update_content)
         return updated_contents
 
-    def sort_panda_jobids(self, input_output_maps):
-        panda_job_ids = {}
-        panda_id_to_map_ids = {}
-        map_id_without_panda_ids = []
-        for map_id in input_output_maps:
-            outputs = input_output_maps[map_id]['outputs']
-            for content in outputs:
-                if content['status'] not in panda_job_ids:
-                    panda_job_ids[content['status']] = []
-
-                if 'panda_id' in content['content_metadata']:
-                    panda_job_ids[content['status']].append(content['content_metadata']['panda_id'])
-                    panda_id_to_map_ids[content['content_metadata']['panda_id']] = map_id
-                else:
-                    map_id_without_panda_ids.append(map_id)
-
-        return panda_job_ids, map_id_without_panda_ids, panda_id_to_map_ids
-
-    def get_registered_panda_jobids(self, input_output_maps):
-        panda_job_ids, map_id_without_panda_ids, panda_id_to_map_ids = self.sort_panda_jobids(input_output_maps)
-        unterminated_panda_ids = []
-        finished_panda_ids = []
-        failed_panda_ids = []
-        for key in panda_job_ids:
-            if key in [ContentStatus.Available]:
-                finished_panda_ids += panda_job_ids[key]
-            elif key in [ContentStatus.Failed, ContentStatus.FinalFailed,
-                         ContentStatus.Lost, ContentStatus.Deleted,
-                         ContentStatus.Missing]:
-                failed_panda_ids += panda_job_ids[key]
-            else:
-                unterminated_panda_ids += panda_job_ids[key]
-        return finished_panda_ids + failed_panda_ids, unterminated_panda_ids, map_id_without_panda_ids, panda_id_to_map_ids
-
-    def get_map_id_from_input(self, input_output_maps, input_file):
-        map_keys = list(input_output_maps.keys())
-        map_keys.reverse()
-        for map_id in map_keys:
-            inputs = input_output_maps[map_id]['inputs']
-            # outputs = input_output_maps[map_id]['outputs']
-            for content in inputs:
-                if content['name'] == input_file:
-                    return map_id
-        return None
-
     def get_content_status_from_panda_status(self, job_info):
         if job_info is None:
             return ContentStatus.Processing
@@ -798,29 +754,48 @@ class DomaPanDAWork(Work):
         else:
             return ContentStatus.Processing
 
-    def get_update_contents_from_map_id(self, map_id, input_output_maps, job_info):
-        outputs = input_output_maps[map_id]['outputs']
-        update_contents = []
-        for content in outputs:
-            status = self.get_content_status_from_panda_status(job_info)
-            content['substatus'] = status
+    def get_unterminated_jobs(self, all_jobs_ids, input_output_maps, contents_ext):
+        finished_jobs, failed_jobs = [], []
 
-            if 'panda_id' in content['content_metadata'] and content['content_metadata']['panda_id']:
-                # if content['content_metadata']['panda_id'] != job_info.PandaID:
-                if content['content_metadata']['panda_id'] < job_info.PandaID:
-                    # new panda id is the bigger one.
-                    if 'old_panda_id' not in content['content_metadata']:
-                        content['content_metadata']['old_panda_id'] = []
-                    if content['content_metadata']['panda_id'] not in content['content_metadata']['old_panda_id']:
-                        content['content_metadata']['old_panda_id'].append(content['content_metadata']['panda_id'])
-            content['content_metadata']['panda_id'] = job_info.PandaID
+        contents_ext_dict = {content['content_id']: content for content in contents_ext}
 
-            update_contents.append(content)
-        return update_contents
+        for map_id in input_output_maps:
+            outputs = input_output_maps[map_id]['outputs']
+            for content in outputs:
+                if content['substatus'] in [ContentStatus.Available]:
+                    if 'panda_id' in content['content_metadata']:
+                        panda_id = content['content_metadata']['panda_id']
+                        if content['content_id'] not in contents_ext_dict:
+                            continue
 
-    def get_panda_job_status(self, jobids):
-        jobids = list(jobids)
-        self.logger.debug("get_panda_job_status, jobids[:10]: %s" % str(jobids[:10]))
+                        content_ext = contents_ext_dict[content['content_id']]
+                        if content['substatus'] != content_ext['status'] or panda_id != content_ext['panda_id']:
+                            continue
+
+                        if panda_id not in finished_jobs:
+                            finished_jobs.append(panda_id)
+                elif content['substatus'] in [ContentStatus.FinalFailed,
+                                              ContentStatus.Lost, ContentStatus.Deleted,
+                                              ContentStatus.Missing]:
+                    if 'panda_id' in content['content_metadata']:
+                        panda_id = content['content_metadata']['panda_id']
+                        if content['content_id'] not in contents_ext_dict:
+                            continue
+
+                        content_ext = contents_ext_dict[content['content_id']]
+                        if content['substatus'] != content_ext['status'] or panda_id != content_ext['panda_id']:
+                            continue
+
+                        if panda_id not in failed_jobs:
+                            failed_jobs.append(panda_id)
+
+        all_jobs_ids = set(all_jobs_ids)
+        terminated_jobs = set(finished_jobs + failed_jobs)
+        unterminated_jobs = all_jobs_ids - terminated_jobs
+        return list(unterminated_jobs)
+
+    def get_panda_job_status(self, jobids, log_prefix=''):
+        self.logger.debug(log_prefix + "get_panda_job_status, jobids[:10]: %s" % str(jobids[:10]))
         try:
             from pandaclient import Client
             ret = Client.getJobStatus(jobids, verbose=0)
@@ -843,80 +818,24 @@ class DomaPanDAWork(Work):
                         self.logger.error(str(ex))
                         self.logger.error(traceback.format_exc())
                 return ret_jobs
+            else:
+                self.logger.warn(log_prefix + "get_panda_job_status failed: %s" % str(ret))
+                return []
         except Exception as ex:
             self.logger.error(str(ex))
             self.logger.error(traceback.format_exc())
         return []
 
-    def map_panda_ids(self, unregistered_job_ids, input_output_maps):
-        self.logger.debug("map_panda_ids, unregistered_job_ids[:10]: %s" % str(unregistered_job_ids[:10]))
-
-        # updated_map_ids = []
-        full_update_contents = []
-        chunksize = 2000
-        chunks = [unregistered_job_ids[i:i + chunksize] for i in range(0, len(unregistered_job_ids), chunksize)]
-        for chunk in chunks:
-            # jobs_list = Client.getJobStatus(chunk, verbose=0)[1]
-            jobs_list = self.get_panda_job_status(chunk)
-            for job_info in jobs_list:
-                if job_info and job_info.Files and len(job_info.Files) > 0:
-                    for job_file in job_info.Files:
-                        # if job_file.type in ['log']:
-                        if job_file.type not in ['pseudo_input']:
-                            continue
-                        if ':' in job_file.lfn:
-                            pos = job_file.lfn.find(":")
-                            input_file = job_file.lfn[pos + 1:]
-                            # input_file = job_file.lfn.split(':')[1]
-                        else:
-                            input_file = job_file.lfn
-                        map_id = self.get_map_id_from_input(input_output_maps, input_file)
-                        if map_id:
-                            update_contents = self.get_update_contents_from_map_id(map_id, input_output_maps, job_info)
-                            full_update_contents += update_contents
-        return full_update_contents
-
-    def get_status_changed_contents(self, unterminated_job_ids, input_output_maps, panda_id_to_map_ids):
-        self.logger.debug("get_status_changed_contents, unterminated_job_ids[:10]: %s" % str(unterminated_job_ids[:10]))
-
-        full_update_contents = []
-        chunksize = 2000
-        chunks = [unterminated_job_ids[i:i + chunksize] for i in range(0, len(unterminated_job_ids), chunksize)]
-        for chunk in chunks:
-            # jobs_list = Client.getJobStatus(chunk, verbose=0)[1]
-            jobs_list = self.get_panda_job_status(chunk)
-            for job_info in jobs_list:
-                panda_id = job_info.PandaID
-                map_id = panda_id_to_map_ids[panda_id]
-                update_contents = self.get_update_contents_from_map_id(map_id, input_output_maps, job_info)
-                full_update_contents += update_contents
-        return full_update_contents
-
-    def get_final_update_contents(self, input_output_maps):
-        update_contents = []
-        for map_id in input_output_maps:
-            outputs = input_output_maps[map_id]['outputs'] if 'outputs' in input_output_maps[map_id] else []
-            for content in outputs:
-                if (content['substatus'] not in [ContentStatus.Available, ContentStatus.FakeAvailable, ContentStatus.FinalFailed]):
-                    content['content_metadata']['old_final_status'] = content['substatus']
-                    content['substatus'] = ContentStatus.FinalFailed
-                    update_contents.append(content)
-
-        return update_contents
-
-    def poll_panda_jobs(self, job_ids):
-        job_ids = list(job_ids)
-        self.logger.debug("poll_panda_jobs, poll_panda_jobs_chunk_size: %s, job_ids[:10]: %s" % (self.poll_panda_jobs_chunk_size, str(job_ids[:10])))
-
-        # updated_map_ids = []
-        inputname_jobid_map = {}
+    def poll_panda_jobs(self, job_ids, log_prefix=''):
+        job_status_info = {}
+        self.logger.debug(log_prefix + "poll_panda_jobs, poll_panda_jobs_chunk_size: %s, job_ids[:10]: %s" % (self.poll_panda_jobs_chunk_size, str(job_ids[:10])))
         chunksize = self.poll_panda_jobs_chunk_size
         chunks = [job_ids[i:i + chunksize] for i in range(0, len(job_ids), chunksize)]
         for chunk in chunks:
             # jobs_list = Client.getJobStatus(chunk, verbose=0)[1]
-            jobs_list = self.get_panda_job_status(chunk)
+            jobs_list = self.get_panda_job_status(chunk, log_prefix=log_prefix)
             if jobs_list:
-                self.logger.debug("poll_panda_jobs, input jobs: %s, output_jobs: %s" % (len(chunk), len(jobs_list)))
+                self.logger.debug(log_prefix + "poll_panda_jobs, input jobs: %s, output_jobs: %s" % (len(chunk), len(jobs_list)))
                 for job_info in jobs_list:
                     job_status = self.get_content_status_from_panda_status(job_info)
                     if job_info and job_info.Files and len(job_info.Files) > 0:
@@ -930,223 +849,119 @@ class DomaPanDAWork(Work):
                                 # input_file = job_file.lfn.split(':')[1]
                             else:
                                 input_file = job_file.lfn
-                            inputname_jobid_map[input_file] = {'panda_id': job_info.PandaID, 'status': job_status, 'job_info': job_info}
+                            job_status_info[input_file] = {'panda_id': job_info.PandaID, 'status': job_status, 'job_info': job_info}
             else:
-                self.logger.warn("poll_panda_jobs, input jobs: %s, output_jobs: %s" % (len(chunk), jobs_list))
-        return inputname_jobid_map
+                self.logger.warn(log_prefix + "poll_panda_jobs, input jobs: %s, output_jobs: %s" % (len(chunk), jobs_list))
+        return job_status_info
 
-    def get_job_maps(self, input_output_maps):
-        inputname_mapid_map = {}
-        finished_jobs, failed_jobs = [], []
+    def get_update_contents(self, unterminated_jobs_status, input_output_maps, contents_ext, job_info_maps, abort=False, log_prefix=''):
+        inputname_to_map_id_outputs = {}
         for map_id in input_output_maps:
             inputs = input_output_maps[map_id]['inputs']
             outputs = input_output_maps[map_id]['outputs']
-            for content in outputs:
-                if content['substatus'] in [ContentStatus.Available]:
-                    if 'panda_id' in content['content_metadata']:
-                        finished_jobs.append(content['content_metadata']['panda_id'])
-                elif content['substatus'] in [ContentStatus.FinalFailed,
-                                              ContentStatus.Lost, ContentStatus.Deleted,
-                                              ContentStatus.Missing]:
-                    if 'panda_id' in content['content_metadata']:
-                        failed_jobs.append(content['content_metadata']['panda_id'])
             for content in inputs:
-                inputname_mapid_map[content['name']] = {'map_id': map_id,
-                                                        'outputs': outputs}
-        return finished_jobs + failed_jobs, inputname_mapid_map
+                inputname_to_map_id_outputs[content['name']] = {'map_id': map_id, 'outputs': outputs}
 
-    def get_update_contents(self, inputnames, inputname_mapid_map, inputname_jobid_map):
-        self.logger.debug("get_update_contents, inputnames[:5]: %s" % str(inputnames[:5]))
-        # self.logger.debug("get_update_contents, inputname_mapid_map[:5]: %s" % str({k: inputname_mapid_map[k] for k in inputnames[:5]}))
-        self.logger.debug("get_update_contents, inputname_jobid_map[:3]: %s" % str({k: inputname_jobid_map[k] for k in inputnames[:3]}))
+        contents_ext_dict = {content['content_id']: content for content in contents_ext}
 
-        update_contents = []
-        update_contents_full = []
-        contents_ext_full = {}
-        num_updated_contents, num_unupdated_contents = 0, 0
-        for inputname in inputnames:
-            panda_id_status = inputname_jobid_map[inputname]
-            panda_id = panda_id_status['panda_id']
-            panda_status = panda_id_status['status']
-            job_info = panda_id_status['job_info']
-            map_id_contents = inputname_mapid_map[inputname]
-            contents = map_id_contents['outputs']
-            for content in contents:
-                if content['substatus'] != panda_status:
-                    # content['status'] = panda_status
-                    content['substatus'] = panda_status
-                    update_contents_full.append(content)
-                    update_content = {'content_id': content['content_id'],
-                                      # 'status': panda_status,
-                                      'substatus': panda_status}
-                    # 'content_metadata': content['content_metadata']
-                    if 'panda_id' in content['content_metadata'] and content['content_metadata']['panda_id']:
-                        # if content['content_metadata']['panda_id'] != job_info.PandaID:
-                        if content['content_metadata']['panda_id'] < panda_id:
-                            # new panda id is the bigger one.
-                            if 'old_panda_id' not in content['content_metadata']:
-                                content['content_metadata']['old_panda_id'] = []
-                            if content['content_metadata']['panda_id'] not in content['content_metadata']['old_panda_id']:
-                                content['content_metadata']['old_panda_id'].append(content['content_metadata']['panda_id'])
-                            content['content_metadata']['panda_id'] = panda_id
-                            # content['status'] = panda_status
-                            content['substatus'] = panda_status
-                            update_content['content_metadata'] = content['content_metadata']
-                        elif content['content_metadata']['panda_id'] > panda_id:
-                            if 'old_panda_id' not in content['content_metadata']:
-                                content['content_metadata']['old_panda_id'] = []
-                            if panda_id not in content['content_metadata']['old_panda_id']:
-                                content['content_metadata']['old_panda_id'].append(panda_id)
-                            # content['content_metadata']['panda_id'] = content['content_metadata']['panda_id']
-                            # content['substatus'] = panda_status
-                            update_content['content_metadata'] = content['content_metadata']
-                        else:
-                            pass
-                            # content['content_metadata']['panda_id'] = panda_id
-                            content['substatus'] = panda_status
-                    else:
+        update_contents, update_contents_full = [], []
+        new_contents_ext, update_contents_ext = [], []
+        update_contents_dict, new_contents_ext_dict = {}, {}
+        for input_file in unterminated_jobs_status:
+            panda_job_status = unterminated_jobs_status[input_file]
+            panda_id = panda_job_status['panda_id']
+            panda_status = panda_job_status['status']
+            job_info = panda_job_status['job_info']
+
+            output_contents = inputname_to_map_id_outputs[input_file]['outputs']
+            for content in output_contents:
+                content['substatus'] = panda_status
+                update_contents_full.append(content)
+                update_content = {'content_id': content['content_id'],
+                                  # 'status': panda_status,
+                                  'substatus': panda_status}
+
+                if 'panda_id' in content['content_metadata'] and content['content_metadata']['panda_id']:
+                    if content['content_metadata']['panda_id'] < panda_id:
+                        # new panda id is the bigger one.
+                        if 'old_panda_id' not in content['content_metadata']:
+                            content['content_metadata']['old_panda_id'] = []
+                        if content['content_metadata']['panda_id'] not in content['content_metadata']['old_panda_id']:
+                            content['content_metadata']['old_panda_id'].append(content['content_metadata']['panda_id'])
                         content['content_metadata']['panda_id'] = panda_id
-                        content['substatus'] = panda_status
                         update_content['content_metadata'] = content['content_metadata']
-
-                    update_contents.append(update_content)
-                    num_updated_contents += 1
+                    elif content['content_metadata']['panda_id'] > panda_id:
+                        if 'old_panda_id' not in content['content_metadata']:
+                            content['content_metadata']['old_panda_id'] = []
+                        if panda_id not in content['content_metadata']['old_panda_id']:
+                            content['content_metadata']['old_panda_id'].append(panda_id)
+                        # content['content_metadata']['panda_id'] = content['content_metadata']['panda_id']
+                        # content['substatus'] = panda_status
+                        update_content['content_metadata'] = content['content_metadata']
+                    else:
+                        pass
                 else:
-                    # num_unupdated_contents += 1
-                    pass
+                    content['content_metadata']['panda_id'] = panda_id
+                    update_content['content_metadata'] = content['content_metadata']
+
+                update_contents.append(update_content)
+                update_contents_dict[update_content['content_id']] = update_content
 
                 if panda_status in [ContentStatus.Available, ContentStatus.Failed, ContentStatus.FinalFailed,
                                     ContentStatus.Lost, ContentStatus.Deleted, ContentStatus.Missing]:
-                    contents_ext_full[content['content_id']] = {'content': content, 'job_info': job_info}
-
-        self.logger.debug("get_update_contents, num_updated_contents: %s, num_unupdated_contents: %s" % (num_updated_contents, num_unupdated_contents))
-        self.logger.debug("get_update_contents, update_contents[:3]: %s" % (str(update_contents[:3])))
-        self.logger.debug("get_update_contents, contents_ext_full[:3]: %s" % (str({k: contents_ext_full[k] for k in list(contents_ext_full.keys())[:3]})))
-        return update_contents, update_contents_full, contents_ext_full
-
-    def get_contents_ext_detail(self, new_contents_ext, update_contents_ext, job_info_maps={}):
-        new_contents_ext_d, update_contents_ext_d = [], []
-
-        for content_id in new_contents_ext:
-            content = new_contents_ext[content_id]['content']
-            job_info = new_contents_ext[content_id]['job_info']
-            new_content_ext_d = {'content_id': content['content_id'],
-                                 'request_id': content['request_id'],
-                                 'transform_id': content['transform_id'],
-                                 'workload_id': content['workload_id'],
-                                 'coll_id': content['coll_id'],
-                                 'map_id': content['map_id'],
-                                 'status': content['status']}
-            for job_info_item in job_info_maps:
-                new_content_ext_d[job_info_item] = getattr(job_info, job_info_maps[job_info_item])
-                if new_content_ext_d[job_info_item] == 'NULL':
-                    new_content_ext_d[job_info_item] = None
-                if new_content_ext_d[job_info_item] is None:
-                    del new_content_ext_d[job_info_item]
-
-            new_contents_ext_d.append(new_content_ext_d)
-
-        for content_id in update_contents_ext:
-            content = update_contents_ext[content_id]['content']
-            job_info = update_contents_ext[content_id]['job_info']
-            update_content_ext_d = {'content_id': content['content_id'],
-                                    'status': content['status']}
-            for job_info_item in job_info_maps:
-                update_content_ext_d[job_info_item] = getattr(job_info, job_info_maps[job_info_item])
-                if update_content_ext_d[job_info_item] == 'NULL':
-                    update_content_ext_d[job_info_item] = None
-                if update_content_ext_d[job_info_item] is None:
-                    del update_content_ext_d[job_info_item]
-
-            update_contents_ext_d.append(update_content_ext_d)
-
-        return new_contents_ext_d, update_contents_ext_d
-
-    def get_contents_ext(self, input_output_maps, contents_ext, contents_ext_full, job_info_maps={}):
-        self.logger.debug("get_contents_ext, len(contents_ext): %s" % (str(len(contents_ext))))
-        self.logger.debug("get_contents_ext, contents_ext[:3]: %s" % (str(contents_ext[:3])))
-
-        contents_ext_dict = {content['content_id']: content for content in contents_ext}
-
-        left_contents = []
-        to_check_panda_ids = {}
-        new_contents_ext, update_contents_ext = {}, {}
-        new_need_poll_contents_ext, update_need_poll_contents_ext = {}, {}
-
-        for map_id in input_output_maps:
-            # inputs = input_output_maps[map_id]['inputs']
-            outputs = input_output_maps[map_id]['outputs']
-
-            for content in outputs:
-                if content['substatus'] in [ContentStatus.Available, ContentStatus.Failed, ContentStatus.FinalFailed,
-                                            ContentStatus.Lost, ContentStatus.Deleted, ContentStatus.Missing]:
                     if content['content_id'] not in contents_ext_dict:
-                        if content['content_id'] in contents_ext_full:
-                            new_contents_ext[content['content_id']] = contents_ext_full[content['content_id']]
-                        else:
-                            new_need_poll_contents_ext[content['content_id']] = content
-                            if content['content_metadata'] and 'panda_id' in content['content_metadata']:
-                                to_check_panda_ids[content['content_metadata']['panda_id']] = content['content_id']
+                        new_content_ext = {'content_id': content['content_id'],
+                                           'request_id': content['request_id'],
+                                           'transform_id': content['transform_id'],
+                                           'workload_id': content['workload_id'],
+                                           'coll_id': content['coll_id'],
+                                           'map_id': content['map_id'],
+                                           'status': panda_status}
+                        for job_info_item in job_info_maps:
+                            new_content_ext[job_info_item] = getattr(job_info, job_info_maps[job_info_item])
+                            if new_content_ext[job_info_item] == 'NULL':
+                                new_content_ext[job_info_item] = None
+                            if new_content_ext[job_info_item] is None:
+                                del new_content_ext[job_info_item]
+                        new_contents_ext.append(new_content_ext)
+                        new_contents_ext_dict[new_content_ext['content_id']] = new_content_ext
                     else:
-                        content_ext = contents_ext_dict[content['content_id']]
-                        panda_id = None
-                        if content['content_metadata'] and 'panda_id' in content['content_metadata']:
-                            panda_id = content['content_metadata']['panda_id']
-                        if content['substatus'] != content_ext['status'] or panda_id != content_ext['panda_id']:
-                            if content['content_id'] in contents_ext_full:
-                                update_contents_ext[content['content_id']] = contents_ext_full[content['content_id']]
-                            else:
-                                update_need_poll_contents_ext[content['content_id']] = content
-                                if panda_id:
-                                    to_check_panda_ids[panda_id] = content['content_id']
-                else:
-                    left_contents.append(content)
+                        update_content_ext = {'content_id': content['content_id'],
+                                              'status': panda_status}
+                        for job_info_item in job_info_maps:
+                            update_content_ext[job_info_item] = getattr(job_info, job_info_maps[job_info_item])
+                            if update_content_ext[job_info_item] == 'NULL':
+                                update_content_ext[job_info_item] = None
+                            if update_content_ext[job_info_item] is None:
+                                del update_content_ext[job_info_item]
+                        update_contents_ext.append(update_content_ext)
 
-        if to_check_panda_ids:
-            to_check_panda_ids_list = list(to_check_panda_ids.keys())
-            ret_job_infos = self.get_panda_job_status(to_check_panda_ids_list)
-            for job_info in ret_job_infos:
-                content_id = to_check_panda_ids[job_info.PandaID]
-                del to_check_panda_ids[job_info.PandaID]
-                if content_id in new_need_poll_contents_ext:
-                    new_contents_ext[content_id] = {'content': new_need_poll_contents_ext[content_id], 'job_info': job_info}
-                    del new_need_poll_contents_ext[content_id]
-                else:
-                    update_contents_ext[content_id] = {'content': update_need_poll_contents_ext[content_id], 'job_info': job_info}
-                    del update_need_poll_contents_ext[content_id]
-        for content_id in new_need_poll_contents_ext:
-            left_contents.append(new_need_poll_contents_ext[content_id])
-        for content_id in update_need_poll_contents_ext:
-            left_contents.append(update_need_poll_contents_ext[content_id])
+        if abort:
+            for map_id in input_output_maps:
+                outputs = input_output_maps[map_id]['outputs']
+                for content in outputs:
+                    if content['substatus'] not in [ContentStatus.Available, ContentStatus.Failed, ContentStatus.FinalFailed,
+                                                    ContentStatus.Lost, ContentStatus.Deleted, ContentStatus.Missing]:
+                        if content['content_id'] not in update_contents_dict:
+                            update_content = {'content_id': content['content_id'],
+                                              'substatus': ContentStatus.Missing}
+                            update_contents.append(update_content)
+                        if content['content_id'] not in contents_ext_dict and content['content_id'] not in new_contents_ext_dict:
+                            new_content_ext = {'content_id': content['content_id'],
+                                               'request_id': content['request_id'],
+                                               'transform_id': content['transform_id'],
+                                               'workload_id': content['workload_id'],
+                                               'coll_id': content['coll_id'],
+                                               'map_id': content['map_id'],
+                                               'status': ContentStatus.Missing}
+                            new_contents_ext.append(new_content_ext)
 
-        new_contents_ext_d, update_contents_ext_d = self.get_contents_ext_detail(new_contents_ext, update_contents_ext, job_info_maps)
+        self.logger.debug("get_update_contents, num_update_contents: %s" % (len(update_contents)))
+        self.logger.debug("get_update_contents, update_contents[:3]: %s" % (str(update_contents[:3])))
+        self.logger.debug("get_update_contents, new_contents_ext[:1]: %s" % (str(new_contents_ext[:1])))
+        self.logger.debug("get_update_contents, update_contents_ext[:1]: %s" % (str(update_contents_ext[:1])))
 
-        self.logger.debug("get_contents_ext, new_contents_ext_d[:1]: %s" % (str(new_contents_ext_d[:1])))
-        self.logger.debug("get_contents_ext, update_contents_ext_d[:1]: %s" % (str(update_contents_ext_d[:1])))
-        self.logger.debug("get_contents_ext, left_contents[:1]: %s" % (str(left_contents[:3])))
-        return new_contents_ext_d, update_contents_ext_d, left_contents
-
-    def abort_contents(self, input_output_maps, updated_contents, contents_ext):
-        contents_ext_dict = {content['content_id']: content for content in contents_ext}
-        new_contents_ext = []
-
-        for map_id in input_output_maps:
-            outputs = input_output_maps[map_id]['outputs']
-            for content in outputs:
-                update_content = {'content_id': content['content_id'],
-                                  'substatus': ContentStatus.Missing}
-                updated_contents.append(update_content)
-                if content['content_id'] not in contents_ext_dict:
-                    new_content_ext = {'content_id': content['content_id'],
-                                       'request_id': content['request_id'],
-                                       'transform_id': content['transform_id'],
-                                       'workload_id': content['workload_id'],
-                                       'coll_id': content['coll_id'],
-                                       'map_id': content['map_id'],
-                                       'status': ContentStatus.Missing}
-                    new_contents_ext.append(new_content_ext)
-
-        return updated_contents, new_contents_ext
+        return update_contents, update_contents_full, new_contents_ext, update_contents_ext
 
     def poll_panda_task(self, processing=None, input_output_maps=None, contents_ext=None, job_info_maps={}, log_prefix=''):
         task_id = None
@@ -1175,26 +990,15 @@ class DomaPanDAWork(Work):
 
                     all_jobs_ids = task_info['PandaID']
 
-                    terminated_jobs, inputname_mapid_map = self.get_job_maps(input_output_maps)
-                    self.logger.debug(log_prefix + "poll_panda_task, task_id: %s, all jobs: %s, terminated_jobs: %s" % (str(task_id), len(all_jobs_ids), len(terminated_jobs)))
+                    unterminated_jobs = self.get_unterminated_jobs(all_jobs_ids, input_output_maps, contents_ext)
+                    self.logger.debug(log_prefix + "poll_panda_task, task_id: %s, all jobs: %s, unterminated_jobs: %s" % (str(task_id), len(all_jobs_ids), len(unterminated_jobs)))
 
-                    all_jobs_ids = set(all_jobs_ids)
-                    terminated_jobs = set(terminated_jobs)
-                    unterminated_jobs = all_jobs_ids - terminated_jobs
-
-                    inputname_jobid_map = self.poll_panda_jobs(unterminated_jobs)
-                    intersection_keys = set(inputname_mapid_map.keys()) & set(inputname_jobid_map.keys())
-
-                    updated_contents, update_contents_full, contents_ext_full = self.get_update_contents(list(intersection_keys),
-                                                                                                         inputname_mapid_map,
-                                                                                                         inputname_jobid_map)
-
-                    new_contents_ext, update_contents_ext, left_contents = self.get_contents_ext(input_output_maps, contents_ext,
-                                                                                                 contents_ext_full, job_info_maps)
-                    # if left_jobs:
+                    unterminated_jobs_status = self.poll_panda_jobs(unterminated_jobs, log_prefix=log_prefix)
+                    abort_status = False
                     if processing_status in [ProcessingStatus.Cancelled]:
-                        updated_contents, new_contents_ext1 = self.abort_contents(input_output_maps, updated_contents, contents_ext)
-                        new_contents_ext = new_contents_ext + new_contents_ext1
+                        abort_status = True
+                    ret_contents = self.get_update_contents(unterminated_jobs_status, input_output_maps, contents_ext, job_info_maps, abort=abort_status, log_prefix=log_prefix)
+                    updated_contents, update_contents_full, new_contents_ext, update_contents_ext = ret_contents
 
                     return processing_status, updated_contents, update_contents_full, new_contents_ext, update_contents_ext
                 else:
@@ -1278,6 +1082,19 @@ class DomaPanDAWork(Work):
 
     def require_ext_contents(self):
         return True
+
+    def has_external_content_id(self):
+        return True
+
+    def get_external_content_ids(self, processing, log_prefix=''):
+        if processing:
+            from pandaclient import Client
+            proc = processing['processing_metadata']['processing']
+            task_id = proc.workload_id
+            status, output = Client.get_files_in_datasets(task_id, verbose=False)
+            if status == 0:
+                return output
+        return []
 
     def poll_processing_updates(self, processing, input_output_maps, contents_ext=None, job_info_maps={}, log_prefix=''):
         """
