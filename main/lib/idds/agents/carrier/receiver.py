@@ -87,11 +87,11 @@ class Receiver(BaseAgent):
 
     def resume_receiver(self):
         if hasattr(self, 'receiver') and self.receiver:
-            self.logger.info("Stopping receiver: %s" % self.receiver)
+            self.logger.info("Resuming receiver: %s" % self.receiver)
             self.receiver.resume()
 
     def is_receiver_started(self):
-        if hasattr(self, 'receiver') and self.receiver:
+        if hasattr(self, 'receiver') and self.receiver and self.receiver.is_processing():
             return True
         return False
 
