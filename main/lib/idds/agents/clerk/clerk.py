@@ -359,7 +359,7 @@ class Clerk(BaseAgent):
 
     def get_num_active_requests(self, site_name):
         cache = get_redis_cache()
-        num_requests = cache.get("num_requests", default=None)
+        num_requests = cache.get("num_requests", default={})
         if num_requests is None:
             num_requests = {}
             active_status = [RequestStatus.New, RequestStatus.Ready, RequestStatus.Throttling]
@@ -381,7 +381,7 @@ class Clerk(BaseAgent):
 
     def get_num_active_transforms(self, site_name):
         cache = get_redis_cache()
-        num_transforms = cache.get("num_transforms", default=None)
+        num_transforms = cache.get("num_transforms", default={})
         if num_transforms is None:
             num_transforms = {}
             active_status = [TransformStatus.New, TransformStatus.Ready]
@@ -403,7 +403,7 @@ class Clerk(BaseAgent):
 
     def get_num_active_processings(self, site_name):
         cache = get_redis_cache()
-        num_processings = cache.get("num_processings", default=None)
+        num_processings = cache.get("num_processings", default={})
         active_transforms = cache.get("active_transforms", default={})
         if num_processings is None:
             num_processings = {}
@@ -444,28 +444,29 @@ class Clerk(BaseAgent):
         num_output_contents = cache.get("num_output_contents", default=None)
         if num_input_contents is None or num_output_contents is None:
             num_input_contents, num_output_contents = {}, {}
-            ret = core_catalog.get_content_status_statistics_by_relation_type(all_tf_ids)
-            for item in ret:
-                status, relation_type, transform_id, count = item
-                site = tf_id_site_map[transform_id]
-                if site not in num_input_contents:
-                    num_input_contents[site] = {'new': 0, 'activated': 0, 'processed': 0}
-                    num_output_contents[site] = {'new': 0, 'activated': 0, 'processed': 0}
-                if status in [ContentStatus.New]:
-                    if relation_type == ContentRelationType.Input:
-                        num_input_contents[site]['new'] += count
-                    elif relation_type == ContentRelationType.Output:
-                        num_output_contents[site]['new'] += count
-                if status in [ContentStatus.Activated]:
-                    if relation_type == ContentRelationType.Input:
-                        num_input_contents[site]['activated'] += count
-                    elif relation_type == ContentRelationType.Output:
-                        num_output_contents[site]['activated'] += count
-                else:
-                    if relation_type == ContentRelationType.Input:
-                        num_input_contents[site]['processed'] += count
-                    elif relation_type == ContentRelationType.Output:
-                        num_output_contents[site]['processed'] += count
+            if all_tf_ids:
+                ret = core_catalog.get_content_status_statistics_by_relation_type(all_tf_ids)
+                for item in ret:
+                    status, relation_type, transform_id, count = item
+                    site = tf_id_site_map[transform_id]
+                    if site not in num_input_contents:
+                        num_input_contents[site] = {'new': 0, 'activated': 0, 'processed': 0}
+                        num_output_contents[site] = {'new': 0, 'activated': 0, 'processed': 0}
+                    if status in [ContentStatus.New]:
+                        if relation_type == ContentRelationType.Input:
+                            num_input_contents[site]['new'] += count
+                        elif relation_type == ContentRelationType.Output:
+                            num_output_contents[site]['new'] += count
+                    if status in [ContentStatus.Activated]:
+                        if relation_type == ContentRelationType.Input:
+                            num_input_contents[site]['activated'] += count
+                        elif relation_type == ContentRelationType.Output:
+                            num_output_contents[site]['activated'] += count
+                    else:
+                        if relation_type == ContentRelationType.Input:
+                            num_input_contents[site]['processed'] += count
+                        elif relation_type == ContentRelationType.Output:
+                            num_output_contents[site]['processed'] += count
 
             cache.set("num_input_contents", num_input_contents, expire_seconds=self.cache_expire_seconds)
             cache.set("num_output_contents", num_output_contents, expire_seconds=self.cache_expire_seconds)
@@ -1121,6 +1122,7 @@ class Clerk(BaseAgent):
                                 wf = req['request_metadata']['build_workflow']
                         works = wf.get_all_works()
                         if works:
+                            has_abort_work = False
                             for work in works:
                                 if (work.is_started() or work.is_starting()) and not work.is_terminated():
                                     if not to_abort_transform_id or to_abort_transform_id == work.get_work_id():
@@ -1129,6 +1131,12 @@ class Clerk(BaseAgent):
                                                                     transform_id=work.get_work_id(),
                                                                     content=event._content)
                                         self.event_bus.send(event)
+                                        has_abort_work = True
+                            if not has_abort_work:
+                                self.logger.info(log_pre + "not has abort work")
+                                self.logger.info(log_pre + "UpdateRequestEvent(request_id: %s)" % str(req['request_id']))
+                                event = UpdateRequestEvent(publisher_id=self.id, request_id=req['request_id'], content=event._content)
+                                self.event_bus.send(event)
                         else:
                             # no works. should trigger update request
                             self.logger.info(log_pre + "UpdateRequestEvent(request_id: %s)" % str(req['request_id']))

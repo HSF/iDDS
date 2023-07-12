@@ -433,3 +433,12 @@ CREATE TABLE Throttlers
 );
 
 alter table Messages add (poll_period INTERVAL DAY TO SECOND DEFAULT '00 00:05:00');
+
+
+--- 20230626
+alter table contents add (external_coll_id NUMBER(12), external_content_id NUMBER(12), external_event_id NUMBER(12), external_event_status NUMBER(2));
+
+alter table contents add (sub_map_id NUMBER(12) default 0);
+alter table contents add (dep_sub_map_id NUMBER(12) default 0);
+alter table contents drop constraint CONTENT_ID_UQ;
+alter table contents add constraint CONTENT_ID_UQ UNIQUE (transform_id, coll_id, map_id, sub_map_id, dep_sub_map_id, content_relation_type, name, min_id, max_id) USING INDEX LOCAL;

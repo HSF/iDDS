@@ -5,9 +5,4 @@ dependencies:
 - pip:
   - cryptography
   - pyjwt            # Pyjwt
-  - unittest2        # unit test tool
-  - pep8             # checks for PEP8 code style compliance
-  - flake8           # Wrapper around PyFlakes&pep8
-  - pytest           # python testing tool
-  - nose             # nose test tools
   - dogpile.cache
