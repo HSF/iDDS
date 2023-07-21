@@ -194,6 +194,14 @@ if ! [ -f /opt/idds/config/.token ]; then
     fi
 fi
 
+# fetch-crl cron
+cronExec=/opt/idds/cronExec
+cat <<EOT >> ${tmpExe}
+while true; do /usr/sbin/fetch-crl; sleep 36000; done &
+EOT
+chmod +x ${cronExec}
+bash ${cronExec}
+
 # start redis
 mkdir /var/log/idds/redis
 if [ ! -f /var/log/redis ]; then
