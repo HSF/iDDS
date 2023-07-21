@@ -148,6 +148,8 @@ ADD main/tools/syslog-ng/syslog-ng.conf /etc/syslog-ng/
 ADD main/tools/syslog-ng/idds.conf /etc/syslog-ng/conf.d/
 ADD main/tools/syslog-ng/http.conf /etc/syslog-ng/conf.d/
 
+RUN chown atlpan -R /etc/grid-security/certificates
+
 RUN chmod -R 777 /opt/idds/config
 RUN chmod -R 777 /var/log/idds
 RUN chmod -R 777 /var/idds
