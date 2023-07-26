@@ -45,6 +45,7 @@ task_queue = 'DOMA_LSST_GOOGLE_TEST'
 # task_queue = 'DOMA_LSST_SLAC_TEST'
 task_queue = 'SLAC_Rubin'
 # task_queue = 'SLAC_Rubin_Extra_Himem_32Cores'
+task_queue = 'SLAC_Rubin_Merge'
 
 # task_cloud = 'EU'
 # task_queue = 'CC-IN2P3_TEST'
@@ -71,7 +72,7 @@ def setup_workflow():
     taskN1.dependencies = [
         {"name": "00000" + str(k),
          "dependencies": [],
-         "submitted": False} for k in range(6)
+         "submitted": False} for k in range(300)
     ]
 
     taskN2 = PanDATask()
@@ -132,7 +133,7 @@ def setup_workflow():
         },
     ]
 
-    work1 = DomaPanDAWork(executable='echo',
+    work1 = DomaPanDAWork(executable='sleep 600',
                           primary_input_collection={'scope': 'pseudo_dataset', 'name': 'pseudo_input_collection#1'},
                           output_collections=[{'scope': 'pseudo_dataset', 'name': 'pseudo_output_collection#1'}],
                           log_collections=[], dependency_map=taskN1.dependencies,

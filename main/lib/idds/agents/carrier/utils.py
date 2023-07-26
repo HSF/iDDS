@@ -97,15 +97,19 @@ def is_all_contents_available(contents):
     return True
 
 
-def is_all_contents_terminated(contents):
+def is_all_contents_terminated(contents, terminated=False):
+    terminated_status = [ContentStatus.Available, ContentStatus.FakeAvailable,
+                         ContentStatus.FinalFailed, ContentStatus.Missing]
+    if terminated:
+        terminated_status = [ContentStatus.Available, ContentStatus.FakeAvailable, ContentStatus.Failed,
+                             ContentStatus.FinalFailed, ContentStatus.Missing]
+
     for content in contents:
         if type(content) is dict:
-            if content['substatus'] not in [ContentStatus.Available, ContentStatus.FakeAvailable,
-                                            ContentStatus.FinalFailed, ContentStatus.Missing]:
+            if content['substatus'] not in terminated_status:
                 return False
         else:
-            if content[1] not in [ContentStatus.Available, ContentStatus.FakeAvailable,
-                                  ContentStatus.FinalFailed, ContentStatus.Missing]:
+            if content[1] not in terminated_status:
                 return False
     return True
 
@@ -122,18 +126,22 @@ def is_input_dependency_terminated(input_dependency):
     return False
 
 
-def is_all_contents_terminated_but_not_available(inputs):
+def is_all_contents_terminated_but_not_available(inputs, terminated=False):
+    terminated_status = [ContentStatus.Available, ContentStatus.FakeAvailable,
+                         ContentStatus.FinalFailed, ContentStatus.Missing]
+    if terminated:
+        terminated_status = [ContentStatus.Available, ContentStatus.FakeAvailable, ContentStatus.Failed,
+                             ContentStatus.FinalFailed, ContentStatus.Missing]
+
     all_contents_available = True
     for content in inputs:
         if type(content) is dict:
-            if content['substatus'] not in [ContentStatus.Available, ContentStatus.FakeAvailable,
-                                            ContentStatus.FinalFailed, ContentStatus.Missing]:
+            if content['substatus'] not in terminated_status:
                 return False
             if content['substatus'] not in [ContentStatus.Available]:
                 all_contents_available = False
         else:
-            if content[1] not in [ContentStatus.Available, ContentStatus.FakeAvailable,
-                                  ContentStatus.FinalFailed, ContentStatus.Missing]:
+            if content[1] not in terminated_status:
                 return False
             if content[1] not in [ContentStatus.Available]:
                 all_contents_available = False
@@ -557,7 +565,7 @@ def get_input_output_sub_maps(inputs, outputs, inputs_dependency, logs=[]):
     return input_output_sub_maps
 
 
-def get_updated_contents_by_input_output_maps(input_output_maps=None, logger=None, log_prefix=''):
+def get_updated_contents_by_input_output_maps(input_output_maps=None, terminated=False, logger=None, log_prefix=''):
     updated_contents, updated_contents_full_input, updated_contents_full_output = [], [], []
     updated_contents_full_input_deps = []
     new_update_contents = []
@@ -615,7 +623,7 @@ def get_updated_contents_by_input_output_maps(input_output_maps=None, logger=Non
             input_content_update_status = None
             if is_all_contents_available(inputs_dependency_sub):
                 input_content_update_status = ContentStatus.Available
-            elif is_all_contents_terminated(inputs_dependency_sub):
+            elif is_all_contents_terminated(inputs_dependency_sub, terminated):
                 input_content_update_status = ContentStatus.Missing
             if input_content_update_status:
                 for content in inputs_sub:
@@ -639,7 +647,7 @@ def get_updated_contents_by_input_output_maps(input_output_maps=None, logger=Non
             if is_all_contents_available(inputs_sub):
                 # wait for the job to finish
                 pass
-            elif is_all_contents_terminated_but_not_available(inputs_sub):
+            elif is_all_contents_terminated_but_not_available(inputs_sub, terminated):
                 output_content_update_status = ContentStatus.Missing
             if output_content_update_status:
                 for content in outputs_sub:
@@ -1137,7 +1145,12 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
         input_output_maps = get_input_output_maps(transform_id, work)
         logger.debug(log_prefix + "input_output_maps.keys[:2]: %s" % str(list(input_output_maps.keys())[:2]))
 
-        updated_contents_ret = get_updated_contents_by_input_output_maps(input_output_maps=input_output_maps, logger=logger, log_prefix=log_prefix)
+        terminated_processing = False
+        terminated_status = [ProcessingStatus.Finished, ProcessingStatus.Failed, ProcessingStatus.SubFinished,
+                             ProcessingStatus.Terminating, ProcessingStatus.Cancelled]
+        if processing['status'] in terminated_status or processing['substatus'] in terminated_status:
+            terminated_processing = True
+        updated_contents_ret = get_updated_contents_by_input_output_maps(input_output_maps=input_output_maps, terminated=terminated_processing, logger=logger, log_prefix=log_prefix)
 
         updated_contents, updated_contents_full_input, updated_contents_full_output, updated_contents_full_input_deps, new_update_contents = updated_contents_ret
         logger.debug(log_prefix + "handle_trigger_processing: updated_contents[:3] %s" % (updated_contents[:3]))
@@ -1558,7 +1571,7 @@ def sync_collection_status(request_id, transform_id, workload_id, work, input_ou
                                      ContentStatus.FakeAvailable, ContentStatus.FakeAvailable.value]:
                 coll_status[content['coll_id']]['processed_ext_files'] += 1
             # elif content['status'] in [ContentStatus.Failed, ContentStatus.FinalFailed]:
-            elif content['status'] in [ContentStatus.FinalFailed]:
+            elif content['status'] in [ContentStatus.Failed, ContentStatus.FinalFailed]:
                 coll_status[content['coll_id']]['failed_ext_files'] += 1
             elif content['status'] in [ContentStatus.Lost, ContentStatus.Deleted, ContentStatus.Missing]:
                 coll_status[content['coll_id']]['missing_ext_files'] += 1
@@ -1681,6 +1694,9 @@ def sync_work_status(request_id, transform_id, workload_id, work):
 def sync_processing(processing, agent_attributes, terminate=False, abort=False, logger=None, log_prefix=""):
     logger = get_logger()
 
+    terminated_status = [ProcessingStatus.Finished, ProcessingStatus.Failed, ProcessingStatus.SubFinished,
+                         ProcessingStatus.Terminating, ProcessingStatus.Cancelled]
+
     request_id = processing['request_id']
     transform_id = processing['transform_id']
     workload_id = processing['workload_id']
@@ -1691,6 +1707,8 @@ def sync_processing(processing, agent_attributes, terminate=False, abort=False, 
 
     messages = []
     input_output_maps = get_input_output_maps(transform_id, work)
+    if processing['substatus'] in terminated_status or processing['substatus'] in terminated_status:
+        terminate = True
     update_collections, all_updates_flushed, msgs = sync_collection_status(request_id, transform_id, workload_id, work,
                                                                            input_output_maps=input_output_maps,
                                                                            close_collection=True, abort=abort, terminate=terminate)
