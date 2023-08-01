@@ -74,8 +74,8 @@ def migrate():
         # cm2 = ClientManager(host=dev_host)
         # cm2 = ClientManager(host=doma_host)
         # cm2 = ClientManager(host=atlas_host)
-        cm2 = ClientManager(host=slac_k8s_dev_host)
-        # cm2 = ClientManager(host=slac_k8s_prod_host)
+        # cm2 = ClientManager(host=slac_k8s_dev_host)
+        cm2 = ClientManager(host=slac_k8s_prod_host)
         # cm2 = ClientManager(host=cern_k8s_dev_host)
         # print(reqs)
 
