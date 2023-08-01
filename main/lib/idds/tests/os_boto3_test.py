@@ -81,3 +81,6 @@ response = s3.generate_presigned_url('get_object',
                                              'Key': object_name},
                                      ExpiresIn=3600)
 print(response)
+
+rt = s3.download_file(bucket_name, object_name, '/tmp/pilotlog.txt')
+print(rt)
