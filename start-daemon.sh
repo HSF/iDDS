@@ -182,7 +182,7 @@ fi
 # create database if not exists
 python /opt/idds/tools/env/create_database.py
 # upgrade database
-alembic upgrade head
+alembic upgrade heads
 
 # configure monitor
 python /opt/idds/tools/env/config_monitor.py -s ${IDDS_HOME}/monitor/data/conf.js.template -d ${IDDS_HOME}/monitor/data/conf.js  --host ${IDDS_SERVER}
