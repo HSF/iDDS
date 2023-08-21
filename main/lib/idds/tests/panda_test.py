@@ -14,19 +14,23 @@ from pandaclient import Client  # noqa E402
 
 
 task_ids = [160871, 160873, 160874, 160872, 160875]
+task_ids = []
 for task_id in task_ids:
     print("retry %s" % task_id)
     ret = Client.retryTask(task_id, verbose=True)
     print(ret)
 
-sys.exit(0)
+# sys.exit(0)
 
 task_ids = [i for i in range(157023, 157050)]
 task_ids = []
+task_ids = [161488, 154806, 154805, 153413]
 for task_id in task_ids:
     print("Killing %s" % task_id)
     ret = Client.killTask(task_id)
     print(ret)
+
+sys.exit(0)
 
 # jobids = [52690679]
 jobids = [9]

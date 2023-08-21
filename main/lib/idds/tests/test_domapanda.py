@@ -46,7 +46,7 @@ task_queue = 'DOMA_LSST_GOOGLE_TEST'
 task_queue = 'SLAC_Rubin'
 # task_queue = 'SLAC_Rubin_Extra_Himem_32Cores'
 # task_queue = 'SLAC_Rubin_Merge'
-# task_queue = 'SLAC_TEST'
+task_queue = 'SLAC_TEST'
 
 # task_cloud = 'EU'
 # task_queue = 'CC-IN2P3_TEST'
