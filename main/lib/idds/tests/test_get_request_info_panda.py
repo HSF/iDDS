@@ -7,7 +7,8 @@ import pandaclient.idds_api                           # noqa F401
 
 idds_client = pandaclient.idds_api.get_api(idds_utils.json_dumps, idds_host=None, compress=True, manager=True)
 
-wms_workflow_id = 4112
+# wms_workflow_id = 4112
+wms_workflow_id = 5194
 # only check the request status
 ret = idds_client.get_requests(request_id=wms_workflow_id)
 print(ret)
@@ -24,6 +25,14 @@ for workload in ret[1][1]:
 print(workloads)
 
 # show one workload file information
-workload_1 = workloads[0]
+workload_0 = workloads[0]
+ret = idds_client.get_contents_output_ext(request_id=wms_workflow_id, workload_id=workload_0)
+print(ret)
+
+workload_1 = workloads[1]
 ret = idds_client.get_contents_output_ext(request_id=wms_workflow_id, workload_id=workload_1)
+print(ret)
+
+workload_2 = workloads[2]
+ret = idds_client.get_contents_output_ext(request_id=wms_workflow_id, workload_id=workload_2)
 print(ret)
