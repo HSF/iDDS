@@ -119,6 +119,9 @@ def setup_workflow():
                              {"task": taskN1.name, "inputname": "000002", "available": False}],
             "submitted": False
         },
+    ]
+
+    taskN2.dependencies += [
         {"name": "000013" + str(k),
          "dependencies": [],
          "submitted": False} for k in range(10000)
@@ -156,6 +159,9 @@ def setup_workflow():
                              {"task": taskN3.name, "inputname": "000023", "available": False}],
             "submitted": False
         },
+    ]
+
+    taskN3.dependencies += [
         {"name": "000025" + str(k),
          "dependencies": [],
          "submitted": False} for k in range(10000)
