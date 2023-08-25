@@ -46,8 +46,9 @@ else
     export PANDA_URL_SSL=https://pandaserver-doma.cern.ch:25443/server/panda
     export PANDA_URL=http://pandaserver-doma.cern.ch:25080/server/panda
     export PANDAMON_URL=https://panda-doma.cern.ch
-    export PANDA_AUTH_VO=panda_dev
-    
+    # export PANDA_AUTH_VO=panda_dev
+    export PANDA_AUTH_VO=Rubin:production
+
     export PANDACACHE_URL=$PANDA_URL_SSL
 
     export PANDA_SYS=/afs/cern.ch/user/w/wguan/workdisk/iDDS/.conda/iDDS/
