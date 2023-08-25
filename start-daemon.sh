@@ -212,6 +212,9 @@ if [ ! -f /var/lib/redis ]; then
 fi
 /usr/bin/redis-server /etc/redis.conf --supervised systemd &
 
+echo "clean heartbeats"
+python /opt/idds/tools/env/clean_heartbeat.py
+
 if [ "${IDDS_SERVICE}" == "rest" ]; then
   echo "starting iDDS ${IDDS_SERVICE} service"
   # systemctl restart httpd.service
