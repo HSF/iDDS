@@ -40,7 +40,7 @@ def as_parse_env(dct):
             env_matches = re.findall('\$\{*([^\}]+)\}*', value)     # noqa W605
             for env_name in env_matches:
                 if env_name not in os.environ:
-                    print("Error: %s is defined in configmap but is not defined in environments" % env_name)
+                    print("WARN: %s is defined in configmap but is not defined in environments" % env_name)
                 else:
                     env_name1 = r'${%s}' % env_name
                     env_name2 = r'$%s' % env_name
