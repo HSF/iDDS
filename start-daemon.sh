@@ -196,7 +196,7 @@ fi
 
 # fetch-crl cron
 cronExec=/opt/idds/cronExec
-cat <<EOT >> ${tmpExe}
+cat <<EOT >> ${cronExec}
 while true; do /usr/sbin/fetch-crl; sleep 36000; done &
 EOT
 chmod +x ${cronExec}
