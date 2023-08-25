@@ -94,7 +94,7 @@ def setup_workflow():
     taskN1.dependencies = [
         {"name": "00000" + str(k),
          "dependencies": [],
-         "submitted": False} for k in range(6)
+         "submitted": False} for k in range(10000)
     ]
 
     taskN2 = PanDATask()
@@ -118,7 +118,13 @@ def setup_workflow():
             "dependencies": [{"task": taskN1.name, "inputname": "000001", "available": False},
                              {"task": taskN1.name, "inputname": "000002", "available": False}],
             "submitted": False
-        }
+        },
+    ]
+
+    taskN2.dependencies += [
+        {"name": "000013" + str(k),
+         "dependencies": [],
+         "submitted": False} for k in range(10000)
     ]
 
     taskN3 = PanDATask()
@@ -155,13 +161,19 @@ def setup_workflow():
         },
     ]
 
+    taskN3.dependencies += [
+        {"name": "000025" + str(k),
+         "dependencies": [],
+         "submitted": False} for k in range(10000)
+    ]
+
     taskN4 = PanDATask()
     taskN4.step = "step4"
     taskN4.name = site + "_" + taskN4.step + "_" + randStr()
     taskN4.dependencies = [
         {"name": "00004" + str(k),
          "dependencies": [],
-         "submitted": False} for k in range(6)
+         "submitted": False} for k in range(1000)
     ]
 
     taskN5 = PanDATask()
@@ -170,7 +182,7 @@ def setup_workflow():
     taskN5.dependencies = [
         {"name": "00005" + str(k),
          "dependencies": [],
-         "submitted": False} for k in range(6)
+         "submitted": False} for k in range(1000)
     ]
 
     work1 = DomaPanDAWork(executable='echo',

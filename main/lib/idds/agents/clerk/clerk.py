@@ -359,7 +359,7 @@ class Clerk(BaseAgent):
 
     def get_num_active_requests(self, site_name):
         cache = get_redis_cache()
-        num_requests = cache.get("num_requests", default={})
+        num_requests = cache.get("num_requests", default=None)
         if num_requests is None:
             num_requests = {}
             active_status = [RequestStatus.New, RequestStatus.Ready, RequestStatus.Throttling]
@@ -381,7 +381,7 @@ class Clerk(BaseAgent):
 
     def get_num_active_transforms(self, site_name):
         cache = get_redis_cache()
-        num_transforms = cache.get("num_transforms", default={})
+        num_transforms = cache.get("num_transforms", default=None)
         if num_transforms is None:
             num_transforms = {}
             active_status = [TransformStatus.New, TransformStatus.Ready]
@@ -403,10 +403,11 @@ class Clerk(BaseAgent):
 
     def get_num_active_processings(self, site_name):
         cache = get_redis_cache()
-        num_processings = cache.get("num_processings", default={})
+        num_processings = cache.get("num_processings", default=None)
         active_transforms = cache.get("active_transforms", default={})
         if num_processings is None:
             num_processings = {}
+            active_transforms = {}
             active_status = [ProcessingStatus.New]
             active_status1 = [ProcessingStatus.Submitting, ProcessingStatus.Submitted,
                               ProcessingStatus.Running, ProcessingStatus.Terminating, ProcessingStatus.ToTrigger,
