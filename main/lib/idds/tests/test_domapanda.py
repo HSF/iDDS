@@ -92,7 +92,7 @@ def setup_workflow():
     taskN1.step = "step1"
     taskN1.name = site + "_" + taskN1.step + "_" + randStr()
     taskN1.dependencies = [
-        {"name": "00000" + str(k),
+        {"name": "00000" * 1000 + str(k),
          "dependencies": [],
          "submitted": False} for k in range(6)
     ]

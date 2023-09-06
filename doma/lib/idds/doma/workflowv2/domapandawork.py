@@ -53,6 +53,7 @@ class DomaPanDAWork(Work):
                  task_site=None,
                  task_rss=1000,
                  vo='wlcg',
+                 max_name_length=4000,
                  working_group='lsst'):
 
         super(DomaPanDAWork, self).__init__(executable=executable, arguments=arguments,
@@ -76,6 +77,13 @@ class DomaPanDAWork(Work):
         self.panda_config_root = None
         self.pandacache_url = None
         self.panda_verify_host = None
+
+        self.max_name_length = max_name_length
+        if "IDDS_MAX_NAME_LENGTH" in os.environ:
+            try:
+                self.max_name_length = int(os.environ['IDDS_MAX_NAME_LENGTH'])
+            except Exception as ex:
+                self.logger.warn('IDDS_MAX_NAME_LENGTH is not defined correctly: %s' % str(ex))
 
         self.dependency_map = dependency_map
         if self.dependency_map is None:
@@ -134,6 +142,8 @@ class DomaPanDAWork(Work):
             item_names = {}
             for item in value:
                 item_name = item['name']
+                if len(item_name) > self.max_name_length:
+                    raise exceptions.IDDSException("The file name is long (%s), which is bigger than the maximum name length (%s)" % (len(item_name), self.max_name_length))
                 inputs_dependency = item["dependencies"]
                 if item_name not in item_names:
                     item_names[item_name] = item
