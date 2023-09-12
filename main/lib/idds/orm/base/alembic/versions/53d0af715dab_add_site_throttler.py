@@ -83,4 +83,4 @@ def downgrade() -> None:
 
         op.drop_constraint('THROTTLER_SITE_UQ', table_name='throttlers', schema=schema)
         op.drop_constraint('THROTTLER_PK', table_name='throttlers', schema=schema)
-        op.drop_table('throttlers')
+        op.drop_table('throttlers', schema=schema)
