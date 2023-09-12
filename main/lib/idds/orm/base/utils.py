@@ -51,6 +51,7 @@ def build_database(echo=True, tests=False):
     # record the head version of alembic
     alembic_cfg_file = os.environ.get("ALEMBIC_CONFIG")
     alembic_cfg = Config(alembic_cfg_file)
+    command.upgrade(alembic_cfg, "head")
     command.stamp(alembic_cfg, "head")
 
 
