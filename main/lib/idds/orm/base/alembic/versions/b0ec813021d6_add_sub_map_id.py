@@ -32,7 +32,10 @@ def upgrade() -> None:
         schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         op.add_column('contents', sa.Column('sub_map_id', sa.BigInteger()), schema=schema)
         op.add_column('contents', sa.Column('dep_sub_map_id', sa.BigInteger()), schema=schema)
-        op.drop_constraint(constraint_name="CONTENT_ID_UQ", table_name="contents", schema=schema)
+        try:
+            op.drop_constraint(constraint_name="CONTENT_ID_UQ", table_name="contents", schema=schema)
+        except Exception as ex:
+            print(ex)
         op.create_unique_constraint('CONTENT_ID_UQ', 'contents', ['transform_id', 'coll_id', 'map_id', 'sub_map_id', 'dep_sub_map_id', 'content_relation_type', 'name', 'min_id', 'max_id'], schema=schema)
 
 
