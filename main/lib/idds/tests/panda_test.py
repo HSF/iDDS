@@ -17,8 +17,8 @@ task_ids = [160871, 160873, 160874, 160872, 160875]
 task_ids = []
 for task_id in task_ids:
     print("retry %s" % task_id)
-    ret = Client.retryTask(task_id, verbose=True)
-    print(ret)
+    # ret = Client.retryTask(task_id, verbose=True)
+    # print(ret)
 
 # sys.exit(0)
 
@@ -27,6 +27,10 @@ task_ids = []
 task_ids = [161488, 154806, 154805, 153413]
 task_ids = [i for i in range(191, 220)]
 task_ids = [162763, 162753]
+task_ids = [i for i in range(164147, 164384)]
+task_ids += [162282, 162283, 162588]
+task_ids = [i for i in range(163930, 164147)]
+task_ids = [161142, 160648]
 for task_id in task_ids:
     print("Killing %s" % task_id)
     ret = Client.killTask(task_id, verbose=True)

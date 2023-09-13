@@ -49,6 +49,14 @@ def upgrade() -> None:
 
         op.add_column('messages', sa.Column('fetching_id', sa.Integer()), schema=schema)
 
+        try:
+            op.drop_constraint('THROTTLER_SITE_UQ', table_name='throttlers', schema=schema)
+        except:
+            pass
+        try:
+            op.drop_constraint('THROTTLER_PK', table_name='throttlers', schema=schema)
+        except:
+            pass
         op.create_table('throttlers',
                         sa.Column('throttler_id', sa.BigInteger(), sa.Sequence('THROTTLER_ID_SEQ', schema=schema)),
                         sa.Column('site', sa.String(50), nullable=False),
@@ -61,6 +69,7 @@ def upgrade() -> None:
                         sa.Column("created_at", sa.DateTime, default=datetime.datetime.utcnow, nullable=False),
                         sa.Column("updated_at", sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False),
                         sa.Column('others', JSON()),
+                        replace_existing=True,
                         schema=schema)
         op.create_primary_key('THROTTLER_PK', 'throttlers', ['throttler_id'], schema=schema)
         op.create_unique_constraint('THROTTLER_SITE_UQ', 'throttlers', ['site'], schema=schema)
