@@ -13,6 +13,7 @@
 Utils to create the database or destroy the database
 """
 
+import io
 import os
 import traceback
 from typing import Union
@@ -51,8 +52,20 @@ def build_database(echo=True, tests=False):
     # record the head version of alembic
     alembic_cfg_file = os.environ.get("ALEMBIC_CONFIG")
     alembic_cfg = Config(alembic_cfg_file)
-    command.upgrade(alembic_cfg, "head")
-    command.stamp(alembic_cfg, "head")
+
+    output_buffer = io.StringIO()
+    alembic_cfg1 = Config(alembic_cfg_file, stdout=output_buffer)
+    current_version = command.current(alembic_cfg1)
+    current_version = output_buffer.getvalue()
+    print("current_version: " + current_version)
+
+    if current_version is None or len(current_version) == 0:
+        print("no current version, stamp it")
+        command.stamp(alembic_cfg, "head")
+        command.upgrade(alembic_cfg, "head")
+    else:
+        print("has current version, try to upgrade")
+        command.upgrade(alembic_cfg, "head")
 
 
 def destroy_database(echo=True):
