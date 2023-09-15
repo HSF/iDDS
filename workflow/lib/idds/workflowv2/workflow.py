@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2022
+# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2023
 
 import copy
 import datetime
@@ -106,6 +106,25 @@ class CompositeCondition(Base):
         self.logger = logger
         result.logger = logger
         return result
+
+    def setup_logger(self):
+        # Setup logger
+        self.logger = logging.getLogger(self.get_class_name())
+
+    def log_info(self, info):
+        if self.logger is None:
+            self.setup_logger()
+        self.logger.info(info)
+
+    def log_debug(self, info):
+        if self.logger is None:
+            self.setup_logger()
+        self.logger.debug(info)
+
+    def log_error(self, info):
+        if self.logger is None:
+            self.setup_logger()
+        self.logger.error(info)
 
     @property
     def conditions(self):
@@ -241,24 +260,27 @@ class CompositeCondition(Base):
         return works[work_id]
 
     def load_conditions(self, works):
+        # print("load_conditions")
+        self.log_debug("load_conditions conditions: %s" % self.conditions)
+        self.log_debug("load_conditions works: %s" % str(works))
         new_conditions = []
         for cond in self.conditions:
             if callable(cond):
                 new_conditions.append(cond)
             else:
                 if 'idds_method' in cond and 'idds_method_internal_id' in cond:
-                    self.logger.debug("idds_method_internal_id: %s" % cond['idds_method_internal_id'])
-                    self.logger.debug("idds_method: %s" % cond['idds_method'])
+                    self.log_debug("idds_method_internal_id: %s" % cond['idds_method_internal_id'])
+                    self.log_debug("idds_method: %s" % cond['idds_method'])
 
                     internal_id = cond['idds_method_internal_id']
                     work = self.get_work_from_id(internal_id, works)
 
-                    self.logger.debug("get_work_from_id: %s: [%s]" % (internal_id, [work]))
+                    self.log_debug("get_work_from_id: %s: [%s]" % (internal_id, [work]))
 
                     if work is not None:
                         new_cond = getattr(work, cond['idds_method'])
                     else:
-                        self.logger.error("Condition method work cannot be found for %s" % (internal_id))
+                        self.log_error("Condition method work cannot be found for %s" % (internal_id))
                         new_cond = cond
                 elif 'idds_attribute' in cond and 'idds_method_internal_id' in cond:
                     internal_id = cond['idds_method_internal_id']
@@ -266,7 +288,7 @@ class CompositeCondition(Base):
                     if work is not None:
                         new_cond = getattr(work, cond['idds_attribute'])
                     else:
-                        self.logger.error("Condition attribute work cannot be found for %s" % (internal_id))
+                        self.log_error("Condition attribute work cannot be found for %s" % (internal_id))
                         new_cond = cond
                 elif 'idds_method' in cond and 'idds_method_condition' in cond:
                     new_cond = cond['idds_method_condition']
@@ -277,10 +299,10 @@ class CompositeCondition(Base):
         self.conditions = new_conditions
 
         new_true_works = []
-        self.logger.debug("true_works: %s" % str(self.true_works))
+        self.log_debug("true_works: %s" % str(self.true_works))
 
         for w in self.true_works:
-            # self.logger.debug("true_work: %s" % str(w))
+            # self.log_debug("true_work: %s" % str(w))
             if isinstance(w, CompositeCondition):
                 # work = w.load_conditions(works, works_template)
                 w.load_conditions(works)
@@ -292,10 +314,10 @@ class CompositeCondition(Base):
             elif type(w) in [str]:
                 work = self.get_work_from_id(w, works)
                 if work is None:
-                    self.logger.error("True work cannot be found for %s" % str(w))
+                    self.log_error("True work cannot be found for %s" % str(w))
                     work = w
             else:
-                self.logger.error("True work cannot be found for type(%s): %s" % (type(w), str(w)))
+                self.log_error("True work cannot be found for type(%s): %s" % (type(w), str(w)))
                 work = w
             new_true_works.append(work)
         self.true_works = new_true_works
@@ -313,10 +335,10 @@ class CompositeCondition(Base):
             elif type(w) in [str]:
                 work = self.get_work_from_id(w, works)
                 if work is None:
-                    self.logger.error("False work cannot be found for type(%s): %s" % (type(w), str(w)))
+                    self.log_error("False work cannot be found for type(%s): %s" % (type(w), str(w)))
                     work = w
             else:
-                self.logger.error("False work cannot be found for %s" % str(w))
+                self.log_error("False work cannot be found for %s" % str(w))
                 work = w
             new_false_works.append(work)
         self.false_works = new_false_works
@@ -336,7 +358,7 @@ class CompositeCondition(Base):
                 elif isinstance(cond.__self__, CompositeCondition):
                     works = works + cond.__self__.all_condition_ids()
             else:
-                self.logger.error("cond cannot be recognized: %s" % str(cond))
+                self.log_error("cond cannot be recognized: %s" % str(cond))
                 works.append(cond)
         for work in self.true_works + self.false_works:
             if isinstance(work, CompositeCondition):
@@ -352,7 +374,7 @@ class CompositeCondition(Base):
                 elif isinstance(cond.__self__, CompositeCondition):
                     works = works + cond.__self__.all_pre_works()
             else:
-                self.logger.error("cond cannot be recognized: %s" % str(cond))
+                self.log_error("cond cannot be recognized: %s" % str(cond))
                 works.append(cond)
         for work in self.true_works + self.false_works:
             if isinstance(work, CompositeCondition):
@@ -413,6 +435,7 @@ class CompositeCondition(Base):
                 if isinstance(work, CompositeCondition):
                     works = works + work.get_next_works(trigger=trigger)
                 else:
+                    # self.log_debug("true work: %s" % str(work))
                     if work.get_internal_id() not in true_work_meta:
                         true_work_meta[work.get_internal_id()] = {'triggered': False}
                     if trigger == ConditionTrigger.ToTrigger:
@@ -856,6 +879,8 @@ class WorkflowBase(Base):
 
     def load_work_conditions(self):
         conditions_metadata = self.get_metadata_item('conditions', {})
+        # print("self._conditions: %s" % str(self._conditions))
+        # print("conditions_metadata: %s" % conditions_metadata)
         for cond_internal_id in self._conditions:
             if cond_internal_id in conditions_metadata:
                 self.conditions[cond_internal_id].metadata = conditions_metadata[cond_internal_id]
@@ -1105,7 +1130,13 @@ class WorkflowBase(Base):
     def to_cancel(self, value):
         self.add_metadata_item('to_cancel', value)
 
+    def refresh(self):
+        self.refresh_works()
+
     def load_metadata(self):
+        # print("load_metadata")
+        # print(self.__dict__)
+        # print("%s loadmetadata" % self.get_internal_id())
         self.load_works()
         self.load_work_conditions()
         self.load_parameter_links()
@@ -1186,7 +1217,9 @@ class WorkflowBase(Base):
             # self.work_sequence.append(new_work.get_internal_id())
             self.work_sequence[str(self.num_total_works)] = work.get_internal_id()
             self.num_total_works += 1
-            self.new_to_run_works.append(work.get_internal_id())
+            # self.new_to_run_works.append(work.get_internal_id())
+            # work.transforming = True
+            self.current_running_works.append(work.get_internal_id())
             self.last_work = work.get_internal_id()
         else:
             new_parameters = self.get_destination_parameters(work_id)
@@ -1400,9 +1433,10 @@ class WorkflowBase(Base):
         self.next_works = next_works
 
     def enable_next_works(self, work, cond):
+        self.log_debug("works: %s" % str(self.works))
         # self.log_debug("Checking Work %s condition: %s" % (work.get_internal_id(),
-        #                                                   json_dumps(cond, sort_keys=True, indent=4)))
-        self.log_debug("Checking Work %s condition: %s" % (work.get_internal_id(), cond.get_internal_id()))
+        #                                                    json_dumps(cond, sort_keys=True, indent=4)))
+        # self.log_debug("Checking Work %s condition: %s" % (work.get_internal_id(), cond.get_internal_id()))
 
         # load_conditions should cover it.
         # if cond and self.is_class_method(cond.cond):
@@ -1482,15 +1516,21 @@ class WorkflowBase(Base):
                     self.to_start_works.remove(work_id)
             self.logger.info("%s starting_works: %s" % (self.get_internal_id(), str(starting_works)))
 
+        # new_workflows = []
         for k in self.new_to_run_works:
             if isinstance(self.works[k], Work):
                 self.works[k] = self.get_new_parameters_for_work(self.works[k])
                 works.append(self.works[k])
             if isinstance(self.works[k], Workflow):
                 works = works + self.works[k].get_new_works(synchronize=False)
+                self.works[k].transforming = True
+                # self.current_running_works.append(k)
+                # new_workflows.append(k)
         for k in self.current_running_works:
             if isinstance(self.works[k], Workflow):
                 works = works + self.works[k].get_new_works(synchronize=False)
+        # for k in new_workflows:
+        #     self.current_running_works.append(k)
         self.logger.info("%s get_new_works done" % self.get_internal_id())
         return works
 
@@ -1645,7 +1685,7 @@ class WorkflowBase(Base):
     def sync_works(self, to_cancel=False):
         if to_cancel:
             self.to_cancel = to_cancel
-        self.log_debug("%s synchroning works" % self.get_internal_id())
+        self.log_debug("%s num_run %s synchroning works" % (self.get_internal_id(), self.num_run))
         self.first_initialize()
 
         self.refresh_works()
@@ -1691,7 +1731,7 @@ class WorkflowBase(Base):
                     self.enable_next_works(work, cond)
 
             if work.is_terminated(synchronize=False):
-                self.log_info("Work %s is terminated(%s)" % (work.get_internal_id(), work.get_status()))
+                self.log_info("Work %s num_run %s is terminated(%s)" % (work.get_internal_id(), self.num_run, work.get_status()))
                 self.log_debug("Work conditions: %s" % json_dumps(self.work_conds, sort_keys=True, indent=4))
                 if work.get_internal_id() not in self.work_conds:
                     # has no next work
@@ -1723,7 +1763,7 @@ class WorkflowBase(Base):
             #    # if it's a loop workflow, to generate new loop
             #    if isinstance(work, Workflow):
             #        work.sync_works()
-        log_str = "%s num_total_works: %s" % (self.get_internal_id(), self.num_total_works)
+        log_str = "%s num_run %s num_total_works: %s" % (self.get_internal_id(), self.num_run, self.num_total_works)
         log_str += ", num_finished_works: %s" % self.num_finished_works
         log_str += ", num_subfinished_works: %s" % self.num_subfinished_works
         log_str += ", num_failed_works: %s" % self.num_failed_works
@@ -1881,11 +1921,18 @@ class WorkflowBase(Base):
         """
         if synchronize:
             self.sync_works(to_cancel=self.to_cancel)
-        if new:
-            if (self.to_cancel) or (len(self.new_to_run_works) == 0 and len(self.current_running_works) == 0 and self.num_total_works > 0):
-                return True
+        if self.to_cancel:
+            if new:
+                if len(self.new_to_run_works) == 0 and len(self.current_running_works) == 0 and self.num_total_works > 0:
+                    return True
+            else:
+                if len(self.current_running_works) == 0:
+                    return True
         else:
-            if (self.to_cancel or len(self.new_to_run_works) == 0) and len(self.current_running_works) == 0:
+            num_total_works = self.num_finished_works + self.num_subfinished_works + self.num_failed_works
+            num_total_works += self.num_expired_works + self.num_cancelled_works + self.num_suspended_works
+            num_total_works += len(self.new_to_run_works) + len(self.current_running_works)
+            if self.num_total_works > 0 and len(self.new_to_run_works) == 0 and len(self.current_running_works) == 0 and num_total_works == self.num_total_works:
                 return True
         return False
 
@@ -2303,8 +2350,13 @@ class Workflow(Base):
             self.sync_works(to_cancel=self.to_cancel)
         self.log_debug("synchronized works")
         works = []
+        self.log_debug("%s num_run: %s" % (self.get_internal_id(), self.num_run))
+        self.log_debug("%s runs: %s" % (self.get_internal_id(), str(self.runs)))
         if self.runs:
-            works = self.runs[str(self.num_run)].get_new_works(synchronize=False)
+            # works = self.runs[str(self.num_run)].get_new_works(synchronize=False)
+            works = self.runs[str(self.num_run)].get_new_works(synchronize=True)
+            self.logger.info("%s new workers: %s" % (self.get_internal_id(), str(works)))
+            self.runs[str(self.num_run)].transforming = True
         self.logger.info("%s get_new_works done" % self.get_internal_id())
         return works
 
@@ -2514,6 +2566,9 @@ class Workflow(Base):
         self.template.add_loop_condition(condition, position=position)
         self.loop_condition_position = position
 
+    def refresh(self):
+        self.refresh_works()
+
     def refresh_works(self):
         if self.runs:
             self.runs[str(self.num_run)].refresh_works()
@@ -2556,6 +2611,7 @@ class Workflow(Base):
                     if self.runs[str(self.num_run)].get_loop_condition_status():
                         self.logger.info("%s num_run %s get_loop_condition_status %s, start next run" % (self.get_internal_id(), self.num_run, self.runs[str(self.num_run)].get_loop_condition_status()))
                         self._num_run += 1
+                        self.logger.info("new num_run is %s" % (self.num_run))
                         self.template.parent_num_run = self.parent_num_run
                         self.runs[str(self.num_run)] = self.template.copy()
 
@@ -2566,6 +2622,7 @@ class Workflow(Base):
                         self.runs[str(self.num_run)].add_metadata_item('parameter_links', p_metadata)
 
                         self.runs[str(self.num_run)].global_parameters = self.runs[str(self.num_run - 1)].global_parameters
+                        self.logger.info("%s new num_run is %s" % (self.get_internal_id(), self.num_run))
                     else:
                         self.logger.info("%s num_run %s get_loop_condition_status %s, terminated loop" % (self.get_internal_id(), self.num_run, self.runs[str(self.num_run)].get_loop_condition_status()))
         self.refresh_works()

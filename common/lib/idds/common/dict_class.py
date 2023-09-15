@@ -6,12 +6,15 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2020
+# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2023
 
 """
 Dict class.
 """
 
+import logging
+import pickle
+import urllib
 import inspect
 from enum import Enum
 
@@ -22,6 +25,9 @@ class DictClass(object):
         # print(d)
         if not d:
             return d
+
+        if hasattr(d, 'refresh'):
+            d.refresh()
 
         if hasattr(d, 'to_dict'):
             return d.to_dict()
@@ -44,6 +50,10 @@ class DictClass(object):
         ret = {'class': self.__class__.__name__,
                'module': self.__class__.__module__,
                'attributes': {}}
+
+        if hasattr(self, 'refresh'):
+            self.refresh()
+
         for key, value in self.__dict__.items():
             # print(key)
             # print(value)
@@ -99,16 +109,31 @@ class DictClass(object):
         if not d:
             return d
 
+        # print("from_dict: %s" % str(d))
+        # print("is_class: %s" % DictClass.is_class(d))
+        if isinstance(d, DictBase):
+            d.metadata = d.metadata
+
         if DictClass.is_class(d):
             impl = DictClass.load_instance(d)
+            last_items = {}
             for key, value in d['attributes'].items():
+                # print(key)
                 if key == 'logger':
                     continue
+                elif key == "_metadata":
+                    last_items[key] = value
                 # elif key == 'output_data':
                 #     continue
                 else:
                     value = DictClass.from_dict(value)
                 setattr(impl, key, value)
+
+            # print("last_items: %s" % str(last_items))
+            for key, value in last_items.items():
+                value = DictClass.from_dict(value)
+                setattr(impl, key, value)
+
             return impl
         elif DictClass.is_class_method(d):
             impl = DictClass.load_instance_method(d)
@@ -129,3 +154,68 @@ class DictClass(object):
             return d
 
         return d
+
+
+class DictMetadata(DictClass):
+    def __init__(self):
+        pass
+
+    def add_item(self, key, value):
+        setattr(self, key, value)
+
+    def get_item(self, key, default):
+        return getattr(self, key, default)
+
+
+class DictBase(DictClass):
+    def __init__(self):
+        self.metadata = DictMetadata()
+        pass
+
+    def add_metadata_item(self, key, value):
+        self.metadata.add_item(key, value)
+
+    def get_metadata_item(self, key, default=None):
+        return self.metadata.get_item(key, default)
+
+    def refresh(self):
+        pass
+
+    def load_metadata(self):
+        pass
+
+    @property
+    def metadata(self):
+        return self._metadata
+
+    @metadata.setter
+    def metadata(self, value):
+        self._metadata = value
+        self.load_metadata()
+
+    def IDDSProperty(self, attribute):
+        def _get(self, attribute):
+            self.get_metadata_item(attribute, None)
+
+        def _set(self, attribute, value):
+            self.add_metadata_item(attribute, value)
+
+        attribute = property(_get, _set)
+        return attribute
+
+    def serialize(self):
+        return urllib.parse.quote_from_bytes(pickle.dumps(self))
+
+    @staticmethod
+    def deserialize(obj):
+        # return urllib.parse.unquote_to_bytes(pickle.loads(obj))
+        return pickle.loads(urllib.parse.unquote_to_bytes(obj))
+
+    def get_class_name(self):
+        return self.__class__.__name__
+
+    def setup_logger(self):
+        """
+        Setup logger
+        """
+        self.logger = logging.getLogger(self.get_class_name())
