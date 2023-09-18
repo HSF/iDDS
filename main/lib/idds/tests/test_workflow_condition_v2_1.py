@@ -48,7 +48,7 @@ def test_workflow_condition():
     # print(workflow_str)
     workflow1 = json_loads(workflow_str)
 
-    workflow_str1 = json_dumps(workflow1, sort_keys=True, indent=4)
+    workflow_str1 = json_dumps(workflow1, sort_keys=True, indent=4)     # noqa F841
     # print(workflow_str1)
 
     # assert(sorted(json.loads(workflow_str).items()) == sorted(json.loads(workflow_str1).items()))
