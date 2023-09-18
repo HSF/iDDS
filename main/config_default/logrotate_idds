@@ -6,7 +6,9 @@
     compress
     delaycompress
     postrotate
-        /usr/bin/supervisorctl stop all > /dev/null 2>/dev/null || true
-        /usr/bin/supervisorctl start all > /dev/null 2>/dev/null || true
+        /usr/bin/supervisorctl stop httpd > /dev/null 2>/dev/null || true
+        /usr/bin/supervisorctl start httpd > /dev/null 2>/dev/null || true
+        /usr/bin/supervisorctl stop idds-server > /dev/null 2>/dev/null || true
+        /usr/bin/supervisorctl start idds-server > /dev/null 2>/dev/null || true
     endscript
 }
