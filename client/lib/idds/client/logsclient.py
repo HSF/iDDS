@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2020
+# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2023
 
 
 """
@@ -14,7 +14,6 @@ Cacher Rest client to access IDDS system.
 """
 
 import os
-import requests
 
 from idds.common import exceptions
 from idds.client.base import BaseRestClient
@@ -70,7 +69,8 @@ class LogsClient(BaseRestClient):
         with open(filename, 'w') as fp:
             fp.write(content)
         """
-        response = requests.get(url, verify=False)
+        # response = requests.get(url, verify=False)
+        response = self.get_request_response(url, return_result_directly=True)
         # print(response)
         # print(response.text)
         # print(response.content)

@@ -170,7 +170,7 @@ class BaseRestClient(object):
 
         return full_url
 
-    def get_request_response(self, url, type='GET', data=None, headers=None, auth_setup_step=False):
+    def get_request_response(self, url, type='GET', data=None, headers=None, auth_setup_step=False, return_result_directly=False):
         """
         Send request to the IDDS server and get the response.
 
@@ -243,49 +243,52 @@ class BaseRestClient(object):
                     raise exceptions.ConnectionException('ConnectionError: ' + str(error))
 
             if result is not None:
-                # print(result.text)
-                # print(result.headers)
-                # print(result.status_code)
-                if result.status_code == HTTP_STATUS_CODE.OK:
-                    # print(result.text)
-                    if result.text:
-                        return json_loads(result.text)
-                    else:
-                        return None
-                elif result.headers and 'ExceptionClass' in result.headers:
-                    try:
-                        if result.headers and 'ExceptionClass' in result.headers:
-                            cls = getattr(exceptions, result.headers['ExceptionClass'])
-                            msg = result.headers['ExceptionMessage']
-                            raise cls(msg)
-                        else:
-                            if result.text:
-                                data = json_loads(result.text)
-                                raise exceptions.IDDSException(**data)
-                            else:
-                                raise exceptions.IDDSException("Unknow exception: %s" % (result.text))
-                    except AttributeError:
-                        raise exceptions.IDDSException(result.text)
-                elif result.status_code in [HTTP_STATUS_CODE.BadRequest,
-                                            HTTP_STATUS_CODE.Unauthorized,
-                                            HTTP_STATUS_CODE.Forbidden,
-                                            HTTP_STATUS_CODE.NotFound,
-                                            HTTP_STATUS_CODE.NoMethod,
-                                            HTTP_STATUS_CODE.InternalError]:
-                    raise exceptions.IDDSException(result.text)
+                if return_result_directly:
+                    return result
                 else:
-                    try:
-                        if result.headers and 'ExceptionClass' in result.headers:
-                            cls = getattr(exceptions, result.headers['ExceptionClass'])
-                            msg = result.headers['ExceptionMessage']
-                            raise cls(msg)
+                    # print(result.text)
+                    # print(result.headers)
+                    # print(result.status_code)
+                    if result.status_code == HTTP_STATUS_CODE.OK:
+                        # print(result.text)
+                        if result.text:
+                            return json_loads(result.text)
                         else:
-                            if result.text:
-                                data = json_loads(result.text)
-                                raise exceptions.IDDSException(**data)
+                            return None
+                    elif result.headers and 'ExceptionClass' in result.headers:
+                        try:
+                            if result.headers and 'ExceptionClass' in result.headers:
+                                cls = getattr(exceptions, result.headers['ExceptionClass'])
+                                msg = result.headers['ExceptionMessage']
+                                raise cls(msg)
                             else:
-                                raise exceptions.IDDSException("Unknow exception: %s" % (result.text))
-                    except AttributeError:
+                                if result.text:
+                                    data = json_loads(result.text)
+                                    raise exceptions.IDDSException(**data)
+                                else:
+                                    raise exceptions.IDDSException("Unknow exception: %s" % (result.text))
+                        except AttributeError:
+                            raise exceptions.IDDSException(result.text)
+                    elif result.status_code in [HTTP_STATUS_CODE.BadRequest,
+                                                HTTP_STATUS_CODE.Unauthorized,
+                                                HTTP_STATUS_CODE.Forbidden,
+                                                HTTP_STATUS_CODE.NotFound,
+                                                HTTP_STATUS_CODE.NoMethod,
+                                                HTTP_STATUS_CODE.InternalError]:
                         raise exceptions.IDDSException(result.text)
+                    else:
+                        try:
+                            if result.headers and 'ExceptionClass' in result.headers:
+                                cls = getattr(exceptions, result.headers['ExceptionClass'])
+                                msg = result.headers['ExceptionMessage']
+                                raise cls(msg)
+                            else:
+                                if result.text:
+                                    data = json_loads(result.text)
+                                    raise exceptions.IDDSException(**data)
+                                else:
+                                    raise exceptions.IDDSException("Unknow exception: %s" % (result.text))
+                        except AttributeError:
+                            raise exceptions.IDDSException(result.text)
         if result is None:
             raise exceptions.IDDSException('Response is None')
