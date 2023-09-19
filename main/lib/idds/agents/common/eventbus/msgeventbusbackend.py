@@ -329,26 +329,28 @@ class MsgEventBusBackend(BaseEventBusBackend):
         if not manager:
             manager = self.get_manager()
 
-        if (not self.manager or self.manager['connect'] != manager['connect']
-            or self.manager['username'] != manager['username']                        # noqa W503, E129
-            or self.manager['password'] != manager['password']):                      # noqa W503, E129
-            with self._lock:
-                try:
-                    self.manager = manager
-                    self.manager_socket = self.context.socket(zmq.REQ)
-                    self.manager_socket.plain_username = manager['username'].encode('utf-8')
-                    self.manager_socket.plain_password = manager['password'].encode('utf-8')
-                    self.manager_socket.connect(manager['connect'])
-                except (zmq.error.ZMQError, zmq.Again) as error:
-                    self.logger.critical("Caught an exception: %s\n%s" % (str(error), traceback.format_exc()))
-                    self.num_failures += 1
-                except Exception as error:
-                    self.logger.critical("Caught an exception: %s\n%s" % (str(error), traceback.format_exc()))
-                    self.num_failures += 1
+        if (not self.manager and not manager['connect'] and not manager['username'] and not manager['password']):
+            if (self.manager['connect'] != manager['connect']
+                or self.manager['username'] != manager['username']                        # noqa W503, E129
+                or self.manager['password'] != manager['password']):                      # noqa W503, E129
+                with self._lock:
+                    try:
+                        self.manager = manager
+                        self.manager_socket = self.context.socket(zmq.REQ)
+                        self.manager_socket.plain_username = manager['username'].encode('utf-8')
+                        self.manager_socket.plain_password = manager['password'].encode('utf-8')
+                        self.manager_socket.connect(manager['connect'])
+                    except (zmq.error.ZMQError, zmq.Again) as error:
+                        self.logger.critical("Caught an exception: %s\n%s" % (str(error), traceback.format_exc()))
+                        self.num_failures += 1
+                    except Exception as error:
+                        self.logger.critical("Caught an exception: %s\n%s" % (str(error), traceback.format_exc()))
+                        self.num_failures += 1
 
-    def get_manager(self):
-        if self.manager:
-            return self.manager
+    def get_manager(self, myself=False):
+        if not myself:
+            if (self.manager and self.manager['connect'] and self.manager['username'] and self.manager['password']):
+                return self.manager
         manager = {'connect': self.coordinator_con_string,
                    'username': self._username,
                    'password': self._password}
