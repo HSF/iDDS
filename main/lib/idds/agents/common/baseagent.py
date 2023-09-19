@@ -232,6 +232,9 @@ class BaseAgent(TimerScheduler, PluginBase):
     def get_health_payload(self):
         return None
 
+    def is_ready(self):
+        return True
+
     def health_heartbeat(self, heartbeat_delay=None):
         if heartbeat_delay:
             self.heartbeat_delay = heartbeat_delay
@@ -240,23 +243,24 @@ class BaseAgent(TimerScheduler, PluginBase):
         thread_id = self.get_thread_id()
         thread_name = self.get_thread_name()
         payload = self.get_health_payload()
-        self.logger.debug("health heartbeat: agent %s, pid %s, thread %s, delay %s, payload %s" % (self.get_name(), pid, thread_name, self.heartbeat_delay, payload))
-        core_health.add_health_item(agent=self.get_name(), hostname=hostname, pid=pid,
-                                    thread_id=thread_id, thread_name=thread_name, payload=payload)
-        core_health.clean_health(older_than=self.heartbeat_delay * 2)
+        if self.is_ready():
+            self.logger.debug("health heartbeat: agent %s, pid %s, thread %s, delay %s, payload %s" % (self.get_name(), pid, thread_name, self.heartbeat_delay, payload))
+            core_health.add_health_item(agent=self.get_name(), hostname=hostname, pid=pid,
+                                        thread_id=thread_id, thread_name=thread_name, payload=payload)
+            core_health.clean_health(older_than=self.heartbeat_delay * 2)
 
-        health_items = core_health.retrieve_health_items()
-        pids, pid_not_exists = [], []
-        for health_item in health_items:
-            if health_item['hostname'] == hostname:
-                pid = health_item['pid']
-                if pid not in pids:
-                    pids.append(pid)
-        for pid in pids:
-            if not pid_exists(pid):
-                pid_not_exists.append(pid)
-        if pid_not_exists:
-            core_health.clean_health(hostname=hostname, pids=pid_not_exists, older_than=None)
+            health_items = core_health.retrieve_health_items()
+            pids, pid_not_exists = [], []
+            for health_item in health_items:
+                if health_item['hostname'] == hostname:
+                    pid = health_item['pid']
+                    if pid not in pids:
+                        pids.append(pid)
+            for pid in pids:
+                if not pid_exists(pid):
+                    pid_not_exists.append(pid)
+            if pid_not_exists:
+                core_health.clean_health(hostname=hostname, pids=pid_not_exists, older_than=None)
 
     def add_default_tasks(self):
         task = self.create_task(task_func=self.health_heartbeat, task_output_queue=None,

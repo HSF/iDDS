@@ -81,6 +81,12 @@ class Coordinator(BaseAgent):
     def __del__(self):
         self.stop_coordinator()
 
+    def is_ready(self):
+        # manager = self.event_bus.get_manager()
+        # if (self.manager and manager['connect'] and manager['username'] and manager['password']):
+        #     return True
+        return True
+
     def get_health_payload(self):
         manager = self.event_bus.get_manager()
         payload = {'manager': manager}
