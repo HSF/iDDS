@@ -40,7 +40,7 @@ class Conductor(BaseAgent):
 
     def __init__(self, num_threads=1, retrieve_bulk_size=200, threshold_to_release_messages=None,
                  random_delay=None, delay=300, interval_delay=10, max_retry_delay=3600,
-                 max_normal_retries=10, max_retries=30, replay_times=2, mode='single', **kwargs):
+                 max_normal_retries=10, max_retries=30, replay_times=2, mode='multiple', **kwargs):
         super(Conductor, self).__init__(num_threads=num_threads, name='Conductor', **kwargs)
         self.config_section = Sections.Conductor
         self.retrieve_bulk_size = int(retrieve_bulk_size)

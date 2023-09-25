@@ -39,8 +39,9 @@ class Transformer(BaseAgent):
     Transformer works to process transforms.
     """
 
-    def __init__(self, num_threads=1, poll_period=1800, retries=3, retrieve_bulk_size=10,
+    def __init__(self, num_threads=1, max_number_workers=8, poll_period=1800, retries=3, retrieve_bulk_size=10,
                  message_bulk_size=10000, **kwargs):
+        self.max_number_workers = max_number_workers
         self.set_max_workers()
         num_threads = self.max_number_workers
         super(Transformer, self).__init__(num_threads=num_threads, name='Transformer', **kwargs)
@@ -88,13 +89,16 @@ class Transformer(BaseAgent):
         else:
             self.max_number_workers = int(self.max_number_workers)
 
+        self.show_queue_size_time = None
+
     def is_ok_to_run_more_transforms(self):
         if self.number_workers >= self.max_number_workers:
             return False
         return True
 
     def show_queue_size(self):
-        if self.number_workers > 0:
+        if self.show_queue_size_time is None or time.time() - self.show_queue_size_time >= 600:
+            self.show_queue_size_time = time.time()
             q_str = "number of transforms: %s, max number of transforms: %s" % (self.number_workers, self.max_number_workers)
             self.logger.debug(q_str)
 
@@ -119,9 +123,11 @@ class Transformer(BaseAgent):
             if transforms_new:
                 self.logger.info("Main thread get New+Ready+Extend transforms to process: %s" % str(transforms_new))
 
+            events = []
             for tf_id in transforms_new:
                 event = NewTransformEvent(publisher_id=self.id, transform_id=tf_id)
-                self.event_bus.send(event)
+                events.append(event)
+            self.event_bus.send_bulk(events)
 
             return transforms_new
         except exceptions.DatabaseException as ex:
@@ -160,9 +166,11 @@ class Transformer(BaseAgent):
             if transforms:
                 self.logger.info("Main thread get transforming transforms to process: %s" % str(transforms))
 
+            events = []
             for tf_id in transforms:
                 event = UpdateTransformEvent(publisher_id=self.id, transform_id=tf_id)
-                self.event_bus.send(event)
+                events.append(event)
+            self.event_bus.send_bulk(events)
 
             return transforms
         except exceptions.DatabaseException as ex:
@@ -769,9 +777,9 @@ class Transformer(BaseAgent):
 
             self.init_event_function_map()
 
-            task = self.create_task(task_func=self.get_new_transforms, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=60, priority=1)
+            task = self.create_task(task_func=self.get_new_transforms, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=10, priority=1)
             self.add_task(task)
-            task = self.create_task(task_func=self.get_running_transforms, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=60, priority=1)
+            task = self.create_task(task_func=self.get_running_transforms, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=10, priority=1)
             self.add_task(task)
             task = self.create_task(task_func=self.clean_locks, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1800, priority=1)
             self.add_task(task)
