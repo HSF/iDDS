@@ -64,13 +64,13 @@ def update_event(event_id, status, session=None):
 
 
 @transactional_session
-def get_event_for_processing(event_type, session=None):
+def get_event_for_processing(event_type, num_events=1, session=None):
     """
     Get event for processing
 
     :param event_type: event type.
     """
-    return orm_events.get_event_for_processing(event_type=event_type, session=session)
+    return orm_events.get_event_for_processing(event_type=event_type, num_events=num_events, session=session)
 
 
 @transactional_session
