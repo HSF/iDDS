@@ -1622,7 +1622,7 @@ def sync_collection_status(request_id, transform_id, workload_id, work, input_ou
                   'failed_ext_files': coll.failed_ext_files,
                   'missing_ext_files': coll.missing_ext_files}
 
-        if coll in input_collections and (workload_id is not None):
+        if (not work.generating_new_inputs()) and (coll in input_collections and (workload_id is not None)):
             if coll.total_files == coll.processed_files + coll.failed_files + coll.missing_files:
                 coll_db = core_catalog.get_collection(coll_id=coll.coll_id)
                 coll.status = coll_db['status']

@@ -870,6 +870,9 @@ class Work(Base):
                                         'external_id': proc.external_id}
         self.add_metadata_item('processings', proc_metadata)
 
+    def generating_new_inputs(self):
+        return False
+
     def refresh_work(self):
         coll_metadata = {}
         if self._collections:
