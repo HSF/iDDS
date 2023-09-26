@@ -164,77 +164,88 @@ class Coordinator(BaseAgent):
                 return i
         return len(event_index)
 
-    def send(self, event):
+    def insert_event(self, event):
         event.scheduled_priority, event.scheduled_time = self.get_scheduled_prio_time(event)
+        merge = False
+        for old_event_id in self.events_ids.get(event.get_event_id(), []):
+            old_event = self.events[old_event_id]
+            if old_event.able_to_merge(event):
+                old_scheduled_priority = old_event.scheduled_priority
+                old_scheduled_time = old_event.scheduled_time
+
+                old_event.merge(event)
+
+                self.events[old_event_id] = old_event
+                # old_event.scheduled_priority, old_event.scheduled_time = self.get_scheduled_prio_time(old_event)
+                new_scheduled_priority, new_scheduled_time = self.get_scheduled_prio_time(old_event)
+
+                if old_scheduled_priority != new_scheduled_priority or old_scheduled_time != new_scheduled_time:
+                    self.events_index[old_event._event_type][old_scheduled_priority].remove(old_event._id)
+                    old_event.scheduled_priority = new_scheduled_priority
+                    old_event.scheduled_time = new_scheduled_time
+                    if old_event.scheduled_priority not in self.events_index[old_event._event_type]:
+                        self.events_index[old_event._event_type][old_event.scheduled_priority] = []
+                    insert_pos = self.get_event_position(self.events_index[old_event._event_type][old_event.scheduled_priority], old_event)
+                    self.events_index[old_event._event_type][old_event.scheduled_priority].insert(insert_pos, old_event._id)
+                merge = True
+                self.logger.debug("New event %s is merged to old event %s" % (event.to_json(strip=True), old_event.to_json(strip=True)))
+                break
+        if not merge:
+            if event._event_type not in self.events_index:
+                self.events_index[event._event_type] = {}
+            if event.scheduled_priority not in self.events_index[event._event_type]:
+                self.events_index[event._event_type][event.scheduled_priority] = []
+            if event.get_event_id() not in self.events_ids:
+                self.events_ids[event.get_event_id()] = []
+
+            self.events[event._id] = event
+            self.logger.debug("New event %s" % (event.to_json(strip=True)))
+
+            insert_pos = self.get_event_position(self.events_index[event._event_type][event.scheduled_priority], event)
+            self.events_index[event._event_type][event.scheduled_priority].insert(insert_pos, event._id)
+            self.events_ids[event.get_event_id()].append(event._id)
+
+            if event._event_type not in self.accounts:
+                self.accounts[event._event_type] = {'total_queued_events': 1, 'total_processed_events': 0, 'lack_events': False}
+            else:
+                self.accounts[event._event_type]['total_queued_events'] += 1
+
+    def send(self, event):
         with self._lock:
-            merge = False
-            for old_event_id in self.events_ids.get(event.get_event_id(), []):
-                old_event = self.events[old_event_id]
-                if old_event.able_to_merge(event):
-                    old_scheduled_priority = old_event.scheduled_priority
-                    old_scheduled_time = old_event.scheduled_time
+            self.insert_event(event)
 
-                    old_event.merge(event)
-
-                    self.events[old_event_id] = old_event
-                    # old_event.scheduled_priority, old_event.scheduled_time = self.get_scheduled_prio_time(old_event)
-                    new_scheduled_priority, new_scheduled_time = self.get_scheduled_prio_time(old_event)
-
-                    if old_scheduled_priority != new_scheduled_priority or old_scheduled_time != new_scheduled_time:
-                        self.events_index[old_event._event_type][old_scheduled_priority].remove(old_event._id)
-                        old_event.scheduled_priority = new_scheduled_priority
-                        old_event.scheduled_time = new_scheduled_time
-                        if old_event.scheduled_priority not in self.events_index[old_event._event_type]:
-                            self.events_index[old_event._event_type][old_event.scheduled_priority] = []
-                        insert_pos = self.get_event_position(self.events_index[old_event._event_type][old_event.scheduled_priority], old_event)
-                        self.events_index[old_event._event_type][old_event.scheduled_priority].insert(insert_pos, old_event._id)
-                    merge = True
-                    self.logger.debug("New event %s is merged to old event %s" % (event.to_json(strip=True), old_event.to_json(strip=True)))
-                    break
-            if not merge:
-                if event._event_type not in self.events_index:
-                    self.events_index[event._event_type] = {}
-                if event.scheduled_priority not in self.events_index[event._event_type]:
-                    self.events_index[event._event_type][event.scheduled_priority] = []
-                if event.get_event_id() not in self.events_ids:
-                    self.events_ids[event.get_event_id()] = []
-
-                self.events[event._id] = event
-                self.logger.debug("New event %s" % (event.to_json(strip=True)))
-
-                insert_pos = self.get_event_position(self.events_index[event._event_type][event.scheduled_priority], event)
-                self.events_index[event._event_type][event.scheduled_priority].insert(insert_pos, event._id)
-                self.events_ids[event.get_event_id()].append(event._id)
-
-                if event._event_type not in self.accounts:
-                    self.accounts[event._event_type] = {'total_queued_events': 1, 'total_processed_events': 0, 'lack_events': False}
-                else:
-                    self.accounts[event._event_type]['total_queued_events'] += 1
-
-    def get(self, event_type, wait=0):
+    def send_bulk(self, events):
         with self._lock:
-            if event_type in self.events_index:
-                for scheduled_priority in [EventPriority.High, EventPriority.Medium, EventPriority.Low]:
-                    if (scheduled_priority in self.events_index[event_type] and self.events_index[event_type][scheduled_priority]):
-                        event_id = self.events_index[event_type][scheduled_priority][0]
-                        event = self.events[event_id]
-                        if event.scheduled_time <= time.time():
-                            event_id = self.events_index[event_type][scheduled_priority].pop(0)
+            for event in events:
+                self.insert_event(event)
+
+    def get(self, event_type, num_events=1, wait=0):
+        with self._lock:
+            events = []
+            for i in range(num_events):
+                if event_type in self.events_index:
+                    for scheduled_priority in [EventPriority.High, EventPriority.Medium, EventPriority.Low]:
+                        if (scheduled_priority in self.events_index[event_type] and self.events_index[event_type][scheduled_priority]):
+                            event_id = self.events_index[event_type][scheduled_priority][0]
                             event = self.events[event_id]
-                            del self.events[event_id]
-                            self.events_ids[event.get_event_id()].remove(event_id)
+                            if event.scheduled_time <= time.time():
+                                event_id = self.events_index[event_type][scheduled_priority].pop(0)
+                                event = self.events[event_id]
+                                del self.events[event_id]
+                                self.events_ids[event.get_event_id()].remove(event_id)
 
-                            if event._event_type in self.accounts:
-                                self.accounts[event._event_type]['total_queued_events'] -= 1
-                                self.accounts[event._event_type]['total_processed_events'] += 1
+                                if event._event_type in self.accounts:
+                                    self.accounts[event._event_type]['total_queued_events'] -= 1
+                                    self.accounts[event._event_type]['total_processed_events'] += 1
 
-                            self.logger.debug("Get event %s" % (event.to_json(strip=True)))
-                            return event
+                                self.logger.debug("Get event %s" % (event.to_json(strip=True)))
+                                events.append(event)
 
+            if not events:
                 if event_type in self.accounts:
                     if self.accounts[event_type]['total_queued_events'] == 0:
                         self.accounts[event_type]['lack_events'] = True
-            return None
+            return events
 
     def send_report(self, event, status, start_time, end_time, source, result):
         event_id = event.get_event_id()

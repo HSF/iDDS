@@ -8,6 +8,7 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2019 - 2023
 
+import time
 import traceback
 
 from idds.common.constants import (Sections, ReturnCode, ProcessingStatus, ProcessingLocking)
@@ -30,17 +31,18 @@ class Finisher(Poller):
     Finisher works to submit and running tasks to WFMS.
     """
 
-    def __init__(self, num_threads=1, finisher_max_number_workers=3, poll_time_period=10, retries=3, retrieve_bulk_size=2,
+    def __init__(self, num_threads=1, finisher_max_number_workers=3, max_number_workers=3, poll_time_period=10, retries=3, retrieve_bulk_size=2,
                  message_bulk_size=1000, **kwargs):
         if finisher_max_number_workers > num_threads:
             self.max_number_workers = finisher_max_number_workers
         else:
-            self.max_number_workers = num_threads
+            self.max_number_workers = max_number_workers
         self.set_max_workers()
 
         num_threads = int(self.max_number_workers)
 
-        super(Finisher, self).__init__(num_threads=num_threads, name='Finisher',
+        super(Finisher, self).__init__(num_threads=num_threads, max_number_workers=self.max_number_workers,
+                                       name='Finisher',
                                        poll_time_period=poll_time_period, retries=retries,
                                        retrieve_bulk_size=retrieve_bulk_size,
                                        message_bulk_size=message_bulk_size, **kwargs)
@@ -53,9 +55,13 @@ class Finisher(Poller):
         if hasattr(self, 'finisher_max_number_workers'):
             self.max_number_workers = int(self.finisher_max_number_workers)
 
+        self.show_queue_size_time = None
+
     def show_queue_size(self):
-        q_str = "number of processings: %s, max number of processings: %s" % (self.number_workers, self.max_number_workers)
-        self.logger.debug(q_str)
+        if self.show_queue_size_time is None or time.time() - self.show_queue_size_time >= 600:
+            self.show_queue_size_time = time.time()
+            q_str = "number of processings: %s, max number of processings: %s" % (self.number_workers, self.max_number_workers)
+            self.logger.debug(q_str)
 
     def handle_sync_processing(self, processing, log_prefix=""):
         """

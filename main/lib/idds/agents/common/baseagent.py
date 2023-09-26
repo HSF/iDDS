@@ -60,7 +60,7 @@ class BaseAgent(TimerScheduler, PluginBase):
             self.poll_operation_time_period = int(self.poll_operation_time_period)
 
         if not hasattr(self, 'event_interval_delay'):
-            self.event_interval_delay = 1
+            self.event_interval_delay = 0.0001
         else:
             self.event_interval_delay = int(self.event_interval_delay)
 
@@ -166,23 +166,26 @@ class BaseAgent(TimerScheduler, PluginBase):
             to_exec_at = event_funcs[event_type].get("to_exec_at", None)
             if to_exec_at is None or to_exec_at < time.time():
                 # if pre_check():
-                if self.executors.has_free_workers():
-                    event = self.event_bus.get(event_type)
-                    if event:
+                num_free_workers = self.executors.get_num_free_workers()
+                if num_free_workers > 0:
+                    events = self.event_bus.get(event_type, num_free_workers)
+                    for event in events:
                         future = self.executors.submit(exec_func, event)
                         self.event_futures[event._id] = (event, future, time.time())
                 event_funcs[event_type]["to_exec_at"] = time.time() + self.event_interval_delay
 
     def execute_schedules(self):
-        self.execute_timer_schedule()
+        # self.execute_timer_schedule()
+        self.execute_timer_schedule_thread()
         self.execute_event_schedule()
 
     def execute(self):
         while not self.graceful_stop.is_set():
             try:
-                self.execute_timer_schedule()
+                # self.execute_timer_schedule()
+                self.execute_timer_schedule_thread()
                 self.execute_event_schedule()
-                self.graceful_stop.wait(0.1)
+                self.graceful_stop.wait(0.00001)
             except Exception as error:
                 self.logger.critical("Caught an exception: %s\n%s" % (str(error), traceback.format_exc()))
 

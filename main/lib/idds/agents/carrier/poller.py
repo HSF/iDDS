@@ -34,11 +34,13 @@ class Poller(BaseAgent):
     Poller works to submit and running tasks to WFMS.
     """
 
-    def __init__(self, num_threads=1, poll_period=10, retries=3, retrieve_bulk_size=2,
+    def __init__(self, num_threads=1, max_number_workers=3, poll_period=10, retries=3, retrieve_bulk_size=2,
                  name='Poller', message_bulk_size=1000, **kwargs):
-        self.set_max_workers()
+        self.max_number_workers = max_number_workers
         if int(num_threads) < int(self.max_number_workers):
             num_threads = int(self.max_number_workers)
+
+        self.set_max_workers()
 
         super(Poller, self).__init__(num_threads=num_threads, name=name, **kwargs)
         self.config_section = Sections.Carrier
@@ -81,14 +83,23 @@ class Poller(BaseAgent):
         else:
             self.max_number_workers = int(self.max_number_workers)
 
+        self.show_queue_size_time = None
+
     def is_ok_to_run_more_processings(self):
         if self.number_workers >= self.max_number_workers:
             return False
         return True
 
     def show_queue_size(self):
-        if self.number_workers > 0:
+        if self.show_queue_size_time is None or time.time() - self.show_queue_size_time >= 600:
+            self.show_queue_size_time = time.time()
+
             q_str = "number of processings: %s, max number of processings: %s" % (self.number_workers, self.max_number_workers)
+            self.logger.debug(q_str)
+
+            exec_max_workers = self.executors.get_max_workers()
+            exec_num_workers = self.executors.get_num_workers()
+            q_str = "Executor number of processings: %s, max number of processings: %s" % (exec_num_workers, exec_max_workers)
             self.logger.debug(q_str)
 
     def init(self):
@@ -125,10 +136,12 @@ class Poller(BaseAgent):
             if processings:
                 self.logger.info("Main thread get [submitting + submitted + running] processings to process: %s" % (str(processings)))
 
+            events = []
             for pr_id in processings:
                 self.logger.info("UpdateProcessingEvent(processing_id: %s)" % pr_id)
                 event = UpdateProcessingEvent(publisher_id=self.id, processing_id=pr_id)
-                self.event_bus.send(event)
+                events.append(event)
+            self.event_bus.send_bulk(events)
 
             return processings
         except exceptions.DatabaseException as ex:
@@ -450,7 +463,7 @@ class Poller(BaseAgent):
 
             self.init_event_function_map()
 
-            task = self.create_task(task_func=self.get_running_processings, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=60, priority=1)
+            task = self.create_task(task_func=self.get_running_processings, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=10, priority=1)
             self.add_task(task)
 
             task = self.create_task(task_func=self.clean_locks, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1800, priority=1)

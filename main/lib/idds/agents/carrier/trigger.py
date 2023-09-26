@@ -32,17 +32,17 @@ class Trigger(Poller):
     Trigger works to trigger to release jobs
     """
 
-    def __init__(self, num_threads=1, trigger_max_number_workers=3, poll_period=10, retries=3, retrieve_bulk_size=2,
+    def __init__(self, num_threads=1, trigger_max_number_workers=3, max_number_workers=3, poll_period=10, retries=3, retrieve_bulk_size=2,
                  name='Trigger', message_bulk_size=1000, **kwargs):
         if trigger_max_number_workers > num_threads:
             self.max_number_workers = trigger_max_number_workers
         else:
-            self.max_number_workers = num_threads
+            self.max_number_workers = max_number_workers
 
         self.set_max_workers()
 
         num_threads = int(self.max_number_workers)
-        super(Trigger, self).__init__(num_threads=num_threads, name=name, **kwargs)
+        super(Trigger, self).__init__(num_threads=num_threads, name=name, max_number_workers=self.max_number_workers, **kwargs)
         self.logger.info("num_threads: %s" % num_threads)
 
         if hasattr(self, 'trigger_max_number_workers'):
@@ -73,10 +73,12 @@ class Trigger(Poller):
             if processings:
                 self.logger.info("Main thread get [ToTrigger, Triggering] processings to process: %s" % (str(processings)))
 
+            events = []
             for pr_id in processings:
                 self.logger.info("UpdateProcessingEvent(processing_id: %s)" % pr_id)
                 event = TriggerProcessingEvent(publisher_id=self.id, processing_id=pr_id)
-                self.event_bus.send(event)
+                events.append(event)
+            self.event_bus.send_bulk(events)
 
             return processings
         except exceptions.DatabaseException as ex:
@@ -275,7 +277,7 @@ class Trigger(Poller):
 
             self.init_event_function_map()
 
-            task = self.create_task(task_func=self.get_trigger_processings, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=60, priority=1)
+            task = self.create_task(task_func=self.get_trigger_processings, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=10, priority=1)
             self.add_task(task)
 
             self.execute()
