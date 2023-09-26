@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2022
+# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2023
 
 import copy
 import datetime
@@ -125,6 +125,9 @@ class ATLASHPOWork(ATLASCondorWork):
             self.set_agent_attributes(agent_attributes)
 
         self.logger = self.get_logger()
+
+    def generating_new_inputs(self):
+        return True
 
     def set_agent_attributes(self, attrs, req_attributes=None):
         self.agent_attributes = attrs

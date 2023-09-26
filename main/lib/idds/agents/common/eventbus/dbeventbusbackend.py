@@ -65,8 +65,13 @@ class DBEventBusBackend(BaseEventBusBackend):
         ret = core_events.add_event(event)
         self.logger.info("add event: %s, ret: %s" % (event, ret))
 
-    def get(self, event_type, wait=0):
-        event = core_events.get_event_for_processing(event_type=event_type)
+    def send_bulk(self, events):
+        for event in events:
+            ret = core_events.add_event(event)
+            self.logger.info("add event: %s, ret: %s" % (event, ret))
+
+    def get(self, event_type, num_events=1, wait=0):
+        event = core_events.get_event_for_processing(event_type=event_type, num_events=num_events)
         return event
 
     def clean_event(self, event):

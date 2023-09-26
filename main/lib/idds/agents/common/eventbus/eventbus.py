@@ -107,16 +107,19 @@ class EventBus(Singleton):
     def publish_event(self, event):
         self.backend.send(event)
 
-    def get_event(self, event_type):
+    def get_event(self, event_type, num_events=1):
         # demand_event = DemandEvent(event._event_type, self._id)
-        event = self.backend.get(event_type, wait=10)
+        event = self.backend.get(event_type, num_events=num_events, wait=10)
         return event
 
-    def get(self, event_type):
-        return self.get_event(event_type)
+    def get(self, event_type, num_events=1):
+        return self.get_event(event_type, num_events=num_events)
 
     def send(self, event):
         return self.publish_event(event)
+
+    def send_bulk(self, events):
+        self.backend.send_bulk(events)
 
     def send_report(self, event, status, start_time, end_time, source, result):
         return self.backend.send_report(event, status, start_time, end_time, source, result)

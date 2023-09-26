@@ -30,12 +30,13 @@ class Submitter(Poller):
     Submitter works to submit and running tasks to WFMS.
     """
 
-    def __init__(self, num_threads=1, poll_period=10, retries=3, retrieve_bulk_size=2,
+    def __init__(self, num_threads=1, max_number_workers=3, poll_period=10, retries=3, retrieve_bulk_size=2,
                  name='Submitter', message_bulk_size=1000, **kwargs):
+        self.max_number_workers = max_number_workers
         self.set_max_workers()
         num_threads = self.max_number_workers
 
-        super(Submitter, self).__init__(num_threads=num_threads, name=name, **kwargs)
+        super(Submitter, self).__init__(num_threads=num_threads, max_number_workers=self.max_number_workers, name=name, **kwargs)
 
     def get_new_processings(self):
         """
@@ -57,10 +58,12 @@ class Submitter(Poller):
             if processings:
                 self.logger.info("Main thread get [new] processings to process: %s" % str(processings))
 
+            events = []
             for pr_id in processings:
                 self.logger.info("NewProcessingEvent(processing_id: %s)" % pr_id)
                 event = NewProcessingEvent(publisher_id=self.id, processing_id=pr_id)
-                self.event_bus.send(event)
+                events.append(event)
+            self.event_bus.send_bulk(events)
 
             return processings
         except exceptions.DatabaseException as ex:
@@ -194,7 +197,7 @@ class Submitter(Poller):
 
             self.init_event_function_map()
 
-            task = self.create_task(task_func=self.get_new_processings, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=60, priority=1)
+            task = self.create_task(task_func=self.get_new_processings, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=10, priority=1)
             self.add_task(task)
 
             self.execute()

@@ -219,7 +219,7 @@ def update_event(event_id, status, session=None):
 
 
 @transactional_session
-def get_event_for_processing(event_type, session=None):
+def get_event_for_processing(event_type, num_events=1, session=None):
     """
     Get event for processing
 
@@ -234,24 +234,30 @@ def get_event_for_processing(event_type, session=None):
         query = query.order_by(desc(models.Event.priority))
         query = query.order_by(asc(models.Event.event_id))
 
-        tmp = query.first()
+        tmp = query.all()
+        events = []
         if tmp:
-            # event = tmp.to_dict()
-            event = tmp
-            session.expunge(event)
-            update_event_priority(event.event_type, event.get_event_id(), session=session)
-            update_event(event.event_id, status=EventStatus.Processing, session=session)
-            return event
-        return None
+            i = 0
+            for event in tmp:
+                # event = tmp.to_dict()
+                # event = tmp
+                session.expunge(event)
+                update_event_priority(event.event_type, event.get_event_id(), session=session)
+                update_event(event.event_id, status=EventStatus.Processing, session=session)
+                events.append(event)
+                i += 1
+                if i >= num_events:
+                    break
+        return events
     except NoResultFound as _:     # noqa F841
-        return None
+        return []
     except DatabaseError as e:
         if re.match('.*ORA-12899.*', e.args[0]) \
            or re.match('.*1406.*', e.args[0]):
             raise exceptions.DatabaseException('Could not persist event, content too large: %s' % str(e))
         else:
             raise exceptions.DatabaseException('Could not persist event: %s' % str(e))
-    return None
+    return []
 
 
 @transactional_session

@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2021
+# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2023
 
 import copy
 import datetime
@@ -840,6 +840,9 @@ class Work(Base):
                                         'workload_id': proc.workload_id,
                                         'external_id': proc.external_id}
         self.add_metadata_item('processings', proc_metadata)
+
+    def generating_new_inputs(self):
+        return False
 
     def refresh_work(self):
         coll_metadata = {}

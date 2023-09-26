@@ -49,7 +49,8 @@ class Clerk(BaseAgent):
     Clerk works to process requests and converts requests to transforms.
     """
 
-    def __init__(self, num_threads=1, poll_period=10, retrieve_bulk_size=10, cache_expire_seconds=300, pending_time=None, **kwargs):
+    def __init__(self, num_threads=1, max_number_workers=8, poll_period=10, retrieve_bulk_size=10, cache_expire_seconds=300, pending_time=None, **kwargs):
+        self.max_number_workers = max_number_workers
         self.set_max_workers()
         num_threads = self.max_number_workers
         super(Clerk, self).__init__(num_threads=num_threads, name='Clerk', **kwargs)
@@ -122,13 +123,16 @@ class Clerk(BaseAgent):
         else:
             self.max_number_workers = int(self.max_number_workers)
 
+        self.show_queue_size_time = None
+
     def is_ok_to_run_more_requests(self):
         if self.number_workers >= self.max_number_workers:
             return False
         return True
 
     def show_queue_size(self):
-        if self.number_workers > 0:
+        if self.show_queue_size_time is None or time.time() - self.show_queue_size_time >= 600:
+            self.show_queue_size_time = time.time()
             q_str = "number of requests: %s, max number of requests: %s" % (self.number_workers, self.max_number_workers)
             self.logger.debug(q_str)
 
@@ -156,9 +160,11 @@ class Clerk(BaseAgent):
             if reqs_new:
                 self.logger.info("Main thread get [New+Extend] requests to process: %s" % str(reqs_new))
 
+            events = []
             for req_id in reqs_new:
                 event = NewRequestEvent(publisher_id=self.id, request_id=req_id)
-                self.event_bus.send(event)
+                events.append(event)
+            self.event_bus.send_bulk(events)
 
             return reqs_new
         except exceptions.DatabaseException as ex:
@@ -194,9 +200,11 @@ class Clerk(BaseAgent):
             if reqs:
                 self.logger.info("Main thread get Transforming requests to running: %s" % str(reqs))
 
+            events = []
             for req_id in reqs:
                 event = UpdateRequestEvent(publisher_id=self.id, request_id=req_id)
-                self.event_bus.send(event)
+                events.append(event)
+            self.event_bus.send_bulk(events)
 
             return reqs
         except exceptions.DatabaseException as ex:
@@ -1283,7 +1291,7 @@ class Clerk(BaseAgent):
 
             task = self.create_task(task_func=self.get_new_requests, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=10, priority=1)
             self.add_task(task)
-            task = self.create_task(task_func=self.get_running_requests, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=60, priority=1)
+            task = self.create_task(task_func=self.get_running_requests, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=10, priority=1)
             self.add_task(task)
             task = self.create_task(task_func=self.get_operation_requests, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=10, priority=1)
             self.add_task(task)

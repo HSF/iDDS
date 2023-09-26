@@ -180,8 +180,11 @@ class MessagingSender(PluginBase, threading.Thread):
                     # conn.start()
                     conn.connect(username, password, wait=True)
                     return conn, queue_dest, destination
-            else:
+            elif self.conns[destination] is None:
                 return None, None, destination
+            else:
+                # return None, None, destination
+                pass
         except Exception as error:
             self.logger.error("Failed to connect to message broker(will re-resolve brokers): %s" % str(error))
 
