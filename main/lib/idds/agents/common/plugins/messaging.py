@@ -179,7 +179,7 @@ class MessagingSender(PluginBase, threading.Thread):
                 if not conn.is_connected():
                     # conn.start()
                     conn.connect(username, password, wait=True)
-                    return conn, queue_dest, destination
+                return conn, queue_dest, destination
             elif self.conns[destination] is None:
                 return None, None, destination
             else:
