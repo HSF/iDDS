@@ -16,6 +16,7 @@ SQLAlchemy models for idds relational data
 import datetime
 from enum import Enum
 
+from sqlalchemy import func
 from sqlalchemy import BigInteger, Boolean, Column, DateTime, Integer, String, Float, event, DDL, Interval
 from sqlalchemy.ext.compiler import compiles
 # from sqlalchemy.ext.hybrid import hybrid_property
@@ -543,6 +544,8 @@ class Content(BASE, ModelBase):
     content_dep_id = Column(BigInteger())
     scope = Column(String(SCOPE_LENGTH))
     name = Column(String(LONG_NAME_LENGTH))
+    name_md5 = Column(String(String(33)))
+    scope_name_md5 = Column(String(String(33)))
     min_id = Column(Integer(), default=0)
     max_id = Column(Integer(), default=0)
     content_type = Column(EnumWithValue(ContentType), nullable=False)
@@ -572,13 +575,13 @@ class Content(BASE, ModelBase):
                       # UniqueConstraint('name', 'scope', 'coll_id', 'min_id', 'max_id', name='CONTENT_SCOPE_NAME_UQ'),
                       # UniqueConstraint('content_id', 'coll_id', name='CONTENTS_UQ'),
                       # UniqueConstraint('transform_id', 'coll_id', 'map_id', 'name', 'min_id', 'max_id', name='CONTENT_ID_UQ'),
-                      UniqueConstraint('transform_id', 'coll_id', 'map_id', 'sub_map_id', 'dep_sub_map_id', 'content_relation_type', 'name', 'min_id', 'max_id', name='CONTENT_ID_UQ'),
+                      UniqueConstraint('transform_id', 'coll_id', 'map_id', 'sub_map_id', 'dep_sub_map_id', 'content_relation_type', 'name_md5', 'scope_name_md5', 'min_id', 'max_id', name='CONTENT_ID_UQ'),
                       ForeignKeyConstraint(['transform_id'], ['transforms.transform_id'], name='CONTENTS_TRANSFORM_ID_FK'),
                       ForeignKeyConstraint(['coll_id'], ['collections.coll_id'], name='CONTENTS_COLL_ID_FK'),
                       CheckConstraint('status IS NOT NULL', name='CONTENTS_STATUS_ID_NN'),
                       CheckConstraint('coll_id IS NOT NULL', name='CONTENTS_COLL_ID_NN'),
                       Index('CONTENTS_STATUS_UPDATED_IDX', 'status', 'locking', 'updated_at', 'created_at'),
-                      Index('CONTENTS_ID_NAME_IDX', 'coll_id', 'scope', 'name', 'status'),
+                      Index('CONTENTS_ID_NAME_IDX', 'coll_id', 'scope', func.md5('name'), 'status'),
                       Index('CONTENTS_DEP_IDX', 'request_id', 'transform_id', 'content_dep_id'),
                       Index('CONTENTS_REL_IDX', 'request_id', 'content_relation_type', 'transform_id', 'substatus'),
                       Index('CONTENTS_TF_IDX', 'transform_id', 'request_id', 'coll_id', 'map_id', 'content_relation_type'),
