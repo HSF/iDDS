@@ -991,10 +991,14 @@ def combine_contents_ext(contents, contents_ext, with_status_name=False):
     rets = []
     for content in contents:
         content_id = content['content_id']
+        ret = content
         if content_id in contents_ext_map:
+            contents_ext_map[content_id].update(content)
             ret = contents_ext_map[content_id]
         else:
-            ret = {'content_id': content_id}
+            default_params = get_contents_ext_items()
+            default_params.update(content)
+            ret = default_params
         if with_status_name:
             ret['status'] = content['status'].name
         else:
