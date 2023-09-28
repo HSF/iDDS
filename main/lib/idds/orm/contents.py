@@ -65,6 +65,7 @@ def create_content(request_id, workload_id, transform_id, coll_id, map_id, scope
                                  scope=scope, name=name, min_id=min_id, max_id=max_id,
                                  content_type=content_type, content_relation_type=content_relation_type,
                                  status=status, bytes=bytes, md5=md5,
+                                 name_md5=func.md5(name), scope_name_md5=func.md5(name),
                                  adler32=adler32, processing_id=processing_id, storage_id=storage_id,
                                  retries=retries, path=path, expired_at=expired_at, locking=locking,
                                  content_metadata=content_metadata)
@@ -144,6 +145,7 @@ def add_contents(contents, bulk_size=10000, session=None):
                       'locking': ContentLocking.Idle, 'content_relation_type': ContentRelationType.Input,
                       'bytes': 0, 'md5': None, 'adler32': None, 'processing_id': None,
                       'storage_id': None, 'retries': 0, 'path': None,
+                      'name_md5': None, 'scope_name_md5': None,
                       'expired_at': datetime.datetime.utcnow() + datetime.timedelta(days=30),
                       'content_metadata': None}
 
@@ -151,6 +153,8 @@ def add_contents(contents, bulk_size=10000, session=None):
         for key in default_params:
             if key not in content:
                 content[key] = default_params[key]
+        content['name_md5'] = func.md5(content['name'])
+        content['scope_name_md5'] = func.md5(content['name'])
 
     sub_params = [contents[i:i + bulk_size] for i in range(0, len(contents), bulk_size)]
 
@@ -987,10 +991,14 @@ def combine_contents_ext(contents, contents_ext, with_status_name=False):
     rets = []
     for content in contents:
         content_id = content['content_id']
+        ret = content
         if content_id in contents_ext_map:
+            contents_ext_map[content_id].update(content)
             ret = contents_ext_map[content_id]
         else:
-            ret = {'content_id': content_id}
+            default_params = get_contents_ext_items()
+            default_params.update(content)
+            ret = default_params
         if with_status_name:
             ret['status'] = content['status'].name
         else:
