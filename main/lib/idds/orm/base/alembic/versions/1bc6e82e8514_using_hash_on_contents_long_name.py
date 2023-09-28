@@ -30,31 +30,32 @@ depends_on = None
 def upgrade() -> None:
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
-        try:
-            op.drop_constraint(constraint_name="CONTENT_ID_UQ", table_name="contents", schema=schema)
-        except Exception as ex:
-            print(ex)
-        try:
-            op.drop_index(index_name="CONTENTS_ID_NAME_IDX", table_name="contents", schema=schema)
-        except Exception as ex:
-            print(ex)
+
+        op.drop_constraint(constraint_name="CONTENT_ID_UQ", table_name="contents", schema=schema)
+        op.drop_index(index_name="CONTENTS_ID_NAME_IDX", table_name="contents", schema=schema)
+
+        op.add_column('contents', sa.Column('name_md5', sa.String(33)), schema=schema)
+        op.add_column('contents', sa.Column('scope_name_md5', sa.String(33)), schema=schema)
+
+        # fill values for existing rows
+        op.execute('update %s.contents set name_md5=md5(name), scope_name_md5=md5(scope || name)' % schema)
 
         op.create_unique_constraint('CONTENT_ID_UQ', 'contents',
-                                    ['transform_id', 'coll_id', 'map_id', 'sub_map_id', 'dep_sub_map_id', 'content_relation_type', sa.func.adler32('name'), sa.func.md5('name'), sa.func.hash('name'), 'min_id', 'max_id'],
+                                    ['transform_id', 'coll_id', 'map_id', 'sub_map_id', 'dep_sub_map_id', 'content_relation_type', 'name_md5', 'scope_name_md5', 'min_id', 'max_id'],
                                     schema=schema)
-        op.create_index('CONTENTS_ID_NAME_IDX', 'contents', ['coll_id', 'scope', sa.func.hash('name'), 'status'], schema=schema)
+
+        op.create_index('CONTENTS_ID_NAME_IDX', 'contents', ['coll_id', 'scope', sa.func.md5('name'), 'status'], schema=schema)
 
 
 def downgrade() -> None:
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
-        try:
-            op.drop_constraint(constraint_name="CONTENT_ID_UQ", table_name="contents", schema=schema)
-        except Exception as ex:
-            print(ex)
-        try:
-            op.drop_index(index_name="CONTENTS_ID_NAME_IDX", table_name="contents", schema=schema)
-        except Exception as ex:
-            print(ex)
+
+        op.drop_constraint(constraint_name="CONTENT_ID_UQ", table_name="contents", schema=schema)
+        op.drop_index(index_name="CONTENTS_ID_NAME_IDX", table_name="contents", schema=schema)
+
+        op.drop_column('contents', 'name_md5', schema=schema)
+        op.drop_column('contents', 'scope_name_md5', schema=schema)
+
         op.create_unique_constraint('CONTENT_ID_UQ', 'contents', ['transform_id', 'coll_id', 'map_id', 'sub_map_id', 'dep_sub_map_id', 'content_relation_type', 'name', 'min_id', 'max_id'], schema=schema)
         op.create_index('CONTENTS_ID_NAME_IDX', 'contents', ['coll_id', 'scope', 'name', 'status'], schema=schema)
