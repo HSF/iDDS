@@ -14,6 +14,7 @@ operations related to Requests.
 """
 
 import datetime
+import hashlib
 
 import sqlalchemy
 from sqlalchemy import and_
@@ -65,7 +66,8 @@ def create_content(request_id, workload_id, transform_id, coll_id, map_id, scope
                                  scope=scope, name=name, min_id=min_id, max_id=max_id,
                                  content_type=content_type, content_relation_type=content_relation_type,
                                  status=status, bytes=bytes, md5=md5,
-                                 name_md5=func.md5(name), scope_name_md5=func.md5(name),
+                                 name_md5=hashlib.md5(name.encode("utf-8")).hexdigest(),
+                                 scope_name_md5=hashlib.md5(name.encode("utf-8")).hexdigest(),
                                  adler32=adler32, processing_id=processing_id, storage_id=storage_id,
                                  retries=retries, path=path, expired_at=expired_at, locking=locking,
                                  content_metadata=content_metadata)
@@ -153,8 +155,8 @@ def add_contents(contents, bulk_size=10000, session=None):
         for key in default_params:
             if key not in content:
                 content[key] = default_params[key]
-        content['name_md5'] = func.md5(content['name'])
-        content['scope_name_md5'] = func.md5(content['name'])
+        content['name_md5'] = hashlib.md5(content['name'].encode("utf-8")).hexdigest()
+        content['scope_name_md5'] = hashlib.md5(content['name'].encode("utf-8")).hexdigest()
 
     sub_params = [contents[i:i + bulk_size] for i in range(0, len(contents), bulk_size)]
 
