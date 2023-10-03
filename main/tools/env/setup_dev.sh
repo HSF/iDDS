@@ -25,6 +25,8 @@ source /afs/cern.ch/user/w/wguan/workdisk/conda/setup.sh
 conda activate $CondaDir
 #export PYTHONPATH=${IDDS_HOME}/lib:$PYTHONPATH
 
+export IDDS_MAX_NAME_LENGTH=8000
+
 export RUCIO_HOME=$RootDir
 #export RUCIO_ACCOUNT=ddmadmin
 export RUCIO_ACCOUNT=wguan

@@ -1665,7 +1665,7 @@ def sync_collection_status(request_id, transform_id, workload_id, work, input_ou
     return update_collections, all_updates_flushed, messages
 
 
-def sync_work_status(request_id, transform_id, workload_id, work):
+def sync_work_status(request_id, transform_id, workload_id, work, substatus=None):
     input_collections = work.get_input_collections()
     output_collections = work.get_output_collections()
     log_collections = work.get_log_collections()
@@ -1673,22 +1673,31 @@ def sync_work_status(request_id, transform_id, workload_id, work):
     is_all_collections_closed = True
     is_all_files_processed = True
     is_all_files_failed = True
+    has_files = False
     for coll in input_collections + output_collections + log_collections:
         if coll.status != CollectionStatus.Closed:
             is_all_collections_closed = False
     for coll in output_collections:
+        if coll.total_files > 0:
+            has_files = True
         if coll.total_files != coll.processed_files:
             is_all_files_processed = False
         if coll.processed_files > 0 or coll.total_files == coll.processed_files:
             is_all_files_failed = False
 
     if is_all_collections_closed:
-        if is_all_files_processed:
-            work.status = WorkStatus.Finished
-        elif is_all_files_failed:
-            work.status = WorkStatus.Failed
+        if has_files:
+            if is_all_files_processed:
+                work.status = WorkStatus.Finished
+            elif is_all_files_failed:
+                work.status = WorkStatus.Failed
+            else:
+                work.status = WorkStatus.SubFinished
         else:
-            work.status = WorkStatus.SubFinished
+            if substatus:
+                work.status = substatus
+            else:
+                work.status = WorkStatus.Failed
 
 
 def sync_processing(processing, agent_attributes, terminate=False, abort=False, logger=None, log_prefix=""):
@@ -1715,7 +1724,7 @@ def sync_processing(processing, agent_attributes, terminate=False, abort=False, 
 
     messages += msgs
 
-    sync_work_status(request_id, transform_id, workload_id, work)
+    sync_work_status(request_id, transform_id, workload_id, work, processing['substatus'])
     logger.info(log_prefix + "sync_processing: work status: %s" % work.get_status())
     if terminate and work.is_terminated():
         msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='work')
