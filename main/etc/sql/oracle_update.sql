@@ -446,8 +446,8 @@ alter table contents add constraint CONTENT_ID_UQ UNIQUE (transform_id, coll_id,
 
 --- 20230927
 alter table contents add (name_md5 varchar2(33), scope_name_md5 varchar2(33));
-update table contents set name_md5=md5(name), scope_name_md5=md5(scope || name);
+update contents set name_md5=standard_hash(name, 'MD5'), scope_name_md5=standard_hash(scope || name, 'MD5');
 alter table contents drop constraint CONTENT_ID_UQ;
 alter table contents add constraint CONTENT_ID_UQ UNIQUE (transform_id, coll_id, map_id, sub_map_id, dep_sub_map_id, content_relation_type, name_md5, scope_name_md5, min_id, max_id) USING INDEX LOCAL;
 drop index CONTENTS_ID_NAME_IDX;
-CREATE INDEX CONTENTS_ID_NAME_IDX ON CONTENTS (coll_id, scope, md5(name), status);
+CREATE INDEX CONTENTS_ID_NAME_IDX ON CONTENTS (coll_id, scope, standard_hash(name, 'MD5'), status);

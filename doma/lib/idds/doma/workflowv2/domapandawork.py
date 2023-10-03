@@ -883,6 +883,9 @@ class DomaPanDAWork(Work):
             panda_status = panda_job_status['status']
             job_info = panda_job_status['job_info']
 
+            if input_file not in inputname_to_map_id_outputs:
+                continue
+
             output_contents = inputname_to_map_id_outputs[input_file]['outputs']
             for content in output_contents:
                 content['substatus'] = panda_status

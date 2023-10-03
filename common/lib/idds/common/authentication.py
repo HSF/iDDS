@@ -338,6 +338,41 @@ class OIDCAuthentication(BaseAuthentication):
         except Exception as error:
             return False, 'Failed to verify oidc token: ' + str(error), None
 
+    def setup_oidc_client_token(self, issuer, client_id, client_secret, scope, audience):
+        try:
+            data = {'client_id': client_id,
+                    'client_secret': client_secret,
+                    'grant_type': 'client_credentials',
+                    'scope': scope,
+                    'audience': audience}
+
+            headers = {'content-type': 'application/x-www-form-urlencoded'}
+
+            endpoint = '{0}/token'.format(issuer)
+            result = requests.session().post(endpoint,
+                                             # data=json.dumps(data),
+                                             # data=data,
+                                             urlencode(data).encode(),
+                                             timeout=self.timeout,
+                                             verify=should_verify(ssl_verify=self.get_ssl_verify()),
+                                             headers=headers)
+
+            if result is not None:
+                # print(result)
+                # print(result.text)
+                # print(result.status_code)
+
+                if result.status_code == HTTP_STATUS_CODE.OK and result.text:
+                    return True, json.loads(result.text)
+                else:
+                    return False, "Failed to refresh oidc token (status: %s, text: %s)" % (result.status_code, result.text)
+            else:
+                return False, "Failed to refresh oidc token. Response is None."
+        except requests.exceptions.ConnectionError as error:
+            return False, 'Failed to refresh oidc token. ConnectionError: ' + str(error)
+        except Exception as error:
+            return False, 'Failed to refresh oidc token: ' + str(error)
+
 
 class OIDCAuthenticationUtils(object):
     def __init__(self):
