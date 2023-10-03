@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2022
+# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2023
 
 """
 iDDS CLI
@@ -42,6 +42,11 @@ def setup_oidc_token(args):
     cm = ClientManager(host=args.host, setup_client=True)
     cm.setup_oidc_token()
 
+def setup_oidc_client_token(args):
+    cm = ClientManager(host=args.host, setup_client=True)
+    cm.setup_oidc_client_token(issuer=args.oidc_issuer, client_id=args.oidc_client_id,
+                               client_secret=args.oidc_client_secret, scope=args.oidc_scope,
+                               audience=args.oidc_audience)
 
 def clean_oidc_token(args):
     cm = ClientManager(host=args.host, setup_client=False)
@@ -151,6 +156,9 @@ def get_parser():
     # setup token
     token_setup_parser = subparsers.add_parser('setup_oidc_token', help='Setup authentication token')
     token_setup_parser.set_defaults(function=setup_oidc_token)
+    # token_setup_parser.add_argument('--oidc_audience', dest='oidc_audience', default=None, help='The oidc audience')
+    # token_setup_parser.add_argument('--oidc_scope', dest='oidc_scope', default=None, help='The oidc scope')
+
     # token_setup_parser.add_argument('--oidc_refresh_lifetime', dest='oidc_refresh_lifetime', default=None, help='The oidc refresh lifetime')
     # token_setup_parser.add_argument('--oidc_issuer', dest='oidc_issuer', default=None, help='The oidc issuer')
     # token_setup_parser.add_argument('--oidc_audience', dest='oidc_audience', default=None, help='The oidc audience')
@@ -162,6 +170,14 @@ def get_parser():
     # token_setup_parser.add_argument('--oidc_polling', dest='oidc_polling', default=False, help='whether polling oidc')
     # token_setup_parser.add_argument('--saml_username', dest='saml_username', default=None, help='The SAML username')
     # token_setup_parser.add_argument('--saml_password', dest='saml_password', default=None, help='The saml password')
+
+    token_setup_parser = subparsers.add_parser('setup_oidc_client_token', help='Setup authentication client token')
+    token_setup_parser.set_defaults(function=setup_oidc_client_token)
+    token_setup_parser.add_argument('--oidc_issuer', dest='oidc_issuer', default=None, help='The oidc issuer')
+    token_setup_parser.add_argument('--oidc_client_id', dest='oidc_client_id', default=None, help='The oidc client id')
+    token_setup_parser.add_argument('--oidc_client_secret', dest='oidc_client_secret', default=None, help='The oidc client secret')
+    token_setup_parser.add_argument('--oidc_audience', dest='oidc_audience', default=None, help='The oidc audience')
+    token_setup_parser.add_argument('--oidc_scope', dest='oidc_scope', default=None, help='The oidc scope')
 
     # clean token
     token_clean_parser = subparsers.add_parser('clean_oidc_token', help='Clean authentication token')
