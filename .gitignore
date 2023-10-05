@@ -35,5 +35,5 @@ etc/idds/rest/gacl
 
 # compile files
 *egg*
-*build*
+# *build*
 
