@@ -998,7 +998,10 @@ def combine_contents_ext(contents, contents_ext, with_status_name=False):
             contents_ext_map[content_id].update(content)
             ret = contents_ext_map[content_id]
         else:
-            default_params = get_contents_ext_items()
+            default_params = get_contents_ext_maps()
+            for key in default_params:
+                default_params[key] = None
+
             default_params.update(content)
             ret = default_params
         if with_status_name:
