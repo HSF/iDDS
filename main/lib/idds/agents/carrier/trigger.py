@@ -42,7 +42,8 @@ class Trigger(Poller):
         self.set_max_workers()
 
         num_threads = int(self.max_number_workers)
-        super(Trigger, self).__init__(num_threads=num_threads, name=name, max_number_workers=self.max_number_workers, **kwargs)
+        super(Trigger, self).__init__(num_threads=num_threads, name=name, max_number_workers=self.max_number_workers,
+                                      retrieve_bulk_size=retrieve_bulk_size, **kwargs)
         self.logger.info("num_threads: %s" % num_threads)
 
         if hasattr(self, 'trigger_max_number_workers'):

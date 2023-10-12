@@ -36,7 +36,8 @@ class Submitter(Poller):
         self.set_max_workers()
         num_threads = self.max_number_workers
 
-        super(Submitter, self).__init__(num_threads=num_threads, max_number_workers=self.max_number_workers, name=name, **kwargs)
+        super(Submitter, self).__init__(num_threads=num_threads, max_number_workers=self.max_number_workers,
+                                        name=name, retrieve_bulk_size=retrieve_bulk_size, **kwargs)
 
     def get_new_processings(self):
         """

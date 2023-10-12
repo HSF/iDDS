@@ -15,6 +15,7 @@ Test client.
 
 
 from idds.client.clientmanager import ClientManager
+from idds.common.constants import RequestStatus
 from idds.common.utils import json_dumps  # noqa F401
 from idds.rest.v1.utils import convert_old_req_2_workflow_req
 from idds.common.utils import setup_logging
@@ -42,7 +43,8 @@ def migrate():
     cern_k8s_dev_host = 'https://panda-idds-dev.cern.ch/idds'  # noqa F841
 
     # cm1 = ClientManager(host=atlas_host)
-    cm1 = ClientManager(host=doma_host)
+    # cm1 = ClientManager(host=doma_host)
+    cm1 = ClientManager(host=atlas_host)
     # cm1 = ClientManager(host=slac_k8s_dev_host)
     # reqs = cm1.get_requests(request_id=290)
     # old_request_id = 298163
@@ -64,6 +66,12 @@ def migrate():
 
     # old_request_ids = [21]
 
+    old_request_ids = [551889]
+
+    old_request_ids = [i for i in range(551911, 556618)]
+    old_request_ids = [i for i in range(556618, 556712)]
+    old_request_ids = [i for i in range(556712, 556940)]
+    old_request_ids = [i for i in range(556940, 557110)]
     # old_request_id = 1
     # for old_request_id in [152]:
     # for old_request_id in [60]:    # noqa E115
@@ -71,10 +79,10 @@ def migrate():
     for old_request_id in old_request_ids:    # noqa E115  # doma 183
         reqs = cm1.get_requests(request_id=old_request_id, with_metadata=True)
 
-        # cm2 = ClientManager(host=dev_host)
+        cm2 = ClientManager(host=dev_host)
         # cm2 = ClientManager(host=doma_host)
         # cm2 = ClientManager(host=atlas_host)
-        cm2 = ClientManager(host=slac_k8s_dev_host)
+        # cm2 = ClientManager(host=slac_k8s_dev_host)
         # cm2 = ClientManager(host=slac_k8s_prod_host)
         # cm2 = ClientManager(host=cern_k8s_dev_host)
         # print(reqs)
@@ -85,7 +93,12 @@ def migrate():
             # workflow = req['request_metadata']['workflow']
             # print(json_dumps(workflow, sort_keys=True, indent=4))
 
-            req = convert_old_req_2_workflow_req(req)
+            # req = convert_old_req_2_workflow_req(req)
+            print(req['status'])
+            if req['status'] in [RequestStatus.Finished]:
+                print('request stutus: %s, skip' % str(req['status']))
+                continue
+
             workflow = req['request_metadata']['workflow']
             workflow.clean_works()
 
