@@ -1575,10 +1575,14 @@ class WorkflowBase(Base):
             work = self.works[k]
             self.log_debug("work %s is_terminated(%s:%s)" % (work.get_internal_id(), work.is_terminated(), work.get_status()))
 
+            if work.get_internal_id() not in self.current_running_works and work.get_status() in [WorkStatus.Transforming]:
+                self.current_running_works.append(work.get_internal_id())
+
         for work in [self.works[k] for k in self.new_to_run_works]:
             if work.transforming:
                 self.new_to_run_works.remove(work.get_internal_id())
-                self.current_running_works.append(work.get_internal_id())
+                if work.get_internal_id() not in self.current_running_works:
+                    self.current_running_works.append(work.get_internal_id())
 
         for work in [self.works[k] for k in self.current_running_works]:
             if isinstance(work, Workflow):
@@ -1614,6 +1618,16 @@ class WorkflowBase(Base):
                     self.terminated_works.append(work.get_internal_id())
                     self.current_running_works.remove(work.get_internal_id())
 
+        self.num_finished_works = 0
+        self.num_subfinished_works = 0
+        self.num_failed_works = 0
+        self.num_expired_works = 0
+        self.num_cancelled_works = 0
+        self.num_suspended_works = 0
+
+        for k in self.works:
+            work = self.works[k]
+            if work.is_terminated():
                 if work.is_finished():
                     self.num_finished_works += 1
                 elif work.is_subfinished():
