@@ -17,7 +17,7 @@ Test client.
 from idds.client.clientmanager import ClientManager
 from idds.common.constants import RequestStatus
 from idds.common.utils import json_dumps  # noqa F401
-from idds.rest.v1.utils import convert_old_req_2_workflow_req
+from idds.rest.v1.utils import convert_old_req_2_workflow_req  # noqa F401
 from idds.common.utils import setup_logging
 
 
