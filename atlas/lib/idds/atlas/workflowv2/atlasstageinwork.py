@@ -293,7 +293,14 @@ class ATLASStageinWork(DataWork):
             # p = processing
             # rule_id = p['processing_metadata']['rule_id']
             proc = processing['processing_metadata']['processing']
-            rule_id = proc.external_id
+
+            if proc.external_id:
+                rule_id = proc.external_id
+            elif self.rule_id:
+                rule_id = self.rule_id
+            else:
+                rule_id = proc.processing_metadata.get('rule_id', None)
+            self.logger.debug("rule_id: %s" % rule_id)
 
             replicases_status = {}
             if rule_id:
