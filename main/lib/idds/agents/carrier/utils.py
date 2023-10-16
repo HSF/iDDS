@@ -22,7 +22,8 @@ from idds.common.constants import (ProcessingStatus,
                                    TransformType2MessageTypeMap,
                                    MessageType, MessageTypeStr,
                                    MessageStatus, MessageSource,
-                                   MessageDestination)
+                                   MessageDestination,
+                                   get_work_status_from_transform_processing_status)
 from idds.common.utils import setup_logging
 from idds.core import (transforms as core_transforms,
                        processings as core_processings,
@@ -1665,7 +1666,9 @@ def sync_collection_status(request_id, transform_id, workload_id, work, input_ou
     return update_collections, all_updates_flushed, messages
 
 
-def sync_work_status(request_id, transform_id, workload_id, work, substatus=None):
+def sync_work_status(request_id, transform_id, workload_id, work, substatus=None, log_prefix=""):
+    logger = get_logger()
+
     input_collections = work.get_input_collections()
     output_collections = work.get_output_collections()
     log_collections = work.get_log_collections()
@@ -1686,6 +1689,10 @@ def sync_work_status(request_id, transform_id, workload_id, work, substatus=None
             is_all_files_failed = False
 
     if is_all_collections_closed:
+        logger.debug(log_prefix + "has_files: %s, is_all_files_processed: %s, is_all_files_failed: %s, substatus: %s" % (has_files,
+                                                                                                                         is_all_files_processed,
+                                                                                                                         is_all_files_failed,
+                                                                                                                         substatus))
         if has_files:
             if is_all_files_processed:
                 work.status = WorkStatus.Finished
@@ -1695,9 +1702,10 @@ def sync_work_status(request_id, transform_id, workload_id, work, substatus=None
                 work.status = WorkStatus.SubFinished
         else:
             if substatus:
-                work.status = substatus
+                work.status = get_work_status_from_transform_processing_status(substatus)
             else:
                 work.status = WorkStatus.Failed
+        logger.debug(log_prefix + "work status: %s, substatus: %s" % (str(work.status), substatus))
 
 
 def sync_processing(processing, agent_attributes, terminate=False, abort=False, logger=None, log_prefix=""):
@@ -1724,7 +1732,7 @@ def sync_processing(processing, agent_attributes, terminate=False, abort=False, 
 
     messages += msgs
 
-    sync_work_status(request_id, transform_id, workload_id, work, processing['substatus'])
+    sync_work_status(request_id, transform_id, workload_id, work, processing['substatus'], log_prefix)
     logger.info(log_prefix + "sync_processing: work status: %s" % work.get_status())
     if terminate and work.is_terminated():
         msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='work')

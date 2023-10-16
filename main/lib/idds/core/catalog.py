@@ -512,7 +512,7 @@ def get_content_status_statistics(coll_id=None, transform_ids=None, session=None
 
 
 @read_session
-def get_content_status_statistics_by_relation_type(transform_ids, session=None):
+def get_content_status_statistics_by_relation_type(transform_ids, bulk_size=500, session=None):
     """
     Get statistics group by status
 
@@ -521,7 +521,20 @@ def get_content_status_statistics_by_relation_type(transform_ids, session=None):
 
     :returns: statistics group by status, as a dict.
     """
-    return orm_contents.get_content_status_statistics_by_relation_type(transform_ids, session=session)
+    if transform_ids and not isinstance(transform_ids, (list, tuple)):
+        transform_ids = [transform_ids]
+    if transform_ids and len(transform_ids) == 1:
+        transform_ids = [transform_ids[0], transform_ids[0]]
+
+    if transform_ids and len(transform_ids) > bulk_size:
+        chunks = [transform_ids[i:i + bulk_size] for i in range(0, len(transform_ids), bulk_size)]
+        ret = []
+        for chunk in chunks:
+            tmp = orm_contents.get_content_status_statistics_by_relation_type(chunk, session=session)
+            ret += tmp
+        return ret
+    else:
+        return orm_contents.get_content_status_statistics_by_relation_type(transform_ids, session=session)
 
 
 @transactional_session
