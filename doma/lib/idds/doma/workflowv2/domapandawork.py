@@ -575,6 +575,17 @@ class DomaPanDAWork(Work):
         self.active_processings.append(proc.internal_id)
         return proc
 
+    def get_site_from_cloud(self, site):
+        try:
+            func_site_to_cloud = self.get_func_site_to_cloud()
+            if func_site_to_cloud:
+                cloud = func_site_to_cloud(site)
+                return cloud
+        except Exception as ex:
+            self.logger.error(ex)
+            return None
+        return None
+
     def submit_panda_task(self, processing):
         try:
             from pandaclient import Client
@@ -584,6 +595,10 @@ class DomaPanDAWork(Work):
             if 'new_retries' in processing and processing['new_retries']:
                 new_retries = int(processing['new_retries'])
                 task_param['taskName'] = task_param['taskName'] + "_" + str(new_retries)
+            cloud = self.get_site_from_cloud(task_param['PandaSite'])
+            if cloud:
+                task_param['cloud'] = cloud
+
             if self.has_dependency():
                 parent_tid = None
                 self.logger.info("parent_workload_id: %s" % self.parent_workload_id)
