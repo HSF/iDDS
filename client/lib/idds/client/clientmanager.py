@@ -423,7 +423,7 @@ class ClientManager:
         return status
 
     @exception_handler
-    def submit(self, workflow, username=None, userdn=None, use_dataset_name=True):
+    def submit(self, workflow, username=None, userdn=None, use_dataset_name=False):
         """
         Submit the workflow as a request to iDDS server.
 
@@ -454,7 +454,7 @@ class ClientManager:
         if self.auth_type == 'x509_proxy':
             workflow.add_proxy()
 
-        if use_dataset_name:
+        if use_dataset_name or not workflow.name:
             primary_init_work = workflow.get_primary_initial_collection()
             if primary_init_work:
                 if type(primary_init_work) in [Collection, CollectionV1]:
