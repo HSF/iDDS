@@ -38,6 +38,7 @@ class Submitter(Poller):
 
         super(Submitter, self).__init__(num_threads=num_threads, max_number_workers=self.max_number_workers,
                                         name=name, retrieve_bulk_size=retrieve_bulk_size, **kwargs)
+        self.site_to_cloud = None
 
     def get_new_processings(self):
         """
@@ -76,6 +77,28 @@ class Submitter(Poller):
                 self.logger.error(traceback.format_exc())
         return []
 
+    def get_site_to_cloud(self, site, log_prefix=''):
+        try:
+            if self.site_to_cloud is None:
+                self.logger.debug(log_prefix + " agent_attributes: %s" % str(self.agent_attributes))
+                self.site_to_cloud = {}
+                if self.agent_attributes and 'domapandawork' in self.agent_attributes and self.agent_attributes['domapandawork']:
+                    if 'site_to_cloud' in self.agent_attributes['domapandawork'] and self.agent_attributes['domapandawork']['site_to_cloud']:
+                        site_to_clouds = self.agent_attributes['domapandawork']['site_to_cloud'].split(",")
+                        for site_to_cloud in site_to_clouds:
+                            local_site, cloud = site_to_cloud.split(':')
+                            if local_site not in self.site_to_cloud:
+                                self.site_to_cloud[local_site] = cloud
+                self.logger.debug(log_prefix + " site_to_cloud: %s" % self.site_to_cloud)
+
+            if site and self.site_to_cloud:
+                cloud = self.site_to_cloud.get(site, None)
+                self.logger.debug(log_prefix + "cloud for site(%s): %s" % (site, cloud))
+                return cloud
+        except Exception as ex:
+            self.logger.error(ex)
+        return None
+
     def handle_new_processing(self, processing):
         try:
             log_prefix = self.get_log_prefix(processing)
@@ -85,6 +108,7 @@ class Submitter(Poller):
             # work = transform['transform_metadata']['work']
             ret_new_processing = handle_new_processing(processing,
                                                        self.agent_attributes,
+                                                       func_site_to_cloud=self.get_site_to_cloud,
                                                        logger=self.logger,
                                                        log_prefix=log_prefix)
             status, processing, update_colls, new_contents, new_input_dependency_contents, msgs, errors = ret_new_processing

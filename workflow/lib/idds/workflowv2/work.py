@@ -590,6 +590,8 @@ class Work(Base):
 
         self.is_build_work = False
 
+        self.func_site_to_cloud = None
+
         """
         self._running_data_names = []
         for name in ['internal_id', 'template_work_id', 'initialized', 'sequence_id', 'parameters', 'work_id', 'transforming', 'workdir',
@@ -1117,6 +1119,12 @@ class Work(Base):
 
     def get_work_name(self):
         return self.work_name
+
+    def set_func_site_to_cloud(self, func):
+        self.func_site_to_cloud = func
+
+    def get_func_site_to_cloud(self):
+        return self.func_site_to_cloud
 
     def get_is_template(self):
         self.is_template
