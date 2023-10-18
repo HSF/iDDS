@@ -5,6 +5,7 @@ import idds.common.utils as idds_utils
 conn = idds_api.get_api(idds_utils.json_dumps, idds_host=None, compress=True, manager=True)
 reqid = 5460
 ret = conn.get_requests(request_id=int(reqid), with_detail=True)
+print(ret)
 jtids = [task["transform_workload_id"] for task in ret[1][1] if task["transform_status"]["attributes"]["_name_"] != "Finished"]
 print(jtids)
 

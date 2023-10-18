@@ -466,7 +466,7 @@ def generate_messages(request_id, transform_id, workload_id, work, msg_type='fil
         return msgs
 
 
-def handle_new_processing(processing, agent_attributes, logger=None, log_prefix=''):
+def handle_new_processing(processing, agent_attributes, func_site_to_cloud=None, logger=None, log_prefix=''):
     logger = get_logger(logger)
 
     proc = processing['processing_metadata']['processing']
@@ -474,6 +474,8 @@ def handle_new_processing(processing, agent_attributes, logger=None, log_prefix=
     work.set_agent_attributes(agent_attributes, processing)
     transform_id = processing['transform_id']
 
+    if func_site_to_cloud:
+        work.set_func_site_to_cloud(func_site_to_cloud)
     status, workload_id, errors = work.submit_processing(processing)
     logger.info(log_prefix + "submit_processing (status: %s, workload_id: %s, errors: %s)" % (status, workload_id, errors))
 
