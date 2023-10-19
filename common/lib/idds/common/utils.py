@@ -583,3 +583,8 @@ def pid_exists(pid):
             raise
     else:
         return True
+
+
+def get_list_chunks(full_list, bulk_size=2000):
+    chunks = [full_list[i:i + bulk_size] for i in range(0, len(full_list), bulk_size)]
+    return chunks

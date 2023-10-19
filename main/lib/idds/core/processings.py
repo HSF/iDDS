@@ -17,6 +17,7 @@ import datetime
 
 from idds.orm.base.session import read_session, transactional_session
 from idds.common.constants import ProcessingLocking, ProcessingStatus, GranularityType, ContentRelationType
+from idds.common.utils import get_list_chunks
 from idds.orm import (processings as orm_processings,
                       collections as orm_collections,
                       contents as orm_contents,
@@ -327,35 +328,51 @@ def update_processing_contents(update_processing, update_contents, update_messag
     if update_collections:
         orm_collections.update_collections(update_collections, session=session)
     if update_contents:
-        orm_contents.update_contents(update_contents, session=session)
+        chunks = get_list_chunks(update_contents)
+        for chunk in chunks:
+            orm_contents.update_contents(chunk, session=session)
     if new_update_contents:
         # first add and then delete, to trigger the trigger 'update_content_dep_status'.
         # too slow
-        orm_contents.add_contents_update(new_update_contents, session=session)
+        chunks = get_list_chunks(new_update_contents)
+        for chunk in chunks:
+            orm_contents.add_contents_update(chunk, session=session)
         # orm_contents.delete_contents_update(session=session)
         pass
     if new_contents:
-        orm_contents.add_contents(new_contents, session=session)
+        chunks = get_list_chunks(new_contents)
+        for chunk in chunks:
+            orm_contents.add_contents(chunk, session=session)
     if new_contents_ext:
-        orm_contents.add_contents_ext(new_contents_ext, session=session)
+        chunks = get_list_chunks(new_contents_ext)
+        for chunk in chunks:
+            orm_contents.add_contents_ext(chunk, session=session)
     if update_contents_ext:
-        orm_contents.update_contents_ext(update_contents_ext, session=session)
+        chunks = get_list_chunks(update_contents_ext)
+        for chunk in chunks:
+            orm_contents.update_contents_ext(chunk, session=session)
     if new_input_dependency_contents:
         new_input_dependency_contents = resolve_input_dependency_id(new_input_dependency_contents, session=session)
-        orm_contents.add_contents(new_input_dependency_contents, session=session)
+        chunks = get_list_chunks(new_input_dependency_contents)
+        for chunk in chunks:
+            orm_contents.add_contents(chunk, session=session)
     if update_dep_contents:
         request_id, update_dep_contents_status_name, update_dep_contents_status = update_dep_contents
         for status_name in update_dep_contents_status_name:
             status = update_dep_contents_status_name[status_name]
             status_content_ids = update_dep_contents_status[status_name]
             if status_content_ids:
-                orm_contents.update_dep_contents(request_id, status_content_ids, status, session=session)
+                chunks = get_list_chunks(status_content_ids)
+                for chunk in chunks:
+                    orm_contents.update_dep_contents(request_id, chunk, status, session=session)
     if update_processing:
         orm_processings.update_processing(processing_id=update_processing['processing_id'],
                                           parameters=update_processing['parameters'],
                                           session=session)
     if update_messages:
-        orm_messages.update_messages(update_messages, bulk_size=message_bulk_size, session=session)
+        chunks = get_list_chunks(update_messages)
+        for chunk in chunks:
+            orm_messages.update_messages(chunk, bulk_size=message_bulk_size, session=session)
     if messages:
         if not type(messages) in [list, tuple]:
             messages = [messages]
