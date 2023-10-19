@@ -75,7 +75,7 @@ else:
     # task_queue = 'SLAC_Rubin_Merge'
     # task_queue = 'SLAC_TEST'
 
-task_cloud = None
+# task_cloud = None
 
 
 def randStr(chars=string.ascii_lowercase + string.digits, N=10):

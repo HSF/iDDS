@@ -33,7 +33,7 @@ class Trigger(Poller):
     """
 
     def __init__(self, num_threads=1, trigger_max_number_workers=3, max_number_workers=3, poll_period=10, retries=3, retrieve_bulk_size=2,
-                 name='Trigger', message_bulk_size=1000, **kwargs):
+                 name='Trigger', message_bulk_size=1000, max_updates_per_round=2000, **kwargs):
         if trigger_max_number_workers > num_threads:
             self.max_number_workers = trigger_max_number_workers
         else:
@@ -45,6 +45,9 @@ class Trigger(Poller):
         super(Trigger, self).__init__(num_threads=num_threads, name=name, max_number_workers=self.max_number_workers,
                                       retrieve_bulk_size=retrieve_bulk_size, **kwargs)
         self.logger.info("num_threads: %s" % num_threads)
+
+        self.max_updates_per_round = max_updates_per_round
+        self.logger.info("max_updates_per_round: %s" % self.max_updates_per_round)
 
         if hasattr(self, 'trigger_max_number_workers'):
             self.max_number_workers = int(self.trigger_max_number_workers)
@@ -97,6 +100,7 @@ class Trigger(Poller):
             ret_trigger_processing = handle_trigger_processing(processing,
                                                                self.agent_attributes,
                                                                trigger_new_updates=trigger_new_updates,
+                                                               max_updates_per_round=self.max_updates_per_round,
                                                                logger=self.logger,
                                                                log_prefix=log_prefix)
             process_status, update_contents, ret_msgs, parameters, update_dep_contents_status_name, update_dep_contents_status, new_update_contents, ret_update_transforms = ret_trigger_processing
