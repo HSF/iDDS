@@ -568,11 +568,12 @@ def get_input_output_sub_maps(inputs, outputs, inputs_dependency, logs=[]):
     return input_output_sub_maps
 
 
-def get_updated_contents_by_input_output_maps(input_output_maps=None, terminated=False, logger=None, log_prefix=''):
+def get_updated_contents_by_input_output_maps(input_output_maps=None, terminated=False, max_updates_per_round=2000, logger=None, log_prefix=''):
     updated_contents, updated_contents_full_input, updated_contents_full_output = [], [], []
     updated_contents_full_input_deps = []
     new_update_contents = []
 
+    chunks = []
     status_to_check = [ContentStatus.Available, ContentStatus.FakeAvailable, ContentStatus.FinalFailed,
                        ContentStatus.Missing, ContentStatus.Failed, ContentStatus.Lost,
                        ContentStatus.Deleted]
@@ -598,6 +599,7 @@ def get_updated_contents_by_input_output_maps(input_output_maps=None, terminated
                                        'coll_id': content['coll_id']}
                 new_update_contents.append(u_content_substatus)
                 updated_contents_full_input.append(content)
+
         for content in outputs:
             if (content['status'] != content['substatus']) and content['substatus'] in status_to_check:
                 u_content = {'content_id': content['content_id'],
@@ -611,6 +613,7 @@ def get_updated_contents_by_input_output_maps(input_output_maps=None, terminated
                                        'coll_id': content['coll_id']}
                 new_update_contents.append(u_content_substatus)
                 updated_contents_full_output.append(content)
+
         for content in inputs_dependency:
             if (content['status'] != content['substatus']) and content['substatus'] in status_to_check:
                 u_content = {'content_id': content['content_id'],
@@ -669,7 +672,21 @@ def get_updated_contents_by_input_output_maps(input_output_maps=None, terminated
                                                'workload_id': content['workload_id'],
                                                'coll_id': content['coll_id']}
                         new_update_contents.append(u_content_substatus)
-    return updated_contents, updated_contents_full_input, updated_contents_full_output, updated_contents_full_input_deps, new_update_contents
+
+        if len(updated_contents) > max_updates_per_round:
+            chunk = updated_contents, updated_contents_full_input, updated_contents_full_output, updated_contents_full_input_deps, new_update_contents
+            chunks.append(chunk)
+
+            updated_contents, updated_contents_full_input, updated_contents_full_output = [], [], []
+            updated_contents_full_input_deps = []
+            new_update_contents = []
+
+    if len(updated_contents) > 0:
+        chunk = updated_contents, updated_contents_full_input, updated_contents_full_output, updated_contents_full_input_deps, new_update_contents
+        chunks.append(chunk)
+
+    # return updated_contents, updated_contents_full_input, updated_contents_full_output, updated_contents_full_input_deps, new_update_contents
+    return chunks
 
 
 def get_transform_dependency_map(transform_id, logger=None, log_prefix=''):
@@ -1098,12 +1115,13 @@ def get_updated_transforms_by_content_status(request_id=None, transform_id=None,
     return update_transforms
 
 
-def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=False, logger=None, log_prefix=''):
+def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=False, max_updates_per_round=2000, logger=None, log_prefix=''):
     logger = get_logger(logger)
 
     ret_msgs = []
     content_updates = []
     ret_update_transforms = []
+    new_update_contents = []
 
     request_id = processing['request_id']
     transform_id = processing['transform_id']
@@ -1134,7 +1152,9 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
                 con_dict['content_metadata'] = con['content_metadata']
             new_contents_update_list.append(con_dict)
             # contents_id_list.append(con['content_id'])
-        core_catalog.update_contents(new_contents_update_list)
+        new_contents_update_list_chunks = [new_contents_update_list[i:i + max_updates_per_round] for i in range(0, len(new_contents_update_list), max_updates_per_round)]
+        for chunk in new_contents_update_list_chunks:
+            core_catalog.update_contents(chunk)
         # core_catalog.delete_contents_update(contents=contents_id_list)
         core_catalog.delete_contents_update(request_id=request_id, transform_id=transform_id, fetch=True)
         logger.debug(log_prefix + "sync contents_update to contents done")
@@ -1142,7 +1162,9 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
         logger.debug(log_prefix + "update_contents_from_others_by_dep_id")
         # core_catalog.update_contents_from_others_by_dep_id(request_id=request_id, transform_id=transform_id)
         to_triggered_contents = core_catalog.get_update_contents_from_others_by_dep_id(request_id=request_id, transform_id=transform_id)
-        core_catalog.update_contents(to_triggered_contents)
+        to_triggered_contents_chunks = [to_triggered_contents[i:i + max_updates_per_round] for i in range(0, len(to_triggered_contents), max_updates_per_round)]
+        for chunk in to_triggered_contents_chunks:
+            core_catalog.update_contents(chunk)
         logger.debug(log_prefix + "update_contents_from_others_by_dep_id done")
 
         input_output_maps = get_input_output_maps(transform_id, work)
@@ -1153,25 +1175,43 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
                              ProcessingStatus.Terminating, ProcessingStatus.Cancelled]
         if processing['status'] in terminated_status or processing['substatus'] in terminated_status:
             terminated_processing = True
-        updated_contents_ret = get_updated_contents_by_input_output_maps(input_output_maps=input_output_maps, terminated=terminated_processing, logger=logger, log_prefix=log_prefix)
 
-        updated_contents, updated_contents_full_input, updated_contents_full_output, updated_contents_full_input_deps, new_update_contents = updated_contents_ret
-        logger.debug(log_prefix + "handle_trigger_processing: updated_contents[:3] %s" % (updated_contents[:3]))
+        updated_contents_ret_chunks = get_updated_contents_by_input_output_maps(input_output_maps=input_output_maps,
+                                                                                terminated=terminated_processing,
+                                                                                max_updates_per_round=max_updates_per_round,
+                                                                                logger=logger,
+                                                                                log_prefix=log_prefix)
 
-        if updated_contents_full_input:
-            # if the content is updated by receiver, here is the place to broadcast the messages
-            msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='file',
-                                     files=updated_contents_full_input, relation_type='input')
-            ret_msgs = ret_msgs + msgs
-        if updated_contents_full_output:
-            # if the content is updated by receiver, here is the place to broadcast the messages
-            msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='file',
-                                     files=updated_contents_full_output, relation_type='output')
-            ret_msgs = ret_msgs + msgs
+        has_updates = False
+        for updated_contents_ret in updated_contents_ret_chunks:
+            updated_contents, updated_contents_full_input, updated_contents_full_output, updated_contents_full_input_deps, new_update_contents = updated_contents_ret
+            logger.debug(log_prefix + "handle_trigger_processing: updated_contents[:3] %s" % (updated_contents[:3]))
 
-        content_updates = content_updates + updated_contents
+            if updated_contents_full_input:
+                # if the content is updated by receiver, here is the place to broadcast the messages
+                msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='file',
+                                         files=updated_contents_full_input, relation_type='input')
+                ret_msgs = ret_msgs + msgs
+            if updated_contents_full_output:
+                # if the content is updated by receiver, here is the place to broadcast the messages
+                msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='file',
+                                         files=updated_contents_full_output, relation_type='output')
+                ret_msgs = ret_msgs + msgs
 
-        if content_updates or new_update_contents:
+            # content_updates = content_updates + updated_contents
+
+            if updated_contents or new_update_contents:
+                has_updates = True
+
+            core_processings.update_processing_contents(update_processing=None,
+                                                        update_contents=updated_contents,
+                                                        new_update_contents=new_update_contents,
+                                                        messages=ret_msgs)
+            updated_contents = []
+            new_update_contents = []
+            ret_msgs = []
+
+        if has_updates:
             ret_update_transforms = get_updated_transforms_by_content_status(request_id=request_id,
                                                                              transform_id=transform_id,
                                                                              logger=logger,
