@@ -261,30 +261,27 @@ class Receiver(BaseAgent):
 
             self.start_receiver()
 
+            time_start = None
             while not self.graceful_stop.is_set():
                 try:
                     self.execute_schedules()
 
-                    time_start = time.time()
+                    if not time_start or time.time() > time_start + self.bulk_message_delay:
+                        if self.is_selected():
+                            if not self.is_receiver_started():
+                                self.resume_receiver()
 
-                    if self.is_selected():
-                        if not self.is_receiver_started():
-                            self.resume_receiver()
+                        if not self.is_selected():
+                            if self.is_receiver_started():
+                                self.suspend_receiver()
 
-                    if not self.is_selected():
-                        if self.is_receiver_started():
-                            self.suspend_receiver()
+                        time_start = time.time()
+                        msg = self.get_output_messages()
+                        if msg:
+                            event = MessageEvent(message=msg)
+                            self.event_bus.send(event)
 
-                    msg = self.get_output_messages()
-                    if msg:
-                        event = MessageEvent(message=msg)
-                        self.event_bus.send(event)
-
-                    if not msg:
-                        time_delay = self.bulk_message_delay - (time.time() - time_start)
-                        time_delay = self.bulk_message_delay
-                        if time_delay > 0:
-                            time.sleep(time_delay)
+                    self.graceful_stop.wait(0.00001)
                 except IDDSException as error:
                     self.logger.error("Main thread IDDSException: %s" % str(error))
                 except Exception as error:
