@@ -481,7 +481,7 @@ def generate_messages(request_id, transform_id, workload_id, work, msg_type='fil
         return msgs
 
 
-def handle_new_processing(processing, agent_attributes, func_site_to_cloud=None, logger=None, log_prefix=''):
+def handle_new_processing(processing, agent_attributes, func_site_to_cloud=None, max_updates_per_round=2000, logger=None, log_prefix=''):
     logger = get_logger(logger)
 
     proc = processing['processing_metadata']['processing']
@@ -517,7 +517,8 @@ def handle_new_processing(processing, agent_attributes, func_site_to_cloud=None,
         request_id = processing['request_id']
         transform_id = processing['transform_id']
         workload_id = processing['workload_id']
-        ret_new_contents_chunks = get_new_contents(request_id, transform_id, workload_id, new_input_output_maps, logger=logger, log_prefix=log_prefix)
+        ret_new_contents_chunks = get_new_contents(request_id, transform_id, workload_id, new_input_output_maps,
+                                                   max_updates_per_round=max_updates_per_round, logger=logger, log_prefix=log_prefix)
         for ret_new_contents in ret_new_contents_chunks:
             new_input_contents, new_output_contents, new_log_contents, new_input_dependency_contents = ret_new_contents
             # new_contents = new_input_contents + new_output_contents + new_log_contents + new_input_dependency_contents
