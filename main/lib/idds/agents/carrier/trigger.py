@@ -32,12 +32,12 @@ class Trigger(Poller):
     Trigger works to trigger to release jobs
     """
 
-    def __init__(self, num_threads=1, trigger_max_number_workers=3, max_number_workers=3, poll_period=10, retries=3, retrieve_bulk_size=2,
+    def __init__(self, num_threads=1, trigger_max_number_workers=None, max_number_workers=3, poll_period=10, retries=3, retrieve_bulk_size=2,
                  name='Trigger', message_bulk_size=1000, max_updates_per_round=2000, **kwargs):
-        if trigger_max_number_workers > num_threads:
-            self.max_number_workers = trigger_max_number_workers
+        if trigger_max_number_workers:
+            self.max_number_workers = int(trigger_max_number_workers)
         else:
-            self.max_number_workers = max_number_workers
+            self.max_number_workers = int(max_number_workers)
 
         self.set_max_workers()
 

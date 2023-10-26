@@ -31,12 +31,12 @@ class Finisher(Poller):
     Finisher works to submit and running tasks to WFMS.
     """
 
-    def __init__(self, num_threads=1, finisher_max_number_workers=3, max_number_workers=3, poll_time_period=10, retries=3, retrieve_bulk_size=2,
+    def __init__(self, num_threads=1, finisher_max_number_workers=None, max_number_workers=3, poll_time_period=10, retries=3, retrieve_bulk_size=2,
                  message_bulk_size=1000, **kwargs):
-        if finisher_max_number_workers > num_threads:
-            self.max_number_workers = finisher_max_number_workers
+        if finisher_max_number_workers:
+            self.max_number_workers = int(finisher_max_number_workers)
         else:
-            self.max_number_workers = max_number_workers
+            self.max_number_workers = int(max_number_workers)
         self.set_max_workers()
 
         num_threads = int(self.max_number_workers)
