@@ -1154,6 +1154,7 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
             # contents_id_list.append(con['content_id'])
         new_contents_update_list_chunks = [new_contents_update_list[i:i + max_updates_per_round] for i in range(0, len(new_contents_update_list), max_updates_per_round)]
         for chunk in new_contents_update_list_chunks:
+            logger.debug(log_prefix + "new_contents_update chunk[:3](total: %s): %s" % (str(chunk[:3]), len(chunk)))
             core_catalog.update_contents(chunk)
         # core_catalog.delete_contents_update(contents=contents_id_list)
         core_catalog.delete_contents_update(request_id=request_id, transform_id=transform_id, fetch=True)
@@ -1164,6 +1165,7 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
         to_triggered_contents = core_catalog.get_update_contents_from_others_by_dep_id(request_id=request_id, transform_id=transform_id)
         to_triggered_contents_chunks = [to_triggered_contents[i:i + max_updates_per_round] for i in range(0, len(to_triggered_contents), max_updates_per_round)]
         for chunk in to_triggered_contents_chunks:
+            logger.debug(log_prefix + "update_contents_from_others_by_dep_id chunk[:3](total: %s): %s" % (str(chunk[:3]), len(chunk)))
             core_catalog.update_contents(chunk)
         logger.debug(log_prefix + "update_contents_from_others_by_dep_id done")
 
@@ -1185,7 +1187,7 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
         has_updates = False
         for updated_contents_ret in updated_contents_ret_chunks:
             updated_contents, updated_contents_full_input, updated_contents_full_output, updated_contents_full_input_deps, new_update_contents = updated_contents_ret
-            logger.debug(log_prefix + "handle_trigger_processing: updated_contents[:3] %s" % (updated_contents[:3]))
+            logger.debug(log_prefix + "handle_trigger_processing: updated_contents[:3] (total: %s): %s" % (updated_contents[:3], len(updated_contents)))
 
             if updated_contents_full_input:
                 # if the content is updated by receiver, here is the place to broadcast the messages

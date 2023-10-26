@@ -20,7 +20,7 @@ import traceback
 
 from idds.common.constants import Sections
 from idds.common.config import config_has_section, config_has_option, config_list_options, config_get
-from idds.common.utils import setup_logging
+from idds.common.utils import setup_logging, report_availability
 
 
 setup_logging('idds.log')
@@ -110,6 +110,12 @@ def run_agents():
             logging.critical("Number of active agents(%s) is not equal number of agents should run(%s)" % (len(RUNNING_AGENTS), len(agents)))
             logging.critical("Exit main run loop.")
             break
+
+        # select one agent to get the health items
+        candidate = RUNNING_AGENTS[0]
+        availability = candidate.get_availability()
+        logging.debug("availability: %s" % availability)
+        report_availability(availability)
 
 
 def stop(signum=None, frame=None):
