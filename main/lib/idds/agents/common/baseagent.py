@@ -21,7 +21,7 @@ from idds.common.constants import (MessageType, MessageTypeStr,
                                    ReturnCode)
 from idds.common.plugin.plugin_base import PluginBase
 from idds.common.plugin.plugin_utils import load_plugins, load_plugin_sequence
-from idds.common.utils import setup_logging, pid_exists, json_dumps
+from idds.common.utils import setup_logging, pid_exists, json_dumps, json_loads
 from idds.core import health as core_health, messages as core_messages
 from idds.agents.common.timerscheduler import TimerScheduler
 from idds.agents.common.eventbus.eventbus import EventBus
@@ -63,6 +63,12 @@ class BaseAgent(TimerScheduler, PluginBase):
             self.event_interval_delay = 0.0001
         else:
             self.event_interval_delay = int(self.event_interval_delay)
+
+        if not hasattr(self, 'max_worker_exec_time'):
+            self.max_worker_exec_time = 3600
+        else:
+            self.max_worker_exec_time = int(self.max_worker_exec_time)
+        self.num_hang_workers, self.num_active_workers = 0, 0
 
         self.plugins = {}
         self.plugin_sequence = []
@@ -130,6 +136,9 @@ class BaseAgent(TimerScheduler, PluginBase):
                 raise AgentPluginError("Plugin %s is defined but it is not defined in plugin_sequence" % plugin_name)
         """
 
+    def get_num_hang_active_workers(self):
+        return self.num_hang_workers, self.num_active_workers
+
     def init_event_function_map(self):
         self.event_func_map = {}
 
@@ -138,6 +147,8 @@ class BaseAgent(TimerScheduler, PluginBase):
 
     def execute_event_schedule(self):
         event_ids = list(self.event_futures.keys())
+        self.num_hang_workers, self.num_active_workers = 0, len(event_ids)
+
         for event_id in event_ids:
             event, future, start_time = self.event_futures[event_id]
             if future.done():
@@ -158,6 +169,9 @@ class BaseAgent(TimerScheduler, PluginBase):
                     self.logger.warning("Corresponding resource is locked, put the event back again: %s" % json_dumps(event))
                     event.requeue()
                     self.event_bus.send(event)
+            else:
+                if time.time() - start_time > self.max_worker_exec_time:
+                    self.num_hang_workers += 1
 
         event_funcs = self.get_event_function_map()
         for event_type in event_funcs:
@@ -233,7 +247,8 @@ class BaseAgent(TimerScheduler, PluginBase):
         return ret
 
     def get_health_payload(self):
-        return None
+        num_hang_workers, num_active_workers = self.get_num_hang_active_workers()
+        return {'num_hang_workers': num_hang_workers, 'num_active_workers': num_active_workers}
 
     def is_ready(self):
         return True
@@ -246,6 +261,8 @@ class BaseAgent(TimerScheduler, PluginBase):
         thread_id = self.get_thread_id()
         thread_name = self.get_thread_name()
         payload = self.get_health_payload()
+        if payload:
+            payload = json_dumps(payload)
         if self.is_ready():
             self.logger.debug("health heartbeat: agent %s, pid %s, thread %s, delay %s, payload %s" % (self.get_name(), pid, thread_name, self.heartbeat_delay, payload))
             core_health.add_health_item(agent=self.get_name(), hostname=hostname, pid=pid,
@@ -264,6 +281,55 @@ class BaseAgent(TimerScheduler, PluginBase):
                     pid_not_exists.append(pid)
             if pid_not_exists:
                 core_health.clean_health(hostname=hostname, pids=pid_not_exists, older_than=None)
+
+    def get_health_items(self):
+        try:
+            hostname = socket.getfqdn()
+            core_health.clean_health(older_than=self.heartbeat_delay * 2)
+            health_items = core_health.retrieve_health_items()
+            pids, pid_not_exists = [], []
+            for health_item in health_items:
+                if health_item['hostname'] == hostname:
+                    pid = health_item['pid']
+                    if pid not in pids:
+                        pids.append(pid)
+            for pid in pids:
+                if not pid_exists(pid):
+                    pid_not_exists.append(pid)
+            if pid_not_exists:
+                core_health.clean_health(hostname=hostname, pids=pid_not_exists, older_than=None)
+
+            health_items = core_health.retrieve_health_items()
+            return health_items
+        except Exception as ex:
+            self.logger.warn("Failed to get health items: %s" % str(ex))
+
+        return []
+
+    def get_availability(self):
+        try:
+            availability = {}
+            health_items = self.get_health_items()
+            hostname = socket.getfqdn()
+            for item in health_items:
+                if item['hostname'] == hostname:
+                    if item['agent'] not in availability:
+                        availability[item['agent']] = {}
+                    payload = item['payload']
+                    num_hang_workers = 0
+                    num_active_workers = 0
+                    if payload:
+                        payload = json_loads(payload)
+                        num_hang_workers = payload.get('num_hang_workers', 0)
+                        num_active_workers = payload.get('num_active_workers', 0)
+
+                    availability[item['agent']]['num_hang_workers'] = num_hang_workers
+                    availability[item['agent']]['num_active_workers'] = num_active_workers
+
+            return availability
+        except Exception as ex:
+            self.logger.warn("Failed to get availability: %s" % str(ex))
+        return {}
 
     def add_default_tasks(self):
         task = self.create_task(task_func=self.health_heartbeat, task_output_queue=None,
