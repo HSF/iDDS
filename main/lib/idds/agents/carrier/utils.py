@@ -531,6 +531,7 @@ def handle_new_processing(processing, agent_attributes, func_site_to_cloud=None,
             # if new_output_contents:
             #     msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='file', files=new_input_contents, relation_type='output')
             #     ret_msgs = ret_msgs + msgs
+            logger.debug(log_prefix + "handle_new_processing: add %s new contents" % (len(new_contents)))
             core_processings.update_processing_contents(update_processing=None,
                                                         new_contents=new_contents,
                                                         new_input_dependency_contents=new_input_dependency_contents,
@@ -1112,6 +1113,7 @@ def handle_update_processing(processing, agent_attributes, max_updates_per_round
         # new_contents = new_input_contents + new_output_contents + new_log_contents + new_input_dependency_contents
         new_contents = new_input_contents + new_output_contents + new_log_contents
 
+        logger.debug(log_prefix + "handle_update_processing: add %s new contents" % (len(new_contents)))
         core_processings.update_processing_contents(update_processing=None,
                                                     new_contents=new_contents,
                                                     new_input_dependency_contents=new_input_dependency_contents,
@@ -1125,6 +1127,7 @@ def handle_update_processing(processing, agent_attributes, max_updates_per_round
         if updated_contents_full_missing:
             msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='file',
                                      files=updated_contents_full, relation_type='output')
+        logger.debug(log_prefix + "handle_update_processing: update %s missing contents" % (len(content_updates_missing)))
         core_processings.update_processing_contents(update_processing=None,
                                                     update_contents=content_updates_missing,
                                                     messages=msgs)
@@ -1140,17 +1143,20 @@ def handle_update_processing(processing, agent_attributes, max_updates_per_round
     if new_contents_ext:
         new_contents_ext_chunks = get_list_chunks(new_contents_ext, bulk_size=max_updates_per_round)
         for new_contents_ext_chunk in new_contents_ext_chunks:
+            logger.debug(log_prefix + "handle_update_processing: add %s ext contents" % (len(new_contents_ext_chunk)))
             core_processings.update_processing_contents(update_processing=None,
                                                         new_contents_ext=new_contents_ext_chunk)
     if update_contents_ext:
         update_contents_ext_chunks = get_list_chunks(update_contents_ext, bulk_size=max_updates_per_round)
         for update_contents_ext_chunk in update_contents_ext_chunks:
+            logger.debug(log_prefix + "handle_update_processing: update %s ext contents" % (len(update_contents_ext_chunk)))
             core_processings.update_processing_contents(update_processing=None,
                                                         update_contents_ext=update_contents_ext_chunk)
 
     if content_updates:
         content_updates_chunks = get_list_chunks(content_updates, bulk_size=max_updates_per_round)
         for content_updates_chunk in content_updates_chunks:
+            logger.debug(log_prefix + "handle_update_processing: update %s contents" % (len(content_updates_chunk)))
             core_processings.update_processing_contents(update_processing=None,
                                                         update_contents=content_updates_chunk)
 
