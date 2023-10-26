@@ -43,7 +43,7 @@ class Trigger(Poller):
 
         num_threads = int(self.max_number_workers)
         super(Trigger, self).__init__(num_threads=num_threads, name=name, max_number_workers=self.max_number_workers,
-                                      retrieve_bulk_size=retrieve_bulk_size, **kwargs)
+                                      max_updates_per_round=max_updates_per_round, retrieve_bulk_size=retrieve_bulk_size, **kwargs)
         self.logger.info("num_threads: %s" % num_threads)
 
         self.max_updates_per_round = max_updates_per_round

@@ -109,6 +109,7 @@ class Submitter(Poller):
             ret_new_processing = handle_new_processing(processing,
                                                        self.agent_attributes,
                                                        func_site_to_cloud=self.get_site_to_cloud,
+                                                       max_updates_per_round=self.max_updates_per_round,
                                                        logger=self.logger,
                                                        log_prefix=log_prefix)
             status, processing, update_colls, new_contents, new_input_dependency_contents, msgs, errors = ret_new_processing

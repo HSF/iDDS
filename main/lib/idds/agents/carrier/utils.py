@@ -24,7 +24,7 @@ from idds.common.constants import (ProcessingStatus,
                                    MessageStatus, MessageSource,
                                    MessageDestination,
                                    get_work_status_from_transform_processing_status)
-from idds.common.utils import setup_logging
+from idds.common.utils import setup_logging, get_list_chunks
 from idds.core import (transforms as core_transforms,
                        processings as core_processings,
                        catalog as core_catalog)
@@ -205,13 +205,14 @@ def get_ext_contents(transform_id, work):
     return contents_ids
 
 
-def get_new_contents(request_id, transform_id, workload_id, new_input_output_maps, logger=None, log_prefix=''):
+def get_new_contents(request_id, transform_id, workload_id, new_input_output_maps, max_updates_per_round=2000, logger=None, log_prefix=''):
     logger = get_logger(logger)
 
     logger.debug(log_prefix + "get_new_contents")
     new_input_contents, new_output_contents, new_log_contents = [], [], []
     new_input_dependency_contents = []
     new_input_dep_coll_ids = []
+    chunks = []
     for map_id in new_input_output_maps:
         inputs = new_input_output_maps[map_id]['inputs'] if 'inputs' in new_input_output_maps[map_id] else []
         inputs_dependency = new_input_output_maps[map_id]['inputs_dependency'] if 'inputs_dependency' in new_input_output_maps[map_id] else []
@@ -233,7 +234,21 @@ def get_new_contents(request_id, transform_id, workload_id, new_input_output_map
             content = get_new_content(request_id, transform_id, workload_id, map_id, log_content, content_relation_type=ContentRelationType.Log)
             new_log_contents.append(content)
 
-    return new_input_contents, new_output_contents, new_log_contents, new_input_dependency_contents
+        total_num_updates = len(new_input_contents) + len(new_output_contents) + len(new_log_contents) + len(new_input_dependency_contents)
+        if total_num_updates > max_updates_per_round:
+            chunk = new_input_contents, new_output_contents, new_log_contents, new_input_dependency_contents
+            chunks.append(chunk)
+
+            new_input_contents, new_output_contents, new_log_contents = [], [], []
+            new_input_dependency_contents = []
+
+    total_num_updates = len(new_input_contents) + len(new_output_contents) + len(new_log_contents) + len(new_input_dependency_contents)
+    if total_num_updates > 0:
+        chunk = new_input_contents, new_output_contents, new_log_contents, new_input_dependency_contents
+        chunks.append(chunk)
+
+    # return new_input_contents, new_output_contents, new_log_contents, new_input_dependency_contents
+    return chunks
 
 
 def get_update_content(content):
@@ -502,19 +517,25 @@ def handle_new_processing(processing, agent_attributes, func_site_to_cloud=None,
         request_id = processing['request_id']
         transform_id = processing['transform_id']
         workload_id = processing['workload_id']
-        ret_new_contents = get_new_contents(request_id, transform_id, workload_id, new_input_output_maps, logger=logger, log_prefix=log_prefix)
-        new_input_contents, new_output_contents, new_log_contents, new_input_dependency_contents = ret_new_contents
-        # new_contents = new_input_contents + new_output_contents + new_log_contents + new_input_dependency_contents
-        new_contents = new_input_contents + new_output_contents + new_log_contents
+        ret_new_contents_chunks = get_new_contents(request_id, transform_id, workload_id, new_input_output_maps, logger=logger, log_prefix=log_prefix)
+        for ret_new_contents in ret_new_contents_chunks:
+            new_input_contents, new_output_contents, new_log_contents, new_input_dependency_contents = ret_new_contents
+            # new_contents = new_input_contents + new_output_contents + new_log_contents + new_input_dependency_contents
+            new_contents = new_input_contents + new_output_contents + new_log_contents
 
-        # not generate new messages
-        # if new_input_contents:
-        #     msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='file', files=new_input_contents, relation_type='input')
-        #     ret_msgs = ret_msgs + msgs
-        # if new_output_contents:
-        #     msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='file', files=new_input_contents, relation_type='output')
-        #     ret_msgs = ret_msgs + msgs
-    return True, processing, update_collections, new_contents, new_input_dependency_contents, ret_msgs, errors
+            # not generate new messages
+            # if new_input_contents:
+            #     msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='file', files=new_input_contents, relation_type='input')
+            #     ret_msgs = ret_msgs + msgs
+            # if new_output_contents:
+            #     msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='file', files=new_input_contents, relation_type='output')
+            #     ret_msgs = ret_msgs + msgs
+            core_processings.update_processing_contents(update_processing=None,
+                                                        new_contents=new_contents,
+                                                        new_input_dependency_contents=new_input_dependency_contents,
+                                                        messages=ret_msgs)
+    # return True, processing, update_collections, new_contents, new_input_dependency_contents, ret_msgs, errors
+    return True, processing, update_collections, [], [], ret_msgs, errors
 
 
 def get_updated_contents_by_request(request_id, transform_id, workload_id, work, terminated=False, input_output_maps=None,
@@ -951,9 +972,10 @@ def trigger_release_inputs(request_id, transform_id, workload_id, work, updated_
     return update_contents, update_input_contents_full, update_contents_status_name, update_contents_status
 
 
-def poll_missing_outputs(input_output_maps):
+def poll_missing_outputs(input_output_maps, max_updates_per_round=2000):
     content_updates_missing, updated_contents_full_missing = [], []
 
+    chunks = []
     for map_id in input_output_maps:
         inputs = input_output_maps[map_id]['inputs'] if 'inputs' in input_output_maps[map_id] else []
         inputs_dependency = input_output_maps[map_id]['inputs_dependency'] if 'inputs_dependency' in input_output_maps[map_id] else []
@@ -979,7 +1001,15 @@ def poll_missing_outputs(input_output_maps):
                         content_updates_missing.append(u_content)
                         updated_contents_full_missing.append(content)
 
-    return content_updates_missing, updated_contents_full_missing
+        if len(content_updates_missing) > max_updates_per_round:
+            chunk = content_updates_missing, updated_contents_full_missing
+            chunks.append(chunk)
+            content_updates_missing, updated_contents_full_missing = [], []
+    if len(content_updates_missing) > 0:
+        chunk = content_updates_missing, updated_contents_full_missing
+        chunks.append(chunk)
+    # return content_updates_missing, updated_contents_full_missing
+    return chunks
 
 
 def has_external_content_id(input_output_maps):
@@ -1020,7 +1050,7 @@ def get_update_external_content_ids(input_output_maps, external_content_ids):
     return update_contents
 
 
-def handle_update_processing(processing, agent_attributes, logger=None, log_prefix=''):
+def handle_update_processing(processing, agent_attributes, max_updates_per_round=2000, logger=None, log_prefix=''):
     logger = get_logger(logger)
 
     ret_msgs = []
@@ -1064,29 +1094,67 @@ def handle_update_processing(processing, agent_attributes, logger=None, log_pref
     logger.debug(log_prefix + "poll_processing_updates new_input_output_maps1.keys[:3]: %s" % (list(new_input_output_maps1.keys())[:3]))
     logger.debug(log_prefix + "poll_processing_updates updated_contents_full[:3]: %s" % (updated_contents_full[:3]))
 
-    ret_new_contents = get_new_contents(request_id, transform_id, workload_id, new_input_output_maps)
-    new_input_contents, new_output_contents, new_log_contents, new_input_dependency_contents = ret_new_contents
-    # new_contents = new_input_contents + new_output_contents + new_log_contents + new_input_dependency_contents
-    new_contents = new_input_contents + new_output_contents + new_log_contents
+    ret_new_contents_chunks = get_new_contents(request_id, transform_id, workload_id, new_input_output_maps, max_updates_per_round=max_updates_per_round)
+    for ret_new_contents in ret_new_contents_chunks:
+        new_input_contents, new_output_contents, new_log_contents, new_input_dependency_contents = ret_new_contents
 
-    content_updates_missing, updated_contents_full_missing = poll_missing_outputs(input_output_maps)
+        ret_msgs = []
+        if new_input_contents:
+            msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='file',
+                                     files=new_input_contents, relation_type='input')
+            ret_msgs = ret_msgs + msgs
+        if new_output_contents:
+            msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='file',
+                                     files=new_output_contents, relation_type='output')
+            ret_msgs = ret_msgs + msgs
 
-    if new_input_contents:
-        msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='file',
-                                 files=new_input_contents, relation_type='input')
-        ret_msgs = ret_msgs + msgs
-    if new_output_contents:
-        msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='file',
-                                 files=new_output_contents, relation_type='output')
-        ret_msgs = ret_msgs + msgs
+        # new_contents = new_input_contents + new_output_contents + new_log_contents + new_input_dependency_contents
+        new_contents = new_input_contents + new_output_contents + new_log_contents
 
-    updated_contents_full = updated_contents_full + updated_contents_full_missing
+        core_processings.update_processing_contents(update_processing=None,
+                                                    new_contents=new_contents,
+                                                    new_input_dependency_contents=new_input_dependency_contents,
+                                                    messages=ret_msgs)
+
+    ret_msgs = []
+    content_updates_missing_chunks = poll_missing_outputs(input_output_maps, max_updates_per_round=max_updates_per_round)
+    for content_updates_missing_chunk in content_updates_missing_chunks:
+        content_updates_missing, updated_contents_full_missing = content_updates_missing_chunk
+        msgs = []
+        if updated_contents_full_missing:
+            msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='file',
+                                     files=updated_contents_full, relation_type='output')
+        core_processings.update_processing_contents(update_processing=None,
+                                                    update_contents=content_updates_missing,
+                                                    messages=msgs)
+
     if updated_contents_full:
-        msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='file',
-                                 files=updated_contents_full, relation_type='output')
-        ret_msgs = ret_msgs + msgs
+        updated_contents_full_chunks = get_list_chunks(updated_contents_full, bulk_size=max_updates_per_round)
+        for updated_contents_full_chunk in updated_contents_full_chunks:
+            msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='file',
+                                     files=updated_contents_full_chunk, relation_type='output')
+            core_processings.update_processing_contents(update_processing=None,
+                                                        messages=msgs)
 
-    return process_status, new_contents, new_input_dependency_contents, ret_msgs, content_updates + content_updates_missing, parameters, new_contents_ext, update_contents_ext
+    if new_contents_ext:
+        new_contents_ext_chunks = get_list_chunks(new_contents_ext, bulk_size=max_updates_per_round)
+        for new_contents_ext_chunk in new_contents_ext_chunks:
+            core_processings.update_processing_contents(update_processing=None,
+                                                        new_contents_ext=new_contents_ext_chunk)
+    if update_contents_ext:
+        update_contents_ext_chunks = get_list_chunks(update_contents_ext, bulk_size=max_updates_per_round)
+        for update_contents_ext_chunk in update_contents_ext_chunks:
+            core_processings.update_processing_contents(update_processing=None,
+                                                        update_contents_ext=update_contents_ext_chunk)
+
+    if content_updates:
+        content_updates_chunks = get_list_chunks(content_updates, bulk_size=max_updates_per_round)
+        for content_updates_chunk in content_updates_chunks:
+            core_processings.update_processing_contents(update_processing=None,
+                                                        update_contents=content_updates_chunk)
+
+    # return process_status, new_contents, new_input_dependency_contents, ret_msgs, content_updates + content_updates_missing, parameters, new_contents_ext, update_contents_ext
+    return process_status, [], [], ret_msgs, [], parameters, [], []
 
 
 def get_transform_id_dependency_map(transform_id, logger=None, log_prefix=''):
