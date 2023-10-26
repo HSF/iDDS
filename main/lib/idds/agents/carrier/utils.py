@@ -1276,7 +1276,7 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
 
             core_processings.update_processing_contents(update_processing=None,
                                                         update_contents=updated_contents,
-                                                        new_update_contents=new_update_contents,
+                                                        # new_update_contents=new_update_contents,
                                                         messages=ret_msgs)
             updated_contents = []
             new_update_contents = []
