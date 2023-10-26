@@ -32,18 +32,18 @@ class Trigger(Poller):
     Trigger works to trigger to release jobs
     """
 
-    def __init__(self, num_threads=1, trigger_max_number_workers=3, max_number_workers=3, poll_period=10, retries=3, retrieve_bulk_size=2,
+    def __init__(self, num_threads=1, trigger_max_number_workers=None, max_number_workers=3, poll_period=10, retries=3, retrieve_bulk_size=2,
                  name='Trigger', message_bulk_size=1000, max_updates_per_round=2000, **kwargs):
-        if trigger_max_number_workers > num_threads:
-            self.max_number_workers = trigger_max_number_workers
+        if trigger_max_number_workers:
+            self.max_number_workers = int(trigger_max_number_workers)
         else:
-            self.max_number_workers = max_number_workers
+            self.max_number_workers = int(max_number_workers)
 
         self.set_max_workers()
 
         num_threads = int(self.max_number_workers)
         super(Trigger, self).__init__(num_threads=num_threads, name=name, max_number_workers=self.max_number_workers,
-                                      retrieve_bulk_size=retrieve_bulk_size, **kwargs)
+                                      max_updates_per_round=max_updates_per_round, retrieve_bulk_size=retrieve_bulk_size, **kwargs)
         self.logger.info("num_threads: %s" % num_threads)
 
         self.max_updates_per_round = max_updates_per_round
@@ -103,7 +103,7 @@ class Trigger(Poller):
                                                                max_updates_per_round=self.max_updates_per_round,
                                                                logger=self.logger,
                                                                log_prefix=log_prefix)
-            process_status, update_contents, ret_msgs, parameters, update_dep_contents_status_name, update_dep_contents_status, new_update_contents, ret_update_transforms = ret_trigger_processing
+            process_status, update_contents, ret_msgs, parameters, update_dep_contents_status_name, update_dep_contents_status, new_update_contents, ret_update_transforms, has_updates = ret_trigger_processing
 
             self.logger.debug(log_prefix + "handle_trigger_processing: ret_update_transforms: %s" % str(ret_update_transforms))
 
@@ -127,7 +127,8 @@ class Trigger(Poller):
                    'new_update_contents': new_update_contents,
                    'update_transforms': ret_update_transforms,
                    'update_dep_contents': (processing['request_id'], update_dep_contents_status_name, update_dep_contents_status),
-                   'processing_status': new_process_status}
+                   'processing_status': new_process_status,
+                   'has_updates': has_updates}
         except exceptions.ProcessFormatNotSupported as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
@@ -199,6 +200,7 @@ class Trigger(Poller):
                     self.update_processing(ret, pr)
 
                     update_transforms = ret.get('update_transforms', None)
+                    has_updates = ret.get('has_updates', None)
                     if update_transforms:
                         # self.logger.info(log_pre + "update_contents_to_others_by_dep_id")
                         # core_catalog.update_contents_to_others_by_dep_id(request_id=pr['request_id'], transform_id=pr['transform_id'])
@@ -231,7 +233,8 @@ class Trigger(Poller):
                         if ((event._content and 'has_updates' in event._content and event._content['has_updates'])
                             or ('update_contents' in ret and ret['update_contents'])    # noqa W503
                             or ('new_contents' in ret and ret['new_contents'])          # noqa W503
-                            or ('messages' in ret and ret['messages'])):                # noqa E129
+                            or ('messages' in ret and ret['messages'])                  # noqa W503
+                            or has_updates):                                            # noqa E129
                             self.logger.info(log_pre + "SyncProcessingEvent(processing_id: %s)" % pr['processing_id'])
                             event = SyncProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'],
                                                         content=event._content,

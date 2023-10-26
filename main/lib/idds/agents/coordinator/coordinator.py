@@ -16,7 +16,7 @@ import traceback
 from idds.common.constants import (Sections)
 from idds.common.exceptions import IDDSException
 from idds.common.event import EventPriority
-from idds.common.utils import setup_logging, get_logger, json_dumps, json_loads
+from idds.common.utils import setup_logging, get_logger, json_loads
 from idds.core import health as core_health
 from idds.agents.common.baseagent import BaseAgent
 
@@ -88,9 +88,14 @@ class Coordinator(BaseAgent):
         return True
 
     def get_health_payload(self):
+        payload = super(Coordinator, self).get_health_payload()
+
         manager = self.event_bus.get_manager()
-        payload = {'manager': manager}
-        payload = json_dumps(payload)
+        if payload:
+            payload['manager'] = manager
+        else:
+            payload = {'manager': manager}
+        # payload = json_dumps(payload)
         return payload
 
     def select_coordinator(self):

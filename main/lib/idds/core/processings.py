@@ -314,7 +314,7 @@ def resolve_input_dependency_id(new_input_dependency_contents, session=None):
 
 
 @transactional_session
-def update_processing_contents(update_processing, update_contents, update_messages=None, new_contents=None,
+def update_processing_contents(update_processing, update_contents=None, update_messages=None, new_contents=None,
                                update_dep_contents=None, update_collections=None, messages=None,
                                new_update_contents=None, new_input_dependency_contents=None,
                                new_contents_ext=None, update_contents_ext=None,

@@ -35,7 +35,7 @@ class Poller(BaseAgent):
     """
 
     def __init__(self, num_threads=1, max_number_workers=3, poll_period=10, retries=3, retrieve_bulk_size=2,
-                 name='Poller', message_bulk_size=1000, **kwargs):
+                 max_updates_per_round=2000, name='Poller', message_bulk_size=1000, **kwargs):
         self.max_number_workers = max_number_workers
         if int(num_threads) < int(self.max_number_workers):
             num_threads = int(self.max_number_workers)
@@ -82,6 +82,9 @@ class Poller(BaseAgent):
             self.max_number_workers = 3
         else:
             self.max_number_workers = int(self.max_number_workers)
+
+        self.max_updates_per_round = max_updates_per_round
+        self.logger.info("max_updates_per_round: %s" % self.max_updates_per_round)
 
         self.show_queue_size_time = None
 
@@ -279,6 +282,7 @@ class Poller(BaseAgent):
             log_prefix = self.get_log_prefix(processing)
             ret_handle_update_processing = handle_update_processing(processing,
                                                                     self.agent_attributes,
+                                                                    max_updates_per_round=self.max_updates_per_round,
                                                                     logger=self.logger,
                                                                     log_prefix=log_prefix)
 

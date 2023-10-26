@@ -41,6 +41,12 @@ from idds.common.exceptions import IDDSException
 DATE_FORMAT = '%a, %d %b %Y %H:%M:%S UTC'
 
 
+def get_log_dir():
+    if config_has_section('common') and config_has_option('common', 'logdir'):
+        return config_get('common', 'logdir')
+    return "/var/log/idds"
+
+
 def setup_logging(name, stream=None, loglevel=None):
     """
     Setup logging
@@ -588,3 +594,18 @@ def pid_exists(pid):
 def get_list_chunks(full_list, bulk_size=2000):
     chunks = [full_list[i:i + bulk_size] for i in range(0, len(full_list), bulk_size)]
     return chunks
+
+
+def report_availability(availability):
+    try:
+        log_dir = get_log_dir()
+        if log_dir:
+            filename = os.path.join(log_dir, 'idds_availability')
+            with open(filename, 'w') as f:
+                json.dump(availability, f)
+        else:
+            print("availability: %s" % str(availability))
+    except Exception as ex:
+        error = "Failed to report availablity: %s" % str(ex)
+        print(error)
+        logging.debug(error)
