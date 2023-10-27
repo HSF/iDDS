@@ -11,9 +11,6 @@
 
 FROM docker.io/almalinux:9.2
 
-ENV LANG en_US.UTF-8
-ENV LC_ALL en_US.UTF-8
-
 ARG TAG
 
 WORKDIR /tmp
@@ -31,7 +28,7 @@ RUN yum-config-manager --enable crb
 # RUN yum install -y httpd.x86_64 conda gridsite mod_ssl.x86_64 httpd-devel.x86_64 gcc.x86_64 supervisor.noarch fetch-crl.noarch lcg-CA postgresql postgresql-contrib postgresql-static postgresql-libs postgresql-devel && \
 #     yum clean all && \
 #     rm -rf /var/cache/yum
-RUN yum install -y httpd.x86_64 which conda gridsite mod_ssl.x86_64 httpd-devel.x86_64 gcc.x86_64 supervisor.noarch fetch-crl.noarch redis syslog-ng && \
+RUN yum install -y httpd.x86_64 which conda gridsite mod_ssl.x86_64 httpd-devel.x86_64 gcc.x86_64 supervisor.noarch fetch-crl.noarch redis syslog-ng procps passwd which && \
 yum clean all && \
 rm -rf /var/cache/yum
 
