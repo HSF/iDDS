@@ -6,10 +6,10 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2022
+# - Wen Guan, <wen.guan@cern.ch>, 2023
 
 
-FROM docker.io/centos:7
+FROM docker.io/almalinux:9.2
 
 ENV LANG en_US.UTF-8
 ENV LC_ALL en_US.UTF-8
@@ -25,6 +25,9 @@ RUN yum upgrade -y && \
     yum clean all && \
     rm -rf /var/cache/yum
 
+RUN yum install -y yum-utils
+RUN yum-config-manager --enable crb
+
 # RUN yum install -y httpd.x86_64 conda gridsite mod_ssl.x86_64 httpd-devel.x86_64 gcc.x86_64 supervisor.noarch fetch-crl.noarch lcg-CA postgresql postgresql-contrib postgresql-static postgresql-libs postgresql-devel && \
 #     yum clean all && \
 #     rm -rf /var/cache/yum
@@ -32,8 +35,11 @@ RUN yum install -y httpd.x86_64 which conda gridsite mod_ssl.x86_64 httpd-devel.
 yum clean all && \
 rm -rf /var/cache/yum
 
-RUN yum install -y https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm
-RUN yum install -y postgresql14
+# install postgres
+RUN yum install -y https://download.postgresql.org/pub/repos/yum/reporpms/EL-9-x86_64/pgdg-redhat-repo-latest.noarch.rpm
+RUN yum install --nogpgcheck -y postgresql16
+RUN  yum clean all && rm -rf /var/cache/yum
+
 
 # RUN curl http://repository.egi.eu/sw/production/cas/1/current/repo-files/EGI-trustanchors.repo -o /etc/yum.repos.d/EGI-trustanchors.repo/
 RUN curl https://repository.egi.eu/sw/production/cas/1/current/repo-files/egi-trustanchors.repo -o /etc/yum.repos.d/EGI-trustanchors.repo
