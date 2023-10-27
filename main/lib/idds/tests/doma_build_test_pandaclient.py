@@ -28,7 +28,7 @@ import uuid
 # from idds.client.client import Client
 # from idds.client.clientmanager import ClientManager
 # from idds.common.constants import RequestType, RequestStatus
-from idds.common.utils import get_rest_host
+# from idds.common.utils import get_rest_host
 # from idds.tests.common import get_example_real_tape_stagein_request
 # from idds.tests.common import get_example_prodsys2_tape_stagein_request
 
@@ -128,7 +128,7 @@ def setup_workflow():
     # executable = 'python3 ${CTRL_BPS_PANDA_DIR}/python/lsst/ctrl/bps/panda/edgenode/cmd_line_decoder_build.py'
     # executable += 'wget https://storage.googleapis.com/drp-us-central1-containers/cmdline_builder.py;'
     executable += 'wget https://wguan-wisc.web.cern.ch/wguan-wisc/cmdline_builder.py;'
-    executable += 'export IDDS_HOST=https://aipanda160.cern.ch:443/idds;'
+    executable += 'export IDDS_HOST=https://aipanda015.cern.ch:443/idds;'
     executable += 'python3 cmdline_builder.py '
 
     executable += output_filename + ' ' + './test_build.sh'
@@ -158,7 +158,7 @@ def setup_workflow():
     return workflow
 
 
-def submit(workflow, idds_server):
+def submit(workflow, idds_server=None):
 
     c = pandaclient.idds_api.get_api(idds_utils.json_dumps,
                                      idds_host=idds_server, compress=True, manager=True)
@@ -167,7 +167,6 @@ def submit(workflow, idds_server):
 
 
 if __name__ == '__main__':
-    host = get_rest_host()
     workflow = setup_workflow()
 
-    submit(workflow, host)
+    submit(workflow)
