@@ -61,7 +61,7 @@ RUN chown atlpan -R /var/log/idds
 RUN chown apache -R /var/idds/wsgisocks/
 
 # redis
-RUN chmod a+rx /etc/redis*
+RUN chmod -R a+rx /etc/redis*
 # RUN chmod a+rwx /var/log/redis
 # RUN chmod a+rwx /var/lib/redis
 RUN rm -fr /var/log/redis
