@@ -210,7 +210,7 @@ fi
 if [ ! -f /var/lib/redis ]; then
     ln -s /var/log/idds/redis /var/lib/redis
 fi
-/usr/bin/redis-server /etc/redis.conf --supervised systemd &
+/usr/bin/redis-server /etc/redis/redis.conf --supervised systemd &
 
 echo "clean heartbeats"
 python /opt/idds/tools/env/clean_heartbeat.py
