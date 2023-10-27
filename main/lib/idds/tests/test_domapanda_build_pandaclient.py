@@ -191,13 +191,15 @@ def submit(workflow, idds_server, request_id, signature):
 
     c = pandaclient.idds_api.get_api(idds_utils.json_dumps,
                                      idds_host=idds_server, compress=True, manager=True)
-    request_id = c.submit_build(workflow, use_dataset_name=False)
-    print("Submitted into iDDs with request id=%s", str(request_id))
+    ret = c.update_build_request(request_id, signature, workflow)
+    print(ret)
+    return ret
 
 
 if __name__ == '__main__':
     # idds dev host
-    idds_host = "https://aipanda160.cern.ch:443/idds"
+    # idds_host = "https://aipanda160.cern.ch:443/idds"
+    idds_host = None
 
     # parse args
     request_id = os.environ.get("IDDS_BUILD_REQUEST_ID", None)

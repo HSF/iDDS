@@ -62,7 +62,8 @@ def get_local_pfns():
     working_dir = os.path.dirname(os.path.realpath(__file__))
     local_pfns = []
     files = ['test_domapanda.py',
-             'test_domapanda_build.py']
+             'test_domapanda_build.py',
+             'test_domapanda_build_pandaclient.py']
     for f in files:
         full_filename = os.path.join(working_dir, f)
         if os.path.exists(full_filename):
