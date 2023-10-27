@@ -31,7 +31,7 @@ RUN yum-config-manager --enable crb
 # RUN yum install -y httpd.x86_64 conda gridsite mod_ssl.x86_64 httpd-devel.x86_64 gcc.x86_64 supervisor.noarch fetch-crl.noarch lcg-CA postgresql postgresql-contrib postgresql-static postgresql-libs postgresql-devel && \
 #     yum clean all && \
 #     rm -rf /var/cache/yum
-RUN yum install -y httpd.x86_64 which conda gridsite mod_ssl.x86_64 httpd-devel.x86_64 gcc.x86_64 supervisor.noarch fetch-crl.noarch lcg-CA redis syslog-ng && \
+RUN yum install -y httpd.x86_64 which conda gridsite mod_ssl.x86_64 httpd-devel.x86_64 gcc.x86_64 supervisor.noarch fetch-crl.noarch redis syslog-ng && \
 yum clean all && \
 rm -rf /var/cache/yum
 
@@ -44,7 +44,7 @@ RUN  yum clean all && rm -rf /var/cache/yum
 # RUN curl http://repository.egi.eu/sw/production/cas/1/current/repo-files/EGI-trustanchors.repo -o /etc/yum.repos.d/EGI-trustanchors.repo/
 RUN curl https://repository.egi.eu/sw/production/cas/1/current/repo-files/egi-trustanchors.repo -o /etc/yum.repos.d/EGI-trustanchors.repo
 
-RUN yum install -y fetch-crl.noarch lcg-CA ca-policy-egi-core && \
+RUN yum install -y fetch-crl.noarch ca-policy-egi-core && \
     yum clean all && \
     rm -rf /var/cache/yum
 
