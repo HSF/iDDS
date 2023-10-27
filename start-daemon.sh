@@ -204,10 +204,10 @@ bash ${cronExec}
 
 # start redis
 mkdir /var/log/idds/redis
-if [ ! -f /var/log/redis ]; then
+if [ ! -h /var/log/redis ]; then
     ln -s /var/log/idds/redis /var/log/redis
 fi
-if [ ! -f /var/lib/redis ]; then
+if [ ! -h /var/lib/redis ]; then
     ln -s /var/log/idds/redis /var/lib/redis
 fi
 /usr/bin/redis-server /etc/redis/redis.conf --supervised systemd &
