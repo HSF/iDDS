@@ -122,9 +122,9 @@ def setup_workflow():
 
     # executable = 'unset PYTHONPATH; source /cvmfs/sw.lsst.eu/linux-x86_64/lsst_distrib/w_2022_53/loadLSST.bash; pwd; ls -al; setup lsst_distrib;\n python3 ${CTRL_BPS_PANDA_DIR}/python/lsst/ctrl/bps/panda/edgenode/cmd_line_decoder.py'
 
-    executable = 'unset PYTHONPATH; source /cvmfs/sw.lsst.eu/linux-x86_64/lsst_distrib/w_2022_53/loadLSST.bash; pwd; ls -al; setup lsst_distrib;'
+    executable = 'unset PYTHONPATH; source /cvmfs/sw.lsst.eu/linux-x86_64/lsst_distrib/w_2023_41/loadLSST.bash; pwd; ls -al; setup lsst_distrib;'
 
-    executable += 'if [[ ! -z "${PANDA_AUTH_DIR}" ]] && [[ ! -z "${PANDA_AUTH_ORIGIN}" ]]; then export PANDA_AUTH_ID_TOKEN=$(cat $PANDA_AUTH_DIR); export PANDA_AUTH_VO=$PANDA_AUTH_ORIGIN; export IDDS_OIDC_TOKEN=$(cat $PANDA_AUTH_DIR); export IDDS_VO=$PANDA_AUTH_ORIGIN; export PANDA_AUTH=oidc; else unset PANDA_AUTH; export IDDS_AUTH_TYPE=x509_proxy; fi;'   # noqa E501
+    # executable += 'if [[ ! -z "${PANDA_AUTH_DIR}" ]] && [[ ! -z "${PANDA_AUTH_ORIGIN}" ]]; then export PANDA_AUTH_ID_TOKEN=$(cat $PANDA_AUTH_DIR); export PANDA_AUTH_VO=$PANDA_AUTH_ORIGIN; export IDDS_OIDC_TOKEN=$(cat $PANDA_AUTH_DIR); export IDDS_VO=$PANDA_AUTH_ORIGIN; export PANDA_AUTH=oidc; else unset PANDA_AUTH; export IDDS_AUTH_TYPE=x509_proxy; fi;'   # noqa E501
 
     executable += """if [[ ! -z "${PANDA_AUTH_DIR}" ]] && [[ ! -z "${PANDA_AUTH_ORIGIN}" ]];
         then export PANDA_AUTH_ID_TOKEN=$(cat $PANDA_AUTH_DIR);
