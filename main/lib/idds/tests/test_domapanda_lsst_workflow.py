@@ -193,7 +193,7 @@ def test_show_jobs(generic_workflow):
 
 
 def construct_doma_jobs(generic_workflow):
-    tree = DomaTree('test_tree')
+    tree = DomaTree('test_tree', group_type='width')
     grouped_jobs = tree.from_generic_workflow(generic_workflow)
     # print(grouped_jobs)
     for grouped_label in grouped_jobs:

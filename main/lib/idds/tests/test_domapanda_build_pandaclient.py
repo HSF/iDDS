@@ -216,7 +216,11 @@ if __name__ == '__main__':
 
     ret = submit(workflow, idds_host, request_id, signature)
     print(ret)
-    if ret and 'status' in ret:
-        sys.exit(ret['status'])
-    else:
-        sys.exit(-1)
+    # if ret and 'status' in ret:
+    #     sys.exit(ret['status'])
+    # else:
+    #     sys.exit(-1)
+    # ret = (0, [True, {'request_id': '5756'}])
+    if ret[0] == 0 and ret[1][0] == True:
+        sys.exit(0)
+    sys.exit(-1)
