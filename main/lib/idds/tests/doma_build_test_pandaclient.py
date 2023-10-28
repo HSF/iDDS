@@ -126,6 +126,22 @@ def setup_workflow():
 
     executable += 'if [[ ! -z "${PANDA_AUTH_DIR}" ]] && [[ ! -z "${PANDA_AUTH_ORIGIN}" ]]; then export PANDA_AUTH_ID_TOKEN=$(cat $PANDA_AUTH_DIR); export PANDA_AUTH_VO=$PANDA_AUTH_ORIGIN; export IDDS_OIDC_TOKEN=$(cat $PANDA_AUTH_DIR); export IDDS_VO=$PANDA_AUTH_ORIGIN; export PANDA_AUTH=oidc; else unset PANDA_AUTH; export IDDS_AUTH_TYPE=x509_proxy; fi;'   # noqa E501
 
+    executable += """if [[ ! -z "${PANDA_AUTH_DIR}" ]] && [[ ! -z "${PANDA_AUTH_ORIGIN}" ]];
+        then export PANDA_AUTH_ID_TOKEN=$(cat $PANDA_AUTH_DIR);
+        export PANDA_AUTH_VO=$PANDA_AUTH_ORIGIN;
+        export IDDS_OIDC_TOKEN=$(cat $PANDA_AUTH_DIR);
+        export IDDS_VO=$PANDA_AUTH_ORIGIN;
+        export PANDA_AUTH=oidc;
+        else unset PANDA_AUTH;
+        export IDDS_AUTH_TYPE=x509_proxy; fi;
+        export PANDA_CONFIG_ROOT=$(pwd);
+        export PANDA_VERIFY_HOST=off;
+        export PANDA_SYS=$CONDA_PREFIX;
+        export PANDA_URL_SSL=${PANDA_SERVER_URL}/server/panda;
+        export PANDACACHE_URL=$PANDA_URL_SSL;
+        export PANDA_URL=$PANDA_URL_SSL;
+        export PANDA_BEHIND_REAL_LB=true;
+        """
     # executable = 'python3 ${CTRL_BPS_PANDA_DIR}/python/lsst/ctrl/bps/panda/edgenode/cmd_line_decoder_build.py'
     # executable += 'wget https://storage.googleapis.com/drp-us-central1-containers/cmdline_builder.py;'
     executable += 'wget https://wguan-wisc.web.cern.ch/wguan-wisc/cmdline_builder.py;'
