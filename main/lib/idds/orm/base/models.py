@@ -544,8 +544,8 @@ class Content(BASE, ModelBase):
     content_dep_id = Column(BigInteger())
     scope = Column(String(SCOPE_LENGTH))
     name = Column(String(LONG_NAME_LENGTH))
-    name_md5 = Column(String(String(33)))
-    scope_name_md5 = Column(String(String(33)))
+    name_md5 = Column(String(33))
+    scope_name_md5 = Column(String(33))
     min_id = Column(Integer(), default=0)
     max_id = Column(Integer(), default=0)
     content_type = Column(EnumWithValue(ContentType), nullable=False)
@@ -568,7 +568,7 @@ class Content(BASE, ModelBase):
     updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     accessed_at = Column("accessed_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     expired_at = Column("expired_at", DateTime)
-    content_metadata = Column(JSONString(100))
+    content_metadata = Column(JSONString(1000))
 
     __table_args__ = (PrimaryKeyConstraint('content_id', name='CONTENTS_PK'),
                       # UniqueConstraint('name', 'scope', 'coll_id', 'content_type', 'min_id', 'max_id', name='CONTENT_SCOPE_NAME_UQ'),
