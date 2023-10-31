@@ -203,7 +203,7 @@ chmod +x ${cronExec}
 bash ${cronExec}
 
 # start redis
-mkdir /var/log/idds/redis
+mkdir -p /var/log/idds/redis
 if [ ! -h /var/log/redis ]; then
     ln -s /var/log/idds/redis /var/log/redis
 fi

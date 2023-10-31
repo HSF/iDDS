@@ -26,6 +26,7 @@ CREATE TABLE doma_idds.requests (
 	max_update_retries INTEGER, 
 	new_poll_period INTERVAL, 
 	update_poll_period INTERVAL, 
+	site VARCHAR(50), 
 	errors VARCHAR(1024), 
 	request_metadata JSONB, 
 	processing_metadata JSONB, 
@@ -33,11 +34,13 @@ CREATE TABLE doma_idds.requests (
 	CONSTRAINT "REQUESTS_STATUS_ID_NN" CHECK (status IS NOT NULL)
 );
 
+CREATE INDEX "REQUESTS_SCOPE_NAME_IDX" ON doma_idds.requests (name, scope, workload_id);
+
 CREATE INDEX "REQUESTS_STATUS_PRIO_IDX" ON doma_idds.requests (status, priority, request_id, locking, updated_at, next_poll_at, created_at);
 
 CREATE INDEX "REQUESTS_STATUS_POLL_IDX" ON doma_idds.requests (status, priority, locking, updated_at, new_poll_period, update_poll_period, created_at, request_id);
 
-CREATE INDEX "REQUESTS_SCOPE_NAME_IDX" ON doma_idds.requests (name, scope, workload_id);
+CREATE INDEX "REQUESTS_STATUS_SITE" ON doma_idds.requests (status, site, request_id);
 
 CREATE SEQUENCE doma_idds."TRANSFORM_ID_SEQ" START WITH 1
 
@@ -66,6 +69,7 @@ CREATE TABLE doma_idds.transforms (
 	max_update_retries INTEGER, 
 	new_poll_period INTERVAL, 
 	update_poll_period INTERVAL, 
+	site VARCHAR(50), 
 	name VARCHAR(255), 
 	errors VARCHAR(1024), 
 	transform_metadata JSONB, 
@@ -75,6 +79,8 @@ CREATE TABLE doma_idds.transforms (
 );
 
 CREATE INDEX "TRANSFORMS_TYPE_TAG_IDX" ON doma_idds.transforms (transform_type, transform_tag, transform_id);
+
+CREATE INDEX "TRANSFORMS_STATUS_SITE" ON doma_idds.transforms (status, site, request_id, transform_id);
 
 CREATE INDEX "TRANSFORMS_REQ_IDX" ON doma_idds.transforms (request_id, transform_id);
 
@@ -178,11 +184,11 @@ CREATE TABLE doma_idds.contents_ext (
 	CONSTRAINT "CONTENTS_EXT_PK" PRIMARY KEY (content_id)
 );
 
+CREATE INDEX "CONTENTS_EXT_RTW_IDX" ON doma_idds.contents_ext (request_id, transform_id, workload_id);
+
 CREATE INDEX "CONTENTS_EXT_RTM_IDX" ON doma_idds.contents_ext (request_id, transform_id, map_id);
 
 CREATE INDEX "CONTENTS_EXT_RTF_IDX" ON doma_idds.contents_ext (request_id, transform_id, workload_id, coll_id, content_id, panda_id, status);
-
-CREATE INDEX "CONTENTS_EXT_RTW_IDX" ON doma_idds.contents_ext (request_id, transform_id, workload_id);
 
 CREATE SEQUENCE doma_idds."HEALTH_ID_SEQ" START WITH 1
 
@@ -211,14 +217,16 @@ CREATE TABLE doma_idds.messages (
 	locking INTEGER NOT NULL, 
 	source INTEGER NOT NULL, 
 	destination INTEGER NOT NULL, 
-	request_id BIGINT NOT NULL, 
+	request_id BIGINT, 
 	workload_id INTEGER, 
-	transform_id INTEGER NOT NULL, 
+	transform_id INTEGER, 
 	processing_id INTEGER, 
 	num_contents INTEGER, 
 	retries INTEGER, 
+	fetching_id INTEGER, 
 	created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL, 
 	updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL, 
+	poll_period INTERVAL NOT NULL, 
 	msg_content JSONB, 
 	CONSTRAINT "MESSAGES_PK" PRIMARY KEY (msg_id)
 );
@@ -256,13 +264,13 @@ CREATE TABLE doma_idds.commands (
 	CONSTRAINT "COMMANDS_PK" PRIMARY KEY (cmd_id)
 );
 
-CREATE INDEX "COMMANDS_STATUS_IDX" ON doma_idds.commands (status, locking, updated_at);
-
-CREATE INDEX "COMMANDS_TYPE_ST_IDX" ON doma_idds.commands (cmd_type, status, destination, request_id);
+CREATE INDEX "COMMANDS_TYPE_ST_TF_IDX" ON doma_idds.commands (cmd_type, status, destination, transform_id);
 
 CREATE INDEX "COMMANDS_TYPE_ST_PR_IDX" ON doma_idds.commands (cmd_type, status, destination, processing_id);
 
-CREATE INDEX "COMMANDS_TYPE_ST_TF_IDX" ON doma_idds.commands (cmd_type, status, destination, transform_id);
+CREATE INDEX "COMMANDS_TYPE_ST_IDX" ON doma_idds.commands (cmd_type, status, destination, request_id);
+
+CREATE INDEX "COMMANDS_STATUS_IDX" ON doma_idds.commands (status, locking, updated_at);
 
 
 CREATE TABLE doma_idds.events_priority (
@@ -301,6 +309,23 @@ CREATE TABLE doma_idds.events_archive (
 	processed_at TIMESTAMP WITHOUT TIME ZONE, 
 	content JSONB, 
 	CONSTRAINT "EVENTS_AR_PK" PRIMARY KEY (event_id)
+);
+
+
+CREATE TABLE doma_idds.throttlers (
+	throttler_id BIGSERIAL NOT NULL, 
+	site VARCHAR(50) NOT NULL, 
+	status INTEGER NOT NULL, 
+	num_requests INTEGER, 
+	num_transforms INTEGER, 
+	num_processings INTEGER, 
+	new_contents INTEGER, 
+	queue_contents INTEGER, 
+	created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL, 
+	updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL, 
+	others JSONB, 
+	CONSTRAINT "THROTTLER_PK" PRIMARY KEY (throttler_id), 
+	CONSTRAINT "THROTTLER_SITE_UQ" UNIQUE (site)
 );
 
 CREATE SEQUENCE doma_idds."WORKPROGRESS_ID_SEQ" START WITH 1
@@ -360,6 +385,7 @@ CREATE TABLE doma_idds.processings (
 	max_update_retries INTEGER, 
 	new_poll_period INTERVAL, 
 	update_poll_period INTERVAL, 
+	site VARCHAR(50), 
 	errors VARCHAR(1024), 
 	processing_metadata JSONB, 
 	running_metadata JSONB, 
@@ -373,6 +399,8 @@ CREATE TABLE doma_idds.processings (
 CREATE INDEX "PROCESSINGS_STATUS_UPDATED_IDX" ON doma_idds.processings (status, locking, updated_at, next_poll_at, created_at);
 
 CREATE INDEX "PROCESSINGS_STATUS_POLL_IDX" ON doma_idds.processings (status, processing_id, locking, updated_at, new_poll_period, update_poll_period, created_at);
+
+CREATE INDEX "PROCESSINGS_STATUS_SITE" ON doma_idds.processings (status, site, request_id, transform_id, processing_id);
 
 CREATE SEQUENCE doma_idds."COLLECTION_ID_SEQ" START WITH 1
 
@@ -415,13 +443,13 @@ CREATE TABLE doma_idds.collections (
 	CONSTRAINT "COLLECTIONS_TRANSFORM_ID_NN" CHECK (transform_id IS NOT NULL)
 );
 
-CREATE INDEX "COLLECTIONS_REQ_IDX" ON doma_idds.collections (request_id, transform_id, updated_at);
+CREATE INDEX "COLLECTIONS_STATUS_UPDATED_IDX" ON doma_idds.collections (status, locking, updated_at, next_poll_at, created_at);
 
 CREATE INDEX "COLLECTIONS_TRANSFORM_IDX" ON doma_idds.collections (transform_id, coll_id);
 
 CREATE INDEX "COLLECTIONS_STATUS_RELAT_IDX" ON doma_idds.collections (status, relation_type);
 
-CREATE INDEX "COLLECTIONS_STATUS_UPDATED_IDX" ON doma_idds.collections (status, locking, updated_at, next_poll_at, created_at);
+CREATE INDEX "COLLECTIONS_REQ_IDX" ON doma_idds.collections (request_id, transform_id, updated_at);
 
 
 CREATE TABLE doma_idds.wp2transforms (
@@ -441,9 +469,13 @@ CREATE TABLE doma_idds.contents (
 	request_id BIGINT NOT NULL, 
 	workload_id INTEGER, 
 	map_id BIGINT NOT NULL, 
+	sub_map_id BIGINT, 
+	dep_sub_map_id BIGINT, 
 	content_dep_id BIGINT, 
 	scope VARCHAR(25), 
 	name VARCHAR(4000), 
+	name_md5 VARCHAR(33), 
+	scope_name_md5 VARCHAR(33), 
 	min_id INTEGER, 
 	max_id INTEGER, 
 	content_type INTEGER NOT NULL, 
@@ -457,31 +489,36 @@ CREATE TABLE doma_idds.contents (
 	processing_id INTEGER, 
 	storage_id INTEGER, 
 	retries INTEGER, 
+	external_coll_id BIGINT, 
+	external_content_id BIGINT, 
+	external_event_id BIGINT, 
+	external_event_status INTEGER, 
 	path VARCHAR(4000), 
 	created_at TIMESTAMP WITHOUT TIME ZONE, 
 	updated_at TIMESTAMP WITHOUT TIME ZONE, 
 	accessed_at TIMESTAMP WITHOUT TIME ZONE, 
 	expired_at TIMESTAMP WITHOUT TIME ZONE, 
-	content_metadata VARCHAR(100), 
+	content_metadata VARCHAR(1000), 
 	CONSTRAINT "CONTENTS_PK" PRIMARY KEY (content_id), 
-	CONSTRAINT "CONTENT_ID_UQ" UNIQUE (transform_id, coll_id, map_id, name, min_id, max_id), 
+	CONSTRAINT "CONTENT_ID_UQ" UNIQUE (transform_id, coll_id, map_id, sub_map_id, dep_sub_map_id, content_relation_type, name_md5, scope_name_md5, min_id, max_id), 
 	CONSTRAINT "CONTENTS_TRANSFORM_ID_FK" FOREIGN KEY(transform_id) REFERENCES doma_idds.transforms (transform_id), 
 	CONSTRAINT "CONTENTS_COLL_ID_FK" FOREIGN KEY(coll_id) REFERENCES doma_idds.collections (coll_id), 
 	CONSTRAINT "CONTENTS_STATUS_ID_NN" CHECK (status IS NOT NULL), 
 	CONSTRAINT "CONTENTS_COLL_ID_NN" CHECK (coll_id IS NOT NULL)
 );
 
-CREATE INDEX "CONTENTS_REQ_TF_COLL_IDX" ON doma_idds.contents (request_id, transform_id, workload_id, coll_id, content_relation_type, status, substatus);
+CREATE INDEX "CONTENTS_STATUS_UPDATED_IDX" ON doma_idds.contents (status, locking, updated_at, created_at);
 
 CREATE INDEX "CONTENTS_REL_IDX" ON doma_idds.contents (request_id, content_relation_type, transform_id, substatus);
 
-CREATE INDEX "CONTENTS_ID_NAME_IDX" ON doma_idds.contents (coll_id, scope, name, status);
+CREATE INDEX "CONTENTS_DEP_IDX" ON doma_idds.contents (request_id, transform_id, content_dep_id);
 
-CREATE INDEX "CONTENTS_STATUS_UPDATED_IDX" ON doma_idds.contents (status, locking, updated_at, created_at);
+CREATE INDEX "CONTENTS_REQ_TF_COLL_IDX" ON doma_idds.contents (request_id, transform_id, workload_id, coll_id, content_relation_type, status, substatus);
 
 CREATE INDEX "CONTENTS_TF_IDX" ON doma_idds.contents (transform_id, request_id, coll_id, map_id, content_relation_type);
 
-CREATE INDEX "CONTENTS_DEP_IDX" ON doma_idds.contents (request_id, transform_id, content_dep_id);
+CREATE INDEX "CONTENTS_ID_NAME_IDX" ON doma_idds.contents (coll_id, scope, md5('name');
+, status);
 
 
         SET search_path TO doma_idds;
