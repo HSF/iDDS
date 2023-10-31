@@ -1007,6 +1007,7 @@ class Clerk(BaseAgent):
                 #               RequestStatus.Building]
 
                 # req = self.get_request(request_id=event._request_id, status=req_status, locking=True)
+                self.logger.debug("process_update_request: event: %s" % str(event))
                 req = self.get_request(request_id=event._request_id, locking=True)
                 if not req:
                     self.logger.error("Cannot find request for event: %s" % str(event))

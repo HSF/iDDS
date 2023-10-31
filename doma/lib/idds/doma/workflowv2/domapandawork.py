@@ -52,6 +52,9 @@ class DomaPanDAWork(Work):
                  task_cloud=None,
                  task_site=None,
                  task_rss=1000,
+                 task_rss_retry_offset=0,
+                 task_rss_retry_step=0,
+                 task_rss_max=None,
                  vo='wlcg',
                  max_name_length=4000,
                  working_group='lsst'):
@@ -111,6 +114,8 @@ class DomaPanDAWork(Work):
         self.task_cloud = task_cloud
         self.task_site = task_site
         self.task_rss = task_rss
+        self.task_rss_retry_offset = task_rss_retry_offset
+        self.task_rss_retry_step = task_rss_retry_step
         self.task_priority = task_priority
 
         self.vo = vo
@@ -547,6 +552,13 @@ class DomaPanDAWork(Work):
             task_param_map['ramCount'] = self.task_rss / self.core_count if self.core_count else self.task_rss
             # task_param_map['ramUnit'] = 'MB'
             task_param_map['ramUnit'] = 'MBPerCoreFixed'
+        if self.task_rss_retry_offset and self.task_rss_retry_step:
+            task_param_map['retryRamOffset'] = self.task_rss_retry_offset
+            task_param_map['retryRamStep'] = self.task_rss_retry_step
+        if self.task_rss_max:
+            # todo: until PanDA supports it
+            # taskParamMap['maxRamCount'] = self.task_rss_max
+            pass
 
         # task_param_map['inputPreStaging'] = True
         task_param_map['prestagingRuleID'] = 123

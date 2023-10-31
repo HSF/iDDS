@@ -221,6 +221,6 @@ if __name__ == '__main__':
     # else:
     #     sys.exit(-1)
     # ret = (0, [True, {'request_id': '5756'}])
-    if ret[0] == 0 and ret[1][0] == True:
+    if ret[0] == 0 and ret[1][0] is True:
         sys.exit(0)
     sys.exit(-1)
