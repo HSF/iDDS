@@ -116,6 +116,7 @@ class DomaPanDAWork(Work):
         self.task_rss = task_rss
         self.task_rss_retry_offset = task_rss_retry_offset
         self.task_rss_retry_step = task_rss_retry_step
+        self.task_rss_max = task_rss_max
         self.task_priority = task_priority
 
         self.vo = vo
