@@ -103,6 +103,7 @@ def run_agents():
     for agent in RUNNING_AGENTS:
         agent.start()
 
+    current = None
     while len(RUNNING_AGENTS):
         [thr.join(timeout=3.14) for thr in RUNNING_AGENTS if thr and thr.is_alive()]
         RUNNING_AGENTS = [thr for thr in RUNNING_AGENTS if thr and thr.is_alive()]
@@ -111,11 +112,14 @@ def run_agents():
             logging.critical("Exit main run loop.")
             break
 
-        # select one agent to get the health items
-        candidate = RUNNING_AGENTS[0]
-        availability = candidate.get_availability()
-        logging.debug("availability: %s" % availability)
-        report_availability(availability)
+        if current is None or time.time() - current > 600:
+            # select one agent to get the health items
+            candidate = RUNNING_AGENTS[0]
+            availability = candidate.get_availability()
+            logging.debug("availability: %s" % availability)
+            report_availability(availability)
+
+            current = time.time()
 
 
 def stop(signum=None, frame=None):

@@ -19,7 +19,7 @@ from .domaeventmap import DomaEventMap, DomaEventMapTask, DomaEventMapJob
 
 
 class DomaTree(Tree):
-    def __init__(self, name, **kwargs):
+    def __init__(self, name, group_type='combine', **kwargs):
         super(DomaTree, self).__init__(name, **kwargs)
         self._label_grouping = {'default': {'grouping': True, 'grouping_max_jobs': 100}}
         self.job_tree_roots = None
@@ -29,6 +29,7 @@ class DomaTree(Tree):
 
         self.label_tree_roots = None
         self.label_nodes = None
+        self.group_type = group_type
 
     def set_grouping_attribute(self, label, grouping, max_jobs):
         self._label_grouping[label] = {'grouping': grouping, 'max_jobs': max_jobs}
@@ -271,7 +272,7 @@ class DomaTree(Tree):
 
         return group_jobs
 
-    def from_generic_workflow(self, generic_workflow):
+    def from_generic_workflow_combine(self, generic_workflow):
         job_tree_roots, job_nodes, label_jobs, label_parent_labels = self.get_job_tree(generic_workflow)
         self.job_tree_roots = job_tree_roots
         self.job_nodes = job_nodes
@@ -301,6 +302,42 @@ class DomaTree(Tree):
         # self.logger.debug(grouped_label_level_dict)
         grouped_jobs = self.construct_grouped_jobs(grouped_label_level_dict)
         return grouped_jobs
+
+    def from_generic_workflow_width(self, generic_workflow):
+        job_tree_roots, job_nodes, label_jobs, label_parent_labels = self.get_job_tree(generic_workflow)
+        self.job_tree_roots = job_tree_roots
+        self.job_nodes = job_nodes
+        self.label_jobs = label_jobs
+        self.label_parent_labels = label_parent_labels
+        print("job tree")
+        print(job_tree_roots)
+        print(job_nodes)
+        print(label_jobs)
+        print(label_parent_labels)
+
+        label_tree_roots, label_nodes = self.get_label_tree(generic_workflow, label_parent_labels, label_jobs)
+        self.label_tree_roots = label_tree_roots
+        self.label_nodes = label_nodes
+        print("label tree")
+        print(label_tree_roots)
+        print(label_nodes)
+
+        label_level_dict = self.get_ordered_nodes_by_level(label_tree_roots)
+        print("label_level_dict")
+        print(label_level_dict)
+
+        grouped_label_level_dict = self.group_label_level_dict(label_level_dict)
+        print("grouped_label_level_dict")
+        print(grouped_label_level_dict)
+
+        # self.logger.debug(grouped_label_level_dict)
+        grouped_jobs = self.construct_grouped_jobs(grouped_label_level_dict)
+        return grouped_jobs
+
+    def from_generic_workflow(self, generic_workflow):
+        if self.group_type == 'width':
+            return self.from_generic_workflow_width(generic_workflow)
+        return self.from_generic_workflow_combine(generic_workflow)
 
     def construct_map_between_jobs_and_events(self, job_nodes, grouped_jobs):
         job_event_map = {}

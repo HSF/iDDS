@@ -59,5 +59,6 @@ env
 export IDDS_LOG_LEVEL=DEBUG
 
 
-echo "exec command: python test_domapanda_build.py $@"
-python  test_domapanda_build.py $@
+echo "exec command: python test_domapanda_build_pandaclient.py $@"
+# python  test_domapanda_build.py $@
+python test_domapanda_build_pandaclient.py $@
