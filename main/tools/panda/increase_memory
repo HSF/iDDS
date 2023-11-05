@@ -6,3 +6,7 @@ insert into retryerrors(retryerror_id, errorsource, errorcode, active, retryacti
 insert into retryerrors(retryerror_id, errorsource, errorcode, errordiag, active, retryaction, description) values(3, 'pilotErrorCode', 1305, '.*Unable to allocate.*', 'Y', 2, 'increase memory');
 
 
+# add rule to increase memory x times
+insert into retryactions(retryaction_id, retry_action, active, retry_description) values (1, 'increase_memory_xtimes', 'Y', 'Job ran out of memory. Increase memory setting for next retry.');
+insert into retryerrors(retryerror_id, errorsource, errorcode, errordiag, active, retryaction, description) values(1, 'taskBufferErrorCode', 300, '.*The worker was finished while the job was starting.*', 'Y', 1, 'increase memory');
+
