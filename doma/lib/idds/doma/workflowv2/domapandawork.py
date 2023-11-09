@@ -553,8 +553,9 @@ class DomaPanDAWork(Work):
             task_param_map['ramCount'] = self.task_rss / self.core_count if self.core_count else self.task_rss
             # task_param_map['ramUnit'] = 'MB'
             task_param_map['ramUnit'] = 'MBPerCoreFixed'
-        if self.task_rss_retry_offset and self.task_rss_retry_step:
+        if self.task_rss_retry_offset:
             task_param_map['retryRamOffset'] = self.task_rss_retry_offset
+        if self.task_rss_retry_step:
             task_param_map['retryRamStep'] = self.task_rss_retry_step
         if self.task_rss_max:
             # todo: until PanDA supports it
