@@ -43,7 +43,7 @@ taskParamMap['ramCount'] = 1000
 taskParamMap['ramUnit'] = 'MBPerCoreFixed'
 
 taskParamMap['retryRamOffset'] = 2000
-taskParamMap['retryRamStep'] = 400
+taskParamMap['retryRamStep'] = 0.3
 
 """
 taskParamMap['log'] = {'dataset': logDatasetName,
