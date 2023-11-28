@@ -505,7 +505,7 @@ CREATE TABLE doma_idds.contents (
 	CONSTRAINT "CONTENTS_COLL_ID_FK" FOREIGN KEY(coll_id) REFERENCES doma_idds.collections (coll_id), 
 	CONSTRAINT "CONTENTS_STATUS_ID_NN" CHECK (status IS NOT NULL), 
 	CONSTRAINT "CONTENTS_COLL_ID_NN" CHECK (coll_id IS NOT NULL)
-) PARTITION BY RANGE (content_id) ;
+) PARTITION BY RANGE (request_id) ;
 
 CREATE INDEX "CONTENTS_STATUS_UPDATED_IDX" ON doma_idds.contents (status, locking, updated_at, created_at);
 
