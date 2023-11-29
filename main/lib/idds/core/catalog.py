@@ -261,7 +261,7 @@ def update_input_collection_with_contents(coll, parameters, contents, bulk_size=
 
 
 @transactional_session
-def update_contents(parameters, request_id=None, transform_id=None, use_bulk_update_mappings=False, session=None):
+def update_contents(parameters, request_id=None, transform_id=None, use_bulk_update_mappings=True, session=None):
     """
     updatecontents.
 
@@ -764,7 +764,7 @@ def add_contents_ext(contents, bulk_size=10000, session=None):
 
 
 @transactional_session
-def update_contents_ext(parameters, request_id=None, transform_id=None, use_bulk_update_mappings=False, session=None):
+def update_contents_ext(parameters, request_id=None, transform_id=None, use_bulk_update_mappings=True, session=None):
     """
     update contents ext.
 
