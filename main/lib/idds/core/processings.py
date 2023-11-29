@@ -318,7 +318,7 @@ def update_processing_contents(update_processing, update_contents=None, update_m
                                update_dep_contents=None, update_collections=None, messages=None,
                                new_update_contents=None, new_input_dependency_contents=None,
                                new_contents_ext=None, update_contents_ext=None,
-                               request_id=None, transform_id=None, use_bulk_update_mappings=False,
+                               request_id=None, transform_id=None, use_bulk_update_mappings=True,
                                message_bulk_size=2000, session=None):
     """
     Update processing with contents.
