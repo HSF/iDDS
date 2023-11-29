@@ -485,10 +485,10 @@ def update_contents(parameters, use_bulk_update_mappings=False, request_id=None,
 
     """
     try:
-        for parameter in parameters:
-            parameter['updated_at'] = datetime.datetime.utcnow()
-
         if use_bulk_update_mappings:
+            for parameter in parameters:
+                parameter['updated_at'] = datetime.datetime.utcnow()
+
             session.bulk_update_mappings(models.Content, parameters)
         else:
             groups = group_list(parameters, key='content_id')
@@ -496,6 +496,7 @@ def update_contents(parameters, use_bulk_update_mappings=False, request_id=None,
                 group = groups[group_key]
                 keys = group['keys']
                 items = group['items']
+                items['updated_at'] = datetime.datetime.utcnow()
                 query = session.query(models.Content)
                 if request_id:
                     query = query.filter(models.Content.request_id == request_id)
@@ -703,7 +704,7 @@ def get_contents_ext_maps():
                       'trans_exit_code': 'transExitCode', 'pilot_error_code': 'pilotErrorCode', 'pilot_error_diag': 'pilotErrorDiag',
                       'exe_error_code': 'exeErrorCode', 'exe_error_diag': 'exeErrorDiag', 'sup_error_code': 'supErrorCode',
                       'sup_error_diag': 'supErrorDiag', 'ddm_error_code': 'ddmErrorCode', 'ddm_error_diag': 'ddmErrorDiag',
-                      'brokerage_error_cdode': 'brokerageErrorCode', 'brokerage_error_diag': 'brokerageErrorDiag',
+                      'brokerage_error_code': 'brokerageErrorCode', 'brokerage_error_diag': 'brokerageErrorDiag',
                       'job_dispatcher_error_code': 'jobDispatcherErrorCode', 'job_dispatcher_error_diag': 'jobDispatcherErrorDiag',
                       'task_buffer_error_code': 'taskBufferErrorCode', 'task_buffer_error_diag': 'taskBufferErrorDiag',
                       'computing_site': 'computingSite', 'computing_element': 'computingElement',

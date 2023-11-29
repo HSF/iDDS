@@ -625,7 +625,7 @@ def group_list(input_list, key):
     for item in input_list:
         item_key = item[key]
         del item[key]
-        item_tuple = tuple(sorted(item.items()))
+        item_tuple = str(tuple(sorted(item.items())))
         if item_tuple not in update_groups:
             update_groups[item_tuple] = {'keys': [], 'items': item}
         update_groups[item_tuple]['keys'].append(item_key)
