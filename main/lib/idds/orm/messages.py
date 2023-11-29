@@ -22,6 +22,7 @@ from sqlalchemy.exc import DatabaseError, IntegrityError
 
 from idds.common import exceptions
 from idds.common.constants import MessageDestination
+from idds.common.utils import group_list
 from idds.orm.base import models
 from idds.orm.base.session import read_session, transactional_session
 
@@ -101,9 +102,23 @@ def add_messages(messages, bulk_size=1000, session=None):
 
 
 @transactional_session
-def update_messages(messages, bulk_size=1000, session=None):
+def update_messages(messages, bulk_size=1000, use_bulk_update_mappings=False, request_id=None, transform_id=None, session=None):
     try:
-        session.bulk_update_mappings(models.Message, messages)
+        if use_bulk_update_mappings:
+            session.bulk_update_mappings(models.Message, messages)
+        else:
+            groups = group_list(messages, key='msg_id')
+            for group_key in groups:
+                group = groups[group_key]
+                keys = group['keys']
+                items = group['items']
+                query = session.query(models.Message)
+                if request_id:
+                    query = query.filter(models.Message.request_id == request_id)
+                if transform_id:
+                    query = query.filter(models.Message.transform_id == transform_id)
+                query = query.filter(models.Message.msg_id.in_(keys))\
+                             .update(items, synchronize_session=False)
     except TypeError as e:
         raise exceptions.DatabaseException('Invalid JSON for msg_content: %s' % str(e))
     except DatabaseError as e:

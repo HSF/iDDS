@@ -261,7 +261,7 @@ def update_input_collection_with_contents(coll, parameters, contents, bulk_size=
 
 
 @transactional_session
-def update_contents(parameters, session=None):
+def update_contents(parameters, request_id=None, transform_id=None, use_bulk_update_mappings=False, session=None):
     """
     updatecontents.
 
@@ -272,7 +272,8 @@ def update_contents(parameters, session=None):
     :raises DatabaseException: If there is a database error.
 
     """
-    return orm_contents.update_contents(parameters, session=session)
+    return orm_contents.update_contents(parameters, request_id=request_id, transform_id=transform_id,
+                                        use_bulk_update_mappings=use_bulk_update_mappings, session=session)
 
 
 @transactional_session
@@ -763,7 +764,7 @@ def add_contents_ext(contents, bulk_size=10000, session=None):
 
 
 @transactional_session
-def update_contents_ext(parameters, session=None):
+def update_contents_ext(parameters, request_id=None, transform_id=None, use_bulk_update_mappings=False, session=None):
     """
     update contents ext.
 
@@ -774,7 +775,8 @@ def update_contents_ext(parameters, session=None):
     :raises DatabaseException: If there is a database error.
 
     """
-    return orm_contents.update_contents_ext(parameters, session=session)
+    return orm_contents.update_contents_ext(parameters, request_id=request_id, transform_id=transform_id,
+                                            use_bulk_update_mappings=use_bulk_update_mappings, session=session)
 
 
 @read_session
