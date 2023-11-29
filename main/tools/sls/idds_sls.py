@@ -132,6 +132,12 @@ def http_availability(host):
         avail = check_command(curl, 'IDDSException')
         if options.debug:
             print("http check availability (without proxy): %s" % avail)
+
+    if not avail or avail == 0:
+        logrotate_running = is_logrotate_running()
+        restarting = is_restarting()
+        if logrotate_running or restarting:
+            return 1
     return avail
 
 
@@ -197,6 +203,64 @@ def heartbeat_availability(log_location):
         avail = 50
 
     return avail, hang_workers
+
+
+def is_logrotate_running():
+    # get the count of logrotate processes - if >=1 then logrotate is running
+    output = (
+        subprocess.Popen(
+            "ps -eo pgid,args | grep logrotate | grep -v grep | wc -l",
+            stdout=subprocess.PIPE,
+            shell=True,
+        )
+        .communicate()[0]
+        .decode("ascii")
+    )
+
+    try:
+        cleaned_output = output.strip()
+        n_logrotate_processes = int(cleaned_output)
+    except ValueError:
+        print(
+            "The string has an unexpected format and couldn't be converted to an integer."
+        )
+
+    # logrotate process found
+    if n_logrotate_processes >= 1:
+        if options.debug:
+            print("Logrotate is running")
+        return True
+
+    return False
+
+
+def is_restarting():
+    # get the count of logrotate processes - if >=1 then logrotate is running
+    output = (
+        subprocess.Popen(
+            "ps -eo pgid,args | grep restart|grep http | grep -v grep | wc -l",
+            stdout=subprocess.PIPE,
+            shell=True,
+        )
+        .communicate()[0]
+        .decode("ascii")
+    )
+
+    try:
+        cleaned_output = output.strip()
+        n_restarting_processes = int(cleaned_output)
+    except ValueError:
+        print(
+            "The string has an unexpected format and couldn't be converted to an integer."
+        )
+
+    # logrotate process found
+    if n_restarting_processes >= 1:
+        if options.debug:
+            print("http is restarting")
+        return True
+
+    return False
 
 
 def idds_availability(host, log_location):
