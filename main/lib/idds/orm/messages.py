@@ -108,7 +108,8 @@ def update_messages(messages, bulk_size=1000, use_bulk_update_mappings=False, re
             session.bulk_update_mappings(models.Message, messages)
         else:
             groups = group_list(messages, key='msg_id')
-            for group in groups:
+            for group_key in groups:
+                group = groups[group_key]
                 keys = group['keys']
                 items = group['items']
                 query = session.query(models.Message)

@@ -492,7 +492,8 @@ def update_contents(parameters, use_bulk_update_mappings=False, request_id=None,
             session.bulk_update_mappings(models.Content, parameters)
         else:
             groups = group_list(parameters, key='content_id')
-            for group in groups:
+            for group_key in groups:
+                group = groups[group_key]
                 keys = group['keys']
                 items = group['items']
                 query = session.query(models.Content)
@@ -897,7 +898,8 @@ def update_contents_ext(parameters, use_bulk_update_mappings=True, request_id=No
             session.bulk_update_mappings(models.Content_ext, parameters)
         else:
             groups = group_list(parameters, key='content_id')
-            for group in groups:
+            for group_key in groups:
+                group = groups[group_key]
                 keys = group['keys']
                 items = group['items']
                 query = session.query(models.Content_ext)
