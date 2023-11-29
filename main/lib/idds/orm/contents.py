@@ -473,7 +473,7 @@ def update_content(content_id, parameters, session=None):
 
 
 @transactional_session
-def update_contents(parameters, use_bulk_update_mappings=False, request_id=None, transform_id=None, session=None):
+def update_contents(parameters, use_bulk_update_mappings=True, request_id=None, transform_id=None, session=None):
     """
     update contents.
 
