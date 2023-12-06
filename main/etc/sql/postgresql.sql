@@ -499,9 +499,9 @@ CREATE TABLE doma_idds.contents (
 	accessed_at TIMESTAMP WITHOUT TIME ZONE, 
 	expired_at TIMESTAMP WITHOUT TIME ZONE, 
 	content_metadata VARCHAR(1000), 
-	CONSTRAINT "CONTENTS_PK" PRIMARY KEY (content_id), 
-	CONSTRAINT "CONTENT_ID_UQ" UNIQUE (transform_id, coll_id, map_id, sub_map_id, dep_sub_map_id, content_relation_type, name_md5, scope_name_md5, min_id, max_id), 
-	CONSTRAINT "CONTENTS_TRANSFORM_ID_FK" FOREIGN KEY(transform_id) REFERENCES doma_idds.transforms (transform_id), 
+	CONSTRAINT "CONTENTS_PK_TEST" PRIMARY KEY (content_id, request_id),
+	CONSTRAINT "CONTENT_ID_UQ_TEST" UNIQUE (transform_id, coll_id, request_id, map_id, sub_map_id, dep_sub_map_id, content_relation_type, name_md5, scope_name_md5, min_id, max_id),
+    CONSTRAINT "CONTENTS_TRANSFORM_ID_FK" FOREIGN KEY(transform_id) REFERENCES doma_idds.transforms (transform_id),
 	CONSTRAINT "CONTENTS_COLL_ID_FK" FOREIGN KEY(coll_id) REFERENCES doma_idds.collections (coll_id), 
 	CONSTRAINT "CONTENTS_STATUS_ID_NN" CHECK (status IS NOT NULL), 
 	CONSTRAINT "CONTENTS_COLL_ID_NN" CHECK (coll_id IS NOT NULL)
