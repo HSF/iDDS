@@ -318,6 +318,7 @@ def update_processing_contents(update_processing, update_contents=None, update_m
                                update_dep_contents=None, update_collections=None, messages=None,
                                new_update_contents=None, new_input_dependency_contents=None,
                                new_contents_ext=None, update_contents_ext=None,
+                               request_id=None, transform_id=None, use_bulk_update_mappings=True,
                                message_bulk_size=2000, session=None):
     """
     Update processing with contents.
@@ -330,7 +331,8 @@ def update_processing_contents(update_processing, update_contents=None, update_m
     if update_contents:
         chunks = get_list_chunks(update_contents)
         for chunk in chunks:
-            orm_contents.update_contents(chunk, session=session)
+            orm_contents.update_contents(chunk, request_id=request_id, transform_id=transform_id,
+                                         use_bulk_update_mappings=use_bulk_update_mappings, session=session)
     if new_update_contents:
         # first add and then delete, to trigger the trigger 'update_content_dep_status'.
         # too slow
@@ -350,7 +352,8 @@ def update_processing_contents(update_processing, update_contents=None, update_m
     if update_contents_ext:
         chunks = get_list_chunks(update_contents_ext)
         for chunk in chunks:
-            orm_contents.update_contents_ext(chunk, session=session)
+            orm_contents.update_contents_ext(chunk, request_id=request_id, transform_id=transform_id,
+                                             use_bulk_update_mappings=use_bulk_update_mappings, session=session)
     if new_input_dependency_contents:
         new_input_dependency_contents = resolve_input_dependency_id(new_input_dependency_contents, session=session)
         chunks = get_list_chunks(new_input_dependency_contents)
@@ -372,7 +375,8 @@ def update_processing_contents(update_processing, update_contents=None, update_m
     if update_messages:
         chunks = get_list_chunks(update_messages)
         for chunk in chunks:
-            orm_messages.update_messages(chunk, bulk_size=message_bulk_size, session=session)
+            orm_messages.update_messages(chunk, bulk_size=message_bulk_size, request_id=request_id, transform_id=transform_id,
+                                         use_bulk_update_mappings=use_bulk_update_mappings, session=session)
     if messages:
         if not type(messages) in [list, tuple]:
             messages = [messages]

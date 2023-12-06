@@ -25,6 +25,7 @@ from sqlalchemy.sql.expression import asc
 from idds.common import exceptions
 from idds.common.constants import (ContentType, ContentStatus, ContentLocking,
                                    ContentFetchStatus, ContentRelationType)
+from idds.common.utils import group_list
 from idds.orm.base.session import read_session, transactional_session
 from idds.orm.base import models
 
@@ -472,7 +473,7 @@ def update_content(content_id, parameters, session=None):
 
 
 @transactional_session
-def update_contents(parameters, session=None):
+def update_contents(parameters, use_bulk_update_mappings=True, request_id=None, transform_id=None, session=None):
     """
     update contents.
 
@@ -484,10 +485,25 @@ def update_contents(parameters, session=None):
 
     """
     try:
-        for parameter in parameters:
-            parameter['updated_at'] = datetime.datetime.utcnow()
+        if use_bulk_update_mappings:
+            for parameter in parameters:
+                parameter['updated_at'] = datetime.datetime.utcnow()
 
-        session.bulk_update_mappings(models.Content, parameters)
+            session.bulk_update_mappings(models.Content, parameters)
+        else:
+            groups = group_list(parameters, key='content_id')
+            for group_key in groups:
+                group = groups[group_key]
+                keys = group['keys']
+                items = group['items']
+                items['updated_at'] = datetime.datetime.utcnow()
+                query = session.query(models.Content)
+                if request_id:
+                    query = query.filter(models.Content.request_id == request_id)
+                if transform_id:
+                    query = query.filter(models.Content.transform_id == transform_id)
+                query = query.filter(models.Content.content_id.in_(keys))\
+                             .update(items, synchronize_session=False)
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('Content cannot be found: %s' % (error))
 
@@ -688,7 +704,7 @@ def get_contents_ext_maps():
                       'trans_exit_code': 'transExitCode', 'pilot_error_code': 'pilotErrorCode', 'pilot_error_diag': 'pilotErrorDiag',
                       'exe_error_code': 'exeErrorCode', 'exe_error_diag': 'exeErrorDiag', 'sup_error_code': 'supErrorCode',
                       'sup_error_diag': 'supErrorDiag', 'ddm_error_code': 'ddmErrorCode', 'ddm_error_diag': 'ddmErrorDiag',
-                      'brokerage_error_cdode': 'brokerageErrorCode', 'brokerage_error_diag': 'brokerageErrorDiag',
+                      'brokerage_error_code': 'brokerageErrorCode', 'brokerage_error_diag': 'brokerageErrorDiag',
                       'job_dispatcher_error_code': 'jobDispatcherErrorCode', 'job_dispatcher_error_diag': 'jobDispatcherErrorDiag',
                       'task_buffer_error_code': 'taskBufferErrorCode', 'task_buffer_error_diag': 'taskBufferErrorDiag',
                       'computing_site': 'computingSite', 'computing_element': 'computingElement',
@@ -867,7 +883,7 @@ def add_contents_ext(contents, bulk_size=10000, session=None):
 
 
 @transactional_session
-def update_contents_ext(parameters, session=None):
+def update_contents_ext(parameters, use_bulk_update_mappings=True, request_id=None, transform_id=None, session=None):
     """
     update contents ext.
 
@@ -879,7 +895,21 @@ def update_contents_ext(parameters, session=None):
 
     """
     try:
-        session.bulk_update_mappings(models.Content_ext, parameters)
+        if use_bulk_update_mappings:
+            session.bulk_update_mappings(models.Content_ext, parameters)
+        else:
+            groups = group_list(parameters, key='content_id')
+            for group_key in groups:
+                group = groups[group_key]
+                keys = group['keys']
+                items = group['items']
+                query = session.query(models.Content_ext)
+                if request_id:
+                    query = query.filter(models.Content.request_id == request_id)
+                if transform_id:
+                    query = query.filter(models.Content.transform_id == transform_id)
+                query = query.filter(models.Content.content_id.in_(keys))\
+                             .update(items, synchronize_session=False)
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('Content cannot be found: %s' % (error))
 

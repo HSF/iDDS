@@ -24,6 +24,8 @@ import time
 
 from enum import Enum
 from functools import wraps
+from itertools import groupby
+from operator import itemgetter
 from packaging import version as packaging_version
 
 from idds.common.config import (config_has_section, config_has_option,
@@ -609,3 +611,22 @@ def report_availability(availability):
         error = "Failed to report availablity: %s" % str(ex)
         print(error)
         logging.debug(error)
+
+
+def split_chunks_not_continous(data):
+    rets = []
+    for k, g in groupby(enumerate(data), lambda i_x: i_x[0] - i_x[1]):
+        rets.append(list(map(itemgetter(1), g)))
+    return rets
+
+
+def group_list(input_list, key):
+    update_groups = {}
+    for item in input_list:
+        item_key = item[key]
+        del item[key]
+        item_tuple = str(tuple(sorted(item.items())))
+        if item_tuple not in update_groups:
+            update_groups[item_tuple] = {'keys': [], 'items': item}
+        update_groups[item_tuple]['keys'].append(item_key)
+    return update_groups
