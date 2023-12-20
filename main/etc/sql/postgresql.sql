@@ -181,8 +181,8 @@ CREATE TABLE doma_idds.contents_ext (
 	memory_leak VARCHAR(10), 
 	memory_leak_x2 VARCHAR(10), 
 	job_label VARCHAR(20), 
-	CONSTRAINT "CONTENTS_EXT_PK" PRIMARY KEY (content_id)
-);
+	CONSTRAINT "CONTENTS_EXT_PK" PRIMARY KEY (content_id, request_id)
+) PARTITION BY RANGE (request_id) ;
 
 CREATE INDEX "CONTENTS_EXT_RTW_IDX" ON doma_idds.contents_ext (request_id, transform_id, workload_id);
 
@@ -499,13 +499,13 @@ CREATE TABLE doma_idds.contents (
 	accessed_at TIMESTAMP WITHOUT TIME ZONE, 
 	expired_at TIMESTAMP WITHOUT TIME ZONE, 
 	content_metadata VARCHAR(1000), 
-	CONSTRAINT "CONTENTS_PK" PRIMARY KEY (content_id), 
-	CONSTRAINT "CONTENT_ID_UQ" UNIQUE (transform_id, coll_id, map_id, sub_map_id, dep_sub_map_id, content_relation_type, name_md5, scope_name_md5, min_id, max_id), 
-	CONSTRAINT "CONTENTS_TRANSFORM_ID_FK" FOREIGN KEY(transform_id) REFERENCES doma_idds.transforms (transform_id), 
+	CONSTRAINT "CONTENTS_PK_TEST" PRIMARY KEY (content_id, request_id),
+	CONSTRAINT "CONTENT_ID_UQ_TEST" UNIQUE (transform_id, coll_id, request_id, map_id, sub_map_id, dep_sub_map_id, content_relation_type, name_md5, scope_name_md5, min_id, max_id),
+    CONSTRAINT "CONTENTS_TRANSFORM_ID_FK" FOREIGN KEY(transform_id) REFERENCES doma_idds.transforms (transform_id),
 	CONSTRAINT "CONTENTS_COLL_ID_FK" FOREIGN KEY(coll_id) REFERENCES doma_idds.collections (coll_id), 
 	CONSTRAINT "CONTENTS_STATUS_ID_NN" CHECK (status IS NOT NULL), 
 	CONSTRAINT "CONTENTS_COLL_ID_NN" CHECK (coll_id IS NOT NULL)
-);
+) PARTITION BY RANGE (request_id) ;
 
 CREATE INDEX "CONTENTS_STATUS_UPDATED_IDX" ON doma_idds.contents (status, locking, updated_at, created_at);
 
