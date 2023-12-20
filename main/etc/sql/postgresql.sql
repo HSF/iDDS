@@ -181,8 +181,8 @@ CREATE TABLE doma_idds.contents_ext (
 	memory_leak VARCHAR(10), 
 	memory_leak_x2 VARCHAR(10), 
 	job_label VARCHAR(20), 
-	CONSTRAINT "CONTENTS_EXT_PK" PRIMARY KEY (content_id)
-);
+	CONSTRAINT "CONTENTS_EXT_PK" PRIMARY KEY (content_id, request_id)
+) PARTITION BY RANGE (request_id) ;
 
 CREATE INDEX "CONTENTS_EXT_RTW_IDX" ON doma_idds.contents_ext (request_id, transform_id, workload_id);
 
