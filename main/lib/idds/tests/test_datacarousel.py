@@ -91,10 +91,16 @@ def get_rule_id(scope, name, src_rse, dest_rse):
 
 
 def get_workflow():
-    scope = 'data16_13TeV'
-    name = 'data16_13TeV.00298862.physics_Main.daq.RAW'
+    # scope = 'data16_13TeV'
+    # name = 'data16_13TeV.00298862.physics_Main.daq.RAW'
     src_rse = 'NDGF-T1_DATATAPE'
     dest_rse = 'NDGF-T1_DATADISK'
+
+    scope = 'mc16_13TeV'
+    name = 'mc16_13TeV.411332.PhHerwig7EG_ttbar_hdamp258p75_713_dil_BBFilt.merge.EVNT.e7800_e5984_tid19396149_00'
+
+    src_rse = None
+    dest_rse = 'UKI-SCOTGRID-GLASGOW-CEPH_DATADISK'
     rule_id = get_rule_id(scope, name, src_rse, dest_rse)
     work = ATLASStageinWork(executable=None, arguments=None, parameters=None, setup=None,
                             exec_type='local', sandbox=None, work_id=None,
