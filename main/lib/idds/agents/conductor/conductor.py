@@ -287,6 +287,7 @@ class Conductor(BaseAgent):
                     self.clean_messages(output_messages)
                 except IDDSException as error:
                     self.logger.error("Main thread IDDSException: %s" % str(error))
+                    self.logger.error(traceback.format_exc())
                 except Exception as error:
                     self.logger.critical("Main thread exception: %s\n%s" % (str(error), traceback.format_exc()))
                 # time.sleep(random.randint(5, self.random_delay))
