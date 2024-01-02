@@ -303,6 +303,7 @@ def get_new_contents(request_id, transform_id, workload_id, new_input_output_map
 
 def get_update_content(content):
     updated_content = {'content_id': content['content_id'],
+                       'request_id': content['request_id'],
                        'status': content['substatus'],
                        'substatus': content['substatus']}
     content['status'] = content['substatus']
@@ -592,6 +593,7 @@ def handle_new_processing(processing, agent_attributes, func_site_to_cloud=None,
             #     ret_msgs = ret_msgs + msgs
             logger.debug(log_prefix + "handle_new_processing: add %s new contents" % (len(new_contents)))
             core_processings.update_processing_contents(update_processing=None,
+                                                        request_id=request_id,
                                                         new_contents=new_contents,
                                                         new_input_dependency_contents=new_input_dependency_contents,
                                                         messages=ret_msgs)
@@ -613,6 +615,7 @@ def get_updated_contents_by_request(request_id, transform_id, workload_id, work,
     for content in contents:
         if (content['status'] != content['substatus']) and content['substatus'] in status_to_check:
             u_content = {'content_id': content['content_id'],
+                         'request_id': content['request_id'],
                          'status': content['substatus']}
             updated_contents.append(u_content)
             if content['content_relation_type'] == ContentRelationType.Output:
@@ -671,6 +674,7 @@ def get_updated_contents_by_input_output_maps(input_output_maps=None, terminated
         for content in inputs:
             if (content['status'] != content['substatus']) and content['substatus'] in status_to_check:
                 u_content = {'content_id': content['content_id'],
+                             'request_id': content['request_id'],
                              'status': content['substatus']}
                 updated_contents.append(u_content)
                 u_content_substatus = {'content_id': content['content_id'],
@@ -685,6 +689,7 @@ def get_updated_contents_by_input_output_maps(input_output_maps=None, terminated
         for content in outputs:
             if (content['status'] != content['substatus']) and content['substatus'] in status_to_check:
                 u_content = {'content_id': content['content_id'],
+                             'request_id': content['request_id'],
                              'status': content['substatus']}
                 updated_contents.append(u_content)
                 u_content_substatus = {'content_id': content['content_id'],
@@ -699,6 +704,7 @@ def get_updated_contents_by_input_output_maps(input_output_maps=None, terminated
         for content in inputs_dependency:
             if (content['status'] != content['substatus']) and content['substatus'] in status_to_check:
                 u_content = {'content_id': content['content_id'],
+                             'request_id': content['request_id'],
                              'status': content['substatus']}
                 updated_contents.append(u_content)
                 updated_contents_full_input_deps.append(content)
@@ -717,6 +723,7 @@ def get_updated_contents_by_input_output_maps(input_output_maps=None, terminated
                 for content in inputs_sub:
                     if content['substatus'] != input_content_update_status:
                         u_content = {'content_id': content['content_id'],
+                                     'request_id': content['request_id'],
                                      'status': input_content_update_status,
                                      'substatus': input_content_update_status}
                         updated_contents.append(u_content)
@@ -741,6 +748,7 @@ def get_updated_contents_by_input_output_maps(input_output_maps=None, terminated
                 for content in outputs_sub:
                     if content['substatus'] != output_content_update_status:
                         u_content = {'content_id': content['content_id'],
+                                     'request_id': content['request_id'],
                                      'status': output_content_update_status,
                                      'substatus': output_content_update_status}
                         updated_contents.append(u_content)
@@ -947,6 +955,7 @@ def trigger_release_inputs_no_deps(request_id, transform_id, workload_id, work, 
                 for content in inputs_sub:
                     if content['substatus'] != ContentStatus.Available:
                         u_content = {'content_id': content['content_id'],
+                                     'request_id': content['request_id'],
                                      # 'status': ContentStatus.Available,
                                      'substatus': ContentStatus.Available}
                         update_contents.append(u_content)
@@ -1005,6 +1014,7 @@ def trigger_release_inputs(request_id, transform_id, workload_id, work, updated_
                     pass
                 for content in inputs_sub:
                     u_content = {'content_id': content['content_id'],
+                                 'request_id': content['request_id'],
                                  'substatus': input_content_update_status}
                     update_contents.append(u_content)
                     content['status'] = input_content_update_status
@@ -1027,6 +1037,7 @@ def trigger_release_inputs(request_id, transform_id, workload_id, work, updated_
             if output_content_update_status:
                 for content in outputs_sub:
                     u_content = {'content_id': content['content_id'],
+                                 'request_id': content['request_id'],
                                  'substatus': output_content_update_status}
                     update_contents.append(u_content)
 
@@ -1057,6 +1068,7 @@ def poll_missing_outputs(input_output_maps, max_updates_per_round=2000):
                     content['substatus'] = content_update_status
                     if content['status'] != content['substatus']:
                         u_content = {'content_id': content['content_id'],
+                                     'request_id': content['request_id'],
                                      'substatus': content['substatus']}
 
                         content_updates_missing.append(u_content)
@@ -1105,6 +1117,7 @@ def get_update_external_content_ids(input_output_maps, external_content_ids):
             content_ids = name_to_id_map.get(lfn, [])
             for content_id in content_ids:
                 update_content = {'content_id': content_id,
+                                  'request_id': content['request_id'],
                                   'external_coll_id': dataset_id,
                                   'external_content_id': file_id}
                 update_contents.append(update_content)
@@ -1177,7 +1190,7 @@ def handle_update_processing(processing, agent_attributes, max_updates_per_round
                                                     new_contents=new_contents,
                                                     new_input_dependency_contents=new_input_dependency_contents,
                                                     request_id=request_id,
-                                                    transform_id=transform_id,
+                                                    # transform_id=transform_id,
                                                     use_bulk_update_mappings=use_bulk_update_mappings,
                                                     messages=ret_msgs)
 
@@ -1193,8 +1206,9 @@ def handle_update_processing(processing, agent_attributes, max_updates_per_round
         core_processings.update_processing_contents(update_processing=None,
                                                     update_contents=content_updates_missing,
                                                     request_id=request_id,
-                                                    transform_id=transform_id,
-                                                    use_bulk_update_mappings=use_bulk_update_mappings,
+                                                    # transform_id=transform_id,
+                                                    # use_bulk_update_mappings=use_bulk_update_mappings,
+                                                    use_bulk_update_mappings=False,
                                                     messages=msgs)
 
     if updated_contents_full:
@@ -1203,6 +1217,7 @@ def handle_update_processing(processing, agent_attributes, max_updates_per_round
             msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='file',
                                      files=updated_contents_full_chunk, relation_type='output')
             core_processings.update_processing_contents(update_processing=None,
+                                                        request_id=request_id,
                                                         messages=msgs)
 
     if new_contents_ext:
@@ -1210,12 +1225,14 @@ def handle_update_processing(processing, agent_attributes, max_updates_per_round
         for new_contents_ext_chunk in new_contents_ext_chunks:
             logger.debug(log_prefix + "handle_update_processing: add %s ext contents" % (len(new_contents_ext_chunk)))
             core_processings.update_processing_contents(update_processing=None,
+                                                        request_id=request_id,
                                                         new_contents_ext=new_contents_ext_chunk)
     if update_contents_ext:
         update_contents_ext_chunks = get_list_chunks(update_contents_ext, bulk_size=max_updates_per_round)
         for update_contents_ext_chunk in update_contents_ext_chunks:
             logger.debug(log_prefix + "handle_update_processing: update %s ext contents" % (len(update_contents_ext_chunk)))
             core_processings.update_processing_contents(update_processing=None,
+                                                        request_id=request_id,
                                                         update_contents_ext=update_contents_ext_chunk)
 
     if content_updates:
@@ -1224,7 +1241,7 @@ def handle_update_processing(processing, agent_attributes, max_updates_per_round
             logger.debug(log_prefix + "handle_update_processing: update %s contents" % (len(content_updates_chunk)))
             core_processings.update_processing_contents(update_processing=None,
                                                         request_id=request_id,
-                                                        transform_id=transform_id,
+                                                        # transform_id=transform_id,
                                                         use_bulk_update_mappings=use_bulk_update_mappings,
                                                         update_contents=content_updates_chunk)
 
@@ -1293,6 +1310,7 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
             has_updates = True
             if not work.es or con['substatus'] in [ContentStatus.Available]:
                 con_dict = {'content_id': con['content_id'],
+                            'request_id': content['request_id'],
                             'substatus': con['substatus']}
                 if 'content_metadata' in con and con['content_metadata']:
                     con_dict['content_metadata'] = con['content_metadata']
@@ -1302,7 +1320,8 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
         for chunk in new_contents_update_list_chunks:
             has_updates = True
             logger.debug(log_prefix + "new_contents_update chunk[:3](total: %s): %s" % (len(chunk), str(chunk[:3])))
-            core_catalog.update_contents(chunk, request_id=request_id, transform_id=transform_id, use_bulk_update_mappings=False)
+            # core_catalog.update_contents(chunk, request_id=request_id, transform_id=transform_id, use_bulk_update_mappings=False)
+            core_catalog.update_contents(chunk, request_id=request_id, transform_id=transform_id, use_bulk_update_mappings=True)
         # core_catalog.delete_contents_update(contents=contents_id_list)
         core_catalog.delete_contents_update(request_id=request_id, transform_id=transform_id, fetch=True)
         logger.debug(log_prefix + "sync contents_update to contents done")
@@ -1357,7 +1376,7 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
                                                         # new_update_contents=new_update_contents,
                                                         messages=ret_msgs,
                                                         request_id=request_id,
-                                                        transform_id=transform_id,
+                                                        # transform_id=transform_id,
                                                         use_bulk_update_mappings=False)
             updated_contents = []
             new_update_contents = []
@@ -1997,6 +2016,7 @@ def reactive_contents(request_id, transform_id, workload_id, work, input_output_
                                      ContentStatus.Available.value, ContentStatus.Mapped.value,
                                      ContentStatus.FakeAvailable, ContentStatus.FakeAvailable.value]:
             u_content = {'content_id': content['content_id'],
+                         'request_id': content['request_id'],
                          'substatus': ContentStatus.New,
                          'status': ContentStatus.New}
             updated_contents.append(u_content)

@@ -935,12 +935,14 @@ class DomaPanDAWork(Work):
             if not all_outputs_available:
                 for content in inputs + outputs:
                     update_content = {'content_id': content['content_id'],
+                                      'request_id': content['request_id'],
                                       'status': ContentStatus.New,
                                       'substatus': ContentStatus.New}
                     updated_contents.append(update_content)
                 for content in inputs_dependency:
                     if content['status'] not in [ContentStatus.Available]:
                         update_content = {'content_id': content['content_id'],
+                                          'request_id': content['request_id'],
                                           'status': ContentStatus.New,
                                           'substatus': ContentStatus.New}
                         updated_contents.append(update_content)
@@ -1278,6 +1280,7 @@ class DomaPanDAWork(Work):
                         content['substatus'] = panda_status
                         update_contents_full.append(content)
                         update_content = {'content_id': content['content_id'],
+                                          'request_id': content['request_id'],
                                           # 'status': panda_status,
                                           'substatus': panda_status}
 
@@ -1327,6 +1330,7 @@ class DomaPanDAWork(Work):
                                 new_contents_ext_dict[new_content_ext['content_id']] = new_content_ext
                             else:
                                 update_content_ext = {'content_id': content['content_id'],
+                                                      'request_id': content['request_id'],
                                                       'status': panda_status}
                                 for job_info_item in job_info_maps:
                                     update_content_ext[job_info_item] = getattr(job_info, job_info_maps[job_info_item])
@@ -1362,6 +1366,7 @@ class DomaPanDAWork(Work):
                             content['substatus'] = panda_status
                             update_contents_full.append(content)
                             update_content = {'content_id': content['content_id'],
+                                              'request_id': content['request_id'],
                                               # 'status': panda_status,
                                               'substatus': panda_status}
 
@@ -1409,6 +1414,7 @@ class DomaPanDAWork(Work):
                                 new_contents_ext_dict[new_content_ext['content_id']] = new_content_ext
                             else:
                                 update_content_ext = {'content_id': content['content_id'],
+                                                      'request_id': content['request_id'],
                                                       'status': panda_status}
                                 for job_info_item in job_info_maps:
                                     update_content_ext[job_info_item] = getattr(job_info, job_info_maps[job_info_item])
@@ -1439,6 +1445,7 @@ class DomaPanDAWork(Work):
                             content['substatus'] = event_status
                             update_contents_full.append(content)
                             update_content = {'content_id': content['content_id'],
+                                              'request_id': content['request_id'],
                                               # 'status': panda_status,
                                               'substatus': event_status}
 
@@ -1491,6 +1498,7 @@ class DomaPanDAWork(Work):
                                 new_contents_ext_dict[new_content_ext['content_id']] = new_content_ext
                             else:
                                 update_content_ext = {'content_id': content['content_id'],
+                                                      'request_id': content['request_id'],
                                                       'status': panda_status}
                                 for job_info_item in job_info_maps:
                                     update_content_ext[job_info_item] = getattr(job_info, job_info_maps[job_info_item])
@@ -1513,6 +1521,7 @@ class DomaPanDAWork(Work):
                                                     ContentStatus.Lost, ContentStatus.Deleted, ContentStatus.Missing]:
                         if content['content_id'] not in update_contents_dict:
                             update_content = {'content_id': content['content_id'],
+                                              'request_id': content['request_id'],
                                               'substatus': ContentStatus.Missing}
                             update_contents.append(update_content)
                         if content['content_id'] not in contents_ext_dict and content['content_id'] not in new_contents_ext_dict:

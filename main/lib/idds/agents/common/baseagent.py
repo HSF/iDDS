@@ -36,6 +36,8 @@ class BaseAgent(TimerScheduler, PluginBase):
     The base IDDS agent class
     """
 
+    min_request_id = None
+
     def __init__(self, num_threads=1, name=None, logger=None, **kwargs):
         super(BaseAgent, self).__init__(num_threads, name=name)
         self.name = self.__class__.__name__
