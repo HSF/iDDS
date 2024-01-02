@@ -279,7 +279,7 @@ def get_match_contents(coll_id, scope, name, content_type=None, min_id=None, max
 
 
 @read_session
-def get_contents(scope=None, name=None, transform_id=None, coll_id=None, status=None,
+def get_contents(scope=None, name=None, request_id=None, transform_id=None, coll_id=None, status=None,
                  relation_type=None, to_json=False, session=None):
     """
     Get content or raise a NoObject exception.
@@ -310,6 +310,8 @@ def get_contents(scope=None, name=None, transform_id=None, coll_id=None, status=
 
         query = session.query(models.Content)
 
+        if request_id:
+            query = query.filter(models.Content.request_id == request_id)
         if transform_id:
             query = query.filter(models.Content.transform_id == transform_id)
         if coll_id:

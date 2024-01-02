@@ -285,12 +285,12 @@ def update_processing_with_collection_contents(updated_processing, new_processin
                                         session=session)
 
 
-def resolve_input_dependency_id(new_input_dependency_contents, session=None):
+def resolve_input_dependency_id(new_input_dependency_contents, request_id=None, session=None):
     coll_ids = []
     for content in new_input_dependency_contents:
         if content['coll_id'] not in coll_ids:
             coll_ids.append(content['coll_id'])
-    contents = orm_contents.get_contents(coll_id=coll_ids, relation_type=ContentRelationType.Output, session=session)
+    contents = orm_contents.get_contents(coll_id=coll_ids, request_id=request_id, relation_type=ContentRelationType.Output, session=session)
     content_name_id_map = {}
     for content in contents:
         if content['coll_id'] not in content_name_id_map:
@@ -299,16 +299,17 @@ def resolve_input_dependency_id(new_input_dependency_contents, session=None):
             content_name_id_map[content['coll_id']][content['name']] = {}
         # if content['map_id'] not in content_name_id_map[content['coll_id']][content['name']]:
         #     content_name_id_map[content['coll_id']][content['name']][content['map_id']] = {}
-        content_name_id_map[content['coll_id']][content['name']][content['sub_map_id']] = content['content_id']
-        # content_name_id_map[content['coll_id']][content['name']] = content['content_id']
+        # content_name_id_map[content['coll_id']][content['name']][content['sub_map_id']] = content['content_id']
+        content_name_id_map[content['coll_id']][content['name']] = content['content_id']
 
     for content in new_input_dependency_contents:
         if 'sub_map_id' not in content or content['sub_map_id'] is None:
             content['sub_map_id'] = 0
-        dep_sub_map_id = content.get("dep_sub_map_id", 0)
-        if dep_sub_map_id is None:
-            dep_sub_map_id = 0
-        content_dep_id = content_name_id_map[content['coll_id']][content['name']][dep_sub_map_id]
+        # dep_sub_map_id = content.get("dep_sub_map_id", 0)
+        # if dep_sub_map_id is None:
+        #     dep_sub_map_id = 0
+        # content_dep_id = content_name_id_map[content['coll_id']][content['name']][dep_sub_map_id]
+        content_dep_id = content_name_id_map[content['coll_id']][content['name']]
         content['content_dep_id'] = content_dep_id
     return new_input_dependency_contents
 
@@ -355,7 +356,7 @@ def update_processing_contents(update_processing, update_contents=None, update_m
             orm_contents.update_contents_ext(chunk, request_id=request_id, transform_id=transform_id,
                                              use_bulk_update_mappings=use_bulk_update_mappings, session=session)
     if new_input_dependency_contents:
-        new_input_dependency_contents = resolve_input_dependency_id(new_input_dependency_contents, session=session)
+        new_input_dependency_contents = resolve_input_dependency_id(new_input_dependency_contents, request_id=request_id, session=session)
         chunks = get_list_chunks(new_input_dependency_contents)
         for chunk in chunks:
             orm_contents.add_contents(chunk, session=session)

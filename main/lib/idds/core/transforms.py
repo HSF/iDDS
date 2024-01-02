@@ -381,7 +381,7 @@ def clean_next_poll_at(status, session=None):
 
 
 @read_session
-def get_transform_input_output_maps(transform_id, input_coll_ids, output_coll_ids, log_coll_ids=[], with_sub_map_id=False, session=None):
+def get_transform_input_output_maps(transform_id, input_coll_ids, output_coll_ids, log_coll_ids=[], with_sub_map_id=False, is_es=False, session=None):
     """
     Get transform input output maps.
 
@@ -391,8 +391,15 @@ def get_transform_input_output_maps(transform_id, input_coll_ids, output_coll_id
     ret = {}
     for content in contents:
         map_id = content['map_id']
+        sub_map_id = content['sub_map_id']
         if not with_sub_map_id:
-            if map_id not in ret:
+            if is_es:
+                sub_map_id = content['sub_map_id']
+                path = content['path']
+                if map_id not in ret:
+                    ret[map_id] = {'inputs_dependency': [], 'inputs': [], 'outputs': [], 'logs': [], 'others': [],
+                                   'es_name': path, 'sub_maps': {}}
+            elif map_id not in ret:
                 ret[map_id] = {'inputs_dependency': [], 'inputs': [], 'outputs': [], 'logs': [], 'others': []}
         else:
             sub_map_id = content['sub_map_id']
@@ -417,6 +424,12 @@ def get_transform_input_output_maps(transform_id, input_coll_ids, output_coll_id
                 ret[map_id]['inputs_dependency'].append(content)
             elif content['content_relation_type'] == ContentRelationType.Output:
                 ret[map_id]['outputs'].append(content)
+
+                if is_es:
+                    sub_map_id = content['sub_map_id']
+                    if sub_map_id not in ret[map_id]['sub_maps'][sub_map_id]:
+                        ret[map_id]['sub_maps'][sub_map_id] = []
+                    ret[map_id]['sub_maps'][sub_map_id].append(content)
             elif content['content_relation_type'] == ContentRelationType.Log:
                 ret[map_id]['logs'].append(content)
             else:
