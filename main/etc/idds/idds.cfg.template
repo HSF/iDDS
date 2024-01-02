@@ -20,6 +20,12 @@ loglevel = DEBUG
 # aipanda187 monitor(can be reused)
 # aipanda160, 161, 162 (new vms)
 # doma aipanda015, aipanda016, and aipanda017
+# 
+# new
+# iddsserver: aipanda102,aipanda103
+# idds atlas condor pool: aipanda101
+# dev: aipanda104
+# doma: aipanda105-107
 #
 [database]
 #default = mysql://idds:idds@pcuwvirt5.cern.ch/idds

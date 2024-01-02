@@ -26,7 +26,7 @@ conda env create --prefix=/opt/idds -f main/tools/env/environment.yml
 conda activate /opt/idds
 conda install -c conda-forge python-gfal2
 
-pip install rucio-clients-atlas rucio-clients panda-client-light
+pip install rucio-clients-atlas rucio-clients panda-client-light panda-client
 # root ca.crt to  /opt/idds/etc/ca.crt
 
 pip install requests SQLAlchemy urllib3 retrying mod_wsgi flask futures stomp.py cx-Oracle  unittest2 pep8 flake8 pytest nose sphinx recommonmark sphinx-rtd-theme nevergrad
@@ -36,6 +36,15 @@ pip install requests SQLAlchemy urllib3 retrying mod_wsgi flask futures stomp.py
 
 # python setup.py install --old-and-unmanageable
 # cp /opt/idds/etc/idds/rest/httpd-idds-443-py36-cc7.conf.install_template /etc/httpd/conf.d/httpd-idds-443-py36-cc7.conf
+
+# scp wguan@aipanda102:/opt/idds/etc/rucio.cfg /opt/idds/etc/rucio.cfg
+# scp wguan@aipanda102:/etc/httpd/conf.d/httpd-idds-443-py310-al.conf /etc/httpd/conf.d/httpd-idds-443-py310-al.conf
+# scp wguan@aipanda102:/etc/httpd/conf.d/httpd-idds-443-py39-cc7.conf /etc/httpd/conf.d/httpd-idds-443-py39-cc7.conf
+# mv /etc/httpd/conf.d/httpd-idds-443-py310-al.conf /etc/httpd/conf.d/httpd-idds-443-py310-al.conf.bac
+# scp wguan@aipanda102:/etc/supervisord.d/idds.ini /etc/supervisord.d/idds.ini
+# scp wguan@aipanda102:/opt/idds/etc/idds/idds.cfg /opt/idds/etc/idds/idds.cfg
+# scp wguan@aipanda102:/opt/idds/etc/idds/rest/gacl /opt/idds/etc/idds/rest/gacl
+# scp wguan@aipanda102:/opt/idds/etc/idds/auth/auth.cfg /opt/idds/etc/idds/auth/auth.cfg
 
 chown atlpilo1 -R /opt/idds
 chown atlpilo1 -R /opt/idds_source
@@ -59,7 +68,10 @@ systemctl enable supervisord
 
 
 #condor
-yum install -y condor.x86_64 condor-python.x86_64
+yum install https://research.cs.wisc.edu/htcondor/repo/current/htcondor-release-current.el9.noarch.rpm
+# cp /etc/yum.repos.d/htcondor* /etc/yum-puppet.repos.d/
+# yum install -y condor.x86_64 condor-python.x86_64
+yum install -y condor.x86_64 python3-condor.x86_64
 #firewall-cmd --zone=public --add-port=9618/tcp --permanent
 firewall-cmd --zone=public --add-port=9618/udp --permanent
 firewall-cmd --zone=public --add-port=9600-9700/tcp --permanent
