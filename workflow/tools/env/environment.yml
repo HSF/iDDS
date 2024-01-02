@@ -5,4 +5,4 @@ dependencies:
 - pip:
   - anytree
   - networkx
-  - idds-common==0.11.5
+  - idds-common==2.0.9

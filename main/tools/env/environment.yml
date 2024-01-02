@@ -1,6 +1,6 @@
 name: iDDS
 dependencies:
-- python==3.9.7 
+- python==3.9.7
 - pip
 - pip:
   - argcomplete
@@ -31,7 +31,3 @@ dependencies:
   - deepdiff
   - pyzmq
   - oic
-  - lsst-ctrl-bps
-  - idds-common==0.11.5
-  - idds-workflow==0.11.5
-  - idds-client==0.11.5
