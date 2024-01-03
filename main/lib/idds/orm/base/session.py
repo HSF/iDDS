@@ -228,6 +228,12 @@ def retry_if_db_connection_error(exception):
         for err_code in conn_err_codes:
             if exception.args[0].find(err_code) != -1:
                 return True
+    if isinstance(exception, DatabaseException):
+        conn_err_codes = ('server closed the connection unexpectedly',
+                          'closed the connection',)
+        for err_code in conn_err_codes:
+            if exception.args[0].find(err_code) != -1:
+                return True
     return False
 
 

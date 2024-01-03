@@ -325,7 +325,7 @@ class Finisher(Poller):
                         ret = self.handle_resume_processing(pr, log_prefix=log_pre)
                         self.logger.info(log_pre + "process_resume_processing result: %s" % str(ret))
 
-                        self.update_processing(ret, pr)
+                        self.update_processing(ret, pr, use_bulk_update_mappings=False)
 
                         self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
                         event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'], content=event._content)

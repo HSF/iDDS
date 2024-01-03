@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2020
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2024
 
 
 """
@@ -261,7 +261,7 @@ def get_processings_by_transform_id(transform_id=None, to_json=False, session=No
 @transactional_session
 def get_processings_by_status(status, period=None, processing_ids=[], locking=False, locking_for_update=False,
                               bulk_size=None, submitter=None, to_json=False, by_substatus=False, only_return_id=False,
-                              new_poll=False, update_poll=False, for_poller=False, session=None):
+                              min_request_id=None, new_poll=False, update_poll=False, for_poller=False, session=None):
     """
     Get processing or raise a NoObject exception.
 
@@ -303,6 +303,8 @@ def get_processings_by_status(status, period=None, processing_ids=[], locking=Fa
 
         if processing_ids:
             query = query.filter(models.Processing.processing_id.in_(processing_ids))
+        if min_request_id:
+            query = query.filter(models.Processing.request_id >= min_request_id)
         # if period:
         #     query = query.filter(models.Processing.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=period))
         if locking:

@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2024
 
 
 """
@@ -151,7 +151,7 @@ def get_transforms(request_id=None, workload_id=None, transform_id=None, to_json
 
 @transactional_session
 def get_transforms_by_status(status, period=None, locking=False, bulk_size=None, to_json=False, by_substatus=False,
-                             new_poll=False, update_poll=False, only_return_id=False,
+                             new_poll=False, update_poll=False, only_return_id=False, min_request_id=None,
                              not_lock=False, next_poll_at=None, session=None):
     """
     Get transforms or raise a NoObject exception.
@@ -172,6 +172,7 @@ def get_transforms_by_status(status, period=None, locking=False, bulk_size=None,
             tf_ids = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking,
                                                              bulk_size=bulk_size * 2, locking_for_update=False,
                                                              to_json=False, only_return_id=True,
+                                                             min_request_id=min_request_id,
                                                              new_poll=new_poll, update_poll=update_poll,
                                                              by_substatus=by_substatus, session=session)
             if tf_ids:
@@ -179,6 +180,7 @@ def get_transforms_by_status(status, period=None, locking=False, bulk_size=None,
                                                                       bulk_size=None, locking_for_update=False,
                                                                       to_json=to_json, transform_ids=tf_ids,
                                                                       new_poll=new_poll, update_poll=update_poll,
+                                                                      min_request_id=min_request_id,
                                                                       by_substatus=by_substatus, session=session)
                 if transform2s:
                     # reqs = req2s[:bulk_size]
@@ -202,6 +204,7 @@ def get_transforms_by_status(status, period=None, locking=False, bulk_size=None,
                                                                  bulk_size=bulk_size, to_json=to_json,
                                                                  new_poll=new_poll, update_poll=update_poll,
                                                                  only_return_id=only_return_id,
+                                                                 min_request_id=min_request_id,
                                                                  by_substatus=by_substatus, session=session)
 
         parameters = {}
@@ -221,6 +224,7 @@ def get_transforms_by_status(status, period=None, locking=False, bulk_size=None,
                                                              bulk_size=bulk_size, to_json=to_json,
                                                              new_poll=new_poll, update_poll=update_poll,
                                                              only_return_id=only_return_id,
+                                                             min_request_id=min_request_id,
                                                              by_substatus=by_substatus, session=session)
     return transforms
 
@@ -381,7 +385,7 @@ def clean_next_poll_at(status, session=None):
 
 
 @read_session
-def get_transform_input_output_maps(transform_id, input_coll_ids, output_coll_ids, log_coll_ids=[], with_sub_map_id=False, session=None):
+def get_transform_input_output_maps(transform_id, input_coll_ids, output_coll_ids, log_coll_ids=[], with_sub_map_id=False, is_es=False, session=None):
     """
     Get transform input output maps.
 
@@ -391,8 +395,15 @@ def get_transform_input_output_maps(transform_id, input_coll_ids, output_coll_id
     ret = {}
     for content in contents:
         map_id = content['map_id']
+        sub_map_id = content['sub_map_id']
         if not with_sub_map_id:
-            if map_id not in ret:
+            if is_es:
+                sub_map_id = content['sub_map_id']
+                path = content['path']
+                if map_id not in ret:
+                    ret[map_id] = {'inputs_dependency': [], 'inputs': [], 'outputs': [], 'logs': [], 'others': [],
+                                   'es_name': path, 'sub_maps': {}}
+            elif map_id not in ret:
                 ret[map_id] = {'inputs_dependency': [], 'inputs': [], 'outputs': [], 'logs': [], 'others': []}
         else:
             sub_map_id = content['sub_map_id']
@@ -417,6 +428,12 @@ def get_transform_input_output_maps(transform_id, input_coll_ids, output_coll_id
                 ret[map_id]['inputs_dependency'].append(content)
             elif content['content_relation_type'] == ContentRelationType.Output:
                 ret[map_id]['outputs'].append(content)
+
+                if is_es:
+                    sub_map_id = content['sub_map_id']
+                    if sub_map_id not in ret[map_id]['sub_maps'][sub_map_id]:
+                        ret[map_id]['sub_maps'][sub_map_id] = []
+                    ret[map_id]['sub_maps'][sub_map_id].append(content)
             elif content['content_relation_type'] == ContentRelationType.Log:
                 ret[map_id]['logs'].append(content)
             else:

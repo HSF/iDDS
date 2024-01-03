@@ -6,8 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Sergey Padolski, <spadolski@bnl.gov>, 2021
-# - Wen Guan, <wen.guan@cern.ch>, 2021
+# - Wen Guan, <wen.guan@cern.ch>, 2023
 
 
 """
@@ -74,7 +73,6 @@ else:
     # task_queue = 'SLAC_Rubin_Extra_Himem_32Cores'
     # task_queue = 'SLAC_Rubin_Merge'
     # task_queue = 'SLAC_TEST'
-    # task_queue4 = task_queue3 = task_queue2 = task_queue1 = task_queue
 
 # task_cloud = None
 
@@ -96,7 +94,6 @@ def setup_workflow():
     taskN1.name = site + "_" + taskN1.step + "_" + randStr()
     taskN1.dependencies = [
         {"name": "00000" + str(k),
-         "order_id": k,
          "dependencies": [],
          "submitted": False} for k in range(6)
     ]
@@ -107,21 +104,18 @@ def setup_workflow():
     taskN2.dependencies = [
         {
             "name": "000010",
-            "order_id": 0,
             "dependencies": [{"task": taskN1.name, "inputname": "000001", "available": False},
                              {"task": taskN1.name, "inputname": "000002", "available": False}],
             "submitted": False
         },
         {
             "name": "000011",
-            "order_id": 1,
             "dependencies": [{"task": taskN1.name, "inputname": "000001", "available": False},
                              {"task": taskN1.name, "inputname": "000002", "available": False}],
             "submitted": False
         },
         {
             "name": "000012",
-            "order_id": 2,
             "dependencies": [{"task": taskN1.name, "inputname": "000001", "available": False},
                              {"task": taskN1.name, "inputname": "000002", "available": False}],
             "submitted": False
@@ -134,33 +128,28 @@ def setup_workflow():
     taskN3.dependencies = [
         {
             "name": "000020",
-            "order_id": 0,
             "dependencies": [],
             "submitted": False
         },
         {
             "name": "000021",
-            "order_id": 1,
             "dependencies": [{"task": taskN2.name, "inputname": "000010", "available": False},
                              {"task": taskN2.name, "inputname": "000011", "available": False}],
             "submitted": False
         },
         {
             "name": "000022",
-            "order_id": 2,
             "dependencies": [{"task": taskN2.name, "inputname": "000011", "available": False},
                              {"task": taskN2.name, "inputname": "000012", "available": False}],
             "submitted": False
         },
         {
             "name": "000023",
-            "order_id": 3,
             "dependencies": [],
             "submitted": False
         },
         {
             "name": "000024",
-            "order_id": 4,
             "dependencies": [{"task": taskN3.name, "inputname": "000021", "available": False},
                              {"task": taskN3.name, "inputname": "000023", "available": False}],
             "submitted": False
@@ -172,7 +161,6 @@ def setup_workflow():
     taskN4.name = site + "_" + taskN4.step + "_" + randStr()
     taskN4.dependencies = [
         {"name": "00004" + str(k),
-         "order_id": k,
          "dependencies": [],
          "submitted": False} for k in range(6)
     ]
@@ -182,7 +170,6 @@ def setup_workflow():
     taskN5.name = site + "_" + taskN5.step + "_" + randStr()
     taskN5.dependencies = [
         {"name": "00005" + str(k),
-         "order_id": k,
          "dependencies": [],
          "submitted": False} for k in range(6)
     ]
@@ -194,6 +181,7 @@ def setup_workflow():
                           task_name=taskN1.name, task_queue=task_queue,
                           encode_command_line=True,
                           task_priority=981,
+                          task_rss=3, task_rss_retry_offset=3, task_rss_retry_step=1000, task_rss_max=8000,
                           prodSourceLabel='managed',
                           task_log={"dataset": "PandaJob_#{pandaid}/",
                                     "destination": "local",
@@ -209,6 +197,7 @@ def setup_workflow():
                           task_name=taskN2.name, task_queue=task_queue1,
                           encode_command_line=True,
                           task_priority=881,
+                          task_rss=3, task_rss_retry_offset=3, task_rss_retry_step=1000, task_rss_max=8000,
                           prodSourceLabel='managed',
                           task_log={"dataset": "PandaJob_#{pandaid}/",
                                     "destination": "local",
@@ -224,6 +213,7 @@ def setup_workflow():
                           task_name=taskN3.name, task_queue=task_queue2,
                           encode_command_line=True,
                           task_priority=781,
+                          task_rss=3, task_rss_retry_offset=3, task_rss_retry_step=1000, task_rss_max=8000,
                           prodSourceLabel='managed',
                           task_log={"dataset": "PandaJob_#{pandaid}/",
                                     "destination": "local",
@@ -240,6 +230,7 @@ def setup_workflow():
                           task_name=taskN4.name, task_queue=task_queue3,
                           encode_command_line=True,
                           task_priority=981,
+                          task_rss=3, task_rss_retry_offset=3, task_rss_retry_step=1000, task_rss_max=8000,
                           prodSourceLabel='managed',
                           task_log={"dataset": "PandaJob_#{pandaid}/",
                                     "destination": "local",
@@ -256,6 +247,7 @@ def setup_workflow():
                           task_name=taskN5.name, task_queue=task_queue4,
                           encode_command_line=True,
                           task_priority=981,
+                          task_rss=3, task_rss_retry_offset=3, task_rss_retry_step=1000, task_rss_max=8000,
                           prodSourceLabel='managed',
                           task_log={"dataset": "PandaJob_#{pandaid}/",
                                     "destination": "local",

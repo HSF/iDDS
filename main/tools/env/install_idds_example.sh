@@ -20,11 +20,13 @@ chown apache -R /tmp/idds/wsgisocks
 
 cd /opt/idds_source
 #  rm -fr *; cp -r /afs/cern.ch/user/w/wguan/workdisk/iDDS/* .;python setup.py install --old-and-unmanageable
-git clone @github_idds@ /opt/idds_source
-conda env create --prefix=/opt/idds -f main/tools/env/environment.yml
-# source /etc/profile.d/conda.sh
+# git clone @github_idds@ /opt/idds_source
+
+wget https://raw.githubusercontent.com/HSF/iDDS/master/main/tools/env/environment.yml
+source /etc/profile.d/conda.sh
+conda env create --prefix=/opt/idds -f environment.yml
 conda activate /opt/idds
-conda install -c conda-forge python-gfal2
+# conda install -c conda-forge python-gfal2
 
 pip install rucio-clients-atlas rucio-clients panda-client-light panda-client
 # root ca.crt to  /opt/idds/etc/ca.crt

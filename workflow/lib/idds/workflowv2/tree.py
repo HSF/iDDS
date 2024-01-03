@@ -37,7 +37,9 @@ class Node(Base):
         self.children = children
         self.parents = parents
         self.groups = []
+        self.order_groups = []
         self.group_id = None
+        self.order_id = None
         self.disable_grouping = disable_grouping
 
         self.setup_logger()
@@ -100,6 +102,37 @@ class Node(Base):
             for parent in self.parents:
                 if not parent.group_id:
                     parent.add_group(group_id)
+
+    def add_order_group(self, group):
+        if group is not None and group not in self.order_groups:
+            self.order_groups.append(group)
+            for child in self.children:
+                if child.order_id is None:
+                    child.add_order_group(group)
+            for parent in self.parents:
+                if parent.order_id is None:
+                    parent.add_order_group(group)
+
+    def get_potential_order_id(self):
+        if not self.order_groups:
+            return 0
+        return "_".join([str(i) for i in sorted(self.order_groups)])
+
+    @property
+    def order_id(self):
+        return self.__order_id
+
+    @order_id.setter
+    def order_id(self, value):
+        self.__order_id = value
+        if value is not None:
+            self.__order_id = int(value)
+            for child in self.children:
+                if child.order_id is None:
+                    child.add_order_group(value)
+            for parent in self.parents:
+                if parent.order_id is None:
+                    parent.add_order_group(value)
 
     def get_node_name(self):
         return get_node_name(self.index, self.name)

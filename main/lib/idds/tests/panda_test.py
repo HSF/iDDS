@@ -10,6 +10,9 @@ os.environ['PANDA_BEHIND_REAL_LB'] = "1"
 # os.environ['PANDA_URL'] = 'http://rubin-panda-server-dev.slac.stanford.edu:80/server/panda'
 # os.environ['PANDA_URL_SSL'] = 'https://rubin-panda-server-dev.slac.stanford.edu:8443/server/panda'
 
+# os.environ['PANDA_URL'] = 'https://usdf-panda-server.slac.stanford.edu:8443/server/panda'
+# os.environ['PANDA_URL_SSL'] = 'https://usdf-panda-server.slac.stanford.edu:8443/server/panda'
+
 from pandaclient import Client  # noqa E402
 
 
@@ -36,12 +39,23 @@ task_ids = [i for i in range(251, 282)]
 task_ids = [282, 322, 323, 324, 325]
 task_ids = [i for i in range(165243, 165277)]
 task_ids = [165277]
+task_ids = [i for i in range(5838, 5912)]
+task_ids = [165290, 165295, 165299, 165728]
+task_ids = []
+task_ids = [i for i in range(166636, 166778)]
+task_ids = [166253, 166254]
 for task_id in task_ids:
     print("Killing %s" % task_id)
     ret = Client.killTask(task_id, verbose=True)
     print(ret)
 
-sys.exit(0)
+# sys.exit(0)
+
+jediTaskID = 166303
+ret = Client.getJediTaskDetails({'jediTaskID': jediTaskID}, True, True, verbose=False)
+print(ret)
+
+# sys.exit(0)
 
 # jobids = [52690679]
 jobids = [9]
@@ -65,20 +79,45 @@ for job_info in jobs_list:
             print(f.type)
 """
 
-# ret = Client.getFullJobStatus(ids=jobids, verbose=False)
-# print(ret)
+jobids = [66573292]
+jobids = [67228019]
+job_ids = [67228019]
+ret = Client.getFullJobStatus(ids=jobids, verbose=False)
+print(ret)
 
-jediTaskID = 156668
+jobs_list = ret[1]
+# print(jobs_list)
+for job_info in jobs_list:
+    print(job_info)
+    print(job_info.eventService)
+    print(job_info.jobStatus)
+    print(job_info.jobSubStatus)
+    print(job_info.jobsetID)
+    print(job_info.taskID)
+    print(job_info.jediTaskID)
+    print(job_info.Files)
+    for job_file in job_info.Files:
+        print(job_file.type)
+        print(job_file.lfn)
+# sys.exit(0)
+
+jediTaskID = 166303
 ret = Client.get_files_in_datasets(jediTaskID, verbose=False)
 print(ret)
 
 print("get events")
 panda_ids = [{'task_id': 157016, 'panda_id': 53943290}]
-panda_ids = [{'task_id': 157076, 'panda_id': 53943504}]
+panda_ids = [{'task_id': 166303, 'panda_id': 66573292}]
+panda_ids = [{'task_id': 166643, 'panda_id': 66988434}]
+panda_ids = [{'task_id': 166943, 'panda_id': 67228019}]
 ret = Client.get_events_status(panda_ids, verbose=True)
 print(ret)
 
-# sys.exit(0)
+panda_ids = [{'task_id': 166943, 'panda_id': 67228018}]
+ret = Client.get_events_status(panda_ids, verbose=True)
+print(ret)
+
+sys.exit(0)
 
 """
 jediTaskID = 10517    # 10607

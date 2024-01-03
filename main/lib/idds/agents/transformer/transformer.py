@@ -112,11 +112,15 @@ class Transformer(BaseAgent):
 
             self.show_queue_size()
 
+            if BaseAgent.min_request_id is None:
+                return []
+
             transform_status = [TransformStatus.New, TransformStatus.Ready, TransformStatus.Extend]
             # next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_period)
             transforms_new = core_transforms.get_transforms_by_status(status=transform_status, locking=True,
                                                                       not_lock=True,
                                                                       new_poll=True, only_return_id=True,
+                                                                      min_request_id=BaseAgent.min_request_id,
                                                                       bulk_size=self.retrieve_bulk_size)
 
             # self.logger.debug("Main thread get %s New+Ready+Extend transforms to process" % len(transforms_new))
@@ -149,6 +153,9 @@ class Transformer(BaseAgent):
 
             self.show_queue_size()
 
+            if BaseAgent.min_request_id is None:
+                return []
+
             transform_status = [TransformStatus.Transforming,
                                 TransformStatus.ToCancel, TransformStatus.Cancelling,
                                 TransformStatus.ToSuspend, TransformStatus.Suspending,
@@ -159,6 +166,7 @@ class Transformer(BaseAgent):
                                                                   period=None,
                                                                   locking=True,
                                                                   not_lock=True,
+                                                                  min_request_id=BaseAgent.min_request_id,
                                                                   update_poll=True, only_return_id=True,
                                                                   bulk_size=self.retrieve_bulk_size)
 

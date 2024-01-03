@@ -1050,6 +1050,13 @@ def drop_proc_to_update_contents():
     event.listen(Content.__table__, "before_drop", func.execute_if(dialect="postgresql"))
 
 
+def get_request_sequence():
+    seq = Sequence('REQUEST_ID_SEQ', schema=DEFAULT_SCHEMA_NAME, metadata=Request.metadata)
+    # return seq.next_value().scalar()
+    # return seq.next_value()
+    return seq
+
+
 def register_models(engine):
     """
     Creates database tables for all models with the given engine
