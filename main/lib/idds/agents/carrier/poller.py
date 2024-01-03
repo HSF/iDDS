@@ -120,6 +120,9 @@ class Poller(BaseAgent):
 
             self.show_queue_size()
 
+            if BaseAgent.min_request_id is None:
+                return []
+
             processing_status = [ProcessingStatus.Submitting, ProcessingStatus.Submitted,
                                  ProcessingStatus.Running, ProcessingStatus.FinishedOnExec,
                                  ProcessingStatus.ToCancel, ProcessingStatus.Cancelling,
@@ -133,6 +136,7 @@ class Poller(BaseAgent):
                                                                      locking=True, update_poll=True,
                                                                      not_lock=True,
                                                                      only_return_id=True,
+                                                                     min_request_id=BaseAgent.min_request_id,
                                                                      bulk_size=self.retrieve_bulk_size)
 
             # self.logger.debug("Main thread get %s [submitting + submitted + running] processings to process" % (len(processings)))
@@ -202,7 +206,7 @@ class Poller(BaseAgent):
                                                                      processing['transform_id'],
                                                                      processing['processing_id'])
 
-    def update_processing(self, processing, processing_model):
+    def update_processing(self, processing, processing_model, use_bulk_update_mappings=True):
         try:
             if processing:
                 log_prefix = self.get_log_prefix(processing_model)
@@ -227,6 +231,7 @@ class Poller(BaseAgent):
                     retry_num += 1
                     try:
                         core_processings.update_processing_contents(update_processing=processing.get('update_processing', None),
+                                                                    request_id=processing_model['request_id'],
                                                                     update_collections=processing.get('update_collections', None),
                                                                     update_contents=processing.get('update_contents', None),
                                                                     update_dep_contents=processing.get('update_dep_contents', None),
@@ -236,7 +241,8 @@ class Poller(BaseAgent):
                                                                     new_update_contents=processing.get('new_update_contents', None),
                                                                     new_contents_ext=processing.get('new_contents_ext', None),
                                                                     update_contents_ext=processing.get('update_contents_ext', None),
-                                                                    new_input_dependency_contents=processing.get('new_input_dependency_contents', None))
+                                                                    new_input_dependency_contents=processing.get('new_input_dependency_contents', None),
+                                                                    use_bulk_update_mappings=use_bulk_update_mappings)
                     except exceptions.DatabaseException as ex:
                         if 'ORA-00060' in str(ex):
                             self.logger.warn(log_prefix + "(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")

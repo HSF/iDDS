@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2023
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2024
 
 
 """
@@ -102,7 +102,7 @@ def add_messages(messages, bulk_size=1000, session=None):
 
 
 @transactional_session
-def update_messages(messages, bulk_size=1000, use_bulk_update_mappings=False, request_id=None, transform_id=None, session=None):
+def update_messages(messages, bulk_size=1000, use_bulk_update_mappings=False, request_id=None, transform_id=None, min_request_id=None, session=None):
     try:
         if use_bulk_update_mappings:
             session.bulk_update_mappings(models.Message, messages)
@@ -115,6 +115,9 @@ def update_messages(messages, bulk_size=1000, use_bulk_update_mappings=False, re
                 query = session.query(models.Message)
                 if request_id:
                     query = query.filter(models.Message.request_id == request_id)
+                else:
+                    if min_request_id:
+                        query = query.filter(models.Message.request_id >= min_request_id)
                 if transform_id:
                     query = query.filter(models.Message.transform_id == transform_id)
                 query = query.filter(models.Message.msg_id.in_(keys))\
@@ -133,7 +136,8 @@ def update_messages(messages, bulk_size=1000, use_bulk_update_mappings=False, re
 def retrieve_messages(bulk_size=1000, msg_type=None, status=None, source=None,
                       destination=None, request_id=None, workload_id=None,
                       transform_id=None, processing_id=None, fetching_id=None,
-                      use_poll_period=False, retries=None, delay=None, session=None):
+                      min_request_id=None, use_poll_period=False, retries=None,
+                      delay=None, session=None):
     """
     Retrieve up to $bulk messages.
 
@@ -170,6 +174,9 @@ def retrieve_messages(bulk_size=1000, msg_type=None, status=None, source=None,
             query = query.filter(models.Message.destination.in_(destination))
         if request_id is not None:
             query = query.filter_by(request_id=request_id)
+        else:
+            if min_request_id:
+                query = query.filter_by(request_id >= min_request_id)
         if workload_id is not None:
             query = query.filter_by(workload_id=workload_id)
         if transform_id is not None:

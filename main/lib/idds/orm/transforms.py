@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2024
 
 
 """
@@ -347,7 +347,7 @@ def get_transforms(request_id=None, workload_id=None, transform_id=None,
 @transactional_session
 def get_transforms_by_status(status, period=None, transform_ids=[], locking=False, locking_for_update=False,
                              bulk_size=None, to_json=False, by_substatus=False, only_return_id=False,
-                             new_poll=False, update_poll=False, session=None):
+                             min_request_id=None, new_poll=False, update_poll=False, session=None):
     """
     Get transforms or raise a NoObject exception.
 
@@ -386,6 +386,8 @@ def get_transforms_by_status(status, period=None, transform_ids=[], locking=Fals
 
         if transform_ids:
             query = query.filter(models.Transform.transform_id.in_(transform_ids))
+        if min_request_id:
+            query = query.filter(models.Transform.request_id >= min_request_id)
         # if period:
         #     query = query.filter(models.Transform.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=period))
         if locking:

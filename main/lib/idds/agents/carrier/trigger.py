@@ -14,6 +14,7 @@ from idds.common import exceptions
 from idds.common.constants import ProcessingStatus, ProcessingLocking, ReturnCode
 from idds.common.utils import setup_logging, truncate_string
 from idds.core import processings as core_processings
+from idds.agents.common.baseagent import BaseAgent
 from idds.agents.common.eventbus.event import (EventType,
                                                UpdateTransformEvent,
                                                TriggerProcessingEvent,
@@ -68,11 +69,15 @@ class Trigger(Poller):
                 return []
             # self.show_queue_size()
 
+            if BaseAgent.min_request_id is None:
+                return []
+
             processing_status = [ProcessingStatus.ToTrigger, ProcessingStatus.Triggering]
             processings = core_processings.get_processings_by_status(status=processing_status,
                                                                      locking=True, update_poll=True,
                                                                      not_lock=True,
                                                                      only_return_id=True,
+                                                                     min_request_id=BaseAgent.min_request_id,
                                                                      bulk_size=self.retrieve_bulk_size)
             if processings:
                 self.logger.info("Main thread get [ToTrigger, Triggering] processings to process: %s" % (str(processings)))

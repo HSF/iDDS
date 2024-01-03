@@ -7,13 +7,14 @@
 #
 # Authors:
 # - Sergey Padolski, <spadolski@bnl.gov>, 2021
-# - Wen Guan, <wen.guan@cern.ch>, 2021
+# - Wen Guan, <wen.guan@cern.ch>, 2023
 
 
 """
 Test client.
 """
 
+import json   # noqa F401
 import sys
 import string
 import random
@@ -73,8 +74,8 @@ else:
     task_queue4 = 'SLAC_Rubin_Merge'
     # task_queue = 'SLAC_Rubin_Extra_Himem_32Cores'
     # task_queue = 'SLAC_Rubin_Merge'
-    # task_queue = 'SLAC_TEST'
-    # task_queue4 = task_queue3 = task_queue2 = task_queue1 = task_queue
+    task_queue = 'SLAC_TEST'
+    task_queue4 = task_queue3 = task_queue2 = task_queue1 = task_queue
 
 # task_cloud = None
 
@@ -91,6 +92,7 @@ class PanDATask(object):
 
 def setup_workflow():
 
+    es_map = {}
     taskN1 = PanDATask()
     taskN1.step = "step1"
     taskN1.name = site + "_" + taskN1.step + "_" + randStr()
@@ -100,6 +102,8 @@ def setup_workflow():
          "dependencies": [],
          "submitted": False} for k in range(6)
     ]
+
+    es_map[taskN1.step] = {str(item["order_id"]): item["name"] for item in taskN1.dependencies}
 
     taskN2 = PanDATask()
     taskN2.step = "step2"
@@ -127,6 +131,8 @@ def setup_workflow():
             "submitted": False
         }
     ]
+
+    es_map[taskN2.step] = {str(item["order_id"]): item["name"] for item in taskN2.dependencies}
 
     taskN3 = PanDATask()
     taskN3.step = "step3"
@@ -161,11 +167,14 @@ def setup_workflow():
         {
             "name": "000024",
             "order_id": 4,
+            "groups": taskN3.name,
             "dependencies": [{"task": taskN3.name, "inputname": "000021", "available": False},
                              {"task": taskN3.name, "inputname": "000023", "available": False}],
             "submitted": False
         },
     ]
+
+    es_map[taskN3.step] = {str(item["order_id"]): item["name"] for item in taskN3.dependencies}
 
     taskN4 = PanDATask()
     taskN4.step = "step4"
@@ -177,6 +186,8 @@ def setup_workflow():
          "submitted": False} for k in range(6)
     ]
 
+    es_map[taskN4.step] = {str(item["order_id"]): item["name"] for item in taskN4.dependencies}
+
     taskN5 = PanDATask()
     taskN5.step = "step5"
     taskN5.name = site + "_" + taskN5.step + "_" + randStr()
@@ -187,13 +198,26 @@ def setup_workflow():
          "submitted": False} for k in range(6)
     ]
 
-    work1 = DomaPanDAWork(executable='echo',
+    es_map[taskN5.step] = {str(item["order_id"]): item["name"] for item in taskN5.dependencies}
+
+    # print(json.dumps(es_map))
+    # raise
+    # executable = "wget https://wguan-wisc.web.cern.ch/wguan-wisc/doma_es_executor.py; chmod +x doma_es_executor.py; ./doma_es_executor.py echo ${IN/L}"
+    # executable = "export RUBIN_ES_CORES=4; echo; RUBIN_ES_MAP=%s; echo ${IN/L}" % json.dumps(es_map)
+
+    es_map_file = "/sdf/data/rubin/panda_jobs/panda_env_pilot/test_rubin_es_map.json"
+    executable = "export RUBIN_ES_CORES=4; echo; RUBIN_ES_MAP_FILE=%s; echo ${IN/L}" % es_map_file
+
+    work1 = DomaPanDAWork(executable=executable,
                           primary_input_collection={'scope': 'pseudo_dataset', 'name': 'pseudo_input_collection#1'},
                           output_collections=[{'scope': 'pseudo_dataset', 'name': 'pseudo_output_collection#1'}],
                           log_collections=[], dependency_map=taskN1.dependencies,
                           task_name=taskN1.name, task_queue=task_queue,
                           encode_command_line=True,
                           task_priority=981,
+                          es=True,
+                          es_label=taskN1.step,
+                          max_events_per_job=100,
                           prodSourceLabel='managed',
                           task_log={"dataset": "PandaJob_#{pandaid}/",
                                     "destination": "local",
@@ -202,13 +226,15 @@ def setup_workflow():
                                     "type": "template",
                                     "value": "log.tgz"},
                           task_cloud=task_cloud)
-    work2 = DomaPanDAWork(executable='echo',
+    work2 = DomaPanDAWork(executable=executable,
                           primary_input_collection={'scope': 'pseudo_dataset', 'name': 'pseudo_input_collection#2'},
                           output_collections=[{'scope': 'pseudo_dataset', 'name': 'pseudo_output_collection#2'}],
                           log_collections=[], dependency_map=taskN2.dependencies,
                           task_name=taskN2.name, task_queue=task_queue1,
                           encode_command_line=True,
                           task_priority=881,
+                          es=True,
+                          es_label=taskN2.step,
                           prodSourceLabel='managed',
                           task_log={"dataset": "PandaJob_#{pandaid}/",
                                     "destination": "local",
@@ -217,13 +243,15 @@ def setup_workflow():
                                     "type": "template",
                                     "value": "log.tgz"},
                           task_cloud=task_cloud)
-    work3 = DomaPanDAWork(executable='echo',
+    work3 = DomaPanDAWork(executable=executable,
                           primary_input_collection={'scope': 'pseudo_dataset', 'name': 'pseudo_input_collection#3'},
                           output_collections=[{'scope': 'pseudo_dataset', 'name': 'pseudo_output_collection#3'}],
                           log_collections=[], dependency_map=taskN3.dependencies,
                           task_name=taskN3.name, task_queue=task_queue2,
                           encode_command_line=True,
                           task_priority=781,
+                          es=True,
+                          es_label=taskN3.step,
                           prodSourceLabel='managed',
                           task_log={"dataset": "PandaJob_#{pandaid}/",
                                     "destination": "local",
@@ -233,13 +261,15 @@ def setup_workflow():
                                     "value": "log.tgz"},
                           task_cloud=task_cloud)
 
-    work4 = DomaPanDAWork(executable='echo',
+    work4 = DomaPanDAWork(executable=executable,
                           primary_input_collection={'scope': 'pseudo_dataset', 'name': 'pseudo_input_collection#1'},
                           output_collections=[{'scope': 'pseudo_dataset', 'name': 'pseudo_output_collection#1'}],
                           log_collections=[], dependency_map=taskN4.dependencies,
                           task_name=taskN4.name, task_queue=task_queue3,
                           encode_command_line=True,
                           task_priority=981,
+                          es=True,
+                          es_label=taskN4.step,
                           prodSourceLabel='managed',
                           task_log={"dataset": "PandaJob_#{pandaid}/",
                                     "destination": "local",
@@ -249,13 +279,15 @@ def setup_workflow():
                                     "value": "log.tgz"},
                           task_cloud=task_cloud)
 
-    work5 = DomaPanDAWork(executable='echo',
+    work5 = DomaPanDAWork(executable=executable,
                           primary_input_collection={'scope': 'pseudo_dataset', 'name': 'pseudo_input_collection#1'},
                           output_collections=[{'scope': 'pseudo_dataset', 'name': 'pseudo_output_collection#1'}],
                           log_collections=[], dependency_map=taskN5.dependencies,
                           task_name=taskN5.name, task_queue=task_queue4,
                           encode_command_line=True,
                           task_priority=981,
+                          es=True,
+                          es_label=taskN5.step,
                           prodSourceLabel='managed',
                           task_log={"dataset": "PandaJob_#{pandaid}/",
                                     "destination": "local",

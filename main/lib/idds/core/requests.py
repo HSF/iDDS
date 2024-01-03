@@ -368,7 +368,7 @@ def get_operation_request_msgs(locking=False, bulk_size=None, session=None):
 @transactional_session
 def get_requests_by_status_type(status, request_type=None, time_period=None, locking=False, bulk_size=None, to_json=False,
                                 by_substatus=False, not_lock=False, next_poll_at=None, new_poll=False, update_poll=False,
-                                only_return_id=False, session=None):
+                                min_request_id=None, only_return_id=False, session=None):
     """
     Get requests by status and type
 
@@ -381,6 +381,9 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, loc
 
     :returns: list of Request.
     """
+    if min_request_id is None:
+        min_request_id = orm_requests.get_min_request_id(session=session)
+
     if locking:
         if not only_return_id and bulk_size:
             # order by cannot work together with locking. So first select 2 * bulk_size without locking with order by.
@@ -388,11 +391,13 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, loc
             req_ids = orm_requests.get_requests_by_status_type(status, request_type, time_period, locking=locking, bulk_size=bulk_size * 2,
                                                                locking_for_update=False, to_json=False, by_substatus=by_substatus,
                                                                new_poll=new_poll, update_poll=update_poll,
+                                                               min_request_id=min_request_id,
                                                                only_return_id=True, session=session)
             if req_ids:
                 req2s = orm_requests.get_requests_by_status_type(status, request_type, time_period, request_ids=req_ids,
                                                                  locking=locking, locking_for_update=False, bulk_size=None,
                                                                  to_json=to_json,
+                                                                 min_request_id=min_request_id,
                                                                  new_poll=new_poll, update_poll=update_poll,
                                                                  by_substatus=by_substatus, session=session)
                 if req2s:
@@ -414,6 +419,7 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, loc
         else:
             reqs = orm_requests.get_requests_by_status_type(status, request_type, time_period, locking=locking, locking_for_update=False,
                                                             bulk_size=bulk_size,
+                                                            min_request_id=min_request_id,
                                                             new_poll=new_poll, update_poll=update_poll, only_return_id=only_return_id,
                                                             to_json=to_json, by_substatus=by_substatus, session=session)
 
@@ -432,6 +438,7 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, loc
     else:
         reqs = orm_requests.get_requests_by_status_type(status, request_type, time_period, locking=locking, bulk_size=bulk_size,
                                                         new_poll=new_poll, update_poll=update_poll, only_return_id=only_return_id,
+                                                        min_request_id=min_request_id,
                                                         to_json=to_json, by_substatus=by_substatus, session=session)
     return reqs
 

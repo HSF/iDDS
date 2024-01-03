@@ -293,6 +293,8 @@ class ContentStatus(IDDSEnum):
     Missing = 9
     Cancelled = 10
     Activated = 11
+    SubAvailable = 12
+    FinalSubAvailable = 13
 
 
 class ContentLocking(IDDSEnum):
