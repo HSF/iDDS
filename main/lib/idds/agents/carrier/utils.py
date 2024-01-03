@@ -1310,7 +1310,7 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
             has_updates = True
             if not work.es or con['substatus'] in [ContentStatus.Available]:
                 con_dict = {'content_id': con['content_id'],
-                            'request_id': content['request_id'],
+                            'request_id': con['request_id'],
                             'substatus': con['substatus']}
                 if 'content_metadata' in con and con['content_metadata']:
                     con_dict['content_metadata'] = con['content_metadata']

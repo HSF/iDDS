@@ -14,6 +14,7 @@ from idds.common import exceptions
 from idds.common.constants import ProcessingStatus, ProcessingLocking
 from idds.common.utils import setup_logging, truncate_string
 from idds.core import processings as core_processings
+from idds.agents.common.baseagent import BaseAgent
 from idds.agents.common.eventbus.event import (EventType,
                                                NewProcessingEvent,
                                                SyncProcessingEvent,
@@ -50,10 +51,14 @@ class Submitter(Poller):
 
             self.show_queue_size()
 
+            if BaseAgent.min_request_id is None:
+                return []
+
             processing_status = [ProcessingStatus.New]
             processings = core_processings.get_processings_by_status(status=processing_status, locking=True,
                                                                      not_lock=True,
                                                                      new_poll=True, only_return_id=True,
+                                                                     min_request_id=BaseAgent.min_request_id,
                                                                      bulk_size=self.retrieve_bulk_size)
 
             # self.logger.debug("Main thread get %s [new] processings to process" % len(processings))

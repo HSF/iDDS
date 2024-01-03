@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2023
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2024
 
 
 """
@@ -49,7 +49,7 @@ def add_messages(messages, bulk_size=1000, session=None):
 def retrieve_messages(bulk_size=None, msg_type=None, status=None, destination=None,
                       source=None, request_id=None, workload_id=None, transform_id=None,
                       processing_id=None, use_poll_period=False, retries=None, delay=None,
-                      fetching_id=None, session=None):
+                      min_request_id=None, fetching_id=None, session=None):
     """
     Retrieve up to $bulk messages.
 
@@ -70,6 +70,7 @@ def retrieve_messages(bulk_size=None, msg_type=None, status=None, destination=No
                                           request_id=request_id, workload_id=workload_id,
                                           transform_id=transform_id, processing_id=processing_id,
                                           retries=retries, delay=delay, fetching_id=fetching_id,
+                                          min_request_id=min_request_id,
                                           use_poll_period=use_poll_period, session=session)
 
 
@@ -84,8 +85,9 @@ def retrieve_request_messages(request_id, bulk_size=1, session=None):
 
 
 @read_session
-def retrieve_transform_messages(transform_id, bulk_size=1, session=None):
-    return retrieve_messages(transform_id=transform_id,
+def retrieve_transform_messages(request_id, transform_id, bulk_size=1, session=None):
+    return retrieve_messages(request_id=request_id,
+                             transform_id=transform_id,
                              msg_type=MessageType.IDDSCommunication,
                              status=MessageStatus.New,
                              bulk_size=bulk_size,
@@ -94,8 +96,9 @@ def retrieve_transform_messages(transform_id, bulk_size=1, session=None):
 
 
 @read_session
-def retrieve_processing_messages(processing_id, bulk_size=1, session=None):
-    return retrieve_messages(processing_id=processing_id,
+def retrieve_processing_messages(request_id, processing_id, bulk_size=1, session=None):
+    return retrieve_messages(request_id=request_id,
+                             processing_id=processing_id,
                              msg_type=MessageType.IDDSCommunication,
                              status=MessageStatus.New,
                              bulk_size=bulk_size,

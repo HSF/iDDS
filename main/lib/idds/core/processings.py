@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2023
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2024
 
 
 """
@@ -125,7 +125,7 @@ def get_processing_by_id_status(processing_id, status=None, locking=False, sessi
 @transactional_session
 def get_processings_by_status(status, time_period=None, locking=False, bulk_size=None, to_json=False, by_substatus=False,
                               not_lock=False, next_poll_at=None, for_poller=False, only_return_id=False,
-                              locking_for_update=False, new_poll=False, update_poll=False, session=None):
+                              min_request_id=None, locking_for_update=False, new_poll=False, update_poll=False, session=None):
     """
     Get processing or raise a NoObject exception.
 
@@ -147,10 +147,12 @@ def get_processings_by_status(status, time_period=None, locking=False, bulk_size
                                                                  bulk_size=bulk_size * 2, to_json=False, locking_for_update=False,
                                                                  by_substatus=by_substatus, only_return_id=True,
                                                                  for_poller=for_poller, new_poll=new_poll,
+                                                                 min_request_id=min_request_id,
                                                                  update_poll=update_poll, session=session)
             if proc_ids:
                 processing2s = orm_processings.get_processings_by_status(status=status, period=time_period, locking=locking,
                                                                          processing_ids=proc_ids,
+                                                                         min_request_id=min_request_id,
                                                                          bulk_size=None, to_json=to_json,
                                                                          locking_for_update=locking_for_update,
                                                                          by_substatus=by_substatus, only_return_id=only_return_id,
@@ -178,6 +180,7 @@ def get_processings_by_status(status, time_period=None, locking=False, bulk_size
                                                                     locking_for_update=locking_for_update,
                                                                     new_poll=new_poll, update_poll=update_poll,
                                                                     only_return_id=only_return_id,
+                                                                    min_request_id=min_request_id,
                                                                     by_substatus=by_substatus, for_poller=for_poller, session=session)
 
         parameters = {}
@@ -197,6 +200,7 @@ def get_processings_by_status(status, time_period=None, locking=False, bulk_size
                                                                 bulk_size=bulk_size, to_json=to_json,
                                                                 new_poll=new_poll, update_poll=update_poll,
                                                                 only_return_id=only_return_id,
+                                                                min_request_id=min_request_id,
                                                                 by_substatus=by_substatus, for_poller=for_poller, session=session)
     return processings
 

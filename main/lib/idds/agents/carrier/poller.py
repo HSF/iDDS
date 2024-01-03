@@ -120,6 +120,9 @@ class Poller(BaseAgent):
 
             self.show_queue_size()
 
+            if BaseAgent.min_request_id is None:
+                return []
+
             processing_status = [ProcessingStatus.Submitting, ProcessingStatus.Submitted,
                                  ProcessingStatus.Running, ProcessingStatus.FinishedOnExec,
                                  ProcessingStatus.ToCancel, ProcessingStatus.Cancelling,
@@ -133,6 +136,7 @@ class Poller(BaseAgent):
                                                                      locking=True, update_poll=True,
                                                                      not_lock=True,
                                                                      only_return_id=True,
+                                                                     min_request_id=BaseAgent.min_request_id,
                                                                      bulk_size=self.retrieve_bulk_size)
 
             # self.logger.debug("Main thread get %s [submitting + submitted + running] processings to process" % (len(processings)))

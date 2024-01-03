@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2024
 
 
 """
@@ -782,7 +782,8 @@ def get_requests_by_requester(scope, name, requester, to_json=False, session=Non
 @transactional_session
 def get_requests_by_status_type(status, request_type=None, time_period=None, request_ids=[], locking=False,
                                 locking_for_update=False, bulk_size=None, to_json=False, by_substatus=False,
-                                new_poll=False, update_poll=False, only_return_id=False, session=None):
+                                min_request_id=None, new_poll=False, update_poll=False, only_return_id=False,
+                                session=None):
     """
     Get requests.
 
@@ -823,6 +824,9 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, req
             query = query.filter(models.Request.request_type == request_type)
         if request_ids:
             query = query.filter(models.Request.request_id.in_(request_ids))
+        else:
+            if min_request_id is not None:
+                query = query.filter(models.Request.request_id >= min_request_id)
         if locking:
             query = query.filter(models.Request.locking == RequestLocking.Idle)
 
@@ -1018,3 +1022,26 @@ def get_active_requests(active_status=None, session=None):
         return tmp
     except Exception as error:
         raise error
+
+
+@read_session
+def get_min_request_id(difference=1000, session=None):
+    try:
+        seq = models.get_request_sequence()
+        row = session.query(seq.next_value()).one()
+        if row:
+            max_request_id = row[0]
+            return max_request_id - difference
+        else:
+            return 0
+    except Exception:
+        try:
+            query = session.query(func.max(models.Request.request_id))
+            row = query.one()
+            if row:
+                max_request_id = row[0]
+                return max_request_id - difference
+            else:
+                return 0
+        except Exception as error:
+            raise error

@@ -108,8 +108,12 @@ class Conductor(BaseAgent):
         """
         Get messages
         """
+        if BaseAgent.min_request_id is None:
+            return []
+
         destination = [MessageDestination.Outside, MessageDestination.ContentExt]
         messages = core_messages.retrieve_messages(status=MessageStatus.New,
+                                                   min_request_id=BaseAgent.min_request_id,
                                                    bulk_size=self.retrieve_bulk_size,
                                                    destination=destination)
 
@@ -125,6 +129,7 @@ class Conductor(BaseAgent):
 
         retry_messages = []
         messages_d = core_messages.retrieve_messages(status=MessageStatus.Delivered,
+                                                     min_request_id=BaseAgent.min_request_id,
                                                      use_poll_period=True,
                                                      bulk_size=self.retrieve_bulk_size,
                                                      destination=destination)    # msg_type=msg_type)
@@ -149,10 +154,11 @@ class Conductor(BaseAgent):
             else:
                 delay = self.max_retry_delay
             to_updates.append({'msg_id': msg['msg_id'],
+                               'request_id': msg['request_id'],
                                'retries': msg['retries'] + 1,
                                'poll_period': datetime.timedelta(seconds=delay),
                                'status': msg_status})
-        core_messages.update_messages(to_updates)
+        core_messages.update_messages(to_updates, min_request_id=BaseAgent.min_request_id)
 
     def start_notifier(self):
         if 'notifier' not in self.plugins:

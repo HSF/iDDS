@@ -133,7 +133,9 @@ class Clerk(BaseAgent):
     def show_queue_size(self):
         if self.show_queue_size_time is None or time.time() - self.show_queue_size_time >= 600:
             self.show_queue_size_time = time.time()
-            q_str = "number of requests: %s, max number of requests: %s" % (self.number_workers, self.max_number_workers)
+            q_str = "min request_id: %s, number of requests: %s, max number of requests: %s" % (BaseAgent.min_request_id,
+                                                                                                self.number_workers,
+                                                                                                self.max_number_workers)
             self.logger.debug(q_str)
 
     def get_new_requests(self):
@@ -152,7 +154,7 @@ class Clerk(BaseAgent):
 
             req_status = [RequestStatus.New, RequestStatus.Extend, RequestStatus.Built, RequestStatus.Throttling]
             reqs_new = core_requests.get_requests_by_status_type(status=req_status, locking=True,
-                                                                 not_lock=True,
+                                                                 not_lock=True, min_request_id=BaseAgent.min_request_id,
                                                                  new_poll=True, only_return_id=True,
                                                                  bulk_size=self.retrieve_bulk_size)
 
@@ -162,6 +164,8 @@ class Clerk(BaseAgent):
 
             events = []
             for req_id in reqs_new:
+                if BaseAgent.min_request_id is None or BaseAgent.min_request_id > req_id:
+                    BaseAgent.min_request_id = req_id
                 event = NewRequestEvent(publisher_id=self.id, request_id=req_id)
                 events.append(event)
             self.event_bus.send_bulk(events)
@@ -193,6 +197,7 @@ class Clerk(BaseAgent):
                           RequestStatus.ToResume, RequestStatus.Resuming,
                           RequestStatus.Building]
             reqs = core_requests.get_requests_by_status_type(status=req_status, time_period=None,
+                                                             min_request_id=BaseAgent.min_request_id,
                                                              locking=True, bulk_size=self.retrieve_bulk_size,
                                                              not_lock=True, update_poll=True, only_return_id=True)
 
@@ -202,6 +207,8 @@ class Clerk(BaseAgent):
 
             events = []
             for req_id in reqs:
+                if BaseAgent.min_request_id is None or BaseAgent.min_request_id > req_id:
+                    BaseAgent.min_request_id = req_id
                 event = UpdateRequestEvent(publisher_id=self.id, request_id=req_id)
                 events.append(event)
             self.event_bus.send_bulk(events)
@@ -247,6 +254,9 @@ class Clerk(BaseAgent):
                                  'cmd_type': cmd_type,
                                  'cmd_id': cmd['cmd_id'],
                                  'cmd_content': cmd_content}
+
+                if BaseAgent.min_request_id is None or BaseAgent.min_request_id > request_id:
+                    BaseAgent.min_request_id = request_id
 
                 event = None
                 if cmd_status in [CommandStatus.New, CommandStatus.Processing]:
