@@ -117,13 +117,13 @@ def delete_messages(messages, session=None):
 
 
 @transactional_session
-def update_messages(messages, session=None):
+def update_messages(messages, min_request_id=None, session=None):
     """
     Update all messages status with the given IDs.
 
     :param messages: The messages to be updated as a list of dictionaries.
     """
-    return orm_messages.update_messages(messages=messages, session=session)
+    return orm_messages.update_messages(messages=messages, min_request_id=min_request_id, session=session)
 
 
 @transactional_session
