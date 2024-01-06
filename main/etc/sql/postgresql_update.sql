@@ -11,3 +11,7 @@ alter table contents alter column name type varchar(8000);
 -- 2023.11.09
 -- update slac idds database, without updating the idds models
 alter table contents alter column name type varchar(40000);
+
+--2024.01.06
+alter table contents alter column content_metadata type VARCHAR(1000);
+alter table contents_update alter column content_metadata type VARCHAR(1000);
