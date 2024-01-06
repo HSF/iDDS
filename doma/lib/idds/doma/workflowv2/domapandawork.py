@@ -1187,9 +1187,9 @@ class DomaPanDAWork(Work):
                 jobs = job_status_info[filename]['jobs']
                 panda_ids, status, job_info = self.get_last_job_info(jobs)
                 if status:
-                    job_status_info[input_file]['status'] = status
-                    job_status_info[input_file]['job_info'] = job_info
-                    job_status_info[input_file]['panda_id'] = panda_ids
+                    job_status_info[filename]['status'] = status
+                    job_status_info[filename]['job_info'] = job_info
+                    job_status_info[filename]['panda_id'] = panda_ids
         else:
             es_job_ids = []
             for filename in job_status_info:
@@ -1197,9 +1197,9 @@ class DomaPanDAWork(Work):
                 jobs = job_status_info[filename]['jobs']
                 panda_ids, status, job_info = self.get_last_job_info(jobs)
                 if status:
-                    job_status_info[input_file]['status'] = status
-                    job_status_info[input_file]['job_info'] = job_info
-                    job_status_info[input_file]['panda_id'] = panda_ids
+                    job_status_info[filename]['status'] = status
+                    job_status_info[filename]['job_info'] = job_info
+                    job_status_info[filename]['panda_id'] = panda_ids
                 if status in [ContentStatus.FinalSubAvailable]:
                     task_id = job_info.jediTaskID
                     for panda_id in panda_ids:
