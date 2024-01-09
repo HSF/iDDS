@@ -57,6 +57,8 @@ class Clerk(BaseAgent):
         self.poll_period = int(poll_period)
         self.retrieve_bulk_size = int(retrieve_bulk_size)
         self.config_section = Sections.Clerk
+        self.start_at = time.time()
+
         if pending_time:
             self.pending_time = float(pending_time)
         else:
@@ -152,9 +154,24 @@ class Clerk(BaseAgent):
 
             self.show_queue_size()
 
+            if time.time() < self.start_at + 3600:
+                if BaseAgent.poll_new_min_request_id_times % 30 == 0:
+                    # get_new_requests is called every 10 seconds. 30 * 10 = 300 seconds, which is 5 minutes.
+                    min_request_id = BaseAgent.min_request_id - 1000
+                else:
+                    min_request_id = BaseAgent.min_request_id
+            else:
+                if BaseAgent.poll_new_min_request_id_times % 180 == 0:
+                    # get_new_requests is called every 10 seconds. 180 * 10 = 300 seconds, which is 30 minutes.
+                    min_request_id = BaseAgent.min_request_id - 1000
+                else:
+                    min_request_id = BaseAgent.min_request_id
+
+            BaseAgent.poll_new_min_request_id_times += 1
+
             req_status = [RequestStatus.New, RequestStatus.Extend, RequestStatus.Built, RequestStatus.Throttling]
             reqs_new = core_requests.get_requests_by_status_type(status=req_status, locking=True,
-                                                                 not_lock=True, min_request_id=BaseAgent.min_request_id,
+                                                                 not_lock=True, min_request_id=min_request_id,
                                                                  new_poll=True, only_return_id=True,
                                                                  bulk_size=self.retrieve_bulk_size)
 
@@ -164,6 +181,7 @@ class Clerk(BaseAgent):
 
             events = []
             for req_id in reqs_new:
+                BaseAgent.min_request_id_cache[req_id] = time.time()
                 if BaseAgent.min_request_id is None or BaseAgent.min_request_id > req_id:
                     BaseAgent.min_request_id = req_id
                     core_requests.set_min_request_id(BaseAgent.min_request_id)
@@ -192,6 +210,21 @@ class Clerk(BaseAgent):
 
             self.show_queue_size()
 
+            if time.time() < self.start_at + 3600:
+                if BaseAgent.poll_running_min_request_id_times % 30 == 0:
+                    # get_new_requests is called every 10 seconds. 30 * 10 = 300 seconds, which is 5 minutes.
+                    min_request_id = BaseAgent.min_request_id - 1000
+                else:
+                    min_request_id = BaseAgent.min_request_id
+            else:
+                if BaseAgent.poll_running_min_request_id_times % 180 == 0:
+                    # get_new_requests is called every 10 seconds. 180 * 10 = 1800 seconds, which is 30 minutes.
+                    min_request_id = BaseAgent.min_request_id - 1000
+                else:
+                    min_request_id = BaseAgent.min_request_id
+
+            BaseAgent.poll_running_min_request_id_times += 1
+
             req_status = [RequestStatus.Transforming, RequestStatus.ToCancel, RequestStatus.Cancelling,
                           RequestStatus.ToSuspend, RequestStatus.Suspending,
                           RequestStatus.ToExpire, RequestStatus.Expiring,
@@ -199,7 +232,7 @@ class Clerk(BaseAgent):
                           RequestStatus.ToResume, RequestStatus.Resuming,
                           RequestStatus.Building]
             reqs = core_requests.get_requests_by_status_type(status=req_status, time_period=None,
-                                                             min_request_id=BaseAgent.min_request_id,
+                                                             min_request_id=min_request_id,
                                                              locking=True, bulk_size=self.retrieve_bulk_size,
                                                              not_lock=True, update_poll=True, only_return_id=True)
 
@@ -209,6 +242,7 @@ class Clerk(BaseAgent):
 
             events = []
             for req_id in reqs:
+                BaseAgent.min_request_id_cache[req_id] = time.time()
                 if BaseAgent.min_request_id is None or BaseAgent.min_request_id > req_id:
                     BaseAgent.min_request_id = req_id
                     core_requests.set_min_request_id(BaseAgent.min_request_id)
@@ -261,6 +295,7 @@ class Clerk(BaseAgent):
 
                 if BaseAgent.min_request_id is None or BaseAgent.min_request_id > request_id:
                     BaseAgent.min_request_id = request_id
+                    BaseAgent.min_request_id_cache[request_id] = time.time()
                     core_requests.set_min_request_id(BaseAgent.min_request_id)
 
                 event = None
@@ -294,6 +329,32 @@ class Clerk(BaseAgent):
                 self.logger.error(ex)
                 self.logger.error(traceback.format_exc())
         return []
+
+    def clean_min_request_id(self):
+        try:
+            if BaseAgent.checking_min_request_id_times <= 0:
+                old_min_request_id = core_requests.get_min_request_id()
+                self.logger.info("old_min_request_id: %s" % old_min_request_id)
+                if not old_min_request_id:
+                    min_request_id = 0
+                else:
+                    min_request_id = old_min_request_id - 1000
+                BaseAgent.min_request_id = min_request_id
+            else:
+                for req_id in BaseAgent.min_request_id_cache:
+                    time_stamp = BaseAgent.min_request_id_cache[req_id]
+                    if time_stamp < time.time() - 12 * 3600:       # older than 12 hours
+                        del BaseAgent.min_request_id_cache[req_id]
+
+                if BaseAgent.min_request_id_cache:
+                    min_request_id = min(list(BaseAgent.min_request_id_cache.keys()))
+                    BaseAgent.min_request_id = min_request_id
+                    core_requests.set_min_request_id(BaseAgent.min_request_id)
+
+            BaseAgent.checking_min_request_id_times += 1
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
 
     def get_request(self, request_id, status=None, locking=False):
         try:
@@ -1310,6 +1371,8 @@ class Clerk(BaseAgent):
             task = self.create_task(task_func=self.get_running_requests, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=10, priority=1)
             self.add_task(task)
             task = self.create_task(task_func=self.get_operation_requests, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=10, priority=1)
+            self.add_task(task)
+            task = self.create_task(task_func=self.clean_min_request_id, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=3600, priority=1)
             self.add_task(task)
             task = self.create_task(task_func=self.clean_locks, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1800, priority=1)
             self.add_task(task)
