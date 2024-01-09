@@ -474,6 +474,11 @@ class CommandStatus(IDDSEnum):
     UnknownCommand = 4
 
 
+class MetaStatus(IDDSEnum):
+    UnActive = 0
+    Active = 1
+
+
 class CommandLocking(IDDSEnum):
     Idle = 0
     Locking = 1

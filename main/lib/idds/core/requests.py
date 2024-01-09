@@ -18,13 +18,14 @@ import datetime
 
 from idds.common.constants import (RequestStatus, RequestLocking, WorkStatus,
                                    CollectionType, CollectionStatus, CollectionRelationType,
-                                   MessageStatus)
+                                   MessageStatus, MetaStatus)
 from idds.orm.base.session import read_session, transactional_session
 from idds.orm import requests as orm_requests
 from idds.orm import transforms as orm_transforms
 from idds.orm import workprogress as orm_workprogresses
 from idds.orm import collections as orm_collections
 from idds.orm import messages as orm_messages
+from idds.orm import meta as orm_meta
 from idds.core import messages as core_messages
 
 
@@ -382,7 +383,9 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, loc
     :returns: list of Request.
     """
     if min_request_id is None:
-        min_request_id = orm_requests.get_min_request_id(session=session)
+        min_request_id = get_min_request_id(session=session)
+        if not min_request_id:
+            min_request_id = 0
 
     if locking:
         if not only_return_id and bulk_size:
@@ -484,3 +487,28 @@ def get_num_active_requests(active_status=None, session=None):
 @read_session
 def get_active_requests(active_status=None, session=None):
     return orm_requests.get_active_requests(active_status=active_status, session=session)
+
+
+@transactional_session
+def set_min_request_id(min_request_id, session=None):
+    """
+    Set min request id
+
+    :param min_request_id: Int of min_request_id.
+    """
+    orm_meta.add_meta_item(name='min_request_id', status=MetaStatus.Active, description="min request id",
+                           metadata={"min_request_id": min_request_id}, session=None)
+
+
+@read_session
+def get_min_request_id(session=None):
+    """
+    Get min request id
+
+    :returns min_request_id: Int of min_request_id.
+    """
+    meta = orm_meta.get_meta_item(name='min_request_id', session=session)
+    if not meta:
+        return None
+    else:
+        return meta.get("min_request_id", None)
