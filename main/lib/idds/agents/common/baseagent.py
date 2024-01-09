@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2023
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2024
 
 import os
 import socket
@@ -37,6 +37,10 @@ class BaseAgent(TimerScheduler, PluginBase):
     """
 
     min_request_id = None
+    min_request_id_cache = {}
+    checking_min_request_id_times = 0
+    poll_new_min_request_id_times = 0
+    poll_running_min_request_id_times = 0
 
     def __init__(self, num_threads=1, name=None, logger=None, **kwargs):
         super(BaseAgent, self).__init__(num_threads, name=name)
