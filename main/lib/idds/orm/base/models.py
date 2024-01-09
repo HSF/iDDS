@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2023
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2024
 
 
 """
@@ -33,7 +33,7 @@ from idds.common.constants import (RequestType, RequestStatus, RequestLocking,
                                    MessageType, MessageStatus, MessageLocking,
                                    MessageSource, MessageDestination, ThrottlerStatus,
                                    CommandType, CommandStatus, CommandLocking,
-                                   CommandLocation, HealthStatus)
+                                   CommandLocation, HealthStatus, MetaStatus)
 from idds.common.event import (EventType, EventStatus)
 from idds.common.utils import date_to_str
 from idds.orm.base.enum import EnumSymbol
@@ -902,9 +902,11 @@ class EventArchive(BASE, ModelBase):
 
 
 class Throttler(BASE, ModelBase):
-    """Represents the operations events"""
+    """Represents the throttlers"""
     __tablename__ = 'throttlers'
-    throttler_id = Column(BigInteger(), primary_key=True)
+    throttler_id = Column(BigInteger().with_variant(Integer, "sqlite"),
+                          Sequence('THROTTLER_ID_SEQ', schema=DEFAULT_SCHEMA_NAME),
+                          primary_key=True)
     site = Column(String(50), nullable=False)
     status = Column(EnumWithValue(ThrottlerStatus), nullable=False)
     num_requests = Column(Integer())
@@ -918,6 +920,23 @@ class Throttler(BASE, ModelBase):
 
     __table_args__ = (PrimaryKeyConstraint('throttler_id', name='THROTTLER_PK'),
                       UniqueConstraint('site', name='THROTTLER_SITE_UQ'))
+
+
+class MetaInfo(BASE, ModelBase):
+    """Represents the meta infos"""
+    __tablename__ = 'meta_info'
+    meta_id = Column(BigInteger().with_variant(Integer, "sqlite"),
+                     Sequence('METAINFO_ID_SEQ', schema=DEFAULT_SCHEMA_NAME),
+                     primary_key=True)
+    name = Column(String(50), nullable=False)
+    status = Column(EnumWithValue(MetaStatus), nullable=False)
+    created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow, nullable=False)
+    updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
+    description = Column(String(1000), nullable=True)
+    metadata = Column(JSON())
+
+    __table_args__ = (PrimaryKeyConstraint('meta_id', name='METAINFO_PK'),
+                      UniqueConstraint('name', name='METAINFO_NAME_UQ'))
 
 
 def create_trigger():
