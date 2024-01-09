@@ -166,6 +166,8 @@ class Clerk(BaseAgent):
             for req_id in reqs_new:
                 if BaseAgent.min_request_id is None or BaseAgent.min_request_id > req_id:
                     BaseAgent.min_request_id = req_id
+                    core_requests.set_min_request_id(BaseAgent.min_request_id)
+
                 event = NewRequestEvent(publisher_id=self.id, request_id=req_id)
                 events.append(event)
             self.event_bus.send_bulk(events)
@@ -209,6 +211,8 @@ class Clerk(BaseAgent):
             for req_id in reqs:
                 if BaseAgent.min_request_id is None or BaseAgent.min_request_id > req_id:
                     BaseAgent.min_request_id = req_id
+                    core_requests.set_min_request_id(BaseAgent.min_request_id)
+
                 event = UpdateRequestEvent(publisher_id=self.id, request_id=req_id)
                 events.append(event)
             self.event_bus.send_bulk(events)
@@ -257,6 +261,7 @@ class Clerk(BaseAgent):
 
                 if BaseAgent.min_request_id is None or BaseAgent.min_request_id > request_id:
                     BaseAgent.min_request_id = request_id
+                    core_requests.set_min_request_id(BaseAgent.min_request_id)
 
                 event = None
                 if cmd_status in [CommandStatus.New, CommandStatus.Processing]:
