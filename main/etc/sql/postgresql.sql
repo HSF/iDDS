@@ -517,8 +517,7 @@ CREATE INDEX "CONTENTS_REQ_TF_COLL_IDX" ON doma_idds.contents (request_id, trans
 
 CREATE INDEX "CONTENTS_TF_IDX" ON doma_idds.contents (transform_id, request_id, coll_id, map_id, content_relation_type);
 
-CREATE INDEX "CONTENTS_ID_NAME_IDX" ON doma_idds.contents (coll_id, scope, md5('name');
-, status);
+CREATE INDEX "CONTENTS_ID_NAME_IDX" ON doma_idds.contents (coll_id, scope, md5('name'), status);
 
 
         SET search_path TO doma_idds;
