@@ -134,7 +134,7 @@ class DomaTree(Tree):
                 job_nodes = label_node.jobs
                 self.order_job_nodes(job_nodes)
 
-    def save_order_id_map(self, label_level_dict, order_id_map_file):
+    def generate_order_id_map(self, label_level_dict):
         order_id_map = {}
         for level in label_level_dict:
             for node in label_level_dict[level]:
@@ -146,6 +146,9 @@ class DomaTree(Tree):
                     gwjob = job_node.gwjob
                     order_id = gwjob.attrs.get("order_id", 0)
                     order_id_map[label_name][str(order_id)] = gwjob.name
+        return order_id_map
+
+    def save_order_id_map(self, order_id_map, order_id_map_file):
         with open(order_id_map_file, 'w') as f:
             json.dump(order_id_map, f)
 
@@ -163,4 +166,6 @@ class DomaTree(Tree):
         label_level_dict = self.get_ordered_nodes_by_level(label_tree_roots)
 
         self.order_job_tree(label_level_dict)
-        self.save_order_id_map(label_level_dict, order_id_map_file)
+        # self.save_order_id_map(label_level_dict, order_id_map_file)
+        order_id_map = self.generate_order_id_map(label_level_dict)
+        return order_id_map
