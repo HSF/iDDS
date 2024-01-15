@@ -113,11 +113,14 @@ class DomaTree(Tree):
         for job_node in job_nodes:
             potential_order_id = job_node.get_potential_order_id()
             if potential_order_id not in job_nodes_order_id:
-                job_nodes_order_id[potential_order_id] = job_node
+                job_nodes_order_id[potential_order_id] = []
+            job_nodes_order_id[potential_order_id].append(job_node)
         potential_order_ids = sorted(list(job_nodes_order_id.keys()))
         ordered_job_nodes = []
         for potential_order_id in potential_order_ids:
-            ordered_job_nodes.append(job_nodes_order_id[potential_order_id])
+            p_job_nodes = job_nodes_order_id[potential_order_id]
+            for p_job_node in p_job_nodes:
+                ordered_job_nodes.append(p_job_node)
         order_id = 0
         for job_node in ordered_job_nodes:
             job_node.order_id = order_id
