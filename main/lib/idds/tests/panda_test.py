@@ -46,6 +46,8 @@ task_ids = [i for i in range(166636, 166778)]
 task_ids = [166253, 166254]
 task_ids = [167759]
 task_ids = [i for i in range(167781, 167785)]
+task_ids = [i for i in range(166799, 167877)]
+task_ids = [i for i in range(167997, 168003)]
 for task_id in task_ids:
     print("Killing %s" % task_id)
     ret = Client.killTask(task_id, verbose=True)
@@ -90,17 +92,18 @@ print(ret)
 jobs_list = ret[1]
 # print(jobs_list)
 for job_info in jobs_list:
-    print(job_info)
-    print(job_info.eventService)
-    print(job_info.jobStatus)
-    print(job_info.jobSubStatus)
-    print(job_info.jobsetID)
-    print(job_info.taskID)
-    print(job_info.jediTaskID)
-    print(job_info.Files)
-    for job_file in job_info.Files:
-        print(job_file.type)
-        print(job_file.lfn)
+    if job_info:
+        print(job_info)
+        print(job_info.eventService)
+        print(job_info.jobStatus)
+        print(job_info.jobSubStatus)
+        print(job_info.jobsetID)
+        print(job_info.taskID)
+        print(job_info.jediTaskID)
+        print(job_info.Files)
+        for job_file in job_info.Files:
+            print(job_file.type)
+            print(job_file.lfn)
 # sys.exit(0)
 
 jediTaskID = 166303
@@ -112,6 +115,8 @@ panda_ids = [{'task_id': 157016, 'panda_id': 53943290}]
 panda_ids = [{'task_id': 166303, 'panda_id': 66573292}]
 panda_ids = [{'task_id': 166643, 'panda_id': 66988434}]
 panda_ids = [{'task_id': 166943, 'panda_id': 67228019}]
+panda_ids = [{"task_id": 167852, "panda_id": 67486349}]
+panda_ids = [{"task_id": 167852, "panda_id": 67486348}]
 ret = Client.get_events_status(panda_ids, verbose=True)
 print(ret)
 

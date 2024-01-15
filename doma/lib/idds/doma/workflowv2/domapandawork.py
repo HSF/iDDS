@@ -983,7 +983,13 @@ class DomaPanDAWork(Work):
                     else:
                         return ContentStatus.SubAvailable
                 else:
-                    return ContentStatus.SubAvailable
+                    attempt_nr = int(job_info.attemptNr) if job_info.attemptNr else 0
+                    max_attempt = int(job_info.maxAttempt) if job_info.maxAttempt else 0
+                    self_maxAttempt = int(self.maxAttempt) if self.maxAttempt else 0
+                    if (attempt_nr >= max_attempt) and (attempt_nr >= self_maxAttempt):
+                        return ContentStatus.FinalSubAvailable
+                    else:
+                        return ContentStatus.SubAvailable
             elif jobstatus in ['failed', 'closed', 'cancelled', 'lost', 'broken', 'missing']:
                 attempt_nr = int(job_info.attemptNr) if job_info.attemptNr else 0
                 max_attempt = int(job_info.maxAttempt) if job_info.maxAttempt else 0
@@ -1131,7 +1137,7 @@ class DomaPanDAWork(Work):
         self.logger.debug(log_prefix + "get_panda_event_status, jobids[:3]: %s" % str(jobids[:3]))
         try:
             from pandaclient import Client
-            ret = Client.get_event_status(jobids, verbose=True)
+            ret = Client.get_events_status(jobids, verbose=True)
             if ret[0] == 0:
                 job_events_status = ret[1]
                 return job_events_status
@@ -1192,6 +1198,7 @@ class DomaPanDAWork(Work):
                     job_status_info[filename]['panda_id'] = panda_ids
         else:
             es_job_ids = []
+            self.logger.debug("job_status_info: %s" % (job_status_info))
             for filename in job_status_info:
                 job_set_id = job_status_info[filename]['job_set_id']
                 jobs = job_status_info[filename]['jobs']
@@ -1200,34 +1207,69 @@ class DomaPanDAWork(Work):
                     job_status_info[filename]['status'] = status
                     job_status_info[filename]['job_info'] = job_info
                     job_status_info[filename]['panda_id'] = panda_ids
-                if status in [ContentStatus.FinalSubAvailable]:
+                if status in [ContentStatus.FinalSubAvailable, ContentStatus.FinalFailed]:
                     task_id = job_info.jediTaskID
+                    es_job_id = {'task_id': task_id, 'panda_id': job_set_id}
+                    es_job_ids.append(es_job_id)
                     for panda_id in panda_ids:
                         es_job_id = {'task_id': task_id, 'panda_id': panda_id}
                         es_job_ids.append(es_job_id)
             job_events_status = self.poll_panda_events(es_job_ids)
+            self.logger.debug("poll_panda_events, es_job_ids: %s, job_events_status: %s" % (str(es_job_ids), job_events_status))
             for filename in job_status_info:
                 jobs = job_status_info[filename]['jobs']
                 for job in jobs:
                     panda_id = job['panda_id']
-                    events = job_events_status.get(panda_id, {})
+                    events = job_events_status.get(str(panda_id), {})
                     job['events'] = events
+                job_set_id = job_status_info[filename]['job_set_id']
+                job_status_info[filename]['job_set_events'] = job_events_status.get(str(job_set_id), {})
+            self.logger.debug("job_status_info: %s" % (job_status_info))
         return job_status_info
 
-    def get_event_job(self, sub_map_id, panda_jobs):
-        ret_event, ret_job = None, None
+    def get_event_job(self, sub_map_id, panda_jobs, job_set_events):
+        ret_event, ret_job = {}, None
+        sub_map_id_jobs = {}
         for panda_job in panda_jobs:
             events = panda_job.get('events', {})
             for event_id in events:
                 event_index = int(event_id.split('-')[3]) - 1
                 if event_index == sub_map_id:
                     event_status = events[event_id]
-                    ret_event['status'] = event_status
+                    if event_status not in sub_map_id_jobs:
+                        sub_map_id_jobs[event_status] = []
                     # todo: get the event error code and error diag
-                    ret_event['error_code'] = None
-                    ret_event['error_diag'] = None
-                    ret_job = panda_job
-                    break
+                    item = {'status': event_status, 'error_code': None, 'error_diag': None, 'job': panda_job}
+                    sub_map_id_jobs[event_status].append(item)
+
+        if not ret_event:
+            for event_id in job_set_events:
+                event_index = int(event_id.split('-')[3]) - 1
+                if event_index == sub_map_id:
+                    event_status = job_set_events[event_id]
+                    if event_status not in sub_map_id_jobs:
+                        sub_map_id_jobs[event_status] = []
+                    # todo: get the event error code and error diag
+                    item = {'status': event_status, 'error_code': None, 'error_diag': None}
+                    sub_map_id_jobs[event_status].append(item)
+
+        final_event_status = None
+        for event_status in sub_map_id_jobs:
+            if event_status in ['finished', 'done', 'merged']:
+                final_event_status = event_status
+                break
+            elif event_status in ['failed', 'fatal', 'cancelled', 'discarded', 'corrupted']:
+                final_event_status = event_status
+            else:
+                if final_event_status is None:
+                    final_event_status = event_status
+        if final_event_status:
+            item = sub_map_id_jobs[final_event_status][0]
+            ret_event['status'] = item['status']
+            # todo: get the event error code and error diag
+            ret_event['error_code'] = item['error_code']
+            ret_event['error_diag'] = item['error_diag']
+            ret_job = item.get('job', None)
         return ret_event, ret_job
 
     def get_update_contents(self, unterminated_jobs_status, input_output_maps, contents_ext, job_info_maps, abort=False, log_prefix=''):
@@ -1277,11 +1319,12 @@ class DomaPanDAWork(Work):
                     output_contents = map_id_output['outputs']
 
                     for content in output_contents:
+                        content['status'] = panda_status
                         content['substatus'] = panda_status
                         update_contents_full.append(content)
                         update_content = {'content_id': content['content_id'],
                                           'request_id': content['request_id'],
-                                          # 'status': panda_status,
+                                          'status': panda_status,
                                           'substatus': panda_status}
 
                         if 'panda_id' in content['content_metadata'] and content['content_metadata']['panda_id']:
@@ -1344,6 +1387,7 @@ class DomaPanDAWork(Work):
             for input_file in unterminated_jobs_status:
                 # job_set_id = unterminated_jobs_status[input_file]['job_set_id']
                 panda_jobs = unterminated_jobs_status[input_file]['jobs']
+                job_set_events = unterminated_jobs_status[input_file]['job_set_events']
                 if 'status' not in unterminated_jobs_status[input_file]:
                     continue
 
@@ -1363,11 +1407,12 @@ class DomaPanDAWork(Work):
                         output_contents = map_id_output['outputs']
 
                         for content in output_contents:
+                            content['status'] = panda_status
                             content['substatus'] = panda_status
                             update_contents_full.append(content)
                             update_content = {'content_id': content['content_id'],
                                               'request_id': content['request_id'],
-                                              # 'status': panda_status,
+                                              'status': panda_status,
                                               'substatus': panda_status}
 
                             if 'panda_id' in content['content_metadata'] and content['content_metadata']['panda_id']:
@@ -1433,20 +1478,58 @@ class DomaPanDAWork(Work):
 
                         for content in output_contents:
                             sub_map_id = content['sub_map_id']
+                            self.logger.debug("wen")
                             # min_id = content['min_id']  # min_id should be the same as sub_map_id here
-                            event, event_panda_job = self.get_event_job(sub_map_id, panda_jobs)
-                            event_status = event['status']
-                            event_error_code = event['error_code']
-                            event_error_diag = event['error_diag']
+                            event, event_panda_job = self.get_event_job(sub_map_id, panda_jobs, job_set_events)
+                            self.logger.debug("sub_map_id: %s, panda_jobs: %s, job_set_events: %s, event: %s, event_panda_job: %s" % (sub_map_id, panda_jobs, job_set_events, event, event_panda_job))
+                            if event:
+                                event_status = event['status']
+                                # 'ready', 'sent', 'running', 'finished', 'cancelled', 'discarded', 'done', 'failed',
+                                # 'fatal', 'merged', 'corrupted', 'reserved_fail', 'reserved_get'
+                                if event_status in ['finished', 'done', 'merged']:
+                                    event_status = ContentStatus.Available
+                                    event_error_code = event['error_code']
+                                    event_error_diag = event['error_diag']
+                                    if event_panda_job:
+                                        panda_id = event_panda_job['panda_id']
+                                        job_info = event_panda_job['job_info']
+                                    else:
+                                        panda_ids = unterminated_jobs_status[input_file]['panda_id']
+                                        panda_id = ",".join([str(i) for i in panda_ids])
+                                        job_info = unterminated_jobs_status[input_file]['job_info']
+                                elif event_status in ['failed', 'fatal', 'cancelled', 'discarded', 'corrupted']:
+                                    event_status = ContentStatus.FinalFailed
+                                    event_error_code = event['error_code']
+                                    event_error_diag = event['error_diag']
+                                    if event_panda_job:
+                                        panda_id = event_panda_job['panda_id']
+                                        job_info = event_panda_job['job_info']
+                                    else:
+                                        panda_ids = unterminated_jobs_status[input_file]['panda_id']
+                                        panda_id = ",".join([str(i) for i in panda_ids])
+                                        job_info = unterminated_jobs_status[input_file]['job_info']
+                                else:
+                                    event_status = panda_status
+                                    event_error_code = None
+                                    event_error_diag = None
+                                    panda_ids = unterminated_jobs_status[input_file]['panda_id']
+                                    panda_id = ",".join([str(i) for i in panda_ids])
+                                    job_info = unterminated_jobs_status[input_file]['job_info']
+                            else:
+                                event_status = panda_status
+                                event_error_code = None
+                                event_error_diag = None
 
-                            panda_id = event_panda_job['panda_id']
-                            job_info = event_panda_job['job_info']
+                                panda_ids = unterminated_jobs_status[input_file]['panda_id']
+                                panda_id = ",".join([str(i) for i in panda_ids])
+                                job_info = unterminated_jobs_status[input_file]['job_info']
 
+                            content['status'] = event_status
                             content['substatus'] = event_status
                             update_contents_full.append(content)
                             update_content = {'content_id': content['content_id'],
                                               'request_id': content['request_id'],
-                                              # 'status': panda_status,
+                                              'status': panda_status,
                                               'substatus': event_status}
 
                             if 'panda_id' in content['content_metadata'] and content['content_metadata']['panda_id']:
@@ -1482,7 +1565,7 @@ class DomaPanDAWork(Work):
                                                    'workload_id': content['workload_id'],
                                                    'coll_id': content['coll_id'],
                                                    'map_id': content['map_id'],
-                                                   'status': panda_status}
+                                                   'status': event_status}
                                 for job_info_item in job_info_maps:
                                     new_content_ext[job_info_item] = getattr(job_info, job_info_maps[job_info_item])
                                     if new_content_ext[job_info_item] == 'NULL':
@@ -1499,7 +1582,7 @@ class DomaPanDAWork(Work):
                             else:
                                 update_content_ext = {'content_id': content['content_id'],
                                                       'request_id': content['request_id'],
-                                                      'status': panda_status}
+                                                      'status': event_status}
                                 for job_info_item in job_info_maps:
                                     update_content_ext[job_info_item] = getattr(job_info, job_info_maps[job_info_item])
                                     if update_content_ext[job_info_item] == 'NULL':
@@ -1522,6 +1605,7 @@ class DomaPanDAWork(Work):
                         if content['content_id'] not in update_contents_dict:
                             update_content = {'content_id': content['content_id'],
                                               'request_id': content['request_id'],
+                                              'status': ContentStatus.Missing,
                                               'substatus': ContentStatus.Missing}
                             update_contents.append(update_content)
                         if content['content_id'] not in contents_ext_dict and content['content_id'] not in new_contents_ext_dict:
@@ -1572,6 +1656,8 @@ class DomaPanDAWork(Work):
                     self.logger.debug(log_prefix + "poll_panda_task, task_id: %s, all jobs: %s, unterminated_jobs: %s" % (str(task_id), len(all_jobs_ids), len(unterminated_jobs)))
 
                     unterminated_jobs_status = self.poll_panda_jobs(unterminated_jobs, log_prefix=log_prefix)
+                    self.logger.debug("unterminated_jobs_status: %s" % str(unterminated_jobs_status))
+
                     abort_status = False
                     if processing_status in [ProcessingStatus.Cancelled]:
                         abort_status = True

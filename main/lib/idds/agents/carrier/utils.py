@@ -731,6 +731,7 @@ def get_updated_contents_by_input_output_maps(input_output_maps=None, terminated
                         content['substatus'] = input_content_update_status
                         updated_contents_full_input.append(content)
                         u_content_substatus = {'content_id': content['content_id'],
+                                               'status': content['substatus'],
                                                'substatus': content['substatus'],
                                                'request_id': content['request_id'],
                                                'transform_id': content['transform_id'],
@@ -756,6 +757,7 @@ def get_updated_contents_by_input_output_maps(input_output_maps=None, terminated
                         content['substatus'] = output_content_update_status
                         updated_contents_full_output.append(content)
                         u_content_substatus = {'content_id': content['content_id'],
+                                               'status': content['substatus'],
                                                'substatus': content['substatus'],
                                                'request_id': content['request_id'],
                                                'transform_id': content['transform_id'],
@@ -1311,6 +1313,7 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
             if not work.es or con['substatus'] in [ContentStatus.Available]:
                 con_dict = {'content_id': con['content_id'],
                             'request_id': con['request_id'],
+                            'status': con['substatus'],
                             'substatus': con['substatus']}
                 if 'content_metadata' in con and con['content_metadata']:
                     con_dict['content_metadata'] = con['content_metadata']

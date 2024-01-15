@@ -451,3 +451,20 @@ alter table contents drop constraint CONTENT_ID_UQ;
 alter table contents add constraint CONTENT_ID_UQ UNIQUE (transform_id, coll_id, map_id, sub_map_id, dep_sub_map_id, content_relation_type, name_md5, scope_name_md5, min_id, max_id) USING INDEX LOCAL;
 drop index CONTENTS_ID_NAME_IDX;
 CREATE INDEX CONTENTS_ID_NAME_IDX ON CONTENTS (coll_id, scope, standard_hash(name, 'MD5'), status);
+
+
+--- 20240111
+CREATE SEQUENCE METAINFO_ID_SEQ MINVALUE 1 INCREMENT BY 1 START WITH 1 NOCACHE ORDER NOCYCLE GLOBAL;
+CREATE TABLE meta_info
+(
+    meta_id NUMBER(12) DEFAULT ON NULL METAINFO_ID_SEQ.NEXTVAL constraint METAINFO_ID_NN NOT NULL,
+    name VARCHAR2(50),
+    status NUMBER(2),
+    created_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)),
+    updated_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)),
+    description VARCHAR2(1000),
+    metadata CLOB,
+    CONSTRAINT METAINFO_PK PRIMARY KEY (meta_id), -- USING INDEX LOCAL,
+    CONSTRAINT METAINFO_NAME_UQ UNIQUE (name)
+);
+

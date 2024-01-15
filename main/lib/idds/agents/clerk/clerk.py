@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2023
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2024
 
 import datetime
 import random
@@ -157,13 +157,19 @@ class Clerk(BaseAgent):
             if time.time() < self.start_at + 3600:
                 if BaseAgent.poll_new_min_request_id_times % 30 == 0:
                     # get_new_requests is called every 10 seconds. 30 * 10 = 300 seconds, which is 5 minutes.
-                    min_request_id = BaseAgent.min_request_id - 1000
+                    if BaseAgent.min_request_id:
+                        min_request_id = BaseAgent.min_request_id - 1000
+                    else:
+                        min_request_id = None
                 else:
                     min_request_id = BaseAgent.min_request_id
             else:
                 if BaseAgent.poll_new_min_request_id_times % 180 == 0:
                     # get_new_requests is called every 10 seconds. 180 * 10 = 300 seconds, which is 30 minutes.
-                    min_request_id = BaseAgent.min_request_id - 1000
+                    if BaseAgent.min_request_id:
+                        min_request_id = BaseAgent.min_request_id - 1000
+                    else:
+                        min_request_id = None
                 else:
                     min_request_id = BaseAgent.min_request_id
 
@@ -184,6 +190,7 @@ class Clerk(BaseAgent):
                 BaseAgent.min_request_id_cache[req_id] = time.time()
                 if BaseAgent.min_request_id is None or BaseAgent.min_request_id > req_id:
                     BaseAgent.min_request_id = req_id
+                    self.logger.info("new min_request_id: %s" % BaseAgent.min_request_id)
                     core_requests.set_min_request_id(BaseAgent.min_request_id)
 
                 event = NewRequestEvent(publisher_id=self.id, request_id=req_id)
@@ -213,13 +220,19 @@ class Clerk(BaseAgent):
             if time.time() < self.start_at + 3600:
                 if BaseAgent.poll_running_min_request_id_times % 30 == 0:
                     # get_new_requests is called every 10 seconds. 30 * 10 = 300 seconds, which is 5 minutes.
-                    min_request_id = BaseAgent.min_request_id - 1000
+                    if BaseAgent.min_request_id:
+                        min_request_id = BaseAgent.min_request_id - 1000
+                    else:
+                        min_request_id = None
                 else:
                     min_request_id = BaseAgent.min_request_id
             else:
                 if BaseAgent.poll_running_min_request_id_times % 180 == 0:
                     # get_new_requests is called every 10 seconds. 180 * 10 = 1800 seconds, which is 30 minutes.
-                    min_request_id = BaseAgent.min_request_id - 1000
+                    if BaseAgent.min_request_id:
+                        min_request_id = BaseAgent.min_request_id - 1000
+                    else:
+                        min_request_id = None
                 else:
                     min_request_id = BaseAgent.min_request_id
 
@@ -245,6 +258,7 @@ class Clerk(BaseAgent):
                 BaseAgent.min_request_id_cache[req_id] = time.time()
                 if BaseAgent.min_request_id is None or BaseAgent.min_request_id > req_id:
                     BaseAgent.min_request_id = req_id
+                    self.logger.info("new min_request_id: %s" % BaseAgent.min_request_id)
                     core_requests.set_min_request_id(BaseAgent.min_request_id)
 
                 event = UpdateRequestEvent(publisher_id=self.id, request_id=req_id)
@@ -295,6 +309,7 @@ class Clerk(BaseAgent):
 
                 if BaseAgent.min_request_id is None or BaseAgent.min_request_id > request_id:
                     BaseAgent.min_request_id = request_id
+                    self.logger.info("new min_request_id: %s" % BaseAgent.min_request_id)
                     BaseAgent.min_request_id_cache[request_id] = time.time()
                     core_requests.set_min_request_id(BaseAgent.min_request_id)
 
