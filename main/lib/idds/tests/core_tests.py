@@ -174,8 +174,8 @@ def print_workflow_template(workflow, layers=0):
 # reqs = get_requests(request_id=385554, with_request=True, with_detail=False, with_metadata=True)
 reqs = get_requests(request_id=479187, with_request=True, with_detail=False, with_metadata=True)
 reqs = get_requests(request_id=4498, with_request=True, with_detail=False, with_metadata=True)
-reqs = get_requests(request_id=4615, with_request=True, with_detail=False, with_metadata=True)
-reqs = get_requests(request_id=535793, with_request=True, with_detail=False, with_metadata=True)
+reqs = get_requests(request_id=3244, with_request=True, with_detail=False, with_metadata=True)
+# reqs = get_requests(request_id=589913, with_request=True, with_detail=False, with_metadata=True)
 for req in reqs:
     # print(req['request_id'])
     # print(req)
