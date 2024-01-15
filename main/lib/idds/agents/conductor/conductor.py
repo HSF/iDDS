@@ -208,32 +208,39 @@ class Conductor(BaseAgent):
                 if 'relation_type' not in msg_content or msg_content['relation_type'] != 'input':
                     return True
 
+                workload_id = msg_content['workload_id']
+                processings = core_processings.get_processings_by_transform_id(transform_id=transform_id)
+                find_processing = None
+                if processings:
+                    for processing in processings:
+                        if processing['workload_id'] == workload_id:
+                            find_processing = processing
+                if find_processing and find_processing['status'] in [ProcessingStatus.Finished, ProcessingStatus.Failed,
+                                                                     ProcessingStatus.Lost, ProcessingStatus.SubFinished,
+                                                                     ProcessingStatus.Cancelled, ProcessingStatus.Expired,
+                                                                     ProcessingStatus.Suspended, ProcessingStatus.Broken]:
+                    return True
+
                 files = msg_content['files']
-                one_file = files[0]
-                # only check one file in a message
-                map_id = one_file['map_id']
+                files_map_id = [f['map_id'] for f in files]
                 contents = core_catalog.get_contents_by_request_transform(request_id=request_id,
-                                                                          transform_id=transform_id,
-                                                                          map_id=map_id)
+                                                                          transform_id=transform_id)
+                proc_conents = {}
                 for content in contents:
                     if content['content_relation_type'] == ContentRelationType.Output:
-                        if (content['status'] == ContentStatus.Missing):
-                            workload_id = msg_content['workload_id']
-                            processings = core_processings.get_processings_by_transform_id(transform_id=transform_id)
-                            find_processing = None
-                            if processings:
-                                for processing in processings:
-                                    if processing['workload_id'] == workload_id:
-                                        find_processing = processing
-                            if find_processing and find_processing['status'] in [ProcessingStatus.Finished, ProcessingStatus.Failed,
-                                                                                 ProcessingStatus.Lost, ProcessingStatus.SubFinished,
-                                                                                 ProcessingStatus.Cancelled, ProcessingStatus.Expired,
-                                                                                 ProcessingStatus.Suspended, ProcessingStatus.Broken]:
-                                return True
-                            else:
-                                return False
-                        if (content['status'] != ContentStatus.New):
-                            return True
+                        if content['map_id'] not in proc_conents:
+                            proc_conents[content['map_id']] = []
+                        if content['status'] not in proc_conents[content['map_id']]:
+                            proc_conents[content['map_id']].append(content['status'])
+                all_map_id_processed = True
+                for map_id in files_map_id:
+                    content_statuses = proc_conents.get(map_id, [])
+                    if not content_statuses:
+                        pass
+                    if len(content_statuses) == 1 and content_statuses == [ContentStatus.New]:
+                        all_map_id_processed = False
+                        return all_map_id_processed
+                return all_map_id_processed
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
