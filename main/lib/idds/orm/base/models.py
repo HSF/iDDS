@@ -933,7 +933,7 @@ class MetaInfo(BASE, ModelBase):
     created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow, nullable=False)
     updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
     description = Column(String(1000), nullable=True)
-    metadata = Column(JSON())
+    meta_info = Column(JSON())
 
     __table_args__ = (PrimaryKeyConstraint('meta_id', name='METAINFO_PK'),
                       UniqueConstraint('name', name='METAINFO_NAME_UQ'))
