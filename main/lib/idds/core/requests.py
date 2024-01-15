@@ -497,7 +497,7 @@ def set_min_request_id(min_request_id, session=None):
     :param min_request_id: Int of min_request_id.
     """
     orm_meta.add_meta_item(name='min_request_id', status=MetaStatus.Active, description="min request id",
-                           metadata={"min_request_id": min_request_id}, session=None)
+                           meta_info={"min_request_id": min_request_id}, session=None)
 
 
 @read_session
@@ -511,4 +511,4 @@ def get_min_request_id(session=None):
     if not meta:
         return None
     else:
-        return meta.get("min_request_id", None)
+        return meta['meta_info'].get("min_request_id", None)

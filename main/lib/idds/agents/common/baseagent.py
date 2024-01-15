@@ -189,9 +189,10 @@ class BaseAgent(TimerScheduler, PluginBase):
                 num_free_workers = self.executors.get_num_free_workers()
                 if num_free_workers > 0:
                     events = self.event_bus.get(event_type, num_free_workers)
-                    for event in events:
-                        future = self.executors.submit(exec_func, event)
-                        self.event_futures[event._id] = (event, future, time.time())
+                    if events:
+                        for event in events:
+                            future = self.executors.submit(exec_func, event)
+                            self.event_futures[event._id] = (event, future, time.time())
                 event_funcs[event_type]["to_exec_at"] = time.time() + self.event_interval_delay
 
     def execute_schedules(self):
