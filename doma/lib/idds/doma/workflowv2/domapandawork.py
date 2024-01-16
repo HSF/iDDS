@@ -1235,22 +1235,38 @@ class DomaPanDAWork(Work):
             for event_id in events:
                 event_index = int(event_id.split('-')[3]) - 1
                 if event_index == sub_map_id:
-                    event_status = events[event_id]
+                    event_result = events[event_id]
+                    if type(event_result) in [dict]:
+                        # new version of panda result
+                        event_status = event_result.get('status', None)
+                        event_error = event_result.get('error', None)
+                        event_diag = event_result.get('diag', None)
+                    else:
+                        event_status = event_result
+                        event_error, event_diag = None, None
                     if event_status not in sub_map_id_jobs:
                         sub_map_id_jobs[event_status] = []
                     # todo: get the event error code and error diag
-                    item = {'status': event_status, 'error_code': None, 'error_diag': None, 'job': panda_job}
+                    item = {'status': event_status, 'error_code': event_error, 'error_diag': event_diag, 'job': panda_job}
                     sub_map_id_jobs[event_status].append(item)
 
         if not ret_event:
             for event_id in job_set_events:
                 event_index = int(event_id.split('-')[3]) - 1
                 if event_index == sub_map_id:
-                    event_status = job_set_events[event_id]
+                    event_result = job_set_events[event_id]
+                    if type(event_result) in [dict]:
+                        # new version of panda result
+                        event_status = event_result.get('status', None)
+                        event_error = event_result.get('error', None)
+                        event_diag = event_result.get('diag', None)
+                    else:
+                        event_status = event_result
+                        event_error, event_diag = None, None
                     if event_status not in sub_map_id_jobs:
                         sub_map_id_jobs[event_status] = []
                     # todo: get the event error code and error diag
-                    item = {'status': event_status, 'error_code': None, 'error_diag': None}
+                    item = {'status': event_status, 'error_code': event_error, 'error_diag': event_diag}
                     sub_map_id_jobs[event_status].append(item)
 
         final_event_status = None
@@ -1478,7 +1494,6 @@ class DomaPanDAWork(Work):
 
                         for content in output_contents:
                             sub_map_id = content['sub_map_id']
-                            self.logger.debug("wen")
                             # min_id = content['min_id']  # min_id should be the same as sub_map_id here
                             event, event_panda_job = self.get_event_job(sub_map_id, panda_jobs, job_set_events)
                             self.logger.debug("sub_map_id: %s, panda_jobs: %s, job_set_events: %s, event: %s, event_panda_job: %s" % (sub_map_id, panda_jobs, job_set_events, event, event_panda_job))
