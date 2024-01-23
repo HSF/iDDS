@@ -190,6 +190,8 @@ class Conductor(BaseAgent):
     def is_message_processed(self, message):
         retries = message['retries']
         try:
+            if message['status'] in [MessageStatus.New]:
+                return False
             if retries >= self.max_retries:
                 self.logger.info("message %s has reached max retries %s" % (message['msg_id'], self.max_retries))
                 return True
@@ -237,7 +239,7 @@ class Conductor(BaseAgent):
                     content_statuses = proc_conents.get(map_id, [])
                     if not content_statuses:
                         pass
-                    if len(content_statuses) == 1 and content_statuses == [ContentStatus.New]:
+                    if (len(content_statuses) == 1 and content_statuses == [ContentStatus.New]) or ContentStatus.Missing in content_statuses:
                         all_map_id_processed = False
                         return all_map_id_processed
                 return all_map_id_processed
