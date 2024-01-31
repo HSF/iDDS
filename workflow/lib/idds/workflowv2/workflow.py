@@ -1281,6 +1281,17 @@ class WorkflowBase(Base):
     def get_workload_id(self):
         return self.workload_id
 
+    def get_site(self):
+        try:
+            work_id = self.primary_initial_work
+            if not work_id:
+                work_id = list(self.works.keys())[0]
+            work = self.works[work_id]
+            return work.get_site()
+        except Exception:
+            pass
+        return None
+
     def add_initial_works(self, work):
         self.initial_works.append(work.get_internal_id())
         if self.primary_initial_work is None:
@@ -2269,6 +2280,9 @@ class Workflow(Base):
         if self.runs:
             return self.runs[str(self.num_run)].workload_id
         return self.template.workload_id
+
+    def get_site(self):
+        return self.template.get_site()
 
     def add_work(self, work, initial=False, primary=False):
         self.template.add_work(work, initial, primary)

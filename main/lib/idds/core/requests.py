@@ -33,7 +33,7 @@ def create_request(scope=None, name=None, requester=None, request_type=None,
                    username=None, userdn=None, transform_tag=None,
                    status=RequestStatus.New, locking=RequestLocking.Idle, priority=0,
                    lifetime=None, workload_id=None, request_metadata=None,
-                   new_poll_period=1, update_poll_period=10,
+                   new_poll_period=1, update_poll_period=10, site=None,
                    new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
                    processing_metadata=None):
     """
@@ -65,6 +65,7 @@ def create_request(scope=None, name=None, requester=None, request_type=None,
               'new_poll_period': new_poll_period, 'update_poll_period': update_poll_period,
               'new_retries': new_retries, 'update_retries': update_retries,
               'max_new_retries': max_new_retries, 'max_update_retries': max_update_retries,
+              'site': site,
               'request_metadata': request_metadata, 'processing_metadata': processing_metadata}
     return orm_requests.create_request(**kwargs)
 
@@ -74,7 +75,7 @@ def add_request(scope=None, name=None, requester=None, request_type=None,
                 username=None, userdn=None, transform_tag=None,
                 status=RequestStatus.New, locking=RequestLocking.Idle, priority=0,
                 lifetime=None, workload_id=None, request_metadata=None,
-                new_poll_period=1, update_poll_period=10,
+                new_poll_period=1, update_poll_period=10, site=None,
                 new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
                 processing_metadata=None, session=None):
     """
@@ -98,9 +99,16 @@ def add_request(scope=None, name=None, requester=None, request_type=None,
     if workload_id is None and request_metadata and 'workload_id' in request_metadata and request_metadata['workload_id']:
         workload_id = int(request_metadata['workload_id'])
     # request_metadata = convert_request_metadata_to_workflow(scope, name, workload_id, request_type, request_metadata)
+    if not site:
+        try:
+            if request_metadata and 'workflow' in request_metadata and request_metadata['workflow']:
+                w = request_metadata['workflow']
+                site = w.get_site()
+        except Exception:
+            pass
 
     kwargs = {'scope': scope, 'name': name, 'requester': requester, 'request_type': request_type,
-              'username': username, 'userdn': userdn,
+              'username': username, 'userdn': userdn, 'site': site,
               'transform_tag': transform_tag, 'status': status, 'locking': locking,
               'priority': priority, 'lifetime': lifetime, 'workload_id': workload_id,
               'new_poll_period': new_poll_period, 'update_poll_period': update_poll_period,

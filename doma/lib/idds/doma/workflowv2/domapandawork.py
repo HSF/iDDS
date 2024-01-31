@@ -146,6 +146,15 @@ class DomaPanDAWork(Work):
             return True
         return False
 
+    def get_site(self):
+        if self.task_site:
+            return self.task_site
+        if self.task_queue:
+            return self.task_queue
+        if self.queue:
+            return self.queue
+        return self.task_cloud
+
     @property
     def dependency_map(self):
         return self._dependency_map
