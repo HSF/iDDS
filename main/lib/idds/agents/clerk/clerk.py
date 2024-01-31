@@ -356,7 +356,7 @@ class Clerk(BaseAgent):
                     min_request_id = old_min_request_id - 1000
                 BaseAgent.min_request_id = min_request_id
             else:
-                for req_id in BaseAgent.min_request_id_cache:
+                for req_id in list(BaseAgent.min_request_id_cache.keys()):
                     time_stamp = BaseAgent.min_request_id_cache[req_id]
                     if time_stamp < time.time() - 12 * 3600:       # older than 12 hours
                         del BaseAgent.min_request_id_cache[req_id]

@@ -620,6 +620,9 @@ class Work(Base):
     def get_sequence_id(self):
         return self.sequence_id
 
+    def get_site(self):
+        return None
+
     @property
     def internal_id(self):
         return self.get_metadata_item('internal_id')
