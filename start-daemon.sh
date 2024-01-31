@@ -179,6 +179,21 @@ if [ ! -z "$IDDS_PRINT_CFG" ]; then
     echo ""
 fi
 
+# min number of workers
+if [[ -z "${IDDS_SERVER_CONF_MIN_WORKERS}" ]]; then
+  export IDDS_SERVER_CONF_MIN_WORKERS=25
+fi
+
+# max number of workers
+if [[ -z "${IDDS_SERVER_CONF_MAX_WORKERS}" ]]; then
+  export IDDS_SERVER_CONF_MAX_WORKERS=512
+fi
+
+# max number of WSGI daemons
+if [[ -z "${IDDS_SERVER_CONF_NUM_WSGI}" ]]; then
+  export IDDS_SERVER_CONF_NUM_WSGI=25
+fi
+
 # create database if not exists
 python /opt/idds/tools/env/create_database.py
 # upgrade database
