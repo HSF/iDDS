@@ -173,7 +173,7 @@ def setup_workflow():
     taskN4.dependencies = [
         {"name": "00004" + str(k),
          "dependencies": [],
-         "submitted": False} for k in range(10000)
+         "submitted": False} for k in range(100)
     ]
 
     taskN5 = PanDATask()
@@ -182,7 +182,7 @@ def setup_workflow():
     taskN5.dependencies = [
         {"name": "00005" + str(k),
          "dependencies": [],
-         "submitted": False} for k in range(10000)
+         "submitted": False} for k in range(100)
     ]
 
     work1 = DomaPanDAWork(executable='echo; sleep 180',
@@ -234,7 +234,7 @@ def setup_workflow():
     work4 = DomaPanDAWork(executable='echo; sleep 180',
                           primary_input_collection={'scope': 'pseudo_dataset', 'name': 'pseudo_input_collection#1'},
                           output_collections=[{'scope': 'pseudo_dataset', 'name': 'pseudo_output_collection#1'}],
-                          log_collections=[], dependency_map=taskN1.dependencies,
+                          log_collections=[], dependency_map=taskN4.dependencies,
                           task_name=taskN4.name, task_queue=task_queue3,
                           encode_command_line=True,
                           task_priority=981,
@@ -250,7 +250,7 @@ def setup_workflow():
     work5 = DomaPanDAWork(executable='echo; sleep 180',
                           primary_input_collection={'scope': 'pseudo_dataset', 'name': 'pseudo_input_collection#1'},
                           output_collections=[{'scope': 'pseudo_dataset', 'name': 'pseudo_output_collection#1'}],
-                          log_collections=[], dependency_map=taskN1.dependencies,
+                          log_collections=[], dependency_map=taskN5.dependencies,
                           task_name=taskN5.name, task_queue=task_queue4,
                           encode_command_line=True,
                           task_priority=981,

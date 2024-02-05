@@ -57,6 +57,8 @@ def upgrade() -> None:
             op.drop_constraint('THROTTLER_PK', table_name='throttlers', schema=schema)
         except:
             pass
+        # op.create_sequence(sa.Sequence('THROTTLER_ID_SEQ', schema=schema))
+        op.execute(sa.schema.CreateSequence(sa.Sequence('THROTTLER_ID_SEQ', schema=schema)))
         op.create_table('throttlers',
                         sa.Column('throttler_id', sa.BigInteger(), sa.Sequence('THROTTLER_ID_SEQ', schema=schema)),
                         sa.Column('site', sa.String(50), nullable=False),
@@ -92,3 +94,4 @@ def downgrade() -> None:
         op.drop_constraint('THROTTLER_SITE_UQ', table_name='throttlers', schema=schema)
         op.drop_constraint('THROTTLER_PK', table_name='throttlers', schema=schema)
         op.drop_table('throttlers', schema=schema)
+        op.drop_sequence('THROTTLER_ID_SEQ', schema=schema)
