@@ -15,6 +15,7 @@ try:
 except ImportError:
     import configparser as ConfigParser
 
+import concurrent
 import datetime
 import os
 import time
@@ -1165,36 +1166,78 @@ class DomaPanDAWork(Work):
             jobs_event_status.update(job_event_status)
         return jobs_event_status
 
-    def poll_panda_jobs(self, job_ids, log_prefix=''):
+    def poll_panda_jobs(self, job_ids, executors=None, log_prefix=''):
         job_status_info = {}
         self.logger.debug(log_prefix + "poll_panda_jobs, poll_panda_jobs_chunk_size: %s, job_ids[:10]: %s" % (self.poll_panda_jobs_chunk_size, str(job_ids[:10])))
         chunksize = self.poll_panda_jobs_chunk_size
         chunks = [job_ids[i:i + chunksize] for i in range(0, len(job_ids), chunksize)]
-        for chunk in chunks:
-            # jobs_list = Client.getJobStatus(chunk, verbose=0)[1]
-            jobs_list = self.get_panda_job_status(chunk, log_prefix=log_prefix)
-            if jobs_list:
-                self.logger.debug(log_prefix + "poll_panda_jobs, input jobs: %s, output_jobs: %s" % (len(chunk), len(jobs_list)))
-                for job_info in jobs_list:
-                    job_set_id = job_info.jobsetID
-                    job_status = self.get_content_status_from_panda_status(job_info)
-                    if job_info and job_info.Files and len(job_info.Files) > 0:
-                        for job_file in job_info.Files:
-                            # if job_file.type in ['log']:
-                            if job_file.type not in ['pseudo_input']:
-                                continue
-                            if ':' in job_file.lfn:
-                                pos = job_file.lfn.find(":")
-                                input_file = job_file.lfn[pos + 1:]
-                                # input_file = job_file.lfn.split(':')[1]
-                            else:
-                                input_file = job_file.lfn
-                            # job_status_info[input_file] = {'panda_id': job_info.PandaID, 'status': job_status, 'job_info': job_info}
-                            if input_file not in job_status_info:
-                                job_status_info[input_file] = {'job_set_id': job_set_id, 'jobs': []}
-                            job_status_info[input_file]['jobs'].append({'panda_id': job_info.PandaID, 'status': job_status, 'job_info': job_info})
-            else:
-                self.logger.warn(log_prefix + "poll_panda_jobs, input jobs: %s, output_jobs: %s" % (len(chunk), jobs_list))
+        if executors is None:
+            for chunk in chunks:
+                # jobs_list = Client.getJobStatus(chunk, verbose=0)[1]
+                jobs_list = self.get_panda_job_status(chunk, log_prefix=log_prefix)
+                if jobs_list:
+                    self.logger.debug(log_prefix + "poll_panda_jobs, input jobs: %s, output_jobs: %s" % (len(chunk), len(jobs_list)))
+                    for job_info in jobs_list:
+                        job_set_id = job_info.jobsetID
+                        job_status = self.get_content_status_from_panda_status(job_info)
+                        if job_info and job_info.Files and len(job_info.Files) > 0:
+                            for job_file in job_info.Files:
+                                # if job_file.type in ['log']:
+                                if job_file.type not in ['pseudo_input']:
+                                    continue
+                                if ':' in job_file.lfn:
+                                    pos = job_file.lfn.find(":")
+                                    input_file = job_file.lfn[pos + 1:]
+                                    # input_file = job_file.lfn.split(':')[1]
+                                else:
+                                    input_file = job_file.lfn
+                                # job_status_info[input_file] = {'panda_id': job_info.PandaID, 'status': job_status, 'job_info': job_info}
+                                if input_file not in job_status_info:
+                                    job_status_info[input_file] = {'job_set_id': job_set_id, 'jobs': []}
+                                job_status_info[input_file]['jobs'].append({'panda_id': job_info.PandaID, 'status': job_status, 'job_info': job_info})
+                else:
+                    self.logger.warn(log_prefix + "poll_panda_jobs, input jobs: %s, output_jobs: %s" % (len(chunk), jobs_list))
+        else:
+            ret_futures = set()
+            for chunk in chunks:
+                f = executors.submit(self.get_panda_job_status, chunk, log_prefix)
+                ret_futures.add(f)
+            # Wait for all subprocess to complete
+            steps = 0
+            while True:
+                steps += 1
+                # Wait for all subprocess to complete in 3 minutes
+                completed, _ = concurrent.futures.wait(ret_futures, timeout=180, return_when=concurrent.futures.ALL_COMPLETED)
+                for f in completed:
+                    jobs_list = f.result()
+                    if jobs_list:
+                        self.logger.debug(log_prefix + "poll_panda_jobs thread, input jobs: %s, output_jobs: %s" % (len(chunk), len(jobs_list)))
+                        for job_info in jobs_list:
+                            job_set_id = job_info.jobsetID
+                            job_status = self.get_content_status_from_panda_status(job_info)
+                            if job_info and job_info.Files and len(job_info.Files) > 0:
+                                for job_file in job_info.Files:
+                                    # if job_file.type in ['log']:
+                                    if job_file.type not in ['pseudo_input']:
+                                        continue
+                                    if ':' in job_file.lfn:
+                                        pos = job_file.lfn.find(":")
+                                        input_file = job_file.lfn[pos + 1:]
+                                        # input_file = job_file.lfn.split(':')[1]
+                                    else:
+                                        input_file = job_file.lfn
+                                    # job_status_info[input_file] = {'panda_id': job_info.PandaID, 'status': job_status, 'job_info': job_info}
+                                    if input_file not in job_status_info:
+                                        job_status_info[input_file] = {'job_set_id': job_set_id, 'jobs': []}
+                                    job_status_info[input_file]['jobs'].append({'panda_id': job_info.PandaID, 'status': job_status, 'job_info': job_info})
+                    else:
+                        self.logger.warn(log_prefix + "poll_panda_jobs thread, input jobs: %s, output_jobs: %s" % (len(chunk), jobs_list))
+
+                ret_futures = ret_futures - completed
+                if len(ret_futures) > 0:
+                    self.logger.debug(log_prefix + "poll_panda_jobs thread: %s threads has been running for more than %s minutes" % (len(ret_futures), steps * 3))
+                else:
+                    break
 
         if not self.es:
             for filename in job_status_info:
@@ -1649,7 +1692,7 @@ class DomaPanDAWork(Work):
 
         return update_contents, update_contents_full, new_contents_ext, update_contents_ext
 
-    def poll_panda_task(self, processing=None, input_output_maps=None, contents_ext=None, job_info_maps={}, log_prefix=''):
+    def poll_panda_task(self, processing=None, input_output_maps=None, contents_ext=None, job_info_maps={}, executors=None, log_prefix=''):
         task_id = None
         try:
             from pandaclient import Client
@@ -1679,7 +1722,7 @@ class DomaPanDAWork(Work):
                     unterminated_jobs = self.get_unterminated_jobs(all_jobs_ids, input_output_maps, contents_ext)
                     self.logger.debug(log_prefix + "poll_panda_task, task_id: %s, all jobs: %s, unterminated_jobs: %s" % (str(task_id), len(all_jobs_ids), len(unterminated_jobs)))
 
-                    unterminated_jobs_status = self.poll_panda_jobs(unterminated_jobs, log_prefix=log_prefix)
+                    unterminated_jobs_status = self.poll_panda_jobs(unterminated_jobs, executors=executors, log_prefix=log_prefix)
                     self.logger.debug("unterminated_jobs_status: %s" % str(unterminated_jobs_status))
 
                     abort_status = False
@@ -1784,7 +1827,7 @@ class DomaPanDAWork(Work):
                 return output
         return []
 
-    def poll_processing_updates(self, processing, input_output_maps, contents_ext=None, job_info_maps={}, log_prefix=''):
+    def poll_processing_updates(self, processing, input_output_maps, contents_ext=None, job_info_maps={}, executors=None, log_prefix=''):
         """
         *** Function called by Carrier agent.
         """
@@ -1799,6 +1842,7 @@ class DomaPanDAWork(Work):
                                                        input_output_maps=input_output_maps,
                                                        contents_ext=contents_ext,
                                                        job_info_maps=job_info_maps,
+                                                       executors=executors,
                                                        log_prefix=log_prefix)
 
             processing_status, update_contents, update_contents_full, new_contents_ext, update_contents_ext = ret_poll_panda_task

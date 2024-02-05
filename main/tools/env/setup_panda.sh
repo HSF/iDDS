@@ -49,7 +49,7 @@ elif [ "$instance" == "usdf" ]; then
     export PANDA_URL=https://usdf-panda-server.slac.stanford.edu:8443/server/panda
     export PANDACACHE_URL=$PANDA_URL_SSL
     export PANDAMON_URL=https://usdf-panda-bigmon.slac.stanford.edu:8443/
-    export PANDA_AUTH_VO=Rubin
+    export PANDA_AUTH_VO=Rubin:production
 
     export PANDACACHE_URL=$PANDA_URL_SSL
     export PANDA_SYS=/afs/cern.ch/user/w/wguan/workdisk/iDDS/.conda/iDDS/

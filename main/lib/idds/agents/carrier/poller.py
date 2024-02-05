@@ -86,6 +86,15 @@ class Poller(BaseAgent):
         self.max_updates_per_round = max_updates_per_round
         self.logger.info("max_updates_per_round: %s" % self.max_updates_per_round)
 
+        if not hasattr(self, 'enable_executors') or not self.enable_executors:
+            self.enable_executors = False
+        else:
+            if str(self.enable_executors).lower() == 'true':
+                self.enable_executors = True
+            else:
+                self.enable_executors = False
+        self.logger.info("enable_executors: %s" % self.enable_executors)
+
         self.show_queue_size_time = None
 
     def is_ok_to_run_more_processings(self):
@@ -286,9 +295,14 @@ class Poller(BaseAgent):
     def handle_update_processing(self, processing):
         try:
             log_prefix = self.get_log_prefix(processing)
+            executors = None
+            if self.enable_executors:
+                executors = self.executors
+
             ret_handle_update_processing = handle_update_processing(processing,
                                                                     self.agent_attributes,
                                                                     max_updates_per_round=self.max_updates_per_round,
+                                                                    executors=executors,
                                                                     logger=self.logger,
                                                                     log_prefix=log_prefix)
 

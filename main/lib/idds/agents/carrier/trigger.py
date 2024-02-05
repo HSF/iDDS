@@ -102,10 +102,15 @@ class Trigger(Poller):
     def handle_trigger_processing(self, processing, trigger_new_updates=False):
         try:
             log_prefix = self.get_log_prefix(processing)
+            executors = None
+            if self.enable_executors:
+                executors = self.executors
+
             ret_trigger_processing = handle_trigger_processing(processing,
                                                                self.agent_attributes,
                                                                trigger_new_updates=trigger_new_updates,
                                                                max_updates_per_round=self.max_updates_per_round,
+                                                               executors=executors,
                                                                logger=self.logger,
                                                                log_prefix=log_prefix)
             process_status, update_contents, ret_msgs, parameters, update_dep_contents_status_name, update_dep_contents_status, new_update_contents, ret_update_transforms, has_updates = ret_trigger_processing

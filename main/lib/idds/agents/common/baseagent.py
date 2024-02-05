@@ -229,7 +229,10 @@ class BaseAgent(TimerScheduler, PluginBase):
 
     def stop(self):
         super(BaseAgent, self).stop()
-        self.event_bus.stop()
+        try:
+            self.event_bus.stop()
+        except Exception:
+            pass
 
     def terminate(self):
         self.stop()
