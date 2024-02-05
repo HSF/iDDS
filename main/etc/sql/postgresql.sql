@@ -311,6 +311,7 @@ CREATE TABLE doma_idds.events_archive (
 	CONSTRAINT "EVENTS_AR_PK" PRIMARY KEY (event_id)
 );
 
+CREATE SEQUENCE doma_idds."THROTTLER_ID_SEQ" START WITH 1
 
 CREATE TABLE doma_idds.throttlers (
 	throttler_id BIGSERIAL NOT NULL, 

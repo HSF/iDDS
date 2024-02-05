@@ -111,10 +111,14 @@ class Submitter(Poller):
             # transform_id = processing['transform_id']
             # transform = core_transforms.get_transform(transform_id=transform_id)
             # work = transform['transform_metadata']['work']
+            executors = None
+            if self.enable_executors:
+                executors = self.executors
             ret_new_processing = handle_new_processing(processing,
                                                        self.agent_attributes,
                                                        func_site_to_cloud=self.get_site_to_cloud,
                                                        max_updates_per_round=self.max_updates_per_round,
+                                                       executors=executors,
                                                        logger=self.logger,
                                                        log_prefix=log_prefix)
             status, processing, update_colls, new_contents, new_input_dependency_contents, msgs, errors = ret_new_processing

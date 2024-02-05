@@ -463,7 +463,7 @@ CREATE TABLE meta_info
     created_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)),
     updated_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)),
     description VARCHAR2(1000),
-    metadata CLOB,
+    meta_info CLOB,
     CONSTRAINT METAINFO_PK PRIMARY KEY (meta_id), -- USING INDEX LOCAL,
     CONSTRAINT METAINFO_NAME_UQ UNIQUE (name)
 );
