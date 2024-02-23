@@ -97,6 +97,15 @@ class Poller(BaseAgent):
 
         self.show_queue_size_time = None
 
+        self.extra_executors = None
+
+    def get_extra_executors(self):
+        if self.enable_executors:
+            if self.extra_executors is None:
+                name = self.executor_name + "_Extra"
+                self.extra_executors = self.create_executors(name, max_workers=self.num_threads)
+        return self.extra_executors
+
     def is_ok_to_run_more_processings(self):
         if self.number_workers >= self.max_number_workers:
             return False
@@ -297,7 +306,7 @@ class Poller(BaseAgent):
             log_prefix = self.get_log_prefix(processing)
             executors = None
             if self.enable_executors:
-                executors = self.executors
+                executors = self.get_extra_executors()
 
             ret_handle_update_processing = handle_update_processing(processing,
                                                                     self.agent_attributes,

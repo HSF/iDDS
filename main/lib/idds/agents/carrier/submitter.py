@@ -113,7 +113,8 @@ class Submitter(Poller):
             # work = transform['transform_metadata']['work']
             executors = None
             if self.enable_executors:
-                executors = self.executors
+                executors = self.get_extra_executors()
+
             ret_new_processing = handle_new_processing(processing,
                                                        self.agent_attributes,
                                                        func_site_to_cloud=self.get_site_to_cloud,
