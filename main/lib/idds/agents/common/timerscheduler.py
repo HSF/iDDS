@@ -61,6 +61,7 @@ class TimerScheduler(threading.Thread):
         if self.num_threads < 1:
             self.num_threads = 1
         self.graceful_stop = threading.Event()
+        self.executor_name = name
         self.executors = IDDSThreadPoolExecutor(max_workers=self.num_threads,
                                                 thread_name_prefix=name)
 
@@ -78,6 +79,10 @@ class TimerScheduler(threading.Thread):
 
     def stop(self, signum=None, frame=None):
         self.graceful_stop.set()
+
+    def create_executors(self, name, max_workers=1):
+        executors = IDDSThreadPoolExecutor(max_workers=max_workers, thread_name_prefix=name)
+        return executors
 
     def create_task(self, task_func, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=10, priority=1):
         return TimerTask(task_func, task_output_queue, task_args, task_kwargs, delay_time, priority, self.logger)

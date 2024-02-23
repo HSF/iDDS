@@ -104,7 +104,7 @@ class Trigger(Poller):
             log_prefix = self.get_log_prefix(processing)
             executors = None
             if self.enable_executors:
-                executors = self.executors
+                executors = self.get_extra_executors()
 
             ret_trigger_processing = handle_trigger_processing(processing,
                                                                self.agent_attributes,
