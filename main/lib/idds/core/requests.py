@@ -267,6 +267,9 @@ def generate_collection(transform, collection, relation_type=CollectionRelationT
 def generate_collections(transform):
     work = transform['transform_metadata']['work']
 
+    if not hasattr(work, 'get_input_collections'):
+        return []
+
     input_collections = work.get_input_collections()
     output_collections = work.get_output_collections()
     log_collections = work.get_log_collections()
@@ -313,9 +316,13 @@ def update_request_with_transforms(request_id, parameters,
             # work = tf['transform_metadata']['work']
             # original_work.set_work_id(tf_id, transforming=True)
             # original_work.set_status(WorkStatus.New)
-            work.set_work_id(tf_id, transforming=True)
-            work.set_status(WorkStatus.New)
-            workflow.refresh_works()
+            if hasattr(work, 'set_work_id'):
+                work.set_work_id(tf_id, transforming=True)
+            if hasattr(work, 'set_status'):
+                work.set_status(WorkStatus.New)
+            if workflow is not None:
+                if hasattr(workflow, 'refresh_works'):
+                    workflow.refresh_works()
 
             collections = generate_collections(tf)
             for coll in collections:
@@ -327,7 +334,8 @@ def update_request_with_transforms(request_id, parameters,
                 collection.coll_id = coll_id
 
             # update transform to record the coll_id
-            work.refresh_work()
+            if hasattr(work, 'refresh_works'):
+                work.refresh_work()
             orm_transforms.update_transform(transform_id=tf_id,
                                             parameters={'transform_metadata': tf['transform_metadata']},
                                             session=session)
