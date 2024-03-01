@@ -1,0 +1,22 @@
+name: idds
+dependencies:
+- python==3.6
+- pip
+- pip:
+  - argcomplete
+  - requests
+  - tabulate
+  - pyjwt
+  - urllib3==1.26.18
+  - setuptools_rust
+  - cryptography
+  - packaging
+  - anytree
+  - networkx
+  - stomp.py
+  - panda-client
+  - cffi
+  - charset_normalizer
+  - idna
+  - pycparser
+  - websocket
