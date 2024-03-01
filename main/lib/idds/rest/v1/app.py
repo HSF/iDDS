@@ -24,6 +24,7 @@ from idds.common.constants import HTTP_STATUS_CODE
 from idds.common.utils import get_rest_debug
 # from idds.common.utils import get_rest_url_prefix
 from idds.rest.v1 import requests
+from idds.rest.v1 import transforms
 from idds.rest.v1 import catalog
 from idds.rest.v1 import cacher
 from idds.rest.v1 import hyperparameteropt
@@ -60,6 +61,7 @@ class LoggingMiddleware(object):
 def get_normal_blueprints():
     bps = []
     bps.append(requests.get_blueprint())
+    bps.append(transforms.get_blueprint())
     bps.append(catalog.get_blueprint())
     bps.append(cacher.get_blueprint())
     bps.append(hyperparameteropt.get_blueprint())
