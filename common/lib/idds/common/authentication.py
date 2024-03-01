@@ -163,7 +163,7 @@ class OIDCAuthentication(BaseAuthentication):
             r = requests.get(url, allow_redirects=True, verify=should_verify(no_verify, self.get_ssl_verify()))
             return r.content
         except Exception as error:
-            return False, 'Failed to get http content for %s: %s' (str(url), str(error))
+            return False, 'Failed to get http content for %s: %s' % (str(url), str(error))
 
     def get_endpoint_config(self, auth_config):
         content = self.get_http_content(auth_config['oidc_config_url'], no_verify=auth_config['no_verify'])

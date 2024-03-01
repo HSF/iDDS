@@ -13,6 +13,7 @@ import base64
 import errno
 import datetime
 import importlib
+import hashlib
 import logging
 import json
 import os
@@ -63,11 +64,15 @@ def setup_logging(name, stream=None, loglevel=None):
         else:
             loglevel = logging.INFO
 
-    if os.environ.get('IDDS_LOG_LEVEL', None):
-        idds_log_level = os.environ.get('IDDS_LOG_LEVEL', None)
-        idds_log_level = idds_log_level.upper()
-        if idds_log_level in ["DEBUG", "CRITICAL", "ERROR", "WARNING", "INFO"]:
-            loglevel = getattr(logging, idds_log_level)
+        if os.environ.get('IDDS_LOG_LEVEL', None):
+            idds_log_level = os.environ.get('IDDS_LOG_LEVEL', None)
+            idds_log_level = idds_log_level.upper()
+            if idds_log_level in ["DEBUG", "CRITICAL", "ERROR", "WARNING", "INFO"]:
+                loglevel = getattr(logging, idds_log_level)
+
+    if type(loglevel) in [str]:
+        loglevel = loglevel.upper()
+        loglevel = getattr(logging, loglevel)
 
     if stream is None:
         if config_has_section('common') and config_has_option('common', 'logdir'):
@@ -733,7 +738,7 @@ def group_list(input_list, key):
     return update_groups
 
 
-def import_fun(name: str) -> Callable[..., Any]:
+def import_func(name: str) -> Callable[..., Any]:
     """Returns a function from a dotted path name. Example: `path.to.module:func`.
 
     When the attribute we look for is a staticmethod, module name in its
@@ -873,6 +878,26 @@ def create_archive_file(work_dir, archive_filename, files):
 
     with tarfile.open(archive_filename, "w:gz", dereference=True) as tar:
         for local_file in files:
-            # base_name = os.path.basename(local_file)
-            tar.add(local_file, arcname=os.path.basename(local_file))
+            if os.path.isfile(local_file):
+                # base_name = os.path.basename(local_file)
+                tar.add(local_file, arcname=os.path.basename(local_file))
+            elif os.path.isdir(local_file):
+                for root, dirs, fs in os.walk(local_file):
+                    for f in fs:
+                        file_path = os.path.join(root, f)
+                        tar.add(file_path, arcname=os.path.relpath(file_path, local_file))
     return archive_filename
+
+
+class SecureString(object):
+    def __init__(self, value):
+        self._value = value
+
+    def __str__(self):
+        return '****'
+
+
+def get_unique_id_for_dict(dict_):
+    ret = hashlib.sha1(json.dumps(dict_, sort_keys=True).encode()).hexdigest()
+    # logging.debug("get_unique_id_for_dict, type: %s: %s, ret: %s" % (type(dict_), dict_, ret))
+    return ret

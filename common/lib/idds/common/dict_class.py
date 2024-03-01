@@ -59,7 +59,7 @@ class DictClass(object):
             # print(value)
             # if not key.startswith('__') and not key.startswith('_'):
             if not key.startswith('__'):
-                if key == 'logger':
+                if key in ['logger']:
                     new_value = None
                 else:
                     new_value = self.to_dict_l(value)
@@ -119,7 +119,7 @@ class DictClass(object):
             last_items = {}
             for key, value in d['attributes'].items():
                 # print(key)
-                if key == 'logger':
+                if key in ['logger']:
                     continue
                 elif key == "_metadata":
                     last_items[key] = value
