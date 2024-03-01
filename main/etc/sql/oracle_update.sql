@@ -468,3 +468,8 @@ CREATE TABLE meta_info
     CONSTRAINT METAINFO_NAME_UQ UNIQUE (name)
 );
 
+--- 20240219
+alter table TRANSFORMS add (parent_transform_id NUMBER(12));
+alter table TRANSFORMS add (previous_transform_id NUMBER(12));
+alter table TRANSFORMS add (current_processing_id NUMBER(12));
+alter table PROCESSINGS add (processing_type NUMBER(2));
