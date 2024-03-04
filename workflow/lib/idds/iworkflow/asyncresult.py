@@ -57,30 +57,61 @@ class MessagingListener(stomp.ConnectionListener):
 
 class MapResult(object):
     def __init__(self):
+        self._name_results = {}
         self._results = {}
 
     def __str__(self):
-        return str(self._results)
+        return str(self._name_results)
 
     def add_result(self, name=None, args=None, key=None, result=None):
-        if key is None:
+        name_key = key
+        if name_key is None:
             key = get_unique_id_for_dict(args)
-            key = '%s:%s' % (name, key)
+            name_key = '%s:%s' % (name, key)
+        else:
+            # name_key = key
+            # name = ':'.join(name_key.split(":")[:-1])
+            key = name_key.split(":")[-1]
+
+        self._name_results[name_key] = result
         self._results[key] = result
 
     def has_result(self, name=None, args=None, key=None):
-        if key is None:
+        name_key = key
+        if name_key is not None:
+            if name_key in self._name_results:
+                return True
+            return False
+        else:
             key = get_unique_id_for_dict(args)
-            key = '%s:%s' % (name, key)
-        if key in self._results:
-            return True
-        return False
+            name_key = '%s:%s' % (name, key)
+
+            if name is not None:
+                if name_key in self._name_results:
+                    return True
+                return False
+            else:
+                if key in self._result:
+                    return True
+                return False
 
     def get_result(self, name=None, args=None, key=None):
-        if key is None:
+        # wen
+        logging.info("get_result: key %s, name: %s, args: %s" % (key, name, args))
+        logging.info("get_result: results: %s, name_results: %s" % (self._results, self._name_results))
+
+        name_key = key
+        if name_key is not None:
+            ret = self._name_results.get(name_key, None)
+        else:
             key = get_unique_id_for_dict(args)
-            key = '%s:%s' % (name, key)
-        return self._results.get(key, None)
+
+            if name is not None:
+                name_key = '%s:%s' % (name, key)
+                ret = self._name_results.get(name_key, None)
+            else:
+                ret = self._results.get(key, None)
+        return ret
 
     def get_all_results(self):
         return self._results

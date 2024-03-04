@@ -9,23 +9,10 @@ fi
 unzip -o $0 > /dev/null 2>&1
 # PYNAME=`echo $0 | sed -e "s/\(-.*$\)/.py/"`
 
-if command -v python3 &> /dev/null
-then
-    PY_COMMAND=python3
-else
-    if command -v python2 &> /dev/null
-    then
-        PY_COMMAND=python2
-    else
-        PY_COMMAND=python
-    fi
-fi
-
 current_dir=$PWD
-mkdir tmp_bin
-ln -fs `which $PY_COMMAND` tmp_bin/python
-export PATH=${current_dir}/tmp_bin:${current_dir}/bin:$PATH
+export PATH=${current_dir}:${current_dir}/bin:$PATH
 
+chmod +x ${current_dir}/bin/*
 ln -fs ${current_dir}/bin/* ${current_dir}/
 
 export PYTHONPATH=${current_dir}/lib_py:$PYTHONPATH
@@ -40,6 +27,9 @@ if [[ ! -z "${PANDA_AUTH_DIR}" ]] && [[ ! -z "${PANDA_AUTH_ORIGIN}" ]]; then
 else
     unset PANDA_AUTH;
     export IDDS_AUTH_TYPE=x509_proxy;
+    if [ -f $X509_USER_PROXY ]; then
+	cp $X509_USER_PROXY ${current_dir}/x509_proxy
+    fi
 fi;
 
 export PANDA_CONFIG_ROOT=$(pwd);
@@ -47,11 +37,55 @@ export PANDA_VERIFY_HOST=off;
 export PANDA_BEHIND_REAL_LB=true;
 
 
-#export PYTHONPATH
-echo using $PY_COMMAND
+myargs="$@"
+setup=""
+
+POSITIONAL=()
+while [[ $# -gt 0 ]]; do
+    key="$1"
+    case $key in
+        --setup)
+        setup="$2"
+        shift
+        shift
+        ;;
+        *)
+        POSITIONAL+=("$1") # save it in an array for later
+        shift
+        ;;
+    esac
+done
+
+set -- "${POSITIONAL[@]}" # restore positional parameters
+
+echo $setup
+
+run_args=$@
+echo $run_args
+
+cmdfile="run_workflow.sh"
+cat <<- EOF > ./$cmdfile
+#/bin/bash
+
+current_dir=\$PWD
+export PATH=\${current_dir}:\${current_dir}/tmp_bin:\${current_dir}/bin:\$PATH
+export PYTHONPATH=\${current_dir}:\${current_dir}/lib_py:\$PYTHONPATH
+
+if [ -f \${current_dir}/x509_proxy ]; then
+    export X509_USER_PROXY=\${current_dir}/x509_proxy
+fi
+
+$run_args
+
+EOF
+
+chmod +x ./$cmdfile
 
 # exec python "$@"
-python "$@"
+# python "$@"
+# exec "$@"
+
+$setup ./$cmdfile
 ret=$?
 
 echo pwd

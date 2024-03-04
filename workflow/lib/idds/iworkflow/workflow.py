@@ -51,7 +51,7 @@ class WorkflowCanvas(object):
 
 
 class WorkflowContext(Context):
-    def __init__(self, name=None, service='panda', source_dir=None, distributed=True):
+    def __init__(self, name=None, service='panda', source_dir=None, distributed=True, init_env=None):
         super(WorkflowContext, self).__init__()
         self._service = service     # panda, idds, sharefs
         self._request_id = None
@@ -105,6 +105,8 @@ class WorkflowContext(Context):
         self._idds_initialized = False
         self.init_idds()
 
+        self._init_env = init_env
+
     @property
     def logger(self):
         return logging.getLogger(self.__class__.__name__)
@@ -124,6 +126,14 @@ class WorkflowContext(Context):
     @service.setter
     def service(self, value):
         self._service = value
+
+    @property
+    def init_env(self):
+        return self._init_env
+
+    @init_env.setter
+    def init_env(self, value):
+        self._init_env = value
 
     @property
     def vo(self):
@@ -361,12 +371,24 @@ class WorkflowContext(Context):
         :returns command: `str` to setup the workflow.
         """
         if self.service == 'panda':
-            return self.setup_panda()
+            set_up = self.setup_panda()
         elif self.service == 'idds':
-            return self.setup_idds()
+            set_up = self.setup_idds()
         elif self.service == 'sharefs':
-            return self.setup_sharefs()
-        return self.setup_sharefs()
+            set_up = self.setup_sharefs()
+        else:
+            set_up = self.setup_sharefs()
+
+        init_env = self.init_env
+        ret = None
+        if set_up:
+            ret = set_up
+        if init_env:
+            if ret:
+                ret = ret + "; " + init_env
+            else:
+                ret = init_env
+        return ret
 
     def setup_source_files(self):
         """
@@ -419,8 +441,9 @@ class WorkflowContext(Context):
 
         :returns command: `str` to setup the workflow.
         """
-        setup = 'source setup.sh'
-        return setup
+        # setup = 'source setup.sh'
+        # return setup
+        return None
 
     def setup_idds(self):
         """
@@ -578,7 +601,7 @@ class WorkflowContext(Context):
 class Workflow(Base):
 
     def __init__(self, func=None, service='panda', context=None, source_dir=None, distributed=True,
-                 args=None, kwargs={}, group_kwargs=[], update_kwargs=None, is_unique_func_name=False):
+                 args=None, kwargs={}, group_kwargs=[], update_kwargs=None, init_env=None, is_unique_func_name=False):
         """
         Init a workflow.
         """
@@ -599,7 +622,7 @@ class Workflow(Base):
         if context is not None:
             self._context = context
         else:
-            self._context = WorkflowContext(name=self._name, service=service, source_dir=source_dir, distributed=distributed)
+            self._context = WorkflowContext(name=self._name, service=service, source_dir=source_dir, distributed=distributed, init_env=init_env)
 
     @property
     def service(self):
@@ -963,9 +986,9 @@ class Workflow(Base):
         run_command = self.get_run_command()
 
         if setup:
-            cmd = setup
+            cmd = ' --setup "' + setup + '" '
         if cmd:
-            cmd = cmd + "; " + run_command
+            cmd = cmd + " " + run_command
         else:
             cmd = run_command
         return cmd

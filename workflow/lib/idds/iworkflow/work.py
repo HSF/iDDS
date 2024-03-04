@@ -820,9 +820,9 @@ class Work(Base):
         run_command = self.get_run_command()
 
         if setup:
-            cmd = setup
+            cmd = ' --setup "' + setup + '" '
         if cmd:
-            cmd = cmd + "; " + run_command
+            cmd = cmd + " " + run_command
         else:
             cmd = run_command
         return cmd
