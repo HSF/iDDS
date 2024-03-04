@@ -18,10 +18,11 @@ import flask
 from flask import Flask, Response
 
 from idds.common import exceptions
-from idds.common.authentication import authenticate_x509, authenticate_oidc, authenticate_is_super_user
+# from idds.common.authentication import authenticate_x509, authenticate_oidc, authenticate_is_super_user
 from idds.common.config import (config_has_section, config_has_option, config_get)
 from idds.common.constants import HTTP_STATUS_CODE
 from idds.common.utils import get_rest_debug
+from idds.core.authentication import authenticate_x509, authenticate_oidc, authenticate_is_super_user
 # from idds.common.utils import get_rest_url_prefix
 from idds.rest.v1 import requests
 from idds.rest.v1 import transforms

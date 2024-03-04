@@ -15,7 +15,7 @@ from flask import Blueprint
 
 from idds.common import exceptions
 from idds.common.constants import HTTP_STATUS_CODE
-from idds.common.authentication import OIDCAuthentication
+from idds.core.authentication import OIDCAuthentication
 from idds.rest.v1.controller import IDDSController
 
 
