@@ -30,6 +30,24 @@ from idds.iworkflow.work import work
 setup_logging(__name__)
 
 
+def get_initial_parameter():
+    opt_params = {
+        'colsample_bytree': (0.1, 1),
+        'scale_pos_weight': (0, 10),
+        'max_delta_step': (0, 10),
+        'seed': (1, 50),
+        'min_child_weight': (0, 100),
+        'subsample': (0.1, 1),
+        'eta': (0, 0.1),
+        'alpha': (0, 1),
+        # 'lambda': (0, 100),
+        'max_depth': (0, 50),
+        'gamma': (0, 1),
+        # 'num_boost_round': (100000, 1000000)
+    }
+    return opt_params
+
+
 @work(map_results=True)
 def optimize_work(opt_params, retMethod=None, hist=True, saveModel=False, input_weight=None, **kwargs):
     from optimize import evaluate_bdt, load_data
@@ -51,20 +69,7 @@ def optimize_workflow():
     opt_method = 'auc'
     params = {'num_boost_round': 1000}
 
-    opt_params = {
-        'colsample_bytree': (0.1, 1),
-        'scale_pos_weight': (0, 10),
-        'max_delta_step': (0, 10),
-        'seed': (1, 50),
-        'min_child_weight': (0, 100),
-        'subsample': (0.1, 1),
-        'eta': (0, 0.1),
-        'alpha': (0, 1),
-        # 'lambda': (0, 100),
-        'max_depth': (0, 50),
-        'gamma': (0, 1),
-        # 'num_boost_round': (100000, 1000000)
-    }
+    opt_params = get_initial_parameter()
 
     print("To optimize with parameters: %s" % opt_params)
 
@@ -75,6 +80,7 @@ def optimize_workflow():
 
     n_iterations, n_points_per_iteration = 10, 20
     for i in range(n_iterations):
+        print("Iteration %s" % i)
         points = {}
         group_kwargs = []
         for j in range(n_points_per_iteration):
