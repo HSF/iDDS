@@ -36,7 +36,6 @@ export PANDA_CONFIG_ROOT=$(pwd);
 export PANDA_VERIFY_HOST=off;
 export PANDA_BEHIND_REAL_LB=true;
 
-
 myargs="$@"
 setup=""
 
@@ -71,6 +70,12 @@ current_dir=\$PWD
 export PATH=\${current_dir}:\${current_dir}/tmp_bin:\${current_dir}/bin:\$PATH
 export PYTHONPATH=\${current_dir}:\${current_dir}/lib_py:\$PYTHONPATH
 
+if ! command -v python &> /dev/null
+then
+    echo "no python, alias python3 to python"
+    alias python=python3
+fi
+
 if [ -f \${current_dir}/x509_proxy ]; then
     export X509_USER_PROXY=\${current_dir}/x509_proxy
 fi
@@ -94,4 +99,5 @@ pwd; ls
 echo rm -fr ${current_dir}/lib_py ${current_dir}/etc ${current_dir}/bin ${current_dir}/tmp_bin ${current_dir}/run_workflow_wrapper ${current_dir}/__pycache__
 rm -fr ${current_dir}/lib_py ${current_dir}/etc ${current_dir}/bin ${current_dir}/tmp_bin ${current_dir}/run_workflow_wrapper ${current_dir}/__pycache__
 
+echo "return code: " $ret
 exit $ret

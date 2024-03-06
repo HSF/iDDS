@@ -96,9 +96,8 @@ class MapResult(object):
                 return False
 
     def get_result(self, name=None, args=None, key=None):
-        # wen
-        logging.info("get_result: key %s, name: %s, args: %s" % (key, name, args))
-        logging.info("get_result: results: %s, name_results: %s" % (self._results, self._name_results))
+        logging.debug("get_result: key %s, name: %s, args: %s" % (key, name, args))
+        logging.debug("get_result: results: %s, name_results: %s" % (self._results, self._name_results))
 
         name_key = key
         if name_key is not None:

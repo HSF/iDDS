@@ -993,6 +993,10 @@ class Workflow(Base):
             cmd = run_command
         return cmd
 
+    def get_func_name(self):
+        func_name = self._func_name_and_args[0]
+        return func_name
+
 
 # foo = workflow(arg)(foo)
 def workflow(func=None, *, lazy=False, service='panda', source_dir=None, primary=False, distributed=True):
