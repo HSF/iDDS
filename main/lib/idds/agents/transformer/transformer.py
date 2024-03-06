@@ -17,6 +17,8 @@ import traceback
 from idds.common import exceptions
 from idds.common.constants import (Sections, ReturnCode, TransformType,
                                    TransformStatus, TransformLocking,
+                                   CollectionType, CollectionStatus,
+                                   CollectionRelationType,
                                    CommandType, ProcessingStatus, WorkflowType,
                                    get_processing_type_from_transform_type,
                                    get_transform_status_from_processing_status)
@@ -315,6 +317,24 @@ class Transformer(BaseAgent):
             self.logger.info(log_pre + "handle_new_transform exception result: %s" % str(ret))
         return ret
 
+    def generate_collection(self, transform, collection, relation_type=CollectionRelationType.Input):
+        coll = {'transform_id': transform['transform_id'],
+                'request_id': transform['request_id'],
+                'workload_id': transform['workload_id'],
+                'coll_type': CollectionType.Dataset,
+                'scope': collection['scope'],
+                'name': collection['name'][:254],
+                'relation_type': relation_type,
+                'bytes': 0,
+                'total_files': 0,
+                'new_files': 0,
+                'processed_files': 0,
+                'processing_files': 0,
+                'coll_metadata': None,
+                'status': CollectionStatus.Open,
+                'expired_at': transform['expired_at']}
+        return coll
+
     def handle_new_itransform_real(self, transform):
         """
         Process new transform
@@ -346,9 +366,19 @@ class Transformer(BaseAgent):
             if 'max_update_retries' in transform_parameters:
                 new_processing_model['max_update_retries'] = transform_parameters['max_update_retries']
 
+        func_name = work.get_func_name()
+        func_name = func_name.split(':')[-1]
+        input_coll = {'scope': 'pseudo_dataset', 'name': 'pseudo_input_%s' % func_name}
+        output_coll = {'scope': 'pseudo_dataset', 'name': 'pseudo_output_%s' % func_name}
+
+        input_collection = self.generate_collection(transform, input_coll, relation_type=CollectionRelationType.Input)
+        output_collection = self.generate_collection(transform, output_coll, relation_type=CollectionRelationType.Output)
+
         ret = {'transform': transform,
                'transform_parameters': transform_parameters,
-               'new_processing': new_processing_model
+               'new_processing': new_processing_model,
+               'input_collections': [input_collection],
+               'output_collections': [output_collection]
                }
         return ret
 

@@ -279,25 +279,34 @@ def add_transform_outputs(transform, transform_parameters, input_collections=Non
 
     if input_collections:
         for coll in input_collections:
-            collection = coll['collection']
-            del coll['collection']
+            collection = None
+            if 'collection' in coll:
+                collection = coll['collection']
+                del coll['collection']
             coll_id = orm_collections.add_collection(**coll, session=session)
-            # work.set_collection_id(coll, coll_id)
-            collection.coll_id = coll_id
+            if collection:
+                # work.set_collection_id(coll, coll_id)
+                collection.coll_id = coll_id
     if output_collections:
         for coll in output_collections:
-            collection = coll['collection']
-            del coll['collection']
+            collection = None
+            if 'collection' in coll:
+                collection = coll['collection']
+                del coll['collection']
             coll_id = orm_collections.add_collection(**coll, session=session)
-            # work.set_collection_id(coll, coll_id)
-            collection.coll_id = coll_id
+            if collection:
+                # work.set_collection_id(coll, coll_id)
+                collection.coll_id = coll_id
     if log_collections:
         for coll in log_collections:
-            collection = coll['collection']
-            del coll['collection']
+            collection = None
+            if 'collection' in coll:
+                collection = coll['collection']
+                del coll['collection']
             coll_id = orm_collections.add_collection(**coll, session=session)
-            # work.set_collection_id(coll, coll_id)
-            collection.coll_id = coll_id
+            if collection:
+                # work.set_collection_id(coll, coll_id)
+                collection.coll_id = coll_id
 
     if update_input_collections:
         update_input_colls = [coll.collection for coll in update_input_collections]

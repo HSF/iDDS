@@ -11,9 +11,9 @@
 import datetime
 import logging
 
-from idds.common.constants import ProcessingStatus
+from idds.common.constants import ProcessingStatus, CollectionStatus
 from idds.common.utils import setup_logging
-
+from idds.core import catalog as core_catalog
 
 setup_logging(__name__)
 
@@ -85,6 +85,15 @@ def sync_iprocessing(processing, agent_attributes, terminate=False, abort=False,
 
     # work = processing['processing_metadata']['work']
 
+    u_colls = []
+    if processing['substatus'] in [ProcessingStatus.Finished, ProcessingStatus.Failed, ProcessingStatus.SubFinished, ProcessingStatus.Broken]:
+        collections = core_catalog.get_collections(transform_id=processing['transform_id'])
+        if collections:
+            for coll in collections:
+                u_coll = {'coll_id': coll['coll_id'],
+                          'status': CollectionStatus.Closed}
+                u_colls.append(u_coll)
+
     processing['status'] = processing['substatus']
 
-    return processing, None, None
+    return processing, u_colls, None

@@ -245,7 +245,7 @@ def generate_collection(transform, collection, relation_type=CollectionRelationT
     if collection.status is None:
         collection.status = CollectionStatus.Open
 
-    coll = {'transform_id': transform['request_id'],
+    coll = {'transform_id': transform['transform_id'],
             'request_id': transform['request_id'],
             'workload_id': transform['workload_id'],
             'coll_type': coll_type,
