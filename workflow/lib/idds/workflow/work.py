@@ -1425,6 +1425,14 @@ class Work(Base):
             return True
         return False
 
+    def is_processed(self, synchronize=True):
+        """
+        *** Function called by Transformer agent.
+        """
+        if self.status in [WorkStatus.Finished, WorkStatus.SubFinished] and self.substatus not in [WorkStatus.ToCancel, WorkStatus.ToSuspend, WorkStatus.ToResume]:
+            return True
+        return False
+
     def is_failed(self):
         """
         *** Function called by Transformer agent.

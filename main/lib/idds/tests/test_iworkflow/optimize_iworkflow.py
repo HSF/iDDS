@@ -102,6 +102,7 @@ def optimize_workflow():
     print(bayesopt.res)
     p = bayesopt.max
     print("Best params: %s" % p)
+    return p
 
 
 if __name__ == '__main__':
