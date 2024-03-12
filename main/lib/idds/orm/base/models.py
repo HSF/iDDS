@@ -26,7 +26,7 @@ from sqlalchemy.schema import CheckConstraint, UniqueConstraint, Index, PrimaryK
 from idds.common.constants import (RequestType, RequestStatus, RequestLocking,
                                    WorkprogressStatus, WorkprogressLocking,
                                    TransformType, TransformStatus, TransformLocking,
-                                   ProcessingStatus, ProcessingLocking,
+                                   ProcessingType, ProcessingStatus, ProcessingLocking,
                                    CollectionStatus, CollectionLocking, CollectionType,
                                    CollectionRelationType, ContentType, ContentRelationType,
                                    ContentStatus, ContentFetchStatus, ContentLocking, GranularityType,
@@ -297,6 +297,9 @@ class Transform(BASE, ModelBase):
     oldstatus = Column(EnumWithValue(TransformStatus), default=0)
     locking = Column(EnumWithValue(TransformLocking), nullable=False)
     retries = Column(Integer(), default=0)
+    parent_transform_id = Column(BigInteger())
+    previous_transform_id = Column(BigInteger())
+    current_processing_id = Column(BigInteger())
     created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow, nullable=False)
     updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
     next_poll_at = Column("next_poll_at", DateTime, default=datetime.datetime.utcnow)
@@ -395,6 +398,7 @@ class Processing(BASE, ModelBase):
     transform_id = Column(BigInteger().with_variant(Integer, "sqlite"), nullable=False)
     request_id = Column(BigInteger().with_variant(Integer, "sqlite"), nullable=False)
     workload_id = Column(Integer())
+    processing_type = Column(EnumWithValue(ProcessingType), nullable=False)
     status = Column(EnumWithValue(ProcessingStatus), nullable=False)
     substatus = Column(EnumWithValue(ProcessingStatus), default=0)
     oldstatus = Column(EnumWithValue(ProcessingStatus), default=0)

@@ -16,7 +16,7 @@ operations related to Processings.
 import datetime
 
 from idds.orm.base.session import read_session, transactional_session
-from idds.common.constants import ProcessingLocking, ProcessingStatus, GranularityType, ContentRelationType
+from idds.common.constants import ProcessingLocking, ProcessingStatus, ProcessingType, GranularityType, ContentRelationType
 from idds.common.utils import get_list_chunks
 from idds.orm import (processings as orm_processings,
                       collections as orm_collections,
@@ -29,6 +29,7 @@ from idds.orm import (processings as orm_processings,
 def add_processing(request_id, workload_id, transform_id, status, submitter=None,
                    substatus=ProcessingStatus.New, granularity=None,
                    granularity_type=GranularityType.File,
+                   processing_type=ProcessingType.Workflow,
                    new_poll_period=1, update_poll_period=10,
                    new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
                    expired_at=None, processing_metadata=None, session=None):
@@ -58,6 +59,7 @@ def add_processing(request_id, workload_id, transform_id, status, submitter=None
                                           new_retries=new_retries, update_retries=update_retries,
                                           max_new_retries=max_new_retries,
                                           max_update_retries=max_update_retries,
+                                          processing_type=processing_type,
                                           expired_at=expired_at, processing_metadata=processing_metadata,
                                           session=session)
 

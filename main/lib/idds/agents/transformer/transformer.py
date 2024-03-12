@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2023
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2024
 
 import copy
 import datetime
@@ -15,9 +15,13 @@ import time
 import traceback
 
 from idds.common import exceptions
-from idds.common.constants import (Sections, ReturnCode,
+from idds.common.constants import (Sections, ReturnCode, TransformType,
                                    TransformStatus, TransformLocking,
-                                   CommandType, ProcessingStatus)
+                                   CollectionType, CollectionStatus,
+                                   CollectionRelationType,
+                                   CommandType, ProcessingStatus, WorkflowType,
+                                   get_processing_type_from_transform_type,
+                                   get_transform_status_from_processing_status)
 from idds.common.utils import setup_logging, truncate_string
 from idds.core import (transforms as core_transforms,
                        processings as core_processings)
@@ -217,6 +221,7 @@ class Transformer(BaseAgent):
         # new_processing_model['expired_at'] = work.get_expired_at(None)
         new_processing_model['expired_at'] = transform['expired_at']
 
+        new_processing_model['processing_type'] = get_processing_type_from_transform_type(transform['transform_type'])
         new_processing_model['new_poll_period'] = transform['new_poll_period']
         new_processing_model['update_poll_period'] = transform['update_poll_period']
         new_processing_model['max_new_retries'] = transform['max_new_retries']
@@ -312,6 +317,105 @@ class Transformer(BaseAgent):
             self.logger.info(log_pre + "handle_new_transform exception result: %s" % str(ret))
         return ret
 
+    def generate_collection(self, transform, collection, relation_type=CollectionRelationType.Input):
+        coll = {'transform_id': transform['transform_id'],
+                'request_id': transform['request_id'],
+                'workload_id': transform['workload_id'],
+                'coll_type': CollectionType.Dataset,
+                'scope': collection['scope'],
+                'name': collection['name'][:254],
+                'relation_type': relation_type,
+                'bytes': 0,
+                'total_files': 0,
+                'new_files': 0,
+                'processed_files': 0,
+                'processing_files': 0,
+                'coll_metadata': None,
+                'status': CollectionStatus.Open,
+                'expired_at': transform['expired_at']}
+        return coll
+
+    def handle_new_itransform_real(self, transform):
+        """
+        Process new transform
+        """
+        log_pre = self.get_log_prefix(transform)
+        self.logger.info(log_pre + "handle_new_itransform: transform_id: %s" % transform['transform_id'])
+
+        work = transform['transform_metadata']['work']
+        if work.type in [WorkflowType.iWork]:
+            work.transform_id = transform['transform_id']
+
+        # create processing
+        new_processing_model = self.generate_processing_model(transform)
+        new_processing_model['processing_metadata'] = {'work': work}
+
+        transform_parameters = {'status': TransformStatus.Transforming,
+                                'locking': TransformLocking.Idle,
+                                'workload_id': transform['workload_id']}
+
+        transform_parameters = self.load_poll_period(transform, transform_parameters)
+
+        if new_processing_model is not None:
+            if 'new_poll_period' in transform_parameters:
+                new_processing_model['new_poll_period'] = transform_parameters['new_poll_period']
+            if 'update_poll_period' in transform_parameters:
+                new_processing_model['update_poll_period'] = transform_parameters['update_poll_period']
+            if 'max_new_retries' in transform_parameters:
+                new_processing_model['max_new_retries'] = transform_parameters['max_new_retries']
+            if 'max_update_retries' in transform_parameters:
+                new_processing_model['max_update_retries'] = transform_parameters['max_update_retries']
+
+        func_name = work.get_func_name()
+        func_name = func_name.split(':')[-1]
+        input_coll = {'scope': 'pseudo_dataset', 'name': 'pseudo_input_%s' % func_name}
+        output_coll = {'scope': 'pseudo_dataset', 'name': 'pseudo_output_%s' % func_name}
+
+        input_collection = self.generate_collection(transform, input_coll, relation_type=CollectionRelationType.Input)
+        output_collection = self.generate_collection(transform, output_coll, relation_type=CollectionRelationType.Output)
+
+        ret = {'transform': transform,
+               'transform_parameters': transform_parameters,
+               'new_processing': new_processing_model,
+               'input_collections': [input_collection],
+               'output_collections': [output_collection]
+               }
+        return ret
+
+    def handle_new_itransform(self, transform):
+        """
+        Process new transform
+        """
+        try:
+            log_pre = self.get_log_prefix(transform)
+            ret = self.handle_new_itransform_real(transform)
+            self.logger.info(log_pre + "handle_new_itransform result: %s" % str(ret))
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+            retries = transform['new_retries'] + 1
+            if not transform['max_new_retries'] or retries < transform['max_new_retries']:
+                tf_status = transform['status']
+            else:
+                tf_status = TransformStatus.Failed
+
+            # increase poll period
+            new_poll_period = int(transform['new_poll_period'].total_seconds() * self.poll_period_increase_rate)
+            if new_poll_period > self.max_new_poll_period:
+                new_poll_period = self.max_new_poll_period
+
+            error = {'submit_err': {'msg': truncate_string('%s' % (ex), length=200)}}
+
+            transform_parameters = {'status': tf_status,
+                                    'new_retries': retries,
+                                    'new_poll_period': new_poll_period,
+                                    'errors': transform['errors'] if transform['errors'] else {},
+                                    'locking': TransformLocking.Idle}
+            transform_parameters['errors'].update(error)
+            ret = {'transform': transform, 'transform_parameters': transform_parameters}
+            self.logger.info(log_pre + "handle_new_itransform exception result: %s" % str(ret))
+        return ret
+
     def update_transform(self, ret):
         new_pr_ids, update_pr_ids = [], []
         try:
@@ -396,7 +500,10 @@ class Transformer(BaseAgent):
                 else:
                     log_pre = self.get_log_prefix(tf)
                     self.logger.info(log_pre + "process_new_transform")
-                    ret = self.handle_new_transform(tf)
+                    if tf['transform_type'] in [TransformType.iWorkflow, TransformType.iWork]:
+                        ret = self.handle_new_itransform(tf)
+                    else:
+                        ret = self.handle_new_transform(tf)
                     self.logger.info(log_pre + "process_new_transform result: %s" % str(ret))
 
                     new_pr_ids, update_pr_ids = self.update_transform(ret)
@@ -540,6 +647,90 @@ class Transformer(BaseAgent):
             self.logger.warn(log_pre + "handle_update_transform exception result: %s" % str(ret))
         return ret, False, None
 
+    def handle_update_itransform_real(self, transform, event):
+        """
+        process running transforms
+        """
+        log_pre = self.get_log_prefix(transform)
+
+        self.logger.info(log_pre + "handle_update_itransform: transform_id: %s" % transform['transform_id'])
+
+        # work = transform['transform_metadata']['work']
+
+        prs = core_processings.get_processings(transform_id=transform['transform_id'])
+        pr = None
+        for pr in prs:
+            if pr['processing_id'] == transform['current_processing_id']:
+                transform['workload_id'] = pr['workload_id']
+                break
+
+        errors = None
+        if pr:
+            transform['status'] = get_transform_status_from_processing_status(pr['status'])
+            log_msg = log_pre + "transform id: %s, transform status: %s" % (transform['transform_id'], transform['status'])
+            log_msg = log_msg + ", processing id: %s, processing status: %s" % (pr['processing_id'], pr['status'])
+            self.logger.info(log_msg)
+        else:
+            transform['status'] = TransformStatus.Failed
+            log_msg = log_pre + "transform id: %s, transform status: %s" % (transform['transform_id'], transform['status'])
+            log_msg = log_msg + ", no attached processings."
+            self.logger.error(log_msg)
+            errors = {'submit_err': 'no attached processings'}
+
+        is_terminated = False
+        if transform['status'] in [TransformStatus.Finished, TransformStatus.Failed, TransformStatus.Cancelled,
+                                   TransformStatus.SubFinished, TransformStatus.Suspended, TransformStatus.Expired]:
+            is_terminated = True
+
+        transform_parameters = {'status': transform['status'],
+                                'locking': TransformLocking.Idle,
+                                'workload_id': transform['workload_id']}
+        transform_parameters = self.load_poll_period(transform, transform_parameters)
+        if errors:
+            transform_parameters['errors'] = errors
+
+        ret = {'transform': transform,
+               'transform_parameters': transform_parameters}
+        return ret, is_terminated, None
+
+    def handle_update_itransform(self, transform, event):
+        """
+        Process running transform
+        """
+        try:
+            log_pre = self.get_log_prefix(transform)
+
+            self.logger.info(log_pre + "handle_update_itransform: %s" % transform)
+            ret, is_terminated, ret_processing_id = self.handle_update_itransform_real(transform, event)
+            self.logger.info(log_pre + "handle_update_itransform result: %s" % str(ret))
+            return ret, is_terminated, ret_processing_id
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+
+            retries = transform['update_retries'] + 1
+            if not transform['max_update_retries'] or retries < transform['max_update_retries']:
+                tf_status = transform['status']
+            else:
+                tf_status = TransformStatus.Failed
+            error = {'submit_err': {'msg': truncate_string('%s' % (ex), length=200)}}
+
+            # increase poll period
+            update_poll_period = int(transform['update_poll_period'].total_seconds() * self.poll_period_increase_rate)
+            if update_poll_period > self.max_update_poll_period:
+                update_poll_period = self.max_update_poll_period
+
+            transform_parameters = {'status': tf_status,
+                                    'update_retries': retries,
+                                    'update_poll_period': update_poll_period,
+                                    'errors': transform['errors'] if transform['errors'] else {},
+                                    'locking': TransformLocking.Idle}
+            transform_parameters['errors'].update(error)
+
+            ret = {'transform': transform, 'transform_parameters': transform_parameters}
+            self.logger.warn(log_pre + "handle_update_itransform exception result: %s" % str(ret))
+        return ret, False, None
+
     def process_update_transform(self, event):
         self.number_workers += 1
         pro_ret = ReturnCode.Ok.value
@@ -559,7 +750,10 @@ class Transformer(BaseAgent):
                 else:
                     log_pre = self.get_log_prefix(tf)
 
-                    ret, is_terminated, ret_processing_id = self.handle_update_transform(tf, event)
+                    if tf['transform_type'] in [TransformType.iWorkflow, TransformType.iWork]:
+                        ret, is_terminated, ret_processing_id = self.handle_update_itransform(tf, event)
+                    else:
+                        ret, is_terminated, ret_processing_id = self.handle_update_transform(tf, event)
                     new_pr_ids, update_pr_ids = self.update_transform(ret)
 
                     if is_terminated or (event._content and 'event' in event._content and event._content['event'] == 'submitted'):

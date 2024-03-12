@@ -97,6 +97,12 @@ class IDDSEnum(Enum):
         return d
 
 
+class WorkflowType(IDDSEnum):
+    Workflow = 0
+    iWorkflow = 1
+    iWork = 2
+
+
 class WorkStatus(IDDSEnum):
     New = 0
     Ready = 1
@@ -189,6 +195,7 @@ class RequestType(IDDSEnum):
     ActiveLearning = 3
     HyperParameterOpt = 4
     Derivation = 5
+    iWorkflow = 6
     Other = 99
 
 
@@ -202,6 +209,8 @@ class TransformType(IDDSEnum):
     Processing = 6
     Actuating = 7
     Data = 8
+    iWorkflow = 9
+    iWork = 10
     Other = 99
 
 
@@ -313,6 +322,21 @@ class GranularityType(IDDSEnum):
     Event = 1
 
 
+class ProcessingType(IDDSEnum):
+    Workflow = 0
+    EventStreaming = 1
+    StageIn = 2
+    ActiveLearning = 3
+    HyperParameterOpt = 4
+    Derivation = 5
+    Processing = 6
+    Actuating = 7
+    Data = 8
+    iWorkflow = 9
+    iWork = 10
+    Other = 99
+
+
 class ProcessingStatus(IDDSEnum):
     New = 0
     Submitting = 1
@@ -344,6 +368,7 @@ class ProcessingStatus(IDDSEnum):
     Terminating = 27
     ToTrigger = 28
     Triggering = 29
+    Synchronizing = 30
 
 
 class ProcessingLocking(IDDSEnum):
@@ -524,3 +549,59 @@ def get_work_status_from_transform_processing_status(status):
         return WorkStatus.Terminating
     else:
         return WorkStatus.Transforming
+
+
+def get_transform_status_from_processing_status(status):
+    map = {ProcessingStatus.New: TransformStatus.Transforming,       # when Processing is created, set it to transforming
+           ProcessingStatus.Submitting: TransformStatus.Transforming,
+           ProcessingStatus.Submitted: TransformStatus.Transforming,
+           ProcessingStatus.Running: TransformStatus.Transforming,
+           ProcessingStatus.Finished: TransformStatus.Finished,
+           ProcessingStatus.Failed: TransformStatus.Failed,
+           ProcessingStatus.Lost: TransformStatus.Failed,
+           ProcessingStatus.Cancel: TransformStatus.Cancelled,
+           ProcessingStatus.FinishedOnStep: TransformStatus.Finished,
+           ProcessingStatus.FinishedOnExec: TransformStatus.Finished,
+           ProcessingStatus.FinishedTerm: TransformStatus.Finished,
+           ProcessingStatus.SubFinished: TransformStatus.SubFinished,
+           ProcessingStatus.ToCancel: TransformStatus.ToCancel,
+           ProcessingStatus.Cancelling: TransformStatus.Cancelling,
+           ProcessingStatus.Cancelled: TransformStatus.Cancelled,
+           ProcessingStatus.ToSuspend: TransformStatus.ToSuspend,
+           ProcessingStatus.Suspending: TransformStatus.Suspending,
+           ProcessingStatus.Suspended: TransformStatus.Suspended,
+           ProcessingStatus.ToResume: TransformStatus.ToResume,
+           ProcessingStatus.Resuming: TransformStatus.Resuming,
+           ProcessingStatus.ToExpire: TransformStatus.ToExpire,
+           ProcessingStatus.Expiring: TransformStatus.Expiring,
+           ProcessingStatus.Expired: TransformStatus.Expired,
+           ProcessingStatus.TimeOut: TransformStatus.Failed,
+           ProcessingStatus.ToFinish: TransformStatus.ToFinish,
+           ProcessingStatus.ToForceFinish: TransformStatus.ToForceFinish,
+           ProcessingStatus.Broken: TransformStatus.Failed,
+           ProcessingStatus.Terminating: TransformStatus.Terminating,
+           ProcessingStatus.ToTrigger: TransformStatus.Transforming,
+           ProcessingStatus.Triggering: TransformStatus.Transforming,
+           ProcessingStatus.Synchronizing: TransformStatus.Transforming
+           }
+    if status in map:
+        return map[status]
+    return WorkStatus.Transforming
+
+
+def get_processing_type_from_transform_type(tf_type):
+    map = {TransformType.Workflow: ProcessingType.Workflow,
+           TransformType.EventStreaming: ProcessingType.EventStreaming,
+           TransformType.StageIn: ProcessingType.StageIn,
+           TransformType.ActiveLearning: ProcessingType.ActiveLearning,
+           TransformType.HyperParameterOpt: ProcessingType.HyperParameterOpt,
+           TransformType.Derivation: ProcessingType.Derivation,
+           TransformType.Processing: ProcessingType.Processing,
+           TransformType.Actuating: ProcessingType.Actuating,
+           TransformType.Data: ProcessingType.Data,
+           TransformType.iWorkflow: ProcessingType.iWorkflow,
+           TransformType.iWork: ProcessingType.iWork,
+           TransformType.Other: ProcessingType.Other}
+    if tf_type in map:
+        return map[tf_type]
+    return ProcessingType.Other

@@ -21,14 +21,14 @@ from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.sql.expression import asc
 
 from idds.common import exceptions
-from idds.common.constants import ProcessingStatus, ProcessingLocking, GranularityType
+from idds.common.constants import ProcessingType, ProcessingStatus, ProcessingLocking, GranularityType
 from idds.orm.base.session import read_session, transactional_session
 from idds.orm.base import models
 
 
 def create_processing(request_id, workload_id, transform_id, status=ProcessingStatus.New, locking=ProcessingLocking.Idle, submitter=None,
                       granularity=None, granularity_type=GranularityType.File, expired_at=None, processing_metadata=None,
-                      new_poll_period=1, update_poll_period=10,
+                      new_poll_period=1, update_poll_period=10, processing_type=ProcessingType.Workflow,
                       new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
                       substatus=ProcessingStatus.New, output_metadata=None):
     """
@@ -52,6 +52,7 @@ def create_processing(request_id, workload_id, transform_id, status=ProcessingSt
                                        submitter=submitter, granularity=granularity, granularity_type=granularity_type,
                                        expired_at=expired_at, processing_metadata=processing_metadata,
                                        new_retries=new_retries, update_retries=update_retries,
+                                       processing_type=processing_type,
                                        max_new_retries=max_new_retries, max_update_retries=max_update_retries,
                                        output_metadata=output_metadata)
 
@@ -69,6 +70,7 @@ def add_processing(request_id, workload_id, transform_id, status=ProcessingStatu
                    locking=ProcessingLocking.Idle, submitter=None, substatus=ProcessingStatus.New,
                    granularity=None, granularity_type=GranularityType.File, expired_at=None,
                    processing_metadata=None, new_poll_period=1, update_poll_period=10,
+                   processing_type=ProcessingType.Workflow,
                    new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
                    output_metadata=None, session=None):
     """
@@ -95,7 +97,7 @@ def add_processing(request_id, workload_id, transform_id, status=ProcessingStatu
                                            status=status, substatus=substatus, locking=locking, submitter=submitter,
                                            granularity=granularity, granularity_type=granularity_type,
                                            expired_at=expired_at, new_poll_period=new_poll_period,
-                                           update_poll_period=update_poll_period,
+                                           update_poll_period=update_poll_period, processing_type=processing_type,
                                            new_retries=new_retries, update_retries=update_retries,
                                            max_new_retries=max_new_retries, max_update_retries=max_update_retries,
                                            processing_metadata=processing_metadata, output_metadata=output_metadata)

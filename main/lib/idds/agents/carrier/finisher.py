@@ -6,21 +6,29 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2023
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2024
 
 import time
 import traceback
 
-from idds.common.constants import (Sections, ReturnCode, ProcessingStatus, ProcessingLocking)
+from idds.common import exceptions
+from idds.common.constants import (Sections, ReturnCode, ProcessingType,
+                                   ProcessingStatus, ProcessingLocking)
 from idds.common.utils import setup_logging, truncate_string
+from idds.core import processings as core_processings
+from idds.agents.common.baseagent import BaseAgent
 from idds.agents.common.eventbus.event import (EventType,
                                                UpdateProcessingEvent,
+                                               SyncProcessingEvent,
+                                               TerminatedProcessingEvent,
                                                UpdateTransformEvent)
+
 
 from .utils import (handle_abort_processing,
                     handle_resume_processing,
                     # is_process_terminated,
                     sync_processing)
+from .iutils import sync_iprocessing
 from .poller import Poller
 
 setup_logging(__name__)
@@ -63,12 +71,90 @@ class Finisher(Poller):
             q_str = "number of processings: %s, max number of processings: %s" % (self.number_workers, self.max_number_workers)
             self.logger.debug(q_str)
 
+    def get_finishing_processings(self):
+        """
+        Get finishing processing
+        """
+        try:
+            if not self.is_ok_to_run_more_processings():
+                return []
+
+            self.show_queue_size()
+
+            if BaseAgent.min_request_id is None:
+                return []
+
+            processing_status = [ProcessingStatus.Terminating, ProcessingStatus.Synchronizing]
+            # next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_period)
+            processings = core_processings.get_processings_by_status(status=processing_status,
+                                                                     locking=True, update_poll=True,
+                                                                     not_lock=True,
+                                                                     # only_return_id=True,
+                                                                     min_request_id=BaseAgent.min_request_id,
+                                                                     bulk_size=self.retrieve_bulk_size)
+
+            # self.logger.debug("Main thread get %s [submitting + submitted + running] processings to process" % (len(processings)))
+            if processings:
+                self.logger.info("Main thread get terminating/synchronizing processings to process: %s" % (str(processings)))
+
+            events, pr_ids = [], []
+            for pr in processings:
+                pr_id = pr['processing_id']
+                pr_ids.append(pr_id)
+                pr_status = pr['status']
+                if pr_status in [ProcessingStatus.Terminating]:
+                    self.logger.info("TerminatedProcessingEvent(processing_id: %s)" % pr_id)
+                    event = TerminatedProcessingEvent(publisher_id=self.id, processing_id=pr_id)
+                    events.append(event)
+                elif pr_status in [ProcessingStatus.Synchronizing]:
+                    self.logger.info("SyncProcessingEvent(processing_id: %s)" % pr_id)
+                    event = SyncProcessingEvent(publisher_id=self.id, processing_id=pr_id)
+                    events.append(event)
+            self.event_bus.send_bulk(events)
+
+            return pr_ids
+        except exceptions.DatabaseException as ex:
+            if 'ORA-00060' in str(ex):
+                self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
+            else:
+                # raise ex
+                self.logger.error(ex)
+                self.logger.error(traceback.format_exc())
+        return []
+
     def handle_sync_processing(self, processing, log_prefix=""):
         """
         process terminated processing
         """
         try:
             processing, update_collections, messages = sync_processing(processing, self.agent_attributes, logger=self.logger, log_prefix=log_prefix)
+
+            update_processing = {'processing_id': processing['processing_id'],
+                                 'parameters': {'status': processing['status'],
+                                                'locking': ProcessingLocking.Idle}}
+            ret = {'update_processing': update_processing,
+                   'update_collections': update_collections,
+                   'messages': messages}
+            return ret
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+            error = {'sync_err': {'msg': truncate_string('%s' % (ex), length=200)}}
+            update_processing = {'processing_id': processing['processing_id'],
+                                 'parameters': {'status': ProcessingStatus.Running,
+                                                'locking': ProcessingLocking.Idle,
+                                                'errors': processing['errors'] if processing['errors'] else {}}}
+            update_processing['parameters']['errors'].update(error)
+            ret = {'update_processing': update_processing}
+            return ret
+        return None
+
+    def handle_sync_iprocessing(self, processing, log_prefix=""):
+        """
+        process terminated processing
+        """
+        try:
+            processing, update_collections, messages = sync_iprocessing(processing, self.agent_attributes, logger=self.logger, log_prefix=log_prefix)
 
             update_processing = {'processing_id': processing['processing_id'],
                                  'parameters': {'status': processing['status'],
@@ -104,7 +190,10 @@ class Finisher(Poller):
                     log_pre = self.get_log_prefix(pr)
 
                     self.logger.info(log_pre + "process_sync_processing")
-                    ret = self.handle_sync_processing(pr, log_prefix=log_pre)
+                    if pr['processing_type'] and pr['processing_type'] in [ProcessingType.iWorkflow, ProcessingType.iWork]:
+                        ret = self.handle_sync_iprocessing(pr, log_prefix=log_pre)
+                    else:
+                        ret = self.handle_sync_processing(pr, log_prefix=log_pre)
                     ret_copy = {}
                     for ret_key in ret:
                         if ret_key != 'messages':
@@ -152,6 +241,34 @@ class Finisher(Poller):
             return ret
         return None
 
+    def handle_terminated_iprocessing(self, processing, log_prefix=""):
+        """
+        process terminated processing
+        """
+        try:
+            processing, update_collections, messages = sync_iprocessing(processing, self.agent_attributes, terminate=True, logger=self.logger, log_prefix=log_prefix)
+
+            update_processing = {'processing_id': processing['processing_id'],
+                                 'parameters': {'status': processing['status'],
+                                                'locking': ProcessingLocking.Idle}}
+            ret = {'update_processing': update_processing,
+                   'update_collections': update_collections,
+                   'messages': messages}
+
+            return ret
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+            error = {'term_err': {'msg': truncate_string('%s' % (ex), length=200)}}
+            update_processing = {'processing_id': processing['processing_id'],
+                                 'parameters': {'status': ProcessingStatus.Running,
+                                                'locking': ProcessingLocking.Idle,
+                                                'errors': processing['errors'] if processing['errors'] else {}}}
+            update_processing['parameters']['errors'].update(error)
+            ret = {'update_processing': update_processing}
+            return ret
+        return None
+
     def process_terminated_processing(self, event):
         self.number_workers += 1
         pro_ret = ReturnCode.Ok.value
@@ -169,7 +286,10 @@ class Finisher(Poller):
                         log_pre = self.get_log_prefix(pr)
 
                         self.logger.info(log_pre + "process_terminated_processing")
-                        ret = self.handle_terminated_processing(pr, log_prefix=log_pre)
+                        if pr['processing_type'] and pr['processing_type'] in [ProcessingType.iWorkflow, ProcessingType.iWork]:
+                            ret = self.handle_terminated_iprocessing(pr, log_prefix=log_pre)
+                        else:
+                            ret = self.handle_terminated_processing(pr, log_prefix=log_pre)
                         ret_copy = {}
                         for ret_key in ret:
                             if ret_key != 'messages':
@@ -181,12 +301,15 @@ class Finisher(Poller):
                         event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'])
                         self.event_bus.send(event)
 
-                        if pr['status'] not in [ProcessingStatus.Finished, ProcessingStatus.Failed, ProcessingStatus.SubFinished]:
-                            # some files are missing, poll it.
-                            self.logger.info(log_pre + "UpdateProcessingEvent(processing_id: %s)" % pr['processing_id'])
-                            event = UpdateProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'], counter=original_event._counter + 1)
-                            event.set_terminating()
-                            self.event_bus.send(event)
+                        if pr['processing_type'] and pr['processing_type'] in [ProcessingType.iWorkflow, ProcessingType.iWork]:
+                            pass
+                        else:
+                            if pr['status'] not in [ProcessingStatus.Finished, ProcessingStatus.Failed, ProcessingStatus.SubFinished, ProcessingStatus.Broken]:
+                                # some files are missing, poll it.
+                                self.logger.info(log_pre + "UpdateProcessingEvent(processing_id: %s)" % pr['processing_id'])
+                                event = UpdateProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'], counter=original_event._counter + 1)
+                                event.set_terminating()
+                                self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
@@ -371,6 +494,9 @@ class Finisher(Poller):
             self.add_default_tasks()
 
             self.init_event_function_map()
+
+            task = self.create_task(task_func=self.get_finishing_processings, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=10, priority=1)
+            self.add_task(task)
 
             self.execute()
         except KeyboardInterrupt:

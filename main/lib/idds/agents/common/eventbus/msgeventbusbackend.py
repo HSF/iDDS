@@ -417,12 +417,14 @@ class MsgEventBusBackend(BaseEventBusBackend):
 
                 return ret
             except (zmq.error.ZMQError, zmq.Again) as error:
-                self.logger.critical("Caught an exception: %s\n%s" % (str(error), traceback.format_exc()))
+                if not self.graceful_stop.is_set():
+                    self.logger.critical("Caught an exception: %s\n%s" % (str(error), traceback.format_exc()))
                 self.manager_socket.close()
                 self.cache_events.append(event)
                 self.num_failures += 1
             except Exception as error:
-                self.logger.critical("Caught an exception: %s\n%s" % (str(error), traceback.format_exc()))
+                if not self.graceful_stop.is_set():
+                    self.logger.critical("Caught an exception: %s\n%s" % (str(error), traceback.format_exc()))
                 self.manager_socket.close()
                 self.cache_events.append(event)
                 self.num_failures += 1
@@ -458,13 +460,15 @@ class MsgEventBusBackend(BaseEventBusBackend):
 
                 return ret
             except (zmq.error.ZMQError, zmq.Again) as error:
-                self.logger.critical("Caught an exception: %s\n%s" % (str(error), traceback.format_exc()))
+                if not self.graceful_stop.is_set():
+                    self.logger.critical("Caught an exception: %s\n%s" % (str(error), traceback.format_exc()))
                 self.manager_socket.close()
                 for event in events:
                     self.cache_events.append(event)
                 self.num_failures += 1
             except Exception as error:
-                self.logger.critical("Caught an exception: %s\n%s" % (str(error), traceback.format_exc()))
+                if not self.graceful_stop.is_set():
+                    self.logger.critical("Caught an exception: %s\n%s" % (str(error), traceback.format_exc()))
                 self.manager_socket.close()
                 for event in events:
                     self.cache_events.append(event)
@@ -500,11 +504,13 @@ class MsgEventBusBackend(BaseEventBusBackend):
 
                 return ret
             except (zmq.error.ZMQError, zmq.Again) as error:
-                self.logger.critical("Caught an exception: %s\n%s" % (str(error), traceback.format_exc()))
+                if not self.graceful_stop.is_set():
+                    self.logger.critical("Caught an exception: %s\n%s" % (str(error), traceback.format_exc()))
                 self.manager_socket.close()
                 self.num_failures += 1
             except Exception as error:
-                self.logger.critical("Caught an exception: %s\n%s" % (str(error), traceback.format_exc()))
+                if not self.graceful_stop.is_set():
+                    self.logger.critical("Caught an exception: %s\n%s" % (str(error), traceback.format_exc()))
                 self.manager_socket.close()
                 self.num_failures += 1
         return []

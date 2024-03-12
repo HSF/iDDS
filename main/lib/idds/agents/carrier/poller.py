@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2023
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2024
 
 import datetime
 import random
@@ -14,7 +14,8 @@ import time
 import traceback
 
 from idds.common import exceptions
-from idds.common.constants import Sections, ReturnCode, ProcessingStatus, ProcessingLocking
+from idds.common.constants import (Sections, ReturnCode, ProcessingType,
+                                   ProcessingStatus, ProcessingLocking)
 from idds.common.utils import setup_logging, truncate_string, json_dumps
 from idds.core import processings as core_processings
 from idds.agents.common.baseagent import BaseAgent
@@ -25,6 +26,7 @@ from idds.agents.common.eventbus.event import (EventType,
                                                TerminatedProcessingEvent)
 
 from .utils import handle_update_processing, is_process_terminated, is_process_finished
+from .iutils import handle_update_iprocessing
 
 setup_logging(__name__)
 
@@ -147,8 +149,7 @@ class Poller(BaseAgent):
                                  ProcessingStatus.ToSuspend, ProcessingStatus.Suspending,
                                  ProcessingStatus.ToResume, ProcessingStatus.Resuming,
                                  ProcessingStatus.ToExpire, ProcessingStatus.Expiring,
-                                 ProcessingStatus.ToFinish, ProcessingStatus.ToForceFinish,
-                                 ProcessingStatus.Terminating]
+                                 ProcessingStatus.ToFinish, ProcessingStatus.ToForceFinish]
             # next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_period)
             processings = core_processings.get_processings_by_status(status=processing_status,
                                                                      locking=True, update_poll=True,
@@ -199,8 +200,12 @@ class Poller(BaseAgent):
         return work_tag_attribute_value
 
     def load_poll_period(self, processing, parameters, new=False):
-        proc = processing['processing_metadata']['processing']
-        work = proc.work
+        if 'processing' in processing['processing_metadata']:
+            proc = processing['processing_metadata']['processing']
+            work = proc.work
+        else:
+            work = processing['processing_metadata']['work']
+
         work_tag = work.get_work_tag()
 
         work_tag_new_poll_period = self.get_work_tag_attribute(work_tag, "new_poll_period")
@@ -333,6 +338,9 @@ class Poller(BaseAgent):
                             work.reactivate_processing(processing, log_prefix=log_prefix)
                             process_status = ProcessingStatus.Running
                             new_process_status = ProcessingStatus.Running
+                else:
+                    if (update_contents or new_contents or new_contents_ext or update_contents_ext or ret_msgs):
+                        new_process_status = ProcessingStatus.Synchronizing
 
             update_processing = {'processing_id': processing['processing_id'],
                                  'parameters': {'status': new_process_status,
@@ -413,6 +421,113 @@ class Poller(BaseAgent):
                    'update_contents': []}
         return ret
 
+    def handle_update_iprocessing(self, processing):
+        try:
+            log_prefix = self.get_log_prefix(processing)
+
+            executors, plugin = None, None
+            if processing['processing_type']:
+                plugin_name = processing['processing_type'].name.lower() + '_poller'
+                plugin = self.get_plugin(plugin_name)
+            else:
+                raise exceptions.ProcessSubmitFailed('No corresponding submitter plugins for %s' % processing['processing_type'])
+
+            ret_handle_update_processing = handle_update_iprocessing(processing,
+                                                                     self.agent_attributes,
+                                                                     plugin=plugin,
+                                                                     max_updates_per_round=self.max_updates_per_round,
+                                                                     executors=executors,
+                                                                     logger=self.logger,
+                                                                     log_prefix=log_prefix)
+
+            process_status, new_contents, new_input_dependency_contents, ret_msgs, update_contents, parameters, new_contents_ext, update_contents_ext = ret_handle_update_processing
+
+            new_process_status = process_status
+            if is_process_terminated(process_status):
+                new_process_status = ProcessingStatus.Terminating
+                if is_process_finished(process_status):
+                    new_process_status = ProcessingStatus.Terminating
+                else:
+                    new_process_status = ProcessingStatus.Terminating
+
+            update_processing = {'processing_id': processing['processing_id'],
+                                 'parameters': {'status': new_process_status,
+                                                'substatus': process_status,
+                                                'locking': ProcessingLocking.Idle}}
+
+            update_processing['parameters'] = self.load_poll_period(processing, update_processing['parameters'])
+
+            if 'submitted_at' in processing['processing_metadata']:
+                if not processing['submitted_at'] or processing['submitted_at'] < processing['processing_metadata']['submitted_at']:
+                    parameters['submitted_at'] = processing['processing_metadata']['submitted_at']
+
+            if 'workload_id' in processing['processing_metadata']:
+                parameters['workload_id'] = processing['processing_metadata']['workload_id']
+
+            # update_processing['parameters']['expired_at'] = work.get_expired_at(processing)
+            update_processing['parameters']['processing_metadata'] = processing['processing_metadata']
+
+            if parameters:
+                # special parameters such as 'output_metadata'
+                for p in parameters:
+                    update_processing['parameters'][p] = parameters[p]
+
+            ret = {'update_processing': update_processing,
+                   'update_contents': update_contents,
+                   'new_contents': new_contents,
+                   'new_input_dependency_contents': new_input_dependency_contents,
+                   'messages': ret_msgs,
+                   'new_contents_ext': new_contents_ext,
+                   'update_contents_ext': update_contents_ext,
+                   'processing_status': new_process_status}
+        except exceptions.ProcessFormatNotSupported as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+
+            retries = processing['update_retries'] + 1
+            if not processing['max_update_retries'] or retries < processing['max_update_retries']:
+                proc_status = ProcessingStatus.Running
+            else:
+                proc_status = ProcessingStatus.Failed
+            error = {'update_err': {'msg': truncate_string('%s' % (ex), length=200)}}
+
+            # increase poll period
+            update_poll_period = int(processing['update_poll_period'].total_seconds() * self.poll_period_increase_rate)
+            if update_poll_period > self.max_update_poll_period:
+                update_poll_period = self.max_update_poll_period
+
+            update_processing = {'processing_id': processing['processing_id'],
+                                 'parameters': {'status': proc_status,
+                                                'locking': ProcessingLocking.Idle,
+                                                'update_retries': retries,
+                                                'update_poll_period': update_poll_period,
+                                                'errors': processing['errors'] if processing['errors'] else {}}}
+            update_processing['parameters']['errors'].update(error)
+
+            ret = {'update_processing': update_processing,
+                   'update_contents': []}
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+
+            retries = processing['update_retries'] + 1
+            if not processing['max_update_retries'] or retries < processing['max_update_retries']:
+                proc_status = ProcessingStatus.Running
+            else:
+                proc_status = ProcessingStatus.Failed
+            error = {'update_err': {'msg': truncate_string('%s' % (ex), length=200)}}
+            update_processing = {'processing_id': processing['processing_id'],
+                                 'parameters': {'status': proc_status,
+                                                'locking': ProcessingLocking.Idle,
+                                                'update_retries': retries,
+                                                'errors': processing['errors'] if processing['errors'] else {}}}
+            update_processing['parameters']['errors'].update(error)
+            update_processing['parameters'] = self.load_poll_period(processing, update_processing['parameters'])
+
+            ret = {'update_processing': update_processing,
+                   'update_contents': []}
+        return ret
+
     def process_update_processing(self, event):
         self.number_workers += 1
         pro_ret = ReturnCode.Ok.value
@@ -429,7 +544,10 @@ class Poller(BaseAgent):
                     log_pre = self.get_log_prefix(pr)
 
                     self.logger.info(log_pre + "process_update_processing")
-                    ret = self.handle_update_processing(pr)
+                    if pr['processing_type'] and pr['processing_type'] in [ProcessingType.iWorkflow, ProcessingType.iWork]:
+                        ret = self.handle_update_iprocessing(pr)
+                    else:
+                        ret = self.handle_update_processing(pr)
                     # self.logger.info(log_pre + "process_update_processing result: %s" % str(ret))
 
                     self.update_processing(ret, pr)
@@ -452,11 +570,7 @@ class Poller(BaseAgent):
                         event.set_terminating()
                         self.event_bus.send(event)
                     else:
-                        if (('update_contents' in ret and ret['update_contents'])
-                            or ('new_contents' in ret and ret['new_contents'])       # noqa W503
-                            or ('new_contents_ext' in ret and ret['new_contents_ext'])       # noqa W503
-                            or ('update_contents_ext' in ret and ret['update_contents_ext'])       # noqa W503
-                            or ('messages' in ret and ret['messages'])):             # noqa E129
+                        if 'processing_status' in ret and ret['processing_status'] == ProcessingStatus.Synchronizing:
                             self.logger.info(log_pre + "SyncProcessingEvent(processing_id: %s)" % pr['processing_id'])
                             event = SyncProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'],
                                                         counter=original_event._counter)

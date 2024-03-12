@@ -6,12 +6,12 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2024
 
 import traceback
 
 from idds.common import exceptions
-from idds.common.constants import ProcessingStatus, ProcessingLocking
+from idds.common.constants import ProcessingType, ProcessingStatus, ProcessingLocking
 from idds.common.utils import setup_logging, truncate_string
 from idds.core import processings as core_processings
 from idds.agents.common.baseagent import BaseAgent
@@ -21,6 +21,7 @@ from idds.agents.common.eventbus.event import (EventType,
                                                UpdateTransformEvent)
 
 from .utils import handle_new_processing
+from .iutils import handle_new_iprocessing
 from .poller import Poller
 
 setup_logging(__name__)
@@ -178,6 +179,80 @@ class Submitter(Poller):
                    'update_contents': []}
         return ret
 
+    def handle_new_iprocessing(self, processing):
+        try:
+            log_prefix = self.get_log_prefix(processing)
+
+            # transform_id = processing['transform_id']
+            # transform = core_transforms.get_transform(transform_id=transform_id)
+            # work = transform['transform_metadata']['work']
+            executors, plugin = None, None
+            if processing['processing_type']:
+                plugin_name = processing['processing_type'].name.lower() + '_submitter'
+                plugin = self.get_plugin(plugin_name)
+            else:
+                raise exceptions.ProcessSubmitFailed('No corresponding submitter plugins for %s' % processing['processing_type'])
+            ret_new_processing = handle_new_iprocessing(processing,
+                                                        self.agent_attributes,
+                                                        plugin=plugin,
+                                                        func_site_to_cloud=self.get_site_to_cloud,
+                                                        max_updates_per_round=self.max_updates_per_round,
+                                                        executors=executors,
+                                                        logger=self.logger,
+                                                        log_prefix=log_prefix)
+            status, processing, update_colls, new_contents, new_input_dependency_contents, msgs, errors = ret_new_processing
+
+            if not status:
+                raise exceptions.ProcessSubmitFailed(str(errors))
+
+            parameters = {'status': ProcessingStatus.Submitting,
+                          'substatus': ProcessingStatus.Submitting,
+                          'locking': ProcessingLocking.Idle,
+                          'processing_metadata': processing['processing_metadata']}
+            parameters = self.load_poll_period(processing, parameters, new=True)
+
+            if 'submitted_at' in processing:
+                parameters['submitted_at'] = processing['submitted_at']
+
+            if 'workload_id' in processing:
+                parameters['workload_id'] = processing['workload_id']
+
+            update_processing = {'processing_id': processing['processing_id'],
+                                 'parameters': parameters}
+            ret = {'update_processing': update_processing,
+                   'update_collections': update_colls,
+                   'update_contents': [],
+                   'new_contents': new_contents,
+                   'new_input_dependency_contents': new_input_dependency_contents,
+                   'messages': msgs,
+                   }
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+
+            retries = processing['new_retries'] + 1
+            if not processing['max_new_retries'] or retries < processing['max_new_retries']:
+                pr_status = processing['status']
+            else:
+                pr_status = ProcessingStatus.Failed
+            # increase poll period
+            new_poll_period = int(processing['new_poll_period'].total_seconds() * self.poll_period_increase_rate)
+            if new_poll_period > self.max_new_poll_period:
+                new_poll_period = self.max_new_poll_period
+
+            error = {'submit_err': {'msg': truncate_string('%s' % str(ex), length=200)}}
+            parameters = {'status': pr_status,
+                          'new_poll_period': new_poll_period,
+                          'errors': processing['errors'] if processing['errors'] else {},
+                          'new_retries': retries}
+            parameters['errors'].update(error)
+
+            update_processing = {'processing_id': processing['processing_id'],
+                                 'parameters': parameters}
+            ret = {'update_processing': update_processing,
+                   'update_contents': []}
+        return ret
+
     def process_new_processing(self, event):
         self.number_workers += 1
         try:
@@ -190,7 +265,10 @@ class Submitter(Poller):
                 else:
                     log_pre = self.get_log_prefix(pr)
                     self.logger.info(log_pre + "process_new_processing")
-                    ret = self.handle_new_processing(pr)
+                    if pr['processing_type'] and pr['processing_type'] in [ProcessingType.iWorkflow, ProcessingType.iWork]:
+                        ret = self.handle_new_iprocessing(pr)
+                    else:
+                        ret = self.handle_new_processing(pr)
                     # self.logger.info(log_pre + "process_new_processing result: %s" % str(ret))
 
                     self.update_processing(ret, pr)
