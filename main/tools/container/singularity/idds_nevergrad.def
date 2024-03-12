@@ -26,6 +26,9 @@ From: centos:7
   && echo "set the locale" \
   && localedef --quiet -c -i en_US -f UTF-8 en_US.UTF-8
 
+    pip install --upgrade pip
+    pip install nevergrad
+
 %environment
     # export LC_ALL=C
     # export PATH=/usr/games:$PATH
