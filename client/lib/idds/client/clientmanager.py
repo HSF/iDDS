@@ -39,7 +39,8 @@ from idds.client.client import Client
 from idds.common import exceptions
 from idds.common.config import (get_local_cfg_file, get_local_config_root,
                                 get_local_config_value, get_main_config_file)
-from idds.common.constants import RequestType, RequestStatus
+from idds.common.constants import (WorkflowType, RequestType, RequestStatus,
+                                   TransformType, TransformStatus)
 # from idds.common.utils import get_rest_host, exception_handler
 from idds.common.utils import exception_handler
 
@@ -183,7 +184,7 @@ class ClientManager:
 
         self.x509_proxy = self.get_config_value(config, None, 'x509_proxy', current=self.x509_proxy,
                                                 default='/tmp/x509up_u%d' % os.geteuid())
-        if not self.x509_proxy or not os.path.exists(self.x509_proxy):
+        if 'X509_USER_PROXY' in os.environ or not self.x509_proxy or not os.path.exists(self.x509_proxy):
             proxy = get_proxy_path()
             if proxy:
                 self.x509_proxy = proxy
@@ -431,16 +432,31 @@ class ClientManager:
         """
         self.setup_client()
 
+        scope = 'workflow'
+        request_type = RequestType.Workflow
+        transform_tag = 'workflow'
+        priority = 0
+        try:
+            if workflow.type in [WorkflowType.iWorkflow]:
+                scope = 'iworkflow'
+                request_type = RequestType.iWorkflow
+                transform_tag = workflow.get_work_tag()
+                priority = workflow.priority
+                if priority is None:
+                    priority = 0
+        except Exception:
+            pass
+
         props = {
-            'scope': 'workflow',
+            'scope': scope,
             'name': workflow.name,
             'requester': 'panda',
-            'request_type': RequestType.Workflow,
+            'request_type': request_type,
             'username': username if username else workflow.username,
             'userdn': userdn if userdn else workflow.userdn,
-            'transform_tag': 'workflow',
+            'transform_tag': transform_tag,
             'status': RequestStatus.New,
-            'priority': 0,
+            'priority': priority,
             'site': workflow.get_site(),
             'lifetime': workflow.lifetime,
             'workload_id': workflow.get_workload_id(),
@@ -453,7 +469,8 @@ class ClientManager:
             props['userdn'] = self.client.original_user_dn
 
         if self.auth_type == 'x509_proxy':
-            workflow.add_proxy()
+            if hasattr(workflow, 'add_proxy'):
+                workflow.add_proxy()
 
         if use_dataset_name or not workflow.name:
             primary_init_work = workflow.get_primary_initial_collection()
@@ -468,6 +485,56 @@ class ClientManager:
         # print(props)
         request_id = self.client.add_request(**props)
         return request_id
+
+    @exception_handler
+    def submit_work(self, request_id, work, use_dataset_name=False):
+        """
+        Submit the workflow as a request to iDDS server.
+
+        :param workflow: The workflow to be submitted.
+        """
+        self.setup_client()
+
+        transform_type = TransformType.Workflow
+        transform_tag = 'work'
+        priority = 0
+        workload_id = None
+        try:
+            if work.type in [WorkflowType.iWork]:
+                transform_type = TransformType.iWork
+                transform_tag = work.get_work_tag()
+                workload_id = work.workload_id
+                priority = work.priority
+                if priority is None:
+                    priority = 0
+            elif work.type in [WorkflowType.iWorkflow]:
+                transform_type = TransformType.iWorkflow
+                transform_tag = work.get_work_tag()
+                workload_id = work.workload_id
+                priority = work.priority
+                if priority is None:
+                    priority = 0
+        except Exception:
+            pass
+
+        props = {
+            'workload_id': workload_id,
+            'transform_type': transform_type,
+            'transform_tag': transform_tag,
+            'priority': work.priority,
+            'retries': 0,
+            'parent_transform_id': None,
+            'previous_transform_id': None,
+            # 'site': work.site,
+            'name': work.name,
+            'token': work.token,
+            'status': TransformStatus.New,
+            'transform_metadata': {'version': release_version, 'work': work}
+        }
+
+        # print(props)
+        transform_id = self.client.add_transform(request_id, **props)
+        return transform_id
 
     @exception_handler
     def submit_build(self, workflow, username=None, userdn=None, use_dataset_name=True):
@@ -627,6 +694,32 @@ class ClientManager:
             ret = tabulate.tabulate(table, tablefmt='simple', headers=['request_id', 'request_workload_id', 'scope:name', 'status', 'errors'])
             # print(ret)
             return str(ret)
+
+    @exception_handler
+    def get_transforms(self, request_id=None, workload_id=None):
+        """
+        Get transforms.
+
+        :param workload_id: the workload id.
+        :param request_id: the request.
+        """
+        self.setup_client()
+
+        tfs = self.client.get_transforms(request_id=request_id, workload_id=workload_id)
+        return tfs
+
+    @exception_handler
+    def get_transform(self, request_id=None, transform_id=None):
+        """
+        Get transforms.
+
+        :param transform_id: the transform id.
+        :param request_id: the request.
+        """
+        self.setup_client()
+
+        tf = self.client.get_transform(request_id=request_id, transform_id=transform_id)
+        return tf
 
     @exception_handler
     def download_logs(self, request_id=None, workload_id=None, dest_dir='./', filename=None):

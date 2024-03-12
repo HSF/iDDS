@@ -33,6 +33,7 @@ def add_transform(request_id, workload_id, transform_type, transform_tag=None, p
                   status=TransformStatus.New, substatus=TransformStatus.New, locking=TransformLocking.Idle,
                   new_poll_period=1, update_poll_period=10, retries=0, expired_at=None, transform_metadata=None,
                   new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
+                  parent_transform_id=None, previous_transform_id=None, current_processing_id=None,
                   workprogress_id=None, session=None):
     """
     Add a transform.
@@ -62,13 +63,16 @@ def add_transform(request_id, workload_id, transform_type, transform_tag=None, p
                                                 new_retries=new_retries, update_retries=update_retries,
                                                 max_new_retries=max_new_retries,
                                                 max_update_retries=max_update_retries,
+                                                parent_transform_id=parent_transform_id,
+                                                previous_transform_id=previous_transform_id,
+                                                current_processing_id=current_processing_id,
                                                 expired_at=expired_at, transform_metadata=transform_metadata,
                                                 workprogress_id=workprogress_id, session=session)
     return transform_id
 
 
 @read_session
-def get_transform(transform_id, to_json=False, session=None):
+def get_transform(transform_id, request_id=None, to_json=False, session=None):
     """
     Get transform or raise a NoObject exception.
 
@@ -80,7 +84,7 @@ def get_transform(transform_id, to_json=False, session=None):
 
     :returns: Transform.
     """
-    return orm_transforms.get_transform(transform_id=transform_id, to_json=to_json, session=session)
+    return orm_transforms.get_transform(transform_id=transform_id, request_id=request_id, to_json=to_json, session=session)
 
 
 @transactional_session
@@ -275,25 +279,34 @@ def add_transform_outputs(transform, transform_parameters, input_collections=Non
 
     if input_collections:
         for coll in input_collections:
-            collection = coll['collection']
-            del coll['collection']
+            collection = None
+            if 'collection' in coll:
+                collection = coll['collection']
+                del coll['collection']
             coll_id = orm_collections.add_collection(**coll, session=session)
-            # work.set_collection_id(coll, coll_id)
-            collection.coll_id = coll_id
+            if collection:
+                # work.set_collection_id(coll, coll_id)
+                collection.coll_id = coll_id
     if output_collections:
         for coll in output_collections:
-            collection = coll['collection']
-            del coll['collection']
+            collection = None
+            if 'collection' in coll:
+                collection = coll['collection']
+                del coll['collection']
             coll_id = orm_collections.add_collection(**coll, session=session)
-            # work.set_collection_id(coll, coll_id)
-            collection.coll_id = coll_id
+            if collection:
+                # work.set_collection_id(coll, coll_id)
+                collection.coll_id = coll_id
     if log_collections:
         for coll in log_collections:
-            collection = coll['collection']
-            del coll['collection']
+            collection = None
+            if 'collection' in coll:
+                collection = coll['collection']
+                del coll['collection']
             coll_id = orm_collections.add_collection(**coll, session=session)
-            # work.set_collection_id(coll, coll_id)
-            collection.coll_id = coll_id
+            if collection:
+                # work.set_collection_id(coll, coll_id)
+                collection.coll_id = coll_id
 
     if update_input_collections:
         update_input_colls = [coll.collection for coll in update_input_collections]
@@ -315,6 +328,7 @@ def add_transform_outputs(transform, transform_parameters, input_collections=Non
         # print(new_processing)
         processing_id = orm_processings.add_processing(**new_processing, session=session)
         new_pr_ids.append(processing_id)
+        transform_parameters['current_processing_id'] = processing_id
     if update_processing:
         for proc_id in update_processing:
             orm_processings.update_processing(processing_id=proc_id, parameters=update_processing[proc_id], session=session)
@@ -342,8 +356,10 @@ def add_transform_outputs(transform, transform_parameters, input_collections=Non
     if transform:
         if processing_id:
             # work.set_processing_id(new_processing, processing_id)
-            work.set_processing_id(new_processing['processing_metadata']['processing'], processing_id)
-        work.refresh_work()
+            if hasattr(work, 'set_processing_id'):
+                work.set_processing_id(new_processing['processing_metadata']['processing'], processing_id)
+        if hasattr(work, 'refresh_work'):
+            work.refresh_work()
         orm_transforms.update_transform(transform_id=transform['transform_id'],
                                         parameters=transform_parameters,
                                         session=session)

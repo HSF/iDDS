@@ -883,7 +883,8 @@ def update_request(request_id, parameters, update_request_metadata=False, sessio
                 workflow = parameters['request_metadata']['workflow']
 
                 if workflow is not None:
-                    workflow.refresh_works()
+                    if hasattr(workflow, 'refresh_works'):
+                        workflow.refresh_works()
                     if 'processing_metadata' not in parameters or not parameters['processing_metadata']:
                         parameters['processing_metadata'] = {}
                     parameters['processing_metadata']['workflow_data'] = workflow.metadata

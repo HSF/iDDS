@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2021 - 2022
+# - Wen Guan, <wen.guan@cern.ch>, 2021 - 2024
 
 
 """
@@ -26,7 +26,7 @@ import time
 import unittest2 as unittest
 # from nose.tools import assert_equal
 from idds.common.utils import setup_logging
-from idds.common.authentication import OIDCAuthentication
+from idds.core.authentication import OIDCAuthentication
 
 
 setup_logging(__name__)

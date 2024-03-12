@@ -20,6 +20,7 @@ import warnings
 from idds.common import exceptions
 from idds.common.utils import get_proxy_path
 from idds.client.requestclient import RequestClient
+from idds.client.transformclient import TransformClient
 from idds.client.catalogclient import CatalogClient
 from idds.client.cacherclient import CacherClient
 from idds.client.hpoclient import HPOClient
@@ -32,7 +33,7 @@ from idds.client.authclient import AuthClient
 warnings.filterwarnings("ignore")
 
 
-class Client(RequestClient, CatalogClient, CacherClient, HPOClient, LogsClient, MessageClient, PingClient, AuthClient):
+class Client(RequestClient, TransformClient, CatalogClient, CacherClient, HPOClient, LogsClient, MessageClient, PingClient, AuthClient):
 
     """Main client class for IDDS rest callings."""
 

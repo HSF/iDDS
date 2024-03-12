@@ -15,6 +15,7 @@ import traceback
 import threading
 import uuid
 
+from idds.common import exceptions
 from idds.common.constants import Sections
 from idds.common.constants import (MessageType, MessageTypeStr,
                                    MessageStatus, MessageSource,
@@ -133,6 +134,7 @@ class BaseAgent(TimerScheduler, PluginBase):
 
     def load_plugins(self):
         self.plugins = load_plugins(self.config_section, logger=self.logger)
+        self.logger.info("plugins: %s" % str(self.plugins))
         """
         for plugin_name in self.plugin_sequence:
             if plugin_name not in self.plugins:
@@ -141,6 +143,11 @@ class BaseAgent(TimerScheduler, PluginBase):
             if plugin_name not in self.plugin_sequence:
                 raise AgentPluginError("Plugin %s is defined but it is not defined in plugin_sequence" % plugin_name)
         """
+
+    def get_plugin(self, plugin_name):
+        if plugin_name in self.plugins and self.plugins[plugin_name]:
+            return self.plugins[plugin_name]
+        raise exceptions.AgentPluginError("No corresponding plugin configured for %s" % plugin_name)
 
     def get_num_hang_active_workers(self):
         return self.num_hang_workers, self.num_active_workers

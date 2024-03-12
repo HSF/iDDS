@@ -31,6 +31,7 @@ def create_transform(request_id, workload_id, transform_type, transform_tag=None
                      substatus=TransformStatus.New, locking=TransformLocking.Idle,
                      new_poll_period=1, update_poll_period=10,
                      new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
+                     parent_transform_id=None, previous_transform_id=None, current_processing_id=None,
                      retries=0, expired_at=None, transform_metadata=None):
     """
     Create a transform.
@@ -54,6 +55,9 @@ def create_transform(request_id, workload_id, transform_type, transform_tag=None
                                      retries=retries, expired_at=expired_at,
                                      new_retries=new_retries, update_retries=update_retries,
                                      max_new_retries=max_new_retries, max_update_retries=max_update_retries,
+                                     parent_transform_id=parent_transform_id,
+                                     previous_transform_id=previous_transform_id,
+                                     current_processing_id=current_processing_id,
                                      transform_metadata=transform_metadata)
     if new_poll_period:
         new_poll_period = datetime.timedelta(seconds=new_poll_period)
@@ -69,6 +73,7 @@ def add_transform(request_id, workload_id, transform_type, transform_tag=None, p
                   status=TransformStatus.New, substatus=TransformStatus.New, locking=TransformLocking.Idle,
                   new_poll_period=1, update_poll_period=10, retries=0, expired_at=None,
                   new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
+                  parent_transform_id=None, previous_transform_id=None, current_processing_id=None,
                   transform_metadata=None, workprogress_id=None, session=None):
     """
     Add a transform.
@@ -98,6 +103,9 @@ def add_transform(request_id, workload_id, transform_type, transform_tag=None, p
                                          update_poll_period=update_poll_period,
                                          new_retries=new_retries, update_retries=update_retries,
                                          max_new_retries=max_new_retries, max_update_retries=max_update_retries,
+                                         parent_transform_id=parent_transform_id,
+                                         previous_transform_id=previous_transform_id,
+                                         current_processing_id=current_processing_id,
                                          transform_metadata=transform_metadata)
         new_transform.save(session=session)
         transform_id = new_transform.transform_id
@@ -152,7 +160,7 @@ def add_wp2transform(workprogress_id, transform_id, session=None):
 
 
 @read_session
-def get_transform(transform_id, to_json=False, session=None):
+def get_transform(transform_id, request_id=None, to_json=False, session=None):
     """
     Get transform or raise a NoObject exception.
 
@@ -167,6 +175,8 @@ def get_transform(transform_id, to_json=False, session=None):
     try:
         query = session.query(models.Transform)\
                        .filter(models.Transform.transform_id == transform_id)
+        if request_id:
+            query = query.filter(models.Transform.request_id == request_id)
         ret = query.first()
         if not ret:
             return None
@@ -448,7 +458,8 @@ def update_transform(transform_id, parameters, session=None):
         if 'transform_metadata' in parameters and 'work' in parameters['transform_metadata']:
             work = parameters['transform_metadata']['work']
             if work is not None:
-                work.refresh_work()
+                if hasattr(work, 'refresh_work'):
+                    work.refresh_work()
                 if 'running_metadata' not in parameters:
                     parameters['running_metadata'] = {}
                 parameters['running_metadata']['work_data'] = work.metadata

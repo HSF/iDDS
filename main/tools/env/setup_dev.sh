@@ -20,7 +20,8 @@ echo 'Root dir: ' $RootDir
 export IDDS_HOME=$RootDir
 export ALEMBIC_CONFIG=${IDDS_HOME}/etc/idds/alembic.ini
 
-source /afs/cern.ch/user/w/wguan/workdisk/conda/setup.sh
+# source /afs/cern.ch/user/w/wguan/workdisk/conda/setup.sh
+source /afs/cern.ch/user/w/wguan/workdisk/conda/setup_mini.sh
 
 conda activate $CondaDir
 #export PYTHONPATH=${IDDS_HOME}/lib:$PYTHONPATH
