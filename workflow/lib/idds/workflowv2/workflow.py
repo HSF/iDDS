@@ -1972,6 +1972,12 @@ class WorkflowBase(Base):
         """
         return self.is_terminated(synchronize=synchronize) and (self.num_finished_works + self.num_subfinished_works > 0 and self.num_finished_works + self.num_subfinished_works <= self.num_total_works)
 
+    def is_processed(self, synchronize=True):
+        """
+        *** Function called by Transformer agent.
+        """
+        return self.is_terminated(synchronize=synchronize) and (self.num_finished_works + self.num_subfinished_works > 0 and self.num_finished_works + self.num_subfinished_works <= self.num_total_works)
+
     def is_failed(self, synchronize=True):
         """
         *** Function called by Marshaller agent.
@@ -2498,6 +2504,20 @@ class Workflow(Base):
                 else:
                     return False
             return self.runs[str(self.num_run)].is_subfinished(synchronize=False)
+        return False
+
+    def is_processed(self, synchronize=True):
+        if self.is_terminated(synchronize=synchronize):
+            build_work = self.get_build_work()
+            if build_work:
+                if build_work.is_terminated():
+                    if not build_work.is_processed():
+                        return False
+                    else:
+                        pass
+                else:
+                    return False
+            return self.runs[str(self.num_run)].is_processed(synchronize=False)
         return False
 
     def is_failed(self, synchronize=True):
