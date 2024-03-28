@@ -32,6 +32,7 @@ from idds.agents.common.eventbus.event import (EventType,
                                                NewRequestEvent,
                                                UpdateRequestEvent,
                                                AbortRequestEvent,
+                                               CloseRequestEvent,
                                                ResumeRequestEvent,
                                                NewTransformEvent,
                                                UpdateTransformEvent,
@@ -244,7 +245,7 @@ class Clerk(BaseAgent):
                           RequestStatus.ToExpire, RequestStatus.Expiring,
                           RequestStatus.ToFinish, RequestStatus.ToForceFinish,
                           RequestStatus.ToResume, RequestStatus.Resuming,
-                          RequestStatus.Building]
+                          RequestStatus.Building, RequestStatus.ToClose]
             reqs = core_requests.get_requests_by_status_type(status=req_status, time_period=None,
                                                              min_request_id=min_request_id,
                                                              locking=True, bulk_size=self.retrieve_bulk_size,
@@ -320,6 +321,8 @@ class Clerk(BaseAgent):
                         event = AbortRequestEvent(publisher_id=self.id, request_id=request_id, content=event_content)
                     elif cmd_type in [CommandType.ResumeRequest]:
                         event = ResumeRequestEvent(publisher_id=self.id, request_id=request_id, content=event_content)
+                    elif cmd_type in [CommandType.CloseRequest]:
+                        event = CloseRequestEvent(publisher_id=self.id, request_id=request_id, content=event_content)
                 # elif cmd_status in [CommandStatus.Processing]:
                 #     event = UpdateRequestEvent(publisher_id=self.id, request_id=request_id, content=event_content)
 
@@ -437,7 +440,10 @@ class Clerk(BaseAgent):
         transform_type = TransformType.Workflow
         try:
             work_type = work.get_work_type()
-            if work_type in [WorkflowType.iWorkflow]:
+            if work_type in [WorkflowType.iWorkflowLocal]:
+                # no need to generate transform
+                return None
+            elif work_type in [WorkflowType.iWorkflow]:
                 transform_type = TransformType.iWorkflow
             elif work_type in [WorkflowType.iWork]:
                 transform_type = TransformType.iWork
@@ -689,7 +695,8 @@ class Clerk(BaseAgent):
                     # new_work.create_processing()
 
                     transform = self.generate_transform(req, work)
-                    transforms.append(transform)
+                    if transform:
+                        transforms.append(transform)
                 self.logger.debug(log_pre + "Processing request(%s): new transforms: %s" % (req['request_id'],
                                                                                             str(transforms)))
                 # processing_metadata = req['processing_metadata']
@@ -745,7 +752,8 @@ class Clerk(BaseAgent):
 
                 transforms = []
                 transform = self.generate_transform(req, workflow)
-                transforms.append(transform)
+                if transform:
+                    transforms.append(transform)
                 self.logger.debug(log_pre + "Processing request(%s): new transforms: %s" % (req['request_id'],
                                                                                             str(transforms)))
                 ret_req = {'request_id': req['request_id'],
@@ -923,7 +931,7 @@ class Clerk(BaseAgent):
                     log_pre = self.get_log_prefix(req)
                     if self.has_to_build_work(req):
                         ret = self.handle_build_request(req)
-                    elif req['request_type'] in [RequestType.iWorkflow]:
+                    elif req['request_type'] in [RequestType.iWorkflow, RequestType.iWorkflowLocal]:
                         ret = self.handle_new_irequest(req)
                     else:
                         ret = self.handle_new_request(req)
@@ -1185,13 +1193,18 @@ class Clerk(BaseAgent):
                 failed_tfs += 1
 
         req_status = RequestStatus.Transforming
-        if total_tfs == finished_tfs:
-            req_status = RequestStatus.Finished
-        elif total_tfs == finished_tfs + subfinished_tfs + failed_tfs:
-            if finished_tfs + subfinished_tfs > 0:
-                req_status = RequestStatus.SubFinished
-            else:
-                req_status = RequestStatus.Failed
+        if req['request_type'] in [RequestType.iWorkflowLocal] and total_tfs == 0:
+            workflow = req['request_metadata'].get('workflow', None)
+            if workflow and req['created_at'] + datetime.timedelta(seconds=workflow.max_walltime) < datetime.datetime.utcnow():
+                req_status = RequestStatus.Finished
+        else:
+            if total_tfs == finished_tfs:
+                req_status = RequestStatus.Finished
+            elif total_tfs == finished_tfs + subfinished_tfs + failed_tfs:
+                if finished_tfs + subfinished_tfs > 0:
+                    req_status = RequestStatus.SubFinished
+                else:
+                    req_status = RequestStatus.Failed
 
         log_msg = log_pre + "ireqeust %s status: %s" % (req['request_id'], req_status)
         log_msg = log_msg + "(transforms: total %s, finished: %s, subfinished: %s, failed %s)" % (total_tfs, finished_tfs, subfinished_tfs, failed_tfs)
@@ -1269,7 +1282,7 @@ class Clerk(BaseAgent):
                     pro_ret = ReturnCode.Locked.value
                 else:
                     log_pre = self.get_log_prefix(req)
-                    if req['request_type'] in [RequestType.iWorkflow]:
+                    if req['request_type'] in [RequestType.iWorkflow, RequestType.iWorkflowLocal]:
                         ret = self.handle_update_irequest(req, event=event)
                     else:
                         ret = self.handle_update_request(req, event=event)
@@ -1373,6 +1386,14 @@ class Clerk(BaseAgent):
                         self.logger.info(log_pre + "process_abort_request result: %s" % str(ret))
                         self.update_request(ret)
                         self.handle_command(event, cmd_status=CommandStatus.Failed, errors="Request is already terminated. Cannot be aborted")
+                    elif req['request_type'] in [RequestType.iWorkflow, RequestType.iWorkflowLocal]:
+                        # todo
+                        ret = {'request_id': req['request_id'],
+                               'parameters': {'locking': RequestLocking.Idle,
+                                              'status': req['status']}
+                               }
+                        self.update_request(ret)
+                        self.handle_command(event, cmd_status=CommandStatus.Failed, errors="Not support abortion for iWorkflow")
                     else:
                         ret = self.handle_abort_request(req, event)
                         self.logger.info(log_pre + "process_abort_request result: %s" % str(ret))
@@ -1414,6 +1435,116 @@ class Clerk(BaseAgent):
                         self.handle_command(event, cmd_status=CommandStatus.Processed, errors=None)
         except AssertionError as ex:
             self.logger.error("process_abort_request, Failed to process event: %s" % str(event))
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+            self.handle_command(event, cmd_status=CommandStatus.Processed, errors=str(ex))
+            pro_ret = ReturnCode.Failed.value
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+            pro_ret = ReturnCode.Failed.value
+        self.number_workers -= 1
+        return pro_ret
+
+    def handle_close_irequest(self, req, event):
+        """
+        process close irequest
+        """
+        try:
+            log_pre = self.get_log_prefix(req)
+            self.logger.info(log_pre + "handle_close_irequest event: %s" % str(event))
+
+            tfs = core_transforms.get_transforms(request_id=req['request_id'])
+            total_tfs, finished_tfs, subfinished_tfs, failed_tfs = 0, 0, 0, 0
+            for tf in tfs:
+                total_tfs += 1
+                if tf['status'] in [TransformStatus.Finished, TransformStatus.Built]:
+                    finished_tfs += 1
+                elif tf['status'] in [TransformStatus.SubFinished]:
+                    subfinished_tfs += 1
+                elif tf['status'] in [TransformStatus.Failed, TransformStatus.Cancelled,
+                                      TransformStatus.Suspended, TransformStatus.Expired]:
+                    failed_tfs += 1
+                else:
+                    event = AbortTransformEvent(publisher_id=self.id,
+                                                transform_id=tf['transform_id'],
+                                                content=event._content)
+                    self.event_bus.send(event)
+
+            req_status = RequestStatus.Transforming
+            if req['request_type'] in [RequestType.iWorkflowLocal] and total_tfs == 0:
+                req_status = RequestStatus.Finished
+            else:
+                if total_tfs == finished_tfs:
+                    req_status = RequestStatus.Finished
+                elif total_tfs == finished_tfs + subfinished_tfs + failed_tfs:
+                    if finished_tfs + subfinished_tfs > 0:
+                        req_status = RequestStatus.SubFinished
+                    else:
+                        req_status = RequestStatus.Failed
+
+            log_msg = log_pre + "ireqeust %s status: %s" % (req['request_id'], req_status)
+            log_msg = log_msg + "(transforms: total %s, finished: %s, subfinished: %s, failed %s)" % (total_tfs, finished_tfs, subfinished_tfs, failed_tfs)
+            self.logger.debug(log_msg)
+
+            parameters = {'status': req_status,
+                          'locking': RequestLocking.Idle,
+                          'request_metadata': req['request_metadata']
+                          }
+            parameters = self.load_poll_period(req, parameters)
+
+            ret = {'request_id': req['request_id'],
+                   'parameters': parameters}
+            self.logger.info(log_pre + "Handle close irequest result: %s" % str(ret))
+            return ret
+
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+            error = {'close_err': {'msg': truncate_string('%s' % (ex), length=200)}}
+            ret_req = {'request_id': req['request_id'],
+                       'parameters': {'status': RequestStatus.ToClose,
+                                      'locking': RequestLocking.Idle,
+                                      'errors': req['errors'] if req['errors'] else {}}}
+            ret_req['parameters']['errors'].update(error)
+            self.logger.info(log_pre + "handle_close_irequest exception result: %s" % str(ret_req))
+        return ret_req
+
+    def process_close_request(self, event):
+        self.number_workers += 1
+        pro_ret = ReturnCode.Ok.value
+        try:
+            if event:
+                req = self.get_request(request_id=event._request_id, locking=True)
+                if not req:
+                    self.logger.error("Cannot find request for event: %s" % str(event))
+                    pro_ret = ReturnCode.Locked.value
+                else:
+                    log_pre = self.get_log_prefix(req)
+                    self.logger.info(log_pre + "process_close_request event: %s" % str(event))
+
+                    if req['status'] in [RequestStatus.Finished, RequestStatus.SubFinished,
+                                         RequestStatus.Failed, RequestStatus.Cancelled,
+                                         RequestStatus.Suspended, RequestStatus.Expired]:
+                        ret = {'request_id': req['request_id'],
+                               'parameters': {'locking': RequestLocking.Idle,
+                                              'errors': {'extra_msg': "Request is already terminated. Cannot be closed"}}}
+                        if req['errors'] and 'msg' in req['errors']:
+                            ret['parameters']['errors']['msg'] = req['errors']['msg']
+                        self.logger.info(log_pre + "process_abort_request result: %s" % str(ret))
+                        self.update_request(ret)
+                        self.handle_command(event, cmd_status=CommandStatus.Failed, errors="Request is already terminated. Cannot be closed")
+                    else:
+                        if req['request_type'] in [RequestType.iWorkflow, RequestType.iWorkflowLocal]:
+                            ret = self.handle_close_irequest(req, event=event)
+                            self.update_request(ret)
+                        else:
+                            pass
+                            # todo
+
+                        self.handle_command(event, cmd_status=CommandStatus.Processed, errors=None)
+        except AssertionError as ex:
+            self.logger.error("process_close_request, Failed to process event: %s" % str(event))
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
             self.handle_command(event, cmd_status=CommandStatus.Processed, errors=str(ex))
@@ -1478,6 +1609,14 @@ class Clerk(BaseAgent):
 
                         self.update_request(ret)
                         self.handle_command(event, cmd_status=CommandStatus.Failed, errors="Request is already finished. Cannot be resumed")
+                    elif req['request_type'] in [RequestType.iWorkflow, RequestType.iWorkflowLocal]:
+                        # todo
+                        ret = {'request_id': req['request_id'],
+                               'parameters': {'locking': RequestLocking.Idle,
+                                              'status': req['status']}
+                               }
+                        self.update_request(ret)
+                        self.handle_command(event, cmd_status=CommandStatus.Failed, errors="Not support to reusme for iWorkflow")
                     else:
                         ret = self.handle_resume_request(req)
                         self.logger.info(log_pre + "process_resume_request result: %s" % str(ret))
@@ -1531,6 +1670,10 @@ class Clerk(BaseAgent):
             EventType.ResumeRequest: {
                 'pre_check': self.is_ok_to_run_more_requests,
                 'exec_func': self.process_resume_request
+            },
+            EventType.CloseRequest: {
+                'pre_check': self.is_ok_to_run_more_requests,
+                'exec_func': self.process_close_request
             }
         }
 
