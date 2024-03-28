@@ -127,6 +127,7 @@ class AsyncResult(Base):
         if internal_id:
             self.internal_id = internal_id
         self._work_context = work_context
+        self._work_context.init_brokers()
 
         self._name = name
         self._queue = Queue()
@@ -151,6 +152,8 @@ class AsyncResult(Base):
         self._num_wrong_keys = 0
 
         self._timeout = timeout
+
+        self._nologs = False
 
     @property
     def logger(self):
@@ -193,8 +196,10 @@ class AsyncResult(Base):
         if self._bad_results:
             self.logger.error("Received bad results: %s" % str(self._bad_results))
 
-        self.logger.debug("_results: %s, bad_results: %s" % (str(self._results), str(self._bad_results)))
-        self.logger.debug("wait_keys: %s, wait_num: %s" % (str(self.wait_keys), self._wait_num))
+        if not self._nologs:
+            self.logger.debug("_results: %s, bad_results: %s" % (str(self._results), str(self._bad_results)))
+            self.logger.debug("wait_keys: %s, wait_num: %s" % (str(self.wait_keys), self._wait_num))
+
         rets_dict = {}
         for result in self._results:
             key = result['key']
@@ -381,9 +386,13 @@ class AsyncResult(Base):
             self.logger.error("run subscriber failed with error: %s" % str(ex))
             self.logger.error(traceback.format_exc())
 
-    def get_results(self):
+    def get_results(self, nologs=False):
+        old_nologs = self._nologs
+        self._nologs = nologs
         rets = self.results
-        self.logger.debug('results: %s' % str(rets))
+        if not self._nologs:
+            self.logger.debug('results: %s' % str(rets))
+        self._nologs = old_nologs
         return rets
 
     def get_results_percentage(self):
@@ -415,7 +424,7 @@ class AsyncResult(Base):
             self.logger.info("waiting for results")
         try:
             while not get_results and not self._graceful_stop.is_set():
-                self.get_results()
+                self.get_results(nologs=True)
                 percent = self.get_results_percentage()
                 if time.time() - time_log > 600:  # 10 minutes
                     self.logger.info("waiting for results: %s (number of wrong keys: %s)" % (percent, self._num_wrong_keys))

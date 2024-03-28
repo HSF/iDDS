@@ -51,11 +51,11 @@ class WorkflowCanvas(object):
 
 
 class WorkflowContext(Context):
-    def __init__(self, name=None, service='panda', source_dir=None, distributed=True, init_env=None):
+    def __init__(self, name=None, service='panda', source_dir=None, type=WorkflowType.iWorkflow, distributed=True, max_walltime=24 * 3600, init_env=None):
         super(WorkflowContext, self).__init__()
         self._service = service     # panda, idds, sharefs
         self._request_id = None
-        self._type = WorkflowType.iWorkflow
+        self._type = type
 
         # self.idds_host = None
         # self.idds_async_host = None
@@ -77,12 +77,12 @@ class WorkflowContext(Context):
         self._priority = 500
         self._core_count = 1
         self._total_memory = 1000          # MB
-        self._max_walltime = 7 * 24 * 3600
+        self._max_walltime = max_walltime
         self._max_attempt = 5
 
         self._username = None
         self._userdn = None
-        self._type = WorkflowType.iWorkflow
+        self._type = type
         self._lifetime = 7 * 24 * 3600
         self._workload_id = None
         self._request_id = None
@@ -96,7 +96,7 @@ class WorkflowContext(Context):
         self._broker_password = None
         self._broker_destination = None
 
-        self.init_brokers()
+        # self.init_brokers()
 
         self._token = str(uuid.uuid4())
 
@@ -328,6 +328,59 @@ class WorkflowContext(Context):
                 self._broker_destination = broker_destination
 
                 self._broker_initialized = True
+            else:
+                broker_info = self.get_broker_info()
+                if broker_info:
+                    brokers = broker_info.get("brokers", None)
+                    broker_destination = broker_info.get("broker_destination", None)
+                    broker_timeout = broker_info.get("broker_timeout", 180)
+                    broker_username = broker_info.get("broker_username", None)
+                    broker_password = broker_info.get("broker_password", None)
+                    if brokers and broker_destination and broker_username and broker_password:
+                        self._brokers = brokers
+                        self._broker_timeout = int(broker_timeout)
+                        self._broker_username = broker_username
+                        self._broker_password = broker_password
+                        self._broker_destination = broker_destination
+
+                        self._broker_initialized = True
+
+    def get_broker_info_from_idds_server(self):
+        """
+        Get broker infomation from the iDDS server.
+
+        :raise Exception when failing to get broker information.
+        """
+        # iDDS ClientManager
+        from idds.client.clientmanager import ClientManager
+
+        client = ClientManager(host=self.get_idds_server())
+        ret = client.get_metainfo(name='asyncresult_config')
+
+        return ret
+
+    def get_broker_info_from_panda_server(self):
+        """
+        Get broker infomation from the iDDS server through PanDA service.
+
+        :raise Exception when failing to get broker information.
+        """
+        import idds.common.utils as idds_utils
+        import pandaclient.idds_api as idds_api
+
+        idds_server = self.get_idds_server()
+        client = idds_api.get_api(idds_utils.json_dumps,
+                                  idds_host=idds_server,
+                                  compress=True,
+                                  manager=True)
+        ret = client.get_metainfo(name='asyncresult_config')
+
+        return ret
+
+    def get_broker_info(self):
+        if self.service == 'panda':
+            return self.get_broker_info_from_panda_server()
+        return self.get_broker_info_from_idds_server()
 
     def init_idds(self):
         if not self._idds_initialized:
@@ -366,10 +419,7 @@ class WorkflowContext(Context):
         if 'PANDA_CONFIG_ROOT' not in os.environ:
             os.environ['PANDA_CONFIG_ROOT'] = os.getcwd()
 
-    def setup(self):
-        """
-        :returns command: `str` to setup the workflow.
-        """
+    def global_setup(self):
         if self.service == 'panda':
             set_up = self.setup_panda()
         elif self.service == 'idds':
@@ -378,6 +428,13 @@ class WorkflowContext(Context):
             set_up = self.setup_sharefs()
         else:
             set_up = self.setup_sharefs()
+        return set_up
+
+    def setup(self):
+        """
+        :returns command: `str` to setup the workflow.
+        """
+        set_up = self.global_setup()
 
         init_env = self.init_env
         ret = None
@@ -600,8 +657,9 @@ class WorkflowContext(Context):
 
 class Workflow(Base):
 
-    def __init__(self, func=None, service='panda', context=None, source_dir=None, distributed=True,
-                 args=None, kwargs={}, group_kwargs=[], update_kwargs=None, init_env=None, is_unique_func_name=False):
+    def __init__(self, func=None, service='panda', context=None, source_dir=None, local=False, distributed=True,
+                 args=None, kwargs={}, group_kwargs=[], update_kwargs=None, init_env=None, is_unique_func_name=False,
+                 max_walltime=24 * 3600):
         """
         Init a workflow.
         """
@@ -619,10 +677,16 @@ class Workflow(Base):
             if self._name:
                 self._name = self._name + "_" + datetime.datetime.utcnow().strftime("%Y_%m_%d_%H_%M_%S")
         source_dir = self.get_source_dir(self._func, source_dir)
+
+        workflow_type = WorkflowType.iWorkflow
+        if local:
+            workflow_type = WorkflowType.iWorkflowLocal
+
         if context is not None:
             self._context = context
         else:
-            self._context = WorkflowContext(name=self._name, service=service, source_dir=source_dir, distributed=distributed, init_env=init_env)
+            self._context = WorkflowContext(name=self._name, service=service, type=workflow_type, source_dir=source_dir,
+                                            distributed=distributed, init_env=init_env, max_walltime=max_walltime)
 
     @property
     def service(self):
@@ -794,10 +858,10 @@ class Workflow(Base):
         self._context.token = value
 
     def get_work_tag(self):
-        return 'iWorkflow'
+        return self._context.type.name
 
     def get_work_type(self):
-        return WorkflowType.iWorkflow
+        return self._context.type
 
     def get_work_name(self):
         return self._name
@@ -896,6 +960,54 @@ class Workflow(Base):
 
         return None
 
+    def close_to_idds_server(self, request_id):
+        """
+        close the workflow to the iDDS server.
+
+        :param request_id: the workflow id.
+        :raise Exception when failing to close the workflow.
+        """
+        # iDDS ClientManager
+        from idds.client.clientmanager import ClientManager
+
+        client = ClientManager(host=self._context.get_idds_server())
+        request_id = client.close(request_id)
+
+        logging.info("Close request id=%s to iDDS server", str(request_id))
+        return request_id
+
+    def close_to_panda_server(self, request_id):
+        """
+        close the workflow to the iDDS server through PanDA service.
+
+        :param request_id: the workflow id.
+        :raise Exception when failing to closet the workflow.
+        """
+        import idds.common.utils as idds_utils
+        import pandaclient.idds_api as idds_api
+
+        idds_server = self._context.get_idds_server()
+        client = idds_api.get_api(idds_utils.json_dumps,
+                                  idds_host=idds_server,
+                                  compress=True,
+                                  manager=True)
+        request_id = client.close(request_id)
+
+        logging.info("Close request id=%s through PanDA-iDDS", str(request_id))
+        return request_id
+
+    def close(self):
+        """
+        close the workflow to the iDDS server.
+
+        :raise Exception when failing to close the workflow.
+        """
+        if self._context.request_id is not None:
+            if self.service == 'panda':
+                self.close_to_panda_server(self._context.request_id)
+            else:
+                self.close_to_idds_server(self._context.request_id)
+
     def setup(self):
         """
         :returns command: `str` to setup the workflow.
@@ -969,7 +1081,9 @@ class Workflow(Base):
         return self
 
     def __exit__(self, _type, _value, _tb):
-        WorkflowCanvas.pop_managed_workflow()
+        w = WorkflowCanvas.pop_managed_workflow()
+        if w is not None:
+            w.close()
 
     # /Context Manager ----------------------------------------------
 
@@ -999,9 +1113,10 @@ class Workflow(Base):
 
 
 # foo = workflow(arg)(foo)
-def workflow(func=None, *, lazy=False, service='panda', source_dir=None, primary=False, distributed=True):
+def workflow(func=None, *, local=False, service='idds', source_dir=None, primary=False, queue=None, site=None, cloud=None, max_walltime=24 * 3600, distributed=True):
     if func is None:
-        return functools.partial(workflow, lazy=lazy)
+        return functools.partial(workflow, local=local, service=service, source_dir=source_dir, primary=primary, queue=queue, site=site, cloud=cloud,
+                                 max_walltime=max_walltime, distributed=distributed)
 
     if 'IDDS_IWORKFLOW_LOAD_WORKFLOW' in os.environ:
         return func
@@ -1009,12 +1124,26 @@ def workflow(func=None, *, lazy=False, service='panda', source_dir=None, primary
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         try:
-            f = Workflow(func, service=service, source_dir=source_dir, distributed=distributed)
+            f = Workflow(func, service=service, source_dir=source_dir, local=local, max_walltime=max_walltime, distributed=distributed)
+            f.queue = queue
+            f.site = site
+            f.cloud = cloud
 
-            if lazy:
+            logging.info("Prepare workflow")
+            f.prepare()
+            logging.info("Prepared workflow")
+
+            logging.info("Registering workflow")
+            f.submit()
+
+            if not local:
+                logging.info("Run workflow at remote sites")
                 return f
-
-            return f.run()
+            else:
+                logging.info("Run workflow locally")
+                with f:
+                    ret = f.run()
+                return ret
         except Exception as ex:
             logging.error("Failed to run workflow %s: %s" % (func, ex))
             raise ex
