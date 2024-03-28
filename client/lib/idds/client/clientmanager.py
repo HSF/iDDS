@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2023
+# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2024
 
 
 """
@@ -32,7 +32,7 @@ except ImportError:
 
 
 from idds.common.authentication import OIDCAuthentication, OIDCAuthenticationUtils
-from idds.common.utils import setup_logging, get_proxy_path
+from idds.common.utils import setup_logging, get_proxy_path, idds_mask
 
 from idds.client.version import release_version
 from idds.client.client import Client
@@ -444,6 +444,13 @@ class ClientManager:
                 priority = workflow.priority
                 if priority is None:
                     priority = 0
+            elif workflow.type in [WorkflowType.iWorkflowLocal]:
+                scope = 'iworkflowLocal'
+                request_type = RequestType.iWorkflowLocal
+                transform_tag = workflow.get_work_tag()
+                priority = workflow.priority
+                if priority is None:
+                    priority = 0
         except Exception:
             pass
 
@@ -619,6 +626,24 @@ class ClientManager:
             return (-1, "The task_id is required for killing tasks")
 
         ret = self.client.abort_request_task(request_id=request_id, workload_id=workload_id, task_id=task_id)
+        return ret
+
+    @exception_handler
+    def close(self, request_id=None, workload_id=None):
+        """
+        Close requests.
+
+        :param workload_id: the workload id.
+        :param request_id: the request.
+        """
+        self.setup_client()
+
+        if request_id is None and workload_id is None:
+            logging.error("Both request_id and workload_id are None. One of them should not be None")
+            return (-1, "Both request_id and workload_id are None. One of them should not be None")
+
+        ret = self.client.close_request(request_id=request_id, workload_id=workload_id)
+        # return (-1, 'No matching requests')
         return ret
 
     @exception_handler
@@ -840,3 +865,17 @@ class ClientManager:
         self.setup_client()
 
         return self.client.update_build_request(request_id=request_id, signature=signature, workflow=workflow)
+
+    @exception_handler
+    def get_metainfo(self, name):
+        """
+        Get meta info.
+
+        :param name: the name of the meta info.
+        """
+        self.setup_client()
+
+        logging.info("Retrieving meta info for %s" % (name))
+        ret = self.client.get_metainfo(name=name)
+        logging.info("Retrieved meta info for %s: %s" % (name, idds_mask(ret)))
+        return ret

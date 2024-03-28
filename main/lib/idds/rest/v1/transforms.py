@@ -56,7 +56,7 @@ class Transform(IDDSController):
             if not req:
                 raise exceptions.IDDSException("Request %s is not found" % request_id)
 
-            if req['request_type'] != RequestType.iWorkflow:
+            if req['request_type'] not in [RequestType.iWorkflow, RequestType.iWorkflowLocal]:
                 raise exceptions.IDDSException("Request type %s doesn't support this operations" % req['request_type'])
 
             workflow = req['request_metadata']['workflow']

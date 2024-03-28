@@ -36,6 +36,7 @@ class EventType(IDDSEnum):
     AbortRequest = 12
     ResumeRequest = 13
     ExpireRequest = 14
+    CloseRequest = 15
 
     NewTransform = 20
     UpdateTransform = 21
@@ -238,6 +239,20 @@ class AbortRequestEvent(Event):
 
     def to_json(self, strip=False):
         ret = super(AbortRequestEvent, self).to_json()
+        ret['request_id'] = self._request_id
+        return ret
+
+
+class CloseRequestEvent(Event):
+    def __init__(self, publisher_id=None, request_id=None, content=None, counter=1):
+        super(CloseRequestEvent, self).__init__(publisher_id, event_type=EventType.CloseRequest, content=content, counter=counter)
+        self._request_id = request_id
+
+    def get_event_id(self):
+        return self._request_id
+
+    def to_json(self, strip=False):
+        ret = super(CloseRequestEvent, self).to_json()
         ret['request_id'] = self._request_id
         return ret
 

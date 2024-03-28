@@ -473,3 +473,6 @@ alter table TRANSFORMS add (parent_transform_id NUMBER(12));
 alter table TRANSFORMS add (previous_transform_id NUMBER(12));
 alter table TRANSFORMS add (current_processing_id NUMBER(12));
 alter table PROCESSINGS add (processing_type NUMBER(2));
+
+--- 20240327
+alter table requests modify (transform_tag VARCHAR2(20));
