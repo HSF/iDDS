@@ -937,7 +937,7 @@ def get_unique_id_for_dict(dict_):
 def idds_mask(dict_):
     ret = {}
     for k in dict_:
-        if 'pass' in k or 'password' in k or 'passwd' in k or 'token' in k:
+        if 'pass' in k or 'password' in k or 'passwd' in k or 'token' in k or 'security' in k or 'secure' in k:
             ret[k] = "***"
         else:
             ret[k] = dict_[k]
