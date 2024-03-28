@@ -34,7 +34,7 @@ from packaging import version as packaging_version
 from typing import Any, Callable
 
 from idds.common.config import (config_has_section, config_has_option,
-                                config_get, config_get_bool)
+                                config_get, config_get_bool, config_get_int)
 from idds.common.constants import (IDDSEnum, RequestType, RequestStatus,
                                    TransformType, TransformStatus,
                                    CollectionType, CollectionRelationType, CollectionStatus,
@@ -146,6 +146,37 @@ def get_rest_cacher_dir():
     if cacher_dir and os.path.exists(cacher_dir):
         return cacher_dir
     raise Exception("cacher_dir is not defined or it doesn't exist")
+
+
+def get_asyncresult_config():
+    broker_type = None
+    brokers = None
+    broker_destination = None
+    broker_timeout = 360
+    broker_username = None
+    broker_password = None
+    broker_x509 = None
+
+    if config_has_section('asyncresult'):
+        if config_has_option('asyncresult', 'broker_type'):
+            broker_type = config_get('asyncresult', 'broker_type')
+        if config_has_option('asyncresult', 'brokers'):
+            brokers = config_get('asyncresult', 'brokers')
+        if config_has_option('asyncresult', 'broker_destination'):
+            broker_destination = config_get('asyncresult', 'broker_destination')
+        if config_has_option('asyncresult', 'broker_timeout'):
+            broker_timeout = config_get_int('asyncresult', 'broker_timeout')
+        if config_has_option('asyncresult', 'broker_username'):
+            broker_username = config_get('asyncresult', 'broker_username')
+        if config_has_option('asyncresult', 'broker_password'):
+            broker_password = config_get('asyncresult', 'broker_password')
+        if config_has_option('asyncresult', 'broker_x509'):
+            broker_x509 = config_get('asyncresult', 'broker_x509')
+
+    ret = {'broker_type': broker_type, 'brokers': brokers, 'broker_destination': broker_destination,
+           'broker_timeout': broker_timeout, 'broker_username': broker_username, 'broker_password': broker_password,
+           'broker_x509': broker_x509}
+    return ret
 
 
 def str_to_date(string):
@@ -900,4 +931,14 @@ class SecureString(object):
 def get_unique_id_for_dict(dict_):
     ret = hashlib.sha1(json.dumps(dict_, sort_keys=True).encode()).hexdigest()
     # logging.debug("get_unique_id_for_dict, type: %s: %s, ret: %s" % (type(dict_), dict_, ret))
+    return ret
+
+
+def idds_mask(dict_):
+    ret = {}
+    for k in dict_:
+        if 'pass' in k or 'password' in k or 'passwd' in k or 'token' in k:
+            ret[k] = "***"
+        else:
+            ret[k] = dict_[k]
     return ret
