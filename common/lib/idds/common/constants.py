@@ -101,6 +101,7 @@ class WorkflowType(IDDSEnum):
     Workflow = 0
     iWorkflow = 1
     iWork = 2
+    iWorkflowLocal = 3
 
 
 class WorkStatus(IDDSEnum):
@@ -153,6 +154,7 @@ class RequestStatus(IDDSEnum):
     Building = 21
     Built = 22
     Throttling = 23
+    ToClose = 24
 
 
 class RequestLocking(IDDSEnum):
@@ -196,6 +198,7 @@ class RequestType(IDDSEnum):
     HyperParameterOpt = 4
     Derivation = 5
     iWorkflow = 6
+    iWorkflowLocal = 7
     Other = 99
 
 
@@ -489,6 +492,7 @@ class CommandType(IDDSEnum):
     AbortRequest = 0
     ResumeRequest = 1
     ExpireRequest = 2
+    CloseRequest = 3
 
 
 class CommandStatus(IDDSEnum):
