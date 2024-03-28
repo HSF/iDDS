@@ -73,16 +73,16 @@ else
     # export IDDS_HOST=https://aipanda015.cern.ch:443/idds
 
     # dev
-    # export IDDS_HOST=https://aipanda104.cern.ch:443/idds
+    export IDDS_HOST=https://aipanda104.cern.ch:443/idds
 
     # doma
-    export IDDS_HOST=https://aipanda105.cern.ch:443/idds
+    # export IDDS_HOST=https://aipanda105.cern.ch:443/idds
 
-    export IDDS_BROKERS=atlas-test-mb.cern.ch:61013
-    export IDDS_BROKER_DESTINATION=/topic/doma.idds
-    export IDDS_BROKER_USERNAME=domaidds
-    export IDDS_BROKER_PASSWORD=1d25yeft6krJ1HFH
-    export IDDS_BROKER_TIMEOUT=360
+    # export IDDS_BROKERS=atlas-test-mb.cern.ch:61013
+    # export IDDS_BROKER_DESTINATION=/topic/doma.idds
+    # export IDDS_BROKER_USERNAME=domaidds
+    # export IDDS_BROKER_PASSWORD=1d25yeft6krJ1HFH
+    # export IDDS_BROKER_TIMEOUT=360
 
     PANDA_QUEUE=BNL_OSG_2
     PANDA_WORKING_GROUP=EIC

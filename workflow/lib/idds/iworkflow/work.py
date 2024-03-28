@@ -287,6 +287,9 @@ class WorkContext(Context):
     def get_idds_server(self):
         return self._workflow_context.get_idds_server()
 
+    def init_brokers(self):
+        self._workflow_context.init_brokers()
+
     def initialize(self):
         return self._workflow_context.initialize()
 
@@ -300,7 +303,20 @@ class WorkContext(Context):
         """
         :returns command: `str` to setup the workflow.
         """
-        return self._workflow_context.setup()
+        if not self.init_env:
+            return self._workflow_context.setup()
+
+        global_set_up = self._workflow_context.global_setup()
+        init_env = self.init_env
+        ret = None
+        if global_set_up:
+            ret = global_set_up
+        if init_env:
+            if ret:
+                ret = ret + "; " + init_env
+            else:
+                ret = init_env
+        return ret
 
 
 class Work(Base):
@@ -536,7 +552,7 @@ class Work(Base):
         raise Exception("Not allwed to update group parameters")
 
     def get_work_tag(self):
-        return 'iWork'
+        return WorkflowType.iWork.name
 
     def get_work_type(self):
         return WorkflowType.iWork

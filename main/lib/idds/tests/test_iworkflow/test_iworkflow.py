@@ -119,8 +119,8 @@ if __name__ == '__main__':
     # wf = Workflow(func=test_workflow, service='idds', distributed=False)
     wf = Workflow(func=test_workflow, service='idds')
 
-    # wf.queue = 'BNL_OSG_2'
-    wf.queue = 'FUNCX_TEST'
+    wf.queue = 'BNL_OSG_2'
+    # wf.queue = 'FUNCX_TEST'
     wf.cloud = 'US'
 
     wf_json = json_dumps(wf)

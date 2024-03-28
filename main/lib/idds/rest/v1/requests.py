@@ -362,6 +362,58 @@ class RequestAbort(IDDSController):
         return self.generate_http_response(HTTP_STATUS_CODE.OK, data=[(0, {'status': 0, 'message': 'Command registered successfully'})])
 
 
+class RequestClose(IDDSController):
+    """ Clsoe Request. """
+
+    def put(self, request_id, workload_id=None):
+        """ Close the request.
+        HTTP Success:
+            200 OK
+        HTTP Error:
+            400 Bad request
+            404 Not Found
+            500 Internal Error
+        """
+        if request_id == 'null':
+            request_id = None
+        if workload_id == 'null':
+            workload_id = None
+
+        try:
+            username = self.get_username()
+            reqs = get_requests(request_id=request_id, workload_id=workload_id, with_request=True)
+
+            if not reqs:
+                return self.generate_http_response(HTTP_STATUS_CODE.OK, data=[(-1, {'status': -1, 'message': 'No match requests'})])
+
+            for req in reqs:
+                if req['username'] and req['username'] != username and not authenticate_is_super_user(username):
+                    msg = "User %s has no permission to update request %s(user: %s)" % (username, req['request_id'], req['username'])
+                    # raise exceptions.AuthenticationNoPermission(msg)
+                    return self.generate_http_response(HTTP_STATUS_CODE.OK, data=[(-1, {'status': -1, 'message': msg})])
+        except exceptions.AuthenticationNoPermission as error:
+            return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=error.__class__.__name__, exc_msg=error)
+        except Exception as error:
+            print(error)
+            print(format_exc())
+            return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
+
+        try:
+            add_command(request_id=request_id, cmd_type=CommandType.CloseRequest,
+                        workload_id=workload_id, cmd_content=None, username=username)
+
+        except exceptions.NoObject as error:
+            return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
+        except exceptions.IDDSException as error:
+            return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=error.__class__.__name__, exc_msg=error)
+        except Exception as error:
+            print(error)
+            print(format_exc())
+            return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
+
+        return self.generate_http_response(HTTP_STATUS_CODE.OK, data=[(0, {'status': 0, 'message': 'Command registered successfully'})])
+
+
 class RequestRetry(IDDSController):
     """ Retry Request. """
 
@@ -440,6 +492,9 @@ def get_blueprint():
     request_abort = RequestAbort.as_view('request_abort')
     bp.add_url_rule('/request/abort/<request_id>/<workload_id>', view_func=request_abort, methods=['put', ])
     bp.add_url_rule('/request/abort/<request_id>/<workload_id>/task_id', view_func=request_abort, methods=['put', ])
+
+    request_close = RequestClose.as_view('request_close')
+    bp.add_url_rule('/request/close/<request_id>/<workload_id>', view_func=request_close, methods=['put', ])
 
     request_retry = RequestRetry.as_view('request_retry')
     bp.add_url_rule('/request/retry/<request_id>/<workload_id>', view_func=request_retry, methods=['put', ])
