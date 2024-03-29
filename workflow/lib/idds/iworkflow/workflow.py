@@ -51,11 +51,11 @@ class WorkflowCanvas(object):
 
 
 class WorkflowContext(Context):
-    def __init__(self, name=None, service='panda', source_dir=None, type=WorkflowType.iWorkflow, distributed=True, max_walltime=24 * 3600, init_env=None):
+    def __init__(self, name=None, service='panda', source_dir=None, workflow_type=WorkflowType.iWorkflow, distributed=True, max_walltime=24 * 3600, init_env=None):
         super(WorkflowContext, self).__init__()
         self._service = service     # panda, idds, sharefs
         self._request_id = None
-        self._type = type
+        self._workflow_type = workflow_type
 
         # self.idds_host = None
         # self.idds_async_host = None
@@ -82,7 +82,7 @@ class WorkflowContext(Context):
 
         self._username = None
         self._userdn = None
-        self._type = type
+        self._workflow_type = workflow_type
         self._lifetime = 7 * 24 * 3600
         self._workload_id = None
         self._request_id = None
@@ -232,12 +232,12 @@ class WorkflowContext(Context):
         self._userdn = value
 
     @property
-    def type(self):
-        return self._type
+    def workflow_type(self):
+        return self._workflow_type
 
-    @type.setter
-    def type(self, value):
-        self._type = value
+    @workflow_type.setter
+    def workflow_type(self, value):
+        self._workflow_type = value
 
     @property
     def lifetime(self):
@@ -685,7 +685,7 @@ class Workflow(Base):
         if context is not None:
             self._context = context
         else:
-            self._context = WorkflowContext(name=self._name, service=service, type=workflow_type, source_dir=source_dir,
+            self._context = WorkflowContext(name=self._name, service=service, workflow_type=workflow_type, source_dir=source_dir,
                                             distributed=distributed, init_env=init_env, max_walltime=max_walltime)
 
     @property
@@ -823,12 +823,12 @@ class Workflow(Base):
         self._context.userdn = value
 
     @property
-    def type(self):
-        return self._context.type
+    def workflow_type(self):
+        return self._context.workflow_type
 
-    @type.setter
-    def type(self, value):
-        self._context.type = value
+    @workflow_type.setter
+    def workflow_type(self, value):
+        self._context.workflow_type = value
 
     @property
     def lifetime(self):
@@ -858,10 +858,10 @@ class Workflow(Base):
         self._context.token = value
 
     def get_work_tag(self):
-        return self._context.type.name
+        return self._context.workflow_type.name
 
     def get_work_type(self):
-        return self._context.type
+        return self._context.workflow_type
 
     def get_work_name(self):
         return self._name
@@ -930,9 +930,10 @@ class Workflow(Base):
         import pandaclient.idds_api as idds_api
 
         idds_server = self._context.get_idds_server()
-        client = idds_api.get_api(idds_utils.json_dumps,
+        client = idds_api.get_api(dumper=idds_utils.json_dumps,
                                   idds_host=idds_server,
                                   compress=True,
+                                  verbose=True,
                                   manager=True)
         request_id = client.submit(self, username=None, use_dataset_name=False)
 

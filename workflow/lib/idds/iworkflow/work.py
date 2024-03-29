@@ -28,12 +28,12 @@ setup_logging(__name__)
 
 class WorkContext(Context):
 
-    def __init__(self, name=None, workflow_context=None, source_dir=None):
+    def __init__(self, name=None, workflow_context=None, source_dir=None, init_env=None):
         super(WorkContext, self).__init__()
         self._workflow_context = workflow_context
         self._transform_id = None
         self._processing_id = None
-        self._type = WorkflowType.iWork
+        self._workflow_type = WorkflowType.iWork
 
         self._name = name
         self._site = None
@@ -46,6 +46,8 @@ class WorkContext(Context):
         self._max_attempt = 5
 
         self._map_results = False
+
+        self._init_env = init_env
 
     def get_service(self):
         return self._workflow_context.service
@@ -181,12 +183,12 @@ class WorkContext(Context):
         self._workflow_context.userdn = value
 
     @property
-    def type(self):
-        return self._type
+    def workflow_type(self):
+        return self._workflow_type
 
-    @type.setter
-    def type(self, value):
-        self._type = value
+    @workflow_type.setter
+    def workflow_type(self, value):
+        self._workflow_type = value
 
     @property
     def lifetime(self):
@@ -284,6 +286,14 @@ class WorkContext(Context):
     def map_results(self, value):
         self._map_results = value
 
+    @property
+    def init_env(self):
+        return self._init_env
+
+    @init_env.setter
+    def init_env(self, value):
+        self._init_env = value
+
     def get_idds_server(self):
         return self._workflow_context.get_idds_server()
 
@@ -322,7 +332,7 @@ class WorkContext(Context):
 class Work(Base):
 
     def __init__(self, func=None, workflow_context=None, context=None, args=None, kwargs=None, group_kwargs=None,
-                 update_kwargs=None, map_results=False, source_dir=None, is_unique_func_name=False):
+                 update_kwargs=None, map_results=False, source_dir=None, init_env=None, is_unique_func_name=False):
         """
         Init a workflow.
         """
@@ -344,7 +354,7 @@ class Work(Base):
         if context:
             self._context = context
         else:
-            self._context = WorkContext(name=self._name, workflow_context=workflow_context)
+            self._context = WorkContext(name=self._name, workflow_context=workflow_context, init_env=init_env)
 
         self.map_results = map_results
         self._results = None
@@ -501,12 +511,12 @@ class Work(Base):
         self._context.userdn = value
 
     @property
-    def type(self):
-        return self._context.type
+    def workflow_type(self):
+        return self._context.workflow_type
 
-    @type.setter
-    def type(self, value):
-        self._context.type = value
+    @workflow_type.setter
+    def workflow_type(self, value):
+        self._context.workflow_type = value
 
     @property
     def map_results(self):
@@ -552,10 +562,10 @@ class Work(Base):
         raise Exception("Not allwed to update group parameters")
 
     def get_work_tag(self):
-        return WorkflowType.iWork.name
+        return self._context.workflow_type.name
 
     def get_work_type(self):
-        return WorkflowType.iWork
+        return self._context.workflow_type.name
 
     def get_work_name(self):
         return self._name
