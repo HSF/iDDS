@@ -1,9 +1,9 @@
 
 var appConfig = {
-    'iddsAPI_request': "https://lxplus9106.cern.ch:443/idds/monitor_request/null/null",
-    'iddsAPI_transform': "https://lxplus9106.cern.ch:443/idds/monitor_transform/null/null",
-    'iddsAPI_processing': "https://lxplus9106.cern.ch:443/idds/monitor_processing/null/null",
-    'iddsAPI_request_detail': "https://lxplus9106.cern.ch:443/idds/monitor/null/null/true/false/false",
-    'iddsAPI_transform_detail': "https://lxplus9106.cern.ch:443/idds/monitor/null/null/false/true/false",
-    'iddsAPI_processing_detail': "https://lxplus9106.cern.ch:443/idds/monitor/null/null/false/false/true"
+    'iddsAPI_request': "https://lxplus964.cern.ch:443/idds/monitor_request/null/null",
+    'iddsAPI_transform': "https://lxplus964.cern.ch:443/idds/monitor_transform/null/null",
+    'iddsAPI_processing': "https://lxplus964.cern.ch:443/idds/monitor_processing/null/null",
+    'iddsAPI_request_detail': "https://lxplus964.cern.ch:443/idds/monitor/null/null/true/false/false",
+    'iddsAPI_transform_detail': "https://lxplus964.cern.ch:443/idds/monitor/null/null/false/true/false",
+    'iddsAPI_processing_detail': "https://lxplus964.cern.ch:443/idds/monitor/null/null/false/false/true"
 }
