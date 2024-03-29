@@ -20,9 +20,9 @@ class BaseSubmitter(object):
         pass
 
     def get_task_params(self, work):
-        if work.type in [WorkflowType.iWork]:
+        if work.workflow_type in [WorkflowType.iWork]:
             task_name = work.name + "_" + str(work.request_id) + "_" + str(work.transform_id)
-        elif work.type in [WorkflowType.iWorkflow]:
+        elif work.workflow_type in [WorkflowType.iWorkflow, WorkflowType.iWorkflowLocal]:
             task_name = work.name + "_" + str(work.request_id)
         else:
             task_name = work.name

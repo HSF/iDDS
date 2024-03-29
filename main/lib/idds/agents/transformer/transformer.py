@@ -343,7 +343,7 @@ class Transformer(BaseAgent):
         self.logger.info(log_pre + "handle_new_itransform: transform_id: %s" % transform['transform_id'])
 
         work = transform['transform_metadata']['work']
-        if work.type in [WorkflowType.iWork]:
+        if work.workflow_type in [WorkflowType.iWork]:
             work.transform_id = transform['transform_id']
 
         # create processing
