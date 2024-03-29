@@ -31,7 +31,7 @@ setup_logging(__name__)
 
 class WorkflowCanvas(object):
 
-    _managed_workflows: collections.deque[Base] = collections.deque()
+    _managed_workflows = collections.deque()
 
     @classmethod
     def push_managed_workflow(cls, workflow: Base):
@@ -374,13 +374,21 @@ class WorkflowContext(Context):
                                   compress=True,
                                   manager=True)
         ret = client.get_metainfo(name='asyncresult_config')
+        if ret[0] == 0 and ret[1][0]:
+            meta_info = ret[1][1]
+        else:
+            meta_info = None
+            logging.error("Failed to get meta info: %s" % str(ret))
 
-        return ret
+        return meta_info
 
     def get_broker_info(self):
-        if self.service == 'panda':
-            return self.get_broker_info_from_panda_server()
-        return self.get_broker_info_from_idds_server()
+        try:
+            if self.service == 'panda':
+                return self.get_broker_info_from_panda_server()
+            return self.get_broker_info_from_idds_server()
+        except Exception as ex:
+            logging.error("Failed to get broker info: %s" % str(ex))
 
     def init_idds(self):
         if not self._idds_initialized:
@@ -933,9 +941,13 @@ class Workflow(Base):
         client = idds_api.get_api(dumper=idds_utils.json_dumps,
                                   idds_host=idds_server,
                                   compress=True,
-                                  verbose=True,
                                   manager=True)
-        request_id = client.submit(self, username=None, use_dataset_name=False)
+        ret = client.submit(self, username=None, use_dataset_name=False)
+        if ret[0] == 0 and ret[1][0]:
+            request_id = ret[1][1]
+        else:
+            request_id = None
+            logging.error("Failed to submit workflow to PanDA-iDDS with error: %s" % str(ret))
 
         logging.info("Submitted into PanDA-iDDS with request id=%s", str(request_id))
         return request_id
@@ -947,17 +959,21 @@ class Workflow(Base):
         :returns id: the workflow id.
         :raise Exception when failing to submit the workflow.
         """
-        self.prepare()
-        if self.service == 'panda':
-            request_id = self.submit_to_panda_server()
-        else:
-            request_id = self.submit_to_idds_server()
+        try:
+            request_id = None
+            self.prepare()
+            if self.service == 'panda':
+                request_id = self.submit_to_panda_server()
+            else:
+                request_id = self.submit_to_idds_server()
+        except Exception as ex:
+            logging.error("Failed to submit workflow: %s" % str(ex))
 
         try:
             self._context.request_id = int(request_id)
             return request_id
         except Exception as ex:
-            logging.info("Request id (%s) is not integer, there should be some submission errors: %s" % (request_id, str(ex)))
+            logging.error("Request id (%s) is not integer, there should be some submission errors: %s" % (request_id, str(ex)))
 
         return None
 
@@ -972,9 +988,9 @@ class Workflow(Base):
         from idds.client.clientmanager import ClientManager
 
         client = ClientManager(host=self._context.get_idds_server())
-        request_id = client.close(request_id)
+        ret = client.close(request_id)
 
-        logging.info("Close request id=%s to iDDS server", str(request_id))
+        logging.info("Close request id=%s to iDDS server: %s", str(request_id), str(ret))
         return request_id
 
     def close_to_panda_server(self, request_id):
@@ -992,9 +1008,9 @@ class Workflow(Base):
                                   idds_host=idds_server,
                                   compress=True,
                                   manager=True)
-        request_id = client.close(request_id)
+        ret = client.close(request_id)
 
-        logging.info("Close request id=%s through PanDA-iDDS", str(request_id))
+        logging.info("Close request id=%s through PanDA-iDDS: %s", str(request_id), str(ret))
         return request_id
 
     def close(self):
@@ -1004,10 +1020,13 @@ class Workflow(Base):
         :raise Exception when failing to close the workflow.
         """
         if self._context.request_id is not None:
-            if self.service == 'panda':
-                self.close_to_panda_server(self._context.request_id)
-            else:
-                self.close_to_idds_server(self._context.request_id)
+            try:
+                if self.service == 'panda':
+                    self.close_to_panda_server(self._context.request_id)
+                else:
+                    self.close_to_idds_server(self._context.request_id)
+            except Exception as ex:
+                logging.error("Failed to close request(%s): %s" % (self._context.request_id, str(ex)))
 
     def setup(self):
         """
