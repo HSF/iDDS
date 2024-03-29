@@ -18,7 +18,7 @@ import traceback
 from idds.common import exceptions
 from idds.common.constants import WorkflowType, TransformStatus
 from idds.common.imports import get_func_name
-from idds.common.utils import setup_logging, json_dumps, encode_base64
+from idds.common.utils import setup_logging, json_dumps, json_loads, encode_base64
 from .asyncresult import AsyncResult, MapResult
 from .base import Base, Context
 from .workflow import WorkflowCanvas
@@ -607,7 +607,13 @@ class Work(Base):
                                   idds_host=idds_server,
                                   compress=True,
                                   manager=True)
-        transform_id = client.submit_work(request_id, self, use_dataset_name=False)
+        ret = client.submit_work(request_id, self, use_dataset_name=False)
+        if ret[0] == 0 and ret[1][0]:
+            transform_id = ret[1][1]
+        else:
+            transform_id = None
+            logging.error("Failed to submit work to PanDA-iDDS with error: %s" % str(ret))
+
         logging.info("Submitted work into PanDA-iDDS with transform id=%s", str(transform_id))
         return transform_id
 
@@ -618,16 +624,19 @@ class Work(Base):
         :returns id: The workflow id.
         :raise Exception when failing to submit the workflow.
         """
-        if self._context.get_service() == 'panda':
-            tf_id = self.submit_to_panda_server()
-        else:
-            tf_id = self.submit_to_idds_server()
+        try:
+            if self._context.get_service() == 'panda':
+                tf_id = self.submit_to_panda_server()
+            else:
+                tf_id = self.submit_to_idds_server()
+        except Exception as ex:
+            logging.error("Failed to submit work: %s" % str(ex))
 
         try:
             self._context.transform_id = int(tf_id)
             return tf_id
         except Exception as ex:
-            logging.info("Transform id (%s) is not integer, there should be some submission errors: %s" % (tf_id, str(ex)))
+            logging.error("Transform id (%s) is not integer, there should be some submission errors: %s" % (tf_id, str(ex)))
 
         return None
 
@@ -648,12 +657,18 @@ class Work(Base):
             logging.error(log_msg)
             return exceptions.IDDSException(log_msg)
 
-        tf = client.get_transform(request_id=request_id, transform_id=transform_id)
+        ret = client.get_transform(request_id=request_id, transform_id=transform_id)
+        if ret[0] == 0 and ret[1][0]:
+            tf = json_loads(ret[1][1])
+        else:
+            tf = None
+            logging.error("Failed to get transform (request_id: %s, transform_id: %s) status from PanDA-iDDS: %s" % (request_id, transform_id, ret))
+
         if not tf:
-            logging.info("Get transform (request_id: %s, transform_id: %s) from iDDS: %s" % (request_id, transform_id, tf))
+            logging.info("Get transform (request_id: %s, transform_id: %s) from PanDA-iDDS: %s" % (request_id, transform_id, tf))
             return None
 
-        logging.info("Get transform status (request_id: %s, transform_id: %s) from iDDS: %s" % (request_id, transform_id, tf['status']))
+        logging.info("Get transform status (request_id: %s, transform_id: %s) from PanDA-iDDS: %s" % (request_id, transform_id, tf['status']))
 
         return tf['status']
 

@@ -14,7 +14,7 @@ import os
 import traceback
 import uuid
 
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union    # noqa F401
 
 from idds.common.dict_class import DictMetadata, DictBase
 from idds.common.imports import import_func, get_func_name
@@ -50,9 +50,9 @@ class Base(DictBase):
 
     def get_func_name_and_args(self,
                                func,
-                               args: Union[List[Any], Optional[Tuple]] = None,
-                               kwargs: Optional[Dict[str, Any]] = None,
-                               group_kwargs: Optional[list[Dict[str, Any]]] = None):
+                               args=None,
+                               kwargs=None,
+                               group_kwargs=None):
 
         if args is None:
             args = ()
