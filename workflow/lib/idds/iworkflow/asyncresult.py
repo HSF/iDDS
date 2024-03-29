@@ -308,12 +308,12 @@ class AsyncResult(Base):
                                       timeout=timeout)
             conn.set_listener("messag-subscriber", listener)
             conn.connect(workflow_context.broker_username, workflow_context.broker_password, wait=True)
-            if workflow_context.type == WorkflowType.iWorkflow:
+            if workflow_context.workflow_type in [WorkflowType.iWorkflow, WorkflowType.iWorkflowLocal]:
                 subscribe_id = 'idds-workflow_%s' % self.internal_id
                 # subscribe_selector = {'selector': "type = 'iworkflow' AND request_id = %s" % workflow_context.request_id}
                 # subscribe_selector = {'selector': "type = 'iworkflow' AND internal_id = '%s'" % self.internal_id}
                 subscribe_selector = {'selector': "internal_id = '%s'" % self.internal_id}
-            elif workflow_context.type == WorkflowType.iWork:
+            elif workflow_context.workflow_type == WorkflowType.iWork:
                 subscribe_id = 'idds-work_%s' % self.internal_id
                 # subscribe_selector = {'selector': "type = 'iwork' AND request_id = %s AND transform_id = %s " % (workflow_context.request_id,
                 #                                                                                                  workflow_context.transform_id)}
@@ -341,7 +341,7 @@ class AsyncResult(Base):
                 key = "%s:%s" % (self._name, key)
                 self.logger.info("publish args (%s) to key: %s" % (str(self._run_group_kwarg), key))
 
-        if workflow_context.type == WorkflowType.iWorkflow:
+        if workflow_context.workflow_type in [WorkflowType.iWorkflow, WorkflowType.iWorkflowLocal]:
             headers = {'persistent': 'true',
                        'type': 'iworkflow',
                        'internal_id': str(self.internal_id),
@@ -354,7 +354,7 @@ class AsyncResult(Base):
                       headers=headers
                       )
             self.logger.info("publish header: %s, body: %s" % (str(headers), str(body)))
-        elif workflow_context.type == WorkflowType.iWork:
+        elif workflow_context.workflow_type == WorkflowType.iWork:
             headers = {'persistent': 'true',
                        'type': 'iwork',
                        'internal_id': str(self.internal_id),

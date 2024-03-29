@@ -437,14 +437,14 @@ class ClientManager:
         transform_tag = 'workflow'
         priority = 0
         try:
-            if workflow.type in [WorkflowType.iWorkflow]:
+            if workflow.workflow_type in [WorkflowType.iWorkflow]:
                 scope = 'iworkflow'
                 request_type = RequestType.iWorkflow
                 transform_tag = workflow.get_work_tag()
                 priority = workflow.priority
                 if priority is None:
                     priority = 0
-            elif workflow.type in [WorkflowType.iWorkflowLocal]:
+            elif workflow.workflow_type in [WorkflowType.iWorkflowLocal]:
                 scope = 'iworkflowLocal'
                 request_type = RequestType.iWorkflowLocal
                 transform_tag = workflow.get_work_tag()
@@ -507,14 +507,14 @@ class ClientManager:
         priority = 0
         workload_id = None
         try:
-            if work.type in [WorkflowType.iWork]:
+            if work.workflow_type in [WorkflowType.iWork]:
                 transform_type = TransformType.iWork
                 transform_tag = work.get_work_tag()
                 workload_id = work.workload_id
                 priority = work.priority
                 if priority is None:
                     priority = 0
-            elif work.type in [WorkflowType.iWorkflow]:
+            elif work.workflow_type in [WorkflowType.iWorkflow, WorkflowType.iWorkflowLocal]:
                 transform_type = TransformType.iWorkflow
                 transform_tag = work.get_work_tag()
                 workload_id = work.workload_id
