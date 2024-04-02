@@ -8,12 +8,14 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2023 - 2024
 
+import base64
 import collections
 import datetime
 import functools
 import logging
 import inspect
 import os
+import pickle
 import tarfile
 import uuid
 
@@ -21,7 +23,7 @@ import uuid
 
 # from idds.common import exceptions
 from idds.common.constants import WorkflowType
-from idds.common.utils import setup_logging, create_archive_file, json_dumps, encode_base64
+from idds.common.utils import setup_logging, create_archive_file, json_dumps, json_loads, encode_base64
 from .asyncresult import AsyncResult
 from .base import Base, Context
 
@@ -134,6 +136,8 @@ class WorkflowContext(Context):
     @init_env.setter
     def init_env(self, value):
         self._init_env = value
+        if self._init_env:
+            self._init_env = self._init_env + " "
 
     @property
     def vo(self):
@@ -376,6 +380,13 @@ class WorkflowContext(Context):
         ret = client.get_metainfo(name='asyncresult_config')
         if ret[0] == 0 and ret[1][0]:
             meta_info = ret[1][1]
+            if type(meta_info) in [dict]:
+                pass
+            elif type(meta_info) in [str]:
+                try:
+                    meta_info = json_loads(meta_info)
+                except Exception as ex:
+                    logging.warn("Failed to json loads meta info(%s): %s" % (meta_info, ex))
         else:
             meta_info = None
             logging.error("Failed to get meta info: %s" % str(ret))
@@ -677,6 +688,8 @@ class Workflow(Base):
         # self._func = func
         self._func, self._func_name_and_args = self.get_func_name_and_args(func, args, kwargs, group_kwargs)
         self._update_kwargs = update_kwargs
+        if self._update_kwargs:
+            self._update_kwargs = base64.b64encode(pickle.dumps(self._update_kwargs)).decode("utf-8")
 
         self._name = self._func_name_and_args[0]
         if self._name:
@@ -1088,6 +1101,13 @@ class Workflow(Base):
             self.pre_run()
 
             func_name, args, kwargs, group_kwargs = self._func_name_and_args
+            if args:
+                args = pickle.loads(base64.b64decode(args))
+            if kwargs:
+                kwargs = pickle.loads(base64.b64decode(kwargs))
+            if group_kwargs:
+                group_kwargs = [pickle.loads(base64.b64decode(k)) for k in group_kwargs]
+
             if self._func is None:
                 func = self.load(func_name)
                 self._func = func
@@ -1120,7 +1140,10 @@ class Workflow(Base):
         run_command = self.get_run_command()
 
         if setup:
-            cmd = ' --setup "' + setup + '" '
+            pre_setup, main_setup = self.split_setup(setup)
+            if pre_setup:
+                cmd = ' --pre_setup "' + pre_setup + '" '
+            cmd = cmd + ' --setup "' + main_setup + '" '
         if cmd:
             cmd = cmd + " " + run_command
         else:
@@ -1133,10 +1156,10 @@ class Workflow(Base):
 
 
 # foo = workflow(arg)(foo)
-def workflow(func=None, *, local=False, service='idds', source_dir=None, primary=False, queue=None, site=None, cloud=None, max_walltime=24 * 3600, distributed=True):
+def workflow(func=None, *, local=False, service='idds', source_dir=None, primary=False, queue=None, site=None, cloud=None, max_walltime=24 * 3600, distributed=True, init_env=None):
     if func is None:
         return functools.partial(workflow, local=local, service=service, source_dir=source_dir, primary=primary, queue=queue, site=site, cloud=cloud,
-                                 max_walltime=max_walltime, distributed=distributed)
+                                 max_walltime=max_walltime, distributed=distributed, init_env=init_env)
 
     if 'IDDS_IWORKFLOW_LOAD_WORKFLOW' in os.environ:
         return func
@@ -1144,7 +1167,8 @@ def workflow(func=None, *, local=False, service='idds', source_dir=None, primary
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         try:
-            f = Workflow(func, service=service, source_dir=source_dir, local=local, max_walltime=max_walltime, distributed=distributed)
+            f = Workflow(func, service=service, source_dir=source_dir, local=local, max_walltime=max_walltime, distributed=distributed,
+                         args=args, kwargs=kwargs, init_env=init_env)
             f.queue = queue
             f.site = site
             f.cloud = cloud

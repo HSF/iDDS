@@ -1,0 +1,62 @@
+[root@aipanda180 singularity]# apptainer remote add --no-login SylabsCloud cloud.sylabs.io
+INFO:    Remote "SylabsCloud" added.
+
+[root@aipanda180 singularity]# apptainer remote login
+Generate an access token at https://cloud.sylabs.io/auth/tokens, and paste it here.
+Token entered will be hidden for security.
+Access Token: 
+INFO:    Access Token Verified!
+INFO:    Token stored in /root/.apptainer/remote.yaml
+
+
+[root@aipanda180 singularity]# singularity keys newpair
+Enter your name (e.g., John Doe) : Wen Guan
+Enter your email address (e.g., john.doe@example.com) : wguan.icedew@gmail.com
+Enter optional comment (e.g., development keys) : dev
+Enter a passphrase : 
+Retype your passphrase : 
+WARNING: passphrases do not match
+Enter a passphrase : 
+Retype your passphrase : 
+Generating Entity and OpenPGP Key Pair... done
+[root@aipanda180 singularity]# singularity keys list
+Public key listing (/root/.apptainer/keys/pgp-public):
+
+0)  User:              Wen Guan (dev) <wguan.icedew@gmail.com>
+    Creation time:     2024-04-02 11:47:04 +0200 CEST
+    Fingerprint:       11B3BCA23474A37E2BB72F8EAD61E4FD656ABA65
+    Length (in bits):  4096
+
+
+[root@aipanda180 singularity]# singularity keys push 11B3BCA23474A37E2BB72F8EAD61E4FD656ABA65
+public key `11B3BCA23474A37E2BB72F8EAD61E4FD656ABA65' pushed to server successfully
+[root@aipanda180 singularity]# ls /root/.apptainer/
+cache  keys  remote-cache  remote.yaml
+[root@aipanda180 singularity]# ls /root/.apptainer/keys/
+pgp-public  pgp-secret
+
+
+[root@aipanda180 singularity]# singularity sign idds_ml_ax_al9.simg 
+INFO:    Signing image with PGP key material
+Enter key passphrase : 
+INFO:    Signature created and applied to image 'idds_ml_ax_al9.simg'
+[root@aipanda180 singularity]# singularity verify idds_ml_ax_al9.simg 
+INFO:    Verifying image with PGP key material
+[LOCAL]   Signing entity: Wen Guan (dev) <wguan.icedew@gmail.com>
+[LOCAL]   Fingerprint: 11B3BCA23474A37E2BB72F8EAD61E4FD656ABA65
+Objects verified:
+ID  |GROUP   |LINK    |TYPE
+------------------------------------------------
+1   |1       |NONE    |Def.FILE
+2   |1       |NONE    |JSON.Generic
+3   |1       |NONE    |FS
+INFO:    Verified signature(s) from image 'idds_ml_ax_al9.simg'
+
+
+[root@aipanda180 singularity]# cp /root/.apptainer/
+cache/        keys/         remote-cache/ remote.yaml   
+[root@aipanda180 singularity]# cp /root/.apptainer/remote.yaml /afs/cern.ch/user/w/wguan/private/apptainer/
+[root@aipanda180 singularity]# cp -r /root/.apptainer/keys /afs/cern.ch/user/w/wguan/private/apptainer/
+
+
+[root@aipanda180 singularity]# singularity push idds_ml_ax_al9.simg library://wguanicedew/ml/idds_ml_ax_al9.sif:latest

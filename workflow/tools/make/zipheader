@@ -38,6 +38,7 @@ export PANDA_BEHIND_REAL_LB=true;
 
 myargs="$@"
 setup=""
+pre_setup=""
 
 POSITIONAL=()
 while [[ $# -gt 0 ]]; do
@@ -45,6 +46,11 @@ while [[ $# -gt 0 ]]; do
     case $key in
         --setup)
         setup="$2"
+        shift
+        shift
+        ;;
+	--pre_setup)
+        pre_setup="$2"
         shift
         shift
         ;;
@@ -57,10 +63,11 @@ done
 
 set -- "${POSITIONAL[@]}" # restore positional parameters
 
-echo $setup
+echo "pre_setup: " $pre_setup
+echo "setup:" $setup
 
 run_args=$@
-echo $run_args
+echo "run_args: " $run_args
 
 cmdfile="run_workflow.sh"
 cat <<- EOF > ./$cmdfile
@@ -89,6 +96,8 @@ chmod +x ./$cmdfile
 # exec python "$@"
 # python "$@"
 # exec "$@"
+
+$pre_setup
 
 $setup ./$cmdfile
 ret=$?
