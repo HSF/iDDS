@@ -1,4 +1,5 @@
 
+# aipanda180
 # cp -r /eos/user/w/wguan/idds_ml/singularity/* /opt/singularity
 
 cd /opt/singularity/

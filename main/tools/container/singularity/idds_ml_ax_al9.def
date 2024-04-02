@@ -1,0 +1,32 @@
+Bootstrap: docker
+From: almalinux:9.2
+
+%post
+    # yum update -q -y
+    yum install -q -y wget make git gcc openssl-devel bzip2-devel libffi-devel which pip
+
+    ln -s /usr/bin/python3 /usr/bin/python
+
+    pip install --upgrade pip
+    pip install nevergrad
+    pip install theano keras h5py matplotlib tabulate
+    pip install bayesian-optimization
+    pip install xgboost
+    pip install lightgbm
+    pip install ax-platform
+
+    pip install torch pandas numpy matplotlib wandb botorch
+
+    # clean the cache
+    rm -fr /root/.cache
+
+%environment
+    # export LC_ALL=C
+    # export PATH=/usr/games:$PATH
+
+%labels
+    Maintainer iDDS_HPO_Nevergrad(wen.guan@cern.ch)
+    Version v1.0
+
+%runscript
+    echo "iDDS ML hyper parameter optimization plugin"
