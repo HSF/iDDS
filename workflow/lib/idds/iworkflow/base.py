@@ -8,9 +8,11 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2024
 
+import base64
 import logging
 import inspect
 import os
+import pickle
 import traceback
 import uuid
 
@@ -77,6 +79,14 @@ class Base(DictBase):
         else:
             # raise TypeError('Expected a callable or a string, but got: {0}'.format(func))
             func_name = func
+
+        if args:
+            args = base64.b64encode(pickle.dumps(args)).decode("utf-8")
+        if kwargs:
+            kwargs = base64.b64encode(pickle.dumps(kwargs)).decode("utf-8")
+        if group_kwargs:
+            group_kwargs = [base64.b64encode(pickle.dumps(k)).decode("utf-8") for k in group_kwargs]
+
         return func_call, (func_name, args, kwargs, group_kwargs)
 
     @property
@@ -122,6 +132,19 @@ class Base(DictBase):
         """
         self.prepare()
         return None
+
+    def split_setup(self, setup):
+        """
+        Split setup string
+        """
+        if ";" not in setup:
+            return "", setup
+
+        setup_list = setup.split(";")
+        main_setup = setup_list[-1]
+        pre_setup = "; ".join(setup_list[:-1])
+        pre_setup = pre_setup + "; "
+        return pre_setup, main_setup
 
     def setup(self):
         """

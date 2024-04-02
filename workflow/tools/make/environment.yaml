@@ -11,7 +11,7 @@ dependencies:
   - packaging
   - anytree
   - networkx
-  - stomp.py
+  - stomp.py==8.0.1
   - panda-client
   - cffi
   - charset_normalizer

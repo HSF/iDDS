@@ -8,10 +8,13 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2023 - 2024
 
+import base64
 import datetime
 import functools
+import json
 import logging
 import os
+import pickle
 import time
 import traceback
 
@@ -293,6 +296,8 @@ class WorkContext(Context):
     @init_env.setter
     def init_env(self, value):
         self._init_env = value
+        if self._init_env:
+            self._init_env = self._init_env + " "
 
     def get_idds_server(self):
         return self._workflow_context.get_idds_server()
@@ -343,6 +348,8 @@ class Work(Base):
         self._func, self._func_name_and_args = self.get_func_name_and_args(func, args, kwargs, group_kwargs)
 
         self._update_kwargs = update_kwargs
+        if self._update_kwargs:
+            self._update_kwargs = base64.b64encode(pickle.dumps(self._update_kwargs)).decode("utf-8")
 
         self._name = self._func_name_and_args[0]
         if self._name:
@@ -659,7 +666,14 @@ class Work(Base):
 
         ret = client.get_transform(request_id=request_id, transform_id=transform_id)
         if ret[0] == 0 and ret[1][0]:
-            tf = json_loads(ret[1][1])
+            tf = ret[1][1]
+            if type(tf) in [dict]:
+                tf = json_loads(json.dumps(tf))
+            elif type(tf) in [str]:
+                try:
+                    tf = json_loads(tf)
+                except Exception as ex:
+                    logging.warn("Failed to json loads transform(%s): %s" % (tf, ex))
         else:
             tf = None
             logging.error("Failed to get transform (request_id: %s, transform_id: %s) status from PanDA-iDDS: %s" % (request_id, transform_id, ret))
@@ -711,6 +725,7 @@ class Work(Base):
 
     def get_group_kwargs(self):
         group_kwargs = self._func_name_and_args[3]
+        group_kwargs = [pickle.loads(base64.b64decode(k)) for k in group_kwargs]
         return group_kwargs
 
     def wait_results(self):
@@ -798,6 +813,17 @@ class Work(Base):
         self.pre_run()
 
         func_name, args, kwargs, group_kwargs = self._func_name_and_args
+        update_kwargs = self._update_kwargs
+
+        if args:
+            args = pickle.loads(base64.b64decode(args))
+        if kwargs:
+            kwargs = pickle.loads(base64.b64decode(kwargs))
+        if group_kwargs:
+            group_kwargs = [pickle.loads(base64.b64decode(k)) for k in group_kwargs]
+        if self._update_kwargs:
+            update_kwargs = pickle.loads(base64.b64decode(update_kwargs))
+
         if self._func is None:
             func = self.load(func_name)
             self._func = func
@@ -805,22 +831,22 @@ class Work(Base):
         if self._context.distributed:
             rets = None
             kwargs_copy = kwargs.copy()
-            if self._update_kwargs and type(self._update_kwargs) in [dict]:
-                kwargs_copy.update(self._update_kwargs)
+            if update_kwargs and type(update_kwargs) in [dict]:
+                kwargs_copy.update(update_kwargs)
 
             rets = self.run_func(self._func, args, kwargs_copy)
 
             request_id = self._context.request_id
             transform_id = self._context.transform_id
             logging.info("publishing AsyncResult to (request_id: %s, transform_id: %s): %s" % (request_id, transform_id, rets))
-            async_ret = AsyncResult(self._context, name=self.get_func_name(), internal_id=self.internal_id, run_group_kwarg=self._update_kwargs)
+            async_ret = AsyncResult(self._context, name=self.get_func_name(), internal_id=self.internal_id, run_group_kwarg=update_kwargs)
             async_ret.publish(rets)
 
             if not self.map_results:
                 self._results = rets
             else:
                 self._results = MapResult()
-                self._results.add_result(name=self.get_func_name(), args=self._update_kwargs, result=rets)
+                self._results.add_result(name=self.get_func_name(), args=update_kwargs, result=rets)
             return self._results
         else:
             if not group_kwargs:
@@ -829,7 +855,7 @@ class Work(Base):
                     self._results = rets
                 else:
                     self._results = MapResult()
-                    self._results.add_result(name=self.get_func_name(), args=self._update_kwargs, result=rets)
+                    self._results.add_result(name=self.get_func_name(), args=kwargs, result=rets)
                 return self._results
             else:
                 if not self.map_results:
@@ -861,7 +887,10 @@ class Work(Base):
         run_command = self.get_run_command()
 
         if setup:
-            cmd = ' --setup "' + setup + '" '
+            pre_setup, main_setup = self.split_setup(setup)
+            if pre_setup:
+                cmd = ' --pre_setup "' + pre_setup + '" '
+            cmd = cmd + ' --setup "' + main_setup + '" '
         if cmd:
             cmd = cmd + " " + run_command
         else:
@@ -887,9 +916,9 @@ def run_work_distributed(w):
 
 
 # foo = work(arg)(foo)
-def work(func=None, *, map_results=False, lazy=False):
+def work(func=None, *, map_results=False, lazy=False, init_env=None):
     if func is None:
-        return functools.partial(work, map_results=map_results, lazy=lazy)
+        return functools.partial(work, map_results=map_results, lazy=lazy, init_env=init_env)
 
     if 'IDDS_IWORKFLOW_LOAD_WORK' in os.environ:
         return func
@@ -905,7 +934,8 @@ def work(func=None, *, map_results=False, lazy=False):
             logging.debug("work decorator: func: %s, map_results: %s" % (func, map_results))
             if workflow_context:
                 logging.debug("setup work")
-                w = Work(workflow_context=workflow_context, func=func, args=args, kwargs=kwargs, group_kwargs=group_kwargs, map_results=map_results)
+                w = Work(workflow_context=workflow_context, func=func, args=args, kwargs=kwargs, group_kwargs=group_kwargs,
+                         map_results=map_results, init_env=init_env)
                 # if distributed:
                 if workflow_context.distributed:
                     ret = run_work_distributed(w)
