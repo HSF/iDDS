@@ -17,8 +17,10 @@ from __future__ import print_function
 
 import argparse
 import argcomplete
+import base64
 # import json
 import logging
+import pickle
 import os
 import sys
 import time
@@ -39,16 +41,28 @@ def get_context_args(context, original_args, update_args):
     if original_args:
         original_args = json_loads(original_args)
         func_name, args, kwargs, group_kwargs = original_args
+
+    if args:
+        args = pickle.loads(base64.b64decode(args))
+    if kwargs:
+        kwargs = pickle.loads(base64.b64decode(kwargs))
+    if group_kwargs:
+        group_kwargs = [pickle.loads(base64.b64decode(k)) for k in group_kwargs]
+
     if update_args:
         if update_args == "${IN/L}":
             logging.info("update_args == original ${IN/L}, is not set")
         else:
             try:
                 update_args = json_loads(update_args)
-                update_kwargs = update_args
-                if update_kwargs and isinstance(update_kwargs, dict):
-                    # kwargs = merge_dict(kwargs, update_kwargs)
-                    kwargs.update(update_kwargs)
+
+                if update_args:
+                    update_args = pickle.loads(base64.b64decode(update_args))
+
+                # update_kwargs = update_args
+                # if update_kwargs and isinstance(update_kwargs, dict):
+                #     # kwargs = merge_dict(kwargs, update_kwargs)
+                #     kwargs.update(update_kwargs)
             except Exception as ex:
                 logging.error("Failed to update kwargs: %s" % ex)
     return context, func_name, args, kwargs, group_kwargs, update_args
