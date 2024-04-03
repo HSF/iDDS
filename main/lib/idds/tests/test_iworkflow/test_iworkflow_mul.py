@@ -49,12 +49,12 @@ def test_func1(name, name1=None):
 
 def test_workflow():
     print("test workflow starts")
-    group_kwargs = [{'name': 1, 'name1': 2},
-                    {'name': 3, 'name1': 4}]
-    ret = test_func(name='idds', group_kwargs=group_kwargs)
+    multi_jobs_kwargs_list = [{'name': 1, 'name1': 2},
+                              {'name': 3, 'name1': 4}]
+    ret = test_func(name='idds', multi_jobs_kwargs_list=multi_jobs_kwargs_list)
     print(ret)
 
-    ret = test_func1(name='idds', group_kwargs=group_kwargs)
+    ret = test_func1(name='idds', multi_jobs_kwargs_list=multi_jobs_kwargs_list)
     print(ret)
     print("test workflow ends")
 

@@ -54,20 +54,20 @@ class Base(DictBase):
                                func,
                                args=None,
                                kwargs=None,
-                               group_kwargs=None):
+                               multi_jobs_kwargs_list=None):
 
         if args is None:
             args = ()
         if kwargs is None:
             kwargs = {}
-        if group_kwargs is None:
-            group_kwargs = []
+        if multi_jobs_kwargs_list is None:
+            multi_jobs_kwargs_list = []
         if not isinstance(args, (tuple, list)):
             raise TypeError('{0!r} is not a valid args list'.format(args))
         if not isinstance(kwargs, dict):
             raise TypeError('{0!r} is not a valid kwargs dict'.format(kwargs))
-        if not isinstance(group_kwargs, list):
-            raise TypeError('{0!r} is not a valid group_kwargs list'.format(group_kwargs))
+        if not isinstance(multi_jobs_kwargs_list, list):
+            raise TypeError('{0!r} is not a valid multi_jobs_kwargs_list list'.format(multi_jobs_kwargs_list))
 
         func_call, func_name = None, None
         if isinstance(func, str):
@@ -84,10 +84,10 @@ class Base(DictBase):
             args = base64.b64encode(pickle.dumps(args)).decode("utf-8")
         if kwargs:
             kwargs = base64.b64encode(pickle.dumps(kwargs)).decode("utf-8")
-        if group_kwargs:
-            group_kwargs = [base64.b64encode(pickle.dumps(k)).decode("utf-8") for k in group_kwargs]
+        if multi_jobs_kwargs_list:
+            multi_jobs_kwargs_list = [base64.b64encode(pickle.dumps(k)).decode("utf-8") for k in multi_jobs_kwargs_list]
 
-        return func_call, (func_name, args, kwargs, group_kwargs)
+        return func_call, (func_name, args, kwargs, multi_jobs_kwargs_list)
 
     @property
     def logger(self):
