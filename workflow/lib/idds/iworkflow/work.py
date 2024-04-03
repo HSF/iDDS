@@ -748,8 +748,10 @@ class Work(Base):
                 # time.sleep(10)
                 ret = async_ret.wait_results(timeout=10)
                 if ret:
-                    logging.info("Recevied result: %s" % ret)
+                    logging.info("Recevied result: %s" % str(ret))
                     break
+                if async_ret.waiting_result_terminated:
+                    logging.info("waiting_result_terminated is set, Received result is: %s" % str(ret))
                 if time.time() - time_last_check_status > 600:   # 10 minutes
                     status = self.get_status()
                     time_last_check_status = time.time()

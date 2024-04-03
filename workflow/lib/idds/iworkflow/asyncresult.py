@@ -140,6 +140,7 @@ class AsyncResult(Base):
         self._bad_results = []
         self._results_percentage = 0
         self._map_results = map_results
+        self.waiting_result_terminated = False
 
         self._wait_num = wait_num
         if not self._wait_num:
@@ -432,10 +433,13 @@ class AsyncResult(Base):
                 time.sleep(1)
                 if percent >= self._wait_percent:
                     get_results = True
+                    self.waiting_result_terminated = True
+                    self.logger.info("Got result percentage %s is not smaller then wait_percent %s, set waiting_result_terminated to True" % (percent, self._wait_percent))
                 if self._timeout is not None and self._timeout > 0 and time.time() - time_start > self._timeout:
                     # global timeout
-                    self.logger.info("Waiting result timeout(%s seconds)" % self._timeout)
+                    self.logger.info("Waiting result timeout(%s seconds), set waiting_result_terminated to True" % self._timeout)
                     get_results = True
+                    self.waiting_result_terminated = True
                 if timeout is not None and timeout > 0 and time.time() - time_start > timeout:
                     # local timeout
                     break
