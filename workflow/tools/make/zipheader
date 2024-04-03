@@ -70,8 +70,12 @@ run_args=$@
 echo "run_args: " $run_args
 
 cmdfile="run_workflow.sh"
-cat <<- EOF > ./$cmdfile
+cat <<- EOF > ${current_dir}/$cmdfile
 #/bin/bash
+
+echo "current dir: " \$PWD
+
+# cd ${current_dir}
 
 current_dir=\$PWD
 export PATH=\${current_dir}:\${current_dir}/tmp_bin:\${current_dir}/bin:\$PATH
@@ -91,15 +95,16 @@ $run_args
 
 EOF
 
-chmod +x ./$cmdfile
+chmod +x ${current_dir}/$cmdfile
 
 # exec python "$@"
 # python "$@"
 # exec "$@"
 
-$pre_setup
+# eval $pre_setup
 
-$setup ./$cmdfile
+cmd="$pre_setup $setup ${current_dir}/$cmdfile"
+eval $cmd
 ret=$?
 
 echo pwd

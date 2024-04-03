@@ -28,8 +28,8 @@ class BaseSubmitter(object):
             task_name = work.name
 
         in_files = []
-        group_parameters = work.group_parameters
-        for p in group_parameters:
+        multi_jobs_kwargs_list = work.multi_jobs_kwargs_list
+        for p in multi_jobs_kwargs_list:
             p = json.dumps(p)
             p = encode_base64(p)
             in_files.append(p)

@@ -118,7 +118,7 @@ class MapResult(object):
 
 class AsyncResult(Base):
 
-    def __init__(self, work_context, name=None, wait_num=1, wait_keys=[], group_kwargs=[], run_group_kwarg=None, map_results=False,
+    def __init__(self, work_context, name=None, wait_num=1, wait_keys=[], multi_jobs_kwargs_list=[], current_job_kwargs=None, map_results=False,
                  wait_percent=1, internal_id=None, timeout=None):
         """
         Init a workflow.
@@ -145,8 +145,8 @@ class AsyncResult(Base):
         if not self._wait_num:
             self._wait_num = 1
         self._wait_keys = set(wait_keys)
-        self._group_kwargs = group_kwargs
-        self._run_group_kwarg = run_group_kwarg
+        self._multi_jobs_kwargs_list = multi_jobs_kwargs_list
+        self._current_job_kwargs = current_job_kwargs
 
         self._wait_percent = wait_percent
         self._num_wrong_keys = 0
@@ -168,8 +168,8 @@ class AsyncResult(Base):
         if len(self._wait_keys) > 0:
             self._wait_num = len(self._wait_keys)
             return self._wait_keys
-        if self._group_kwargs:
-            for kwargs in self._group_kwargs:
+        if self._multi_jobs_kwargs_list:
+            for kwargs in self._multi_jobs_kwargs_list:
                 k = get_unique_id_for_dict(kwargs)
                 k = "%s:%s" % (self._name, k)
                 self.logger.info("args (%s) to key: %s" % (str(kwargs), k))
@@ -336,10 +336,10 @@ class AsyncResult(Base):
         conn = self.connect_to_messaging_broker()
         workflow_context = self._work_context
         if key is None:
-            if self._run_group_kwarg:
-                key = get_unique_id_for_dict(self._run_group_kwarg)
+            if self._current_job_kwargs:
+                key = get_unique_id_for_dict(self._current_job_kwargs)
                 key = "%s:%s" % (self._name, key)
-                self.logger.info("publish args (%s) to key: %s" % (str(self._run_group_kwarg), key))
+                self.logger.info("publish args (%s) to key: %s" % (str(self._current_job_kwargs), key))
 
         if workflow_context.workflow_type in [WorkflowType.iWorkflow, WorkflowType.iWorkflowLocal]:
             headers = {'persistent': 'true',
