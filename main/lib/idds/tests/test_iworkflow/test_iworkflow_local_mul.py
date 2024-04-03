@@ -48,7 +48,7 @@ def test_func1(name):
 @workflow(service='panda', local=True, cloud='US', queue='BNL_OSG_2')
 def test_workflow():
     print("test workflow starts")
-    ret = test_func(name='idds', group_kwargs=[{'name': 'idds1'}, {'name': 'idds2'}, {'name': 'idds3'}, {'name': 'idds4'}, {'name': 'idds5'}])
+    ret = test_func(name='idds', multi_jobs_kwargs_list=[{'name': 'idds1'}, {'name': 'idds2'}, {'name': 'idds3'}, {'name': 'idds4'}, {'name': 'idds5'}])
     print(ret)
     print("test workflow ends")
 

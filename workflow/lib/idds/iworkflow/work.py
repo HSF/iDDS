@@ -336,8 +336,8 @@ class WorkContext(Context):
 
 class Work(Base):
 
-    def __init__(self, func=None, workflow_context=None, context=None, args=None, kwargs=None, group_kwargs=None,
-                 update_kwargs=None, map_results=False, source_dir=None, init_env=None, is_unique_func_name=False):
+    def __init__(self, func=None, workflow_context=None, context=None, args=None, kwargs=None, multi_jobs_kwargs_list=None,
+                 current_job_kwargs=None, map_results=False, source_dir=None, init_env=None, is_unique_func_name=False):
         """
         Init a workflow.
         """
@@ -345,11 +345,11 @@ class Work(Base):
         self.prepared = False
 
         # self._func = func
-        self._func, self._func_name_and_args = self.get_func_name_and_args(func, args, kwargs, group_kwargs)
+        self._func, self._func_name_and_args = self.get_func_name_and_args(func, args, kwargs, multi_jobs_kwargs_list)
 
-        self._update_kwargs = update_kwargs
-        if self._update_kwargs:
-            self._update_kwargs = base64.b64encode(pickle.dumps(self._update_kwargs)).decode("utf-8")
+        self._current_job_kwargs = current_job_kwargs
+        if self._current_job_kwargs:
+            self._current_job_kwargs = base64.b64encode(pickle.dumps(self._current_job_kwargs)).decode("utf-8")
 
         self._name = self._func_name_and_args[0]
         if self._name:
@@ -561,12 +561,12 @@ class Work(Base):
         self._context.token = value
 
     @property
-    def group_parameters(self):
+    def multi_jobs_kwargs_list(self):
         return self._func_name_and_args[3]
 
-    @group_parameters.setter
-    def group_parameters(self, value):
-        raise Exception("Not allwed to update group parameters")
+    @multi_jobs_kwargs_list.setter
+    def multi_jobs_kwargs_list(self, value):
+        raise Exception("Not allwed to update multi_jobs_kwargs_list")
 
     def get_work_tag(self):
         return self._context.workflow_type.name
@@ -723,18 +723,18 @@ class Work(Base):
         func_name = self._func_name_and_args[0]
         return func_name
 
-    def get_group_kwargs(self):
-        group_kwargs = self._func_name_and_args[3]
-        group_kwargs = [pickle.loads(base64.b64decode(k)) for k in group_kwargs]
-        return group_kwargs
+    def get_multi_jobs_kwargs_list(self):
+        multi_jobs_kwargs_list = self._func_name_and_args[3]
+        multi_jobs_kwargs_list = [pickle.loads(base64.b64decode(k)) for k in multi_jobs_kwargs_list]
+        return multi_jobs_kwargs_list
 
     def wait_results(self):
         try:
             terminated_status = self.get_terminated_status()
 
-            group_kwargs = self.get_group_kwargs()
-            if group_kwargs:
-                async_ret = AsyncResult(self._context, name=self.get_func_name(), group_kwargs=group_kwargs,
+            multi_jobs_kwargs_list = self.get_multi_jobs_kwargs_list()
+            if multi_jobs_kwargs_list:
+                async_ret = AsyncResult(self._context, name=self.get_func_name(), multi_jobs_kwargs_list=multi_jobs_kwargs_list,
                                         map_results=self.map_results, internal_id=self.internal_id)
             else:
                 async_ret = AsyncResult(self._context, name=self.get_func_name(), wait_num=1, internal_id=self.internal_id)
@@ -812,17 +812,17 @@ class Work(Base):
         """
         self.pre_run()
 
-        func_name, args, kwargs, group_kwargs = self._func_name_and_args
-        update_kwargs = self._update_kwargs
+        func_name, args, kwargs, multi_jobs_kwargs_list = self._func_name_and_args
+        current_job_kwargs = self._current_job_kwargs
 
         if args:
             args = pickle.loads(base64.b64decode(args))
         if kwargs:
             kwargs = pickle.loads(base64.b64decode(kwargs))
-        if group_kwargs:
-            group_kwargs = [pickle.loads(base64.b64decode(k)) for k in group_kwargs]
-        if self._update_kwargs:
-            update_kwargs = pickle.loads(base64.b64decode(update_kwargs))
+        if multi_jobs_kwargs_list:
+            multi_jobs_kwargs_list = [pickle.loads(base64.b64decode(k)) for k in multi_jobs_kwargs_list]
+        if self._current_job_kwargs:
+            current_job_kwargs = pickle.loads(base64.b64decode(current_job_kwargs))
 
         if self._func is None:
             func = self.load(func_name)
@@ -831,25 +831,25 @@ class Work(Base):
         if self._context.distributed:
             rets = None
             kwargs_copy = kwargs.copy()
-            if update_kwargs and type(update_kwargs) in [dict]:
-                kwargs_copy.update(update_kwargs)
+            if current_job_kwargs and type(current_job_kwargs) in [dict]:
+                kwargs_copy.update(current_job_kwargs)
 
             rets = self.run_func(self._func, args, kwargs_copy)
 
             request_id = self._context.request_id
             transform_id = self._context.transform_id
             logging.info("publishing AsyncResult to (request_id: %s, transform_id: %s): %s" % (request_id, transform_id, rets))
-            async_ret = AsyncResult(self._context, name=self.get_func_name(), internal_id=self.internal_id, run_group_kwarg=update_kwargs)
+            async_ret = AsyncResult(self._context, name=self.get_func_name(), internal_id=self.internal_id, current_job_kwargs=current_job_kwargs)
             async_ret.publish(rets)
 
             if not self.map_results:
                 self._results = rets
             else:
                 self._results = MapResult()
-                self._results.add_result(name=self.get_func_name(), args=update_kwargs, result=rets)
+                self._results.add_result(name=self.get_func_name(), args=current_job_kwargs, result=rets)
             return self._results
         else:
-            if not group_kwargs:
+            if not multi_jobs_kwargs_list:
                 rets = self.run_func(self._func, args, kwargs)
                 if not self.map_results:
                     self._results = rets
@@ -860,25 +860,25 @@ class Work(Base):
             else:
                 if not self.map_results:
                     self._results = []
-                    for group_kwarg in group_kwargs:
+                    for one_job_kwargs in multi_jobs_kwargs_list:
                         kwargs_copy = kwargs.copy()
-                        kwargs_copy.update(group_kwarg)
+                        kwargs_copy.update(one_job_kwargs)
                         rets = self.run_func(self._func, args, kwargs_copy)
                         self._results.append(rets)
                 else:
                     self._results = MapResult()
-                    for group_kwarg in group_kwargs:
+                    for one_job_kwargs in multi_jobs_kwargs_list:
                         kwargs_copy = kwargs.copy()
-                        kwargs_copy.update(group_kwarg)
+                        kwargs_copy.update(one_job_kwargs)
                         rets = self.run_func(self._func, args, kwargs_copy)
-                        self._results.add_result(name=self.get_func_name(), args=group_kwarg, result=rets)
+                        self._results.add_result(name=self.get_func_name(), args=one_job_kwargs, result=rets)
                 return self._results
 
     def get_run_command(self):
         cmd = "run_workflow --type work "
         cmd += "--context %s --original_args %s " % (encode_base64(json_dumps(self._context)),
                                                      encode_base64(json_dumps(self._func_name_and_args)))
-        cmd += "--update_args ${IN/L}"
+        cmd += "--current_job_kwargs ${IN/L}"
         return cmd
 
     def get_runner(self):
@@ -928,13 +928,13 @@ def work(func=None, *, map_results=False, lazy=False, init_env=None):
         try:
             f = kwargs.pop('workflow', None) or WorkflowCanvas.get_current_workflow()
             workflow_context = f._context
-            group_kwargs = kwargs.pop('group_kwargs', [])
+            multi_jobs_kwargs_list = kwargs.pop('multi_jobs_kwargs_list', [])
             logging.debug("workflow context: %s" % workflow_context)
 
             logging.debug("work decorator: func: %s, map_results: %s" % (func, map_results))
             if workflow_context:
                 logging.debug("setup work")
-                w = Work(workflow_context=workflow_context, func=func, args=args, kwargs=kwargs, group_kwargs=group_kwargs,
+                w = Work(workflow_context=workflow_context, func=func, args=args, kwargs=kwargs, multi_jobs_kwargs_list=multi_jobs_kwargs_list,
                          map_results=map_results, init_env=init_env)
                 # if distributed:
                 if workflow_context.distributed:
@@ -944,26 +944,26 @@ def work(func=None, *, map_results=False, lazy=False, init_env=None):
                 return w.run()
             else:
                 logging.info("workflow context is not defined, run function locally")
-                if not group_kwargs:
+                if not multi_jobs_kwargs_list:
                     return func(*args, **kwargs)
 
                 if not kwargs:
                     kwargs = {}
                 if not map_results:
                     rets = []
-                    for group_kwarg in group_kwargs:
+                    for one_job_kwargs in multi_jobs_kwargs_list:
                         kwargs_copy = kwargs.copy()
-                        kwargs_copy.update(group_kwarg)
+                        kwargs_copy.update(one_job_kwargs)
                         ret = func(*args, **kwargs_copy)
                         rets.append(ret)
                     return rets
                 else:
                     rets = MapResult()
-                    for group_kwarg in group_kwargs:
+                    for one_job_kwargs in multi_jobs_kwargs_list:
                         kwargs_copy = kwargs.copy()
-                        kwargs_copy.update(group_kwarg)
+                        kwargs_copy.update(one_job_kwargs)
                         ret = func(*args, **kwargs_copy)
-                        rets.add_result(name=get_func_name(func), args=group_kwarg, result=ret)
+                        rets.add_result(name=get_func_name(func), args=one_job_kwargs, result=ret)
                     return rets
         except Exception as ex:
             logging.error("Failed to run workflow %s: %s" % (func, ex))

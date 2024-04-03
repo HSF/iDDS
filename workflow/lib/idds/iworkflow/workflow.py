@@ -677,7 +677,7 @@ class WorkflowContext(Context):
 class Workflow(Base):
 
     def __init__(self, func=None, service='panda', context=None, source_dir=None, local=False, distributed=True,
-                 args=None, kwargs={}, group_kwargs=[], update_kwargs=None, init_env=None, is_unique_func_name=False,
+                 args=None, kwargs={}, multi_jobs_kwargs_list=[], current_job_kwargs=None, init_env=None, is_unique_func_name=False,
                  max_walltime=24 * 3600):
         """
         Init a workflow.
@@ -686,10 +686,10 @@ class Workflow(Base):
         self.prepared = False
 
         # self._func = func
-        self._func, self._func_name_and_args = self.get_func_name_and_args(func, args, kwargs, group_kwargs)
-        self._update_kwargs = update_kwargs
-        if self._update_kwargs:
-            self._update_kwargs = base64.b64encode(pickle.dumps(self._update_kwargs)).decode("utf-8")
+        self._func, self._func_name_and_args = self.get_func_name_and_args(func, args, kwargs, multi_jobs_kwargs_list)
+        self._current_job_kwargs = current_job_kwargs
+        if self._current_job_kwargs:
+            self._current_job_kwargs = base64.b64encode(pickle.dumps(self._current_job_kwargs)).decode("utf-8")
 
         self._name = self._func_name_and_args[0]
         if self._name:
@@ -888,12 +888,12 @@ class Workflow(Base):
         return self._name
 
     @property
-    def group_parameters(self):
+    def multi_jobs_kwargs_list(self):
         return self._func_name_and_args[3]
 
-    @group_parameters.setter
-    def group_parameters(self, value):
-        raise Exception("Not allwed to update group parameters")
+    @multi_jobs_kwargs_list.setter
+    def multi_jobs_kwargs_list(self, value):
+        raise Exception("Not allwed to update multi_jobs_kwargs_list")
 
     def to_dict(self):
         func = self._func
@@ -1100,13 +1100,13 @@ class Workflow(Base):
         if True:
             self.pre_run()
 
-            func_name, args, kwargs, group_kwargs = self._func_name_and_args
+            func_name, args, kwargs, multi_jobs_kwargs_list = self._func_name_and_args
             if args:
                 args = pickle.loads(base64.b64decode(args))
             if kwargs:
                 kwargs = pickle.loads(base64.b64decode(kwargs))
-            if group_kwargs:
-                group_kwargs = [pickle.loads(base64.b64decode(k)) for k in group_kwargs]
+            if multi_jobs_kwargs_list:
+                multi_jobs_kwargs_list = [pickle.loads(base64.b64decode(k)) for k in multi_jobs_kwargs_list]
 
             if self._func is None:
                 func = self.load(func_name)
@@ -1131,7 +1131,7 @@ class Workflow(Base):
         cmd = "run_workflow --type workflow "
         cmd += "--context %s --original_args %s " % (encode_base64(json_dumps(self._context)),
                                                      encode_base64(json_dumps(self._func_name_and_args)))
-        cmd += "--update_args ${IN/L}"
+        cmd += "--current_job_kwargs ${IN/L}"
         return cmd
 
     def get_runner(self):

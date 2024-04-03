@@ -82,16 +82,16 @@ def optimize_workflow():
     for i in range(n_iterations):
         print("Iteration %s" % i)
         points = {}
-        group_kwargs = []
+        multi_jobs_kwargs_list = []
         for j in range(n_points_per_iteration):
             x_probe = bayesopt.suggest(util)
             u_id = get_unique_id_for_dict(x_probe)
             print('x_probe (%s): %s' % (u_id, x_probe))
             points[u_id] = {'kwargs': x_probe}
-            group_kwargs.append(x_probe)
+            multi_jobs_kwargs_list.append(x_probe)
 
         results = optimize_work(opt_params=params, opt_method=opt_method, hist=True, saveModel=False, input_weight=None,
-                                retMethod=opt_method, group_kwargs=group_kwargs)
+                                retMethod=opt_method, multi_jobs_kwargs_list=multi_jobs_kwargs_list)
         print("points: %s" % str(points))
 
         for u_id in points:
