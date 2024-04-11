@@ -780,7 +780,7 @@ class Work(Base):
         :raise Exception
         """
         import idds.common.utils as idds_utils
-        with idds_utils.modified_environ(IDDS_IWORKFLOW_LOAD_WORK='true'):
+        with idds_utils.modified_environ(IDDS_IGNORE_WORK_DECORATOR='true'):
             func = super(Work, self).load(func_name)
         return func
 
@@ -921,7 +921,7 @@ def work(func=None, *, map_results=False, lazy=False, init_env=None):
     if func is None:
         return functools.partial(work, map_results=map_results, lazy=lazy, init_env=init_env)
 
-    if 'IDDS_IWORKFLOW_LOAD_WORK' in os.environ:
+    if 'IDDS_IGNORE_WORK_DECORATOR' in os.environ:
         return func
 
     @functools.wraps(func)

@@ -1058,7 +1058,7 @@ class Workflow(Base):
         :raise Exception
         """
         import idds.common.utils as idds_utils
-        with idds_utils.modified_environ(IDDS_IWORKFLOW_LOAD_WORKFLOW='true'):
+        with idds_utils.modified_environ(IDDS_IGNORE_WORKFLOW_DECORATOR='true'):
             func = super(Workflow, self).load(func_name)
         return func
 
@@ -1158,7 +1158,7 @@ def workflow(func=None, *, local=False, service='idds', source_dir=None, primary
         return functools.partial(workflow, local=local, service=service, source_dir=source_dir, primary=primary, queue=queue, site=site, cloud=cloud,
                                  max_walltime=max_walltime, distributed=distributed, init_env=init_env)
 
-    if 'IDDS_IWORKFLOW_LOAD_WORKFLOW' in os.environ:
+    if 'IDDS_IGNORE_WORKFLOW_DECORATOR' in os.environ:
         return func
 
     @functools.wraps(func)
