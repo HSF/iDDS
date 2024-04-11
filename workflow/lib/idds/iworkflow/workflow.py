@@ -638,9 +638,7 @@ class WorkflowContext(Context):
     def get_idds_server(self):
         if 'IDDS_HOST' in self._idds_env:
             return self._idds_env['IDDS_HOST']
-        if os.environ.get('IDDS_HOST', None):
-            return os.environ.get('IDDS_HOST', None)
-        return None
+        return os.environ.get('IDDS_HOST', None)
 
     def prepare_with_idds(self):
         """
