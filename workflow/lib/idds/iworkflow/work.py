@@ -779,10 +779,9 @@ class Work(Base):
 
         :raise Exception
         """
-        os.environ['IDDS_IWORKFLOW_LOAD_WORK'] = 'true'
-        func = super(Work, self).load(func_name)
-        del os.environ['IDDS_IWORKFLOW_LOAD_WORK']
-
+        import idds.common.utils as idds_utils
+        with idds_utils.modified_environ(IDDS_IWORKFLOW_LOAD_WORK='true'):
+            func = super(Work, self).load(func_name)
         return func
 
     def pre_run(self):
