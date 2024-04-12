@@ -21,7 +21,7 @@ import traceback
 from idds.common import exceptions
 from idds.common.constants import WorkflowType, TransformStatus
 from idds.common.imports import get_func_name
-from idds.common.utils import setup_logging, json_dumps, json_loads, encode_base64, modified_environ
+from idds.common.utils import setup_logging, json_dumps, json_loads, encode_base64
 from .asyncresult import AsyncResult, MapResult
 from .base import Base, Context
 from .workflow import WorkflowCanvas
@@ -779,8 +779,10 @@ class Work(Base):
 
         :raise Exception
         """
-        with modified_environ(IDDS_IGNORE_WORK_DECORATOR='true'):
-            func = super(Work, self).load(func_name)
+        os.environ['IDDS_IWORKFLOW_LOAD_WORK'] = 'true'
+        func = super(Work, self).load(func_name)
+        del os.environ['IDDS_IWORKFLOW_LOAD_WORK']
+
         return func
 
     def pre_run(self):
@@ -920,7 +922,7 @@ def work(func=None, *, map_results=False, lazy=False, init_env=None):
     if func is None:
         return functools.partial(work, map_results=map_results, lazy=lazy, init_env=init_env)
 
-    if 'IDDS_IGNORE_WORK_DECORATOR' in os.environ:
+    if 'IDDS_IWORKFLOW_LOAD_WORK' in os.environ:
         return func
 
     @functools.wraps(func)
