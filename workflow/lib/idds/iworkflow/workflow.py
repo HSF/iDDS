@@ -23,7 +23,8 @@ import uuid
 
 # from idds.common import exceptions
 from idds.common.constants import WorkflowType
-from idds.common.utils import setup_logging, create_archive_file, json_dumps, json_loads, encode_base64
+from idds.common.utils import setup_logging, create_archive_file, json_dumps, json_loads, encode_base64,\
+    modified_environ
 from .asyncresult import AsyncResult
 from .base import Base, Context
 
@@ -1057,8 +1058,7 @@ class Workflow(Base):
 
         :raise Exception
         """
-        import idds.common.utils as idds_utils
-        with idds_utils.modified_environ(IDDS_IGNORE_WORKFLOW_DECORATOR='true'):
+        with modified_environ(IDDS_IGNORE_WORKFLOW_DECORATOR='true'):
             func = super(Workflow, self).load(func_name)
         return func
 
