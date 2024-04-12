@@ -23,8 +23,7 @@ import uuid
 
 # from idds.common import exceptions
 from idds.common.constants import WorkflowType
-from idds.common.utils import setup_logging, create_archive_file, json_dumps, json_loads, encode_base64,\
-    modified_environ
+from idds.common.utils import setup_logging, create_archive_file, json_dumps, json_loads, encode_base64
 from .asyncresult import AsyncResult
 from .base import Base, Context
 
@@ -639,7 +638,9 @@ class WorkflowContext(Context):
     def get_idds_server(self):
         if 'IDDS_HOST' in self._idds_env:
             return self._idds_env['IDDS_HOST']
-        return os.environ.get('IDDS_HOST', None)
+        if os.environ.get('IDDS_HOST', None):
+            return os.environ.get('IDDS_HOST', None)
+        return None
 
     def prepare_with_idds(self):
         """
@@ -1058,8 +1059,10 @@ class Workflow(Base):
 
         :raise Exception
         """
-        with modified_environ(IDDS_IGNORE_WORKFLOW_DECORATOR='true'):
-            func = super(Workflow, self).load(func_name)
+        os.environ['IDDS_IWORKFLOW_LOAD_WORKFLOW'] = 'true'
+        func = super(Workflow, self).load(func_name)
+        del os.environ['IDDS_IWORKFLOW_LOAD_WORKFLOW']
+
         return func
 
     def pre_run(self):
@@ -1158,7 +1161,7 @@ def workflow(func=None, *, local=False, service='idds', source_dir=None, primary
         return functools.partial(workflow, local=local, service=service, source_dir=source_dir, primary=primary, queue=queue, site=site, cloud=cloud,
                                  max_walltime=max_walltime, distributed=distributed, init_env=init_env)
 
-    if 'IDDS_IGNORE_WORKFLOW_DECORATOR' in os.environ:
+    if 'IDDS_IWORKFLOW_LOAD_WORKFLOW' in os.environ:
         return func
 
     @functools.wraps(func)
