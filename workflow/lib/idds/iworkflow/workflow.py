@@ -7,6 +7,7 @@
 #
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2023 - 2024
+# - Lino Oscar Gerlach, <lino.oscar.gerlach@cern.ch>, 2024
 
 import base64
 import collections
@@ -23,7 +24,7 @@ import uuid
 
 # from idds.common import exceptions
 from idds.common.constants import WorkflowType
-from idds.common.utils import setup_logging, create_archive_file, json_dumps, json_loads, encode_base64
+from idds.common.utils import setup_logging, create_archive_file, json_dumps, json_loads, encode_base64, modified_environ
 from .asyncresult import AsyncResult
 from .base import Base, Context
 
@@ -638,9 +639,7 @@ class WorkflowContext(Context):
     def get_idds_server(self):
         if 'IDDS_HOST' in self._idds_env:
             return self._idds_env['IDDS_HOST']
-        if os.environ.get('IDDS_HOST', None):
-            return os.environ.get('IDDS_HOST', None)
-        return None
+        return os.environ.get('IDDS_HOST', None)
 
     def prepare_with_idds(self):
         """
@@ -1059,9 +1058,8 @@ class Workflow(Base):
 
         :raise Exception
         """
-        os.environ['IDDS_IWORKFLOW_LOAD_WORKFLOW'] = 'true'
-        func = super(Workflow, self).load(func_name)
-        del os.environ['IDDS_IWORKFLOW_LOAD_WORKFLOW']
+        with modified_environ(IDDS_IGNORE_WORKFLOW_DECORATOR='true'):
+            func = super(Workflow, self).load(func_name)
 
         return func
 
@@ -1161,7 +1159,7 @@ def workflow(func=None, *, local=False, service='idds', source_dir=None, primary
         return functools.partial(workflow, local=local, service=service, source_dir=source_dir, primary=primary, queue=queue, site=site, cloud=cloud,
                                  max_walltime=max_walltime, distributed=distributed, init_env=init_env)
 
-    if 'IDDS_IWORKFLOW_LOAD_WORKFLOW' in os.environ:
+    if 'IDDS_IGNORE_WORKFLOW_DECORATOR' in os.environ:
         return func
 
     @functools.wraps(func)
