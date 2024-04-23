@@ -175,7 +175,8 @@ def setup_workflow():
 
 def submit(workflow, idds_server):
 
-    c = pandaclient.idds_api.get_api(idds_utils.json_dumps,
+    idds_server = None
+    c = pandaclient.idds_api.get_api(idds_utils.json_dumps, verbose=True,
                                      idds_host=idds_server, compress=True, manager=True)
     request_id = c.submit(workflow, username=None, use_dataset_name=False)
     print("Submitted into iDDs with request id=%s", str(request_id))
