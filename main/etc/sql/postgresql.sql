@@ -50,7 +50,11 @@ CREATE TABLE doma_idds.transforms (
 	workload_id INTEGER, 
 	transform_type INTEGER NOT NULL, 
 	transform_tag VARCHAR(20), 
-	priority INTEGER, 
+	priority INTEGER,
+	parent_transform_id BIGINT,
+	previous_transform_id BIGINT,
+	current_processing_id BIGINT,
+	processing_type INTEGER,
 	safe2get_output_from_input INTEGER, 
 	status INTEGER NOT NULL, 
 	substatus INTEGER, 
@@ -181,8 +185,8 @@ CREATE TABLE doma_idds.contents_ext (
 	memory_leak VARCHAR(10), 
 	memory_leak_x2 VARCHAR(10), 
 	job_label VARCHAR(20), 
-	CONSTRAINT "CONTENTS_EXT_PK" PRIMARY KEY (content_id)
-);
+	CONSTRAINT "CONTENTS_EXT_PK" PRIMARY KEY (content_id, request_id)
+) PARTITION BY RANGE (request_id) ;
 
 CREATE INDEX "CONTENTS_EXT_RTW_IDX" ON doma_idds.contents_ext (request_id, transform_id, workload_id);
 
@@ -500,13 +504,13 @@ CREATE TABLE doma_idds.contents (
 	accessed_at TIMESTAMP WITHOUT TIME ZONE, 
 	expired_at TIMESTAMP WITHOUT TIME ZONE, 
 	content_metadata VARCHAR(1000), 
-	CONSTRAINT "CONTENTS_PK" PRIMARY KEY (content_id), 
-	CONSTRAINT "CONTENT_ID_UQ" UNIQUE (transform_id, coll_id, map_id, sub_map_id, dep_sub_map_id, content_relation_type, name_md5, scope_name_md5, min_id, max_id), 
-	CONSTRAINT "CONTENTS_TRANSFORM_ID_FK" FOREIGN KEY(transform_id) REFERENCES doma_idds.transforms (transform_id), 
+	CONSTRAINT "CONTENTS_PK" PRIMARY KEY (content_id, request_id),
+	CONSTRAINT "CONTENT_ID_UQ" UNIQUE (transform_id, coll_id, request_id, map_id, sub_map_id, dep_sub_map_id, content_relation_type, name_md5, scope_name_md5, min_id, max_id),
+        CONSTRAINT "CONTENTS_TRANSFORM_ID_FK" FOREIGN KEY(transform_id) REFERENCES doma_idds.transforms (transform_id),
 	CONSTRAINT "CONTENTS_COLL_ID_FK" FOREIGN KEY(coll_id) REFERENCES doma_idds.collections (coll_id), 
 	CONSTRAINT "CONTENTS_STATUS_ID_NN" CHECK (status IS NOT NULL), 
 	CONSTRAINT "CONTENTS_COLL_ID_NN" CHECK (coll_id IS NOT NULL)
-);
+) PARTITION BY RANGE (request_id) ;
 
 CREATE INDEX "CONTENTS_STATUS_UPDATED_IDX" ON doma_idds.contents (status, locking, updated_at, created_at);
 
@@ -518,8 +522,7 @@ CREATE INDEX "CONTENTS_REQ_TF_COLL_IDX" ON doma_idds.contents (request_id, trans
 
 CREATE INDEX "CONTENTS_TF_IDX" ON doma_idds.contents (transform_id, request_id, coll_id, map_id, content_relation_type);
 
-CREATE INDEX "CONTENTS_ID_NAME_IDX" ON doma_idds.contents (coll_id, scope, md5('name');
-, status);
+CREATE INDEX "CONTENTS_ID_NAME_IDX" ON doma_idds.contents (coll_id, scope, md5('name'), status);
 
 
         SET search_path TO doma_idds;
@@ -544,3 +547,17 @@ CREATE INDEX "CONTENTS_ID_NAME_IDX" ON doma_idds.contents (coll_id, scope, md5('
         END;
         $$ LANGUAGE PLPGSQL
     
+
+CREATE SEQUENCE doma_idds."METAINFO_ID_SEQ" START WITH 1
+CREATE TABLE meta_info
+(
+    meta_id BIGINT NOT NULL,
+    name VARCHAR2(50),
+    status INTEGER,
+    created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+    updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+    description VARCHAR2(1000),
+    meta_info JSONB,
+    CONSTRAINT "METAINFO_PK" PRIMARY KEY (meta_id), -- USING INDEX LOCAL,
+    CONSTRAINT "METAINFO_NAME_UQ" UNIQUE (name)
+);
