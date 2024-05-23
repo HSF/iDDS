@@ -6,10 +6,10 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2023
+# - Wen Guan, <wen.guan@cern.ch>, 2024
 
 
-FROM docker.io/almalinux:9.2
+FROM docker.io/almalinux:9.4
 
 ARG TAG
 
@@ -33,8 +33,9 @@ yum clean all && \
 rm -rf /var/cache/yum
 
 # install postgres
-RUN yum install -y https://download.postgresql.org/pub/repos/yum/reporpms/EL-9-x86_64/pgdg-redhat-repo-latest.noarch.rpm
-RUN yum install --nogpgcheck -y postgresql16
+# RUN yum install -y https://download.postgresql.org/pub/repos/yum/reporpms/EL-9-x86_64/pgdg-redhat-repo-latest.noarch.rpm
+# RUN yum install --nogpgcheck -y postgresql16
+RUN yum install --nogpgcheck -y postgresql
 RUN  yum clean all && rm -rf /var/cache/yum
 
 
