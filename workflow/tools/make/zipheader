@@ -32,6 +32,8 @@ else
     fi
 fi;
 
+export IDDS_LOG_LEVEL=debug
+
 export PANDA_CONFIG_ROOT=$(pwd);
 export PANDA_VERIFY_HOST=off;
 export PANDA_BEHIND_REAL_LB=true;
