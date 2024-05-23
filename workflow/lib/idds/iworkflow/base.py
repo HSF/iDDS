@@ -8,6 +8,7 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2024
 
+import copy
 import base64
 import logging
 import inspect
@@ -52,18 +53,23 @@ class Base(DictBase):
 
     def get_func_name_and_args(self,
                                func,
+                               pre_kwargs=None,
                                args=None,
                                kwargs=None,
                                multi_jobs_kwargs_list=None):
 
         if args is None:
             args = ()
+        if pre_kwargs is None:
+            pre_kwargs = {}
         if kwargs is None:
             kwargs = {}
         if multi_jobs_kwargs_list is None:
             multi_jobs_kwargs_list = []
         if not isinstance(args, (tuple, list)):
             raise TypeError('{0!r} is not a valid args list'.format(args))
+        if not isinstance(pre_kwargs, dict):
+            raise TypeError('{0!r} is not a valid pre_kwargs dict'.format(pre_kwargs))
         if not isinstance(kwargs, dict):
             raise TypeError('{0!r} is not a valid kwargs dict'.format(kwargs))
         if not isinstance(multi_jobs_kwargs_list, list):
@@ -82,12 +88,14 @@ class Base(DictBase):
 
         if args:
             args = base64.b64encode(pickle.dumps(args)).decode("utf-8")
+        if pre_kwargs:
+            pre_kwargs = base64.b64encode(pickle.dumps(pre_kwargs)).decode("utf-8")
         if kwargs:
             kwargs = base64.b64encode(pickle.dumps(kwargs)).decode("utf-8")
         if multi_jobs_kwargs_list:
             multi_jobs_kwargs_list = [base64.b64encode(pickle.dumps(k)).decode("utf-8") for k in multi_jobs_kwargs_list]
 
-        return func_call, (func_name, args, kwargs, multi_jobs_kwargs_list)
+        return func_call, (func_name, pre_kwargs, args, kwargs, multi_jobs_kwargs_list)
 
     @property
     def logger(self):
@@ -164,17 +172,26 @@ class Base(DictBase):
 
         return func
 
-    def run_func(self, func, args, kwargs):
+    def run_func(self, func, pre_kwargs, args, kwargs):
         """
         Run the function.
 
         :raise Exception.
         """
         try:
-            return func(*args, **kwargs)
+            logging.info("func type: %s: %s" % (type(func), str(func)))
+            logging.info("pre_kwargs type: %s: %s" % (type(pre_kwargs), str(pre_kwargs)))
+            logging.info("args type: %s: %s" % (type(args), str(args)))
+            logging.info("kwargs type: %s: %s" % (type(kwargs), str(kwargs)))
+            kwargs_copy = copy.deepcopy(pre_kwargs)
+            kwargs_copy.update(kwargs)
+            if kwargs_copy:
+                return func(*args, **kwargs_copy)
+            else:
+                return func(*args)
         except Exception as ex:
             logging.error("Failed to run the function: %s" % str(ex))
-            logging.debug(traceback.format_exc())
+            logging.error(traceback.format_exc())
 
 
 class Context(DictBase):

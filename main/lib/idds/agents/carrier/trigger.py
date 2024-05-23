@@ -196,7 +196,7 @@ class Trigger(Poller):
                 self.logger.info("process_trigger_processing, event: %s" % str(event))
                 pr = self.get_processing(processing_id=event._processing_id, status=None, locking=True)
                 if not pr:
-                    self.logger.error("Cannot find processing for event: %s" % str(event))
+                    self.logger.warn("Cannot find processing for event: %s" % str(event))
                     pro_ret = ReturnCode.Locked.value
                 else:
                     log_pre = self.get_log_prefix(pr)

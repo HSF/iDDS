@@ -76,7 +76,12 @@ def setup_logging(name, stream=None, loglevel=None):
         loglevel = getattr(logging, loglevel)
 
     if stream is None:
-        if config_has_section('common') and config_has_option('common', 'logdir'):
+        if os.environ.get('IDDS_LOG_FILE', None):
+            idds_log_file = os.environ.get('IDDS_LOG_FILE', None)
+            logging.basicConfig(filename=idds_log_file,
+                                level=loglevel,
+                                format='%(asctime)s\t%(threadName)s\t%(name)s\t%(levelname)s\t%(message)s')
+        elif config_has_section('common') and config_has_option('common', 'logdir'):
             logging.basicConfig(filename=os.path.join(config_get('common', 'logdir'), name),
                                 level=loglevel,
                                 format='%(asctime)s\t%(threadName)s\t%(name)s\t%(levelname)s\t%(message)s')

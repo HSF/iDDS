@@ -83,7 +83,7 @@ def import_func(name: str) -> Callable[..., Any]:
         # module_name_bits, attribute_bits = name_bits[:-1], [name_bits[-1]]
         if module_name_bits == '__main__':
             module_name_bits = filename.replace('.py', '').replace('.pyc', '')
-            module_name_bits = module_name_bits.replace('/', '')
+            module_name_bits = module_name_bits.replace('/', '.')
         module_name_bits = module_name_bits.split('.')
         attribute_bits = attribute_bits.split('.')
         module = None

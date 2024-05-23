@@ -27,6 +27,7 @@ loglevel = DEBUG
 # dev: aipanda104
 # doma: aipanda105-107
 # idds-mon: aipanda108
+
 [database]
 #default = mysql://idds:idds@pcuwvirt5.cern.ch/idds
 #default = mysql://idds:idds_passwd@aipanda182.cern.ch/idds

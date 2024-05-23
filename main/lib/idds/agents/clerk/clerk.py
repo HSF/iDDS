@@ -1193,7 +1193,7 @@ class Clerk(BaseAgent):
                 failed_tfs += 1
 
         req_status = RequestStatus.Transforming
-        if req['request_type'] in [RequestType.iWorkflowLocal] and total_tfs == 0:
+        if req['request_type'] in [RequestType.iWorkflowLocal]:
             workflow = req['request_metadata'].get('workflow', None)
             if workflow and req['created_at'] + datetime.timedelta(seconds=workflow.max_walltime) < datetime.datetime.utcnow():
                 req_status = RequestStatus.Finished
@@ -1369,7 +1369,7 @@ class Clerk(BaseAgent):
             if event:
                 req = self.get_request(request_id=event._request_id, locking=True)
                 if not req:
-                    self.logger.error("Cannot find request for event: %s" % str(event))
+                    self.logger.warn("Cannot find request for event: %s" % str(event))
                     pro_ret = ReturnCode.Locked.value
                 else:
                     log_pre = self.get_log_prefix(req)
@@ -1517,7 +1517,7 @@ class Clerk(BaseAgent):
             if event:
                 req = self.get_request(request_id=event._request_id, locking=True)
                 if not req:
-                    self.logger.error("Cannot find request for event: %s" % str(event))
+                    self.logger.warn("Cannot find request for event: %s" % str(event))
                     pro_ret = ReturnCode.Locked.value
                 else:
                     log_pre = self.get_log_prefix(req)
