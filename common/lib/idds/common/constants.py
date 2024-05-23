@@ -534,6 +534,24 @@ class ReturnCode(IDDSEnum):
     Locked = 1
 
 
+class GracefulEvent(object):
+    def __init__(self):
+        self.__is_set = False
+
+    def set(self):
+        self.__is_set = True
+
+    def is_set(self):
+        return self.__is_set
+
+
+class AsyncResultStatus(IDDSEnum):
+    Running = 0
+    Finished = 1
+    SubFinished = 2
+    Failed = 3
+
+
 def get_work_status_from_transform_processing_status(status):
     if status in [ProcessingStatus.New, TransformStatus.New]:
         return WorkStatus.New

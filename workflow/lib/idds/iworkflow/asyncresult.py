@@ -18,7 +18,7 @@ import traceback
 
 from queue import Queue
 
-from idds.common.constants import WorkflowType
+from idds.common.constants import WorkflowType, GracefulEvent
 from idds.common.utils import json_dumps, json_loads, setup_logging, get_unique_id_for_dict
 from .base import Base
 
@@ -95,9 +95,10 @@ class MapResult(object):
                     return True
                 return False
 
-    def get_result(self, name=None, args=None, key=None):
-        logging.debug("get_result: key %s, name: %s, args: %s" % (key, name, args))
-        logging.debug("get_result: results: %s, name_results: %s" % (self._results, self._name_results))
+    def get_result(self, name=None, args=None, key=None, verbose=False):
+        if verbose:
+            logging.info("get_result: key %s, name: %s, args: %s" % (key, name, args))
+            logging.info("get_result: results: %s, name_results: %s" % (self._results, self._name_results))
 
         name_key = key
         if name_key is not None:
@@ -110,6 +111,8 @@ class MapResult(object):
                 ret = self._name_results.get(name_key, None)
             else:
                 ret = self._results.get(key, None)
+        if verbose:
+            logging.info("get_result: name key %s, args key %s, ret: %s" % (name_key, key, ret))
         return ret
 
     def get_all_results(self):
@@ -133,8 +136,9 @@ class AsyncResult(Base):
         self._queue = Queue()
 
         self._connections = []
-        self._graceful_stop = None
+        self._graceful_stop = False
         self._subscribe_thread = None
+        self._subscribed = False
 
         self._results = []
         self._bad_results = []
@@ -183,9 +187,65 @@ class AsyncResult(Base):
         self._wait_keys = set(value)
 
     @property
+    def is_all_results_available(self):
+        percent = self.get_results_percentage()
+        if percent >= self._wait_percent:
+            return True
+
+    @is_all_results_available.setter
+    def is_all_results_available(self, value):
+        raise Exception("Not allowd to set is_all_results_available")
+
+    @property
+    def is_finished(self):
+        if self._graceful_stop and self._graceful_stop.is_set():
+            percent = self.get_results_percentage()
+            if percent >= self._wait_percent:
+                return True
+        return False
+
+    @is_finished.setter
+    def is_finished(self, value):
+        raise Exception("Not allowd to set is_finished")
+
+    @property
+    def is_subfinished(self):
+        if self._graceful_stop and self._graceful_stop.is_set():
+            percent = self.get_results_percentage()
+            if percent > 0 and percent < self._wait_percent:
+                return True
+        return False
+
+    @is_subfinished.setter
+    def is_subfinished(self, value):
+        raise Exception("Not allowd to set is_subfinished")
+
+    @property
+    def is_failed(self):
+        if self._graceful_stop and self._graceful_stop.is_set():
+            percent = self.get_results_percentage()
+            if percent <= 0:
+                return True
+        return False
+
+    @is_failed.setter
+    def is_failed(self, value):
+        raise Exception("Not allowd to set is_failed")
+
+    @property
+    def is_terminated(self):
+        return self._graceful_stop and self._graceful_stop.is_set()
+
+    @is_terminated.setter
+    def is_terminated(self, value):
+        raise Exception("Not allowd to set is_terminated")
+
+    @property
     def results(self):
+        has_new_data = False
         while not self._queue.empty():
             ret = self._queue.get()
+            has_new_data = True
             try:
                 internal_id = ret['internal_id']
                 if internal_id == self.internal_id:
@@ -221,6 +281,10 @@ class AsyncResult(Base):
             ret_map = MapResult()
             for k in rets:
                 ret_map.add_result(key=k, result=rets[k])
+
+            if has_new_data:
+                self.logger.debug('percent %s, results: %s' % (self._results_percentage, str(ret_map)))
+
             return ret_map
         else:
             rets = []
@@ -232,6 +296,9 @@ class AsyncResult(Base):
             else:
                 rets = [rets_dict[k] for k in rets_dict]
                 self._results_percentage = len(rets) * 1.0 / self._wait_num
+
+            if has_new_data:
+                self.logger.debug('percent %s, results: %s' % (self._results_percentage, str(rets)))
 
             if self._wait_num == 1:
                 if rets:
@@ -375,7 +442,7 @@ class AsyncResult(Base):
         try:
             self.logger.info("run subscriber")
             self.subscribe_to_messaging_brokers()
-            while not self._graceful_stop.is_set():
+            while self._graceful_stop and not self._graceful_stop.is_set():
                 has_failed_conns = False
                 for conn in self._connections:
                     if not conn.is_connected():
@@ -383,16 +450,23 @@ class AsyncResult(Base):
                 if has_failed_conns:
                     self.subscribe_to_messaging_brokers()
                 time.sleep(1)
+            self.stop()
         except Exception as ex:
             self.logger.error("run subscriber failed with error: %s" % str(ex))
             self.logger.error(traceback.format_exc())
+            self.stop()
 
-    def get_results(self, nologs=False):
+    def get_results(self, nologs=True):
         old_nologs = self._nologs
         self._nologs = nologs
         rets = self.results
         if not self._nologs:
-            self.logger.debug('results: %s' % str(rets))
+            self.logger.debug('percent %s, results: %s' % (self.get_results_percentage(), str(rets)))
+
+        percent = self.get_results_percentage()
+        if percent >= self._wait_percent:
+            self.stop()
+            self.logger.info("Got results: %s (number of wrong keys: %s)" % (percent, self._num_wrong_keys))
         self._nologs = old_nologs
         return rets
 
@@ -400,23 +474,24 @@ class AsyncResult(Base):
         return self._results_percentage
 
     def subscribe(self):
-        self._graceful_stop = threading.Event()
-        thread = threading.Thread(target=self.run_subscriber, name="RunSubscriber")
-        thread.start()
-        time.sleep(1)
-        self._subscribed = True
+        if not self._subscribed:
+            self._graceful_stop = GracefulEvent()
+            thread = threading.Thread(target=self.run_subscriber, name="RunSubscriber")
+            thread.start()
+            time.sleep(1)
+            self._subscribed = True
 
     def stop(self):
         if self._graceful_stop:
             self._graceful_stop.set()
         self.disconnect()
+        self._subscribed = False
 
     def __del__(self):
         self.stop()
 
     def wait_results(self, timeout=None, force_return_results=False):
-        if not self._subscribed:
-            self.subscribe()
+        self.subscribe()
 
         get_results = False
         time_log = time.time()
@@ -424,14 +499,14 @@ class AsyncResult(Base):
         if timeout is None:
             self.logger.info("waiting for results")
         try:
-            while not get_results and not self._graceful_stop.is_set():
+            while not get_results and self._graceful_stop and not self._graceful_stop.is_set():
                 self.get_results(nologs=True)
                 percent = self.get_results_percentage()
                 if time.time() - time_log > 600:  # 10 minutes
                     self.logger.info("waiting for results: %s (number of wrong keys: %s)" % (percent, self._num_wrong_keys))
                     time_log = time.time()
                 time.sleep(1)
-                if percent >= self._wait_percent:
+                if self.is_all_results_available:
                     get_results = True
                     self.waiting_result_terminated = True
                     self.logger.info("Got result percentage %s is not smaller then wait_percent %s, set waiting_result_terminated to True" % (percent, self._wait_percent))
@@ -452,7 +527,7 @@ class AsyncResult(Base):
             self.logger.error(traceback.format_exc())
             self._graceful_stop.set()
 
-        if get_results or self._graceful_stop.is_set() or percent >= self._wait_percent or force_return_results:
+        if get_results or self._graceful_stop.is_set() or self.is_all_results_available or force_return_results:
             # stop the subscriber
             self._graceful_stop.set()
             self.logger.info("Got results: %s (number of wrong keys: %s)" % (percent, self._num_wrong_keys))
