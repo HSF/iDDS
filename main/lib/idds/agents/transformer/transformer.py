@@ -496,7 +496,7 @@ class Transformer(BaseAgent):
                 tf_status = [TransformStatus.New, TransformStatus.Ready, TransformStatus.Extend]
                 tf = self.get_transform(transform_id=event._transform_id, status=tf_status, locking=True)
                 if not tf:
-                    self.logger.error("Cannot find transform for event: %s" % str(event))
+                    self.logger.warn("Cannot find transform for event: %s" % str(event))
                 else:
                     log_pre = self.get_log_prefix(tf)
                     self.logger.info(log_pre + "process_new_transform")

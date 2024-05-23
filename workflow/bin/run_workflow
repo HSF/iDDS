@@ -37,13 +37,15 @@ setup_logging(__name__, stream=sys.stdout)
 
 
 def get_context_args(context, original_args, current_job_kwargs):
-    func_name, args, kwargs, multi_jobs_kwargs_list = None, None, None, None
+    func_name, pre_kwargs, args, kwargs, multi_jobs_kwargs_list = None, None, None, None, None
     if original_args:
         original_args = json_loads(original_args)
-        func_name, args, kwargs, multi_jobs_kwargs_list = original_args
+        func_name, pre_kwargs, args, kwargs, multi_jobs_kwargs_list = original_args
 
     if args:
         args = pickle.loads(base64.b64decode(args))
+    if pre_kwargs:
+        pre_kwargs = pickle.loads(base64.b64decode(pre_kwargs))
     if kwargs:
         kwargs = pickle.loads(base64.b64decode(kwargs))
     if multi_jobs_kwargs_list:
@@ -65,21 +67,23 @@ def get_context_args(context, original_args, current_job_kwargs):
                 #     kwargs.update(current_job_kwargs)
             except Exception as ex:
                 logging.error("Failed to update kwargs: %s" % ex)
-    return context, func_name, args, kwargs, multi_jobs_kwargs_list, current_job_kwargs
+    return context, func_name, pre_kwargs, args, kwargs, multi_jobs_kwargs_list, current_job_kwargs
 
 
 def run_workflow(context, original_args, current_job_kwargs):
-    context, func_name, args, kwargs, multi_jobs_kwargs_list, current_job_kwargs = get_context_args(context, original_args, current_job_kwargs)
+    context, func_name, pre_kwargs, args, kwargs, multi_jobs_kwargs_list, current_job_kwargs = get_context_args(context, original_args, current_job_kwargs)
     logging.info("context: %s" % context)
     logging.info("func_name: %s" % func_name)
+    logging.info("pre_kwargs: %s" % pre_kwargs)
     logging.info("args: %s" % str(args))
     logging.info("kwargs: %s" % kwargs)
-    logging.info("multi_jobs_kwargs_list: %s" % multi_jobs_kwargs_list)
+    logging.info("multi_jobs_kwargs_list: %s" % str(multi_jobs_kwargs_list))
+    logging.info("current_job_kwargs: %s" % str(current_job_kwargs))
 
     context.initialize()
     context.setup_source_files()
 
-    workflow = Workflow(func=func_name, args=args, kwargs=kwargs, multi_jobs_kwargs_list=multi_jobs_kwargs_list, current_job_kwargs=current_job_kwargs, context=context)
+    workflow = Workflow(func=func_name, pre_kwargs=pre_kwargs, args=args, kwargs=kwargs, multi_jobs_kwargs_list=multi_jobs_kwargs_list, current_job_kwargs=current_job_kwargs, context=context)
     logging.info("workflow: %s" % workflow)
     with workflow:
         ret = workflow.run()
@@ -88,17 +92,19 @@ def run_workflow(context, original_args, current_job_kwargs):
 
 
 def run_work(context, original_args, current_job_kwargs):
-    context, func_name, args, kwargs, multi_jobs_kwargs_list, current_job_kwargs = get_context_args(context, original_args, current_job_kwargs)
+    context, func_name, pre_kwargs, args, kwargs, multi_jobs_kwargs_list, current_job_kwargs = get_context_args(context, original_args, current_job_kwargs)
     logging.info("context: %s" % context)
     logging.info("func_name: %s" % func_name)
+    logging.info("pre_kwargs: %s" % pre_kwargs)
     logging.info("args: %s" % str(args))
     logging.info("kwargs: %s" % kwargs)
-    logging.info("multi_jobs_kwargs_list: %s" % multi_jobs_kwargs_list)
+    logging.info("multi_jobs_kwargs_list: %s" % str(multi_jobs_kwargs_list))
+    logging.info("current_job_kwargs: %s" % str(current_job_kwargs))
 
     context.initialize()
     context.setup_source_files()
 
-    work = Work(func=func_name, args=args, kwargs=kwargs, multi_jobs_kwargs_list=multi_jobs_kwargs_list, current_job_kwargs=current_job_kwargs, context=context)
+    work = Work(func=func_name, pre_kwargs=pre_kwargs, args=args, kwargs=kwargs, multi_jobs_kwargs_list=multi_jobs_kwargs_list, current_job_kwargs=current_job_kwargs, context=context)
     logging.info("work: %s" % work)
     ret = work.run()
     logging.info("run work result: %s" % str(ret))

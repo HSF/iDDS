@@ -261,7 +261,7 @@ class Submitter(Poller):
                 self.logger.info("process_new_processing, event: %s" % str(event))
                 pr = self.get_processing(processing_id=event._processing_id, status=None, locking=True)
                 if not pr:
-                    self.logger.error("Cannot find processing for event: %s" % str(event))
+                    self.logger.warn("Cannot find processing for event: %s" % str(event))
                 else:
                     log_pre = self.get_log_prefix(pr)
                     self.logger.info(log_pre + "process_new_processing")

@@ -17,3 +17,8 @@ print(source_foo)
 
 print(inspect.signature(foo))
 print(dill.dumps(foo))
+
+foo_str = dill.dumps(foo)
+foo_1 = dill.loads(foo_str)
+ret = foo_1(1, 3)
+print(ret)

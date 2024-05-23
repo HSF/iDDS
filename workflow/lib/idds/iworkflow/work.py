@@ -10,6 +10,7 @@
 # - Lino Oscar Gerlach, <lino.oscar.gerlach@cern.ch>, 2024
 
 import base64
+import copy
 import datetime
 import functools
 import json
@@ -20,7 +21,7 @@ import time
 import traceback
 
 from idds.common import exceptions
-from idds.common.constants import WorkflowType, TransformStatus
+from idds.common.constants import WorkflowType, TransformStatus, AsyncResultStatus
 from idds.common.imports import get_func_name
 from idds.common.utils import setup_logging, json_dumps, json_loads, encode_base64, modified_environ
 from .asyncresult import AsyncResult, MapResult
@@ -337,7 +338,7 @@ class WorkContext(Context):
 
 class Work(Base):
 
-    def __init__(self, func=None, workflow_context=None, context=None, args=None, kwargs=None, multi_jobs_kwargs_list=None,
+    def __init__(self, func=None, workflow_context=None, context=None, pre_kwargs=None, args=None, kwargs=None, multi_jobs_kwargs_list=None,
                  current_job_kwargs=None, map_results=False, source_dir=None, init_env=None, is_unique_func_name=False):
         """
         Init a workflow.
@@ -346,7 +347,8 @@ class Work(Base):
         self.prepared = False
 
         # self._func = func
-        self._func, self._func_name_and_args = self.get_func_name_and_args(func, args, kwargs, multi_jobs_kwargs_list)
+        self._func, self._func_name_and_args = self.get_func_name_and_args(func, pre_kwargs, args, kwargs, multi_jobs_kwargs_list)
+        self._func = None
 
         self._current_job_kwargs = current_job_kwargs
         if self._current_job_kwargs:
@@ -364,8 +366,12 @@ class Work(Base):
         else:
             self._context = WorkContext(name=self._name, workflow_context=workflow_context, init_env=init_env)
 
+        self._async_ret = None
+
         self.map_results = map_results
         self._results = None
+        self._async_result_initialized = False
+        self._async_result_status = None
 
     @property
     def logger(self):
@@ -563,7 +569,7 @@ class Work(Base):
 
     @property
     def multi_jobs_kwargs_list(self):
-        return self._func_name_and_args[3]
+        return self._func_name_and_args[4]
 
     @multi_jobs_kwargs_list.setter
     def multi_jobs_kwargs_list(self, value):
@@ -633,6 +639,7 @@ class Work(Base):
         :raise Exception when failing to submit the workflow.
         """
         try:
+            # self._func = None
             if self._context.get_service() == 'panda':
                 tf_id = self.submit_to_panda_server()
             else:
@@ -678,6 +685,7 @@ class Work(Base):
         else:
             tf = None
             logging.error("Failed to get transform (request_id: %s, transform_id: %s) status from PanDA-iDDS: %s" % (request_id, transform_id, ret))
+            return TransformStatus.Transforming
 
         if not tf:
             logging.info("Get transform (request_id: %s, transform_id: %s) from PanDA-iDDS: %s" % (request_id, transform_id, tf))
@@ -715,57 +723,152 @@ class Work(Base):
         except Exception as ex:
             logging.info("Failed to get transform status: %s" % str(ex))
 
+    def get_finished_status(self):
+        return [TransformStatus.Finished]
+
+    def get_subfinished_status(self):
+        return [TransformStatus.SubFinished]
+
+    def get_failed_status(self):
+        return [None, TransformStatus.Failed, TransformStatus.Cancelled,
+                TransformStatus.Suspended, TransformStatus.Expired]
+
     def get_terminated_status(self):
         return [None, TransformStatus.Finished, TransformStatus.SubFinished,
                 TransformStatus.Failed, TransformStatus.Cancelled,
                 TransformStatus.Suspended, TransformStatus.Expired]
+
+    def is_terminated(self):
+        status = self.get_status()
+        if status in self.get_terminated_status():
+            self.stop_async_result()
+            return True
+        if self._async_ret:
+            self._async_ret.get_results(nologs=True)
+            if self._async_ret.is_terminated:
+                self.stop_async_result()
+                return True
+        if self._async_result_status in [AsyncResultStatus.Finished, AsyncResultStatus.SubFinished, AsyncResultStatus.Failed]:
+            return True
+        return False
+
+    def is_finished(self):
+        status = self.get_status()
+        if status in self.get_finished_status():
+            self.stop_async_result()
+            return True
+        if self._async_ret:
+            self._async_ret.get_results(nologs=True)
+            if self._async_ret.is_finished:
+                self.stop_async_result()
+                return True
+        if self._async_result_status in [AsyncResultStatus.Finished]:
+            return True
+        return False
+
+    def is_subfinished(self):
+        status = self.get_status()
+        if status in self.get_subfinished_status():
+            self.stop_async_result()
+            return True
+        if self._async_ret:
+            self._async_ret.get_results(nologs=True)
+            if self._async_ret.is_subfinished:
+                self.stop_async_result()
+                return True
+        if self._async_result_status in [AsyncResultStatus.SubFinished]:
+            return True
+        return False
+
+    def is_failed(self):
+        status = self.get_status()
+        if status in self.get_failed_status():
+            self.stop_async_result()
+            return True
+        if self._async_ret:
+            self._async_ret.get_results(nologs=True)
+            if self._async_ret.is_failed:
+                self.stop_async_result()
+                return True
+        if self._async_result_status in [AsyncResultStatus.Failed]:
+            return True
+        return False
 
     def get_func_name(self):
         func_name = self._func_name_and_args[0]
         return func_name
 
     def get_multi_jobs_kwargs_list(self):
-        multi_jobs_kwargs_list = self._func_name_and_args[3]
+        multi_jobs_kwargs_list = self.multi_jobs_kwargs_list
         multi_jobs_kwargs_list = [pickle.loads(base64.b64decode(k)) for k in multi_jobs_kwargs_list]
         return multi_jobs_kwargs_list
+
+    def init_async_result(self):
+        if not self._async_result_initialized:
+            multi_jobs_kwargs_list = self.get_multi_jobs_kwargs_list()
+            if multi_jobs_kwargs_list:
+                self._async_ret = AsyncResult(self._context, name=self.get_func_name(), multi_jobs_kwargs_list=multi_jobs_kwargs_list,
+                                              map_results=self.map_results, internal_id=self.internal_id)
+            else:
+                self._async_ret = AsyncResult(self._context, name=self.get_func_name(), wait_num=1, internal_id=self.internal_id)
+
+            self._async_result_initialized = True
+            self._async_result_status = AsyncResultStatus.Running
+            self._async_ret.subscribe()
+
+    def stop_async_result(self):
+        if self._async_ret:
+            self._async_ret.stop()
+            self._results = self._async_ret.get_results()
+            if self._async_ret.is_finished:
+                self._async_result_status = AsyncResultStatus.Finished
+            elif self._async_ret.is_subfinished:
+                self._async_result_status = AsyncResultStatus.SubFinished
+            elif self._async_ret.is_failed:
+                self._async_result_status = AsyncResultStatus.Failed
+            self._async_ret = None
+            # self._async_result_initialized = False
 
     def wait_results(self):
         try:
             terminated_status = self.get_terminated_status()
 
-            multi_jobs_kwargs_list = self.get_multi_jobs_kwargs_list()
-            if multi_jobs_kwargs_list:
-                async_ret = AsyncResult(self._context, name=self.get_func_name(), multi_jobs_kwargs_list=multi_jobs_kwargs_list,
-                                        map_results=self.map_results, internal_id=self.internal_id)
-            else:
-                async_ret = AsyncResult(self._context, name=self.get_func_name(), wait_num=1, internal_id=self.internal_id)
+            # multi_jobs_kwargs_list = self.get_multi_jobs_kwargs_list()
+            # if multi_jobs_kwargs_list:
+            #     async_ret = AsyncResult(self._context, name=self.get_func_name(), multi_jobs_kwargs_list=multi_jobs_kwargs_list,
+            #                             map_results=self.map_results, internal_id=self.internal_id)
+            # else:
+            #     async_ret = AsyncResult(self._context, name=self.get_func_name(), wait_num=1, internal_id=self.internal_id)
 
-            async_ret.subscribe()
+            # async_ret.subscribe()
+            self.init_async_result()
 
             status = self.get_status()
             time_last_check_status = time.time()
             logging.info("waiting for results")
             while status not in terminated_status:
                 # time.sleep(10)
-                ret = async_ret.wait_results(timeout=10)
+                ret = self._async_ret.wait_results(timeout=10)
                 if ret:
                     logging.info("Recevied result: %s" % str(ret))
                     break
-                if async_ret.waiting_result_terminated:
+                if self._async_ret.waiting_result_terminated:
                     logging.info("waiting_result_terminated is set, Received result is: %s" % str(ret))
                 if time.time() - time_last_check_status > 600:   # 10 minutes
                     status = self.get_status()
                     time_last_check_status = time.time()
 
-            async_ret.stop()
-            self._results = async_ret.wait_results(force_return_results=True)
+            self._results = self._async_ret.wait_results(force_return_results=True)
+            self.stop_async_result()
             return self._results
         except Exception as ex:
             logging.error("wait_results got some errors: %s" % str(ex))
-            async_ret.stop()
+            self.stop_async_result()
             return ex
 
     def get_results(self):
+        if self._async_ret:
+            self._results = self._async_ret.get_results()
         return self._results
 
     def setup(self):
@@ -814,11 +917,13 @@ class Work(Base):
         """
         self.pre_run()
 
-        func_name, args, kwargs, multi_jobs_kwargs_list = self._func_name_and_args
+        func_name, pre_kwargs, args, kwargs, multi_jobs_kwargs_list = self._func_name_and_args
         current_job_kwargs = self._current_job_kwargs
 
         if args:
             args = pickle.loads(base64.b64decode(args))
+        if pre_kwargs:
+            pre_kwargs = pickle.loads(base64.b64decode(pre_kwargs))
         if kwargs:
             kwargs = pickle.loads(base64.b64decode(kwargs))
         if multi_jobs_kwargs_list:
@@ -832,11 +937,15 @@ class Work(Base):
 
         if self._context.distributed:
             rets = None
-            kwargs_copy = kwargs.copy()
+            args_copy = copy.deepcopy(args)
+            pre_kwargs_copy = copy.deepcopy(pre_kwargs)
+            kwargs_copy = copy.deepcopy(kwargs)
             if current_job_kwargs and type(current_job_kwargs) in [dict]:
                 kwargs_copy.update(current_job_kwargs)
+            elif current_job_kwargs and type(current_job_kwargs) in [tuple, list]:
+                args_copy = copy.deepcopy(current_job_kwargs)
 
-            rets = self.run_func(self._func, args, kwargs_copy)
+            rets = self.run_func(self._func, pre_kwargs_copy, args_copy, kwargs_copy)
 
             request_id = self._context.request_id
             transform_id = self._context.transform_id
@@ -852,7 +961,7 @@ class Work(Base):
             return self._results
         else:
             if not multi_jobs_kwargs_list:
-                rets = self.run_func(self._func, args, kwargs)
+                rets = self.run_func(self._func, pre_kwargs, args, kwargs)
                 if not self.map_results:
                     self._results = rets
                 else:
@@ -863,16 +972,28 @@ class Work(Base):
                 if not self.map_results:
                     self._results = []
                     for one_job_kwargs in multi_jobs_kwargs_list:
-                        kwargs_copy = kwargs.copy()
-                        kwargs_copy.update(one_job_kwargs)
-                        rets = self.run_func(self._func, args, kwargs_copy)
+                        kwargs_copy = copy.deepcopy(kwargs)
+                        args_copy = copy.deepcopy(args)
+                        pre_kwargs_copy = copy.deepcopy(pre_kwargs)
+                        if type(one_job_kwargs) in [dict]:
+                            kwargs_copy.update(one_job_kwargs)
+                        elif type(one_job_kwargs) in [tuple, list]:
+                            args_copy = copy.deepcopy(one_job_kwargs)
+
+                        rets = self.run_func(self._func, pre_kwargs_copy, args_copy, kwargs_copy)
                         self._results.append(rets)
                 else:
                     self._results = MapResult()
                     for one_job_kwargs in multi_jobs_kwargs_list:
-                        kwargs_copy = kwargs.copy()
-                        kwargs_copy.update(one_job_kwargs)
-                        rets = self.run_func(self._func, args, kwargs_copy)
+                        kwargs_copy = copy.deepcopy(kwargs)
+                        args_copy = copy.deepcopy(args)
+                        pre_kwargs_copy = copy.deepcopy(pre_kwargs)
+                        if type(one_job_kwargs) in [dict]:
+                            kwargs_copy.update(one_job_kwargs)
+                        elif type(one_job_kwargs) in [tuple, list]:
+                            args_copy = copy.deepcopy(one_job_kwargs)
+
+                        rets = self.run_func(self._func, pre_kwargs_copy, args_copy, kwargs_copy)
                         self._results.add_result(name=self.get_func_name(), args=one_job_kwargs, result=rets)
                 return self._results
 
@@ -918,17 +1039,18 @@ def run_work_distributed(w):
 
 
 # foo = work(arg)(foo)
-def work(func=None, *, map_results=False, lazy=False, init_env=None):
+def work(func=None, *, workflow=None, pre_kwargs={}, return_work=False, map_results=False, lazy=False, init_env=None, no_wraps=False):
     if func is None:
-        return functools.partial(work, map_results=map_results, lazy=lazy, init_env=init_env)
+        return functools.partial(work, workflow=workflow, pre_kwargs=pre_kwargs, return_work=return_work, no_wraps=no_wraps,
+                                 map_results=map_results, lazy=lazy, init_env=init_env)
 
     if 'IDDS_IGNORE_WORK_DECORATOR' in os.environ:
         return func
 
-    @functools.wraps(func)
+    # @functools.wraps(func)
     def wrapper(*args, **kwargs):
         try:
-            f = kwargs.pop('workflow', None) or WorkflowCanvas.get_current_workflow()
+            f = workflow or kwargs.pop('workflow', None) or WorkflowCanvas.get_current_workflow()
             workflow_context = f._context
             multi_jobs_kwargs_list = kwargs.pop('multi_jobs_kwargs_list', [])
             logging.debug("workflow context: %s" % workflow_context)
@@ -936,9 +1058,13 @@ def work(func=None, *, map_results=False, lazy=False, init_env=None):
             logging.debug("work decorator: func: %s, map_results: %s" % (func, map_results))
             if workflow_context:
                 logging.debug("setup work")
-                w = Work(workflow_context=workflow_context, func=func, args=args, kwargs=kwargs, multi_jobs_kwargs_list=multi_jobs_kwargs_list,
-                         map_results=map_results, init_env=init_env)
+                w = Work(workflow_context=workflow_context, func=func, pre_kwargs=pre_kwargs, args=args, kwargs=kwargs,
+                         multi_jobs_kwargs_list=multi_jobs_kwargs_list, map_results=map_results, init_env=init_env)
                 # if distributed:
+
+                if return_work:
+                    return w
+
                 if workflow_context.distributed:
                     ret = run_work_distributed(w)
                     return ret
@@ -947,24 +1073,42 @@ def work(func=None, *, map_results=False, lazy=False, init_env=None):
             else:
                 logging.info("workflow context is not defined, run function locally")
                 if not multi_jobs_kwargs_list:
-                    return func(*args, **kwargs)
+                    kwargs_copy = copy.deepcopy(pre_kwargs)
+                    kwargs_copy.update(kwargs)
+                    return func(*args, **kwargs_copy)
 
                 if not kwargs:
                     kwargs = {}
                 if not map_results:
                     rets = []
                     for one_job_kwargs in multi_jobs_kwargs_list:
-                        kwargs_copy = kwargs.copy()
-                        kwargs_copy.update(one_job_kwargs)
-                        ret = func(*args, **kwargs_copy)
+                        kwargs_copy = copy.deepcopy(kwargs)
+                        args_copy = copy.deepcopy(args)
+                        pre_kwargs_copy = copy.deepcopy(pre_kwargs)
+                        if type(one_job_kwargs) in [dict]:
+                            kwargs_copy.update(one_job_kwargs)
+                        elif type(one_job_kwargs) in [tuple, list]:
+                            args_copy = copy.deepcopy(one_job_kwargs)
+
+                        pre_kwargs_copy.update(kwargs_copy)
+
+                        ret = func(*args_copy, **pre_kwargs_copy)
                         rets.append(ret)
                     return rets
                 else:
                     rets = MapResult()
                     for one_job_kwargs in multi_jobs_kwargs_list:
-                        kwargs_copy = kwargs.copy()
-                        kwargs_copy.update(one_job_kwargs)
-                        ret = func(*args, **kwargs_copy)
+                        kwargs_copy = copy.deepcopy(kwargs)
+                        args_copy = copy.deepcopy(args)
+                        pre_kwargs_copy = copy.deepcopy(pre_kwargs)
+                        if type(one_job_kwargs) in [dict]:
+                            kwargs_copy.update(one_job_kwargs)
+                        elif type(one_job_kwargs) in [tuple, list]:
+                            args_copy = copy.deepcopy(one_job_kwargs)
+
+                        pre_kwargs_copy.update(kwargs_copy)
+
+                        ret = func(*args_copy, **pre_kwargs_copy)
                         rets.add_result(name=get_func_name(func), args=one_job_kwargs, result=ret)
                     return rets
         except Exception as ex:
@@ -972,4 +1116,7 @@ def work(func=None, *, map_results=False, lazy=False, init_env=None):
             raise ex
         except:
             raise
-    return wrapper
+    if no_wraps:
+        return wrapper
+    else:
+        return functools.wraps(func)(wrapper)
