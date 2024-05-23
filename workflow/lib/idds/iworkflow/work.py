@@ -804,7 +804,7 @@ class Work(Base):
         return multi_jobs_kwargs_list
 
     def init_async_result(self):
-        if not self._async_result_initialized or self._async_ret is None:
+        if not self._async_result_initialized:
             multi_jobs_kwargs_list = self.get_multi_jobs_kwargs_list()
             if multi_jobs_kwargs_list:
                 self._async_ret = AsyncResult(self._context, name=self.get_func_name(), multi_jobs_kwargs_list=multi_jobs_kwargs_list,
@@ -827,7 +827,7 @@ class Work(Base):
             elif self._async_ret.is_failed:
                 self._async_result_status = AsyncResultStatus.Failed
             self._async_ret = None
-            self._async_result_initialized = False
+            # self._async_result_initialized = False
 
     def wait_results(self):
         try:
