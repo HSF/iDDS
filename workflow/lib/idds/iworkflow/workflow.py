@@ -676,8 +676,8 @@ class WorkflowContext(Context):
 class Workflow(Base):
 
     def __init__(self, func=None, service='panda', context=None, source_dir=None, local=False, distributed=True,
-                 args=None, kwargs={}, multi_jobs_kwargs_list=[], current_job_kwargs=None, init_env=None, is_unique_func_name=False,
-                 max_walltime=24 * 3600):
+                 pre_kwargs={}, args=None, kwargs={}, multi_jobs_kwargs_list=[], current_job_kwargs=None,
+                 init_env=None, is_unique_func_name=False, max_walltime=24 * 3600, source_dir_parent_level=None):
         """
         Init a workflow.
         """
@@ -685,7 +685,7 @@ class Workflow(Base):
         self.prepared = False
 
         # self._func = func
-        self._func, self._func_name_and_args = self.get_func_name_and_args(func, args, kwargs, multi_jobs_kwargs_list)
+        self._func, self._func_name_and_args = self.get_func_name_and_args(func, pre_kwargs, args, kwargs, multi_jobs_kwargs_list)
         self._current_job_kwargs = current_job_kwargs
         if self._current_job_kwargs:
             self._current_job_kwargs = base64.b64encode(pickle.dumps(self._current_job_kwargs)).decode("utf-8")
@@ -696,10 +696,11 @@ class Workflow(Base):
         if not is_unique_func_name:
             if self._name:
                 self._name = self._name + "_" + datetime.datetime.utcnow().strftime("%Y_%m_%d_%H_%M_%S")
-        source_dir = self.get_source_dir(self._func, source_dir)
+        source_dir = self.get_source_dir(self._func, source_dir, source_dir_parent_level=source_dir_parent_level)
 
         workflow_type = WorkflowType.iWorkflow
         if local:
+            self._func = None
             workflow_type = WorkflowType.iWorkflowLocal
 
         if context is not None:
@@ -888,7 +889,7 @@ class Workflow(Base):
 
     @property
     def multi_jobs_kwargs_list(self):
-        return self._func_name_and_args[3]
+        return self._func_name_and_args[4]
 
     @multi_jobs_kwargs_list.setter
     def multi_jobs_kwargs_list(self, value):
@@ -901,7 +902,7 @@ class Workflow(Base):
         self._func = func
         return obj
 
-    def get_source_dir(self, func, source_dir):
+    def get_source_dir(self, func, source_dir, source_dir_parent_level=None):
         if source_dir:
             return source_dir
         if func:
@@ -911,7 +912,11 @@ class Workflow(Base):
             if not source_file:
                 return None
             file_path = os.path.abspath(source_file)
-            return os.path.dirname(file_path)
+            source_dir = os.path.dirname(file_path)
+            if source_dir_parent_level and source_dir_parent_level > 0:
+                for _ in range(0, source_dir_parent_level):
+                    source_dir = os.path.dirname(source_dir)
+            return source_dir
         return None
 
     def prepare(self):
@@ -1040,6 +1045,9 @@ class Workflow(Base):
             except Exception as ex:
                 logging.error("Failed to close request(%s): %s" % (self._context.request_id, str(ex)))
 
+    def __del__(self):
+        self.close()
+
     def setup(self):
         """
         :returns command: `str` to setup the workflow.
@@ -1098,9 +1106,11 @@ class Workflow(Base):
         if True:
             self.pre_run()
 
-            func_name, args, kwargs, multi_jobs_kwargs_list = self._func_name_and_args
+            func_name, pre_kwargs, args, kwargs, multi_jobs_kwargs_list = self._func_name_and_args
             if args:
                 args = pickle.loads(base64.b64decode(args))
+            if pre_kwargs:
+                pre_kwargs = pickle.loads(base64.b64decode(pre_kwargs))
             if kwargs:
                 kwargs = pickle.loads(base64.b64decode(kwargs))
             if multi_jobs_kwargs_list:
@@ -1109,7 +1119,7 @@ class Workflow(Base):
             if self._func is None:
                 func = self.load(func_name)
                 self._func = func
-            ret = self.run_func(self._func, args, kwargs)
+            ret = self.run_func(self._func, pre_kwargs, args, kwargs)
 
             return ret
 
@@ -1154,19 +1164,22 @@ class Workflow(Base):
 
 
 # foo = workflow(arg)(foo)
-def workflow(func=None, *, local=False, service='idds', source_dir=None, primary=False, queue=None, site=None, cloud=None, max_walltime=24 * 3600, distributed=True, init_env=None):
+def workflow(func=None, *, local=False, service='idds', source_dir=None, primary=False, queue=None, site=None, cloud=None,
+             max_walltime=24 * 3600, distributed=True, init_env=None, pre_kwargs={}, return_workflow=False, no_wraps=False,
+             source_dir_parent_level=None):
     if func is None:
         return functools.partial(workflow, local=local, service=service, source_dir=source_dir, primary=primary, queue=queue, site=site, cloud=cloud,
-                                 max_walltime=max_walltime, distributed=distributed, init_env=init_env)
+                                 max_walltime=max_walltime, distributed=distributed, init_env=init_env, pre_kwargs=pre_kwargs, no_wraps=no_wraps,
+                                 return_workflow=return_workflow, source_dir_parent_level=source_dir_parent_level)
 
     if 'IDDS_IGNORE_WORKFLOW_DECORATOR' in os.environ:
         return func
 
-    @functools.wraps(func)
+    # @functools.wraps(func)
     def wrapper(*args, **kwargs):
         try:
             f = Workflow(func, service=service, source_dir=source_dir, local=local, max_walltime=max_walltime, distributed=distributed,
-                         args=args, kwargs=kwargs, init_env=init_env)
+                         pre_kwargs=pre_kwargs, args=args, kwargs=kwargs, init_env=init_env, source_dir_parent_level=source_dir_parent_level)
             f.queue = queue
             f.site = site
             f.cloud = cloud
@@ -1177,6 +1190,10 @@ def workflow(func=None, *, local=False, service='idds', source_dir=None, primary
 
             logging.info("Registering workflow")
             f.submit()
+
+            logging.info("return_workflow %s" % return_workflow)
+            if return_workflow:
+                return f
 
             if not local:
                 logging.info("Run workflow at remote sites")
@@ -1191,7 +1208,10 @@ def workflow(func=None, *, local=False, service='idds', source_dir=None, primary
             raise ex
         except:
             raise
-    return wrapper
+    if no_wraps:
+        return wrapper
+    else:
+        return functools.wraps(func)(wrapper)
 
 
 def workflow_old(func=None, *, lazy=False, service='panda', source_dir=None, primary=False, distributed=True):
