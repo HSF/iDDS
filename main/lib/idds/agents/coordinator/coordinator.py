@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2023
+# - Wen Guan, <wen.guan@cern.ch>, 2023 - 2024
 
 import random
 import time
@@ -30,9 +30,9 @@ class Coordinator(BaseAgent):
     """
 
     def __init__(self, num_threads=1, coordination_interval_delay=300,
-                 interval_delay=30, max_queued_events=10,
+                 interval_delay=5, min_queued_events=10, max_queued_events=20,
                  max_total_files_for_small_task=1000,
-                 interval_delay_for_big_task=300,
+                 interval_delay_for_big_task=60,
                  max_boost_interval_delay=3,
                  show_queued_events_time_interval=300, **kwargs):
         super(Coordinator, self).__init__(num_threads=num_threads, name='Coordinator', **kwargs)
@@ -59,10 +59,15 @@ class Coordinator(BaseAgent):
             self.interval_delay = 30
         self.max_boost_interval_delay = int(max_boost_interval_delay)
         self.max_queued_events = max_queued_events
+        if self.min_queued_events:
+            self.min_queued_events = int(self.min_queued_events)
+        else:
+            self.min_queued_events = 10
+        self.max_queued_events = max_queued_events
         if self.max_queued_events:
             self.max_queued_events = int(self.max_queued_events)
         else:
-            self.max_queued_events = 10
+            self.max_queued_events = 20
         self.max_total_files_for_small_task = max_total_files_for_small_task
         if not self.max_total_files_for_small_task:
             self.max_total_files_for_small_task = 1000
@@ -151,7 +156,9 @@ class Coordinator(BaseAgent):
         if total_files and processed_files and total_files - processed_files <= self.max_total_files_for_small_task:
             to_finish = True
 
-        if big_task and not to_finish:
+        if total_queued_events < self.min_queued_events:
+            interval_delay = 0
+        elif big_task and not to_finish:
             interval_delay = self.interval_delay_for_big_task
         elif total_queued_events and total_queued_events > self.max_queued_events:
             boost_times = 2 * min(int(total_queued_events * 1.0 / self.max_queued_events), self.max_boost_interval_delay)
