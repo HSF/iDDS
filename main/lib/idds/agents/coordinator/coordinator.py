@@ -58,7 +58,7 @@ class Coordinator(BaseAgent):
         else:
             self.interval_delay = 30
         self.max_boost_interval_delay = int(max_boost_interval_delay)
-        self.max_queued_events = max_queued_events
+        self.min_queued_events = min_queued_events
         if self.min_queued_events:
             self.min_queued_events = int(self.min_queued_events)
         else:
