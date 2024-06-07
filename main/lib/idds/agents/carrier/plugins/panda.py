@@ -159,3 +159,36 @@ class PandaSubmitterPoller(BaseSubmitterPoller):
                 logger.error(log_prefix + str(ex))
                 logger.error(traceback.format_exc())
             raise ex
+
+    def abort(self, workload_id, logger=None, log_prefix=''):
+        from pandaclient import Client
+
+        try:
+            if logger:
+                logger.info(log_prefix + f"aborting task {workload_id}")
+            Client.killTask(workload_id, soft=True)
+            status, task_status = Client.getTaskStatus(workload_id)
+            if status == 0:
+                return self.get_processing_status(task_status)
+            else:
+                msg = "Failed to abort task %s: status: %s, task_status: %s" % (workload_id, status, task_status)
+                raise Exception(msg)
+        except Exception as ex:
+            if logger:
+                logger.error(log_prefix + str(ex))
+                logger.error(traceback.format_exc())
+            raise ex
+
+    def resume(self, workload_id, logger=None, log_prefix=''):
+        from pandaclient import Client
+
+        try:
+            if logger:
+                logger.info(log_prefix + f"resuming task {workload_id}")
+            status, out = Client.retryTask(workload_id, newParams={})
+            return ProcessingStatus.Running
+        except Exception as ex:
+            if logger:
+                logger.error(log_prefix + str(ex))
+                logger.error(traceback.format_exc())
+            raise ex

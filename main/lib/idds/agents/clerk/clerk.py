@@ -1387,13 +1387,11 @@ class Clerk(BaseAgent):
                         self.update_request(ret)
                         self.handle_command(event, cmd_status=CommandStatus.Failed, errors="Request is already terminated. Cannot be aborted")
                     elif req['request_type'] in [RequestType.iWorkflow, RequestType.iWorkflowLocal]:
-                        # todo
-                        ret = {'request_id': req['request_id'],
-                               'parameters': {'locking': RequestLocking.Idle,
-                                              'status': req['status']}
-                               }
+                        ret = self.handle_close_irequest(req, event=event)
                         self.update_request(ret)
-                        self.handle_command(event, cmd_status=CommandStatus.Failed, errors="Not support abortion for iWorkflow")
+
+                        # self.handle_command(event, cmd_status=CommandStatus.Failed, errors="Not support abortion for iWorkflow")
+                        self.handle_command(event, cmd_status=CommandStatus.Processed, errors=None)
                     else:
                         ret = self.handle_abort_request(req, event)
                         self.logger.info(log_pre + "process_abort_request result: %s" % str(ret))
@@ -1488,6 +1486,7 @@ class Clerk(BaseAgent):
             self.logger.debug(log_msg)
 
             parameters = {'status': req_status,
+                          'substatus': RequestStatus.ToClose,
                           'locking': RequestLocking.Idle,
                           'request_metadata': req['request_metadata']
                           }
@@ -1540,7 +1539,42 @@ class Clerk(BaseAgent):
                             self.update_request(ret)
                         else:
                             pass
-                            # todo
+                            ret = self.handle_abort_request(req, event)
+                            self.logger.info(log_pre + "process_abort_request result: %s" % str(ret))
+                            self.update_request(ret)
+                            to_abort_transform_id = None
+                            if event and event._content and event._content['cmd_content'] and 'transform_id' in event._content['cmd_content']:
+                                to_abort_transform_id = event._content['cmd_content']['transform_id']
+
+                            if req['status'] in [RequestStatus.Building]:
+                                wf = req['request_metadata']['build_workflow']
+                            else:
+                                if 'workflow' in req['request_metadata']:
+                                    wf = req['request_metadata']['workflow']
+                                else:
+                                    wf = req['request_metadata']['build_workflow']
+                            works = wf.get_all_works()
+                            if works:
+                                has_abort_work = False
+                                for work in works:
+                                    if (work.is_started() or work.is_starting()) and not work.is_terminated():
+                                        if not to_abort_transform_id or to_abort_transform_id == work.get_work_id():
+                                            self.logger.info(log_pre + "AbortTransformEvent(transform_id: %s)" % str(work.get_work_id()))
+                                            event = AbortTransformEvent(publisher_id=self.id,
+                                                                        transform_id=work.get_work_id(),
+                                                                        content=event._content)
+                                            self.event_bus.send(event)
+                                            has_abort_work = True
+                                if not has_abort_work:
+                                    self.logger.info(log_pre + "not has abort work")
+                                    self.logger.info(log_pre + "UpdateRequestEvent(request_id: %s)" % str(req['request_id']))
+                                    event = UpdateRequestEvent(publisher_id=self.id, request_id=req['request_id'], content=event._content)
+                                    self.event_bus.send(event)
+                            else:
+                                # no works. should trigger update request
+                                self.logger.info(log_pre + "UpdateRequestEvent(request_id: %s)" % str(req['request_id']))
+                                event = UpdateRequestEvent(publisher_id=self.id, request_id=req['request_id'], content=event._content)
+                                self.event_bus.send(event)
 
                         self.handle_command(event, cmd_status=CommandStatus.Processed, errors=None)
         except AssertionError as ex:
@@ -1555,6 +1589,47 @@ class Clerk(BaseAgent):
             pro_ret = ReturnCode.Failed.value
         self.number_workers -= 1
         return pro_ret
+
+    def handle_resume_irequest(self, req, event):
+        """
+        process resume irequest
+        """
+        try:
+            log_pre = self.get_log_prefix(req)
+            self.logger.info(log_pre + "handle_resume_irequest event: %s" % str(event))
+
+            tfs = core_transforms.get_transforms(request_id=req['request_id'])
+            for tf in tfs:
+                if tf['status'] in [TransformStatus.Finished, TransformStatus.Built]:
+                    continue
+                else:
+                    event = ResumeTransformEvent(publisher_id=self.id,
+                                                 transform_id=tf['transform_id'],
+                                                 content=event._content)
+                    self.event_bus.send(event)
+
+            parameters = {'status': RequestStatus.Transforming,
+                          'substatus': RequestStatus.ToResume,
+                          'locking': RequestLocking.Idle,
+                          'request_metadata': req['request_metadata']
+                          }
+            parameters = self.load_poll_period(req, parameters)
+
+            ret = {'request_id': req['request_id'],
+                   'parameters': parameters}
+            self.logger.info(log_pre + "Handle resume irequest result: %s" % str(ret))
+            return ret
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+            error = {'close_err': {'msg': truncate_string('%s' % (ex), length=200)}}
+            ret_req = {'request_id': req['request_id'],
+                       'parameters': {'status': RequestStatus.ToClose,
+                                      'locking': RequestLocking.Idle,
+                                      'errors': req['errors'] if req['errors'] else {}}}
+            ret_req['parameters']['errors'].update(error)
+            self.logger.info(log_pre + "handle_close_irequest exception result: %s" % str(ret_req))
+        return ret_req
 
     def handle_resume_request(self, req):
         """
@@ -1610,13 +1685,10 @@ class Clerk(BaseAgent):
                         self.update_request(ret)
                         self.handle_command(event, cmd_status=CommandStatus.Failed, errors="Request is already finished. Cannot be resumed")
                     elif req['request_type'] in [RequestType.iWorkflow, RequestType.iWorkflowLocal]:
-                        # todo
-                        ret = {'request_id': req['request_id'],
-                               'parameters': {'locking': RequestLocking.Idle,
-                                              'status': req['status']}
-                               }
+                        ret = self.handle_resume_irequest(req)
                         self.update_request(ret)
-                        self.handle_command(event, cmd_status=CommandStatus.Failed, errors="Not support to reusme for iWorkflow")
+                        # self.handle_command(event, cmd_status=CommandStatus.Failed, errors="Not support to reusme for iWorkflow")
+                        self.handle_command(event, cmd_status=CommandStatus.Processed, errors=None)
                     else:
                         ret = self.handle_resume_request(req)
                         self.logger.info(log_pre + "process_resume_request result: %s" % str(ret))

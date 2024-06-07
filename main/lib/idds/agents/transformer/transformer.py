@@ -814,6 +814,47 @@ class Transformer(BaseAgent):
             return ret
         return None
 
+    def handle_abort_itransform(self, transform, event):
+        """
+        process abort transform
+        """
+        try:
+            log_pre = self.get_log_prefix(transform)
+
+            self.logger.info(log_pre + "handle_abort_itransform: %s" % transform)
+            prs = core_processings.get_processings(transform_id=transform['transform_id'])
+            pr_found = None
+            for pr in prs:
+                if pr['processing_id'] == transform['current_processing_id']:
+                    pr_found = pr
+                    break
+            if pr_found:
+                self.logger.info(log_pre + "AbortProcessingEvent(processing_id: %s)" % pr['processing_id'])
+                event = AbortProcessingEvent(publisher_id=self.id,
+                                             processing_id=pr['processing_id'],
+                                             content=event._content)
+                self.event_bus.send(event)
+
+            transform_parameters = {'status': TransformStatus.Transforming,
+                                    'substatus': TransformStatus.ToCancel,
+                                    'locking': TransformLocking.Idle}
+
+            ret = {'transform': transform,
+                   'transform_parameters': transform_parameters}
+            return ret
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+            tf_status = transform['oldstatus']
+            error = {'resume_err': {'msg': truncate_string('%s' % (ex), length=200)}}
+            transform_parameters = {'status': tf_status,
+                                    'locking': TransformLocking.Idle,
+                                    'errors': transform['errors'] if transform['errors'] else {}}
+            transform_parameters['errors'].update(error)
+            ret = {'transform': transform, 'transform_parameters': transform_parameters}
+            return ret
+        return None
+
     def process_abort_transform(self, event):
         self.number_workers += 1
         pro_ret = ReturnCode.Ok.value
@@ -841,20 +882,26 @@ class Transformer(BaseAgent):
 
                         self.update_transform(ret)
                     else:
-                        ret = self.handle_abort_transform(tf)
-                        self.logger.info(log_pre + "process_abort_transform result: %s" % str(ret))
-                        if ret:
-                            self.update_transform(ret)
+                        if tf['transform_type'] in [TransformType.iWorkflow, TransformType.iWork]:
+                            ret = self.handle_abort_itransform(tf, event)
+                            self.logger.info(log_pre + "process_abort_transform result: %s" % str(ret))
+                            if ret:
+                                self.update_transform(ret)
+                        else:
+                            ret = self.handle_abort_transform(tf)
+                            self.logger.info(log_pre + "process_abort_transform result: %s" % str(ret))
+                            if ret:
+                                self.update_transform(ret)
 
-                        work = tf['transform_metadata']['work']
-                        work.set_work_id(tf['transform_id'])
-                        work.set_agent_attributes(self.agent_attributes, tf)
+                            work = tf['transform_metadata']['work']
+                            work.set_work_id(tf['transform_id'])
+                            work.set_agent_attributes(self.agent_attributes, tf)
 
-                        processing = work.get_processing(input_output_maps=[], without_creating=True)
-                        if processing and processing.processing_id:
-                            self.logger.info(log_pre + "AbortProcessingEvent(processing_id: %s)" % processing.processing_id)
-                            event = AbortProcessingEvent(publisher_id=self.id, processing_id=processing.processing_id, content=event._content)
-                            self.event_bus.send(event)
+                            processing = work.get_processing(input_output_maps=[], without_creating=True)
+                            if processing and processing.processing_id:
+                                self.logger.info(log_pre + "AbortProcessingEvent(processing_id: %s)" % processing.processing_id)
+                                event = AbortProcessingEvent(publisher_id=self.id, processing_id=processing.processing_id, content=event._content)
+                                self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
@@ -890,6 +937,47 @@ class Transformer(BaseAgent):
             return ret
         return None
 
+    def handle_resume_itransform(self, transform, event):
+        """
+        process resume transform
+        """
+        try:
+            log_pre = self.get_log_prefix(transform)
+
+            self.logger.info(log_pre + "handle_resume_itransform: %s" % transform)
+            prs = core_processings.get_processings(transform_id=transform['transform_id'])
+            pr_found = None
+            for pr in prs:
+                if pr['processing_id'] == transform['current_processing_id']:
+                    pr_found = pr
+                    break
+            if pr_found:
+                self.logger.info(log_pre + "ResumeProcessingEvent(processing_id: %s)" % pr['processing_id'])
+                event = ResumeProcessingEvent(publisher_id=self.id,
+                                              processing_id=pr['processing_id'],
+                                              content=event._content)
+                self.event_bus.send(event)
+
+            transform_parameters = {'status': TransformStatus.Transforming,
+                                    'substatus': TransformStatus.ToResume,
+                                    'locking': TransformLocking.Idle}
+
+            ret = {'transform': transform,
+                   'transform_parameters': transform_parameters}
+            return ret
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+            tf_status = transform['oldstatus']
+            error = {'resume_err': {'msg': truncate_string('%s' % (ex), length=200)}}
+            transform_parameters = {'status': tf_status,
+                                    'locking': TransformLocking.Idle,
+                                    'errors': transform['errors'] if transform['errors'] else {}}
+            transform_parameters['errors'].update(error)
+            ret = {'transform': transform, 'transform_parameters': transform_parameters}
+            return ret
+        return None
+
     def process_resume_transform(self, event):
         self.number_workers += 1
         pro_ret = ReturnCode.Ok.value
@@ -913,27 +1001,33 @@ class Transformer(BaseAgent):
                         self.logger.info(log_pre + "process_resume_transform result: %s" % str(ret))
                         self.update_transform(ret)
                     else:
-                        ret = self.handle_resume_transform(tf)
-                        self.logger.info(log_pre + "process_resume_transform result: %s" % str(ret))
-                        if ret:
-                            self.update_transform(ret)
-
-                        work = tf['transform_metadata']['work']
-                        work.set_agent_attributes(self.agent_attributes, tf)
-
-                        processing = work.get_processing(input_output_maps=[], without_creating=True)
-                        if processing and processing.processing_id:
-                            self.logger.info(log_pre + "ResumeProcessingEvent(processing_id: %s)" % processing.processing_id)
-                            event = ResumeProcessingEvent(publisher_id=self.id,
-                                                          processing_id=processing.processing_id,
-                                                          content=event._content)
-                            self.event_bus.send(event)
+                        if tf['transform_type'] in [TransformType.iWorkflow, TransformType.iWork]:
+                            ret = self.handle_resume_itransform(tf, event)
+                            self.logger.info(log_pre + "process_resume_transform result: %s" % str(ret))
+                            if ret:
+                                self.update_transform(ret)
                         else:
-                            self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % tf['transform_id'])
-                            event = UpdateTransformEvent(publisher_id=self.id,
-                                                         transform_id=tf['transform_id'],
-                                                         content=event._content)
-                            self.event_bus.send(event)
+                            ret = self.handle_resume_transform(tf)
+                            self.logger.info(log_pre + "process_resume_transform result: %s" % str(ret))
+                            if ret:
+                                self.update_transform(ret)
+
+                            work = tf['transform_metadata']['work']
+                            work.set_agent_attributes(self.agent_attributes, tf)
+
+                            processing = work.get_processing(input_output_maps=[], without_creating=True)
+                            if processing and processing.processing_id:
+                                self.logger.info(log_pre + "ResumeProcessingEvent(processing_id: %s)" % processing.processing_id)
+                                event = ResumeProcessingEvent(publisher_id=self.id,
+                                                              processing_id=processing.processing_id,
+                                                              content=event._content)
+                                self.event_bus.send(event)
+                            else:
+                                self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % tf['transform_id'])
+                                event = UpdateTransformEvent(publisher_id=self.id,
+                                                             transform_id=tf['transform_id'],
+                                                             content=event._content)
+                                self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())

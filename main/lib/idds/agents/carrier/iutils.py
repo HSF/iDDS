@@ -76,6 +76,36 @@ def handle_update_iprocessing(processing, agent_attributes, plugin=None, max_upd
     return status, [], [], [], [], [], [], []
 
 
+def handle_abort_iprocessing(processing, agent_attributes, plugin=None, logger=None, log_prefix=''):
+    logger = get_logger(logger)
+
+    workload_id = processing['workload_id']
+
+    try:
+        status = plugin.abort(workload_id, logger=logger, log_prefix=log_prefix)
+        logger.info(log_prefix + "abort work (status: %s, workload_id: %s)" % (status, workload_id))
+    except Exception as ex:
+        err_msg = "abort work failed with exception: %s" % (ex)
+        logger.error(log_prefix + err_msg)
+        raise Exception(err_msg)
+    return status, [], [], []
+
+
+def handle_resume_iprocessing(processing, agent_attributes, plugin=None, logger=None, log_prefix=''):
+    logger = get_logger(logger)
+
+    workload_id = processing['workload_id']
+
+    try:
+        status = plugin.resume(workload_id, logger=logger, log_prefix=log_prefix)
+        logger.info(log_prefix + "resume work (status: %s, workload_id: %s)" % (status, workload_id))
+    except Exception as ex:
+        err_msg = "resume work failed with exception: %s" % (ex)
+        logger.error(log_prefix + err_msg)
+        raise Exception(err_msg)
+    return status, [], []
+
+
 def sync_iprocessing(processing, agent_attributes, terminate=False, abort=False, logger=None, log_prefix=""):
     # logger = get_logger()
 
