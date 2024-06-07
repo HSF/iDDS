@@ -25,6 +25,7 @@ import os
 import sys
 import time
 import traceback
+import zlib
 
 from idds.common.utils import json_dumps, json_loads, setup_logging, decode_base64
 # from idds.common.utils import merge_dict
@@ -40,16 +41,16 @@ def get_context_args(context, original_args, current_job_kwargs):
     func_name, pre_kwargs, args, kwargs, multi_jobs_kwargs_list = None, None, None, None, None
     if original_args:
         original_args = json_loads(original_args)
-        func_name, pre_kwargs, args, kwargs, multi_jobs_kwargs_list = original_args
+        func_name, pre_kwargs, args, kwargs = original_args
 
     if args:
-        args = pickle.loads(base64.b64decode(args))
+        args = pickle.loads(zlib.decompress(base64.b64decode(args)))
     if pre_kwargs:
-        pre_kwargs = pickle.loads(base64.b64decode(pre_kwargs))
+        pre_kwargs = pickle.loads(zlib.decompress(base64.b64decode(pre_kwargs)))
     if kwargs:
-        kwargs = pickle.loads(base64.b64decode(kwargs))
+        kwargs = pickle.loads(zlib.decompress(base64.b64decode(kwargs)))
     if multi_jobs_kwargs_list:
-        multi_jobs_kwargs_list = [pickle.loads(base64.b64decode(k)) for k in multi_jobs_kwargs_list]
+        multi_jobs_kwargs_list = [pickle.loads(zlib.decompress(base64.b64decode(k))) for k in multi_jobs_kwargs_list]
 
     if current_job_kwargs:
         if current_job_kwargs == "${IN/L}":
@@ -59,7 +60,7 @@ def get_context_args(context, original_args, current_job_kwargs):
                 current_job_kwargs = json_loads(current_job_kwargs)
 
                 if current_job_kwargs:
-                    current_job_kwargs = pickle.loads(base64.b64decode(current_job_kwargs))
+                    current_job_kwargs = pickle.loads(zlib.decompress(base64.b64decode(current_job_kwargs)))
 
                 # current_job_kwargs = current_job_kwargs
                 # if current_job_kwargs and isinstance(current_job_kwargs, dict):
@@ -70,8 +71,9 @@ def get_context_args(context, original_args, current_job_kwargs):
     return context, func_name, pre_kwargs, args, kwargs, multi_jobs_kwargs_list, current_job_kwargs
 
 
-def run_workflow(context, original_args, current_job_kwargs):
+def run_workflow(name, context, original_args, current_job_kwargs):
     context, func_name, pre_kwargs, args, kwargs, multi_jobs_kwargs_list, current_job_kwargs = get_context_args(context, original_args, current_job_kwargs)
+    logging.info("name: %s" % name)
     logging.info("context: %s" % context)
     logging.info("func_name: %s" % func_name)
     logging.info("pre_kwargs: %s" % pre_kwargs)
@@ -83,7 +85,8 @@ def run_workflow(context, original_args, current_job_kwargs):
     context.initialize()
     context.setup_source_files()
 
-    workflow = Workflow(func=func_name, pre_kwargs=pre_kwargs, args=args, kwargs=kwargs, multi_jobs_kwargs_list=multi_jobs_kwargs_list, current_job_kwargs=current_job_kwargs, context=context)
+    workflow = Workflow(func=func_name, pre_kwargs=pre_kwargs, args=args, kwargs=kwargs, multi_jobs_kwargs_list=multi_jobs_kwargs_list, current_job_kwargs=current_job_kwargs, context=context, name=name)
+    workflow.load()
     logging.info("workflow: %s" % workflow)
     with workflow:
         ret = workflow.run()
@@ -91,8 +94,9 @@ def run_workflow(context, original_args, current_job_kwargs):
     return 0
 
 
-def run_work(context, original_args, current_job_kwargs):
+def run_work(name, context, original_args, current_job_kwargs):
     context, func_name, pre_kwargs, args, kwargs, multi_jobs_kwargs_list, current_job_kwargs = get_context_args(context, original_args, current_job_kwargs)
+    logging.info("name: %s" % name)
     logging.info("context: %s" % context)
     logging.info("func_name: %s" % func_name)
     logging.info("pre_kwargs: %s" % pre_kwargs)
@@ -104,7 +108,8 @@ def run_work(context, original_args, current_job_kwargs):
     context.initialize()
     context.setup_source_files()
 
-    work = Work(func=func_name, pre_kwargs=pre_kwargs, args=args, kwargs=kwargs, multi_jobs_kwargs_list=multi_jobs_kwargs_list, current_job_kwargs=current_job_kwargs, context=context)
+    work = Work(func=func_name, pre_kwargs=pre_kwargs, args=args, kwargs=kwargs, multi_jobs_kwargs_list=multi_jobs_kwargs_list, current_job_kwargs=current_job_kwargs, context=context, name=name)
+    work.load()
     logging.info("work: %s" % work)
     ret = work.run()
     logging.info("run work result: %s" % str(ret))
@@ -133,6 +138,20 @@ def run_iworkflow(args):
     else:
         current_job_kwargs = None
 
+    if args.args_file:
+        with open(args.args_file, 'r') as file:
+            data = file.read()
+        args_content = decode_base64(data)
+        args_content = json_loads(args_content)
+        if 'type' in args_content:
+            args.type = args_content['type']
+        if 'context' in args_content:
+            args.context = args_content['context']
+        if 'original_args' in args_content:
+            args.original_args = args_content['original_args']
+        if 'current_job_kwargs' in args_content:
+            args.current_job_kwargs = args_content['current_job_kwargs']
+
     if args.type == 'workflow':
         logging.info("run workflow")
         password = context.broker_password
@@ -141,7 +160,7 @@ def run_iworkflow(args):
         context.broker_password = password
         logging.info("original_args: %s" % original_args)
         logging.info("current_job_kwargs: %s" % current_job_kwargs)
-        exit_code = run_workflow(context, original_args, current_job_kwargs)
+        exit_code = run_workflow(args.name, context, original_args, current_job_kwargs)
         logging.info("exit code: %s" % exit_code)
     else:
         logging.info("run work")
@@ -151,7 +170,7 @@ def run_iworkflow(args):
         context.broker_password = password
         logging.info("original_args: %s" % original_args)
         logging.info("current_job_kwargs: %s" % current_job_kwargs)
-        exit_code = run_work(context, original_args, current_job_kwargs)
+        exit_code = run_work(args.name, context, original_args, current_job_kwargs)
         logging.info("exit code: %s" % exit_code)
     return exit_code
 
@@ -179,9 +198,11 @@ def get_parser():
     oparser.add_argument('--version', action='version', version='%(prog)s ' + release_version)
     oparser.add_argument('--verbose', '-v', default=False, action='store_true', help="Print more verbose output.")
     oparser.add_argument('--type', dest='type', action='store', choices=['workflow', 'work'], default='workflow', help='The type in [workflow, work]. Default is workflow.')
+    oparser.add_argument('--name', dest='name', help="The name.")
     oparser.add_argument('--context', dest='context', help="The context.")
     oparser.add_argument('--original_args', dest='original_args', help="The original arguments.")
     oparser.add_argument('--current_job_kwargs', dest='current_job_kwargs', nargs='?', const=None, help="The current job arguments.")
+    oparser.add_argument('--args_file', dest='args_file', help="The file with arguments")
     return oparser
 
 

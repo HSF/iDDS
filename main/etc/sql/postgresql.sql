@@ -548,15 +548,15 @@ CREATE INDEX "CONTENTS_ID_NAME_IDX" ON doma_idds.contents (coll_id, scope, md5('
         $$ LANGUAGE PLPGSQL
     
 
-CREATE SEQUENCE doma_idds."METAINFO_ID_SEQ" START WITH 1
+CREATE SEQUENCE doma_idds."METAINFO_ID_SEQ" START WITH 1;
 CREATE TABLE meta_info
 (
     meta_id BIGINT NOT NULL,
-    name VARCHAR2(50),
+    name VARCHAR(50),
     status INTEGER,
     created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
     updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
-    description VARCHAR2(1000),
+    description VARCHAR(1000),
     meta_info JSONB,
     CONSTRAINT "METAINFO_PK" PRIMARY KEY (meta_id), -- USING INDEX LOCAL,
     CONSTRAINT "METAINFO_NAME_UQ" UNIQUE (name)
