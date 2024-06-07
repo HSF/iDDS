@@ -19,6 +19,7 @@ import os
 import pickle
 import time
 import traceback
+import zlib
 
 from idds.common import exceptions
 from idds.common.constants import WorkflowType, TransformStatus, AsyncResultStatus
@@ -275,6 +276,11 @@ class WorkContext(Context):
     def broker_destination(self, value):
         self._workflow_context.broker_destination = value
 
+    def get_source_dir(self):
+        if self._workflow_context:
+            return self._workflow_context.get_source_dir()
+        return None
+
     @property
     def token(self):
         return self._workflow_context.token
@@ -339,7 +345,7 @@ class WorkContext(Context):
 class Work(Base):
 
     def __init__(self, func=None, workflow_context=None, context=None, pre_kwargs=None, args=None, kwargs=None, multi_jobs_kwargs_list=None,
-                 current_job_kwargs=None, map_results=False, source_dir=None, init_env=None, is_unique_func_name=False):
+                 current_job_kwargs=None, map_results=False, source_dir=None, init_env=None, is_unique_func_name=False, name=None):
         """
         Init a workflow.
         """
@@ -347,19 +353,23 @@ class Work(Base):
         self.prepared = False
 
         # self._func = func
-        self._func, self._func_name_and_args = self.get_func_name_and_args(func, pre_kwargs, args, kwargs, multi_jobs_kwargs_list)
+        self._func, self._func_name_and_args, self._multi_jobs_kwargs_list = self.get_func_name_and_args(func, pre_kwargs, args, kwargs, multi_jobs_kwargs_list)
         self._func = None
 
         self._current_job_kwargs = current_job_kwargs
         if self._current_job_kwargs:
-            self._current_job_kwargs = base64.b64encode(pickle.dumps(self._current_job_kwargs)).decode("utf-8")
+            self._current_job_kwargs = base64.b64encode(zlib.compress(pickle.dumps(self._current_job_kwargs))).decode("utf-8")
 
-        self._name = self._func_name_and_args[0]
-        if self._name:
-            self._name = self._name.replace('__main__:', '').replace('.py', '').replace(':', '.')
-        if not is_unique_func_name:
+        if name:
+            self._name = name
+        else:
+            self._name = self._func_name_and_args[0]
             if self._name:
-                self._name = self._name + "_" + datetime.datetime.utcnow().strftime("%Y_%m_%d_%H_%M_%S")
+                self._name = self._name.replace('__main__:', '').replace('.py', '').replace(':', '.')
+                self._name = self._name.replace("/", "_").replace(".", "_").replace(":", "_")
+            if not is_unique_func_name:
+                if self._name:
+                    self._name = self._name + "_" + datetime.datetime.utcnow().strftime("%Y_%m_%d_%H_%M_%S")
 
         if context:
             self._context = context
@@ -372,6 +382,8 @@ class Work(Base):
         self._results = None
         self._async_result_initialized = False
         self._async_result_status = None
+
+        self._other_attributes = {}
 
     @property
     def logger(self):
@@ -569,7 +581,7 @@ class Work(Base):
 
     @property
     def multi_jobs_kwargs_list(self):
-        return self._func_name_and_args[4]
+        return self._multi_jobs_kwargs_list
 
     @multi_jobs_kwargs_list.setter
     def multi_jobs_kwargs_list(self, value):
@@ -584,12 +596,38 @@ class Work(Base):
     def get_work_name(self):
         return self._name
 
+    def add_other_attributes(self, other_attributes):
+        for k, v in other_attributes.items():
+            self._other_attributes[k] = v
+
     def to_dict(self):
         func = self._func
         self._func = None
         obj = super(Work, self).to_dict()
         self._func = func
         return obj
+
+    def store(self):
+        if self._context:
+            content = {'type': 'work',
+                       'name': self.name,
+                       'context': self._context,
+                       'original_args': self._func_name_and_args,
+                       'multi_jobs_kwargs_list': self._multi_jobs_kwargs_list,
+                       'current_job_kwargs': self._current_job_kwargs}
+            source_dir = self._context.get_source_dir()
+            self.save_context(source_dir, self._name, content)
+
+    def load(self, source_dir=None):
+        if not source_dir:
+            source_dir = self._context.get_source_dir()
+            if not source_dir:
+                source_dir = os.getcwd()
+        ret = self.load_context(source_dir, self._name)
+        if ret:
+            logging.info(f"Loaded context: {ret}")
+            if 'multi_jobs_kwargs_list' in ret:
+                self._multi_jobs_kwargs_list = ret['multi_jobs_kwargs_list']
 
     def submit_to_idds_server(self):
         """
@@ -800,7 +838,7 @@ class Work(Base):
 
     def get_multi_jobs_kwargs_list(self):
         multi_jobs_kwargs_list = self.multi_jobs_kwargs_list
-        multi_jobs_kwargs_list = [pickle.loads(base64.b64decode(k)) for k in multi_jobs_kwargs_list]
+        multi_jobs_kwargs_list = [pickle.loads(zlib.decompress(base64.b64decode(k))) for k in multi_jobs_kwargs_list]
         return multi_jobs_kwargs_list
 
     def init_async_result(self):
@@ -877,14 +915,14 @@ class Work(Base):
         """
         return self._context.setup()
 
-    def load(self, func_name):
+    def load_func(self, func_name):
         """
         Load the function from the source files.
 
         :raise Exception
         """
         with modified_environ(IDDS_IGNORE_WORK_DECORATOR='true'):
-            func = super(Work, self).load(func_name)
+            func = super(Work, self).load_func(func_name)
 
         return func
 
@@ -917,22 +955,23 @@ class Work(Base):
         """
         self.pre_run()
 
-        func_name, pre_kwargs, args, kwargs, multi_jobs_kwargs_list = self._func_name_and_args
+        func_name, pre_kwargs, args, kwargs = self._func_name_and_args
+        multi_jobs_kwargs_list = self.multi_jobs_kwargs_list
         current_job_kwargs = self._current_job_kwargs
 
         if args:
-            args = pickle.loads(base64.b64decode(args))
+            args = pickle.loads(zlib.decompress(base64.b64decode(args)))
         if pre_kwargs:
-            pre_kwargs = pickle.loads(base64.b64decode(pre_kwargs))
+            pre_kwargs = pickle.loads(zlib.decompress(base64.b64decode(pre_kwargs)))
         if kwargs:
-            kwargs = pickle.loads(base64.b64decode(kwargs))
+            kwargs = pickle.loads(zlib.decompress(base64.b64decode(kwargs)))
         if multi_jobs_kwargs_list:
-            multi_jobs_kwargs_list = [pickle.loads(base64.b64decode(k)) for k in multi_jobs_kwargs_list]
+            multi_jobs_kwargs_list = [pickle.loads(zlib.decompress(base64.b64decode(k))) for k in multi_jobs_kwargs_list]
         if self._current_job_kwargs:
-            current_job_kwargs = pickle.loads(base64.b64decode(current_job_kwargs))
+            current_job_kwargs = pickle.loads(zlib.decompress(base64.b64decode(current_job_kwargs)))
 
         if self._func is None:
-            func = self.load(func_name)
+            func = self.load_func(func_name)
             self._func = func
 
         if self._context.distributed:
@@ -998,15 +1037,30 @@ class Work(Base):
                 return self._results
 
     def get_run_command(self):
-        cmd = "run_workflow --type work "
+        cmd = "run_workflow --type work --name %s " % self.name
         cmd += "--context %s --original_args %s " % (encode_base64(json_dumps(self._context)),
                                                      encode_base64(json_dumps(self._func_name_and_args)))
         cmd += "--current_job_kwargs ${IN/L}"
         return cmd
 
+    def get_run_args_to_file_cmd(self):
+        args = {'type': 'work',
+                'name': self.name,
+                'context': self._context,
+                'original_args': self._func_name_and_args,
+                'current_job_kwargs': '${IN/L}'}
+        args_json = encode_base64(json_dumps(args))
+        cmd = 'echo ' + args_json + ' > run_workflow_args; '
+        return cmd
+
+    def get_run_command_test(self):
+        cmd = "run_workflow.sh"
+        return cmd
+
     def get_runner(self):
         setup = self.setup()
         cmd = ""
+
         run_command = self.get_run_command()
 
         if setup:

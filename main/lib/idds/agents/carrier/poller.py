@@ -430,7 +430,7 @@ class Poller(BaseAgent):
                 plugin_name = processing['processing_type'].name.lower() + '_poller'
                 plugin = self.get_plugin(plugin_name)
             else:
-                raise exceptions.ProcessSubmitFailed('No corresponding submitter plugins for %s' % processing['processing_type'])
+                raise exceptions.ProcessSubmitFailed('No corresponding poller plugins for %s' % processing['processing_type'])
 
             ret_handle_update_processing = handle_update_iprocessing(processing,
                                                                      self.agent_attributes,

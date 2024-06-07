@@ -12,10 +12,12 @@ import copy
 import base64
 import logging
 import inspect
+import json
 import os
 import pickle
 import traceback
 import uuid
+import zlib
 
 from typing import Any, Dict, List, Optional, Tuple, Union    # noqa F401
 
@@ -87,15 +89,15 @@ class Base(DictBase):
             func_name = func
 
         if args:
-            args = base64.b64encode(pickle.dumps(args)).decode("utf-8")
+            args = base64.b64encode(zlib.compress(pickle.dumps(args))).decode("utf-8")
         if pre_kwargs:
-            pre_kwargs = base64.b64encode(pickle.dumps(pre_kwargs)).decode("utf-8")
+            pre_kwargs = base64.b64encode(zlib.compress(pickle.dumps(pre_kwargs))).decode("utf-8")
         if kwargs:
-            kwargs = base64.b64encode(pickle.dumps(kwargs)).decode("utf-8")
+            kwargs = base64.b64encode(zlib.compress(pickle.dumps(kwargs))).decode("utf-8")
         if multi_jobs_kwargs_list:
-            multi_jobs_kwargs_list = [base64.b64encode(pickle.dumps(k)).decode("utf-8") for k in multi_jobs_kwargs_list]
+            multi_jobs_kwargs_list = [base64.b64encode(zlib.compress(pickle.dumps(k))).decode("utf-8") for k in multi_jobs_kwargs_list]
 
-        return func_call, (func_name, pre_kwargs, args, kwargs, multi_jobs_kwargs_list)
+        return func_call, (func_name, pre_kwargs, args, kwargs), multi_jobs_kwargs_list
 
     @property
     def logger(self):
@@ -121,6 +123,32 @@ class Base(DictBase):
         return []
 
     def get_log_collections(self):
+        return []
+
+    def save_context(self, source_dir, name, context):
+        if source_dir and name and context:
+            try:
+                file_name = name + ".json"
+                file_name = os.path.join(source_dir, file_name)
+                with open(file_name, 'w') as f:
+                    json.dump(context, f)
+                self.logger.info(f"Saved context to file {file_name}")
+            except Exception as ex:
+                self.logger.error(f"Failed to save context to file {file_name}: {ex}")
+
+    def load_context(self, source_dir, name):
+        if source_dir and name:
+            try:
+                context = None
+                file_name = name + ".json"
+                file_name = os.path.join(source_dir, file_name)
+                if os.path.exists(file_name):
+                    with open(file_name, 'r') as f:
+                        context = json.load(f)
+                self.logger.info(f"Loading context from file {file_name}")
+                return context
+            except Exception as ex:
+                self.logger.error(f"Failed to load context from file: {ex}")
         return []
 
     def prepare(self):
@@ -160,7 +188,7 @@ class Base(DictBase):
         """
         return None
 
-    def load(self, func_name):
+    def load_func(self, func_name):
         """
         Load the function from the source files.
 
@@ -218,3 +246,9 @@ class Context(DictBase):
         :returns command: `str` to setup the workflow.
         """
         return None
+
+
+class CollectionBase(DictBase):
+    def __init__(self):
+        super(CollectionBase, self).__init__()
+        pass

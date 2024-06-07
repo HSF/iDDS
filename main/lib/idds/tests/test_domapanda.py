@@ -61,6 +61,18 @@ elif len(sys.argv) > 1 and sys.argv[1] == "lancs":
     task_queue4 = 'LANCS_Rubin_Merge'
     # task_queue5 = 'LANCS_Rubin_IO'
     task_queue5 = 'LANCS_Rubin_Extra_Himem'
+elif len(sys.argv) > 1 and sys.argv[1] == "ral":
+    site = 'RAL'
+    task_cloud = 'EU'
+    # task_queue = 'RAL_TEST'
+    task_queue = 'RAL_Rubin'
+    task_queue1 = 'RAL_Rubin_Medium'
+    task_queue2 = 'RAL_Rubin_Himem'
+    task_queue3 = 'RAL_Rubin_Extra_Himem'
+    # task_queue3 = 'RAL_Rubin_Himem'
+    task_queue4 = 'RAL_Rubin_Merge'
+    # task_queue5 = 'RAL_Rubin_IO'
+    task_queue5 = 'RAL_Rubin_Extra_Himem'
 else:
     site = 'slac'
     # task_cloud = 'LSST'
