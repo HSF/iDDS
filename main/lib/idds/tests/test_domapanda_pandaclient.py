@@ -40,8 +40,12 @@ import idds.common.utils as idds_utils
 import pandaclient.idds_api
 
 
-task_queue = 'DOMA_LSST_GOOGLE_TEST'
-task_queue = 'DOMA_LSST_GOOGLE_MERGE'
+# task_queue = 'DOMA_LSST_GOOGLE_TEST'
+# task_queue = 'DOMA_LSST_GOOGLE_MERGE'
+
+task_cloud = 'US'
+task_queue = "SLAC_Rubin"
+task_queue = 'BNL_OSG_2'
 
 
 def randStr(chars=string.ascii_lowercase + string.digits, N=10):
@@ -135,7 +139,7 @@ def setup_workflow():
                                     "token": "local",
                                     "type": "template",
                                     "value": "log.tgz"},
-                          task_cloud='LSST')
+                          task_cloud=task_cloud)
     work2 = DomaPanDAWork(executable='echo',
                           primary_input_collection={'scope': 'pseudo_dataset', 'name': 'pseudo_input_collection#2'},
                           output_collections=[{'scope': 'pseudo_dataset', 'name': 'pseudo_output_collection#2'}],
@@ -148,7 +152,7 @@ def setup_workflow():
                                     "type": "template",
                                     "value": "log.tgz"},
                           encode_command_line=True,
-                          task_cloud='LSST')
+                          task_cloud=task_cloud)
     work3 = DomaPanDAWork(executable='echo',
                           primary_input_collection={'scope': 'pseudo_dataset', 'name': 'pseudo_input_collection#3'},
                           output_collections=[{'scope': 'pseudo_dataset', 'name': 'pseudo_output_collection#3'}],
@@ -160,7 +164,7 @@ def setup_workflow():
                                     "token": "local",
                                     "type": "template",
                                     "value": "log.tgz"},
-                          task_cloud='LSST',
+                          task_cloud=task_cloud,
                           encode_command_line=True)
 
     pending_time = 12

@@ -88,6 +88,7 @@ class Event(DictClass):
         return self._event_type.name
 
     def able_to_merge(self, event):
+        """
         if self._event_type == event._event_type and self.get_event_id() == event.get_event_id():
             return True
         if self._event_type == event._event_type and self.get_event_id() == event.get_event_id() and self._counter == event._counter:
@@ -98,6 +99,14 @@ class Event(DictClass):
             #     ddiff = DeepDiff(self._content, event._content, ignore_order=True)
             #     if not ddiff:
             #         return True
+        """
+        if self._event_type == event._event_type:
+            if (self._content is None and event._content is None):
+                return True
+            elif (self._content is not None and event._content is not None):
+                ddiff = DeepDiff(self._content, event._content, ignore_order=True)
+                if not ddiff:
+                    return True
         return False
 
     def changed(self):

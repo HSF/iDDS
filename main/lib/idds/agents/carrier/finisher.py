@@ -28,7 +28,7 @@ from .utils import (handle_abort_processing,
                     handle_resume_processing,
                     # is_process_terminated,
                     sync_processing)
-from .iutils import sync_iprocessing
+from .iutils import sync_iprocessing, handle_abort_iprocessing, handle_resume_iprocessing
 from .poller import Poller
 
 setup_logging(__name__)
@@ -346,6 +346,43 @@ class Finisher(Poller):
             return ret
         return None
 
+    def handle_abort_iprocessing(self, processing, log_prefix=""):
+        """
+        process abort processing
+        """
+        try:
+            plugin = None
+            if processing['processing_type']:
+                plugin_name = processing['processing_type'].name.lower() + '_poller'
+                plugin = self.get_plugin(plugin_name)
+            else:
+                raise exceptions.ProcessSubmitFailed('No corresponding poller plugins for %s' % processing['processing_type'])
+
+            processing_status, update_collections, update_contents, messages = handle_abort_iprocessing(processing, self.agent_attributes, plugin=plugin, logger=self.logger, log_prefix=log_prefix)
+
+            update_processing = {'processing_id': processing['processing_id'],
+                                 'parameters': {'status': processing_status,
+                                                'substatus': ProcessingStatus.ToCancel,
+                                                'locking': ProcessingLocking.Idle}}
+            ret = {'update_processing': update_processing,
+                   'update_collections': update_collections,
+                   'update_contents': update_contents,
+                   'messages': messages
+                   }
+            return ret
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+            error = {'abort_err': {'msg': truncate_string('%s' % (ex), length=200)}}
+            update_processing = {'processing_id': processing['processing_id'],
+                                 'parameters': {'status': ProcessingStatus.ToCancel,
+                                                'locking': ProcessingLocking.Idle,
+                                                'errors': processing['errors'] if processing['errors'] else {}}}
+            update_processing['parameters']['errors'].update(error)
+            ret = {'update_processing': update_processing}
+            return ret
+        return None
+
     def process_abort_processing(self, event):
         self.number_workers += 1
         pro_ret = ReturnCode.Ok.value
@@ -373,17 +410,27 @@ class Finisher(Poller):
                         self.logger.info(log_pre + "process_abort_processing result: %s" % str(ret))
                         self.update_processing(ret, pr)
                     elif pr:
-                        ret = self.handle_abort_processing(pr, log_prefix=log_pre)
-                        ret_copy = {}
-                        for ret_key in ret:
-                            if ret_key != 'messages':
-                                ret_copy[ret_key] = ret[ret_key]
-                        self.logger.info(log_pre + "process_abort_processing result: %s" % str(ret_copy))
+                        if pr['processing_type'] and pr['processing_type'] in [ProcessingType.iWorkflow, ProcessingType.iWork]:
+                            ret = self.handle_abort_iprocessing(pr, log_prefix=log_pre)
+                            self.logger.info(log_pre + "process_abort_processing result: %s" % str(ret))
 
-                        self.update_processing(ret, pr)
-                        self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
-                        event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'], content=event._content)
-                        self.event_bus.send(event)
+                            self.update_processing(ret, pr, use_bulk_update_mappings=False)
+
+                            self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
+                            event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'], content=event._content)
+                            self.event_bus.send(event)
+                        else:
+                            ret = self.handle_abort_processing(pr, log_prefix=log_pre)
+                            ret_copy = {}
+                            for ret_key in ret:
+                                if ret_key != 'messages':
+                                    ret_copy[ret_key] = ret[ret_key]
+                            self.logger.info(log_pre + "process_abort_processing result: %s" % str(ret_copy))
+
+                            self.update_processing(ret, pr)
+                            self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
+                            event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'], content=event._content)
+                            self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
@@ -400,6 +447,42 @@ class Finisher(Poller):
 
             update_processing = {'processing_id': processing['processing_id'],
                                  'parameters': {'status': processing['status'],
+                                                'locking': ProcessingLocking.Idle}}
+            ret = {'update_processing': update_processing,
+                   'update_collections': update_collections,
+                   'update_contents': update_contents,
+                   }
+            return ret
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+            error = {'resume_err': {'msg': truncate_string('%s' % (ex), length=200)}}
+            update_processing = {'processing_id': processing['processing_id'],
+                                 'parameters': {'status': ProcessingStatus.ToResume,
+                                                'locking': ProcessingLocking.Idle,
+                                                'errors': processing['errors'] if processing['errors'] else {}}}
+            update_processing['parameters']['errors'].update(error)
+            ret = {'update_processing': update_processing}
+            return ret
+        return None
+
+    def handle_resume_iprocessing(self, processing, log_prefix=""):
+        """
+        process resume processing
+        """
+        try:
+            plugin = None
+            if processing['processing_type']:
+                plugin_name = processing['processing_type'].name.lower() + '_poller'
+                plugin = self.get_plugin(plugin_name)
+            else:
+                raise exceptions.ProcessSubmitFailed('No corresponding poller plugins for %s' % processing['processing_type'])
+
+            processing_status, update_collections, update_contents = handle_resume_iprocessing(processing, self.agent_attributes, plugin=plugin, logger=self.logger, log_prefix=log_prefix)
+
+            update_processing = {'processing_id': processing['processing_id'],
+                                 'parameters': {'status': processing_status,
+                                                'substatus': ProcessingStatus.ToResume,
                                                 'locking': ProcessingLocking.Idle}}
             ret = {'update_processing': update_processing,
                    'update_collections': update_collections,
@@ -445,14 +528,24 @@ class Finisher(Poller):
 
                         self.update_processing(ret, pr)
                     elif pr:
-                        ret = self.handle_resume_processing(pr, log_prefix=log_pre)
-                        self.logger.info(log_pre + "process_resume_processing result: %s" % str(ret))
+                        if pr['processing_type'] and pr['processing_type'] in [ProcessingType.iWorkflow, ProcessingType.iWork]:
+                            ret = self.handle_resume_iprocessing(pr, log_prefix=log_pre)
+                            self.logger.info(log_pre + "process_resume_processing result: %s" % str(ret))
 
-                        self.update_processing(ret, pr, use_bulk_update_mappings=False)
+                            self.update_processing(ret, pr, use_bulk_update_mappings=False)
 
-                        self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
-                        event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'], content=event._content)
-                        self.event_bus.send(event)
+                            self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
+                            event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'], content=event._content)
+                            self.event_bus.send(event)
+                        else:
+                            ret = self.handle_resume_processing(pr, log_prefix=log_pre)
+                            self.logger.info(log_pre + "process_resume_processing result: %s" % str(ret))
+
+                            self.update_processing(ret, pr, use_bulk_update_mappings=False)
+
+                            self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
+                            event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'], content=event._content)
+                            self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())

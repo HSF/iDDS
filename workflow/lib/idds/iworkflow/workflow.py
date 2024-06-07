@@ -19,6 +19,7 @@ import os
 import pickle
 import tarfile
 import uuid
+import zlib
 
 # from types import ModuleType
 
@@ -309,6 +310,9 @@ class WorkflowContext(Context):
     @broker_destination.setter
     def broker_destination(self, value):
         self._broker_destination = value
+
+    def get_source_dir(self):
+        return self._source_dir
 
     @property
     def token(self):
@@ -676,7 +680,7 @@ class WorkflowContext(Context):
 class Workflow(Base):
 
     def __init__(self, func=None, service='panda', context=None, source_dir=None, local=False, distributed=True,
-                 pre_kwargs={}, args=None, kwargs={}, multi_jobs_kwargs_list=[], current_job_kwargs=None,
+                 pre_kwargs={}, args=None, kwargs={}, multi_jobs_kwargs_list=[], current_job_kwargs=None, name=None,
                  init_env=None, is_unique_func_name=False, max_walltime=24 * 3600, source_dir_parent_level=None):
         """
         Init a workflow.
@@ -685,17 +689,21 @@ class Workflow(Base):
         self.prepared = False
 
         # self._func = func
-        self._func, self._func_name_and_args = self.get_func_name_and_args(func, pre_kwargs, args, kwargs, multi_jobs_kwargs_list)
+        self._func, self._func_name_and_args, self._multi_jobs_kwargs_list = self.get_func_name_and_args(func, pre_kwargs, args, kwargs, multi_jobs_kwargs_list)
         self._current_job_kwargs = current_job_kwargs
         if self._current_job_kwargs:
-            self._current_job_kwargs = base64.b64encode(pickle.dumps(self._current_job_kwargs)).decode("utf-8")
+            self._current_job_kwargs = base64.b64encode(zlib.compress(pickle.dumps(self._current_job_kwargs))).decode("utf-8")
 
-        self._name = self._func_name_and_args[0]
-        if self._name:
-            self._name = self._name.replace('__main__:', '').replace('.py', '').replace(':', '.')
-        if not is_unique_func_name:
+        if name:
+            self._name = name
+        else:
+            self._name = self._func_name_and_args[0]
             if self._name:
-                self._name = self._name + "_" + datetime.datetime.utcnow().strftime("%Y_%m_%d_%H_%M_%S")
+                self._name = self._name.replace('__main__:', '').replace('.py', '').replace(':', '.')
+                self._name = self._name.replace("/", "_").replace(".", "_").replace(":", "_")
+            if not is_unique_func_name:
+                if self._name:
+                    self._name = self._name + "_" + datetime.datetime.utcnow().strftime("%Y_%m_%d_%H_%M_%S")
         source_dir = self.get_source_dir(self._func, source_dir, source_dir_parent_level=source_dir_parent_level)
 
         workflow_type = WorkflowType.iWorkflow
@@ -889,7 +897,7 @@ class Workflow(Base):
 
     @property
     def multi_jobs_kwargs_list(self):
-        return self._func_name_and_args[4]
+        return self._multi_jobs_kwargs_list
 
     @multi_jobs_kwargs_list.setter
     def multi_jobs_kwargs_list(self, value):
@@ -918,6 +926,28 @@ class Workflow(Base):
                     source_dir = os.path.dirname(source_dir)
             return source_dir
         return None
+
+    def store(self):
+        if self._context:
+            content = {'type': 'work',
+                       'name': self.name,
+                       'context': self._context,
+                       'original_args': self._func_name_and_args,
+                       'multi_jobs_kwargs_list': self._multi_jobs_kwargs_list,
+                       'current_job_kwargs': self._current_job_kwargs}
+            source_dir = self._context.get_source_dir()
+            self.save_context(source_dir, self._name, content)
+
+    def load(self, source_dir=None):
+        if not source_dir:
+            source_dir = self._context.get_source_dir()
+            if not source_dir:
+                source_dir = os.getcwd()
+        ret = self.load_context(source_dir, self._name)
+        if ret:
+            logging.info(f"Loaded context: {ret}")
+            if 'multi_jobs_kwargs_list' in ret:
+                self._multi_jobs_kwargs_list = ret['multi_jobs_kwargs_list']
 
     def prepare(self):
         """
@@ -1046,7 +1076,8 @@ class Workflow(Base):
                 logging.error("Failed to close request(%s): %s" % (self._context.request_id, str(ex)))
 
     def __del__(self):
-        self.close()
+        # self.close()
+        pass
 
     def setup(self):
         """
@@ -1060,14 +1091,14 @@ class Workflow(Base):
         """
         return self._context.setup_source_files()
 
-    def load(self, func_name):
+    def load_func(self, func_name):
         """
         Load the function from the source files.
 
         :raise Exception
         """
         with modified_environ(IDDS_IGNORE_WORKFLOW_DECORATOR='true'):
-            func = super(Workflow, self).load(func_name)
+            func = super(Workflow, self).load_func(func_name)
 
         return func
 
@@ -1106,18 +1137,19 @@ class Workflow(Base):
         if True:
             self.pre_run()
 
-            func_name, pre_kwargs, args, kwargs, multi_jobs_kwargs_list = self._func_name_and_args
+            func_name, pre_kwargs, args, kwargs = self._func_name_and_args
+            multi_jobs_kwargs_list = self.multi_jobs_kwargs_list
             if args:
-                args = pickle.loads(base64.b64decode(args))
+                args = pickle.loads(zlib.decompress(base64.b64decode(args)))
             if pre_kwargs:
-                pre_kwargs = pickle.loads(base64.b64decode(pre_kwargs))
+                pre_kwargs = pickle.loads(zlib.decompress(base64.b64decode(pre_kwargs)))
             if kwargs:
-                kwargs = pickle.loads(base64.b64decode(kwargs))
+                kwargs = pickle.loads(zlib.decompress(base64.b64decode(kwargs)))
             if multi_jobs_kwargs_list:
-                multi_jobs_kwargs_list = [pickle.loads(base64.b64decode(k)) for k in multi_jobs_kwargs_list]
+                multi_jobs_kwargs_list = [pickle.loads(zlib.decompress(base64.b64decode(k))) for k in multi_jobs_kwargs_list]
 
             if self._func is None:
-                func = self.load(func_name)
+                func = self.load_func(func_name)
                 self._func = func
             ret = self.run_func(self._func, pre_kwargs, args, kwargs)
 
@@ -1136,7 +1168,7 @@ class Workflow(Base):
     # /Context Manager ----------------------------------------------
 
     def get_run_command(self):
-        cmd = "run_workflow --type workflow "
+        cmd = "run_workflow --type workflow --name %s " % self.name
         cmd += "--context %s --original_args %s " % (encode_base64(json_dumps(self._context)),
                                                      encode_base64(json_dumps(self._func_name_and_args)))
         cmd += "--current_job_kwargs ${IN/L}"
@@ -1184,16 +1216,16 @@ def workflow(func=None, *, local=False, service='idds', source_dir=None, primary
             f.site = site
             f.cloud = cloud
 
+            logging.info("return_workflow %s" % return_workflow)
+            if return_workflow:
+                return f
+
             logging.info("Prepare workflow")
             f.prepare()
             logging.info("Prepared workflow")
 
             logging.info("Registering workflow")
             f.submit()
-
-            logging.info("return_workflow %s" % return_workflow)
-            if return_workflow:
-                return f
 
             if not local:
                 logging.info("Run workflow at remote sites")
