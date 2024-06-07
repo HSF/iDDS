@@ -615,6 +615,7 @@ class Work(Base):
                        'original_args': self._func_name_and_args,
                        'multi_jobs_kwargs_list': self._multi_jobs_kwargs_list,
                        'current_job_kwargs': self._current_job_kwargs}
+            content = json_dumps(content)
             source_dir = self._context.get_source_dir()
             self.save_context(source_dir, self._name, content)
 
@@ -625,6 +626,7 @@ class Work(Base):
                 source_dir = os.getcwd()
         ret = self.load_context(source_dir, self._name)
         if ret:
+            ret = json_loads(ret)
             logging.info(f"Loaded context: {ret}")
             if 'multi_jobs_kwargs_list' in ret:
                 self._multi_jobs_kwargs_list = ret['multi_jobs_kwargs_list']

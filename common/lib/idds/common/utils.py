@@ -909,7 +909,16 @@ def encode_base64(sb):
         return sb
 
 
-def create_archive_file(work_dir, archive_filename, files):
+def is_execluded_file(file, exclude_files=[]):
+    if exclude_files:
+        for f in exclude_files:
+            reg = re.compile(f)
+            if re.match(reg, file):
+                return True
+    return False
+
+
+def create_archive_file(work_dir, archive_filename, files, exclude_files=[]):
     if not archive_filename.startswith("/"):
         archive_filename = os.path.join(work_dir, archive_filename)
 
@@ -921,8 +930,9 @@ def create_archive_file(work_dir, archive_filename, files):
             elif os.path.isdir(local_file):
                 for root, dirs, fs in os.walk(local_file):
                     for f in fs:
-                        file_path = os.path.join(root, f)
-                        tar.add(file_path, arcname=os.path.relpath(file_path, local_file))
+                        if not is_execluded_file(f, exclude_files):
+                            file_path = os.path.join(root, f)
+                            tar.add(file_path, arcname=os.path.relpath(file_path, local_file))
     return archive_filename
 
 
