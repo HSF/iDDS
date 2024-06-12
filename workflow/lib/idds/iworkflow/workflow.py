@@ -23,7 +23,7 @@ import zlib
 
 # from types import ModuleType
 
-# from idds.common import exceptions
+from idds.common import exceptions
 from idds.common.constants import WorkflowType
 from idds.common.utils import setup_logging, create_archive_file, json_dumps, json_loads, encode_base64, modified_environ
 from .asyncresult import AsyncResult
@@ -636,6 +636,8 @@ class WorkflowContext(Context):
         remote_file_name = self.upload_source_files_to_panda()
         self.remote_source_file = remote_file_name
         logging.info("remote source file: %s" % self.remote_source_file)
+        if self.remote_source_file is None:
+            raise exceptions.IDDSException("Failed to upload source files to PanDA cache. Please check log file ${IDDS_LOG_FILE} or direct output for details.")
         logging.info("prepared workflow with PanDA")
 
     def get_idds_env(self):
@@ -729,6 +731,10 @@ class Workflow(Base):
     @property
     def service(self):
         return self._context.service
+
+    @property
+    def logger(self):
+        return logging.getLogger(self.__class__.__name__)
 
     @property
     def internal_id(self):
