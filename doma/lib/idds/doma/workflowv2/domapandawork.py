@@ -1723,7 +1723,7 @@ class DomaPanDAWork(Work):
                     self.logger.debug(log_prefix + "poll_panda_task, task_id: %s, all jobs: %s, unterminated_jobs: %s" % (str(task_id), len(all_jobs_ids), len(unterminated_jobs)))
 
                     unterminated_jobs_status = self.poll_panda_jobs(unterminated_jobs, executors=executors, log_prefix=log_prefix)
-                    self.logger.debug("unterminated_jobs_status: %s" % str(unterminated_jobs_status))
+                    self.logger.debug(log_prefix + "unterminated_jobs_status: %s" % str(unterminated_jobs_status))
 
                     abort_status = False
                     if processing_status in [ProcessingStatus.Cancelled]:
