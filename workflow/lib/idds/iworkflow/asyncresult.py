@@ -115,6 +115,25 @@ class MapResult(object):
             logging.info("get_result: name key %s, args key %s, ret: %s" % (name_key, key, ret))
         return ret
 
+    def set_result(self, name=None, args=None, key=None, value=None, verbose=False):
+        if verbose:
+            logging.info("set_result: key %s, name: %s, args: %s, value: %s" % (key, name, args, value))
+            logging.info("set_result: results: %s, name_results: %s" % (self._results, self._name_results))
+
+        name_key = key
+        if name_key is not None:
+            self._name_results[name_key] = value
+        else:
+            key = get_unique_id_for_dict(args)
+
+            if name is not None:
+                name_key = '%s:%s' % (name, key)
+                self._name_results[name_key] = value
+            else:
+                self._results[key] = value
+        if verbose:
+            logging.info("set_result: name key %s, args key %s, value: %s" % (name_key, key, value))
+
     def get_all_results(self):
         return self._results
 
