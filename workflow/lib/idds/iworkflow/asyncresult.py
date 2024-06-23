@@ -122,7 +122,7 @@ class MapResult(object):
 
         name_key = key
         if name_key is not None:
-            self._name_results.set[name_key] = value
+            self._name_results[name_key] = value
         else:
             key = get_unique_id_for_dict(args)
 
@@ -130,7 +130,7 @@ class MapResult(object):
                 name_key = '%s:%s' % (name, key)
                 self._name_results[name_key] = value
             else:
-                self._results.get[key] = value
+                self._results[key] = value
         if verbose:
             logging.info("set_result: name key %s, args key %s, value: %s" % (name_key, key, value))
 
