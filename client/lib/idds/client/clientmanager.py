@@ -836,6 +836,44 @@ class ClientManager:
         return (0, msgs)
 
     @exception_handler
+    def get_collections(self, request_id=None, transform_id=None, workload_id=None, scope=None, name=None, relation_type=None):
+        """
+        Get collections from the Head service.
+
+        :param request_id: the request id.
+        :param transform_id: the transform id.
+        :param workload_id: the workload id.
+        :param scope: the scope.
+        :param name: the name.
+        :param relation_type: the relation type (input, output and log).
+
+        :raise exceptions if it's not got successfully.
+        """
+        self.setup_client()
+
+        return self.client.get_collections(request_id=request_id, transform_id=transform_id, workload_id=workload_id,
+                                           scope=scope, name=name, relation_type=relation_type)
+
+    def get_contents(self, request_id=None, transform_id=None, workload_id=None, coll_scope=None, coll_name=None, relation_type=None, status=None):
+        """
+        Get contents from the Head service.
+
+        :param request_id: the request id.
+        :param transform_id: the transform id.
+        :param workload_id: the workload id.
+        :param coll_scope: the scope of the related collection.
+        :param coll_name: the name of the related collection.
+        :param relation_type: the relation type (input, output and log).
+        :param status: the status of related contents.
+
+        :raise exceptions if it's not got successfully.
+        """
+        self.setup_client()
+
+        return self.client.get_contents(request_id=request_id, transform_id=transform_id, workload_id=workload_id,
+                                        coll_scope=coll_scope, coll_name=coll_name, relation_type=relation_type, status=status)
+
+    @exception_handler
     def get_contents_output_ext(self, request_id=None, workload_id=None, transform_id=None, group_by_jedi_task_id=False):
         """
         Get output extension contents from the Head service.

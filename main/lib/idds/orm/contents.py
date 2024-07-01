@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2023
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2024
 
 
 """
@@ -279,7 +279,7 @@ def get_match_contents(coll_id, scope, name, content_type=None, min_id=None, max
 
 
 @read_session
-def get_contents(scope=None, name=None, request_id=None, transform_id=None, coll_id=None, status=None,
+def get_contents(scope=None, name=None, request_id=None, transform_id=None, workload_id=None, coll_id=None, status=None,
                  relation_type=None, to_json=False, session=None):
     """
     Get content or raise a NoObject exception.
@@ -314,6 +314,8 @@ def get_contents(scope=None, name=None, request_id=None, transform_id=None, coll
             query = query.filter(models.Content.request_id == request_id)
         if transform_id:
             query = query.filter(models.Content.transform_id == transform_id)
+        if workload_id:
+            query = query.filter(models.Content.workload_id == workload_id)
         if coll_id:
             query = query.filter(models.Content.coll_id.in_(coll_id))
         if scope:
