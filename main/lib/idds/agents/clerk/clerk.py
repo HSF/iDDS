@@ -16,7 +16,7 @@ import traceback
 from idds.common import exceptions
 from idds.common.constants import (Sections, ReturnCode,
                                    RequestType, RequestStatus, RequestLocking,
-                                   TransformType, WorkflowType,
+                                   TransformType, WorkflowType, ConditionStatus,
                                    TransformStatus, ProcessingStatus,
                                    ContentStatus, ContentRelationType,
                                    CommandType, CommandStatus, CommandLocking)
@@ -447,15 +447,50 @@ class Clerk(BaseAgent):
                 transform_type = TransformType.iWorkflow
             elif work_type in [WorkflowType.iWork]:
                 transform_type = TransformType.iWork
+            elif work_type in [WorkflowType.GenericWorkflow]:
+                transform_type = TransformType.GenericWorkflow
+            elif work_type in [WorkflowType.GenericWork]:
+                transform_type = TransformType.GenericWork
         except Exception:
             pass
+
+        has_previous_conditions = None
+        try:
+            if hasattr(work, 'get_previous_conditions'):
+                work_previous_conditions = work.get_previous_conditions()
+            if work_previous_conditions:
+                has_previous_conditions = len(work_previous_conditions)
+        except Exception:
+            pass
+
+        triggered_conditions = []
+        untriggered_conditions = []
+        try:
+            if hasattr(work, 'get_following_conditions'):
+                following_conditions = work.get_following_conditions()
+                for cond in following_conditions:
+                    untriggered_conditions.append(cond)
+        except Exception:
+            pass
+
+        loop_index = None
+        try:
+            if hasattr(work, 'get_loop_index'):
+                loop_index = work.get_loop_index()
+        except Exception:
+            pass
+
+        # transform_status = TransformStatus.New
+        transform_status = TransformStatus.Queue
+        if has_previous_conditions:
+            transform_status = TransformStatus.WaitForTrigger
 
         new_transform = {'request_id': req['request_id'],
                          'workload_id': req['workload_id'],
                          'transform_type': transform_type,
                          'transform_tag': work.get_work_tag(),
                          'priority': req['priority'],
-                         'status': TransformStatus.New,
+                         'status': transform_status,
                          'retries': 0,
                          'parent_transform_id': None,
                          'previous_transform_id': None,
@@ -466,6 +501,12 @@ class Clerk(BaseAgent):
                          'max_update_retries': max_update_retries,
                          # 'expired_at': req['expired_at'],
                          'expired_at': None,
+                         'internal_id': work.internal_id,
+                         'has_previous_conditions': has_previous_conditions,
+                         'triggered_conditions': triggered_conditions,
+                         'untriggered_conditions': untriggered_conditions,
+                         'loop_index': loop_index,
+                         'site': req['site'],
                          'transform_metadata': {'internal_id': work.get_internal_id(),
                                                 'template_work_id': work.get_template_work_id(),
                                                 'sequence_id': work.get_sequence_id(),
@@ -477,6 +518,26 @@ class Clerk(BaseAgent):
                          }
 
         return new_transform
+
+    def generate_condition(self, req, cond):
+        previous_works = cond.previous_works
+        following_works = cond.following_works
+        previous_transforms, following_transforms = [], []
+        previous_transforms = previous_works
+        following_transforms = following_works
+
+        new_condition = {'request_id': req['request_id'],
+                         'internal_id': cond.internal_id,
+                         'status': ConditionStatus.WaitForTrigger,
+                         'substatus': None,
+                         'is_loop': False,
+                         'loop_index': None,
+                         'cloned_from': None,
+                         'evaluate_result': None,
+                         'previous_transforms': previous_transforms,
+                         'following_transforms': following_transforms,
+                         'condition': {'condition': cond}}
+        return new_condition
 
     def get_num_active_requests(self, site_name):
         cache = get_redis_cache()
@@ -788,6 +849,71 @@ class Clerk(BaseAgent):
             self.logger.warn(log_pre + "Handle new irequest error result: %s" % str(ret_req))
         return ret_req
 
+    def handle_new_generic_request(self, req):
+        try:
+            log_pre = self.get_log_prefix(req)
+            self.logger.info(log_pre + "Handle new generic request")
+            to_throttle = self.whether_to_throttle(req)
+            if to_throttle:
+                ret_req = {'request_id': req['request_id'],
+                           'parameters': {'status': RequestStatus.Throttling,
+                                          'locking': RequestLocking.Idle}}
+                ret_req['parameters'] = self.load_poll_period(req, ret_req['parameters'], throttling=True)
+                self.logger.info(log_pre + "Throttle new generic request result: %s" % str(ret_req))
+            else:
+                workflow = req['request_metadata']['workflow']
+
+                transforms = []
+                works = workflow.get_works()
+                for w in works:
+                    # todo
+                    # set has_previous_conditions, has_conditions, all_conditions_triggered(False), cloned_from(None)
+                    transform = self.generate_transform(req, w)
+                    if transform:
+                        transforms.append(transform)
+                self.logger.debug(log_pre + f"Processing request({req['request_id']}): new transforms: {transforms}")
+
+                conds = workflow.get_conditions()
+                conditions = []
+                for cond in conds:
+                    condition = self.generate_condition(req, cond)
+                    if condition:
+                        conditions.append(condition)
+                self.logger.debug(log_pre + f"Processing request({req['request_id']}), new conditions: {conditions}")
+
+                ret_req = {'request_id': req['request_id'],
+                           'parameters': {'status': RequestStatus.Transforming,
+                                          'locking': RequestLocking.Idle},
+                           'new_transforms': transforms,
+                           'new_conditions': conditions}
+                ret_req['parameters'] = self.load_poll_period(req, ret_req['parameters'])
+                self.logger.info(log_pre + "Handle new generic request result: %s" % str(ret_req))
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+            retries = req['new_retries'] + 1
+            if not req['max_new_retries'] or retries < req['max_new_retries']:
+                req_status = req['status']
+            else:
+                req_status = RequestStatus.Failed
+
+            # increase poll period
+            new_poll_period = int(req['new_poll_period'].total_seconds() * self.poll_period_increase_rate)
+            if new_poll_period > self.max_new_poll_period:
+                new_poll_period = self.max_new_poll_period
+
+            error = {'submit_err': {'msg': truncate_string('%s' % (ex), length=200)}}
+
+            ret_req = {'request_id': req['request_id'],
+                       'parameters': {'status': req_status,
+                                      'locking': RequestLocking.Idle,
+                                      'new_retries': retries,
+                                      'new_poll_period': new_poll_period,
+                                      'errors': req['errors'] if req['errors'] else {}}}
+            ret_req['parameters']['errors'].update(error)
+            self.logger.warn(log_pre + "Handle new irequest error result: %s" % str(ret_req))
+        return ret_req
+
     def has_to_build_work(self, req):
         try:
             if req['status'] in [RequestStatus.New] and 'build_workflow' in req['request_metadata']:
@@ -872,6 +998,11 @@ class Clerk(BaseAgent):
             else:
                 update_transforms = {}
 
+            if 'new_conditions' in req:
+                new_conditions = req['new_conditions']
+            else:
+                new_conditions = []
+
             retry = True
             retry_num = 0
             while retry:
@@ -880,7 +1011,8 @@ class Clerk(BaseAgent):
                 try:
                     _, new_tf_ids, update_tf_ids = core_requests.update_request_with_transforms(req['request_id'], req['parameters'],
                                                                                                 new_transforms=new_transforms,
-                                                                                                update_transforms=update_transforms)
+                                                                                                update_transforms=update_transforms,
+                                                                                                new_conditions=new_conditions)
                 except exceptions.DatabaseException as ex:
                     if 'ORA-00060' in str(ex):
                         self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
@@ -933,6 +1065,8 @@ class Clerk(BaseAgent):
                         ret = self.handle_build_request(req)
                     elif req['request_type'] in [RequestType.iWorkflow, RequestType.iWorkflowLocal]:
                         ret = self.handle_new_irequest(req)
+                    elif req['request_type'] in [RequestType.GenericWorkflow]:
+                        ret = self.handle_new_generic_request(req)
                     else:
                         ret = self.handle_new_request(req)
                     new_tf_ids, update_tf_ids = self.update_request(ret)
