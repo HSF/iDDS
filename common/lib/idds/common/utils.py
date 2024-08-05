@@ -607,11 +607,11 @@ def exception_handler(function):
         except IDDSException as ex:
             logging.error(ex)
             # print(traceback.format_exc())
-            return str(ex)
+            return False, str(ex)
         except Exception as ex:
             logging.error(ex)
             # print(traceback.format_exc())
-            return str(ex)
+            return False, str(ex)
     return new_funct
 
 
@@ -925,14 +925,23 @@ def create_archive_file(work_dir, archive_filename, files, exclude_files=[]):
     with tarfile.open(archive_filename, "w:gz", dereference=True) as tar:
         for local_file in files:
             if os.path.isfile(local_file):
+                if is_execluded_file(local_file, exclude_files):
+                    continue
                 # base_name = os.path.basename(local_file)
                 tar.add(local_file, arcname=os.path.basename(local_file))
             elif os.path.isdir(local_file):
-                for root, dirs, fs in os.walk(local_file):
-                    for f in fs:
-                        if not is_execluded_file(f, exclude_files):
-                            file_path = os.path.join(root, f)
-                            tar.add(file_path, arcname=os.path.relpath(file_path, local_file))
+                for filename in os.listdir(local_file):
+                    if is_execluded_file(filename, exclude_files):
+                        continue
+                    if os.path.isfile(filename):
+                        file_path = os.path.join(local_file, filename)
+                        tar.add(file_path, arcname=os.path.relpath(file_path, local_file))
+                    elif os.path.isdir(filename):
+                        for root, dirs, fs in os.walk(filename):
+                            for f in fs:
+                                if not is_execluded_file(f, exclude_files):
+                                    file_path = os.path.join(root, f)
+                                    tar.add(file_path, arcname=os.path.relpath(file_path, local_file))
     return archive_filename
 
 
