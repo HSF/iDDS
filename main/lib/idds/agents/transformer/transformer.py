@@ -1220,6 +1220,7 @@ class Transformer(BaseAgent):
                 if pr['processing_id'] == transform['current_processing_id']:
                     pr_found = pr
                     break
+
             if pr_found:
                 self.logger.info(log_pre + "ResumeProcessingEvent(processing_id: %s)" % pr['processing_id'])
                 event = ResumeProcessingEvent(publisher_id=self.id,
