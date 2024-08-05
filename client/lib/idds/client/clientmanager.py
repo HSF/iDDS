@@ -761,10 +761,10 @@ class ClientManager:
         filename = self.client.download_logs(request_id=request_id, workload_id=workload_id, dest_dir=dest_dir, filename=filename)
         if filename:
             logging.info("Logs are downloaded to %s" % filename)
-            return (0, "Logs are downloaded to %s" % filename)
+            return (True, "Logs are downloaded to %s" % filename)
         else:
             logging.info("Failed to download logs for workload_id(%s) and request_id(%s)" % (workload_id, request_id))
-            return (-1, "Failed to download logs for workload_id(%s) and request_id(%s)" % (workload_id, request_id))
+            return (False, "Failed to download logs for workload_id(%s) and request_id(%s)" % (workload_id, request_id))
 
     @exception_handler
     def upload_to_cacher(self, filename):
@@ -817,7 +817,26 @@ class ClientManager:
         return self.client.update_hyperparameter(workload_id=workload_id, request_id=request_id, id=id, loss=loss)
 
     @exception_handler
-    def get_messages(self, request_id=None, workload_id=None):
+    def send_messages(self, request_id=None, workload_id=None, transform_id=None, internal_id=None, msgs=None):
+        """
+        Send messages.
+
+        :param workload_id: the workload id.
+        :param request_id: the request.
+        """
+        self.setup_client()
+
+        if request_id is None and workload_id is None:
+            logging.error("Both request_id and workload_id are None. One of them should not be None")
+            return (-1, "Both request_id and workload_id are None. One of them should not be None")
+
+        logging.info("Retrieving messages for request_id: %s, workload_id: %s" % (request_id, workload_id))
+        self.client.send_messages(request_id=request_id, workload_id=workload_id, transform_id=transform_id, internal_id=internal_id, msgs=msgs)
+        logging.info("Sent %s messages for request_id: %s, workload_id: %s" % (len(msgs), request_id, workload_id))
+        return True, None
+
+    @exception_handler
+    def get_messages(self, request_id=None, workload_id=None, transform_id=None, internal_id=None):
         """
         Get messages.
 
@@ -831,9 +850,9 @@ class ClientManager:
             return (-1, "Both request_id and workload_id are None. One of them should not be None")
 
         logging.info("Retrieving messages for request_id: %s, workload_id: %s" % (request_id, workload_id))
-        msgs = self.client.get_messages(request_id=request_id, workload_id=workload_id)
+        msgs = self.client.get_messages(request_id=request_id, workload_id=workload_id, transform_id=transform_id, internal_id=internal_id)
         logging.info("Retrieved %s messages for request_id: %s, workload_id: %s" % (len(msgs), request_id, workload_id))
-        return (0, msgs)
+        return (True, msgs)
 
     @exception_handler
     def get_collections(self, request_id=None, transform_id=None, workload_id=None, scope=None, name=None, relation_type=None):
@@ -851,8 +870,9 @@ class ClientManager:
         """
         self.setup_client()
 
-        return self.client.get_collections(request_id=request_id, transform_id=transform_id, workload_id=workload_id,
-                                           scope=scope, name=name, relation_type=relation_type)
+        colls = self.client.get_collections(request_id=request_id, transform_id=transform_id, workload_id=workload_id,
+                                            scope=scope, name=name, relation_type=relation_type)
+        return True, colls
 
     def get_contents(self, request_id=None, transform_id=None, workload_id=None, coll_scope=None, coll_name=None, relation_type=None, status=None):
         """
@@ -870,8 +890,9 @@ class ClientManager:
         """
         self.setup_client()
 
-        return self.client.get_contents(request_id=request_id, transform_id=transform_id, workload_id=workload_id,
-                                        coll_scope=coll_scope, coll_name=coll_name, relation_type=relation_type, status=status)
+        contents = self.client.get_contents(request_id=request_id, transform_id=transform_id, workload_id=workload_id,
+                                            coll_scope=coll_scope, coll_name=coll_name, relation_type=relation_type, status=status)
+        return True, contents
 
     @exception_handler
     def get_contents_output_ext(self, request_id=None, workload_id=None, transform_id=None, group_by_jedi_task_id=False):
@@ -886,8 +907,9 @@ class ClientManager:
         """
         self.setup_client()
 
-        return self.client.get_contents_output_ext(workload_id=workload_id, request_id=request_id, transform_id=transform_id,
-                                                   group_by_jedi_task_id=group_by_jedi_task_id)
+        contents = self.client.get_contents_output_ext(workload_id=workload_id, request_id=request_id, transform_id=transform_id,
+                                                       group_by_jedi_task_id=group_by_jedi_task_id)
+        return True, contents
 
     @exception_handler
     def update_build_request(self, request_id, signature, workflow):
@@ -902,7 +924,8 @@ class ClientManager:
         """
         self.setup_client()
 
-        return self.client.update_build_request(request_id=request_id, signature=signature, workflow=workflow)
+        ret = self.client.update_build_request(request_id=request_id, signature=signature, workflow=workflow)
+        return True, ret
 
     @exception_handler
     def get_metainfo(self, name):
@@ -916,4 +939,4 @@ class ClientManager:
         logging.info("Retrieving meta info for %s" % (name))
         ret = self.client.get_metainfo(name=name)
         logging.info("Retrieved meta info for %s: %s" % (name, idds_mask(ret)))
-        return ret
+        return True, ret
