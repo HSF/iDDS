@@ -160,6 +160,9 @@ class Request(BASE, ModelBase):
     new_poll_period = Column(Interval(), default=datetime.timedelta(seconds=1))
     update_poll_period = Column(Interval(), default=datetime.timedelta(seconds=10))
     site = Column(String(50))
+    campaign = Column(String(50))
+    campaign_group = Column(String(250))
+    campaign_tag = Column(String(20))
     errors = Column(JSONString(1024))
     _request_metadata = Column('request_metadata', JSON())
     _processing_metadata = Column('processing_metadata', JSON())
@@ -290,6 +293,7 @@ class Transform(BASE, ModelBase):
     workload_id = Column(Integer())
     transform_type = Column(EnumWithValue(TransformType), nullable=False)
     transform_tag = Column(String(20))
+    internal_id = Column(String(20))
     priority = Column(Integer())
     safe2get_output_from_input = Column(Integer())
     status = Column(EnumWithValue(TransformStatus), nullable=False)
@@ -314,6 +318,11 @@ class Transform(BASE, ModelBase):
     update_poll_period = Column(Interval(), default=datetime.timedelta(seconds=10))
     site = Column(String(50))
     name = Column(String(NAME_LENGTH))
+    has_previous_conditions = Column(Integer())
+    loop_index = Column(Integer())
+    cloned_from = Column(BigInteger())
+    triggered_conditions = Column('triggered_conditions', JSON())
+    untriggered_conditions = Column('untriggered_conditions', JSON())
     errors = Column(JSONString(1024))
     _transform_metadata = Column('transform_metadata', JSON())
     _running_metadata = Column('running_metadata', JSON())
@@ -729,6 +738,7 @@ class Message(BASE, ModelBase):
     workload_id = Column(Integer())
     transform_id = Column(Integer())
     processing_id = Column(Integer())
+    internal_id = Column(String(20))
     num_contents = Column(Integer())
     retries = Column(Integer(), default=0)
     fetching_id = Column(Integer())
@@ -943,6 +953,31 @@ class MetaInfo(BASE, ModelBase):
                       UniqueConstraint('name', name='METAINFO_NAME_UQ'))
 
 
+class Condition(BASE, ModelBase):
+    """Represents the conditions"""
+    __tablename__ = 'conditions'
+    condition_id = Column(BigInteger().with_variant(Integer, "sqlite"),
+                          Sequence('CONDITION_ID_SEQ', schema=DEFAULT_SCHEMA_NAME),
+                          primary_key=True)
+    request_id = Column(BigInteger().with_variant(Integer, "sqlite"), nullable=False)
+    internal_id = Column(String(20))
+    name = Column(String(250))
+    status = Column(EnumWithValue(CommandStatus), nullable=False)
+    substatus = Column(Integer())
+    is_loop = Column(Integer())
+    loop_index = Column(Integer())
+    cloned_from = Column(BigInteger().with_variant(Integer, "sqlite"))
+    created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow, nullable=False)
+    updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
+    evaluate_result = Column(String(1000))
+    previous_transforms = Column(JSON())
+    following_transforms = Column(JSON())
+    condition = Column("condition", JSON())
+
+    __table_args__ = (PrimaryKeyConstraint('condition_id', name='CONDITION_PK'),
+                      UniqueConstraint('request_id', 'internal_id', name='CONDITION_ID_UQ'))
+
+
 def create_trigger():
     func = DDL("""
         SET search_path TO %s;
@@ -1086,7 +1121,7 @@ def register_models(engine):
     """
 
     # models = (Request, Workprogress, Transform, Workprogress2transform, Processing, Collection, Content, Health, Message)
-    models = (Request, Transform, Processing, Collection, Content, Content_update, Content_ext, Health, Message, Command, Throttler)
+    models = (Request, Transform, Processing, Collection, Content, Content_update, Content_ext, Health, Message, Command, Throttler, MetaInfo, Condition)
 
     create_proc_to_update_contents()
 
@@ -1101,7 +1136,7 @@ def unregister_models(engine):
     """
 
     # models = (Request, Workprogress, Transform, Workprogress2transform, Processing, Collection, Content, Health, Message)
-    models = (Request, Transform, Processing, Collection, Content, Content_update, Content_ext, Health, Message, Command, Throttler)
+    models = (Request, Transform, Processing, Collection, Content, Content_update, Content_ext, Health, Message, Command, Throttler, MetaInfo, Condition)
 
     drop_proc_to_update_contents()
 
