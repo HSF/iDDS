@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2020
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2024
 
 
 """
@@ -285,10 +285,6 @@ def get_collections(scope=None, name=None, request_id=None, workload_id=None, tr
             transform_id = [transform_id]
 
         query = session.query(models.Collection)
-        if scope:
-            query = query.filter(models.Collection.scope == scope)
-        if name:
-            query = query.filter(models.Collection.name.like(name.replace('*', '%')))
         if request_id:
             query = query.filter(models.Collection.request_id == request_id)
         if workload_id:
@@ -297,6 +293,11 @@ def get_collections(scope=None, name=None, request_id=None, workload_id=None, tr
             query = query.filter(models.Collection.transform_id.in_(transform_id))
         if relation_type is not None:
             query = query.filter(models.Collection.relation_type == relation_type)
+
+        if scope:
+            query = query.filter(models.Collection.scope == scope)
+        if name:
+            query = query.filter(models.Collection.name.like(name.replace('*', '%')))
 
         query = query.order_by(asc(models.Collection.updated_at))
 

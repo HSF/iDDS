@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2020
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2024
 
 
 """
@@ -35,60 +35,66 @@ class CatalogClient(BaseRestClient):
         """
         super(CatalogClient, self).__init__(host=host, auth=auth, timeout=timeout)
 
-    def get_collections(self, scope=None, name=None, request_id=None, workload_id=None, relation_type=None):
+    def get_collections(self, request_id=None, transform_id=None, workload_id=None, scope=None, name=None, relation_type=None):
         """
         Get collections from the Head service.
 
+        :param request_id: the request id.
+        :param transform_id: the transform id.
+        :param workload_id: the workload id.
         :param scope: the collection scope.
         :param name: the collection name, can be wildcard.
-        :param request_id: the request id.
-        :param workload_id: the workload id.
         :param relation_type: The relation_type of the request (input/output/log).
         :raise exceptions if it's not got successfully.
         """
         path = os.path.join(self.CATALOG_BASEURL, 'collections')
+        if request_id is None:
+            request_id = 'null'
+        if transform_id is None:
+            transform_id = 'null'
+        if workload_id is None:
+            workload_id = 'null'
         if scope is None:
             scope = 'null'
         if name is None:
             name = 'null'
-        if request_id is None:
-            request_id = 'null'
-        if workload_id is None:
-            workload_id = 'null'
         if relation_type is None:
             relation_type = 'null'
         elif isinstance(relation_type, Enum):
             relation_type = relation_type.value
 
-        url = self.build_url(self.host, path=os.path.join(path, scope, name, str(request_id), str(workload_id),
-                                                          str(relation_type)))
+        url = self.build_url(self.host, path=os.path.join(path, str(request_id), str(transform_id), str(workload_id),
+                                                          scope, name, str(relation_type)))
 
         collections = self.get_request_response(url, type='GET')
         return collections
 
-    def get_contents(self, coll_scope=None, coll_name=None, request_id=None, workload_id=None,
-                     relation_type=None, status=None):
+    def get_contents(self, request_id=None, transform_id=None, workload_id=None,
+                     coll_scope=None, coll_name=None, relation_type=None, status=None):
         """
         Get contents from the Head service.
 
+        :param request_id: the request id.
+        :param transform_id: the transform id.
+        :param workload_id: the workload id.
         :param coll_scope: the collection scope.
         :param coll_name: the collection name, can be wildcard.
-        :param request_id: the request id.
-        :param workload_id: the workload id.
         :param relation_type: the relation between the collection and the transform(input, output, log)
         :param status: The content status.
 
         :raise exceptions if it's not got successfully.
         """
         path = os.path.join(self.CATALOG_BASEURL, 'contents')
+        if request_id is None:
+            request_id = 'null'
+        if transform_id is None:
+            transform_id = 'null'
+        if workload_id is None:
+            workload_id = 'null'
         if coll_scope is None:
             coll_scope = 'null'
         if coll_name is None:
             coll_name = 'null'
-        if request_id is None:
-            request_id = 'null'
-        if workload_id is None:
-            workload_id = 'null'
         if relation_type is None:
             relation_type = 'null'
         elif isinstance(relation_type, Enum):
@@ -98,8 +104,8 @@ class CatalogClient(BaseRestClient):
         elif isinstance(status, Enum):
             status = status.value
 
-        url = self.build_url(self.host, path=os.path.join(path, coll_scope, coll_name, str(request_id),
-                                                          str(workload_id), str(relation_type), str(status)))
+        url = self.build_url(self.host, path=os.path.join(path, str(request_id), str(transform_id), str(workload_id), coll_scope,
+                                                          coll_name, str(relation_type), str(status)))
 
         contents = self.get_request_response(url, type='GET')
         return contents

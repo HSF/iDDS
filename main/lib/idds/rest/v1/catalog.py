@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2022
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2024
 
 
 import traceback
@@ -22,8 +22,8 @@ from idds.rest.v1.controller import IDDSController
 class Collections(IDDSController):
     """ Catalog """
 
-    def get(self, scope, name, request_id, workload_id, relation_type):
-        """ Get collections by scope, name, request_id and workload_id.
+    def get(self, request_id, transform_id, workload_id, scope, name, relation_type):
+        """ Get collections by request_id, transform_id, workload_id, scope and name
         HTTP Success:
             200 OK
         HTTP Error:
@@ -33,25 +33,29 @@ class Collections(IDDSController):
         """
 
         try:
-            if scope in ['null', 'None']:
-                scope = None
-            if name in ['null', 'None']:
-                name = None
             if request_id in ['null', 'None']:
                 request_id = None
             else:
                 request_id = int(request_id)
+            if transform_id in ['null', 'None']:
+                transform_id = None
+            else:
+                transform_id = int(transform_id)
             if workload_id in ['null', 'None']:
                 workload_id = None
             else:
                 workload_id = int(workload_id)
+            if scope in ['null', 'None']:
+                scope = None
+            if name in ['null', 'None']:
+                name = None
             if relation_type in ['null', 'None']:
                 relation_type = None
             else:
                 relation_type = int(relation_type)
 
-            rets = get_collections(scope=scope, name=name, request_id=request_id, workload_id=workload_id,
-                                   relation_type=relation_type, to_json=False)
+            rets = get_collections(request_id=request_id, transform_id=transform_id, workload_id=workload_id,
+                                   scope=scope, name=name, relation_type=relation_type, to_json=False)
         except exceptions.NoObject as error:
             return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
         except exceptions.IDDSException as error:
@@ -67,8 +71,8 @@ class Collections(IDDSController):
 class Contents(IDDSController):
     """ Catalog """
 
-    def get(self, coll_scope, coll_name, request_id, workload_id, relation_type, status):
-        """ Get contents by coll_scope, coll_name, request_id, workload_id and relation_type.
+    def get(self, request_id, transform_id, workload_id, coll_scope, coll_name, relation_type, status):
+        """ Get contents by request_id, transform_id, workload_id coll_scope, coll_name, relation_type and status.
         HTTP Success:
             200 OK
         HTTP Error:
@@ -86,6 +90,10 @@ class Contents(IDDSController):
                 request_id = None
             else:
                 request_id = int(request_id)
+            if transform_id in ['null', 'None']:
+                transform_id = None
+            else:
+                transform_id = int(transform_id)
             if workload_id in ['null', 'None']:
                 workload_id = None
             else:
@@ -99,8 +107,8 @@ class Contents(IDDSController):
             else:
                 status = int(status)
 
-            rets = get_contents(coll_scope=coll_scope, coll_name=coll_name, request_id=request_id,
-                                workload_id=workload_id, relation_type=relation_type, status=status, to_json=False)
+            rets = get_contents(request_id=request_id, transform_id=transform_id, workload_id=workload_id, coll_scope=coll_scope,
+                                coll_name=coll_name, relation_type=relation_type, status=status, to_json=False)
         except exceptions.NoObject as error:
             return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
         except exceptions.IDDSException as error:
@@ -196,11 +204,11 @@ def get_blueprint():
     # catalog_view = Catalog.as_view('catalog')
 
     collections_view = Collections.as_view('collections')
-    bp.add_url_rule('/catalog/collections/<scope>/<name>/<request_id>/<workload_id>/<relation_type>',
+    bp.add_url_rule('/catalog/collections/<request_id>/<transform_id>/<workload_id>/<scope>/<name>/<relation_type>',
                     view_func=collections_view, methods=['get', ])  # get collections
 
     contents_view = Contents.as_view('contents')
-    bp.add_url_rule('/catalog/contents/<coll_scope>/<coll_name>/<request_id>/<workload_id>/<relation_type>/<status>',
+    bp.add_url_rule('/catalog/contents/<request_id>/<transform_id>/<workload_id>/<coll_scope>/<coll_name>/<relation_type>/<status>',
                     view_func=contents_view, methods=['get', ])  # get contents
 
     contents_ext_view = ContentsOutputExt.as_view('contents_output_ext')

@@ -8,12 +8,16 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2024
 
+
 import datetime
 import logging
 
-from idds.common.constants import ProcessingStatus, CollectionStatus
+from idds.common.constants import (ProcessingStatus, CollectionStatus, ContentStatus,
+                                   MessageType, MessageStatus, MessageSource, MessageDestination,
+                                   ContentType, ContentRelationType)
 from idds.common.utils import setup_logging
-from idds.core import catalog as core_catalog
+from idds.core import (catalog as core_catalog, messages as core_messages)
+from idds.agents.common.cache.redis import get_redis_cache
 
 setup_logging(__name__)
 
@@ -127,3 +131,93 @@ def sync_iprocessing(processing, agent_attributes, terminate=False, abort=False,
     processing['status'] = processing['substatus']
 
     return processing, u_colls, None
+
+
+def get_request_id_transform_id_collection_id_map(request_id, transform_id):
+    cache = get_redis_cache()
+    coll_tf_id_map_key = "req_id_trf_id_coll_id_map"
+    coll_tf_id_map = cache.get(coll_tf_id_map_key, default={})
+
+    if request_id is not None and transform_id is not None:
+        if request_id not in coll_tf_id_map or transform_id not in coll_tf_id_map[request_id]:
+            colls = core_catalog.get_collections_by_request_ids([request_id])
+            for coll in colls:
+                if coll['request_id'] not in coll_tf_id_map:
+                    coll_tf_id_map[coll['request_id']] = {}
+                if coll['transform_id'] not in coll_tf_id_map[coll['request_id']]:
+                    coll_tf_id_map[coll['request_id']][coll['transform_id']] = {}
+                if coll['relation_type'].value not in coll_tf_id_map[coll['request_id']][coll['transform_id']]:
+                    coll_tf_id_map[coll['request_id']][coll['transform_id']][coll['relation_type'].value] = []
+                if coll['coll_id'] not in coll_tf_id_map[coll['request_id']][coll['transform_id']][coll['relation_type'].value]:
+                    coll_tf_id_map[coll['request_id']][coll['transform_id']][coll['relation_type'].value].append[coll['coll_id']]
+
+            cache.set(coll_tf_id_map_key, coll_tf_id_map)
+
+        return coll_tf_id_map[request_id][transform_id]
+    return None
+
+
+def get_new_asyncresult_content(request_id, transform_id, name, path, workload_id=0, coll_id=0, map_id=0, scope='asyncresult',
+                                status=ContentStatus.Available, content_relation_type=ContentRelationType.Output):
+    content = {'transform_id': transform_id,
+               'coll_id': coll_id,
+               'request_id': request_id,
+               'workload_id': workload_id,
+               'map_id': map_id,
+               'scope': scope,
+               'name': name,
+               'min_id': 0,
+               'max_id': 0,
+               'status': status,
+               'substatus': status,
+               'path': path,
+               'content_type': ContentType.PseudoContent,
+               'content_relation_type': content_relation_type,
+               'bytes': 0}
+    return content
+
+
+def handle_messages_asyncresult(messages, logger=None, log_prefix='', update_processing_interval=300):
+    logger = get_logger(logger)
+    if not log_prefix:
+        log_prefix = "<Message_AsyncResult>"
+
+    req_msgs = {}
+
+    for msg in messages:
+        if 'from_idds' in msg and msg['from_idds']:
+            continue
+
+        # ret = msg['ret']
+        # key = msg['key']
+        # internal_id = msg['internal_id']
+        # msg_type = msg['type']
+        request_id = msg['request_id']
+        transform_id = msg.get('transform_id', 0)
+        internal_id = msg.get('internal_id', None)
+        # if msg_type in ['iworkflow']:
+
+        if request_id not in req_msgs:
+            req_msgs[request_id] = {}
+        if transform_id not in req_msgs[request_id]:
+            req_msgs[request_id][transform_id] = {}
+        if internal_id not in req_msgs[request_id][transform_id]:
+            req_msgs[request_id][transform_id][internal_id] = []
+        req_msgs[request_id][transform_id][internal_id].append(msg)
+
+    for request_id in req_msgs:
+        for transform_id in req_msgs[request_id]:
+            for internal_id in req_msgs[request_id][transform_id]:
+                msgs = req_msgs[request_id][transform_id][internal_id]
+                core_messages.add_message(msg_type=MessageType.AsyncResult,
+                                          status=MessageStatus.NoNeedDelivery,
+                                          destination=MessageDestination.AsyncResult,
+                                          source=MessageSource.Outside,
+                                          request_id=request_id,
+                                          workload_id=None,
+                                          transform_id=transform_id,
+                                          internal_id=internal_id,
+                                          num_contents=len(msgs),
+                                          msg_content=msgs)
+
+                logger.debug(f"{log_prefix} handle_messages_asyncresult, add {len(msgs)} for request_id {request_id} transform_id {transform_id} internal_id {internal_id}")

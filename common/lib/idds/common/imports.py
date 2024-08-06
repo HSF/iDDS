@@ -9,6 +9,7 @@
 # - Wen Guan, <wen.guan@cern.ch>, 2019 - 2024
 
 
+import logging
 import importlib
 import inspect
 import os
@@ -79,6 +80,9 @@ def import_func(name: str) -> Callable[..., Any]:
         Any: An attribute (normally a Callable)
     """
     with add_cwd_path():
+        logging.info(f"import_func cwd: {os.getcwd()}")
+        logging.info(f"import_func sys.path: {sys.path}")
+        logging.info(f"import_func PYTHONPATH: {os.environ.get('PYTHONPATH', None)}")
         filename, module_name_bits, attribute_bits = name.split(':')
         # module_name_bits, attribute_bits = name_bits[:-1], [name_bits[-1]]
         if module_name_bits == '__main__':
@@ -92,7 +96,8 @@ def import_func(name: str) -> Callable[..., Any]:
                 module_name = '.'.join(module_name_bits)
                 module = importlib.import_module(module_name)
                 break
-            except ImportError:
+            except ImportError as ex:
+                logging.warn(f"import_func import error: {ex}")
                 attribute_bits.insert(0, module_name_bits.pop())
 
         if module is None:

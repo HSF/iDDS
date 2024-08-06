@@ -14,6 +14,7 @@ from traceback import format_exc
 from flask import Blueprint
 
 from idds.common import exceptions
+from idds.common.authentication import authenticate_is_super_user
 from idds.common.constants import (HTTP_STATUS_CODE, MessageType, MessageStatus,
                                    MessageSource, MessageDestination,
                                    CommandType, RequestStatus)
@@ -27,7 +28,7 @@ from idds.rest.v1.controller import IDDSController
 class Message(IDDSController):
     """ Get message """
 
-    def get(self, request_id, workload_id):
+    def get(self, request_id, workload_id, transform_id, internal_id):
         """ Get messages with given id.
         HTTP Success:
             200 OK
@@ -42,6 +43,10 @@ class Message(IDDSController):
                 request_id = None
             if workload_id == 'null':
                 workload_id = None
+            if transform_id == 'null':
+                transform_id = None
+            if internal_id == 'null':
+                internal_id = None
 
             if request_id is None:
                 raise Exception("request_id should not be None")
@@ -54,8 +59,8 @@ class Message(IDDSController):
             username = self.get_username()
             reqs = get_requests(request_id=request_id, workload_id=workload_id, with_request=True)
             for req in reqs:
-                if req['username'] and req['username'] != username:
-                    raise exceptions.AuthenticationNoPermission("User %s has no permission to update request %s" % (username, req['request_id']))
+                if req['username'] and req['username'] != username and not authenticate_is_super_user(username):
+                    raise exceptions.AuthenticationNoPermission("User %s has no permission to get messages from request %s" % (username, req['request_id']))
         except exceptions.AuthenticationNoPermission as error:
             return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=error.__class__.__name__, exc_msg=error)
         except Exception as error:
@@ -64,10 +69,15 @@ class Message(IDDSController):
             return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
 
         try:
-            msgs = retrieve_messages(request_id=request_id, workload_id=workload_id)
+            msgs = retrieve_messages(request_id=request_id, workload_id=workload_id, transform_id=transform_id, internal_id=internal_id)
             rets = []
             for msg in msgs:
-                rets.append(msg['msg_content'])
+                msg_content = msg['msg_content']
+                if type(msg_content) in (list, tuple):
+                    for msg_content_item in msg_content:
+                        rets.append(msg_content_item)
+                else:
+                    rets.append(msg_content)
         except exceptions.NoObject as error:
             return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
         except exceptions.IDDSException as error:
@@ -79,7 +89,7 @@ class Message(IDDSController):
 
         return self.generate_http_response(HTTP_STATUS_CODE.OK, data=rets)
 
-    def post(self, request_id, workload_id):
+    def post(self, request_id, workload_id, transform_id, internal_id):
         """ Create Request.
         HTTP Success:
             200 OK
@@ -92,6 +102,10 @@ class Message(IDDSController):
                 request_id = None
             if workload_id == 'null':
                 workload_id = None
+            if transform_id == 'null':
+                transform_id = None
+            if internal_id == 'null':
+                internal_id = None
             if request_id is None:
                 raise Exception("request_id should not be None")
         except Exception as error:
@@ -103,8 +117,8 @@ class Message(IDDSController):
             username = self.get_username()
             reqs = get_requests(request_id=request_id, workload_id=workload_id, with_request=True)
             for req in reqs:
-                if req['username'] and req['username'] != username:
-                    raise exceptions.AuthenticationNoPermission("User %s has no permission to update request %s" % (username, req['request_id']))
+                if req['username'] and req['username'] != username and not authenticate_is_super_user(username):
+                    raise exceptions.AuthenticationNoPermission("User %s has no permission to send messages to request %s" % (username, req['request_id']))
         except exceptions.AuthenticationNoPermission as error:
             return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=error.__class__.__name__, exc_msg=error)
         except Exception as error:
@@ -114,9 +128,19 @@ class Message(IDDSController):
 
         try:
             msg = self.get_request().data and json_loads(self.get_request().data)
-            # command = msg['command']
-            # parameters = msg['parameters']
-            if 'command' in msg and msg['command'] in ['update_request', 'update_processing']:
+            if 'msg_type' in msg and msg['msg_type'] in ['async_result']:
+                msg['from_idds'] = 'true'
+                add_message(msg_type=MessageType.AsyncResult,
+                            status=MessageStatus.New,
+                            destination=MessageDestination.AsyncResult,
+                            source=MessageSource.Rest,
+                            request_id=request_id,
+                            workload_id=workload_id,
+                            transform_id=transform_id,
+                            internal_id=internal_id,
+                            num_contents=1,
+                            msg_content=msg)
+            elif 'command' in msg and msg['command'] in ['update_request', 'update_processing']:
                 status = msg['parameters']['status']
                 if status in [RequestStatus.ToCancel, RequestStatus.ToSuspend]:
                     add_command(request_id=request_id, cmd_type=CommandType.AbortRequest,
@@ -162,5 +186,5 @@ def get_blueprint():
     bp = Blueprint('message', __name__)
 
     view = Message.as_view('message')
-    bp.add_url_rule('/message/<request_id>/<workload_id>', view_func=view, methods=['get', 'post'])
+    bp.add_url_rule('/message/<request_id>/<workload_id>/<transform_id>/<internal_id>', view_func=view, methods=['get', 'post'])
     return bp

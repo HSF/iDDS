@@ -22,7 +22,7 @@ from idds.orm import messages as orm_messages
 
 @transactional_session
 def add_message(msg_type, status, source, request_id, workload_id, transform_id,
-                num_contents, msg_content, bulk_size=None, processing_id=0,
+                num_contents, msg_content, internal_id=None, bulk_size=None, processing_id=0,
                 destination=MessageDestination.Outside, session=None):
     """
     Add a message to be submitted asynchronously to a message broker.
@@ -37,7 +37,8 @@ def add_message(msg_type, status, source, request_id, workload_id, transform_id,
                                     request_id=request_id, workload_id=workload_id,
                                     transform_id=transform_id, num_contents=num_contents,
                                     destination=destination, processing_id=processing_id,
-                                    bulk_size=bulk_size, msg_content=msg_content, session=session)
+                                    internal_id=internal_id, bulk_size=bulk_size,
+                                    msg_content=msg_content, session=session)
 
 
 @transactional_session

@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2023
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2024
 
 
 """
@@ -24,6 +24,7 @@ from idds.orm import requests as orm_requests
 from idds.orm import transforms as orm_transforms
 from idds.orm import workprogress as orm_workprogresses
 from idds.orm import collections as orm_collections
+from idds.orm import conditions as orm_conditions
 from idds.orm import messages as orm_messages
 from idds.orm import meta as orm_meta
 from idds.core import messages as core_messages
@@ -35,6 +36,7 @@ def create_request(scope=None, name=None, requester=None, request_type=None,
                    lifetime=None, workload_id=None, request_metadata=None,
                    new_poll_period=1, update_poll_period=10, site=None,
                    new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
+                   campaign=None, campaign_group=None, campaign_tag=None,
                    processing_metadata=None):
     """
     Add a request.
@@ -65,7 +67,8 @@ def create_request(scope=None, name=None, requester=None, request_type=None,
               'new_poll_period': new_poll_period, 'update_poll_period': update_poll_period,
               'new_retries': new_retries, 'update_retries': update_retries,
               'max_new_retries': max_new_retries, 'max_update_retries': max_update_retries,
-              'site': site,
+              'site': site, 'campaign': campaign, 'campaign_group': campaign_group,
+              'campaign_tag': campaign_tag,
               'request_metadata': request_metadata, 'processing_metadata': processing_metadata}
     return orm_requests.create_request(**kwargs)
 
@@ -77,6 +80,7 @@ def add_request(scope=None, name=None, requester=None, request_type=None,
                 lifetime=None, workload_id=None, request_metadata=None,
                 new_poll_period=1, update_poll_period=10, site=None,
                 new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
+                campaign=None, campaign_group=None, campaign_tag=None,
                 processing_metadata=None, session=None):
     """
     Add a request.
@@ -113,6 +117,7 @@ def add_request(scope=None, name=None, requester=None, request_type=None,
               'priority': priority, 'lifetime': lifetime, 'workload_id': workload_id,
               'new_poll_period': new_poll_period, 'update_poll_period': update_poll_period,
               'new_retries': new_retries, 'update_retries': update_retries,
+              'campaign': campaign, 'campaign_group': campaign_group, 'campaign_tag': campaign_tag,
               'max_new_retries': max_new_retries, 'max_update_retries': max_update_retries,
               'request_metadata': request_metadata, 'processing_metadata': processing_metadata,
               'session': session}
@@ -290,7 +295,8 @@ def generate_collections(transform):
 @transactional_session
 def update_request_with_transforms(request_id, parameters,
                                    new_transforms=None, update_transforms=None,
-                                   new_messages=None, update_messages=None, session=None):
+                                   new_messages=None, update_messages=None,
+                                   new_conditions=None, session=None):
     """
     update an request.
 
@@ -349,6 +355,10 @@ def update_request_with_transforms(request_id, parameters,
         orm_messages.add_messages(new_messages, session=session)
     if update_messages:
         orm_messages.update_messages(update_messages, session=session)
+
+    if new_conditions:
+        orm_conditions.add_conditions(new_conditions, session=session)
+
     return orm_requests.update_request(request_id, parameters, session=session), new_tf_ids, update_tf_ids
 
 

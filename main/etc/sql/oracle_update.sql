@@ -476,3 +476,29 @@ alter table PROCESSINGS add (processing_type NUMBER(2));
 
 --- 20240327
 alter table requests modify (transform_tag VARCHAR2(20));
+
+--- 20240703
+alter table requests add (campaign VARCHAR2(100), campaign_group VARCHAR2(250), campaign_tag VARCHAR2(20));
+alter table transforms add (internal_id VARCHAR2(20), has_previous_conditions NUMBER(3), loop_index NUMBER(3), cloned_from NUMBER(12), triggered_conditions CLOB, untriggered_conditions CLOB);
+
+alter table messages add (internal_id VARCHAR2(20));
+
+CREATE SEQUENCE CONDITION_ID_SEQ MINVALUE 1 INCREMENT BY 1 START WITH 1 NOCACHE ORDER NOCYCLE GLOBAL;
+CREATE TABLE conditions
+(
+    condition_id NUMBER(12) DEFAULT ON NULL CONDITION_ID_SEQ.NEXTVAL constraint CONDITION_ID_NN NOT NULL,
+    request_id NUMBER(12),
+    internal_id VARCHAR2(20),
+    status NUMBER(2),
+    is_loop NUMBER(2),
+    loop_index NUMBER(2),
+    cloned_from NUMBER(12),
+    created_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)),
+    updated_at DATE DEFAULT SYS_EXTRACT_UTC(systimestamp(0)),
+    evaluate_result VARCHAR2(200),
+    previous_transforms CLOB,
+    following_transforms CLOB,
+    condition CLOB,
+    CONSTRAINT CONDITION_PK PRIMARY KEY (condition_id), -- USING INDEX LOCAL,
+    CONSTRAINT CONDITION_ID_UQ UNIQUE (request_id, internal_id)
+);

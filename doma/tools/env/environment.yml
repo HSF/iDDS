@@ -5,5 +5,5 @@ dependencies:
 - pip:
   - futures                          # multiple process/threads
   - panda-client-light     # panda client
-  - idds-common==2.0.9
-  - idds-workflow==2.0.9
+  - idds-common==2.1.30
+  - idds-workflow==2.1.30

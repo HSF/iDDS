@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2023
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2024
 
 
 """
@@ -324,8 +324,8 @@ def get_contents(coll_scope=None, coll_name=None, request_id=None, workload_id=N
                 content_relation_type = ContentRelationType.Input
             elif relation_type == CollectionRelationType.Log:
                 content_relation_type = ContentRelationType.Log
-        rets = orm_contents.get_contents(coll_id=coll_ids, status=status, to_json=to_json,
-                                         relation_type=content_relation_type, session=session)
+        rets = orm_contents.get_contents(request_id=request_id, transform_id=transform_id, coll_id=coll_ids, status=status,
+                                         to_json=to_json, relation_type=content_relation_type, session=session)
     else:
         rets = []
     return rets

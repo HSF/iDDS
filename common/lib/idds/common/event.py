@@ -42,6 +42,7 @@ class EventType(IDDSEnum):
     UpdateTransform = 21
     AbortTransform = 22
     ResumeTransform = 23
+    QueueTransform = 24
 
     NewProcessing = 30
     UpdateProcessing = 31

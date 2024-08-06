@@ -29,7 +29,7 @@ from idds.orm.base.session import read_session, transactional_session
 
 @transactional_session
 def add_message(msg_type, status, source, request_id, workload_id, transform_id,
-                num_contents, msg_content, bulk_size=None, processing_id=None,
+                num_contents, msg_content, internal_id=None, bulk_size=None, processing_id=None,
                 destination=MessageDestination.Outside, session=None):
     """
     Add a message to be submitted asynchronously to a message broker.
@@ -69,7 +69,7 @@ def add_message(msg_type, status, source, request_id, workload_id, transform_id,
         for msg_content, num_contents in zip(msg_content_list, num_contents_list):
             new_message = {'msg_type': msg_type, 'status': status, 'request_id': request_id,
                            'workload_id': workload_id, 'transform_id': transform_id,
-                           'source': source, 'num_contents': num_contents,
+                           'internal_id': internal_id, 'source': source, 'num_contents': num_contents,
                            'destination': destination, 'processing_id': processing_id,
                            'locking': 0, 'msg_content': msg_content}
             msgs.append(new_message)

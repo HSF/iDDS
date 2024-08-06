@@ -199,6 +199,7 @@ class RequestType(IDDSEnum):
     Derivation = 5
     iWorkflow = 6
     iWorkflowLocal = 7
+    GenericWorkflow = 8
     Other = 99
 
 
@@ -214,6 +215,8 @@ class TransformType(IDDSEnum):
     Data = 8
     iWorkflow = 9
     iWork = 10
+    GenericWorkflow = 11
+    GenericWork = 12
     Other = 99
 
 
@@ -241,11 +244,20 @@ class TransformStatus(IDDSEnum):
     Terminating = 20
     Building = 21
     Built = 22
+    Queue = 23
+    Throttling = 24
+    WaitForTrigger = 25
 
 
 class TransformLocking(IDDSEnum):
     Idle = 0
     Locking = 1
+
+
+class ConditionStatus(IDDSEnum):
+    New = 0
+    WaitForTrigger = 1
+    Triggered = 2
 
 
 class CollectionType(IDDSEnum):
@@ -401,6 +413,7 @@ class MessageType(IDDSEnum):
     HealthHeartbeat = 12
     IDDSCommunication = 13
     ContentExt = 14
+    AsyncResult = 15
     UnknownFile = 97
     UnknownCollection = 98
     UnknownWork = 99
@@ -425,6 +438,7 @@ class MessageTypeStr(IDDSEnum):
     UnknownCollection = 'collection_unknown'
     UnknownWork = 'work_unknown'
     ContentExt = 'content_ext'
+    AsyncResult = 'async_result'
 
 
 TransformType2MessageTypeMap = {
@@ -462,6 +476,7 @@ class MessageStatus(IDDSEnum):
     Delivered = 2
     Failed = 3
     ConfirmDelivered = 4
+    NoNeedDelivery = 5
 
 
 class MessageLocking(IDDSEnum):
@@ -486,6 +501,7 @@ class MessageDestination(IDDSEnum):
     Conductor = 4
     Outside = 5
     ContentExt = 6
+    AsyncResult = 7
 
 
 class CommandType(IDDSEnum):

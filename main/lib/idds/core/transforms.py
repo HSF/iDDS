@@ -135,7 +135,7 @@ def get_transform_ids(workprogress_id, request_id=None, workload_id=None, transf
 
 
 @read_session
-def get_transforms(request_id=None, workload_id=None, transform_id=None, to_json=False, session=None):
+def get_transforms(request_id=None, workload_id=None, transform_id=None, loop_index=None, internal_ids=None, to_json=False, session=None):
     """
     Get transforms or raise a NoObject exception.
 
@@ -150,13 +150,15 @@ def get_transforms(request_id=None, workload_id=None, transform_id=None, to_json
     return orm_transforms.get_transforms(request_id=request_id,
                                          workload_id=workload_id,
                                          transform_id=transform_id,
+                                         loop_index=loop_index,
+                                         internal_ids=internal_ids,
                                          to_json=to_json, session=session)
 
 
 @transactional_session
 def get_transforms_by_status(status, period=None, locking=False, bulk_size=None, to_json=False, by_substatus=False,
                              new_poll=False, update_poll=False, only_return_id=False, min_request_id=None,
-                             not_lock=False, next_poll_at=None, session=None):
+                             order_by_fifo=False, not_lock=False, next_poll_at=None, session=None):
     """
     Get transforms or raise a NoObject exception.
 
@@ -177,6 +179,7 @@ def get_transforms_by_status(status, period=None, locking=False, bulk_size=None,
                                                              bulk_size=bulk_size * 2, locking_for_update=False,
                                                              to_json=False, only_return_id=True,
                                                              min_request_id=min_request_id,
+                                                             order_by_fifo=order_by_fifo,
                                                              new_poll=new_poll, update_poll=update_poll,
                                                              by_substatus=by_substatus, session=session)
             if tf_ids:
@@ -185,6 +188,7 @@ def get_transforms_by_status(status, period=None, locking=False, bulk_size=None,
                                                                       to_json=to_json, transform_ids=tf_ids,
                                                                       new_poll=new_poll, update_poll=update_poll,
                                                                       min_request_id=min_request_id,
+                                                                      order_by_fifo=order_by_fifo,
                                                                       by_substatus=by_substatus, session=session)
                 if transform2s:
                     # reqs = req2s[:bulk_size]
@@ -204,7 +208,7 @@ def get_transforms_by_status(status, period=None, locking=False, bulk_size=None,
                 transforms = []
         else:
             transforms = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking,
-                                                                 locking_for_update=False,
+                                                                 locking_for_update=False, order_by_fifo=order_by_fifo,
                                                                  bulk_size=bulk_size, to_json=to_json,
                                                                  new_poll=new_poll, update_poll=update_poll,
                                                                  only_return_id=only_return_id,
@@ -228,6 +232,7 @@ def get_transforms_by_status(status, period=None, locking=False, bulk_size=None,
                                                              bulk_size=bulk_size, to_json=to_json,
                                                              new_poll=new_poll, update_poll=update_poll,
                                                              only_return_id=only_return_id,
+                                                             order_by_fifo=order_by_fifo,
                                                              min_request_id=min_request_id,
                                                              by_substatus=by_substatus, session=session)
     return transforms
