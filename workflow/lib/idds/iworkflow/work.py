@@ -341,6 +341,9 @@ class WorkContext(Context):
                 ret = init_env
         return ret
 
+    def get_clean_env(self):
+        return self._workflow_context.get_clean_env()
+
 
 class Work(Base):
 
@@ -917,6 +920,12 @@ class Work(Base):
         """
         return self._context.setup()
 
+    def get_clean_env(self):
+        """
+        :returns command: `str` to clean the workflow.
+        """
+        return self._context.get_clean_env()
+
     def load_func(self, func_name):
         """
         Load the function from the source files.
@@ -934,28 +943,19 @@ class Work(Base):
         if workflow_context.distributed:
             logging.info("Test AsyncResult")
             a_ret = AsyncResult(workflow_context, wait_num=1, timeout=30)
-            a_ret.subscribe()
-
-            async_ret = AsyncResult(workflow_context, internal_id=a_ret.internal_id)
-            test_result = "AsyncResult test (request_id: %s, transform_id: %s)" % (workflow_context.request_id, workflow_context.transform_id)
-            logging.info("AsyncResult publish: %s" % test_result)
-            async_ret.publish(test_result)
-
-            ret_q = a_ret.wait_result(force_return_results=True)
-            logging.info("AsyncResult results: %s" % str(ret_q))
-            if ret_q and ret_q == test_result:
-                logging.info("AsyncResult test succeeded")
-                return True
-            else:
-                logging.info("AsyncResult test failed (published: %s, received: %s)" % (test_result, ret_q))
-                return False
+            ret = a_ret.is_ok()
+            logging.info(f"pre_run asyncresult test is_ok: {ret}")
+            return ret
         return True
 
     def run(self):
         """
         Run the work.
         """
-        self.pre_run()
+        is_ok = self.pre_run()
+        if not is_ok:
+            logging.error(f"pre_run is_ok: {is_ok}, will exit.")
+            raise Exception("work pre_run failed")
 
         func_name, pre_kwargs, args, kwargs = self._func_name_and_args
         multi_jobs_kwargs_list = self.multi_jobs_kwargs_list
@@ -1074,6 +1074,11 @@ class Work(Base):
             cmd = cmd + " " + run_command
         else:
             cmd = run_command
+
+        clean_env = self.get_clean_env()
+        if clean_env:
+            cmd = cmd + "; " + clean_env
+
         return cmd
 
 
