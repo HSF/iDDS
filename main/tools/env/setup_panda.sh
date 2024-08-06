@@ -27,6 +27,31 @@ if [ "$instance" == "k8s" ]; then
     export PANDA_SYS=/afs/cern.ch/user/w/wguan/workdisk/iDDS/.conda/iDDS/
     # export PANDA_CONFIG_ROOT=/afs/cern.ch/user/w/wguan/workdisk/iDDS/main/etc/panda/
     export PANDA_CONFIG_ROOT=~/.panda/
+elif [ "$instance" == "bnl" ]; then
+    export PANDA_AUTH=oidc
+
+    export PANDA_URL_SSL=https://pandaserver01.sdcc.bnl.gov:25443/server/panda
+    export PANDA_URL=https://pandaserver01.sdcc.bnl.gov:25443/server/panda
+    export PANDACACHE_URL=https://pandaserver01.sdcc.bnl.gov:25443/server/panda
+    export PANDAMON_URL=https://pandamon01.sdcc.bnl.gov
+    export PANDA_AUTH=oidc
+    export PANDA_AUTH_VO=EIC
+    export PANDA_USE_NATIVE_HTTPLIB=1
+    export PANDA_BEHIND_REAL_LB=1
+
+    # export PANDA_AUTH_VO=panda_dev
+    # export PANDA_AUTH_VO=Rubin:production
+
+    export PANDACACHE_URL=$PANDA_URL_SSL
+    export PANDA_SYS=/afs/cern.ch/user/w/wguan/workdisk/iDDS/.conda/iDDS/
+
+    export PANDA_BEHIND_REAL_LB=true
+    export PANDA_VERIFY_HOST=off
+    export PANDA_CONFIG_ROOT=~/.panda/
+
+    unset IDDS_HOST
+    # doma
+    # export IDDS_HOST=https://aipanda105.cern.ch:443/idds
 elif [ "$instance" == "usdf_dev" ]; then
     export PANDA_AUTH=oidc
     export PANDA_BEHIND_REAL_LB=true
@@ -97,14 +122,19 @@ elif [ "$instance" == "new" ]; then
     PANDA_WORKING_GROUP=EIC
     PANDA_VO=wlcg
 elif [ "$instance" == "doma_k8s" ]; then
-    export PANDA_URL_SSL=https://panda-doma-k8s-panda.cern.ch/server/panda
-    export PANDA_URL=http://panda-doma-k8s-panda.cern.ch:25080/server/panda
-    export PANDACACHE_URL=https://panda-doma-k8s-panda.cern.ch/server/panda
-    export PANDAMON_URL=https://panda-doma-bigmon.cern.ch
+    # export PANDA_URL_SSL=https://panda-doma-k8s-panda.cern.ch/server/panda
+    # export PANDA_URL=http://panda-doma-k8s-panda.cern.ch:25080/server/panda
+    # export PANDACACHE_URL=https://panda-doma-k8s-panda.cern.ch/server/panda
+    # export PANDAMON_URL=https://panda-doma-bigmon.cern.ch
+    export PANDA_URL_SSL=https://pandaserver-doma.cern.ch/server/panda
+    export PANDA_URL=http://pandaserver-doma.cern.ch:25080/server/panda
+    export PANDACACHE_URL=https://pandaserver-doma.cern.ch/server/panda
+    export PANDAMON_URL=https://panda-doma.cern.ch
+    
     export PANDA_AUTH=oidc
     export PANDA_AUTH_VO=Rubin.production
-    export PANDA_AUTH_VO=EIC
-    export PANDA_AUTH_VO=Rubin
+    # export PANDA_AUTH_VO=EIC
+    # export PANDA_AUTH_VO=Rubin
     export PANDA_USE_NATIVE_HTTPLIB=1
     export PANDA_BEHIND_REAL_LB=true
 
@@ -119,7 +149,8 @@ elif [ "$instance" == "doma_k8s" ]; then
     export IDDS_OIDC_TOKEN_FILE=~/.idds/.token_doma_k8s
 else
     export PANDA_AUTH=oidc
-    export PANDA_URL_SSL=https://pandaserver-doma.cern.ch:25443/server/panda
+    # export PANDA_URL_SSL=https://pandaserver-doma.cern.ch:25443/server/panda
+    export PANDA_URL_SSL=https://pandaserver-doma.cern.ch:443/server/panda
     export PANDA_URL=http://pandaserver-doma.cern.ch:25080/server/panda
     export PANDAMON_URL=https://panda-doma.cern.ch
     # export PANDA_AUTH_VO=panda_dev

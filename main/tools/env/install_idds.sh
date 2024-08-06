@@ -17,7 +17,7 @@ cp workflow/bin/run_workflow_wrapper ~/www/wiscgroup/
 echo cp workflow/bin/run_workflow_wrapper /eos/user/w/wguan/www/
 cp workflow/bin/run_workflow_wrapper /eos/user/w/wguan/www/
 
-echo scp workflow/bin/run_workflow_wrapper root@ai-idds-04:/data/iddssv1/srv/var/trf/user/
-scp workflow/bin/run_workflow_wrapper root@ai-idds-04:/data/iddssv1/srv/var/trf/user/
+# echo scp workflow/bin/run_workflow_wrapper root@ai-idds-04:/data/iddssv1/srv/var/trf/user/
+# scp workflow/bin/run_workflow_wrapper root@ai-idds-04:/data/iddssv1/srv/var/trf/user/
 
 rm -fr workflow/bin/run_workflow_wrapper
