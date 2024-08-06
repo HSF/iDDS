@@ -315,7 +315,7 @@ def get_transform_ids(workprogress_id=None, request_id=None, workload_id=None, t
 
 
 @read_session
-def get_transforms(request_id=None, workload_id=None, transform_id=None,
+def get_transforms(request_id=None, workload_id=None, transform_id=None, loop_index=None, internal_ids=None,
                    to_json=False, session=None):
     """
     Get transforms or raise a NoObject exception.
@@ -337,6 +337,14 @@ def get_transforms(request_id=None, workload_id=None, transform_id=None,
             query = query.filter(models.Transform.workload_id == workload_id)
         if transform_id:
             query = query.filter(models.Transform.transform_id == transform_id)
+        if loop_index is not None:
+            query = query.filter(models.Transform.loop_index == loop_index)
+        if internal_ids:
+            if not isinstance(internal_ids, (list, tuple)):
+                internal_ids = [internal_ids]
+            if len(internal_ids) == 1:
+                internal_ids = [internal_ids[0], internal_ids[0]]
+            query = query.filter(models.Transform.internal_ids.in_(internal_ids))
 
         tmp = query.all()
         rets = []
@@ -357,7 +365,7 @@ def get_transforms(request_id=None, workload_id=None, transform_id=None,
 @transactional_session
 def get_transforms_by_status(status, period=None, transform_ids=[], locking=False, locking_for_update=False,
                              bulk_size=None, to_json=False, by_substatus=False, only_return_id=False,
-                             min_request_id=None, new_poll=False, update_poll=False, session=None):
+                             order_by_fifo=False, min_request_id=None, new_poll=False, update_poll=False, session=None):
     """
     Get transforms or raise a NoObject exception.
 
@@ -406,7 +414,10 @@ def get_transforms_by_status(status, period=None, transform_ids=[], locking=Fals
         if locking_for_update:
             query = query.with_for_update(skip_locked=True)
         else:
-            query = query.order_by(asc(models.Transform.updated_at)).order_by(desc(models.Transform.priority))
+            if order_by_fifo:
+                query = query.order_by(desc(models.Transform.priority)).order_by(asc(models.Transform.transform_id))
+            else:
+                query = query.order_by(asc(models.Transform.updated_at)).order_by(desc(models.Transform.priority))
 
         if bulk_size:
             query = query.limit(bulk_size)

@@ -6,4 +6,4 @@ dependencies:
   - anytree
   - networkx
   - stomp.py<=8.0.1
-  - idds-common==2.0.9
+  - idds-common==2.1.30

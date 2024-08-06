@@ -30,6 +30,7 @@ from idds.agents.common.eventbus.event import (EventType, MessageEvent,
                                                TriggerProcessingEvent)
 
 from .utils import handle_messages_processing
+from .iutils import handle_messages_asyncresult
 
 setup_logging(__name__)
 
@@ -100,7 +101,7 @@ class Receiver(BaseAgent):
 
     def get_output_messages(self):
         with self._lock:
-            msgs = []
+            msgs = {}
             try:
                 msg_size = 0
                 while not self.message_queue.empty():
@@ -108,7 +109,11 @@ class Receiver(BaseAgent):
                     if msg:
                         if msg_size < 10:
                             self.logger.debug("Received message(only log first 10 messages): %s" % str(msg))
-                        msgs.append(msg)
+                        name = msg['name']
+                        body = msg['body']
+                        if name not in msgs:
+                            msgs[name] = []
+                        msgs[name].append(body)
                         msg_size += 1
                         if msg_size >= self.bulk_message_size:
                             break
@@ -116,7 +121,10 @@ class Receiver(BaseAgent):
                 self.logger.error("Failed to get output messages: %s, %s" % (error, traceback.format_exc()))
             if msgs:
                 total_msgs = self.get_num_queued_messages()
-                self.logger.info("process_messages: Get %s messages, left %s messages" % (len(msgs), total_msgs))
+                got_msgs = 0
+                for name in msgs:
+                    got_msgs += len(msgs[name])
+                self.logger.info("process_messages: Get %s messages, left %s messages" % (got_msgs, total_msgs))
             return msgs
 
     def is_selected(self):
@@ -186,12 +194,25 @@ class Receiver(BaseAgent):
             event.set_terminating()
             self.event_bus.send(event)
 
+    def handle_messages_asyncresult(self, output_messages, log_prefix):
+        handle_messages_asyncresult(output_messages,
+                                    logger=self.logger,
+                                    log_prefix=log_prefix,
+                                    update_processing_interval=self.update_processing_interval)
+
+    def handle_messages_channels(self, output_messages, log_prefix):
+        for channel in output_messages:
+            if channel in ['asyncresult']:
+                self.handle_messages_asyncresult(output_messages[channel], log_prefix)
+            else:
+                self.handle_messages(output_messages[channel], log_prefix)
+
     def process_messages(self, log_prefix=None):
         output_messages = self.get_output_messages()
         has_messages = False
         if output_messages:
             self.logger.info("process_messages: Received %s messages" % (len(output_messages)))
-            self.handle_messages(output_messages, log_prefix=log_prefix)
+            self.handle_messages_channels(output_messages, log_prefix=log_prefix)
             self.logger.info("process_messages: Handled %s messages" % len(output_messages))
             has_messages = True
         return has_messages
@@ -219,7 +240,7 @@ class Receiver(BaseAgent):
                 output_messages = event.get_message()
                 if output_messages:
                     self.logger.info("process_messages: Received %s messages" % (len(output_messages)))
-                    self.handle_messages(output_messages, log_prefix=self.log_prefix)
+                    self.handle_messages_channels(output_messages, log_prefix=self.log_prefix)
                     self.logger.info("process_messages: Handled %s messages" % len(output_messages))
         except Exception as ex:
             self.logger.error(ex)

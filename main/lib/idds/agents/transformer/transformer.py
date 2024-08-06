@@ -20,11 +20,14 @@ from idds.common.constants import (Sections, ReturnCode, TransformType,
                                    CollectionType, CollectionStatus,
                                    CollectionRelationType,
                                    CommandType, ProcessingStatus, WorkflowType,
+                                   ConditionStatus,
                                    get_processing_type_from_transform_type,
                                    get_transform_status_from_processing_status)
 from idds.common.utils import setup_logging, truncate_string
 from idds.core import (transforms as core_transforms,
-                       processings as core_processings)
+                       processings as core_processings,
+                       throttlers as core_throttlers,
+                       conditions as core_conditions)
 from idds.agents.common.baseagent import BaseAgent
 from idds.agents.common.eventbus.event import (EventType,
                                                NewTransformEvent,
@@ -34,6 +37,8 @@ from idds.agents.common.eventbus.event import (EventType,
                                                UpdateRequestEvent,
                                                NewProcessingEvent,
                                                UpdateProcessingEvent)
+
+from idds.agents.common.cache.redis import get_redis_cache
 
 setup_logging(__name__)
 
@@ -106,6 +111,114 @@ class Transformer(BaseAgent):
             q_str = "number of transforms: %s, max number of transforms: %s" % (self.number_workers, self.max_number_workers)
             self.logger.debug(q_str)
 
+    def get_throttlers(self):
+        cache = get_redis_cache()
+        throttlers = cache.get("throttlers", default=None)
+        if throttlers is None:
+            throttler_items = core_throttlers.get_throttlers()
+            throttlers = {}
+            for item in throttler_items:
+                throttlers[item['site']] = {'num_requests': item['num_requests'],
+                                            'num_transforms': item['num_transforms'],
+                                            'num_processings': item['num_processings'],
+                                            'new_contents': item['new_contents'],
+                                            'queue_contents': item['queue_contents'],
+                                            'others': item['others'],
+                                            'status': item['status']}
+            cache.set("throttlers", throttlers, expire_seconds=self.cache_expire_seconds)
+        return throttlers
+
+    def whether_to_throttle(self, transform):
+        try:
+            site = transform['site']
+            if site is None:
+                site = 'Default'
+            throttlers = self.get_throttlers()
+            num_transforms = self.get_num_active_transforms(site)
+            num_processings, active_transforms = self.get_num_active_processings(site)
+            num_input_contents, num_output_contents = self.get_num_active_contents(site, active_transforms)
+            self.logger.info("throttler(site: %s): transforms(%s), processings(%s)" % (site, num_transforms, num_processings))
+            self.logger.info("throttler(site: %s): active input contents(%s), output contents(%s)" % (site, num_input_contents, num_output_contents))
+
+            throttle_transforms = throttlers.get(site, {}).get('num_transforms', None)
+            throttle_processings = throttlers.get(site, {}).get('num_processings', None)
+            throttle_new_jobs = throttlers.get(site, {}).get('new_contents', None)
+            throttle_queue_jobs = throttlers.get(site, {}).get('queue_contents', None)
+            self.logger.info("throttler(site: %s): throttle_transforms: %s, throttle_processings: %s" % (site, throttle_transforms, throttle_processings))
+            if throttle_transforms:
+                if num_transforms['processing'] >= throttle_transforms:
+                    self.logger.info("throttler(site: %s): num of processing transforms (%s) is bigger than throttle_transforms (%s), set throttling" % (site, num_transforms['processing'], throttle_transforms))
+                    return True
+            if throttle_processings:
+                if num_processings['processing'] >= throttle_processings:
+                    self.logger.info("throttler(site: %s): num of processing processings (%s) is bigger than throttle_processings (%s), set throttling" % (site, num_processings['processing'], throttle_processings))
+                    return True
+
+            new_jobs = num_input_contents['new']
+            released_jobs = num_input_contents['processed']
+            terminated_jobs = num_output_contents['processed']
+            queue_jobs = released_jobs - terminated_jobs
+
+            self.logger.info("throttler(site: %s): throttle_new_jobs: %s, throttle_queue_jobs: %s" % (site, throttle_new_jobs, throttle_queue_jobs))
+            self.logger.info("throttler(site: %s): new_jobs: %s, queue_jobs: %s" % (site, new_jobs, queue_jobs))
+            if throttle_new_jobs:
+                if new_jobs >= throttle_new_jobs:
+                    self.logger.info("throttler(site: %s): num of new jobs(not released) (%s) is bigger than throttle_new_jobs (%s), set throttling" % (site, new_jobs, throttle_new_jobs))
+                    return True
+            if throttle_queue_jobs:
+                if queue_jobs >= throttle_queue_jobs:
+                    self.logger.info("throttler(site: %s): num of queue jobs(released but not terminated) (%s) is bigger than throttle_queue_jobs (%s), set throttling" % (site, queue_jobs, throttle_queue_jobs))
+                    return True
+
+            return False
+        except Exception as ex:
+            self.logger.error("whether_to_throttle: %s" % str(ex))
+            self.logger.error(traceback.format_exc())
+        return False
+
+    def get_queue_transforms(self):
+        """
+        Get queue transforms to set them to new if the throttler is ok.
+        """
+        try:
+            if not self.is_ok_to_run_more_transforms():
+                return []
+
+            self.show_queue_size()
+
+            if BaseAgent.min_request_id is None:
+                return []
+
+            transform_status = [TransformStatus.Queue, TransformStatus.Throttling]
+            # next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_period)
+            transforms_q = core_transforms.get_transforms_by_status(status=transform_status, locking=True,
+                                                                    not_lock=True, order_by_fifo=True,
+                                                                    new_poll=True, only_return_id=True,
+                                                                    min_request_id=BaseAgent.min_request_id,
+                                                                    bulk_size=self.retrieve_bulk_size)
+
+            # self.logger.debug("Main thread get %s New+Ready+Extend transforms to process" % len(transforms_new))
+            if transforms_q:
+                self.logger.info("Main thread get queued transforms to process: %s" % str(transforms_q))
+                for tf in transforms_q:
+                    to_throttle = self.whether_to_throttle(tf)
+                    transform_parameters = {'locking': TransformLocking.Idle}
+                    parameters = self.load_poll_period(tf, transform_parameters)
+                    if to_throttle:
+                        parameters['status'] = TransformStatus.Throttling
+                    else:
+                        parameters['status'] = TransformStatus.New
+                    core_transforms.update_transform(transform_id=tf['transform_id'], parameters=parameters)
+
+        except exceptions.DatabaseException as ex:
+            if 'ORA-00060' in str(ex):
+                self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
+            else:
+                # raise ex
+                self.logger.error(ex)
+                self.logger.error(traceback.format_exc())
+        return []
+
     def get_new_transforms(self):
         """
         Get new transforms to process
@@ -122,7 +235,7 @@ class Transformer(BaseAgent):
             transform_status = [TransformStatus.New, TransformStatus.Ready, TransformStatus.Extend]
             # next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_period)
             transforms_new = core_transforms.get_transforms_by_status(status=transform_status, locking=True,
-                                                                      not_lock=True,
+                                                                      not_lock=True, order_by_fifo=True,
                                                                       new_poll=True, only_return_id=True,
                                                                       min_request_id=BaseAgent.min_request_id,
                                                                       bulk_size=self.retrieve_bulk_size)
@@ -211,6 +324,83 @@ class Transformer(BaseAgent):
         if self.update_poll_period and transform['update_poll_period'] != self.update_poll_period:
             parameters['update_poll_period'] = self.update_poll_period
         return parameters
+
+    def trigger_condition(self, request_id, condition):
+        update_condition = {}
+        update_transforms = []
+        cond = core_conditions.load_condition(condition)
+        is_triggered, is_updated, ret = cond.evaluate()
+        if is_triggered or is_updated:
+            update_condition['condition_id'] = cond.condition_id
+            update_condition['previous_works'] = cond.previous_works   # previous_works = {'internal_id': <>, 'status': <OK/NotOK>}
+
+        if is_triggered:
+            update_condition['condition_id'] = cond.condition_id
+            update_condition['status'] = ConditionStatus.Triggered
+            update_condition['evaluate_result'] = cond.result
+
+            triggered_works = cond.get_triggered_works(ret)
+            if triggered_works:
+                internal_ids = [w['internal_id'] for w in triggered_works]
+                triggered_transforms = core_transforms.get_transforms(request_id=request_id,
+                                                                      loop_index=condition['loop_index'],
+                                                                      internal_ids=internal_ids)
+                for tf in triggered_transforms:
+                    if tf['status'] in [TransformStatus.WaitForTrigger]:
+                        # change transform status from WaitForTrigger to New
+                        u_transform = {'transform_id': tf['transform_id'], 'status': TransformStatus.New}
+                        update_transforms.append(u_transform)
+            return is_triggered, is_updated, update_condition, update_transforms
+
+    def evaluate_conditions(self, transform):
+        if not transform['has_conditons']:
+            return
+
+        update_conditions = []
+        all_update_triggered_transforms = []
+        update_current_transform = None
+
+        loop_index = transform['loop_index']
+        triggered_conditions = transform['triggered_conditions']
+        untriggered_conditions = transform['untriggered_conditions']
+
+        new_triggered_conditions = []
+        u_cond_ids = [u_cond['internal_id'] for u_cond in untriggered_conditions]
+        conditions = core_conditions.get_condtions(request_id=transform['request_id'], internal_ids=u_cond_ids, loop_index=loop_index)
+        cond_dict = {}
+        for cond in conditions:
+            if (loop_index is None and cond['loop_index'] is None) or (loop_index == cond['loop_index']):
+                cond_dict[cond['internal_id']] = cond
+        for u_cond in untriggered_conditions:
+            cond = cond_dict[u_cond['internal_id']]
+            if cond['status'] not in [ConditionStatus.WaitForTrigger]:
+                ret = self.trigger_condition(request_id=transform['request_id'], condition=cond)
+                is_triggered, is_updated, update_condition, update_triggered_transforms = ret
+                if is_triggered or is_updated:
+                    # is_triggered: the condition is triggered
+                    # is_updated: the condition has multiple previous items. The item related to current transform is updated to ok,
+                    #             waiting for the other item to be ok.
+                    new_triggered_conditions.append(u_cond)
+                if update_condition:
+                    update_conditions.append(update_condition)
+                if update_triggered_transforms:
+                    all_update_triggered_transforms = all_update_triggered_transforms + update_triggered_transforms
+            else:
+                new_triggered_conditions.append(u_cond)
+        if new_triggered_conditions:
+            new_triggered_conditions_dict = {new_cond['internal_id']: new_cond for new_cond in new_triggered_conditions}
+            untriggered_conditions_copy = copy.deepcopy(untriggered_conditions)
+            untriggered_conditions = []
+            for u_cond in untriggered_conditions_copy:
+                if u_cond['internal_id'] in new_triggered_conditions_dict:
+                    triggered_conditions.append(u_cond)
+                else:
+                    untriggered_conditions.append(u_cond)
+            update_current_transform = {'transform_id': transform['transform_id'],
+                                        'triggered_conditions': triggered_conditions,
+                                        'untriggered_conditions': untriggered_conditions}
+        # return new_triggered_conditions, triggered_conditions, untriggered_conditions
+        return update_current_transform, update_conditions, all_update_triggered_transforms
 
     def generate_processing_model(self, transform):
         new_processing_model = {}
@@ -416,6 +606,43 @@ class Transformer(BaseAgent):
             self.logger.info(log_pre + "handle_new_itransform exception result: %s" % str(ret))
         return ret
 
+    def handle_new_generic_transform(self, transform):
+        """
+        Process new transform
+        """
+        try:
+            log_pre = self.get_log_prefix(transform)
+            if transform['transform_type'] in [TransformType.GenericWorkflow]:
+                ret = self.handle_new_generic_transform_real(transform)
+            elif transform['transform_type'] in [TransformType.GenericWork]:
+                ret = self.handle_new_generic_transform_real(transform)
+            self.logger.info(log_pre + "handle_new_generic_transform result: %s" % str(ret))
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+            retries = transform['new_retries'] + 1
+            if not transform['max_new_retries'] or retries < transform['max_new_retries']:
+                tf_status = transform['status']
+            else:
+                tf_status = TransformStatus.Failed
+
+            # increase poll period
+            new_poll_period = int(transform['new_poll_period'].total_seconds() * self.poll_period_increase_rate)
+            if new_poll_period > self.max_new_poll_period:
+                new_poll_period = self.max_new_poll_period
+
+            error = {'submit_err': {'msg': truncate_string('%s' % (ex), length=200)}}
+
+            transform_parameters = {'status': tf_status,
+                                    'new_retries': retries,
+                                    'new_poll_period': new_poll_period,
+                                    'errors': transform['errors'] if transform['errors'] else {},
+                                    'locking': TransformLocking.Idle}
+            transform_parameters['errors'].update(error)
+            ret = {'transform': transform, 'transform_parameters': transform_parameters}
+            self.logger.info(log_pre + "handle_new_generic_transform exception result: %s" % str(ret))
+        return ret
+
     def update_transform(self, ret):
         new_pr_ids, update_pr_ids = [], []
         try:
@@ -502,6 +729,8 @@ class Transformer(BaseAgent):
                     self.logger.info(log_pre + "process_new_transform")
                     if tf['transform_type'] in [TransformType.iWorkflow, TransformType.iWork]:
                         ret = self.handle_new_itransform(tf)
+                    elif tf['transform_type'] in [TransformType.GenericWorkflow, TransformType.GenericWork]:
+                        ret = self.handle_new_generic_transform(tf)
                     else:
                         ret = self.handle_new_transform(tf)
                     self.logger.info(log_pre + "process_new_transform result: %s" % str(ret))
@@ -731,6 +960,44 @@ class Transformer(BaseAgent):
             self.logger.warn(log_pre + "handle_update_itransform exception result: %s" % str(ret))
         return ret, False, None
 
+    def handle_update_generic_transform(self, transform, event):
+        """
+        Process running transform
+        """
+        try:
+            log_pre = self.get_log_prefix(transform)
+
+            self.logger.info(log_pre + "handle_update_generic_transform: %s" % transform)
+            ret, is_terminated, ret_processing_id = self.handle_update_generic_transform_real(transform, event)
+            self.logger.info(log_pre + "handle_update_generic_transform result: %s" % str(ret))
+            return ret, is_terminated, ret_processing_id
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+
+            retries = transform['update_retries'] + 1
+            if not transform['max_update_retries'] or retries < transform['max_update_retries']:
+                tf_status = transform['status']
+            else:
+                tf_status = TransformStatus.Failed
+            error = {'submit_err': {'msg': truncate_string('%s' % (ex), length=200)}}
+
+            # increase poll period
+            update_poll_period = int(transform['update_poll_period'].total_seconds() * self.poll_period_increase_rate)
+            if update_poll_period > self.max_update_poll_period:
+                update_poll_period = self.max_update_poll_period
+
+            transform_parameters = {'status': tf_status,
+                                    'update_retries': retries,
+                                    'update_poll_period': update_poll_period,
+                                    'errors': transform['errors'] if transform['errors'] else {},
+                                    'locking': TransformLocking.Idle}
+            transform_parameters['errors'].update(error)
+
+            ret = {'transform': transform, 'transform_parameters': transform_parameters}
+            self.logger.warn(log_pre + "handle_update_generic_transform exception result: %s" % str(ret))
+        return ret, False, None
+
     def process_update_transform(self, event):
         self.number_workers += 1
         pro_ret = ReturnCode.Ok.value
@@ -752,6 +1019,8 @@ class Transformer(BaseAgent):
 
                     if tf['transform_type'] in [TransformType.iWorkflow, TransformType.iWork]:
                         ret, is_terminated, ret_processing_id = self.handle_update_itransform(tf, event)
+                    elif tf['transform_type'] in [TransformType.GenericWorkflow, TransformType.GenericWork]:
+                        ret, is_terminated, ret_processing_id = self.handle_update_generic_transform(tf, event)
                     else:
                         ret, is_terminated, ret_processing_id = self.handle_update_transform(tf, event)
                     new_pr_ids, update_pr_ids = self.update_transform(ret)
@@ -951,6 +1220,7 @@ class Transformer(BaseAgent):
                 if pr['processing_id'] == transform['current_processing_id']:
                     pr_found = pr
                     break
+
             if pr_found:
                 self.logger.info(log_pre + "ResumeProcessingEvent(processing_id: %s)" % pr['processing_id'])
                 event = ResumeProcessingEvent(publisher_id=self.id,
@@ -1073,6 +1343,8 @@ class Transformer(BaseAgent):
 
             self.init_event_function_map()
 
+            task = self.create_task(task_func=self.get_queue_transforms, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=10, priority=1)
+            self.add_task(task)
             task = self.create_task(task_func=self.get_new_transforms, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=10, priority=1)
             self.add_task(task)
             task = self.create_task(task_func=self.get_running_transforms, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=10, priority=1)

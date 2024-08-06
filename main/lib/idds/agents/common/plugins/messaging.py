@@ -29,11 +29,14 @@ class MessagingListener(stomp.ConnectionListener):
     '''
     Messaging Listener
     '''
-    def __init__(self, broker, output_queue, logger=None):
+    def __init__(self, broker, output_queue, name=None, logger=None):
         '''
         __init__
         '''
-        self.name = "MessagingListener"
+        # self.name = "MessagingListener"
+        self.name = name
+        if not self.name:
+            self.name = 'default'
         self.__broker = broker
         self.__output_queue = output_queue
         # self.logger = logging.getLogger(self.__class__.__name__)
@@ -49,8 +52,8 @@ class MessagingListener(stomp.ConnectionListener):
         self.logger.error('[broker] [%s]: %s', self.__broker, frame.body)
 
     def on_message(self, frame):
-        self.logger.debug('[broker] [%s]: %s', self.__broker, frame.body)
-        self.__output_queue.put(frame.body)
+        self.logger.debug('[broker] %s [%s]: %s', self.name, self.__broker, frame.body)
+        self.__output_queue.put({'name': self.name, 'msg': frame.body})
         pass
 
 
@@ -251,12 +254,13 @@ class MessagingSender(PluginBase, threading.Thread):
 class MessagingReceiver(MessagingSender):
     def __init__(self, name="MessagingReceiver", logger=None, **kwargs):
         super(MessagingReceiver, self).__init__(name=name, logger=logger, **kwargs)
-        self.listener = None
+        self.listener = {}
         self.receiver_conns = []
 
-    def get_listener(self, broker):
+    def get_listener(self, broker, name):
         if self.listener is None:
-            self.listener = MessagingListener(broker, self.output_queue, logger=self.logger)
+            self.listener = {}
+        self.listener[name] = MessagingListener(broker, self.output_queue, name=name, logger=self.logger)
         return self.listener
 
     def subscribe(self):
@@ -264,8 +268,8 @@ class MessagingReceiver(MessagingSender):
 
         for name in self.receiver_conns:
             for conn in self.receiver_conns[name]:
-                self.logger.info('connecting to %s' % conn.transport._Transport__host_and_ports[0][0])
-                conn.set_listener('message-receiver', self.get_listener(conn.transport._Transport__host_and_ports[0]))
+                self.logger.info(f'connecting to {name}: {conn.transport._Transport__host_and_ports[0][0]}')
+                conn.set_listener('message-receiver', self.get_listener(conn.transport._Transport__host_and_ports[0], name))
                 conn.connect(self.channels[name]['username'], self.channels[name]['password'], wait=True)
                 conn.subscribe(destination=self.channels[name]['destination'], id='atlas-idds-messaging', ack='auto')
 
