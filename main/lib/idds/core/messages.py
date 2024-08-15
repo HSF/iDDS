@@ -50,7 +50,7 @@ def add_messages(messages, bulk_size=1000, session=None):
 def retrieve_messages(bulk_size=None, msg_type=None, status=None, destination=None,
                       source=None, request_id=None, workload_id=None, transform_id=None,
                       processing_id=None, use_poll_period=False, retries=None, delay=None,
-                      min_request_id=None, fetching_id=None, session=None):
+                      min_request_id=None, fetching_id=None, internal_id=None, session=None):
     """
     Retrieve up to $bulk messages.
 
@@ -71,7 +71,7 @@ def retrieve_messages(bulk_size=None, msg_type=None, status=None, destination=No
                                           request_id=request_id, workload_id=workload_id,
                                           transform_id=transform_id, processing_id=processing_id,
                                           retries=retries, delay=delay, fetching_id=fetching_id,
-                                          min_request_id=min_request_id,
+                                          min_request_id=min_request_id, internal_id=internal_id,
                                           use_poll_period=use_poll_period, session=session)
 
 

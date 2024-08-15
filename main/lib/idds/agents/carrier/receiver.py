@@ -110,10 +110,12 @@ class Receiver(BaseAgent):
                         if msg_size < 10:
                             self.logger.debug("Received message(only log first 10 messages): %s" % str(msg))
                         name = msg['name']
-                        body = msg['body']
+                        # headers = msg['headers']
+                        # body = msg['body']
+                        # from_idds = msg['from_idds']
                         if name not in msgs:
                             msgs[name] = []
-                        msgs[name].append(body)
+                        msgs[name].append(msg)
                         msg_size += 1
                         if msg_size >= self.bulk_message_size:
                             break
@@ -151,7 +153,10 @@ class Receiver(BaseAgent):
         self.add_task(task)
 
     def handle_messages(self, output_messages, log_prefix):
-        ret_msg_handle = handle_messages_processing(output_messages,
+        output_messages_new = []
+        for msg in output_messages:
+            output_messages_new.append(msg['msg']['body'])
+        ret_msg_handle = handle_messages_processing(output_messages_new,
                                                     logger=self.logger,
                                                     log_prefix=log_prefix,
                                                     update_processing_interval=self.update_processing_interval)
@@ -202,7 +207,7 @@ class Receiver(BaseAgent):
 
     def handle_messages_channels(self, output_messages, log_prefix):
         for channel in output_messages:
-            if channel in ['asyncresult']:
+            if channel in ['asyncresult', 'AsyncResult']:
                 self.handle_messages_asyncresult(output_messages[channel], log_prefix)
             else:
                 self.handle_messages(output_messages[channel], log_prefix)

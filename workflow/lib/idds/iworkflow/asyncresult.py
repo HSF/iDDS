@@ -161,7 +161,7 @@ class AsyncResult(Base):
             self._work_context.init_brokers()
             self._broker_initialized = True
         except Exception as ex:
-            logging.warn(f"Failed to initialize messaging broker, will use Rest: {ex}")
+            logging.warn(f"{self.internal_id} Failed to initialize messaging broker, will use Rest: {ex}")
             self._broker_initialized = False
 
         self._name = name
@@ -170,6 +170,7 @@ class AsyncResult(Base):
         self._connections = []
         self._subscribe_connections = []
         self._graceful_stop = False
+        self._is_stop = False
         self._subscribe_thread = None
         self._subscribed = False
 
@@ -232,7 +233,8 @@ class AsyncResult(Base):
             for kwargs in self._multi_jobs_kwargs_list:
                 k = get_unique_id_for_dict(kwargs)
                 k = "%s:%s" % (self._name, k)
-                self.logger.info("args (%s) to key: %s" % (str(kwargs), k))
+                request_id, transform_id, internal_id = self.get_request_id_internal_id()
+                self.logger.info(f"request_id {request_id} transform_id {transform_id} internal_id {internal_id} args ({kwargs}) to key: {k}")
                 self._wait_keys.add(k)
             self._wait_num = len(self._wait_keys)
         return self._wait_keys
@@ -249,7 +251,15 @@ class AsyncResult(Base):
 
     @is_all_results_available.setter
     def is_all_results_available(self, value):
-        raise Exception("Not allowd to set is_all_results_available")
+        raise Exception(f"{self.internal_id} Not allowd to set is_all_results_available")
+
+    @property
+    def is_stop(self):
+        return self._is_stop
+
+    @is_stop.setter
+    def is_stop(self, value):
+        raise Exception(f"{self.internal_id} Not allowd to set is_stop")
 
     @property
     def is_finished(self):
@@ -261,7 +271,7 @@ class AsyncResult(Base):
 
     @is_finished.setter
     def is_finished(self, value):
-        raise Exception("Not allowd to set is_finished")
+        raise Exception(f"{self.internal_id} Not allowd to set is_finished")
 
     @property
     def is_subfinished(self):
@@ -273,7 +283,7 @@ class AsyncResult(Base):
 
     @is_subfinished.setter
     def is_subfinished(self, value):
-        raise Exception("Not allowd to set is_subfinished")
+        raise Exception(f"{self.internal_id} Not allowd to set is_subfinished")
 
     @property
     def is_failed(self):
@@ -285,7 +295,7 @@ class AsyncResult(Base):
 
     @is_failed.setter
     def is_failed(self, value):
-        raise Exception("Not allowd to set is_failed")
+        raise Exception(f"{self.internal_id} Not allowd to set is_failed")
 
     @property
     def is_terminated(self):
@@ -293,7 +303,7 @@ class AsyncResult(Base):
 
     @is_terminated.setter
     def is_terminated(self, value):
-        raise Exception("Not allowd to set is_terminated")
+        raise Exception(f"{self.internal_id} Not allowd to set is_terminated")
 
     @property
     def results(self):
@@ -308,13 +318,13 @@ class AsyncResult(Base):
                 else:
                     self._bad_results.append(ret)
             except Exception as ex:
-                self.logger.error("Received bad result: %s: %s" % (str(ret), str(ex)))
+                self.logger.error(f"{self.internal_id} Received bad result: {ret}: {ex}")
         if self._bad_results:
-            self.logger.error("Received bad results: %s" % str(self._bad_results))
+            self.logger.error(f"{self.internal_id} Received bad results: {self._bad_results}")
 
         if not self._nologs:
-            self.logger.debug("_results: %s, bad_results: %s" % (str(self._results), str(self._bad_results)))
-            self.logger.debug("wait_keys: %s, wait_num: %s" % (str(self.wait_keys), self._wait_num))
+            self.logger.debug(f"{self.internal_id} _results: {self._results}, bad_results: {self._bad_results}")
+            self.logger.debug(f"{self.internal_id} wait_keys: {self.wait_keys}, wait_num: {self._wait_num}")
 
         rets_dict = {}
         for result in self._results:
@@ -338,7 +348,7 @@ class AsyncResult(Base):
                 ret_map.add_result(key=k, result=rets[k])
 
             if has_new_data:
-                self.logger.debug('percent %s, results: %s' % (self._results_percentage, str(ret_map)))
+                self.logger.debug(f'{self.internal_id} percent {self._results_percentage}, results: {ret_map}')
 
             return ret_map
         else:
@@ -353,7 +363,7 @@ class AsyncResult(Base):
                 self._results_percentage = len(rets) * 1.0 / self._wait_num
 
             if has_new_data:
-                self.logger.debug('percent %s, results: %s' % (self._results_percentage, str(rets)))
+                self.logger.debug(f'{self.internal_id} percent {self._results_percentage}, results: {rets}')
 
             if self._wait_num == 1:
                 if rets:
@@ -364,9 +374,9 @@ class AsyncResult(Base):
 
     @results.setter
     def results(self, value):
-        raise Exception("Not allowed to set results.")
+        raise Exception(f"{self.internal_id} Not allowed to set results.")
         if type(value) not in [list, tuple]:
-            raise Exception("Results must be list or tuple, currently it is %s" % type(value))
+            raise Exception(f"{self.internal_id} Results must be list or tuple, currently it is {value}")
         self._results = value
 
     def disconnect(self):
@@ -450,10 +460,10 @@ class AsyncResult(Base):
                     b_addr = addrinfo[4][0]
                     broker_addresses.append((b_addr, port))
             except socket.gaierror as error:
-                self.logger.error('Cannot resolve hostname %s: %s' % (b, str(error)))
+                self.logger.error(f'{self.internal_id} Cannot resolve hostname {b}: {error}')
                 self._graceful_stop.set()
 
-        self.logger.info("Resolved broker addresses: %s" % (broker_addresses))
+        self.logger.info(f"{self.internal_id} Resolved broker addresses: {broker_addresses}")
 
         timeout = workflow_context.broker_timeout
 
@@ -487,7 +497,7 @@ class AsyncResult(Base):
             #                ack='auto', conf=subscribe_selector)
             conn.subscribe(destination=workflow_context.broker_destination, id=subscribe_id,
                            ack='auto', headers=subscribe_selector)
-            self.logger.info("subscribe to %s:%s with selector: %s" % (broker, port, subscribe_selector))
+            self.logger.info(f"{self.internal_id} subscribe to {broker}:{port} with selector: {subscribe_selector}")
             conns.append(conn)
         self._subscribe_connections = conns
         return conns
@@ -499,25 +509,27 @@ class AsyncResult(Base):
             if self._current_job_kwargs:
                 key = get_unique_id_for_dict(self._current_job_kwargs)
                 key = "%s:%s" % (self._name, key)
-                self.logger.info("publish args (%s) to key: %s" % (str(self._current_job_kwargs), key))
+                self.logger.info(f"{self.internal_id} publish args ({self._current_job_kwargs}) to key: {key}")
 
         if workflow_context.workflow_type in [WorkflowType.iWorkflow, WorkflowType.iWorkflowLocal]:
             headers = {'persistent': 'true',
+                       'channel': 'asyncresult',
                        'type': 'iworkflow',
                        'internal_id': str(self.internal_id),
                        'request_id': workflow_context.request_id}
-            body = json_dumps({'ret': ret, 'key': key, 'internal_id': self.internal_id, 'type': 'iworkflow',
-                               'request_id': workflow_context.request_id})
+            body = {'ret': ret, 'key': key, 'internal_id': self.internal_id, 'type': 'iworkflow',
+                    'request_id': workflow_context.request_id}
             message = {"headers": headers, "body": body}
         elif workflow_context.workflow_type == WorkflowType.iWork:
             headers = {'persistent': 'true',
+                       'channel': 'asyncresult',
                        'type': 'iwork',
                        'internal_id': str(self.internal_id),
                        'request_id': workflow_context.request_id,
                        'transform_id': workflow_context.transform_id}
-            body = json_dumps({'ret': ret, 'key': key, 'internal_id': self.internal_id, 'type': 'iwork',
-                               'request_id': workflow_context.request_id,
-                               'transform_id': workflow_context.transform_id})
+            body = {'ret': ret, 'key': key, 'internal_id': self.internal_id, 'type': 'iwork',
+                    'request_id': workflow_context.request_id,
+                    'transform_id': workflow_context.transform_id}
             message = {"headers": headers, "body": body}
         return message
 
@@ -528,21 +540,21 @@ class AsyncResult(Base):
         conn = self.connect_to_messaging_broker()
         workflow_context = self._work_context
         if workflow_context.workflow_type in [WorkflowType.iWorkflow, WorkflowType.iWorkflowLocal]:
-            conn.send(body=body,
+            conn.send(body=json_dumps(body),
                       destination=workflow_context.broker_destination,
                       id='idds-iworkflow_%s' % self.internal_id,
                       ack='auto',
                       headers=headers
                       )
-            self.logger.info(f"published header: {headers}, body: {body}")
+            self.logger.info(f"{self.internal_id} published header: {headers}, body: {body}")
         elif workflow_context.workflow_type == WorkflowType.iWork:
-            conn.send(body=body,
+            conn.send(body=json_dumps(body),
                       destination=workflow_context.broker_destination,
                       id='idds-iwork_%s' % self.internal_id,
                       ack='auto',
                       headers=headers
                       )
-            self.logger.info(f"published header: {headers}, body: {body}")
+            self.logger.info(f"{self.internal_id} published header: {headers}, body: {body}")
         # self.disconnect()
 
     def get_request_id_internal_id(self):
@@ -551,20 +563,19 @@ class AsyncResult(Base):
         if workflow_context.workflow_type in [WorkflowType.iWorkflow, WorkflowType.iWorkflowLocal]:
             request_id = workflow_context.request_id
             transform_id = 0
-            internal_id = self.internal_id
+            # internal_id = workflow_context.internal_id
         elif workflow_context.workflow_type == WorkflowType.iWork:
             request_id = workflow_context.request_id
             transform_id = workflow_context.transform_id
-            internal_id = self.internal_id
+            # internal_id = workflow_context.internal_id
         else:
             request_id = workflow_context.request_id
             transform_id = 0
-            internal_id = self.internal_id
+            # internal_id = workflow_context.internal_id
+        internal_id = self.internal_id
         return request_id, transform_id, internal_id
 
-    def publish_through_panda_server(self, message):
-        request_id, transform_id, internal_id = self.get_request_id_internal_id()
-
+    def publish_through_panda_server(self, request_id, transform_id, internal_id, message):
         import idds.common.utils as idds_utils
         import pandaclient.idds_api as idds_api
         idds_server = self._work_context.get_idds_server()
@@ -574,21 +585,19 @@ class AsyncResult(Base):
                                   compress=True,
                                   manager=True)
         status, ret = client.send_messages(request_id=request_id, transform_id=transform_id, internal_id=internal_id, msgs=[message])
-        if status:
-            self.logger.info(f"published message through panda server: {message}")
+        if status == 0 and type(ret) in (list, tuple) and len(ret) > 1 and ret[0] is True and type(ret[1]) in (list, tuple) and ret[1][0] is True:
+            self.logger.info(f"{self.internal_id} published message through panda server: {message}")
         else:
-            self.logger.error(f"failed to publish message through panda server, status: {status}, ret: {ret}")
+            self.logger.error(f"{self.internal_id} failed to publish message through panda server, status: {status}, ret: {ret}")
 
-    def publish_through_idds_server(self, message):
-        request_id, transform_id, internal_id = self.get_request_id_internal_id()
-
+    def publish_through_idds_server(self, request_id, transform_id, internal_id, message):
         from idds.client.clientmanager import ClientManager
         client = ClientManager(host=self._work_context.get_idds_server())
         status, ret = client.send_messages(request_id=request_id, transform_id=transform_id, internal_id=internal_id, msgs=[message])
         if status:
-            self.logger.info(f"published message through idds server: {message}")
+            self.logger.info(f"{self.internal_id} published message through idds server: {message}")
         else:
-            self.logger.error(f"failed to publish message through idds server, status: {status}, ret: {ret}")
+            self.logger.error(f"{self.internal_id} failed to publish message through idds server, status: {status}, ret: {ret}")
 
     def publish_through_api(self, ret, key=None, force=False):
         message = self.get_message(ret=ret, key=key)
@@ -602,33 +611,33 @@ class AsyncResult(Base):
                 if force:
                     request_id = 0
                 else:
-                    self.logger.warn("Not to publish message through API since the request id is None")
+                    self.logger.warn(f"{self.internal_id} Not to publish message through API since the request id is None")
                     return
 
             if self._work_context.service == 'panda':
-                self.publish_through_panda_server(message)
+                self.publish_through_panda_server(request_id, transform_id, internal_id, message)
             else:
-                self.publish_through_idds_server(message)
+                self.publish_through_idds_server(request_id, transform_id, internal_id, message)
         except Exception as ex:
-            self.logger.error(f"Failed to publish message through API: {ex}")
+            self.logger.error(f"{self.internal_id} Failed to publish message through API: {ex}")
 
     def publish(self, ret, key=None, force=False):
         stomp_failed = False
         if with_stomp and self._broker_initialized:
             try:
-                self.logger.info("publishing results through messaging brokers")
+                self.logger.info(f"{self.internal_id} publishing results through messaging brokers")
                 self.publish_message(ret=ret, key=key)
             except Exception as ex:
-                self.logger.warn(f"Failed to publish result through messaging brokers: {ex}")
+                self.logger.warn(f"{self.internal_id} Failed to publish result through messaging brokers: {ex}")
                 stomp_failed = True
 
         if not with_stomp or not self._broker_initialized or stomp_failed:
-            self.logger.info("publishing results through http API")
+            self.logger.info(f"{self.internal_id} publishing results through http API")
             self.publish_through_api(ret=ret, key=key, force=force)
 
     def poll_messages_through_panda_server(self, request_id, transform_id, internal_id):
         if request_id is None:
-            self.logger.warn("Not to poll message through panda server, since the request_id is None")
+            self.logger.warn(f"{self.internal_id} Not to poll message through panda server, since the request_id is None")
             return []
 
         import idds.common.utils as idds_utils
@@ -639,27 +648,30 @@ class AsyncResult(Base):
                                   idds_host=idds_server,
                                   compress=True,
                                   manager=True)
-        status, messages = client.get_messages(request_id=request_id, transform_id=transform_id, internal_id=internal_id)
-        if status:
-            self.logger.info(f"poll message through panda server, number of messages: {len(messages)}")
+        status, ret = client.get_messages(request_id=request_id, transform_id=transform_id, internal_id=internal_id)
+        if status == 0 and type(ret) in (list, tuple) and len(ret) > 1 and ret[0] is True and type(ret[1]) in (list, tuple) and ret[1][0] is True:
+            self.logger.info(f"{self.internal_id} poll message through panda server, ret: {ret}")
+            messages = ret[1][1]
+            self.logger.info(f"{self.internal_id} poll message through panda server, number of messages: {len(messages)}")
             return messages
         else:
-            self.logger.error(f"failed to poll messages through panda server, error: {messages}")
+            self.logger.error(f"{self.internal_id} failed to poll messages through panda server, status: {status}, ret: {ret}")
             return []
 
     def poll_messages_through_idds_server(self, request_id, transform_id, internal_id):
         if request_id is None:
-            self.logger.warn("Not to poll message through idds server, since the request_id is None")
+            self.logger.warn(f"{self.internal_id} Not to poll message through idds server, since the request_id is None")
             return []
 
         from idds.client.clientmanager import ClientManager
         client = ClientManager(host=self._work_context.get_idds_server())
         status, messages = client.get_messages(request_id=request_id, transform_id=transform_id, internal_id=internal_id)
         if status:
-            self.logger.info(f"poll message through idds server, number of messages: {len(messages)}")
+            self.logger.info(f"{self.internal_id} poll message through panda server, ret: {messages}")
+            self.logger.info(f"{self.internal_id} poll message through idds server, number of messages: {len(messages)}")
             return messages
         else:
-            self.logger.error(f"failed to poll messages through idds server, error: {messages}")
+            self.logger.error(f"{self.internal_id} failed to poll messages through idds server, error: {messages}")
             return []
 
     def poll_messages(self, force=False):
@@ -669,7 +681,7 @@ class AsyncResult(Base):
                 if force:
                     request_id = 0
                 else:
-                    self.logger.warn("Not to poll message, since the request_id is None")
+                    self.logger.warn(f"{self.internal_id} Not to poll message, since the request_id is None")
                     return
 
             if self._work_context.service == 'panda':
@@ -678,22 +690,25 @@ class AsyncResult(Base):
                 messages = self.poll_messages_through_idds_server(request_id=request_id, transform_id=transform_id, internal_id=internal_id)
 
             for message in messages:
-                self._queue.put(message)
+                body = message['body']
+                self._queue.put(body)
         except Exception as ex:
-            self.logger.error(f"Failed to poll message: {ex}")
+            self.logger.error(f"{self.internal_id} Failed to poll message: {ex}")
 
     def run_subscriber(self, force=False):
         try:
-            self.logger.info("run subscriber")
+            self.logger.info("{self.internal_id} run subscriber")
             if with_stomp and self._broker_initialized and self._num_stomp_failures < self._max_stomp_failures:
                 try:
                     self.subscribe_to_messaging_brokers(force=True)
                 except Exception as ex:
-                    self.logger.warn(f"run subscriber fails to subscribe to message broker: {ex}")
+                    self.logger.warn(f"{self.internal_id} run subscriber fails to subscribe to message broker: {ex}")
                     self._num_stomp_failures += 1
                     self._is_messaging_ok = False
                     self._broker_initialized = False
 
+            time_poll = None
+            time_start = time.time()
             while self._graceful_stop and not self._graceful_stop.is_set():
                 if with_stomp and self._broker_initialized and self._is_messaging_ok and self._num_stomp_failures < self._max_stomp_failures:
                     has_failed_conns = False
@@ -704,14 +719,31 @@ class AsyncResult(Base):
                         self.subscribe_to_messaging_brokers(force=True)
                     time.sleep(1)
                 else:
-                    self.poll_messages(force=force)
-                    time.sleep(self._poll_period)
+                    if self._timeout:
+                        sleep_time = min(self._timeout / 3, self._poll_period)
+                    else:
+                        sleep_time = self._poll_period
+
+                    if time_poll is None or time.time() - time_poll > sleep_time:
+                        self.poll_messages(force=force)
+                        time_poll = time.time()
+                    time.sleep(1)
+
+                if self._timeout and time.time() - time_start > self._timeout:
+                    self.logger.info(f"{self.internal_id} timeout reached")
+                    break
+
+            if self._graceful_stop and self._graceful_stop.is_set():
+                self.logger.info(f"{self.internal_id} graceful stop is set")
 
             self.poll_messages(force=force)
+            self._is_stop = True
             self.stop()
+            self.logger.info(f"{self.internal_id} subscriber finished.")
         except Exception as ex:
-            self.logger.error("run subscriber failed with error: %s" % str(ex))
+            self.logger.error(f"{self.internal_id} run subscriber failed with error: {ex}")
             self.logger.error(traceback.format_exc())
+            self._is_stop = True
             self.stop()
 
     def get_results(self, nologs=True):
@@ -719,12 +751,12 @@ class AsyncResult(Base):
         self._nologs = nologs
         rets = self.results
         if not self._nologs:
-            self.logger.debug('percent %s, results: %s' % (self.get_results_percentage(), str(rets)))
+            self.logger.debug(f'{self.internal_id} percent {self.get_results_percentage()}, results: {rets}')
 
         percent = self.get_results_percentage()
         if percent >= self._wait_percent:
             self.stop()
-            self.logger.info("Got results: %s (number of wrong keys: %s)" % (percent, self._num_wrong_keys))
+            self.logger.info(f"{self.internal_id} Got results: {percent} (number of wrong keys: {self._num_wrong_keys})")
         self._nologs = old_nologs
         return rets
 
@@ -738,12 +770,15 @@ class AsyncResult(Base):
             thread.start()
             time.sleep(1)
             self._subscribed = True
+            self._is_stop = False
 
     def stop(self):
         if self._graceful_stop:
             self._graceful_stop.set()
         self.disconnect()
         self._subscribed = False
+        while not self._is_stop:
+            time.sleep(1)
 
     def __del__(self):
         self.stop()
@@ -755,40 +790,44 @@ class AsyncResult(Base):
         time_log = time.time()
         time_start = time.time()
         if timeout is None:
-            self.logger.info("waiting for results")
+            self.logger.info(f"{self.internal_id} waiting for results")
         try:
             while not get_results and self._graceful_stop and not self._graceful_stop.is_set():
                 self.get_results(nologs=True)
                 percent = self.get_results_percentage()
                 if time.time() - time_log > 600:  # 10 minutes
-                    self.logger.info("waiting for results: %s (number of wrong keys: %s)" % (percent, self._num_wrong_keys))
+                    self.logger.info(f"{self.internal_id} waiting for results: {percent} (number of wrong keys: {self._num_wrong_keys})")
                     time_log = time.time()
                 time.sleep(1)
                 if self.is_all_results_available:
                     get_results = True
                     self.waiting_result_terminated = True
-                    self.logger.info("Got result percentage %s is not smaller then wait_percent %s, set waiting_result_terminated to True" % (percent, self._wait_percent))
+                    self.logger.info(f"{self.internal_id} Got result percentage {percent} is not smaller then wait_percent {self._wait_percent}, set waiting_result_terminated to True")
                 if self._timeout is not None and self._timeout > 0 and time.time() - time_start > self._timeout:
                     # global timeout
-                    self.logger.info("Waiting result timeout(%s seconds), set waiting_result_terminated to True" % self._timeout)
+                    self.logger.info(f"{self.internal_id} Waiting result timeout({self._timeout} seconds), set waiting_result_terminated to True")
                     get_results = True
                     self.waiting_result_terminated = True
                 if timeout is not None and timeout > 0 and time.time() - time_start > timeout:
                     # local timeout
+                    self.logger.info(f"{self.internal_id} timeout reached")
                     break
 
             percent = self.get_results_percentage()
             if timeout is None or time.time() - time_start > 600:
-                self.logger.info("Got results: %s (number of wrong keys: %s)" % (percent, self._num_wrong_keys))
+                self.logger.info(f"{self.internal_id} Got results: {percent} (number of wrong keys: {self._num_wrong_keys})")
         except Exception as ex:
-            self.logger.error("Wait_results got some exception: %s" % str(ex))
+            self.logger.error(f"Wait_results got some exception: {ex}")
             self.logger.error(traceback.format_exc())
             self._graceful_stop.set()
 
         if get_results or self._graceful_stop.is_set() or self.is_all_results_available or force_return_results:
             # stop the subscriber
             self._graceful_stop.set()
-            self.logger.info("Got results: %s (number of wrong keys: %s)" % (percent, self._num_wrong_keys))
+            # wait the subscriber to finish
+            time.sleep(2)
+            percent = self.get_results_percentage()
+            self.logger.info(f"{self.internal_id} Got results: {percent} (number of wrong keys: {self._num_wrong_keys})")
 
             results = self.results
             return results
@@ -805,13 +844,13 @@ class AsyncResult(Base):
             test_id = str(uuid.uuid4())
             self.publish(test_id, force=True)
             ret = self.wait_result(force_return_results=True)
-            self.logger.info(f"AsyncResult: publish: {test_id}, received: {ret}")
+            self.logger.info(f"{self.internal_id} AsyncResult: publish: {test_id}, received: {ret}")
             if test_id == ret:
-                self.logger.info("AsyncResult is ok")
+                self.logger.info(f"{self.internal_id} AsyncResult is ok")
                 return True
             else:
-                self.logger.info("AsyncResult is not ok")
+                self.logger.info(f"{self.internal_id} AsyncResult is not ok")
                 return False
         except Exception as ex:
-            self.logger.error(f"AsyncResult is not ok: {ex}")
+            self.logger.error(f"{self.internal_id} AsyncResult is not ok: {ex}")
             return False

@@ -378,11 +378,17 @@ class WorkflowContext(Context):
 
         :raise Exception when failing to get broker information.
         """
+        logging.info("Getting broker information through idds server.")
         # iDDS ClientManager
         from idds.client.clientmanager import ClientManager
 
         client = ClientManager(host=self.get_idds_server())
         ret = client.get_metainfo(name='asyncresult_config')
+        if type(ret) in (list, tuple) and ret[0] is True:
+            return ret[1]
+        else:
+            logging.warn(f"Failed to get broker info: {ret}")
+            return None
 
         return ret
 
@@ -392,6 +398,8 @@ class WorkflowContext(Context):
 
         :raise Exception when failing to get broker information.
         """
+        logging.info("Get broker information through panda server.")
+
         import idds.common.utils as idds_utils
         import pandaclient.idds_api as idds_api
 
@@ -402,17 +410,22 @@ class WorkflowContext(Context):
                                   manager=True)
         ret = client.get_metainfo(name='asyncresult_config')
         if ret[0] == 0 and ret[1][0]:
-            meta_info = ret[1][1]
-            if type(meta_info) in [dict]:
-                pass
-            elif type(meta_info) in [str]:
-                try:
-                    meta_info = json_loads(meta_info)
-                except Exception as ex:
-                    logging.warn("Failed to json loads meta info(%s): %s" % (meta_info, ex))
+            idds_ret = ret[1][1]
+            if type(idds_ret) in (list, tuple) and idds_ret[0] is True:
+                meta_info = idds_ret[1]
+                if type(meta_info) in [dict]:
+                    pass
+                elif type(meta_info) in [str]:
+                    try:
+                        meta_info = json_loads(meta_info)
+                    except Exception as ex:
+                        logging.warn("Failed to json loads meta info(%s): %s" % (meta_info, ex))
+            else:
+                meta_info = None
+                logging.warn("Failed to get meta info: %s" % str(ret))
         else:
             meta_info = None
-            logging.error("Failed to get meta info: %s" % str(ret))
+            logging.warn("Failed to get meta info: %s" % str(ret))
 
         return meta_info
 
@@ -1216,7 +1229,7 @@ class Workflow(Base):
 
         clean_env = self.get_clean_env()
         if clean_env:
-            cmd = cmd + "; " + clean_env
+            cmd = cmd + "; ret=$?; " + clean_env + "; exit $ret"
 
         return cmd
 
