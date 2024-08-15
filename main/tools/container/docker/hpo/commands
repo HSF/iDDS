@@ -4,3 +4,7 @@ docker login --username=wguanicedew
 docker images
 docker tag idds_hpo_nevergrad wguanicedew/idds_hpo_nevergrad
 docker push wguanicedew/idds_hpo_nevergrad
+
+
+podman build --tag ml_test .
+ podman run -it -v /tmp/wguan:/data ml_test

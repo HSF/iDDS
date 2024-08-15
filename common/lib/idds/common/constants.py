@@ -491,6 +491,7 @@ class MessageSource(IDDSEnum):
     Carrier = 3
     Conductor = 4
     Rest = 5
+    OutSide = 6
 
 
 class MessageDestination(IDDSEnum):
