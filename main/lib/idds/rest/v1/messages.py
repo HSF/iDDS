@@ -128,18 +128,18 @@ class Message(IDDSController):
 
         try:
             msg = self.get_request().data and json_loads(self.get_request().data)
-            if 'msg_type' in msg and msg['msg_type'] in ['async_result']:
-                msg['from_idds'] = 'true'
-                add_message(msg_type=MessageType.AsyncResult,
-                            status=MessageStatus.New,
-                            destination=MessageDestination.AsyncResult,
-                            source=MessageSource.Rest,
-                            request_id=request_id,
-                            workload_id=workload_id,
-                            transform_id=transform_id,
-                            internal_id=internal_id,
-                            num_contents=1,
-                            msg_content=msg)
+            if type(msg) in (list, tuple) and type(msg[0]) in [dict] and 'headers' and msg[0] and 'channel' in msg[0]['headers'] and msg[0]['headers']['channel'] == 'asyncresult':
+                for msg_item in msg:
+                    add_message(msg_type=MessageType.AsyncResult,
+                                status=MessageStatus.New,
+                                destination=MessageDestination.AsyncResult,
+                                source=MessageSource.Rest,
+                                request_id=request_id,
+                                workload_id=workload_id,
+                                transform_id=transform_id,
+                                internal_id=internal_id,
+                                num_contents=1,
+                                msg_content=msg_item)
             elif 'command' in msg and msg['command'] in ['update_request', 'update_processing']:
                 status = msg['parameters']['status']
                 if status in [RequestStatus.ToCancel, RequestStatus.ToSuspend]:

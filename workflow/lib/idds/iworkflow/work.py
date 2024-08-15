@@ -711,7 +711,7 @@ class Work(Base):
         request_id = self._context.request_id
         transform_id = self._context.transform_id
         if not transform_id:
-            log_msg = "No transform id defined (request_id: %s, transform_id: %s)", (request_id, transform_id)
+            log_msg = f"No transform id defined (request_id: {request_id}, transform_id: {transform_id}, internal_id: {self.internal_id})"
             logging.error(log_msg)
             return exceptions.IDDSException(log_msg)
 
@@ -724,17 +724,17 @@ class Work(Base):
                 try:
                     tf = json_loads(tf)
                 except Exception as ex:
-                    logging.warn("Failed to json loads transform(%s): %s" % (tf, ex))
+                    logging.warn(f"Failed to json loads transform({tf}): {ex}")
         else:
             tf = None
-            logging.error("Failed to get transform (request_id: %s, transform_id: %s) status from PanDA-iDDS: %s" % (request_id, transform_id, ret))
+            logging.error(f"Failed to get transform (request_id: {request_id}, transform_id: {transform_id}, internal_id: {self.internal_id}) status from PanDA-iDDS: {ret}")
             return TransformStatus.Transforming
 
         if not tf:
-            logging.info("Get transform (request_id: %s, transform_id: %s) from PanDA-iDDS: %s" % (request_id, transform_id, tf))
+            logging.info(f"Get transform (request_id: {request_id}, transform_id: {transform_id}, internal_id: {self.internal_id}) from PanDA-iDDS: {tf}")
             return None
 
-        logging.info("Get transform status (request_id: %s, transform_id: %s) from PanDA-iDDS: %s" % (request_id, transform_id, tf['status']))
+        logging.info(f"Get transform status (request_id: {request_id}, transform_id: {transform_id}, internal_id: {self.internal_id}) from PanDA-iDDS: {tf['status']}")
 
         return tf['status']
 
@@ -745,17 +745,16 @@ class Work(Base):
         request_id = self._context.request_id
         transform_id = self._context.transform_id
         if not transform_id:
-            log_msg = "No transform id defined (request_id: %s, transform_id: %s)" % (request_id, transform_id)
+            log_msg = f"No transform id defined (request_id: {request_id}, transform_id: {transform_id}, internal_id: {self.internal_id})"
             logging.error(log_msg)
             return exceptions.IDDSException(log_msg)
 
         tf = client.get_transform(request_id=request_id, transform_id=transform_id)
         if not tf:
-            logging.info("Get transform (request_id: %s, transform_id: %s) from iDDS: %s" % (request_id, transform_id, tf))
+            logging.info(f"Get transform (request_id: {request_id}, transform_id: {transform_id}, internal_id: {self.internal_id}) from iDDS: {tf}")
             return None
 
-        logging.info("Get transform status (request_id: %s, transform_id: %s) from iDDS: %s" % (request_id, transform_id, tf['status']))
-
+        logging.info(f"Get transform status (request_id: {request_id}, transform_id: {transform_id}, internal_id: {self.internal_id}) from iDDS: {tf['status']}")
         return tf['status']
 
     def get_status(self):
@@ -1077,7 +1076,8 @@ class Work(Base):
 
         clean_env = self.get_clean_env()
         if clean_env:
-            cmd = cmd + "; " + clean_env
+            # cmd = cmd + "; " + clean_env
+            cmd = cmd + "; ret=$?; " + clean_env + "; exit $ret"
 
         return cmd
 

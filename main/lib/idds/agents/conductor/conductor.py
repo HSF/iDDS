@@ -111,7 +111,7 @@ class Conductor(BaseAgent):
         if BaseAgent.min_request_id is None:
             return []
 
-        destination = [MessageDestination.Outside, MessageDestination.ContentExt]
+        destination = [MessageDestination.Outside, MessageDestination.ContentExt, MessageDestination.AsyncResult]
         messages = core_messages.retrieve_messages(status=MessageStatus.New,
                                                    min_request_id=BaseAgent.min_request_id,
                                                    bulk_size=self.retrieve_bulk_size,
@@ -196,6 +196,8 @@ class Conductor(BaseAgent):
                 self.logger.info("message %s has reached max retries %s" % (message['msg_id'], self.max_retries))
                 return True
             msg_type = message['msg_type']
+            if msg_type in [MessageType.AsyncResult]:
+                return True
             if msg_type not in [MessageType.ProcessingFile]:
                 if retries < self.replay_times:
                     return False
@@ -286,6 +288,7 @@ class Conductor(BaseAgent):
                     to_discard_messages = []
                     for message in messages:
                         message['destination'] = message['destination'].name
+                        message['from_idds'] = True
 
                         num_contents += message['num_contents']
                         if self.is_message_processed(message):

@@ -184,17 +184,20 @@ def handle_messages_asyncresult(messages, logger=None, log_prefix='', update_pro
 
     req_msgs = {}
 
-    for msg in messages:
-        if 'from_idds' in msg and msg['from_idds']:
-            continue
+    for item in messages:
+        if 'from_idds' in item:
+            if type(item['from_idds']) in [bool] and item['from_idds'] or type(item['from_idds']) in [str] and item['from_idds'].lower() == 'true':
+                continue
+
+        msg = item['msg']
 
         # ret = msg['ret']
         # key = msg['key']
         # internal_id = msg['internal_id']
         # msg_type = msg['type']
-        request_id = msg['request_id']
-        transform_id = msg.get('transform_id', 0)
-        internal_id = msg.get('internal_id', None)
+        request_id = msg['body']['request_id']
+        transform_id = msg['body'].get('transform_id', 0)
+        internal_id = msg['body'].get('internal_id', None)
         # if msg_type in ['iworkflow']:
 
         if request_id not in req_msgs:
@@ -203,21 +206,17 @@ def handle_messages_asyncresult(messages, logger=None, log_prefix='', update_pro
             req_msgs[request_id][transform_id] = {}
         if internal_id not in req_msgs[request_id][transform_id]:
             req_msgs[request_id][transform_id][internal_id] = []
-        req_msgs[request_id][transform_id][internal_id].append(msg)
 
-    for request_id in req_msgs:
-        for transform_id in req_msgs[request_id]:
-            for internal_id in req_msgs[request_id][transform_id]:
-                msgs = req_msgs[request_id][transform_id][internal_id]
-                core_messages.add_message(msg_type=MessageType.AsyncResult,
-                                          status=MessageStatus.NoNeedDelivery,
-                                          destination=MessageDestination.AsyncResult,
-                                          source=MessageSource.Outside,
-                                          request_id=request_id,
-                                          workload_id=None,
-                                          transform_id=transform_id,
-                                          internal_id=internal_id,
-                                          num_contents=len(msgs),
-                                          msg_content=msgs)
+        msgs = [msg]
+        core_messages.add_message(msg_type=MessageType.AsyncResult,
+                                  status=MessageStatus.NoNeedDelivery,
+                                  destination=MessageDestination.AsyncResult,
+                                  source=MessageSource.OutSide,
+                                  request_id=request_id,
+                                  workload_id=None,
+                                  transform_id=transform_id,
+                                  internal_id=internal_id,
+                                  num_contents=len(msgs),
+                                  msg_content=msgs)
 
-                logger.debug(f"{log_prefix} handle_messages_asyncresult, add {len(msgs)} for request_id {request_id} transform_id {transform_id} internal_id {internal_id}")
+        logger.debug(f"{log_prefix} handle_messages_asyncresult, add {len(msgs)} for request_id {request_id} transform_id {transform_id} internal_id {internal_id}")

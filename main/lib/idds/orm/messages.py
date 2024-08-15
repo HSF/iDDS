@@ -137,7 +137,7 @@ def retrieve_messages(bulk_size=1000, msg_type=None, status=None, source=None,
                       destination=None, request_id=None, workload_id=None,
                       transform_id=None, processing_id=None, fetching_id=None,
                       min_request_id=None, use_poll_period=False, retries=None,
-                      delay=None, session=None):
+                      delay=None, internal_id=None, session=None):
     """
     Retrieve up to $bulk messages.
 
@@ -183,6 +183,8 @@ def retrieve_messages(bulk_size=1000, msg_type=None, status=None, source=None,
             query = query.filter_by(transform_id=transform_id)
         if processing_id is not None:
             query = query.filter_by(processing_id=processing_id)
+        if internal_id is not None:
+            query = query.filter_by(internal_id=internal_id)
         if retries:
             query = query.filter_by(retries=retries)
         if delay:
