@@ -237,6 +237,14 @@ class WorkContext(Context):
         self._processing_id = value
 
     @property
+    def enable_separate_log(self):
+        return self._workflow_context.enable_separate_log
+
+    @enable_separate_log.setter
+    def enable_separate_log(self, value):
+        self._workflow_context.enable_separate_log = value
+
+    @property
     def brokers(self):
         return self._workflow_context.brokers
 
@@ -573,6 +581,14 @@ class Work(Base):
 
     def get_workload_id(self):
         return self.workload_id
+
+    @property
+    def enable_separate_log(self):
+        return self._context.enable_separate_log
+
+    @enable_separate_log.setter
+    def enable_separate_log(self, value):
+        self._context.enable_separate_log = value
 
     @property
     def token(self):
