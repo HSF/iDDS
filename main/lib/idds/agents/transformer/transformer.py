@@ -100,6 +100,11 @@ class Transformer(BaseAgent):
 
         self.show_queue_size_time = None
 
+        if hasattr(self, 'cache_expire_seconds'):
+            self.cache_expire_seconds = int(self.cache_expire_seconds)
+        else:
+            self.cache_expire_seconds = 3600
+
     def is_ok_to_run_more_transforms(self):
         if self.number_workers >= self.max_number_workers:
             return False
@@ -193,7 +198,7 @@ class Transformer(BaseAgent):
             # next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_period)
             transforms_q = core_transforms.get_transforms_by_status(status=transform_status, locking=True,
                                                                     not_lock=True, order_by_fifo=True,
-                                                                    new_poll=True, only_return_id=True,
+                                                                    new_poll=True,
                                                                     min_request_id=BaseAgent.min_request_id,
                                                                     bulk_size=self.retrieve_bulk_size)
 
