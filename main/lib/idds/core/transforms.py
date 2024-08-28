@@ -36,7 +36,7 @@ def add_transform(request_id, workload_id, transform_type, transform_tag=None, p
                   parent_transform_id=None, previous_transform_id=None, current_processing_id=None,
                   internal_id=None, has_previous_conditions=None, loop_index=None,
                   cloned_from=None, triggered_conditions=None, untriggered_conditions=None,
-                  workprogress_id=None, session=None):
+                  site=None, workprogress_id=None, session=None):
     """
     Add a transform.
 
@@ -68,7 +68,9 @@ def add_transform(request_id, workload_id, transform_type, transform_tag=None, p
                                                 parent_transform_id=parent_transform_id,
                                                 previous_transform_id=previous_transform_id,
                                                 current_processing_id=current_processing_id,
-                                                expired_at=expired_at, transform_metadata=transform_metadata,
+                                                expired_at=expired_at,
+                                                transform_metadata=transform_metadata,
+                                                site=site,
                                                 internal_id=internal_id,
                                                 has_previous_conditions=has_previous_conditions,
                                                 loop_index=loop_index, cloned_from=cloned_from,
