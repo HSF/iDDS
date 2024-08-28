@@ -34,7 +34,7 @@ def create_transform(request_id, workload_id, transform_type, transform_tag=None
                      parent_transform_id=None, previous_transform_id=None, current_processing_id=None,
                      internal_id=None, has_previous_conditions=None, loop_index=None,
                      cloned_from=None, triggered_conditions=None, untriggered_conditions=None,
-                     retries=0, expired_at=None, transform_metadata=None):
+                     site=None, retries=0, expired_at=None, transform_metadata=None):
     """
     Create a transform.
 
@@ -60,7 +60,7 @@ def create_transform(request_id, workload_id, transform_type, transform_tag=None
                                      parent_transform_id=parent_transform_id,
                                      previous_transform_id=previous_transform_id,
                                      current_processing_id=current_processing_id,
-                                     internal_id=internal_id,
+                                     internal_id=internal_id, site=site,
                                      has_previous_conditions=has_previous_conditions,
                                      loop_index=loop_index, cloned_from=cloned_from,
                                      triggered_conditions=triggered_conditions,
@@ -83,7 +83,7 @@ def add_transform(request_id, workload_id, transform_type, transform_tag=None, p
                   parent_transform_id=None, previous_transform_id=None, current_processing_id=None,
                   internal_id=None, has_previous_conditions=None, loop_index=None,
                   cloned_from=None, triggered_conditions=None, untriggered_conditions=None,
-                  transform_metadata=None, workprogress_id=None, session=None):
+                  transform_metadata=None, workprogress_id=None, site=None, session=None):
     """
     Add a transform.
 
@@ -115,7 +115,7 @@ def add_transform(request_id, workload_id, transform_type, transform_tag=None, p
                                          parent_transform_id=parent_transform_id,
                                          previous_transform_id=previous_transform_id,
                                          current_processing_id=current_processing_id,
-                                         internal_id=internal_id,
+                                         internal_id=internal_id, site=site,
                                          has_previous_conditions=has_previous_conditions,
                                          loop_index=loop_index, cloned_from=cloned_from,
                                          triggered_conditions=triggered_conditions,
