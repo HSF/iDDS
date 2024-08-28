@@ -32,6 +32,8 @@ def create_transform(request_id, workload_id, transform_type, transform_tag=None
                      new_poll_period=1, update_poll_period=10,
                      new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
                      parent_transform_id=None, previous_transform_id=None, current_processing_id=None,
+                     internal_id=None, has_previous_conditions=None, loop_index=None,
+                     cloned_from=None, triggered_conditions=None, untriggered_conditions=None,
                      retries=0, expired_at=None, transform_metadata=None):
     """
     Create a transform.
@@ -58,6 +60,11 @@ def create_transform(request_id, workload_id, transform_type, transform_tag=None
                                      parent_transform_id=parent_transform_id,
                                      previous_transform_id=previous_transform_id,
                                      current_processing_id=current_processing_id,
+                                     internal_id=internal_id,
+                                     has_previous_conditions=has_previous_conditions,
+                                     loop_index=loop_index, cloned_from=cloned_from,
+                                     triggered_conditions=triggered_conditions,
+                                     untriggered_conditions=untriggered_conditions,
                                      transform_metadata=transform_metadata)
     if new_poll_period:
         new_poll_period = datetime.timedelta(seconds=new_poll_period)
@@ -74,6 +81,8 @@ def add_transform(request_id, workload_id, transform_type, transform_tag=None, p
                   new_poll_period=1, update_poll_period=10, retries=0, expired_at=None,
                   new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
                   parent_transform_id=None, previous_transform_id=None, current_processing_id=None,
+                  internal_id=None, has_previous_conditions=None, loop_index=None,
+                  cloned_from=None, triggered_conditions=None, untriggered_conditions=None,
                   transform_metadata=None, workprogress_id=None, session=None):
     """
     Add a transform.
@@ -106,6 +115,11 @@ def add_transform(request_id, workload_id, transform_type, transform_tag=None, p
                                          parent_transform_id=parent_transform_id,
                                          previous_transform_id=previous_transform_id,
                                          current_processing_id=current_processing_id,
+                                         internal_id=internal_id,
+                                         has_previous_conditions=has_previous_conditions,
+                                         loop_index=loop_index, cloned_from=cloned_from,
+                                         triggered_conditions=triggered_conditions,
+                                         untriggered_conditions=untriggered_conditions,
                                          transform_metadata=transform_metadata)
         new_transform.save(session=session)
         transform_id = new_transform.transform_id

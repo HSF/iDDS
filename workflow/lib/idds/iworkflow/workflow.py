@@ -55,7 +55,8 @@ class WorkflowCanvas(object):
 
 
 class WorkflowContext(Context):
-    def __init__(self, name=None, service='panda', source_dir=None, workflow_type=WorkflowType.iWorkflow, distributed=True, max_walltime=24 * 3600, init_env=None, exclude_source_files=[], clean_env=None):
+    def __init__(self, name=None, service='panda', source_dir=None, workflow_type=WorkflowType.iWorkflow, distributed=True,
+                 max_walltime=24 * 3600, init_env=None, exclude_source_files=[], clean_env=None, enable_separate_log=False):
         super(WorkflowContext, self).__init__()
         self._service = service     # panda, idds, sharefs
         self._request_id = None
@@ -118,6 +119,8 @@ class WorkflowContext(Context):
                 self._exclude_source_files = exclude_source_files
             else:
                 self._exclude_source_files = [exclude_source_files]
+
+        self._enable_separate_log = enable_separate_log
 
     @property
     def logger(self):
@@ -286,6 +289,14 @@ class WorkflowContext(Context):
     @workload_id.setter
     def workload_id(self, value):
         self._workload_id = value
+
+    @property
+    def enable_separate_log(self):
+        return self._enable_separate_log
+
+    @enable_separate_log.setter
+    def enable_separate_log(self, value):
+        self._enable_separate_log = value
 
     @property
     def brokers(self):
@@ -719,7 +730,7 @@ class Workflow(Base):
     def __init__(self, func=None, service='panda', context=None, source_dir=None, local=False, distributed=True,
                  pre_kwargs={}, args=None, kwargs={}, multi_jobs_kwargs_list=[], current_job_kwargs=None, name=None,
                  init_env=None, is_unique_func_name=False, max_walltime=24 * 3600, source_dir_parent_level=None,
-                 exclude_source_files=[], clean_env=None):
+                 enable_separate_log=False, exclude_source_files=[], clean_env=None):
         """
         Init a workflow.
         """
@@ -754,7 +765,8 @@ class Workflow(Base):
         else:
             self._context = WorkflowContext(name=self._name, service=service, workflow_type=workflow_type, source_dir=source_dir,
                                             distributed=distributed, init_env=init_env, max_walltime=max_walltime,
-                                            exclude_source_files=exclude_source_files, clean_env=clean_env)
+                                            exclude_source_files=exclude_source_files, clean_env=clean_env,
+                                            enable_separate_log=enable_separate_log)
 
     @property
     def service(self):
@@ -928,6 +940,14 @@ class Workflow(Base):
     @token.setter
     def token(self, value):
         self._context.token = value
+
+    @property
+    def enable_separate_log(self):
+        return self._context.enable_separate_log
+
+    @enable_separate_log.setter
+    def enable_separate_log(self, value):
+        self._context.enable_separate_log = value
 
     def get_work_tag(self):
         return self._context.workflow_type.name
