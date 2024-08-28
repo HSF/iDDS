@@ -98,12 +98,15 @@ class BaseSubmitter(object):
             task_param_map['maxAttempt'] = work.max_attempt
         if task_param_map['maxFailure'] < work.max_attempt:
             task_param_map['maxFailure'] = work.max_attempt
-        task_param_map['log'] = {"dataset": "PandaJob_iworkflow/",   # "PandaJob_#{pandaid}/"
-                                 "destination": "local",
-                                 "param_type": "log",
-                                 "token": "local",
-                                 "type": "template",
-                                 "value": "log.tgz"}
+
+        if work.enable_separate_log:
+            task_param_map['log'] = {"dataset": "PandaJob_iworkflow/",   # "PandaJob_#{pandaid}/"
+                                     "destination": "local",
+                                     "param_type": "log",
+                                     "token": "local",
+                                     "type": "template",
+                                     "value": "log.tgz"}
+
         task_param_map['jobParameters'] = [
             {'type': 'constant',
              'value': executable,  # noqa: E501
