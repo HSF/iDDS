@@ -11,7 +11,6 @@ dependencies:
   # - mysqlclient                      # mysql python client
   - mod_wsgi                         # apache wsgi module
   - flask                            # web service
-  - futures                          # multiple process/threads
   - stomp.py                         # Messaging broker client
   - cx-Oracle                        # Oralce client
   - unittest2                        # unit test tool
