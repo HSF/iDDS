@@ -872,7 +872,7 @@ class ClientManager:
 
         colls = self.client.get_collections(request_id=request_id, transform_id=transform_id, workload_id=workload_id,
                                             scope=scope, name=name, relation_type=relation_type)
-        return True, colls
+        return colls
 
     def get_contents(self, request_id=None, transform_id=None, workload_id=None, coll_scope=None, coll_name=None, relation_type=None, status=None):
         """
@@ -892,7 +892,7 @@ class ClientManager:
 
         contents = self.client.get_contents(request_id=request_id, transform_id=transform_id, workload_id=workload_id,
                                             coll_scope=coll_scope, coll_name=coll_name, relation_type=relation_type, status=status)
-        return True, contents
+        return contents
 
     @exception_handler
     def get_contents_output_ext(self, request_id=None, workload_id=None, transform_id=None, group_by_jedi_task_id=False):
@@ -909,7 +909,7 @@ class ClientManager:
 
         contents = self.client.get_contents_output_ext(workload_id=workload_id, request_id=request_id, transform_id=transform_id,
                                                        group_by_jedi_task_id=group_by_jedi_task_id)
-        return True, contents
+        return contents
 
     @exception_handler
     def update_build_request(self, request_id, signature, workflow):
@@ -925,7 +925,7 @@ class ClientManager:
         self.setup_client()
 
         ret = self.client.update_build_request(request_id=request_id, signature=signature, workflow=workflow)
-        return True, ret
+        return ret
 
     @exception_handler
     def get_metainfo(self, name):
