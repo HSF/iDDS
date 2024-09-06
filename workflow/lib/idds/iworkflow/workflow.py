@@ -1261,12 +1261,12 @@ class Workflow(Base):
 # foo = workflow(arg)(foo)
 def workflow(func=None, *, local=False, service='idds', source_dir=None, primary=False, queue=None, site=None, cloud=None,
              max_walltime=24 * 3600, distributed=True, init_env=None, pre_kwargs={}, return_workflow=False, no_wraps=False,
-             source_dir_parent_level=None, exclude_source_files=[], clean_env=None):
+             source_dir_parent_level=None, exclude_source_files=[], enable_separate_log=False, clean_env=None):
     if func is None:
         return functools.partial(workflow, local=local, service=service, source_dir=source_dir, primary=primary, queue=queue, site=site, cloud=cloud,
                                  max_walltime=max_walltime, distributed=distributed, init_env=init_env, pre_kwargs=pre_kwargs, no_wraps=no_wraps,
                                  return_workflow=return_workflow, source_dir_parent_level=source_dir_parent_level,
-                                 exclude_source_files=exclude_source_files, clean_env=clean_env)
+                                 exclude_source_files=exclude_source_files, clean_env=clean_env, enable_separate_log=enable_separate_log)
 
     if 'IDDS_IGNORE_WORKFLOW_DECORATOR' in os.environ:
         return func
@@ -1276,7 +1276,7 @@ def workflow(func=None, *, local=False, service='idds', source_dir=None, primary
         try:
             f = Workflow(func, service=service, source_dir=source_dir, local=local, max_walltime=max_walltime, distributed=distributed,
                          pre_kwargs=pre_kwargs, args=args, kwargs=kwargs, init_env=init_env, source_dir_parent_level=source_dir_parent_level,
-                         exclude_source_files=exclude_source_files, clean_env=clean_env)
+                         exclude_source_files=exclude_source_files, clean_env=clean_env, enable_separate_log=enable_separate_log)
 
             f.queue = queue
             f.site = site
