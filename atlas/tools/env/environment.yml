@@ -3,7 +3,6 @@ dependencies:
 - python==3.6
 - pip
 - pip:
-  - futures                          # multiple process/threads
   - unittest2        # unit test tool
   - pep8             # checks for PEP8 code style compliance
   - flake8           # Wrapper around PyFlakes&pep8

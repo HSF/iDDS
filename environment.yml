@@ -9,7 +9,6 @@ dependencies:
   - retrying                         # retrying behavior
   - mysqlclient                      # mysql python client
   #- web.py                           # web service
-  - futures                          # multiple process/threads
   - stomp.py                         # Messaging broker client
   - cx-Oracle                        # Oralce client
   - unittest2        # unit test tool
