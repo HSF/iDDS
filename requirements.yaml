@@ -5,7 +5,7 @@ dependencies:
 - pip:
   - argcomplete
   - requests                         # requests
-  - SQLAlchemy==1.4.46               # db orm
+  - SQLAlchemy                       # db orm
   - urllib3                          # url connections
   - retrying                         # retrying behavior
   # - mysqlclient                      # mysql python client
@@ -13,6 +13,7 @@ dependencies:
   - flask                            # web service
   - stomp.py                         # Messaging broker client
   - cx-Oracle                        # Oralce client
+  - oracledb
   - unittest2                        # unit test tool
   - pep8                             # checks for PEP8 code style compliance
   - flake8                           # Wrapper around PyFlakes&pep8

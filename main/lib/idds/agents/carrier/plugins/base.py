@@ -8,10 +8,14 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2024
 
+import logging
 import json
 
 from idds.common.constants import WorkflowType
-from idds.common.utils import encode_base64
+from idds.common.utils import encode_base64, setup_logging
+
+
+setup_logging(__name__)
 
 
 class BaseSubmitter(object):
@@ -100,6 +104,7 @@ class BaseSubmitter(object):
             task_param_map['maxFailure'] = work.max_attempt
 
         if work.enable_separate_log:
+            logging.debug(f"BaseSubmitter enable_separate_log: {work.enable_separate_log}")
             task_param_map['log'] = {"dataset": "PandaJob_iworkflow/",   # "PandaJob_#{pandaid}/"
                                      "destination": "local",
                                      "param_type": "log",

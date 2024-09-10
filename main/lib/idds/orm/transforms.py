@@ -16,7 +16,7 @@ operations related to Transform.
 import datetime
 
 import sqlalchemy
-from sqlalchemy import and_, func
+from sqlalchemy import and_, func, select
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.sql.expression import asc, desc
 
@@ -223,25 +223,24 @@ def get_transform_by_id_status(transform_id, status=None, locking=False, session
     """
 
     try:
-        query = session.query(models.Transform)\
-                       .filter(models.Transform.transform_id == transform_id)
+        query = select(models.Transform).where(models.Transform.transform_id == transform_id)
 
         if status:
             if not isinstance(status, (list, tuple)):
                 status = [status]
             if len(status) == 1:
                 status = [status[0], status[0]]
-            query = query.filter(models.Transform.status.in_(status))
+            query = query.where(models.Transform.status.in_(status))
 
         if locking:
-            query = query.filter(models.Transform.locking == TransformLocking.Idle)
+            query = query.where(models.Transform.locking == TransformLocking.Idle)
             query = query.with_for_update(skip_locked=True)
 
-        ret = query.first()
+        ret = session.execute(query).fetchone()
         if not ret:
             return None
         else:
-            return ret.to_dict()
+            return ret[0].to_dict()
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('transform transform_id: %s cannot be found: %s' % (transform_id, error))
 

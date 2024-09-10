@@ -16,7 +16,7 @@ operations related to Processings.
 import datetime
 
 import sqlalchemy
-from sqlalchemy import func
+from sqlalchemy import func, select
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.sql.expression import asc
 
@@ -160,25 +160,24 @@ def get_processing_by_id_status(processing_id, status=None, locking=False, sessi
     """
 
     try:
-        query = session.query(models.Processing)\
-                       .filter(models.Processing.processing_id == processing_id)
+        query = select(models.Processing).filter(models.Processing.processing_id == processing_id)
 
         if status:
             if not isinstance(status, (list, tuple)):
                 status = [status]
             if len(status) == 1:
                 status = [status[0], status[0]]
-            query = query.filter(models.Processing.status.in_(status))
+            query = query.where(models.Processing.status.in_(status))
 
         if locking:
-            query = query.filter(models.Processing.locking == ProcessingLocking.Idle)
+            query = query.where(models.Processing.locking == ProcessingLocking.Idle)
             query = query.with_for_update(skip_locked=True)
 
-        ret = query.first()
+        ret = session.execute(query).fetchone()
         if not ret:
             return None
         else:
-            return ret.to_dict()
+            return ret[0].to_dict()
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('processing processing_id: %s cannot be found: %s' % (processing_id, error))
 
