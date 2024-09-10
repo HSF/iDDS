@@ -39,12 +39,12 @@ RUN yum install --nogpgcheck -y postgresql
 RUN  yum clean all && rm -rf /var/cache/yum
 
 
-# install Oracle Instant Client and tnsnames.ora
+# install Oracle Instant Client
 RUN wget https://download.oracle.com/otn_software/linux/instantclient/oracle-instantclient-basic-linuxx64.rpm -P /tmp/ && \
     yum install -y /tmp/oracle-instantclient-basic-linuxx64.rpm && \
     wget https://download.oracle.com/otn_software/linux/instantclient/oracle-instantclient-sqlplus-linuxx64.rpm -P /tmp/ && \
     yum install -y /tmp/oracle-instantclient-sqlplus-linuxx64.rpm && \
-    wget https://download.oracle.com/otn_software/linux/instantclient/oracle-instantclient-sqlplus-linuxx64.rpm -P /tmp/ && \
+    wget https://download.oracle.com/otn_software/linux/instantclient/oracle-instantclient-devel-linuxx64.rpm -P /tmp/ && \
     yum install -y /tmp/oracle-instantclient-devel-linuxx64.rpm
 
 # RUN curl http://repository.egi.eu/sw/production/cas/1/current/repo-files/EGI-trustanchors.repo -o /etc/yum.repos.d/EGI-trustanchors.repo/
