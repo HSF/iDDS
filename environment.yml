@@ -11,6 +11,7 @@ dependencies:
   #- web.py                           # web service
   - stomp.py                         # Messaging broker client
   - cx-Oracle                        # Oralce client
+  - oracledb
   - unittest2        # unit test tool
   - pep8             # checks for PEP8 code style compliance
   - flake8           # Wrapper around PyFlakes&pep8

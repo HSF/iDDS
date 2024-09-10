@@ -125,6 +125,7 @@ def destroy_everything(echo=True):
 def dump_schema():
     """ Creates a schema dump to a specific database. """
     engine = session.get_dump_engine()
+    models.unregister_models(engine)
     models.register_models(engine)
 
 

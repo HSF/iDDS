@@ -143,6 +143,8 @@ def get_engine(echo=True):
             except:  # noqa: B901
                 pass
         params['execution_options'] = {'schema_translate_map': {None: DEFAULT_SCHEMA_NAME}}
+        if 'oracledb' in sql_connection:
+            params['thick_mode'] = True
         _ENGINE = create_engine(sql_connection, **params)
 
         if 'mysql' in sql_connection:
