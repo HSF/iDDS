@@ -126,6 +126,7 @@ def dump_schema():
     """ Creates a schema dump to a specific database. """
     engine = session.get_dump_engine()
     models.unregister_models(engine)
+    print("\n")
     models.register_models(engine)
 
 
