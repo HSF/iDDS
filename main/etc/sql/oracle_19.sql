@@ -134,9 +134,7 @@ CREATE TABLE WORKPROGRESSES
         workprogress_metadata CLOB constraint WORKPROGRESS_REQUEST_METADATA_ENSURE_JSON CHECK(workprogress_metadata IS JSON(LAX)),
         processing_metadata CLOB constraint WORKPROGRESS_PROCESSING_METADATA_ENSURE_JSON CHECK(processing_metadata IS JSON(LAX)),
         CONSTRAINT WORKPROGRESS_PK PRIMARY KEY (workprogress_id) USING INDEX LOCAL,
-        CONSTRAINT WORKPROGRESS_REQ_ID_FK FOREIGN KEY(request_id) REFERENCES REQUESTS(request_id),
-	CONSTRAINT "WORKPROGRESS_STATUS_ID_NN" CHECK (status IS NOT NULL)
-        --- CONSTRAINT REQUESTS_NAME_SCOPE_UQ UNIQUE (name, scope, requester, request_type, transform_tag, workload_id) -- USING INDEX LOCAL,
+        CONSTRAINT WORKPROGRESS_REQ_ID_FK FOREIGN KEY(request_id) REFERENCES REQUESTS(request_id)
 )
 PCTFREE 3
 PARTITION BY RANGE(workprogress_id)
@@ -153,7 +151,7 @@ CREATE SEQUENCE TRANSFORM_ID_SEQ MINVALUE 1 INCREMENT BY 1 ORDER NOCACHE NOCYCLE
 CREATE TABLE TRANSFORMS
 (
         transform_id NUMBER(12) DEFAULT ON NULL TRANSFORM_ID_SEQ.NEXTVAL constraint TRANSFORM_ID_NN NOT NULL,
-        request_id NUMBER(12),        
+        request_id NUMBER(12),
         workload_id NUMBER(10),
         transform_type NUMBER(2) constraint TRANSFORM_TYPE_NN NOT NULL,
         transform_tag VARCHAR2(20),
@@ -242,9 +240,7 @@ CREATE TABLE PROCESSINGS
         running_metadata CLOB,
         output_metadata CLOB constraint PROCESSINGS_OUTPUT_METADATA_ENSURE_JSON CHECK(output_metadata IS JSON(LAX)),
         CONSTRAINT PROCESSINGS_PK PRIMARY KEY (processing_id),
-        CONSTRAINT PROCESSINGS_TRANSFORM_ID_FK FOREIGN KEY(transform_id) REFERENCES TRANSFORMS(transform_id),
-	CONSTRAINT "PROCESSINGS_STATUS_ID_NN" CHECK (status IS NOT NULL),
-        CONSTRAINT "PROCESSINGS_TRANSFORM_ID_NN" CHECK (transform_id IS NOT NULL)
+        CONSTRAINT PROCESSINGS_TRANSFORM_ID_FK FOREIGN KEY(transform_id) REFERENCES TRANSFORMS(transform_id)
 )
 PCTFREE 0
 PARTITION BY REFERENCE(PROCESSINGS_TRANSFORM_ID_FK);
@@ -263,7 +259,7 @@ CREATE TABLE COLLECTIONS
     transform_id NUMBER(12) constraint COLLECTION_TRANSFORM_ID_NN NOT NULL,
     request_id NUMBER(12),
     workload_id NUMBER(10),
-    relation_type NUMBER(2), -- input, output or log of the transform,    
+    relation_type NUMBER(2), -- input, output or log of the transform,
     scope VARCHAR2(25) constraint COLLECTION_SCOPE_NN NOT NULL,
     name VARCHAR2(255) constraint COLLECTION_NAME_NN NOT NULL,
     bytes NUMBER(19),
@@ -289,7 +285,7 @@ CREATE TABLE COLLECTIONS
     accessed_at DATE,
     expired_at DATE,
     coll_metadata CLOB constraint COLLECTION_METADATA_ensure_json CHECK (COLL_METADATA IS JSON (LAX)),
-    CONSTRAINT COLLECTION_PK PRIMARY KEY (coll_id), -- USING INDEX LOCAL,  
+    CONSTRAINT COLLECTION_PK PRIMARY KEY (coll_id), -- USING INDEX LOCAL,
     CONSTRAINT COLLECTION_NAME_SCOPE_UQ UNIQUE (name, scope, transform_id, relation_type), -- USING INDEX LOCAL,
     CONSTRAINT COLLECTION_TRANSFORM_ID_FK FOREIGN KEY(transform_id) REFERENCES TRANSFORMS(transform_id),
     CONSTRAINT "COLLECTIONS_STATUS_ID_NN" CHECK (status IS NOT NULL),
@@ -349,7 +345,7 @@ CREATE TABLE CONTENTS
         CONSTRAINT CONTENT_PK PRIMARY KEY (content_id),
         ---- CONSTRAINT CONTENT_SCOPE_NAME_UQ UNIQUE (name, scope, coll_id, content_type, min_id, max_id) USING INDEX LOCAL,
         ---- CONSTRAINT CONTENT_SCOPE_NAME_UQ UNIQUE (name, scope, coll_id, min_id, max_id) USING INDEX LOCAL,
-        ---- CONSTRAINT CONTENT_ID_UQ UNIQUE (transform_id, coll_id, map_id, name, min_id, max_id) USING INDEX LOCAL,  
+        ---- CONSTRAINT CONTENT_ID_UQ UNIQUE (transform_id, coll_id, map_id, name, min_id, max_id) USING INDEX LOCAL,
         CONSTRAINT CONTENT_ID_UQ UNIQUE (transform_id, coll_id, map_id, sub_map_id, dep_sub_map_id, content_relation_type, name_md5, scope_name_md5, min_id, max_id),
         CONSTRAINT CONTENT_TRANSFORM_ID_FK FOREIGN KEY(transform_id) REFERENCES TRANSFORMS(transform_id),
         CONSTRAINT CONTENT_COLL_ID_FK FOREIGN KEY(coll_id) REFERENCES COLLECTIONS(coll_id),
@@ -361,7 +357,7 @@ PARTITION BY REFERENCE(CONTENT_TRANSFORM_ID_FK);
 
 CREATE INDEX CONTENTS_STATUS_UPDATED_IDX ON CONTENTS (status, locking, updated_at, created_at) LOCAL;
 CREATE INDEX CONTENTS_ID_NAME_IDX ON CONTENTS (coll_id, scope, md5('name'), status) LOCAL;
-CREATE INDEX CONTENTS_REQ_TF_COLL_IDX ON CONTENTS (request_id, transform_id, workload_id, coll_id, content_relation_type, status, substatus); LOCAL;
+CREATE INDEX CONTENTS_REQ_TF_COLL_IDX ON CONTENTS (request_id, transform_id, workload_id, coll_id, content_relation_type, status, substatus) LOCAL;
 CREATE INDEX CONTENTS_TF_IDX ON contents (transform_id, request_id, coll_id, map_id, content_relation_type);
 CREATE INDEX CONTENTS_DEP_IDX ON contents (request_id, transform_id, content_dep_id);
 CREATE INDEX CONTENTS_REL_IDX ON contents (request_id, content_relation_type, transform_id, substatus);
@@ -390,7 +386,7 @@ CREATE TABLE MESSAGES
     created_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)),
     updated_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)),
     msg_content CLOB constraint MSG_CONTENT_ENSURE_JSON CHECK(msg_content IS JSON(LAX)),
-    CONSTRAINT MESSAGES_PK PRIMARY KEY (msg_id) -- USING INDEX LOCAL,  
+    CONSTRAINT MESSAGES_PK PRIMARY KEY (msg_id) -- USING INDEX LOCAL,
 );
 
 CREATE INDEX MESSAGES_TYPE_ST_IDX ON MESSAGES (msg_type, status, destination, request_id);
@@ -414,7 +410,7 @@ CREATE TABLE HEALTH
     payload VARCHAR2(2048),
     created_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)),
     updated_at DATE DEFAULT ON NULL SYS_EXTRACT_UTC(systimestamp(0)),
-    CONSTRAINT HEALTH_PK PRIMARY KEY (health_id), -- USING INDEX LOCAL,  
+    CONSTRAINT HEALTH_PK PRIMARY KEY (health_id), -- USING INDEX LOCAL,
     CONSTRAINT HEALTH_UQ UNIQUE (agent, hostname, pid, thread_id)
 );
 
