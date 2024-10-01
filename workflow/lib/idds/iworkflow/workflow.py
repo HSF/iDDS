@@ -1239,6 +1239,8 @@ class Workflow(Base):
 
         if setup:
             pre_setup, main_setup = self.split_setup(setup)
+            pre_setup = encode_base64(json_dumps(pre_setup))
+            main_setup = encode_base64(json_dumps(main_setup))
             if pre_setup:
                 cmd = ' --pre_setup "' + pre_setup + '" '
             cmd = cmd + ' --setup "' + main_setup + '" '
