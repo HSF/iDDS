@@ -3,6 +3,7 @@ import os   # noqa E402
 import sys
 import datetime
 
+"""
 os.environ['PANDA_URL'] = 'http://pandaserver-doma.cern.ch:25080/server/panda'
 # os.environ['PANDA_URL_SSL'] = 'https://pandaserver-doma.cern.ch:25443/server/panda'
 os.environ['PANDA_URL_SSL'] = 'https://pandaserver-doma.cern.ch:443/server/panda'
@@ -19,12 +20,13 @@ os.environ['PANDA_URL_SSL'] = 'https://usdf-panda-server.slac.stanford.edu:8443/
 
 # os.environ['PANDA_URL_SSL'] = 'https://pandaserver01.sdcc.bnl.gov:25443/server/panda'
 # os.environ['PANDA_URL'] = 'https://pandaserver01.sdcc.bnl.gov:25443/server/panda'
+"""
 
 from pandaclient import Client  # noqa E402
 
 
 task_ids = [160871, 160873, 160874, 160872, 160875]
-task_ids = []
+task_ids = [41161806]
 for task_id in task_ids:
     print("retry %s" % task_id)
     # ret = Client.retryTask(task_id, verbose=True)

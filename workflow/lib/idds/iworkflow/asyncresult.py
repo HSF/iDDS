@@ -697,7 +697,7 @@ class AsyncResult(Base):
 
     def run_subscriber(self, force=False):
         try:
-            self.logger.info("{self.internal_id} run subscriber")
+            self.logger.info(f"{self.internal_id} run subscriber")
             if with_stomp and self._broker_initialized and self._num_stomp_failures < self._max_stomp_failures:
                 try:
                     self.subscribe_to_messaging_brokers(force=True)

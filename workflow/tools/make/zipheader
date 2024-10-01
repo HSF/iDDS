@@ -68,6 +68,13 @@ set -- "${POSITIONAL[@]}" # restore positional parameters
 echo "pre_setup: " $pre_setup
 echo "setup:" $setup
 
+pre_setup=$(decode_base64 "$pre_setup")
+setup=$(decode_base64 "$setup")
+
+echo "pre_setup after decoding: " $pre_setup
+echo "setup after decoding:" $setup
+
+
 run_args=$@
 echo "run_args: " $run_args
 

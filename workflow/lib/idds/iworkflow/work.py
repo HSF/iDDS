@@ -1082,6 +1082,8 @@ class Work(Base):
 
         if setup:
             pre_setup, main_setup = self.split_setup(setup)
+            pre_setup = encode_base64(json_dumps(pre_setup))
+            main_setup = encode_base64(json_dumps(main_setup))
             if pre_setup:
                 cmd = ' --pre_setup "' + pre_setup + '" '
             cmd = cmd + ' --setup "' + main_setup + '" '
@@ -1116,10 +1118,10 @@ def run_work_distributed(w):
 
 
 # foo = work(arg)(foo)
-def work(func=None, *, workflow=None, pre_kwargs={}, return_work=False, map_results=False, lazy=False, init_env=None, no_wraps=False):
+def work(func=None, *, workflow=None, pre_kwargs={}, name=None, return_work=False, map_results=False, lazy=False, init_env=None, no_wraps=False):
     if func is None:
         return functools.partial(work, workflow=workflow, pre_kwargs=pre_kwargs, return_work=return_work, no_wraps=no_wraps,
-                                 map_results=map_results, lazy=lazy, init_env=init_env)
+                                 name=name, map_results=map_results, lazy=lazy, init_env=init_env)
 
     if 'IDDS_IGNORE_WORK_DECORATOR' in os.environ:
         return func
@@ -1136,7 +1138,7 @@ def work(func=None, *, workflow=None, pre_kwargs={}, return_work=False, map_resu
             if workflow_context:
                 logging.debug("setup work")
                 w = Work(workflow_context=workflow_context, func=func, pre_kwargs=pre_kwargs, args=args, kwargs=kwargs,
-                         multi_jobs_kwargs_list=multi_jobs_kwargs_list, map_results=map_results, init_env=init_env)
+                         name=name, multi_jobs_kwargs_list=multi_jobs_kwargs_list, map_results=map_results, init_env=init_env)
                 # if distributed:
 
                 if return_work:
