@@ -2091,7 +2091,9 @@ def sync_work_status(request_id, transform_id, workload_id, work, substatus=None
                 work.status = get_work_status_from_transform_processing_status(substatus)
             else:
                 work.status = WorkStatus.Failed
-        logger.debug(log_prefix + "work status: %s, substatus: %s" % (str(work.status), substatus))
+    elif substatus and substatus in [ProcessingStatus.Broken]:
+        work.status = get_work_status_from_transform_processing_status(substatus)
+    logger.debug(log_prefix + "work status: %s, substatus: %s" % (str(work.status), substatus))
 
 
 def sync_processing(processing, agent_attributes, terminate=False, abort=False, logger=None, log_prefix=""):
