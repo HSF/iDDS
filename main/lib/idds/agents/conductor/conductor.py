@@ -41,7 +41,7 @@ class Conductor(BaseAgent):
     def __init__(self, num_threads=1, retrieve_bulk_size=200, threshold_to_release_messages=None,
                  random_delay=None, delay=300, interval_delay=10, max_retry_delay=3600,
                  max_normal_retries=10, max_retries=30, replay_times=2, mode='multiple',
-                 retry_executor_threads=4, **kwargs):
+                 retry_executor_threads=4, queue_throller=30, **kwargs):
         super(Conductor, self).__init__(num_threads=num_threads, name='Conductor', **kwargs)
         self.config_section = Sections.Conductor
         self.retrieve_bulk_size = int(retrieve_bulk_size)
@@ -79,7 +79,8 @@ class Conductor(BaseAgent):
         self.selected = None
         self.selected_conductor = None
 
-        self.retry_executor_threads = retry_executor_threads
+        self.queue_throller = int(queue_throller)
+        self.retry_executor_threads = int(retry_executor_threads)
         self.retry_executor_name = self.executor_name + "_Retry"
         self.retry_executor = self.create_executors(self.retry_executor_name, max_workers=self.retry_executor_threads)
 
@@ -309,21 +310,25 @@ class Conductor(BaseAgent):
                 try:
                     # num_contents = 0
                     if self.is_selected():
+                        new_messages = []
+                        retry_messages = []
                         new_messages = self.get_new_messages()
-                        retry_messages = self.get_retry_messages()
-                        if not new_messages and not retry_messages:
-                            time.sleep(self.interval_delay)
+                        if new_messages:
+                            self.process_messages(new_messages)
+
+                        if self.retry_executor.has_free_workers():
+                            retry_messages = self.get_retry_messages()
+                            if retry_messages:
+                                self.retry_executor.submit(self.process_messages, retry_messages)
                     else:
                         new_messages = []
                         retry_messages = []
 
-                    if new_messages:
-                        self.process_messages(new_messages)
-                    if retry_messages:
-                        self.retry_executor.submit(self.process_messages, retry_messages)
-
-                    while not self.message_queue.empty():
+                    while self.message_queue.qsize() > self.queue_throller:
                         time.sleep(1)
+                        output_messages = self.get_output_messages()
+                        self.clean_messages(output_messages)
+
                     output_messages = self.get_output_messages()
                     self.clean_messages(output_messages)
                 except IDDSException as error:
