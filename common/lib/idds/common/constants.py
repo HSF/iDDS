@@ -386,6 +386,20 @@ class ProcessingStatus(IDDSEnum):
     Synchronizing = 30
 
 
+Terminated_processing_status = [ProcessingStatus.Finished,
+                                ProcessingStatus.Failed,
+                                ProcessingStatus.Lost,
+                                ProcessingStatus.FinishedOnStep,
+                                ProcessingStatus.FinishedOnExec,
+                                ProcessingStatus.FinishedTerm,
+                                ProcessingStatus.SubFinished,
+                                ProcessingStatus.Cancelled,
+                                ProcessingStatus.Suspended,
+                                ProcessingStatus.Expired,
+                                ProcessingStatus.Broken
+                                ]
+
+
 class ProcessingLocking(IDDSEnum):
     Idle = 0
     Locking = 1

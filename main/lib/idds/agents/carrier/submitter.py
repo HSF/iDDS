@@ -42,6 +42,8 @@ class Submitter(Poller):
                                         name=name, retrieve_bulk_size=retrieve_bulk_size, **kwargs)
         self.site_to_cloud = None
 
+        self._new_processing_status = None
+
     def get_new_processings(self):
         """
         Get new processing
@@ -56,6 +58,7 @@ class Submitter(Poller):
                 return []
 
             processing_status = [ProcessingStatus.New]
+            self._new_processing_status = processing_status
             processings = core_processings.get_processings_by_status(status=processing_status, locking=True,
                                                                      not_lock=True,
                                                                      new_poll=True, only_return_id=True,
@@ -168,6 +171,7 @@ class Submitter(Poller):
 
             error = {'submit_err': {'msg': truncate_string('%s' % str(ex), length=200)}}
             parameters = {'status': pr_status,
+                          'locking': ProcessingLocking.Idle,
                           'new_poll_period': new_poll_period,
                           'errors': processing['errors'] if processing['errors'] else {},
                           'new_retries': retries}
@@ -242,6 +246,7 @@ class Submitter(Poller):
 
             error = {'submit_err': {'msg': truncate_string('%s' % str(ex), length=200)}}
             parameters = {'status': pr_status,
+                          'locking': ProcessingLocking.Idle,
                           'new_poll_period': new_poll_period,
                           'errors': processing['errors'] if processing['errors'] else {},
                           'new_retries': retries}
@@ -262,6 +267,13 @@ class Submitter(Poller):
                 pr = self.get_processing(processing_id=event._processing_id, status=None, locking=True)
                 if not pr:
                     self.logger.warn("Cannot find processing for event: %s" % str(event))
+                elif self._new_processing_status and pr['status'] not in self._new_processing_status:
+                    parameters = {'locking': ProcessingLocking.Idle}
+                    update_processing = {'processing_id': pr['processing_id'],
+                                         'parameters': parameters}
+                    ret = {'update_processing': update_processing,
+                           'update_contents': []}
+                    self.update_processing(ret, pr)
                 else:
                     log_pre = self.get_log_prefix(pr)
                     self.logger.info(log_pre + "process_new_processing")
