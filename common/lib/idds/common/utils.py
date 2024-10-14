@@ -10,9 +10,11 @@
 # - Lino Oscar Gerlach, <lino.oscar.gerlach@cern.ch>, 2024
 
 import base64
+import concurrent.futures
 import contextlib
 import errno
 import datetime
+import functools
 import importlib
 import hashlib
 import logging
@@ -883,7 +885,7 @@ def import_attribute(name: str) -> Callable[..., Any]:
     return getattr(attribute_owner, attribute_name)
 
 
-def decode_base64(sb):
+def decode_base64(sb, remove_quotes=False):
     try:
         if isinstance(sb, str):
             sb_bytes = bytes(sb, 'ascii')
@@ -891,7 +893,11 @@ def decode_base64(sb):
             sb_bytes = sb
         else:
             return sb
-        return base64.b64decode(sb_bytes).decode("utf-8")
+        decode_str = base64.b64decode(sb_bytes).decode("utf-8")
+        # remove the single quotes afeter decoding
+        if remove_quotes:
+            return decode_str[1:-1]
+        return decode_str
     except Exception as ex:
         logging.error("decode_base64 %s: %s" % (sb, ex))
         return sb
@@ -953,6 +959,15 @@ class SecureString(object):
         return '****'
 
 
+def is_panda_client_verbose():
+    verbose = os.environ.get("PANDA_CLIENT_VERBOSE", None)
+    if verbose:
+        verbose = verbose.lower()
+        if verbose == 'true':
+            return True
+    return False
+
+
 def get_unique_id_for_dict(dict_):
     ret = hashlib.sha1(json.dumps(dict_, sort_keys=True).encode()).hexdigest()
     # logging.debug("get_unique_id_for_dict, type: %s: %s, ret: %s" % (type(dict_), dict_, ret))
@@ -996,3 +1011,59 @@ def modified_environ(*remove, **update):
     finally:
         env.update(update_after)
         [env.pop(k) for k in remove_after]
+
+
+def run_with_timeout(func, args=(), kwargs={}, timeout=None, retries=1):
+    """
+    Run a function with a timeout.
+
+    Parameters:
+        func (callable): The function to run.
+        args (tuple): The arguments to pass to the function.
+        kwargs (dict): The keyword arguments to pass to the function.
+        timeout (float or int): The time limit in seconds.
+
+    Returns:
+        The function's result if it finishes within the timeout.
+        Raises TimeoutError if the function takes longer than the specified timeout.
+    """
+    for i in range(retries):
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future = executor.submit(func, *args, **kwargs)
+            try:
+                if i > 0:
+                    logging.info(f"retry {i} to execute function.")
+                return future.result(timeout=timeout)
+            except concurrent.futures.TimeoutError:
+                # raise TimeoutError(f"Function '{func.__name__}' timed out after {timeout} seconds.")
+                logging.error(f"Function '{func.__name__}' timed out after {timeout} seconds in retry {i}.")
+    return TimeoutError(f"Function '{func.__name__}' timed out after {timeout} seconds.")
+
+
+def timeout_wrapper(timeout, retries=1):
+    """
+    Decorator to timeout a function after a given number of seconds.
+
+    Parameters:
+        seconds (int or float): The time limit in seconds.
+
+    Raises:
+        TimeoutError: If the function execution exceeds the time limit.
+    """
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            for i in range(retries):
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(func, *args, **kwargs)
+                    try:
+                        if i > 0:
+                            logging.info(f"retry {i} to execute function.")
+
+                        return future.result(timeout=timeout)
+                    except concurrent.futures.TimeoutError:
+                        # raise TimeoutError(f"Function '{func.__name__}' timed out after {seconds} seconds.")
+                        logging.error(f"Function '{func.__name__}' timed out after {timeout} seconds in retry {i}.")
+            return TimeoutError(f"Function '{func.__name__}' timed out after {timeout} seconds.")
+        return wrapper
+    return decorator
