@@ -8,7 +8,7 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2022 - 2023
 
-import concurrent
+import concurrent.futures
 import json
 import logging
 import time

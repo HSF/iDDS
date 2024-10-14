@@ -18,6 +18,7 @@ import inspect
 import os
 import pickle
 import tarfile
+import traceback
 import uuid
 import zlib
 
@@ -25,7 +26,7 @@ import zlib
 
 from idds.common import exceptions
 from idds.common.constants import WorkflowType
-from idds.common.utils import setup_logging, create_archive_file, json_dumps, json_loads, encode_base64, modified_environ
+from idds.common.utils import setup_logging, create_archive_file, json_dumps, json_loads, encode_base64, modified_environ, is_panda_client_verbose
 from .asyncresult import AsyncResult
 from .base import Base, Context
 
@@ -110,7 +111,7 @@ class WorkflowContext(Context):
         self._idds_initialized = False
         self.init_idds()
 
-        self._init_env = init_env
+        self.init_env = init_env
         self._clean_env = clean_env
 
         self._exclude_source_files = []
@@ -353,6 +354,7 @@ class WorkflowContext(Context):
 
     def init_brokers(self):
         if not self._broker_initialized:
+            logging.info("To initialize broker")
             brokers = os.environ.get("IDDS_BROKERS", None)
             broker_destination = os.environ.get("IDDS_BROKER_DESTINATION", None)
             broker_timeout = os.environ.get("IDDS_BROKER_TIMEOUT", 180)
@@ -366,7 +368,9 @@ class WorkflowContext(Context):
                 self._broker_destination = broker_destination
 
                 self._broker_initialized = True
+                logging.info("Initialized brokers from environment")
             else:
+                logging.info("Getting brokers information from central service")
                 broker_info = self.get_broker_info()
                 if broker_info:
                     brokers = broker_info.get("brokers", None)
@@ -382,6 +386,12 @@ class WorkflowContext(Context):
                         self._broker_destination = broker_destination
 
                         self._broker_initialized = True
+                        logging.info("Initialized brokers from central service")
+                    else:
+                        logging.warn("Broker information from the central service is missing, will not initialize it")
+        if not self._broker_initialized:
+            logging.warn("Broker is not initialized")
+        return self._broker_initialized
 
     def get_broker_info_from_idds_server(self):
         """
@@ -393,7 +403,7 @@ class WorkflowContext(Context):
         # iDDS ClientManager
         from idds.client.clientmanager import ClientManager
 
-        client = ClientManager(host=self.get_idds_server())
+        client = ClientManager(host=self.get_idds_server(), timeout=60)
         ret = client.get_metainfo(name='asyncresult_config')
         if type(ret) in (list, tuple) and ret[0] is True:
             return ret[1]
@@ -418,6 +428,7 @@ class WorkflowContext(Context):
         client = idds_api.get_api(idds_utils.json_dumps,
                                   idds_host=idds_server,
                                   compress=True,
+                                  verbose=is_panda_client_verbose(),
                                   manager=True)
         ret = client.get_metainfo(name='asyncresult_config')
         if ret[0] == 0 and ret[1][0]:
@@ -1033,7 +1044,7 @@ class Workflow(Base):
         # iDDS ClientManager
         from idds.client.clientmanager import ClientManager
 
-        client = ClientManager(host=self._context.get_idds_server())
+        client = ClientManager(host=self._context.get_idds_server(), timeout=60)
         request_id = client.submit(self, use_dataset_name=False)
 
         logging.info("Submitted into iDDS with request id=%s", str(request_id))
@@ -1053,6 +1064,7 @@ class Workflow(Base):
         client = idds_api.get_api(dumper=idds_utils.json_dumps,
                                   idds_host=idds_server,
                                   compress=True,
+                                  verbose=is_panda_client_verbose(),
                                   manager=True)
         ret = client.submit(self, username=None, use_dataset_name=False)
         if ret[0] == 0 and ret[1][0]:
@@ -1099,7 +1111,7 @@ class Workflow(Base):
         # iDDS ClientManager
         from idds.client.clientmanager import ClientManager
 
-        client = ClientManager(host=self._context.get_idds_server())
+        client = ClientManager(host=self._context.get_idds_server(), timeout=60)
         ret = client.close(request_id)
 
         logging.info("Close request id=%s to iDDS server: %s", str(request_id), str(ret))
@@ -1119,6 +1131,7 @@ class Workflow(Base):
         client = idds_api.get_api(idds_utils.json_dumps,
                                   idds_host=idds_server,
                                   compress=True,
+                                  verbose=is_panda_client_verbose(),
                                   manager=True)
         ret = client.close(request_id)
 
@@ -1175,16 +1188,39 @@ class Workflow(Base):
 
     def pre_run(self):
         # test AsyncResult
-        workflow_context = self._context
-        if workflow_context.distributed:
-            logging.info("Test AsyncResult")
-            a_ret = AsyncResult(workflow_context, wait_num=1, timeout=30)
-            ret = a_ret.is_ok()
-            logging.info(f"pre_run asyncresult test is_ok: {ret}")
-            return ret
-        return True
+        a_ret = None
+        try:
+            workflow_context = self._context
+            if workflow_context.distributed:
+                logging.info("Test AsyncResult")
+                a_ret = AsyncResult(workflow_context, wait_num=1, timeout=30)
+                ret = a_ret.is_ok()
+                a_ret.stop()
+                logging.info(f"pre_run asyncresult test is_ok: {ret}")
+                return ret
+            return True
+        except Exception as ex:
+            logging.error(f"pre_run failed with error: {ex}")
+            logging.error(traceback.format_exc())
+        if a_ret:
+            a_ret.stop()
+        return False
 
     def run(self):
+        logging.info("Start work run().")
+        ret = None
+        try:
+            ret = self.run_local()
+        except Exception as ex:
+            logging.error(f"Failed to run function: {ex}")
+            logging.error(traceback.format_exc())
+        except:
+            logging.error("Unknow error")
+            logging.error(traceback.format_exc())
+        logging.info("finish work run().")
+        return ret
+
+    def run_local(self):
         """
         Run the workflow.
         """
@@ -1209,9 +1245,12 @@ class Workflow(Base):
             if self._func is None:
                 func = self.load_func(func_name)
                 self._func = func
-            ret = self.run_func(self._func, pre_kwargs, args, kwargs)
-
-            return ret
+            status, output, error = self.run_func(self._func, pre_kwargs, args, kwargs)
+            if status:
+                logging.info(f"run workflow successfully. output: {output}, error: {error}")
+            else:
+                logging.error(f"run workflow failed. output: {output}, error: {error}")
+            return output
 
     # Context Manager -----------------------------------------------
     def __enter__(self):
@@ -1242,8 +1281,8 @@ class Workflow(Base):
             pre_setup = encode_base64(json_dumps(pre_setup))
             main_setup = encode_base64(json_dumps(main_setup))
             if pre_setup:
-                cmd = ' --pre_setup "' + pre_setup + '" '
-            cmd = cmd + ' --setup "' + main_setup + '" '
+                cmd = " --pre_setup " + pre_setup + " "
+            cmd = cmd + " --setup " + main_setup + " "
         if cmd:
             cmd = cmd + " " + run_command
         else:

@@ -204,22 +204,28 @@ class Base(DictBase):
         """
         Run the function.
 
+        :returns: status, output, error
+
         :raise Exception.
         """
         try:
-            logging.info("func type: %s: %s" % (type(func), str(func)))
-            logging.info("pre_kwargs type: %s: %s" % (type(pre_kwargs), str(pre_kwargs)))
-            logging.info("args type: %s: %s" % (type(args), str(args)))
-            logging.info("kwargs type: %s: %s" % (type(kwargs), str(kwargs)))
+            logging.info(f"func type: {type(func)}: {str(func)}")
+            logging.info("pre_kwargs type: {type(pre_kwargs)}: {str(pre_kwargs)}")
+            logging.info("args type: {type(args)}: {str(args)}")
+            logging.info("kwargs type: {type(kwargs)}: {str(kwargs)}")
             kwargs_copy = copy.deepcopy(pre_kwargs)
             kwargs_copy.update(kwargs)
+            logging.info("start to run function: {str(func)}")
             if kwargs_copy:
-                return func(*args, **kwargs_copy)
+                ret = func(*args, **kwargs_copy)
             else:
-                return func(*args)
+                ret = func(*args)
+            logging.info(f"Successfully run function, ret: {ret}")
+            return True, ret, None
         except Exception as ex:
-            logging.error("Failed to run the function: %s" % str(ex))
+            logging.error("Failed to run the function: {str(ex)}")
             logging.error(traceback.format_exc())
+            return False, None, str(ex)
 
 
 class Context(DictBase):

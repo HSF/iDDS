@@ -11,7 +11,8 @@
 import traceback
 
 from idds.common import exceptions
-from idds.common.constants import ProcessingStatus, ProcessingLocking, ReturnCode
+from idds.common.constants import (ProcessingStatus, ProcessingLocking, ReturnCode,
+                                   Terminated_processing_status)
 from idds.common.utils import setup_logging, truncate_string
 from idds.core import processings as core_processings
 from idds.agents.common.baseagent import BaseAgent
@@ -197,7 +198,16 @@ class Trigger(Poller):
                 pr = self.get_processing(processing_id=event._processing_id, status=None, locking=True)
                 if not pr:
                     self.logger.warn("Cannot find processing for event: %s" % str(event))
-                    pro_ret = ReturnCode.Locked.value
+                    # pro_ret = ReturnCode.Locked.value
+                    pro_ret = ReturnCode.Ok.value
+                elif pr['status'] in Terminated_processing_status:
+                    parameters = {'locking': ProcessingLocking.Idle}
+                    update_processing = {'processing_id': pr['processing_id'],
+                                         'parameters': parameters}
+                    ret = {'update_processing': update_processing,
+                           'update_contents': []}
+                    self.update_processing(ret, pr)
+                    pro_ret = ReturnCode.Ok.value
                 else:
                     log_pre = self.get_log_prefix(pr)
                     self.logger.info(log_pre + "process_trigger_processing")

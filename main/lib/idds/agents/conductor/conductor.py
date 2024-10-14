@@ -40,7 +40,8 @@ class Conductor(BaseAgent):
 
     def __init__(self, num_threads=1, retrieve_bulk_size=200, threshold_to_release_messages=None,
                  random_delay=None, delay=300, interval_delay=10, max_retry_delay=3600,
-                 max_normal_retries=10, max_retries=30, replay_times=2, mode='multiple', **kwargs):
+                 max_normal_retries=10, max_retries=30, replay_times=2, mode='multiple',
+                 retry_executor_threads=4, queue_throller=30, **kwargs):
         super(Conductor, self).__init__(num_threads=num_threads, name='Conductor', **kwargs)
         self.config_section = Sections.Conductor
         self.retrieve_bulk_size = int(retrieve_bulk_size)
@@ -78,6 +79,11 @@ class Conductor(BaseAgent):
         self.selected = None
         self.selected_conductor = None
 
+        self.queue_throller = int(queue_throller)
+        self.retry_executor_threads = int(retry_executor_threads)
+        self.retry_executor_name = self.executor_name + "_Retry"
+        self.retry_executor = self.create_executors(self.retry_executor_name, max_workers=self.retry_executor_threads)
+
     def __del__(self):
         self.stop_notifier()
 
@@ -104,7 +110,7 @@ class Conductor(BaseAgent):
                                 priority=1)
         self.add_task(task)
 
-    def get_messages(self):
+    def get_new_messages(self):
         """
         Get messages
         """
@@ -120,7 +126,12 @@ class Conductor(BaseAgent):
         # self.logger.debug("Main thread get %s new messages" % len(messages))
         if messages:
             self.logger.info("Main thread get %s new messages" % len(messages))
+        return messages
 
+    def get_retry_messages(self):
+        """
+        Get messages
+        """
         # msg_type = [MessageType.StageInCollection, MessageType.StageInWork,
         #             MessageType.ActiveLearningCollection, MessageType.ActiveLearningWork,
         #             MessageType.HyperParameterOptCollection, MessageType.HyperParameterOptWork,
@@ -128,6 +139,7 @@ class Conductor(BaseAgent):
         #             MessageType.UnknownCollection, MessageType.UnknownWork]
 
         retry_messages = []
+        destination = [MessageDestination.Outside, MessageDestination.ContentExt, MessageDestination.AsyncResult]
         messages_d = core_messages.retrieve_messages(status=MessageStatus.Delivered,
                                                      min_request_id=BaseAgent.min_request_id,
                                                      use_poll_period=True,
@@ -137,7 +149,7 @@ class Conductor(BaseAgent):
             self.logger.info("Main thread get %s retries messages" % len(messages_d))
             retry_messages += messages_d
 
-        return messages + retry_messages
+        return retry_messages
 
     def clean_messages(self, msgs, confirm=False):
         # core_messages.delete_messages(msgs)
@@ -253,6 +265,25 @@ class Conductor(BaseAgent):
                 return False
         return False
 
+    def process_messages(self, messages):
+        try:
+            to_discard_messages = []
+            for message in messages:
+                message['destination'] = message['destination'].name
+                message['from_idds'] = True
+
+                # num_contents += message['num_contents']
+                if self.is_message_processed(message):
+                    self.logger.debug("message (msg_id: %s) is already processed, not resend it again" % message['msg_id'])
+                    to_discard_messages.append(message)
+                else:
+                    self.message_queue.put(message)
+            if to_discard_messages:
+                self.clean_messages(to_discard_messages, confirm=True)
+        except Exception as ex:
+            self.logger.error(f"Failed to process messages: {ex}")
+            self.logger.error(traceback.format_exc())
+
     def run(self):
         """
         Main run function.
@@ -277,30 +308,27 @@ class Conductor(BaseAgent):
                 self.execute_schedules()
 
                 try:
-                    num_contents = 0
+                    # num_contents = 0
                     if self.is_selected():
-                        messages = self.get_messages()
-                        if not messages:
-                            time.sleep(self.interval_delay)
+                        new_messages = []
+                        retry_messages = []
+                        new_messages = self.get_new_messages()
+                        if new_messages:
+                            self.process_messages(new_messages)
+
+                        if self.retry_executor.has_free_workers():
+                            retry_messages = self.get_retry_messages()
+                            if retry_messages:
+                                self.retry_executor.submit(self.process_messages, retry_messages)
                     else:
-                        messages = []
+                        new_messages = []
+                        retry_messages = []
 
-                    to_discard_messages = []
-                    for message in messages:
-                        message['destination'] = message['destination'].name
-                        message['from_idds'] = True
-
-                        num_contents += message['num_contents']
-                        if self.is_message_processed(message):
-                            self.logger.debug("message (msg_id: %s) is already processed, not resend it again" % message['msg_id'])
-                            to_discard_messages.append(message)
-                        else:
-                            self.message_queue.put(message)
-                    if to_discard_messages:
-                        self.clean_messages(to_discard_messages, confirm=True)
-
-                    while not self.message_queue.empty():
+                    while self.message_queue.qsize() > self.queue_throller:
                         time.sleep(1)
+                        output_messages = self.get_output_messages()
+                        self.clean_messages(output_messages)
+
                     output_messages = self.get_output_messages()
                     self.clean_messages(output_messages)
                 except IDDSException as error:
