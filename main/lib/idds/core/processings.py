@@ -114,13 +114,28 @@ def get_processings_by_transform_id(transform_id=None, to_json=False, session=No
 
 
 @transactional_session
-def get_processing_by_id_status(processing_id, status=None, locking=False, session=None):
-    pr = orm_processings.get_processing_by_id_status(processing_id=processing_id, status=status, locking=locking, session=session)
-    if pr is not None and locking:
-        parameters = {}
-        parameters['locking'] = ProcessingLocking.Locking
-        parameters['updated_at'] = datetime.datetime.utcnow()
-        orm_processings.update_processing(processing_id=pr['processing_id'], parameters=parameters, session=session)
+def get_processing_by_id_status(processing_id, status=None, locking=False, lock_period=None, session=None):
+    # pr = orm_processings.get_processing_by_id_status(processing_id=processing_id, status=status, locking=locking, session=session)
+    pr = orm_processings.get_processing_by_id_status(processing_id=processing_id, status=status, session=session)
+    if pr is None:
+        return pr
+
+    if locking:
+        if pr['locking'] in [ProcessingLocking.Locking]:
+            if lock_period and pr['updated_at'] < datetime.datetime.utcnow() - datetime.timedelta(seconds=lock_period):
+                parameters = {}
+                parameters['locking'] = ProcessingLocking.Locking
+                parameters['updated_at'] = datetime.datetime.utcnow()
+                orm_processings.update_processing(processing_id=pr['processing_id'], parameters=parameters, session=session)
+                return pr
+            else:
+                return None
+        else:
+            parameters = {}
+            parameters['locking'] = ProcessingLocking.Locking
+            parameters['updated_at'] = datetime.datetime.utcnow()
+            orm_processings.update_processing(processing_id=pr['processing_id'], parameters=parameters, session=session)
+            return pr
     return pr
 
 
