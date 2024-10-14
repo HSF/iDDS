@@ -8,6 +8,7 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2023 - 2024
 
+import atexit
 import logging
 import os
 import random
@@ -27,7 +28,7 @@ except Exception as ex:
     with_stomp = False
 
 from idds.common.constants import WorkflowType, GracefulEvent
-from idds.common.utils import json_dumps, json_loads, setup_logging, get_unique_id_for_dict
+from idds.common.utils import json_dumps, json_loads, setup_logging, get_unique_id_for_dict, timeout_wrapper, is_panda_client_verbose
 from .base import Base
 
 
@@ -158,8 +159,11 @@ class AsyncResult(Base):
             self.internal_id = internal_id
         self._work_context = work_context
         try:
-            self._work_context.init_brokers()
-            self._broker_initialized = True
+            ret = self._work_context.init_brokers()
+            if ret:
+                self._broker_initialized = True
+            else:
+                self._broker_initialized = False
         except Exception as ex:
             logging.warn(f"{self.internal_id} Failed to initialize messaging broker, will use Rest: {ex}")
             self._broker_initialized = False
@@ -327,10 +331,19 @@ class AsyncResult(Base):
             self.logger.debug(f"{self.internal_id} wait_keys: {self.wait_keys}, wait_num: {self._wait_num}")
 
         rets_dict = {}
+        failure_dict = {}
         for result in self._results:
             key = result['key']
             ret = result['ret']
-            rets_dict[key] = ret
+            status, output, error = ret
+            if status is True:
+                rets_dict[key] = output
+            else:
+                if key not in failure_dict:
+                    failure_dict[key] = []
+                failure_dict[key].append(ret)
+        if not self._nologs:
+            self.logger.debug(f"{self.internal_id} rets_dict: {rets_dict}, failure_dict: {failure_dict}")
 
         if self._map_results:
             rets = {}
@@ -451,17 +464,20 @@ class AsyncResult(Base):
         conns = []
 
         broker_addresses = []
-        for b in brokers.split(","):
-            try:
-                b, port = b.split(":")
+        if not brokers:
+            raise Exception(f"brokers <{brokers}> not defined")
+        else:
+            for b in brokers.split(","):
+                try:
+                    b, port = b.split(":")
 
-                addrinfos = socket.getaddrinfo(b, 0, socket.AF_INET, 0, socket.IPPROTO_TCP)
-                for addrinfo in addrinfos:
-                    b_addr = addrinfo[4][0]
-                    broker_addresses.append((b_addr, port))
-            except socket.gaierror as error:
-                self.logger.error(f'{self.internal_id} Cannot resolve hostname {b}: {error}')
-                self._graceful_stop.set()
+                    addrinfos = socket.getaddrinfo(b, 0, socket.AF_INET, 0, socket.IPPROTO_TCP)
+                    for addrinfo in addrinfos:
+                        b_addr = addrinfo[4][0]
+                        broker_addresses.append((b_addr, port))
+                except socket.gaierror as error:
+                    self.logger.error(f'{self.internal_id} Cannot resolve hostname {b}: {error}')
+                    # self._graceful_stop.set()
 
         self.logger.info(f"{self.internal_id} Resolved broker addresses: {broker_addresses}")
 
@@ -583,6 +599,7 @@ class AsyncResult(Base):
         client = idds_api.get_api(idds_utils.json_dumps,
                                   idds_host=idds_server,
                                   compress=True,
+                                  verbose=is_panda_client_verbose(),
                                   manager=True)
         status, ret = client.send_messages(request_id=request_id, transform_id=transform_id, internal_id=internal_id, msgs=[message])
         if status == 0 and type(ret) in (list, tuple) and len(ret) > 1 and ret[0] is True and type(ret[1]) in (list, tuple) and ret[1][0] is True:
@@ -592,7 +609,7 @@ class AsyncResult(Base):
 
     def publish_through_idds_server(self, request_id, transform_id, internal_id, message):
         from idds.client.clientmanager import ClientManager
-        client = ClientManager(host=self._work_context.get_idds_server())
+        client = ClientManager(host=self._work_context.get_idds_server(), timeout=60)
         status, ret = client.send_messages(request_id=request_id, transform_id=transform_id, internal_id=internal_id, msgs=[message])
         if status:
             self.logger.info(f"{self.internal_id} published message through idds server: {message}")
@@ -621,19 +638,22 @@ class AsyncResult(Base):
         except Exception as ex:
             self.logger.error(f"{self.internal_id} Failed to publish message through API: {ex}")
 
-    def publish(self, ret, key=None, force=False):
+    @timeout_wrapper(timeout=90)
+    def publish(self, ret, key=None, force=False, ret_status=True, ret_error=None):
         stomp_failed = False
         if with_stomp and self._broker_initialized:
             try:
                 self.logger.info(f"{self.internal_id} publishing results through messaging brokers")
-                self.publish_message(ret=ret, key=key)
+                self.publish_message(ret=(ret_status, ret, ret_error), key=key)
+                self.logger.info(f"{self.internal_id} finished to publish results through messaging brokers")
             except Exception as ex:
                 self.logger.warn(f"{self.internal_id} Failed to publish result through messaging brokers: {ex}")
                 stomp_failed = True
 
         if not with_stomp or not self._broker_initialized or stomp_failed:
             self.logger.info(f"{self.internal_id} publishing results through http API")
-            self.publish_through_api(ret=ret, key=key, force=force)
+            self.publish_through_api(ret=(ret_status, ret, ret_error), key=key, force=force)
+            self.logger.info(f"{self.internal_id} finished to publish results through http API")
 
     def poll_messages_through_panda_server(self, request_id, transform_id, internal_id):
         if request_id is None:
@@ -647,6 +667,7 @@ class AsyncResult(Base):
         client = idds_api.get_api(idds_utils.json_dumps,
                                   idds_host=idds_server,
                                   compress=True,
+                                  verbose=is_panda_client_verbose(),
                                   manager=True)
         status, ret = client.get_messages(request_id=request_id, transform_id=transform_id, internal_id=internal_id)
         if status == 0 and type(ret) in (list, tuple) and len(ret) > 1 and ret[0] is True and type(ret[1]) in (list, tuple) and ret[1][0] is True:
@@ -664,7 +685,7 @@ class AsyncResult(Base):
             return []
 
         from idds.client.clientmanager import ClientManager
-        client = ClientManager(host=self._work_context.get_idds_server())
+        client = ClientManager(host=self._work_context.get_idds_server(), timeout=60)
         status, messages = client.get_messages(request_id=request_id, transform_id=transform_id, internal_id=internal_id)
         if status:
             self.logger.info(f"{self.internal_id} poll message through panda server, ret: {messages}")
@@ -674,6 +695,7 @@ class AsyncResult(Base):
             self.logger.error(f"{self.internal_id} failed to poll messages through idds server, error: {messages}")
             return []
 
+    @timeout_wrapper(timeout=90)
     def poll_messages(self, force=False):
         try:
             request_id, transform_id, internal_id = self.get_request_id_internal_id()
@@ -716,7 +738,13 @@ class AsyncResult(Base):
                         if not conn.is_connected():
                             has_failed_conns = True
                     if has_failed_conns:
-                        self.subscribe_to_messaging_brokers(force=True)
+                        try:
+                            self.subscribe_to_messaging_brokers(force=True)
+                        except Exception as ex:
+                            self.logger.warn(f"{self.internal_id} run subscriber fails to subscribe to message broker: {ex}")
+                            self._num_stomp_failures += 1
+                            self._is_messaging_ok = False
+                            self._broker_initialized = False
                     time.sleep(1)
                 else:
                     if self._timeout:
@@ -725,7 +753,10 @@ class AsyncResult(Base):
                         sleep_time = self._poll_period
 
                     if time_poll is None or time.time() - time_poll > sleep_time:
-                        self.poll_messages(force=force)
+                        try:
+                            self.poll_messages(force=force)
+                        except Exception as ex:
+                            self.logger.info(f"{self.internal_id} run subscriber fails to poll messages: {ex}")
                         time_poll = time.time()
                     time.sleep(1)
 
@@ -736,7 +767,11 @@ class AsyncResult(Base):
             if self._graceful_stop and self._graceful_stop.is_set():
                 self.logger.info(f"{self.internal_id} graceful stop is set")
 
-            self.poll_messages(force=force)
+            try:
+                self.poll_messages(force=force)
+            except Exception as ex:
+                self.logger.info(f"{self.internal_id} run subscriber fails to poll messages: {ex}")
+
             self._is_stop = True
             self.stop()
             self.logger.info(f"{self.internal_id} subscriber finished.")
@@ -765,6 +800,8 @@ class AsyncResult(Base):
 
     def subscribe(self, force=False):
         if not self._subscribed:
+            atexit.register(self.stop)
+
             self._graceful_stop = GracefulEvent()
             thread = threading.Thread(target=self.run_subscriber, kwargs={'force': force}, name="RunSubscriber")
             thread.start()
@@ -777,11 +814,14 @@ class AsyncResult(Base):
             self._graceful_stop.set()
         self.disconnect()
         self._subscribed = False
-        while not self._is_stop:
+        time_start = time.time()
+        while not self._is_stop and time.time() - time_start < 60:
             time.sleep(1)
+        self._is_stop = True
 
     def __del__(self):
-        self.stop()
+        # self.stop()
+        pass
 
     def wait_results(self, timeout=None, force_return_results=False):
         self.subscribe()
