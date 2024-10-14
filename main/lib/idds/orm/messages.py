@@ -176,7 +176,8 @@ def retrieve_messages(bulk_size=1000, msg_type=None, status=None, source=None,
             query = query.filter_by(request_id=request_id)
         else:
             if min_request_id:
-                query = query.filter(models.Message.request_id >= min_request_id)
+                query = query.filter(or_(models.Message.request_id >= min_request_id,
+                                         models.Message.request_id.is_(None)))
         if workload_id is not None:
             query = query.filter_by(workload_id=workload_id)
         if transform_id is not None:

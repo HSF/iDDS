@@ -15,7 +15,7 @@ try:
 except ImportError:
     import configparser as ConfigParser
 
-import concurrent
+import concurrent.futures
 import datetime
 import os
 import time

@@ -15,7 +15,8 @@ import traceback
 
 from idds.common import exceptions
 from idds.common.constants import (Sections, ReturnCode, ProcessingType,
-                                   ProcessingStatus, ProcessingLocking)
+                                   ProcessingStatus, ProcessingLocking,
+                                   Terminated_processing_status)
 from idds.common.utils import setup_logging, truncate_string, json_dumps
 from idds.core import processings as core_processings
 from idds.agents.common.baseagent import BaseAgent
@@ -37,7 +38,7 @@ class Poller(BaseAgent):
     """
 
     def __init__(self, num_threads=1, max_number_workers=3, poll_period=10, retries=3, retrieve_bulk_size=2,
-                 max_updates_per_round=2000, name='Poller', message_bulk_size=1000, **kwargs):
+                 max_updates_per_round=2000, name='Poller', message_bulk_size=1000, locking_period=1800, **kwargs):
         self.max_number_workers = max_number_workers
         if int(num_threads) < int(self.max_number_workers):
             num_threads = int(self.max_number_workers)
@@ -47,6 +48,7 @@ class Poller(BaseAgent):
         super(Poller, self).__init__(num_threads=num_threads, name=name, **kwargs)
         self.config_section = Sections.Carrier
         self.poll_period = int(poll_period)
+        self.locking_period = int(locking_period)
         self.retries = int(retries)
         self.retrieve_bulk_size = int(retrieve_bulk_size)
         self.message_bulk_size = int(message_bulk_size)
@@ -101,6 +103,8 @@ class Poller(BaseAgent):
 
         self.extra_executors = None
 
+        self._running_processing_status = None
+
     def get_extra_executors(self):
         if self.enable_executors:
             if self.extra_executors is None:
@@ -150,6 +154,8 @@ class Poller(BaseAgent):
                                  ProcessingStatus.ToResume, ProcessingStatus.Resuming,
                                  ProcessingStatus.ToExpire, ProcessingStatus.Expiring,
                                  ProcessingStatus.ToFinish, ProcessingStatus.ToForceFinish]
+            self._running_processing_status = processing_status
+
             # next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_period)
             processings = core_processings.get_processings_by_status(status=processing_status,
                                                                      locking=True, update_poll=True,
@@ -181,7 +187,10 @@ class Poller(BaseAgent):
 
     def get_processing(self, processing_id, status=None, locking=False):
         try:
-            return core_processings.get_processing_by_id_status(processing_id=processing_id, status=status, locking=locking)
+            return core_processings.get_processing_by_id_status(processing_id=processing_id,
+                                                                status=status,
+                                                                locking=locking,
+                                                                lock_period=self.locking_period)
         except exceptions.DatabaseException as ex:
             if 'ORA-00060' in str(ex):
                 self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
@@ -268,21 +277,20 @@ class Poller(BaseAgent):
                                                                     use_bulk_update_mappings=use_bulk_update_mappings)
                     except exceptions.DatabaseException as ex:
                         if 'ORA-00060' in str(ex):
-                            self.logger.warn(log_prefix + "(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
-                            if retry_num < 5:
-                                retry = True
-                                if retry_num <= 1:
-                                    random_sleep = random.randint(1, 10)
-                                elif retry_num <= 2:
-                                    random_sleep = random.randint(1, 60)
-                                else:
-                                    random_sleep = random.randint(1, 120)
-                                time.sleep(random_sleep)
-                            else:
-                                raise ex
+                            self.logger.warn(log_prefix + "update_processing (cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
                         else:
-                            # self.logger.error(ex)
-                            # self.logger.error(traceback.format_exc())
+                            self.logger.error(ex)
+                            self.logger.error(traceback.format_exc())
+                        if retry_num < 5:
+                            retry = True
+                            if retry_num <= 1:
+                                random_sleep = random.randint(1, 10)
+                            elif retry_num <= 2:
+                                random_sleep = random.randint(1, 60)
+                            else:
+                                random_sleep = random.randint(1, 120)
+                            time.sleep(random_sleep)
+                        else:
                             raise ex
         except Exception as ex:
             self.logger.error(ex)
@@ -539,7 +547,16 @@ class Poller(BaseAgent):
                 pr = self.get_processing(processing_id=event._processing_id, status=None, locking=True)
                 if not pr:
                     self.logger.warn("Cannot find processing for event: %s" % str(event))
-                    pro_ret = ReturnCode.Locked.value
+                    # pro_ret = ReturnCode.Locked.value
+                    pro_ret = ReturnCode.Ok.value
+                elif pr['status'] in Terminated_processing_status:
+                    parameters = {'locking': ProcessingLocking.Idle}
+                    update_processing = {'processing_id': pr['processing_id'],
+                                         'parameters': parameters}
+                    ret = {'update_processing': update_processing,
+                           'update_contents': []}
+                    self.update_processing(ret, pr)
+                    pro_ret = ReturnCode.Ok.value
                 else:
                     log_pre = self.get_log_prefix(pr)
 
@@ -585,7 +602,7 @@ class Poller(BaseAgent):
 
     def clean_locks(self):
         self.logger.info("clean locking")
-        core_processings.clean_locking()
+        core_processings.clean_locking(time_period=self.locking_period)
 
     def init_event_function_map(self):
         self.event_func_map = {

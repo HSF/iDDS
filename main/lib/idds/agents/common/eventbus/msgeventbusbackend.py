@@ -230,7 +230,7 @@ class MsgEventBusBackend(BaseEventBusBackend):
 
     def __init__(self, logger=None, coordinator_port=5556, socket_timeout=10, debug=False,
                  timeout_threshold=5, failure_threshold=5, failure_timeout=180,
-                 num_of_set_failed_at_threshold=10, **kwargs):
+                 num_of_set_failed_at_threshold=10, connection_retries=3, **kwargs):
         super(MsgEventBusBackend, self).__init__()
         self._id = str(uuid.uuid4())[:8]
         self._state_claim_wait = 60
@@ -246,6 +246,7 @@ class MsgEventBusBackend(BaseEventBusBackend):
         self._password = ''.join(random.choice(string.ascii_uppercase + string.ascii_lowercase + string.digits) for _ in range(20))
 
         self._is_ok = True
+        self._is_bad = False
         self._failed_at = None
         self._failure_timeout = int(failure_timeout)
         self._num_of_set_failed_at = 0
@@ -274,6 +275,8 @@ class MsgEventBusBackend(BaseEventBusBackend):
 
         self.debug = debug
 
+        self.connection_retries = connection_retries
+
         self.init_msg_channel()
 
     def setup_logger(self, logger=None):
@@ -297,56 +300,71 @@ class MsgEventBusBackend(BaseEventBusBackend):
 
     def init_msg_channel(self):
         with self._lock:
-            try:
-                if not self.context:
-                    self.context = zmq.Context()
-                    if self.auth:
-                        self.auth.stop()
+            for i in range(self.connection_retries):
+                try:
+                    if not self.context:
+                        self.context = zmq.Context()
+                        if self.auth:
+                            self.auth.stop()
 
-                    self.auth = ThreadAuthenticator(self.context)
-                    self.auth.start()
-                    # self.auth.allow('127.0.0.1')
-                    self.auth.allow()
-                    # Instruct authenticator to handle PLAIN requests
-                    self.auth.configure_plain(domain='*', passwords={self._username: self._password})
+                        self.auth = ThreadAuthenticator(self.context)
+                        self.auth.start()
+                        # self.auth.allow('127.0.0.1')
+                        self.auth.allow()
+                        # Instruct authenticator to handle PLAIN requests
+                        self.auth.configure_plain(domain='*', passwords={self._username: self._password})
 
-                if not self.coordinator_socket or self.coordinator_socket.closed:
-                    self.coordinator_socket = self.context.socket(zmq.REP)
-                    self.coordinator_socket.plain_server = True
-                    self.coordinator_socket.bind("tcp://*:%s" % self.coordinator_port)
+                    if not self.coordinator_socket or self.coordinator_socket.closed:
+                        self.coordinator_socket = self.context.socket(zmq.REP)
+                        self.coordinator_socket.plain_server = True
+                        self.coordinator_socket.bind("tcp://*:%s" % self.coordinator_port)
 
-                    hostname = socket.getfqdn()
-                    self.coordinator_con_string = "tcp://%s:%s" % (hostname, self.coordinator_port)
+                        hostname = socket.getfqdn()
+                        self.coordinator_con_string = "tcp://%s:%s" % (hostname, self.coordinator_port)
 
-                    if self.processor:
-                        self.processor.stop()
+                        if self.processor:
+                            self.processor.stop()
 
-                    self.processor = MsgEventBusBackendReceiver(logger=self.logger,
-                                                                graceful_stop=self.graceful_stop,
-                                                                debug=self.debug,
-                                                                coordinator_socket=self.coordinator_socket,
-                                                                coordinator=self.coordinator)
-                    self.processor.start()
-            except (zmq.error.ZMQError, zmq.Again) as error:
-                self.logger.critical("Caught an exception: %s\n%s" % (str(error), traceback.format_exc()))
-                self.num_failures += 1
-            except Exception as error:
-                self.logger.critical("Caught an exception: %s\n%s" % (str(error), traceback.format_exc()))
-                self.num_failures += 1
+                        self.processor = MsgEventBusBackendReceiver(logger=self.logger,
+                                                                    graceful_stop=self.graceful_stop,
+                                                                    debug=self.debug,
+                                                                    coordinator_socket=self.coordinator_socket,
+                                                                    coordinator=self.coordinator)
+                        self.processor.start()
+
+                    self._is_bad = False
+                    # break from the loop
+                    break
+                except (zmq.error.ZMQError, zmq.Again) as error:
+                    self.logger.critical("Caught an exception: %s\n%s" % (str(error), traceback.format_exc()))
+                    self.num_failures += 1
+                    self._is_bad = True
+                    if 'Address already in use' in str(error):
+                        self.coordinator_port = self.coordinator_port + random.randint(1, 100)
+                        self.logger.info(f"Address already in use, switch to new port: {self.coordinator_port}")
+                except Exception as error:
+                    self.logger.critical("Caught an exception: %s\n%s" % (str(error), traceback.format_exc()))
+                    self.num_failures += 1
+                    self._is_bad = True
 
             try:
                 if not self.manager_socket or self.manager_socket.closed:
                     manager = self.get_manager()
-                    self.manager_socket = self.context.socket(zmq.REQ)
-                    self.manager_socket.plain_username = manager['username'].encode('utf-8')
-                    self.manager_socket.plain_password = manager['password'].encode('utf-8')
-                    self.manager_socket.connect(manager['connect'])
+                    if manager['username'] and manager['password'] and manager['connect']:
+                        self.manager_socket = self.context.socket(zmq.REQ)
+                        self.manager_socket.plain_username = manager['username'].encode('utf-8')
+                        self.manager_socket.plain_password = manager['password'].encode('utf-8')
+                        self.manager_socket.connect(manager['connect'])
+                    else:
+                        self._is_bad = True
             except (zmq.error.ZMQError, zmq.Again) as error:
                 self.logger.critical("Caught an exception: %s\n%s" % (str(error), traceback.format_exc()))
                 self.num_failures += 1
+                self._is_bad = True
             except Exception as error:
                 self.logger.critical("Caught an exception: %s\n%s" % (str(error), traceback.format_exc()))
                 self.num_failures += 1
+                self._is_bad = True
 
     def set_manager(self, manager):
         if not manager:
@@ -371,13 +389,22 @@ class MsgEventBusBackend(BaseEventBusBackend):
                         self.num_failures += 1
 
     def get_manager(self, myself=False):
-        if not myself:
-            if (self.manager and self.manager['connect'] and self.manager['username'] and self.manager['password']):
-                return self.manager
-        manager = {'connect': self.coordinator_con_string,
-                   'username': self._username,
-                   'password': self._password}
-        return manager
+        if myself:
+            if self.coordinator_con_string and self._username and self._password:
+                manager = {'connect': self.coordinator_con_string,
+                           'username': self._username,
+                           'password': self._password}
+                return manager
+
+        if (self.manager and self.manager['connect'] and self.manager['username'] and self.manager['password']):
+            return self.manager
+
+        if self.coordinator_con_string and self._username and self._password:
+            manager = {'connect': self.coordinator_con_string,
+                       'username': self._username,
+                       'password': self._password}
+            return manager
+        return None
 
     def set_coordinator(self, coordinator):
         self.coordinator = coordinator
@@ -536,7 +563,9 @@ class MsgEventBusBackend(BaseEventBusBackend):
         pass
 
     def is_ok(self):
-        if self._num_of_set_failed_at < self._num_of_set_failed_at_threshold and self._failed_at and self._failed_at + self._failure_timeout < time.time():
+        if self._is_bad:
+            self._is_ok = False
+        elif self._num_of_set_failed_at < self._num_of_set_failed_at_threshold and self._failed_at and self._failed_at + self._failure_timeout < time.time():
             self._is_ok = True
             self._failed_at = None
             self.num_failures = 0
