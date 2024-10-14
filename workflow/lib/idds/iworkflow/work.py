@@ -24,7 +24,7 @@ import zlib
 from idds.common import exceptions
 from idds.common.constants import WorkflowType, TransformStatus, AsyncResultStatus
 from idds.common.imports import get_func_name
-from idds.common.utils import setup_logging, json_dumps, json_loads, encode_base64, modified_environ
+from idds.common.utils import setup_logging, json_dumps, json_loads, encode_base64, modified_environ, is_panda_client_verbose
 from .asyncresult import AsyncResult, MapResult
 from .base import Base, Context
 from .workflow import WorkflowCanvas
@@ -53,7 +53,7 @@ class WorkContext(Context):
 
         self._map_results = False
 
-        self._init_env = init_env
+        self.init_env = init_env
 
     def get_service(self):
         return self._workflow_context.service
@@ -319,7 +319,7 @@ class WorkContext(Context):
         return self._workflow_context.get_idds_server()
 
     def init_brokers(self):
-        self._workflow_context.init_brokers()
+        return self._workflow_context.init_brokers()
 
     def initialize(self):
         return self._workflow_context.initialize()
@@ -659,7 +659,7 @@ class Work(Base):
         """
         # iDDS ClientManager
         from idds.client.clientmanager import ClientManager
-        client = ClientManager(host=self._context.get_idds_server())
+        client = ClientManager(host=self._context.get_idds_server(), timeout=60)
         request_id = self._context.request_id
         transform_id = client.submit_work(request_id, self, use_dataset_name=False)
         logging.info("Submitted into iDDS with transform id=%s", str(transform_id))
@@ -679,6 +679,7 @@ class Work(Base):
         client = idds_api.get_api(idds_utils.json_dumps,
                                   idds_host=idds_server,
                                   compress=True,
+                                  verbose=is_panda_client_verbose(),
                                   manager=True)
         ret = client.submit_work(request_id, self, use_dataset_name=False)
         if ret[0] == 0 and ret[1][0]:
@@ -722,6 +723,7 @@ class Work(Base):
         client = idds_api.get_api(idds_utils.json_dumps,
                                   idds_host=idds_server,
                                   compress=True,
+                                  verbose=is_panda_client_verbose(),
                                   manager=True)
 
         request_id = self._context.request_id
@@ -756,7 +758,7 @@ class Work(Base):
 
     def get_status_from_idds_server(self):
         from idds.client.clientmanager import ClientManager
-        client = ClientManager(host=self._context.get_idds_server())
+        client = ClientManager(host=self._context.get_idds_server(), timeout=60)
 
         request_id = self._context.request_id
         transform_id = self._context.transform_id
@@ -954,16 +956,39 @@ class Work(Base):
 
     def pre_run(self):
         # test AsyncResult
-        workflow_context = self._context
-        if workflow_context.distributed:
-            logging.info("Test AsyncResult")
-            a_ret = AsyncResult(workflow_context, wait_num=1, timeout=30)
-            ret = a_ret.is_ok()
-            logging.info(f"pre_run asyncresult test is_ok: {ret}")
-            return ret
-        return True
+        a_ret = None
+        try:
+            workflow_context = self._context
+            if workflow_context.distributed:
+                logging.info("Test AsyncResult")
+                a_ret = AsyncResult(workflow_context, wait_num=1, timeout=30)
+                ret = a_ret.is_ok()
+                a_ret.stop()
+                logging.info(f"pre_run asyncresult test is_ok: {ret}")
+                return ret
+            return True
+        except Exception as ex:
+            logging.error(f"pre_run failed with error: {ex}")
+            logging.error(traceback.format_exc())
+        if a_ret:
+            a_ret.stop()
+        return False
 
     def run(self):
+        logging.info("Start work run().")
+        ret = None
+        try:
+            ret = self.run_local()
+        except Exception as ex:
+            logging.error(f"Failed to run function: {ex}")
+            logging.error(traceback.format_exc())
+        except:
+            logging.error("Unknow error")
+            logging.error(traceback.format_exc())
+        logging.info("finish work run().")
+        return ret
+
+    def run_local(self):
         """
         Run the work.
         """
@@ -1001,13 +1026,13 @@ class Work(Base):
             elif current_job_kwargs and type(current_job_kwargs) in [tuple, list]:
                 args_copy = copy.deepcopy(current_job_kwargs)
 
-            rets = self.run_func(self._func, pre_kwargs_copy, args_copy, kwargs_copy)
+            ret_status, ret_output, ret_err = self.run_func(self._func, pre_kwargs_copy, args_copy, kwargs_copy)
 
             request_id = self._context.request_id
             transform_id = self._context.transform_id
             logging.info("publishing AsyncResult to (request_id: %s, transform_id: %s): %s" % (request_id, transform_id, rets))
             async_ret = AsyncResult(self._context, name=self.get_func_name(), internal_id=self.internal_id, current_job_kwargs=current_job_kwargs)
-            async_ret.publish(rets)
+            async_ret.publish(ret_output, ret_status=ret_status, ret_error=ret_err)
 
             if not self.map_results:
                 self._results = rets
@@ -1017,7 +1042,7 @@ class Work(Base):
             return self._results
         else:
             if not multi_jobs_kwargs_list:
-                rets = self.run_func(self._func, pre_kwargs, args, kwargs)
+                ret_status, rets, ret_err = self.run_func(self._func, pre_kwargs, args, kwargs)
                 if not self.map_results:
                     self._results = rets
                 else:
@@ -1036,7 +1061,7 @@ class Work(Base):
                         elif type(one_job_kwargs) in [tuple, list]:
                             args_copy = copy.deepcopy(one_job_kwargs)
 
-                        rets = self.run_func(self._func, pre_kwargs_copy, args_copy, kwargs_copy)
+                        ret_status, rets, ret_error = self.run_func(self._func, pre_kwargs_copy, args_copy, kwargs_copy)
                         self._results.append(rets)
                 else:
                     self._results = MapResult()
@@ -1049,7 +1074,7 @@ class Work(Base):
                         elif type(one_job_kwargs) in [tuple, list]:
                             args_copy = copy.deepcopy(one_job_kwargs)
 
-                        rets = self.run_func(self._func, pre_kwargs_copy, args_copy, kwargs_copy)
+                        ret_status, rets, ret_error = self.run_func(self._func, pre_kwargs_copy, args_copy, kwargs_copy)
                         self._results.add_result(name=self.get_func_name(), args=one_job_kwargs, result=rets)
                 return self._results
 
@@ -1085,8 +1110,8 @@ class Work(Base):
             pre_setup = encode_base64(json_dumps(pre_setup))
             main_setup = encode_base64(json_dumps(main_setup))
             if pre_setup:
-                cmd = ' --pre_setup "' + pre_setup + '" '
-            cmd = cmd + ' --setup "' + main_setup + '" '
+                cmd = " --pre_setup " + pre_setup + " "
+            cmd = cmd + " --setup " + main_setup + " "
         if cmd:
             cmd = cmd + " " + run_command
         else:
