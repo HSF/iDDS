@@ -20,6 +20,7 @@ import logging
 
 from idds.common.constants import (TransformStatus, ContentRelationType, ContentStatus,
                                    TransformLocking, CollectionRelationType)
+from idds.common.utils import get_process_thread_info
 from idds.orm.base.session import read_session, transactional_session
 from idds.orm import (transforms as orm_transforms,
                       collections as orm_collections,
@@ -103,6 +104,11 @@ def get_transform_by_id_status(transform_id, status=None, locking=False, session
         parameters = {}
         parameters['locking'] = TransformLocking.Locking
         parameters['updated_at'] = datetime.datetime.utcnow()
+        hostname, pid, thread_id, thread_name = get_process_thread_info()
+        parameters['locking_hostname'] = hostname
+        parameters['locking_pid'] = pid
+        parameters['locking_thread_id'] = thread_id
+        parameters['locking_thread_name'] = thread_name
         orm_transforms.update_transform(transform_id=tf['transform_id'], parameters=parameters, session=session)
     return tf
 
