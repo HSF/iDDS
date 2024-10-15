@@ -23,9 +23,11 @@ import os
 import re
 import requests
 import signal
+import socket
 import subprocess
 import sys
 import tarfile
+import threading
 import time
 # import traceback
 
@@ -1067,3 +1069,16 @@ def timeout_wrapper(timeout, retries=1):
             return TimeoutError(f"Function '{func.__name__}' timed out after {timeout} seconds.")
         return wrapper
     return decorator
+
+
+def get_process_thread_info():
+    """
+    Returns: hostname, process id, thread id and thread name
+    """
+    hostname = socket.getfqdn()
+    hostname = hostname.split('.')[0]
+    pid = os.getpid()
+    hb_thread = threading.current_thread()
+    thread_id = hb_thread.ident
+    thread_name = hb_thread.name
+    return hostname, pid, thread_id, thread_name

@@ -17,7 +17,7 @@ import datetime
 
 from idds.orm.base.session import read_session, transactional_session
 from idds.common.constants import ProcessingLocking, ProcessingStatus, ProcessingType, GranularityType, ContentRelationType
-from idds.common.utils import get_list_chunks
+from idds.common.utils import get_list_chunks, get_process_thread_info
 from idds.orm import (processings as orm_processings,
                       collections as orm_collections,
                       contents as orm_contents,
@@ -126,6 +126,11 @@ def get_processing_by_id_status(processing_id, status=None, locking=False, lock_
                 parameters = {}
                 parameters['locking'] = ProcessingLocking.Locking
                 parameters['updated_at'] = datetime.datetime.utcnow()
+                hostname, pid, thread_id, thread_name = get_process_thread_info()
+                parameters['locking_hostname'] = hostname
+                parameters['locking_pid'] = pid
+                parameters['locking_thread_id'] = thread_id
+                parameters['locking_thread_name'] = thread_name
                 orm_processings.update_processing(processing_id=pr['processing_id'], parameters=parameters, session=session)
                 return pr
             else:
@@ -134,6 +139,11 @@ def get_processing_by_id_status(processing_id, status=None, locking=False, lock_
             parameters = {}
             parameters['locking'] = ProcessingLocking.Locking
             parameters['updated_at'] = datetime.datetime.utcnow()
+            hostname, pid, thread_id, thread_name = get_process_thread_info()
+            parameters['locking_hostname'] = hostname
+            parameters['locking_pid'] = pid
+            parameters['locking_thread_id'] = thread_id
+            parameters['locking_thread_name'] = thread_name
             orm_processings.update_processing(processing_id=pr['processing_id'], parameters=parameters, session=session)
             return pr
     return pr

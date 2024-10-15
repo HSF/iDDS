@@ -19,6 +19,7 @@ import datetime
 from idds.common.constants import (RequestStatus, RequestLocking, WorkStatus,
                                    CollectionType, CollectionStatus, CollectionRelationType,
                                    MessageStatus, MetaStatus)
+from idds.common.utils import get_process_thread_info
 from idds.orm.base.session import read_session, transactional_session
 from idds.orm import requests as orm_requests
 from idds.orm import transforms as orm_transforms
@@ -178,6 +179,11 @@ def get_request_by_id_status(request_id, status=None, locking=False, session=Non
         parameters = {}
         parameters['locking'] = RequestLocking.Locking
         parameters['updated_at'] = datetime.datetime.utcnow()
+        hostname, pid, thread_id, thread_name = get_process_thread_info()
+        parameters['locking_hostname'] = hostname
+        parameters['locking_pid'] = pid
+        parameters['locking_thread_id'] = thread_id
+        parameters['locking_thread_name'] = thread_name
         orm_requests.update_request(request_id=req['request_id'], parameters=parameters, session=session)
     return req
 
