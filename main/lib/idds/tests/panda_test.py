@@ -3,7 +3,6 @@ import os   # noqa E402
 import sys
 import datetime
 
-"""
 os.environ['PANDA_URL'] = 'http://pandaserver-doma.cern.ch:25080/server/panda'
 # os.environ['PANDA_URL_SSL'] = 'https://pandaserver-doma.cern.ch:25443/server/panda'
 os.environ['PANDA_URL_SSL'] = 'https://pandaserver-doma.cern.ch:443/server/panda'
@@ -20,7 +19,6 @@ os.environ['PANDA_URL_SSL'] = 'https://usdf-panda-server.slac.stanford.edu:8443/
 
 # os.environ['PANDA_URL_SSL'] = 'https://pandaserver01.sdcc.bnl.gov:25443/server/panda'
 # os.environ['PANDA_URL'] = 'https://pandaserver01.sdcc.bnl.gov:25443/server/panda'
-"""
 
 from pandaclient import Client  # noqa E402
 
@@ -82,6 +80,7 @@ task_ids = [108, 109, 106, 107, 112]
 task_ids = [i for i in range(2921, 2927)]
 task_ids = [124, 68, 75, 78, 79]
 task_ids = [19654]
+task_ids = [16700, 16704, 17055, 17646, 17792, 18509, 19754, 21666, 21714, 21739, 16148, 16149, 16150]
 for task_id in task_ids:
     print("Killing %s" % task_id)
     ret = Client.killTask(task_id, verbose=True)
