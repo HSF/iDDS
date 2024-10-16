@@ -601,8 +601,10 @@ def get_update_contents_from_others_by_dep_id(request_id=None, transform_id=None
                            .filter(models.Content.substatus != ContentStatus.New)
         subquery = subquery.subquery()
 
-        query = session.query(models.Content.content_id,
-                              subquery.c.substatus)
+        columns = [models.Content.content_id, subquery.c.substatus]
+        column_names = [column.name for column in columns]
+
+        query = session.query(*columns)
         if request_id:
             query = query.filter(models.Content.request_id == request_id)
         if transform_id:
@@ -615,7 +617,7 @@ def get_update_contents_from_others_by_dep_id(request_id=None, transform_id=None
         rets = []
         if tmp:
             for t in tmp:
-                t2 = dict(zip(t.keys(), t))
+                t2 = dict(zip(column_names, t))
                 rets.append(t2)
         return rets
     except Exception as ex:
@@ -642,10 +644,12 @@ def get_updated_transforms_by_content_status(request_id=None, transform_id=None,
         subquery = subquery.filter(models.Content.content_relation_type == 1)
         subquery = subquery.subquery()
 
-        query = session.query(models.Content.request_id,
-                              models.Content.transform_id,
-                              models.Content.workload_id,
-                              models.Content.coll_id)
+        columns = [models.Content.request_id,
+                   models.Content.transform_id,
+                   models.Content.workload_id,
+                   models.Content.coll_id]
+        column_names = [column.name for column in columns]
+        query = session.query(*columns)
         # query = query.with_hint(models.Content, "INDEX(CONTENTS CONTENTS_REQ_TF_COLL_IDX)", 'oracle')
 
         if request_id:
@@ -661,7 +665,7 @@ def get_updated_transforms_by_content_status(request_id=None, transform_id=None,
         rets = []
         if tmp:
             for t in tmp:
-                t2 = dict(zip(t.keys(), t))
+                t2 = dict(zip(column_names, t))
                 rets.append(t2)
         return rets
     except Exception as error:
@@ -986,13 +990,15 @@ def get_contents_ext_ids(request_id=None, transform_id=None, workload_id=None, c
             if not isinstance(status, (tuple, list)):
                 status = [status]
 
-        query = session.query(models.Content_ext.request_id,
-                              models.Content_ext.transform_id,
-                              models.Content_ext.workload_id,
-                              models.Content_ext.coll_id,
-                              models.Content_ext.content_id,
-                              models.Content_ext.panda_id,
-                              models.Content_ext.status)
+        columns = [models.Content_ext.request_id,
+                   models.Content_ext.transform_id,
+                   models.Content_ext.workload_id,
+                   models.Content_ext.coll_id,
+                   models.Content_ext.content_id,
+                   models.Content_ext.panda_id,
+                   models.Content_ext.status]
+        column_names = [column.name for column in columns]
+        query = session.query(*columns)
         if request_id:
             query = query.filter(models.Content_ext.request_id == request_id)
         if transform_id:
@@ -1009,7 +1015,7 @@ def get_contents_ext_ids(request_id=None, transform_id=None, workload_id=None, c
         rets = []
         if tmp:
             for t in tmp:
-                t2 = dict(zip(t.keys(), t))
+                t2 = dict(zip(column_names, t))
                 rets.append(t2)
         return rets
     except sqlalchemy.orm.exc.NoResultFound as error:
