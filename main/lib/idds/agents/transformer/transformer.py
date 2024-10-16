@@ -19,6 +19,7 @@ from idds.common.constants import (Sections, ReturnCode, TransformType,
                                    TransformStatus, TransformLocking,
                                    CollectionType, CollectionStatus,
                                    CollectionRelationType,
+                                   ContentStatus, ContentRelationType,
                                    CommandType, ProcessingStatus, WorkflowType,
                                    ConditionStatus,
                                    get_processing_type_from_transform_type,
@@ -26,6 +27,7 @@ from idds.common.constants import (Sections, ReturnCode, TransformType,
 from idds.common.utils import setup_logging, truncate_string
 from idds.core import (transforms as core_transforms,
                        processings as core_processings,
+                       catalog as core_catalog,
                        throttlers as core_throttlers,
                        conditions as core_conditions)
 from idds.agents.common.baseagent import BaseAgent
@@ -103,7 +105,7 @@ class Transformer(BaseAgent):
         if hasattr(self, 'cache_expire_seconds'):
             self.cache_expire_seconds = int(self.cache_expire_seconds)
         else:
-            self.cache_expire_seconds = 3600
+            self.cache_expire_seconds = 300
 
     def is_ok_to_run_more_transforms(self):
         if self.number_workers >= self.max_number_workers:
@@ -117,6 +119,9 @@ class Transformer(BaseAgent):
             self.logger.debug(q_str)
 
     def get_throttlers(self):
+        """
+        Use throttler
+        """
         cache = get_redis_cache()
         throttlers = cache.get("throttlers", default=None)
         if throttlers is None:
@@ -132,6 +137,101 @@ class Transformer(BaseAgent):
                                             'status': item['status']}
             cache.set("throttlers", throttlers, expire_seconds=self.cache_expire_seconds)
         return throttlers
+
+    def get_num_active_transforms(self, site_name):
+        cache = get_redis_cache()
+        num_transforms = cache.get("num_transforms", default=None)
+        if num_transforms is None:
+            num_transforms = {}
+            active_status = [TransformStatus.New, TransformStatus.Ready]
+            active_status1 = [TransformStatus.Transforming, TransformStatus.Terminating]
+            rets = core_transforms.get_num_active_transforms(active_status + active_status1)
+            for ret in rets:
+                status, site, count = ret
+                if site is None:
+                    site = 'Default'
+                if site not in num_transforms:
+                    num_transforms[site] = {'new': 0, 'processing': 0}
+                if status in active_status:
+                    num_transforms[site]['new'] += count
+                elif status in active_status1:
+                    num_transforms[site]['processing'] += count
+            cache.set("num_transforms", num_transforms, expire_seconds=self.cache_expire_seconds)
+        default_value = {'new': 0, 'processing': 0}
+        return num_transforms.get(site_name, default_value)
+
+    def get_num_active_processings(self, site_name):
+        cache = get_redis_cache()
+        num_processings = cache.get("num_processings", default=None)
+        active_transforms = cache.get("active_transforms", default={})
+        if num_processings is None:
+            num_processings = {}
+            active_transforms = {}
+            active_status = [ProcessingStatus.New]
+            active_status1 = [ProcessingStatus.Submitting, ProcessingStatus.Submitted,
+                              ProcessingStatus.Running, ProcessingStatus.Terminating, ProcessingStatus.ToTrigger,
+                              ProcessingStatus.Triggering]
+            rets = core_processings.get_active_processings(active_status + active_status1)
+            for ret in rets:
+                req_id, trf_id, pr_id, site, status = ret
+                if site is None:
+                    site = 'Default'
+                if site not in num_processings:
+                    num_processings[site] = {'new': 0, 'processing': 0}
+                    active_transforms[site] = []
+                if status in active_status:
+                    num_processings[site]['new'] += 1
+                elif status in active_status1:
+                    num_processings[site]['processing'] += 1
+                active_transforms[site].append(trf_id)
+            cache.set("num_processings", num_processings, expire_seconds=self.cache_expire_seconds)
+            cache.set("active_transforms", active_transforms, expire_seconds=self.cache_expire_seconds)
+        default_value = {'new': 0, 'processing': 0}
+        return num_processings.get(site_name, default_value), active_transforms
+
+    def get_num_active_contents(self, site_name, active_transform_ids):
+        cache = get_redis_cache()
+        # 1. input contents not terminated
+        # 2. output contents not terminated
+        tf_id_site_map = {}
+        all_tf_ids = []
+        for site in active_transform_ids:
+            all_tf_ids += active_transform_ids[site]
+            for tf_id in active_transform_ids[site]:
+                tf_id_site_map[tf_id] = site
+
+        num_input_contents = cache.get("num_input_contents", default=None)
+        num_output_contents = cache.get("num_output_contents", default=None)
+        if num_input_contents is None or num_output_contents is None:
+            num_input_contents, num_output_contents = {}, {}
+            if all_tf_ids:
+                ret = core_catalog.get_content_status_statistics_by_relation_type(all_tf_ids)
+                for item in ret:
+                    status, relation_type, transform_id, count = item
+                    site = tf_id_site_map[transform_id]
+                    if site not in num_input_contents:
+                        num_input_contents[site] = {'new': 0, 'activated': 0, 'processed': 0}
+                        num_output_contents[site] = {'new': 0, 'activated': 0, 'processed': 0}
+                    if status in [ContentStatus.New]:
+                        if relation_type == ContentRelationType.Input:
+                            num_input_contents[site]['new'] += count
+                        elif relation_type == ContentRelationType.Output:
+                            num_output_contents[site]['new'] += count
+                    if status in [ContentStatus.Activated]:
+                        if relation_type == ContentRelationType.Input:
+                            num_input_contents[site]['activated'] += count
+                        elif relation_type == ContentRelationType.Output:
+                            num_output_contents[site]['activated'] += count
+                    else:
+                        if relation_type == ContentRelationType.Input:
+                            num_input_contents[site]['processed'] += count
+                        elif relation_type == ContentRelationType.Output:
+                            num_output_contents[site]['processed'] += count
+
+            cache.set("num_input_contents", num_input_contents, expire_seconds=self.cache_expire_seconds)
+            cache.set("num_output_contents", num_output_contents, expire_seconds=self.cache_expire_seconds)
+        default_value = {'new': 0, 'activated': 0, 'processed': 0}
+        return num_input_contents.get(site_name, default_value), num_output_contents.get(site_name, default_value)
 
     def whether_to_throttle(self, transform):
         try:
