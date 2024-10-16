@@ -34,17 +34,17 @@ def upgrade() -> None:
         op.add_column('requests', sa.Column('locking_hostname', sa.String(50)), schema=schema)
         op.add_column('requests', sa.Column('locking_pid', sa.BigInteger()), schema=schema)
         op.add_column('requests', sa.Column('locking_thread_id', sa.BigInteger()), schema=schema)
-        op.add_column('requests', sa.Column('locking_thread_name', sa.String(50)), schema=schema)
+        op.add_column('requests', sa.Column('locking_thread_name', sa.String(100)), schema=schema)
 
         op.add_column('transforms', sa.Column('locking_hostname', sa.String(50)), schema=schema)
         op.add_column('transforms', sa.Column('locking_pid', sa.BigInteger()), schema=schema)
         op.add_column('transforms', sa.Column('locking_thread_id', sa.BigInteger()), schema=schema)
-        op.add_column('transforms', sa.Column('locking_thread_name', sa.String(50)), schema=schema)
+        op.add_column('transforms', sa.Column('locking_thread_name', sa.String(100)), schema=schema)
 
         op.add_column('processings', sa.Column('locking_hostname', sa.String(50)), schema=schema)
         op.add_column('processings', sa.Column('locking_pid', sa.BigInteger()), schema=schema)
         op.add_column('processings', sa.Column('locking_thread_id', sa.BigInteger()), schema=schema)
-        op.add_column('processings', sa.Column('locking_thread_name', sa.String(50)), schema=schema)
+        op.add_column('processings', sa.Column('locking_thread_name', sa.String(100)), schema=schema)
 
 
 def downgrade() -> None:

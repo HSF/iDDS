@@ -1936,7 +1936,8 @@ def sync_collection_status(request_id, transform_id, workload_id, work, input_ou
                 coll_status[content['coll_id']]['bytes'] += content['bytes']
             elif content['status'] in [ContentStatus.New]:
                 coll_status[content['coll_id']]['new_files'] += 1
-            elif content['status'] in [ContentStatus.Failed, ContentStatus.FinalFailed]:
+            elif content['status'] in [ContentStatus.Failed, ContentStatus.FinalFailed,
+                                       ContentStatus.SubAvailable, ContentStatus.FinalSubAvailable]:
                 coll_status[content['coll_id']]['failed_files'] += 1
             elif content['status'] in [ContentStatus.Lost, ContentStatus.Deleted, ContentStatus.Missing]:
                 coll_status[content['coll_id']]['missing_files'] += 1
@@ -1958,7 +1959,8 @@ def sync_collection_status(request_id, transform_id, workload_id, work, input_ou
                                      ContentStatus.FakeAvailable, ContentStatus.FakeAvailable.value]:
                 coll_status[content['coll_id']]['processed_ext_files'] += 1
             # elif content['status'] in [ContentStatus.Failed, ContentStatus.FinalFailed]:
-            elif content['status'] in [ContentStatus.Failed, ContentStatus.FinalFailed]:
+            elif content['status'] in [ContentStatus.Failed, ContentStatus.FinalFailed,
+                                       ContentStatus.SubAvailable, ContentStatus.FinalSubAvailable]:
                 coll_status[content['coll_id']]['failed_ext_files'] += 1
             elif content['status'] in [ContentStatus.Lost, ContentStatus.Deleted, ContentStatus.Missing]:
                 coll_status[content['coll_id']]['missing_ext_files'] += 1
