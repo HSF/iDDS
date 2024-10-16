@@ -119,6 +119,9 @@ class Transformer(BaseAgent):
             self.logger.debug(q_str)
 
     def get_throttlers(self):
+        """
+        Use throttler
+        """
         cache = get_redis_cache()
         throttlers = cache.get("throttlers", default=None)
         if throttlers is None:
