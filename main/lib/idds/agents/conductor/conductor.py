@@ -331,6 +331,7 @@ class Conductor(BaseAgent):
 
                     output_messages = self.get_output_messages()
                     self.clean_messages(output_messages)
+                    time.sleep(1)
                 except IDDSException as error:
                     self.logger.error("Main thread IDDSException: %s" % str(error))
                     self.logger.error(traceback.format_exc())

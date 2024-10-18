@@ -117,7 +117,8 @@ def update_messages(messages, bulk_size=1000, use_bulk_update_mappings=False, re
                     query = query.filter(models.Message.request_id == request_id)
                 else:
                     if min_request_id:
-                        query = query.filter(models.Message.request_id >= min_request_id)
+                        query = query.filter(or_(models.Message.request_id >= min_request_id,
+                                                 models.Message.request_id.is_(None)))
                 if transform_id:
                     query = query.filter(models.Message.transform_id == transform_id)
                 query = query.filter(models.Message.msg_id.in_(keys))\
