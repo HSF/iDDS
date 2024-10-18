@@ -102,7 +102,12 @@ class Submitter(Poller):
 
             if site and self.site_to_cloud:
                 cloud = self.site_to_cloud.get(site, None)
-                self.logger.debug(log_prefix + "cloud for site(%s): %s" % (site, cloud))
+                if cloud:
+                    self.logger.debug(log_prefix + "cloud for site(%s): %s" % (site, cloud))
+                    return cloud
+            if 'default' in self.site_to_cloud:
+                cloud = self.site_to_cloud.get('default', None)
+                self.logger.debug(log_prefix + "cloud for default site(%s): %s" % (site, cloud))
                 return cloud
         except Exception as ex:
             self.logger.error(ex)
