@@ -792,10 +792,10 @@ class DomaPanDAWork(Work):
             if 'new_retries' in processing and processing['new_retries']:
                 new_retries = int(processing['new_retries'])
                 task_param['taskName'] = task_param['taskName'] + "_" + str(new_retries)
-            if not task_param['cloud']:
-                cloud = self.get_site_from_cloud(task_param['PandaSite'])
-                if cloud:
-                    task_param['cloud'] = cloud
+            cloud = self.get_site_from_cloud(task_param['PandaSite'])
+            if cloud and cloud != task_param['cloud']:
+                self.logger.info(f"Task cloud was set to {task_param['cloud']}, which is different from {cloud}, reset it to {cloud}")
+                task_param['cloud'] = cloud
 
             if self.has_dependency():
                 parent_tid = None
