@@ -146,6 +146,9 @@ class Conductor(BaseAgent):
         messages_d = core_messages.retrieve_messages(status=[MessageStatus.Delivered, MessageStatus.Fetched],
                                                      min_request_id=BaseAgent.min_request_id,
                                                      use_poll_period=True,
+                                                     delay=120,
+                                                     record_fetched=True,
+                                                     record_fetched_status=MessageStatus.Delivered,
                                                      bulk_size=self.retrieve_bulk_size,
                                                      destination=destination)    # msg_type=msg_type)
         if messages_d:

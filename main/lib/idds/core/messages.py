@@ -52,7 +52,8 @@ def retrieve_messages(bulk_size=None, msg_type=None, status=None, destination=No
                       source=None, request_id=None, workload_id=None, transform_id=None,
                       processing_id=None, use_poll_period=False, retries=None, delay=60,
                       min_request_id=None, fetching_id=None, internal_id=None,
-                      record_fetched=False, session=None):
+                      record_fetched=False, record_fetched_status=MessageStatus.Fetched,
+                      session=None):
     """
     Retrieve up to $bulk messages.
 
@@ -81,7 +82,7 @@ def retrieve_messages(bulk_size=None, msg_type=None, status=None, destination=No
             to_update = {'msg_id': msg['msg_id'],
                          'request_id': msg['request_id'],
                          'poll_period': datetime.timedelta(seconds=delay),
-                         'status': MessageStatus.Fetched}
+                         'status': record_fetched_status}
             to_updates.append(to_update)
         if to_updates:
             orm_messages.update_messages(to_updates, min_request_id=min_request_id, session=session)
