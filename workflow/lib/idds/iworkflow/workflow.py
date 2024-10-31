@@ -57,7 +57,8 @@ class WorkflowCanvas(object):
 
 class WorkflowContext(Context):
     def __init__(self, name=None, service='panda', source_dir=None, workflow_type=WorkflowType.iWorkflow, distributed=True,
-                 max_walltime=24 * 3600, init_env=None, exclude_source_files=[], clean_env=None, enable_separate_log=False):
+                 max_walltime=24 * 3600, init_env=None, exclude_source_files=[], clean_env=None, enable_separate_log=False,
+                 container_options=None):
         super(WorkflowContext, self).__init__()
         self._service = service     # panda, idds, sharefs
         self._request_id = None
@@ -122,6 +123,8 @@ class WorkflowContext(Context):
                 self._exclude_source_files = [exclude_source_files]
 
         self._enable_separate_log = enable_separate_log
+
+        self._container_options = container_options
 
     @property
     def logger(self):
@@ -343,6 +346,14 @@ class WorkflowContext(Context):
 
     def get_source_dir(self):
         return self._source_dir
+
+    @property
+    def container_options(self):
+        return self._container_options
+
+    @container_options.setter
+    def container_options(self, value):
+        self._container_options = value
 
     @property
     def token(self):
@@ -741,7 +752,7 @@ class Workflow(Base):
     def __init__(self, func=None, service='panda', context=None, source_dir=None, local=False, distributed=True,
                  pre_kwargs={}, args=None, kwargs={}, multi_jobs_kwargs_list=[], current_job_kwargs=None, name=None,
                  init_env=None, is_unique_func_name=False, max_walltime=24 * 3600, source_dir_parent_level=None,
-                 enable_separate_log=False, exclude_source_files=[], clean_env=None):
+                 enable_separate_log=False, exclude_source_files=[], clean_env=None, container_options=None):
         """
         Init a workflow.
         """
@@ -777,7 +788,7 @@ class Workflow(Base):
             self._context = WorkflowContext(name=self._name, service=service, workflow_type=workflow_type, source_dir=source_dir,
                                             distributed=distributed, init_env=init_env, max_walltime=max_walltime,
                                             exclude_source_files=exclude_source_files, clean_env=clean_env,
-                                            enable_separate_log=enable_separate_log)
+                                            enable_separate_log=enable_separate_log, container_options=container_options)
 
     @property
     def service(self):
@@ -959,6 +970,14 @@ class Workflow(Base):
     @enable_separate_log.setter
     def enable_separate_log(self, value):
         self._context.enable_separate_log = value
+
+    @property
+    def container_options(self):
+        return self._context.container_options
+
+    @container_options.setter
+    def container_options(self, value):
+        self._context.container_options = value
 
     def get_work_tag(self):
         return self._context.workflow_type.name
@@ -1302,12 +1321,14 @@ class Workflow(Base):
 # foo = workflow(arg)(foo)
 def workflow(func=None, *, local=False, service='idds', source_dir=None, primary=False, queue=None, site=None, cloud=None,
              max_walltime=24 * 3600, distributed=True, init_env=None, pre_kwargs={}, return_workflow=False, no_wraps=False,
-             source_dir_parent_level=None, exclude_source_files=[], enable_separate_log=False, clean_env=None):
+             source_dir_parent_level=None, exclude_source_files=[], enable_separate_log=False, clean_env=None,
+             container_options=None):
     if func is None:
         return functools.partial(workflow, local=local, service=service, source_dir=source_dir, primary=primary, queue=queue, site=site, cloud=cloud,
                                  max_walltime=max_walltime, distributed=distributed, init_env=init_env, pre_kwargs=pre_kwargs, no_wraps=no_wraps,
                                  return_workflow=return_workflow, source_dir_parent_level=source_dir_parent_level,
-                                 exclude_source_files=exclude_source_files, clean_env=clean_env, enable_separate_log=enable_separate_log)
+                                 exclude_source_files=exclude_source_files, clean_env=clean_env, enable_separate_log=enable_separate_log,
+                                 container_options=container_options)
 
     if 'IDDS_IGNORE_WORKFLOW_DECORATOR' in os.environ:
         return func
@@ -1317,7 +1338,8 @@ def workflow(func=None, *, local=False, service='idds', source_dir=None, primary
         try:
             f = Workflow(func, service=service, source_dir=source_dir, local=local, max_walltime=max_walltime, distributed=distributed,
                          pre_kwargs=pre_kwargs, args=args, kwargs=kwargs, init_env=init_env, source_dir_parent_level=source_dir_parent_level,
-                         exclude_source_files=exclude_source_files, clean_env=clean_env, enable_separate_log=enable_separate_log)
+                         exclude_source_files=exclude_source_files, clean_env=clean_env, enable_separate_log=enable_separate_log,
+                         container_options=container_options)
 
             f.queue = queue
             f.site = site

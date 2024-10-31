@@ -60,7 +60,7 @@ echo $new_command
 
 if [[ -L "python" ]]; then unlink python; fi
 
-echo "To run new command:"
+echo "running new command, outputs:"
 # eval $cmd
 eval $new_command
 ret=$?
