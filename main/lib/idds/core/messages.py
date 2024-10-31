@@ -13,6 +13,7 @@
 operations related to Messages.
 """
 
+import datetime
 import threading
 
 from idds.common.constants import MessageDestination, MessageType, MessageStatus
@@ -46,11 +47,13 @@ def add_messages(messages, bulk_size=1000, session=None):
     return orm_messages.add_messages(messages, bulk_size=bulk_size, session=session)
 
 
-@read_session
+@transactional_session
 def retrieve_messages(bulk_size=None, msg_type=None, status=None, destination=None,
                       source=None, request_id=None, workload_id=None, transform_id=None,
-                      processing_id=None, use_poll_period=False, retries=None, delay=None,
-                      min_request_id=None, fetching_id=None, internal_id=None, session=None):
+                      processing_id=None, use_poll_period=False, retries=None, delay=60,
+                      min_request_id=None, fetching_id=None, internal_id=None,
+                      record_fetched=False, record_fetched_status=MessageStatus.Fetched,
+                      session=None):
     """
     Retrieve up to $bulk messages.
 
@@ -66,13 +69,24 @@ def retrieve_messages(bulk_size=None, msg_type=None, status=None, destination=No
         hb_thread = threading.current_thread()
         fetching_id = hb_thread.ident
 
-    return orm_messages.retrieve_messages(bulk_size=bulk_size, msg_type=msg_type,
-                                          status=status, source=source, destination=destination,
-                                          request_id=request_id, workload_id=workload_id,
-                                          transform_id=transform_id, processing_id=processing_id,
-                                          retries=retries, delay=delay, fetching_id=fetching_id,
-                                          min_request_id=min_request_id, internal_id=internal_id,
-                                          use_poll_period=use_poll_period, session=session)
+    messages = orm_messages.retrieve_messages(bulk_size=bulk_size, msg_type=msg_type,
+                                              status=status, source=source, destination=destination,
+                                              request_id=request_id, workload_id=workload_id,
+                                              transform_id=transform_id, processing_id=processing_id,
+                                              retries=retries, delay=delay, fetching_id=fetching_id,
+                                              min_request_id=min_request_id, internal_id=internal_id,
+                                              use_poll_period=use_poll_period, session=session)
+    if record_fetched:
+        to_updates = []
+        for msg in messages:
+            to_update = {'msg_id': msg['msg_id'],
+                         'request_id': msg['request_id'],
+                         'poll_period': datetime.timedelta(seconds=delay),
+                         'status': record_fetched_status}
+            to_updates.append(to_update)
+        if to_updates:
+            orm_messages.update_messages(to_updates, min_request_id=min_request_id, session=session)
+    return messages
 
 
 @read_session

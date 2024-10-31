@@ -120,6 +120,11 @@ class BaseSubmitter(object):
 
         task_param_map['reqID'] = work.request_id
 
+        if work.container_options:
+            if type(work.container_options) in [dict] and work.container_options.get('container_image', None):
+                container_image = work.container_options.get('container_image', None)
+                task_param_map['container_name'] = container_image
+
         return task_param_map
 
     def submit(self, *args, **kwargs):

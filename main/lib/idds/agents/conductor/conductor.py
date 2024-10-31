@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2023
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2024
 
 import datetime
 import random
@@ -120,12 +120,15 @@ class Conductor(BaseAgent):
         destination = [MessageDestination.Outside, MessageDestination.ContentExt, MessageDestination.AsyncResult]
         messages = core_messages.retrieve_messages(status=MessageStatus.New,
                                                    min_request_id=BaseAgent.min_request_id,
+                                                   delay=60,
+                                                   record_fetched=True,
                                                    bulk_size=self.retrieve_bulk_size,
                                                    destination=destination)
 
         # self.logger.debug("Main thread get %s new messages" % len(messages))
         if messages:
             self.logger.info("Main thread get %s new messages" % len(messages))
+
         return messages
 
     def get_retry_messages(self):
@@ -140,9 +143,12 @@ class Conductor(BaseAgent):
 
         retry_messages = []
         destination = [MessageDestination.Outside, MessageDestination.ContentExt, MessageDestination.AsyncResult]
-        messages_d = core_messages.retrieve_messages(status=MessageStatus.Delivered,
+        messages_d = core_messages.retrieve_messages(status=[MessageStatus.Delivered, MessageStatus.Fetched],
                                                      min_request_id=BaseAgent.min_request_id,
                                                      use_poll_period=True,
+                                                     delay=120,
+                                                     record_fetched=True,
+                                                     record_fetched_status=MessageStatus.Delivered,
                                                      bulk_size=self.retrieve_bulk_size,
                                                      destination=destination)    # msg_type=msg_type)
         if messages_d:

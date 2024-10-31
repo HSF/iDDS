@@ -210,12 +210,12 @@ class Base(DictBase):
         """
         try:
             logging.info(f"func type: {type(func)}: {str(func)}")
-            logging.info("pre_kwargs type: {type(pre_kwargs)}: {str(pre_kwargs)}")
-            logging.info("args type: {type(args)}: {str(args)}")
-            logging.info("kwargs type: {type(kwargs)}: {str(kwargs)}")
+            logging.info(f"pre_kwargs type: {type(pre_kwargs)}: {str(pre_kwargs)}")
+            logging.info(f"args type: {type(args)}: {str(args)}")
+            logging.info(f"kwargs type: {type(kwargs)}: {str(kwargs)}")
             kwargs_copy = copy.deepcopy(pre_kwargs)
             kwargs_copy.update(kwargs)
-            logging.info("start to run function: {str(func)}")
+            logging.info(f"start to run function: {str(func)}")
             if kwargs_copy:
                 ret = func(*args, **kwargs_copy)
             else:
@@ -223,7 +223,7 @@ class Base(DictBase):
             logging.info(f"Successfully run function, ret: {ret}")
             return True, ret, None
         except Exception as ex:
-            logging.error("Failed to run the function: {str(ex)}")
+            logging.error(f"Failed to run the function: {str(ex)}")
             logging.error(traceback.format_exc())
             return False, None, str(ex)
 
