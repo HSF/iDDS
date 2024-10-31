@@ -24,7 +24,7 @@ from idds.common import exceptions
 from idds.common.constants import MessageDestination
 from idds.common.utils import group_list
 from idds.orm.base import models
-from idds.orm.base.session import read_session, transactional_session
+from idds.orm.base.session import transactional_session
 
 
 @transactional_session
@@ -133,7 +133,7 @@ def update_messages(messages, bulk_size=1000, use_bulk_update_mappings=False, re
             raise exceptions.DatabaseException('Could not persist message: %s' % str(e))
 
 
-@read_session
+@transactional_session
 def retrieve_messages(bulk_size=1000, msg_type=None, status=None, source=None,
                       destination=None, request_id=None, workload_id=None,
                       transform_id=None, processing_id=None, fetching_id=None,
@@ -162,13 +162,18 @@ def retrieve_messages(bulk_size=1000, msg_type=None, status=None, source=None,
                 msg_type = [msg_type]
             if len(msg_type) == 1:
                 msg_type = [msg_type[0], msg_type[0]]
+        if status is not None:
+            if not isinstance(status, (list, tuple)):
+                status = [status]
+            if len(status) == 1:
+                status = [status[0], status[0]]
 
         query = session.query(models.Message)
 
         if msg_type is not None:
             query = query.filter(models.Message.msg_type.in_(msg_type))
         if status is not None:
-            query = query.filter_by(status=status)
+            query = query.filter(models.Message.status.in_(status))
         if source is not None:
             query = query.filter_by(source=source)
         if destination is not None:

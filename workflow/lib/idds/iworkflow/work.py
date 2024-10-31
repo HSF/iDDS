@@ -34,7 +34,7 @@ setup_logging(__name__)
 
 class WorkContext(Context):
 
-    def __init__(self, name=None, workflow_context=None, source_dir=None, init_env=None):
+    def __init__(self, name=None, workflow_context=None, source_dir=None, init_env=None, container_options=None):
         super(WorkContext, self).__init__()
         self._workflow_context = workflow_context
         self._transform_id = None
@@ -54,6 +54,7 @@ class WorkContext(Context):
         self._map_results = False
 
         self.init_env = init_env
+        self.container_options = container_options
 
     def get_service(self):
         return self._workflow_context.service
@@ -315,6 +316,16 @@ class WorkContext(Context):
         if self._init_env:
             self._init_env = self._init_env + " "
 
+    @property
+    def container_options(self):
+        if self._container_options:
+            return self._container_options
+        return self._workflow_context.container_options
+
+    @container_options.setter
+    def container_options(self, value):
+        self._container_options = value
+
     def get_idds_server(self):
         return self._workflow_context.get_idds_server()
 
@@ -356,7 +367,8 @@ class WorkContext(Context):
 class Work(Base):
 
     def __init__(self, func=None, workflow_context=None, context=None, pre_kwargs=None, args=None, kwargs=None, multi_jobs_kwargs_list=None,
-                 current_job_kwargs=None, map_results=False, source_dir=None, init_env=None, is_unique_func_name=False, name=None):
+                 current_job_kwargs=None, map_results=False, source_dir=None, init_env=None, is_unique_func_name=False, name=None,
+                 container_options=None):
         """
         Init a workflow.
         """
@@ -385,7 +397,7 @@ class Work(Base):
         if context:
             self._context = context
         else:
-            self._context = WorkContext(name=self._name, workflow_context=workflow_context, init_env=init_env)
+            self._context = WorkContext(name=self._name, workflow_context=workflow_context, init_env=init_env, container_options=container_options)
 
         self._async_ret = None
 
@@ -589,6 +601,14 @@ class Work(Base):
     @enable_separate_log.setter
     def enable_separate_log(self, value):
         self._context.enable_separate_log = value
+
+    @property
+    def container_options(self):
+        return self._context.container_options
+
+    @container_options.setter
+    def container_options(self, value):
+        self._context.container_options = value
 
     @property
     def token(self):
@@ -1017,7 +1037,6 @@ class Work(Base):
             self._func = func
 
         if self._context.distributed:
-            rets = None
             args_copy = copy.deepcopy(args)
             pre_kwargs_copy = copy.deepcopy(pre_kwargs)
             kwargs_copy = copy.deepcopy(kwargs)
@@ -1030,15 +1049,16 @@ class Work(Base):
 
             request_id = self._context.request_id
             transform_id = self._context.transform_id
-            logging.info("publishing AsyncResult to (request_id: %s, transform_id: %s): %s" % (request_id, transform_id, rets))
+            ret_log = f"(status: {ret_status}, return: {ret_output}, error: {ret_err})"
+            logging.info(f"publishing AsyncResult to (request_id: {request_id}, transform_id: {transform_id}): {ret_log}")
             async_ret = AsyncResult(self._context, name=self.get_func_name(), internal_id=self.internal_id, current_job_kwargs=current_job_kwargs)
             async_ret.publish(ret_output, ret_status=ret_status, ret_error=ret_err)
 
             if not self.map_results:
-                self._results = rets
+                self._results = ret_output
             else:
                 self._results = MapResult()
-                self._results.add_result(name=self.get_func_name(), args=current_job_kwargs, result=rets)
+                self._results.add_result(name=self.get_func_name(), args=current_job_kwargs, result=ret_output)
             return self._results
         else:
             if not multi_jobs_kwargs_list:
@@ -1143,10 +1163,11 @@ def run_work_distributed(w):
 
 
 # foo = work(arg)(foo)
-def work(func=None, *, workflow=None, pre_kwargs={}, name=None, return_work=False, map_results=False, lazy=False, init_env=None, no_wraps=False):
+def work(func=None, *, workflow=None, pre_kwargs={}, name=None, return_work=False, map_results=False, lazy=False, init_env=None, no_wraps=False,
+         container_options=None):
     if func is None:
         return functools.partial(work, workflow=workflow, pre_kwargs=pre_kwargs, return_work=return_work, no_wraps=no_wraps,
-                                 name=name, map_results=map_results, lazy=lazy, init_env=init_env)
+                                 name=name, map_results=map_results, lazy=lazy, init_env=init_env, container_options=container_options)
 
     if 'IDDS_IGNORE_WORK_DECORATOR' in os.environ:
         return func
@@ -1163,7 +1184,8 @@ def work(func=None, *, workflow=None, pre_kwargs={}, name=None, return_work=Fals
             if workflow_context:
                 logging.debug("setup work")
                 w = Work(workflow_context=workflow_context, func=func, pre_kwargs=pre_kwargs, args=args, kwargs=kwargs,
-                         name=name, multi_jobs_kwargs_list=multi_jobs_kwargs_list, map_results=map_results, init_env=init_env)
+                         name=name, multi_jobs_kwargs_list=multi_jobs_kwargs_list, map_results=map_results, init_env=init_env,
+                         container_options=container_options)
                 # if distributed:
 
                 if return_work:
