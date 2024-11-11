@@ -50,7 +50,7 @@ def add_messages(messages, bulk_size=1000, session=None):
 @transactional_session
 def retrieve_messages(bulk_size=None, msg_type=None, status=None, destination=None,
                       source=None, request_id=None, workload_id=None, transform_id=None,
-                      processing_id=None, use_poll_period=False, retries=None, delay=60,
+                      processing_id=None, use_poll_period=False, retries=None, delay=None,
                       min_request_id=None, fetching_id=None, internal_id=None,
                       record_fetched=False, record_fetched_status=MessageStatus.Fetched,
                       session=None):
