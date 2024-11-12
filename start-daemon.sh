@@ -134,11 +134,19 @@ else
     cp /opt/idds/config_default/supervisord_httpd.ini /opt/idds/config/idds/supervisord_httpd.ini
     # cp /opt/idds/config_default/supervisord_syslog-ng.ini /opt/idds/config/idds/supervisord_syslog-ng.ini
 
+    echo "setup log rotation"
     cp /opt/idds/config_default/supervisord_logrotate.ini /opt/idds/config/idds/supervisord_logrotate.ini
     cp /opt/idds/config_default/logrotate_idds /opt/idds/config/idds/logrotate_idds
     cp /opt/idds/config_default/logrotate_daemon /opt/idds/config/idds/logrotate_daemon
     chmod +x /opt/idds/config/idds/logrotate_daemon
     chown root /opt/idds/config/idds/logrotate_idds
+
+    echo "setup health monitor"
+    cp /opt/idds/config_default/supervisord_healthmonitor.ini /opt/idds/config/idds/
+    cp /opt/idds/config_default/healthmonitor_daemon /opt/idds/config/idds/
+    cp /opt/idds/config_default/idds_health_check.py /opt/idds/config/idds/
+    chmod +x /opt/idds/config/idds/healthmonitor_daemon
+    chmod +x /opt/idds/config/idds/idds_health_check.py
 fi
 
 if [ -f /etc/grid-security/hostkey.pem ]; then

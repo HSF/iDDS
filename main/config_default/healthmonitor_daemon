@@ -1,0 +1,4 @@
+#!/bin/bash
+# while true; do /usr/sbin/logrotate -s /var/log/idds/logrotate.status -d /etc/logrotate.d/idds; sleep 86400; done
+
+while true; do python /opt/idds/config/idds/idds_health_check.py; sleep 600; done
