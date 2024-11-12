@@ -59,7 +59,7 @@ def get_log_dir():
     return "/var/log/idds"
 
 
-def setup_logging(name, stream=None, loglevel=None):
+def setup_logging(name, stream=None, log_file=None, loglevel=None):
     """
     Setup logging
     """
@@ -79,14 +79,33 @@ def setup_logging(name, stream=None, loglevel=None):
         loglevel = loglevel.upper()
         loglevel = getattr(logging, loglevel)
 
-    if stream is None:
+    if log_file is not None:
+        if not log_file.startswith("/"):
+            logdir = None
+            if config_has_section('common') and config_has_option('common', 'logdir'):
+                logdir = config_get('common', 'logdir')
+            if not logdir:
+                logdir = '/var/log/idds'
+            log_file = os.path.join(logdir, log_file)
+
+    if log_file:
+        logging.basicConfig(filename=log_file,
+                            level=loglevel,
+                            format='%(asctime)s\t%(threadName)s\t%(name)s\t%(levelname)s\t%(message)s')
+    elif stream is None:
         if os.environ.get('IDDS_LOG_FILE', None):
             idds_log_file = os.environ.get('IDDS_LOG_FILE', None)
             logging.basicConfig(filename=idds_log_file,
                                 level=loglevel,
                                 format='%(asctime)s\t%(threadName)s\t%(name)s\t%(levelname)s\t%(message)s')
-        elif config_has_section('common') and config_has_option('common', 'logdir'):
-            logging.basicConfig(filename=os.path.join(config_get('common', 'logdir'), name),
+        elif ((config_has_section('common') and config_has_option('common', 'logdir') and config_has_option('common', 'logfile')) or log_file):
+            if log_file:
+                log_filename = log_file
+            else:
+                log_filename = config_get('common', 'logfile')
+                if not log_filename.startswith("/"):
+                    log_filename = os.path.join(config_get('common', 'logdir'), log_filename)
+            logging.basicConfig(filename=log_filename,
                                 level=loglevel,
                                 format='%(asctime)s\t%(threadName)s\t%(name)s\t%(levelname)s\t%(message)s')
         else:

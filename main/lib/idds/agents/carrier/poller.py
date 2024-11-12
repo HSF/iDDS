@@ -274,7 +274,8 @@ class Poller(BaseAgent):
                                                                     new_contents_ext=processing.get('new_contents_ext', None),
                                                                     update_contents_ext=processing.get('update_contents_ext', None),
                                                                     new_input_dependency_contents=processing.get('new_input_dependency_contents', None),
-                                                                    use_bulk_update_mappings=use_bulk_update_mappings)
+                                                                    use_bulk_update_mappings=use_bulk_update_mappings,
+                                                                    message_bulk_size=self.message_bulk_size)
                     except exceptions.DatabaseException as ex:
                         if 'ORA-00060' in str(ex):
                             self.logger.warn(log_prefix + "update_processing (cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")

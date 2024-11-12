@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2021
+# - Wen Guan, <wen.guan@cern.ch>, 2024
 
 
 from traceback import format_exc
@@ -27,6 +27,10 @@ from idds.rest.v1.controller import IDDSController
 
 class Message(IDDSController):
     """ Get message """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.logger = self.setup_logger()
 
     def get(self, request_id, workload_id, transform_id, internal_id):
         """ Get messages with given id.
