@@ -6,18 +6,31 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2020
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2024
 
 
 from flask import Response, request
 from flask.views import MethodView
 
 from idds.common.constants import HTTP_STATUS_CODE
-from idds.common.utils import json_dumps
+from idds.common.utils import json_dumps, get_logger
 
 
 class IDDSController(MethodView):
     """ Default ESS Controller class. """
+
+    def get_class_name(self):
+        return self.__class__.__name__
+
+    def setup_logger(self, logger=None):
+        """
+        Setup logger
+        """
+        if logger:
+            self.logger = logger
+        else:
+            self.logger = get_logger(name=self.get_class_name(), filename='idds_rest.log')
+        return self.logger
 
     def post(self):
         """ Not supported. """

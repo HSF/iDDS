@@ -58,7 +58,7 @@ class WorkflowCanvas(object):
 class WorkflowContext(Context):
     def __init__(self, name=None, service='panda', source_dir=None, workflow_type=WorkflowType.iWorkflow, distributed=True,
                  max_walltime=24 * 3600, init_env=None, exclude_source_files=[], clean_env=None, enable_separate_log=False,
-                 container_options=None):
+                 cloud=None, site=None, queue=None, vo=None, container_options=None):
         super(WorkflowContext, self).__init__()
         self._service = service     # panda, idds, sharefs
         self._request_id = None
@@ -73,11 +73,11 @@ class WorkflowContext(Context):
         self._source_dir = source_dir
         self.remote_source_file = None
 
-        self._vo = None
+        self._vo = vo
 
-        self._queue = None
-        self._site = None
-        self._cloud = None
+        self._queue = queue
+        self._site = site
+        self._cloud = queue
 
         self._working_group = None
 

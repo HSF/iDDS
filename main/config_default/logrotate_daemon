@@ -1,4 +1,6 @@
 #!/bin/bash
 # while true; do /usr/sbin/logrotate -s /var/log/idds/logrotate.status -d /etc/logrotate.d/idds; sleep 86400; done
 
-while true; do /usr/sbin/logrotate -s /var/log/idds/logrotate.status /etc/logrotate.d/idds >> /var/log/idds/logrotate.log 2>&1; sleep 3600; done
+# while true; do /usr/sbin/logrotate -s /var/log/idds/logrotate.status /etc/logrotate.d/idds >> /var/log/idds/logrotate.log 2>&1; sleep 3600; done
+
+while true; do /usr/sbin/logrotate -s /var/log/idds/logrotate.status /etc/logrotate.d/idds; sleep 86400; done
