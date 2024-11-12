@@ -138,6 +138,7 @@ else
     cp /opt/idds/config_default/logrotate_idds /opt/idds/config/idds/logrotate_idds
     cp /opt/idds/config_default/logrotate_daemon /opt/idds/config/idds/logrotate_daemon
     chmod +x /opt/idds/config/idds/logrotate_daemon
+    chown root /opt/idds/config/idds/logrotate_idds
 fi
 
 if [ -f /etc/grid-security/hostkey.pem ]; then
