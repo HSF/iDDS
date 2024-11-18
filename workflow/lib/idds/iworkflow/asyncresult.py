@@ -146,6 +146,13 @@ class MapResult(object):
     def get_all_results(self):
         return self._results
 
+    def get_dict_results(self):
+        return {'results': self._results, 'name_results': self._name_results}
+
+    def set_from_dict_results(self, results):
+        self._results = results.get('results', {})
+        self._name_results = results.get('name_results', {})
+
 
 class AsyncResult(Base):
 
