@@ -47,7 +47,7 @@ def build_database(echo=True, tests=False):
                         conn.execute(CreateSchema(schema))
             except Exception as e:
                 print('Cannot create schema, please validate manually if schema creation is needed, continuing:', e)
-                print(traceback.format_exc())
+                # print(traceback.format_exc())
 
     models.register_models(engine)
 
