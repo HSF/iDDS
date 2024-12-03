@@ -786,15 +786,17 @@ def get_query_collection(request_id=None, workload_id=None):
     if workload_id:
         input_query = input_query.where(models.Request.workload_id == workload_id)
         output_query = output_query.where(models.Request.workload_id == workload_id)
-    input_query, output_query
+    return input_query, output_query
 
 
 def get_query_transform(request_id=None, workload_id=None):
     """
     Get transform query.
     """
-    columns = [models.Transform.transform_id,
+    columns = [models.Transform.request_id,
+               models.Transform.transform_id,
                models.Transform.transform_type,
+               models.Transform.name.label("transform_name"),
                models.Transform.workload_id.label("transform_workload_id"),
                models.Transform.status.label("transform_status"),
                models.Transform.created_at.label("transform_created_at"),
@@ -907,10 +909,10 @@ def get_requests_with_transform(request_id=None, workload_id=None, with_metadata
 
     query = query.outerjoin(transform_subquery, and_(models.Request.request_id == transform_subquery.c.request_id))
     if show_processing:
-        query = query.outerjoin(processing_subquery, and_(processing_subquery.c.transform_id == transform_subquery.c.transform_id))
+        query = query.outerjoin(processing_subquery, and_(processing_subquery.c.processing_transform_id == transform_subquery.c.transform_id))
     if show_collection:
-        query = query.outerjoin(input_subquery, and_(input_subquery.c.transform_id == transform_subquery.c.transform_id))
-        query = query.outerjoin(output_subquery, and_(output_subquery.c.transform_id == transform_subquery.c.transform_id))
+        query = query.outerjoin(input_subquery, and_(input_subquery.c.input_coll_transform_id == transform_subquery.c.transform_id))
+        query = query.outerjoin(output_subquery, and_(output_subquery.c.output_coll_transform_id == transform_subquery.c.transform_id))
     query = query.order_by(asc(models.Request.request_id))
 
     tmp = session.execute(query).fetchall()
