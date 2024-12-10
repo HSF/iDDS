@@ -16,7 +16,10 @@ Base rest client to access IDDS system.
 
 import logging
 import os
+import random
 import requests
+import time
+
 try:
     # Python 2
     from urllib import urlencode, quote
@@ -48,7 +51,7 @@ class BaseRestClient(object):
         self.client_proxy = client_proxy
         self.timeout = timeout
         self.session = requests.session()
-        self.retries = 2
+        self.retries = 3
 
         self.auth_type = None
         self.oidc_token_file = None
@@ -241,6 +244,9 @@ class BaseRestClient(object):
                 logging.warning('ConnectionError: ' + str(error))
                 if retry >= self.retries - 1:
                     raise exceptions.ConnectionException('ConnectionError: ' + str(error))
+                else:
+                    random_sleep = random.uniform(0, 30)
+                    time.sleep(random_sleep)
 
             if result is not None:
                 if return_result_directly:
