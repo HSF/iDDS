@@ -583,6 +583,7 @@ class WorkflowContext(Context):
         logging.info(f"Extract {full_output_filename} to {target_dir}")
         os.remove(full_output_filename)
         logging.info("Remove %s" % full_output_filename)
+        return target_dir
 
     def setup_panda(self):
         """
@@ -618,7 +619,8 @@ class WorkflowContext(Context):
         :returns command: `str` to setup the workflow.
         """
         if self.remote_source_file:
-            self.download_source_files_from_panda(self.remote_source_file)
+            target_dir = self.download_source_files_from_panda(self.remote_source_file)
+            self._source_dir = target_dir
         return None
 
     def setup_idds_source_files(self):
@@ -1226,7 +1228,7 @@ class Workflow(Base):
         return False
 
     def run(self):
-        logging.info("Start work run().")
+        logging.info("Start workflow run().")
         ret = None
         try:
             ret = self.run_local()
@@ -1236,7 +1238,7 @@ class Workflow(Base):
         except:
             logging.error("Unknow error")
             logging.error(traceback.format_exc())
-        logging.info("finish work run().")
+        logging.info(f"finish workflow run() with ret: {ret}.")
         return ret
 
     def run_local(self):
@@ -1269,7 +1271,7 @@ class Workflow(Base):
                 logging.info(f"run workflow successfully. output: {output}, error: {error}")
             else:
                 logging.error(f"run workflow failed. output: {output}, error: {error}")
-            return output
+            return status
 
     # Context Manager -----------------------------------------------
     def __enter__(self):
@@ -1322,12 +1324,14 @@ class Workflow(Base):
 def workflow(func=None, *, local=False, service='idds', source_dir=None, primary=False, queue=None, site=None, cloud=None,
              max_walltime=24 * 3600, distributed=True, init_env=None, pre_kwargs={}, return_workflow=False, no_wraps=False,
              source_dir_parent_level=None, exclude_source_files=[], enable_separate_log=False, clean_env=None,
+             core_count=1, total_memory=4000,    # MB
              container_options=None):
     if func is None:
         return functools.partial(workflow, local=local, service=service, source_dir=source_dir, primary=primary, queue=queue, site=site, cloud=cloud,
                                  max_walltime=max_walltime, distributed=distributed, init_env=init_env, pre_kwargs=pre_kwargs, no_wraps=no_wraps,
                                  return_workflow=return_workflow, source_dir_parent_level=source_dir_parent_level,
                                  exclude_source_files=exclude_source_files, clean_env=clean_env, enable_separate_log=enable_separate_log,
+                                 core_count=core_count, total_memory=total_memory,
                                  container_options=container_options)
 
     if 'IDDS_IGNORE_WORKFLOW_DECORATOR' in os.environ:
@@ -1344,6 +1348,8 @@ def workflow(func=None, *, local=False, service='idds', source_dir=None, primary
             f.queue = queue
             f.site = site
             f.cloud = cloud
+            f.core_count = core_count
+            f.total_memory = total_memory
 
             logging.info("return_workflow %s" % return_workflow)
             if return_workflow:
