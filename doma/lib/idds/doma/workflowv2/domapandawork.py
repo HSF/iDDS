@@ -142,6 +142,8 @@ class DomaPanDAWork(Work):
             self.dependency_map = {}
         self.dependency_map_deleted = []
 
+        self.additional_task_parameters = {}
+
     def my_condition(self):
         if self.is_finished():
             return True
@@ -335,6 +337,15 @@ class DomaPanDAWork(Work):
             self.num_retries = int(self.agent_attributes['num_retries'])
         if 'poll_panda_jobs_chunk_size' in self.agent_attributes and self.agent_attributes['poll_panda_jobs_chunk_size']:
             self.poll_panda_jobs_chunk_size = int(self.agent_attributes['poll_panda_jobs_chunk_size'])
+        if 'additional_task_parameters' in self.agent_attributes and self.agent_attributes['additional_task_parameters']:
+            if not self.additional_task_parameters:
+                self.additional_task_parameters = {}
+            try:
+                for key, value in self.agent_attributes['additional_task_parameters'].items():
+                    if key not in self.additional_task_parameters:
+                        self.additional_task_parameters[key] = value
+            except Exception as ex:
+                self.logger.warn(f"Failed to set additional_task_parameters: {ex}")
 
     def depend_on(self, work):
         self.logger.debug("checking depending on")
@@ -764,6 +775,14 @@ class DomaPanDAWork(Work):
         ]
 
         task_param_map['reqID'] = self.get_request_id()
+
+        if self.additional_task_parameters:
+            try:
+                for key, value in self.additional_task_parameters.items():
+                    if key not in task_param_map:
+                        task_param_map[key] = value
+            except Exception as ex:
+                self.logger.warn(f"failed to set task parameter map with additional_task_parameters: {ex}")
 
         processing_metadata = {'task_param': task_param_map}
         proc = Processing(processing_metadata=processing_metadata)

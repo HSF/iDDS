@@ -47,7 +47,7 @@ class WorkContext(Context):
 
         self._priority = 500
         self._core_count = 1
-        self._total_memory = 1000        # MB
+        self._total_memory = None        # MB
         self._max_walltime = 7 * 24 * 3600
         self._max_attempt = 5
 
@@ -1005,7 +1005,7 @@ class Work(Base):
         except:
             logging.error("Unknow error")
             logging.error(traceback.format_exc())
-        logging.info("finish work run().")
+        logging.info(f"finish work run() with ret: {ret}")
         return ret
 
     def run_local(self):
@@ -1059,7 +1059,7 @@ class Work(Base):
             else:
                 self._results = MapResult()
                 self._results.add_result(name=self.get_func_name(), args=current_job_kwargs, result=ret_output)
-            return self._results
+            return ret_status
         else:
             if not multi_jobs_kwargs_list:
                 ret_status, rets, ret_err = self.run_func(self._func, pre_kwargs, args, kwargs)
@@ -1068,7 +1068,7 @@ class Work(Base):
                 else:
                     self._results = MapResult()
                     self._results.add_result(name=self.get_func_name(), args=kwargs, result=rets)
-                return self._results
+                return ret_status
             else:
                 if not self.map_results:
                     self._results = []
@@ -1096,7 +1096,7 @@ class Work(Base):
 
                         ret_status, rets, ret_error = self.run_func(self._func, pre_kwargs_copy, args_copy, kwargs_copy)
                         self._results.add_result(name=self.get_func_name(), args=one_job_kwargs, result=rets)
-                return self._results
+                return ret_status
 
     def get_run_command(self):
         cmd = "run_workflow --type work --name %s " % self.name
