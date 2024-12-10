@@ -224,7 +224,7 @@ def setup_workflow():
                                     "type": "template",
                                     "value": "log.tgz"},
                           task_cloud=task_cloud)
-    work2 = DomaPanDAWork(executable='echo; sleep 180',
+    work2 = DomaPanDAWork(executable='echo; sleep 180',        # noqa F841
                           primary_input_collection={'scope': 'pseudo_dataset', 'name': 'pseudo_input_collection#2'},
                           output_collections=[{'scope': 'pseudo_dataset', 'name': 'pseudo_output_collection#2'}],
                           log_collections=[], dependency_map=taskN2.dependencies,
@@ -239,7 +239,7 @@ def setup_workflow():
                                     "type": "template",
                                     "value": "log.tgz"},
                           task_cloud=task_cloud)
-    work3 = DomaPanDAWork(executable='echo; sleep 180',
+    work3 = DomaPanDAWork(executable='echo; sleep 180',        # noqa F841
                           primary_input_collection={'scope': 'pseudo_dataset', 'name': 'pseudo_input_collection#3'},
                           output_collections=[{'scope': 'pseudo_dataset', 'name': 'pseudo_output_collection#3'}],
                           log_collections=[], dependency_map=taskN3.dependencies,
@@ -255,7 +255,7 @@ def setup_workflow():
                                     "value": "log.tgz"},
                           task_cloud=task_cloud)
 
-    work4 = DomaPanDAWork(executable='echo; sleep 180',
+    work4 = DomaPanDAWork(executable='echo; sleep 180',        # noqa F841
                           primary_input_collection={'scope': 'pseudo_dataset', 'name': 'pseudo_input_collection#1'},
                           output_collections=[{'scope': 'pseudo_dataset', 'name': 'pseudo_output_collection#1'}],
                           log_collections=[], dependency_map=taskN4.dependencies,
@@ -271,7 +271,7 @@ def setup_workflow():
                                     "value": "log.tgz"},
                           task_cloud=task_cloud)
 
-    work5 = DomaPanDAWork(executable='echo; sleep 180',
+    work5 = DomaPanDAWork(executable='echo; sleep 180',        # noqa F841
                           primary_input_collection={'scope': 'pseudo_dataset', 'name': 'pseudo_input_collection#1'},
                           output_collections=[{'scope': 'pseudo_dataset', 'name': 'pseudo_output_collection#1'}],
                           log_collections=[], dependency_map=taskN5.dependencies,
@@ -287,7 +287,7 @@ def setup_workflow():
                                     "value": "log.tgz"},
                           task_cloud=task_cloud)
 
-    work6 = DomaPanDAWork(executable='echo; sleep 180',
+    work6 = DomaPanDAWork(executable='echo; sleep 180',        # noqa F841
                           primary_input_collection={'scope': 'pseudo_dataset', 'name': 'pseudo_input_collection#1'},
                           output_collections=[{'scope': 'pseudo_dataset', 'name': 'pseudo_output_collection#1'}],
                           log_collections=[], dependency_map=taskN6.dependencies,
