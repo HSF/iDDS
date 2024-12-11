@@ -17,6 +17,7 @@ except ImportError:
 
 import concurrent.futures
 import datetime
+import json
 import os
 import time
 import traceback
@@ -143,6 +144,7 @@ class DomaPanDAWork(Work):
         self.dependency_map_deleted = []
 
         self.additional_task_parameters = {}
+        self.additional_task_parameters_per_site = {}
 
     def my_condition(self):
         if self.is_finished():
@@ -341,11 +343,26 @@ class DomaPanDAWork(Work):
             if not self.additional_task_parameters:
                 self.additional_task_parameters = {}
             try:
+                self.agent_attributes['additional_task_parameters'] = json.loads(self.agent_attributes['additional_task_parameters'])
                 for key, value in self.agent_attributes['additional_task_parameters'].items():
                     if key not in self.additional_task_parameters:
                         self.additional_task_parameters[key] = value
             except Exception as ex:
                 self.logger.warn(f"Failed to set additional_task_parameters: {ex}")
+
+        if 'additional_task_parameters_per_site' in self.agent_attributes and self.agent_attributes['additional_task_parameters_per_site']:
+            if not self.additional_task_parameters_per_site:
+                self.additional_task_parameters_per_site = {}
+            try:
+                self.agent_attributes['additional_task_parameters_per_site'] = json.loads(self.agent_attributes['additional_task_parameters_per_site'])
+                for site in self.agent_attributes['additional_task_parameters_per_site']:
+                    if site not in self.additional_task_parameters_per_site:
+                        self.additional_task_parameters_per_site[site] = {}
+                    for key, value in self.agent_attributes['additional_task_parameters_per_site'][site].items():
+                        if key not in self.additional_task_parameters_per_site[site]:
+                            self.additional_task_parameters_per_site[site][key] = value
+            except Exception as ex:
+                self.logger.warn(f"Failed to set additional_task_parameters_per_site: {ex}")
 
     def depend_on(self, work):
         self.logger.debug("checking depending on")
@@ -776,14 +793,6 @@ class DomaPanDAWork(Work):
 
         task_param_map['reqID'] = self.get_request_id()
 
-        if self.additional_task_parameters:
-            try:
-                for key, value in self.additional_task_parameters.items():
-                    if key not in task_param_map:
-                        task_param_map[key] = value
-            except Exception as ex:
-                self.logger.warn(f"failed to set task parameter map with additional_task_parameters: {ex}")
-
         processing_metadata = {'task_param': task_param_map}
         proc = Processing(processing_metadata=processing_metadata)
         proc.workload_id = None
@@ -815,6 +824,23 @@ class DomaPanDAWork(Work):
             if cloud and cloud != task_param['cloud']:
                 self.logger.info(f"Task cloud was set to {task_param['cloud']}, which is different from {cloud}, reset it to {cloud}")
                 task_param['cloud'] = cloud
+
+            if self.additional_task_parameters:
+                try:
+                    for key, value in self.additional_task_parameters.items():
+                        if key not in task_param:
+                            task_param[key] = value
+                except Exception as ex:
+                    self.logger.warn(f"failed to set task parameter map with additional_task_parameters: {ex}")
+            if self.additional_task_parameters_per_site:
+                try:
+                    for site in self.additional_task_parameters_per_site:
+                        if (task_param['PandaSite'] and site in task_param['PandaSite']) or (task_param['site'] and site in task_param['site']):
+                            for key, value in self.additional_task_parameters_per_site[site].items():
+                                if key not in task_param:
+                                    task_param[key] = value
+                except Exception as ex:
+                    self.logger.warn(f"failed to set task parameter map with additional_task_parameters_per_site: {ex}")
 
             if self.has_dependency():
                 parent_tid = None
