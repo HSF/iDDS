@@ -233,12 +233,40 @@ class Transformer(BaseAgent):
         default_value = {'new': 0, 'activated': 0, 'processed': 0}
         return num_input_contents.get(site_name, default_value), num_output_contents.get(site_name, default_value)
 
+    def get_closest_site(self, task_site, throttler_sites):
+        try:
+            if ',' in task_site:
+                cloud, site, queue = task_site.split(",")
+            else:
+                # cloud = None
+                site = task_site
+                queue = None
+
+            # Sort by length (descending) and alphabetically
+            sorted_sites = sorted(throttler_sites, key=lambda x: (-len(x), x))
+            for s in sorted_sites:
+                if queue and queue.startswith(s):
+                    return s
+                elif site and site.startswith(s):
+                    return s
+        except Exception as ex:
+            self.logger.warn(f"Failed to find closest site for {task_site}: {ex}")
+        return None
+
     def whether_to_throttle(self, transform):
         try:
+            throttlers = self.get_throttlers()
+
             site = transform['site']
             if site is None:
                 site = 'Default'
-            throttlers = self.get_throttlers()
+            else:
+                throttler_sites = [site for site in throttlers]
+                site = self.get_closest_site(site, throttler_sites)
+                if site is None:
+                    site = 'Default'
+            self.logger.info(f"throttler closest site for {transform['site']} is {site}")
+
             num_transforms = self.get_num_active_transforms(site)
             num_processings, active_transforms = self.get_num_active_processings(site)
             num_input_contents, num_output_contents = self.get_num_active_contents(site, active_transforms)
