@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2023
+# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2024
 # - Sergey Padolski, <spadolski@bnl.gov>, 2020
 
 
@@ -145,6 +145,8 @@ class DomaPanDAWork(Work):
 
         self.additional_task_parameters = {}
         self.additional_task_parameters_per_site = {}
+
+        self.core_to_queues = {}
 
     def my_condition(self):
         if self.is_finished():
@@ -363,6 +365,13 @@ class DomaPanDAWork(Work):
                             self.additional_task_parameters_per_site[site][key] = value
             except Exception as ex:
                 self.logger.warn(f"Failed to set additional_task_parameters_per_site: {ex}")
+
+        if 'core_to_queues' in self.agent_attributes and self.agent_attributes['core_to_queues']:
+            try:
+                self.agent_attributes['core_to_queues'] = json.loads(self.agent_attributes['core_to_queues'])
+                self.core_to_queues = self.agent_attributes['core_to_queues']
+            except Exception as ex:
+                self.logger.warn(f"Failed to set core_to_queues: {ex}")
 
     def depend_on(self, work):
         self.logger.debug("checking depending on")
@@ -842,6 +851,87 @@ class DomaPanDAWork(Work):
                 except Exception as ex:
                     self.logger.warn(f"failed to set task parameter map with additional_task_parameters_per_site: {ex}")
 
+            if self.core_to_queues:
+                try:
+                    # core_to_queues = {"1": {"queues": ["Rubin", "Rubin_Medium", "Rubin_Himem", "Rubin_Big_Himem"], "processing_type": ""},
+                    #                   "extra_himem": {"queues": ["Rubin_Extra_Himem"], "processing_type": "Rubin_Extra_Himem"},
+                    #                   "merge": {"queues": ["Rubin_Merge"], "processing_type": "Rubin_Merge"},
+                    #                   "any": "extra_himem"}
+
+                    num_cores = []
+                    for k in self.core_to_queues:
+                        key = str(k)
+                        if key not in ['any']:
+                            num_cores.append(key)
+
+                    if str(task_param['coreCount']) in num_cores:
+                        queues = self.core_to_queues.get(str(task_param['coreCount']), {}).get('queues', [])
+                        p_type = self.core_to_queues.get(str(task_param['coreCount']), {}).get('processing_type', None)
+                        has_correct_queue = False
+                        has_wrong_queue = False
+                        for q in queues:
+                            if task_param['site'] and (task_param['site'] in q or q in task_param['site']):
+                                has_correct_queue = True
+                        if task_param['site'] and not has_correct_queue:
+                            has_wrong_queue = True
+                        if has_wrong_queue or (not has_correct_queue):
+                            if p_type:
+                                msg = f"task has coreCount {task_param['coreCount']} but task queue {task_param['site']} not in {queues}."
+                                msg += f"set task queue to None. set processing_type to {p_type}"
+                                self.logger.warn(msg)
+                                task_param['site'] = None
+                                task_param['processingType'] = p_type
+                            else:
+                                msg = f"task has coreCount {task_param['coreCount']} but task queue {task_param['site']} not in {queues}."
+                                self.logger.warn(msg)
+                    elif str(task_param['coreCount']) not in num_cores:
+                        # the number of requested cores is not a standard one. We need to send it to the queue which accepts random number of cpu cores
+
+                        # push queues
+                        push_queues = []
+                        push_processing_type = []
+                        for num_core in num_cores:
+                            if not str(num_core).isdigit():
+                                queues = self.core_to_queues.get(num_core, {}).get('queues', [])
+                                push_queues = push_queues + queues
+                                p_type = self.core_to_queues.get(num_core, {}).get('processing_type', None)
+                                if p_type:
+                                    push_processing_type.append(p_type)
+                        has_correct_queue = False
+                        has_wrong_queue = False
+                        for q in push_queues:
+                            if task_param['site'] and (task_param['site'] in q or q in task_param['site']):
+                                has_correct_queue = True
+                        if task_param['site'] and not has_correct_queue:
+                            has_wrong_queue = True
+                        has_correct_processing_type, has_wrong_processing_type = False, False
+                        if task_param['processingType']:
+                            if task_param['processingType'] in push_processing_type:
+                                has_correct_processing_type = True
+                            else:
+                                has_wrong_processing_type = True
+                        msg = f"task has_correct_queue {has_correct_queue}, has_wrong_queue {has_wrong_queue},"
+                        msg += f"has_correct_processing_type {has_correct_processing_type}, has_wrong_processing_type: {has_wrong_processing_type}"
+                        self.logger.debug(msg)
+                        if has_correct_queue:
+                            msg = "has correct queues, do nothing"
+                            self.logger.debug(msg)
+                        elif has_wrong_queue or (not has_correct_queue):
+                            if has_correct_processing_type:
+                                msg = "has correct processing_type, set panda queue None"
+                                task_param['site'] = None
+                                self.logger.debug(msg)
+                            else:
+                                n_cores = self.core_to_queues['any']
+                                p_type = self.core_to_queues.get(n_cores, {}).get('processing_type', None)
+                                msg = "queue not set or has wrong queues. "
+                                msg += f"set task queue to None. set processing_type to {p_type} (mapped from 'any' queue)"
+                                self.logger.warn(msg)
+                                task_param['site'] = None
+                                task_param['processingType'] = p_type
+                except Exception as ex:
+                    self.logger.warn(f"failed to set task parameter map with core_to_queues: {ex}")
+
             if self.has_dependency():
                 parent_tid = None
                 self.logger.info("parent_workload_id: %s" % self.parent_workload_id)
@@ -924,8 +1014,8 @@ class DomaPanDAWork(Work):
         if 'processing' in processing['processing_metadata']:
             from pandaclient import Client
 
-            proc = processing['processing_metadata']['processing']
-            status, task_status = Client.getTaskStatus(proc.workload_id)
+            # proc = processing['processing_metadata']['processing']
+            status, task_status = Client.getTaskStatus(processing['workload_id'])
             if status == 0:
                 return task_status
         else:
@@ -1744,8 +1834,9 @@ class DomaPanDAWork(Work):
             from pandaclient import Client
 
             if processing:
-                proc = processing['processing_metadata']['processing']
-                task_id = proc.workload_id
+                # proc = processing['processing_metadata']['processing']
+                # task_id = proc.workload_id
+                task_id = processing['workload_id']
                 if task_id is None:
                     task_id = self.get_panda_task_id(processing)
 
@@ -1793,8 +1884,9 @@ class DomaPanDAWork(Work):
         try:
             if processing:
                 from pandaclient import Client
-                proc = processing['processing_metadata']['processing']
-                task_id = proc.workload_id
+                # proc = processing['processing_metadata']['processing']
+                # task_id = proc.workload_id
+                task_id = processing['workload_id']
                 # task_id = processing['processing_metadata']['task_id']
                 # Client.killTask(task_id)
                 Client.finishTask(task_id, soft=False)
@@ -1808,8 +1900,9 @@ class DomaPanDAWork(Work):
         try:
             if processing:
                 from pandaclient import Client
-                proc = processing['processing_metadata']['processing']
-                task_id = proc.workload_id
+                # proc = processing['processing_metadata']['processing']
+                # task_id = proc.workload_id
+                task_id = processing['workload_id']
                 # task_id = processing['processing_metadata']['task_id']
                 Client.killTask(task_id)
                 # Client.finishTask(task_id, soft=True)
@@ -1824,8 +1917,9 @@ class DomaPanDAWork(Work):
             if processing:
                 from pandaclient import Client
                 # task_id = processing['processing_metadata']['task_id']
-                proc = processing['processing_metadata']['processing']
-                task_id = proc.workload_id
+                # proc = processing['processing_metadata']['processing']
+                # task_id = proc.workload_id
+                task_id = processing['workload_id']
 
                 # Client.retryTask(task_id)
                 status, out = Client.retryTask(task_id, newParams={})
@@ -1841,8 +1935,9 @@ class DomaPanDAWork(Work):
         try:
             has_task = False
             if processing:
-                proc = processing['processing_metadata']['processing']
-                task_id = proc.workload_id
+                # proc = processing['processing_metadata']['processing']
+                # task_id = proc.workload_id
+                task_id = processing['workload_id']
                 if task_id:
                     has_task = True
                     self.kill_processing_force(processing, log_prefix=log_prefix)
@@ -1866,8 +1961,9 @@ class DomaPanDAWork(Work):
     def get_external_content_ids(self, processing, log_prefix=''):
         if processing:
             from pandaclient import Client
-            proc = processing['processing_metadata']['processing']
-            task_id = proc.workload_id
+            # proc = processing['processing_metadata']['processing']
+            # task_id = proc.workload_id
+            task_id = processing['workload_id']
             status, output = Client.get_files_in_datasets(task_id, verbose=False)
             if status == 0:
                 return output
