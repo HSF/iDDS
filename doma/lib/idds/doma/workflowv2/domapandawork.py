@@ -853,82 +853,49 @@ class DomaPanDAWork(Work):
 
             if self.core_to_queues:
                 try:
-                    # core_to_queues = {"1": {"queues": ["Rubin", "Rubin_Medium", "Rubin_Himem", "Rubin_Big_Himem"], "processing_type": ""},
-                    #                   "extra_himem": {"queues": ["Rubin_Extra_Himem"], "processing_type": "Rubin_Extra_Himem"},
-                    #                   "merge": {"queues": ["Rubin_Merge"], "processing_type": "Rubin_Merge"},
-                    #                   "any": "extra_himem"}
+                    # core_to_queues = {"1": {"queues": ["Rubin", "Rubin_Extra_Himem"], "processing_type": ""},
+                    #                   "Rubin_Multi": {"queues": ["Rubin_Multi"], "processing_type": "Rubin_Multi"},
+                    #                   "Rubin_Merge": {"queues": ["Rubin_Merge"], "processing_type": "Rubin_Merge"},
+                    #                   "any": "Rubin_Multi"}
 
-                    num_cores = []
-                    for k in self.core_to_queues:
-                        key = str(k)
-                        if key not in ['any']:
-                            num_cores.append(key)
-
-                    if str(task_param['coreCount']) in num_cores:
-                        queues = self.core_to_queues.get(str(task_param['coreCount']), {}).get('queues', [])
-                        p_type = self.core_to_queues.get(str(task_param['coreCount']), {}).get('processing_type', None)
-                        has_correct_queue = False
-                        has_wrong_queue = False
-                        for q in queues:
-                            if task_param['site'] and (task_param['site'] in q or q in task_param['site']):
-                                has_correct_queue = True
-                        if task_param['site'] and not has_correct_queue:
-                            has_wrong_queue = True
-                        if has_wrong_queue or (not has_correct_queue):
-                            if p_type:
-                                msg = f"task has coreCount {task_param['coreCount']} but task queue {task_param['site']} not in {queues}."
-                                msg += f"set task queue to None. set processing_type to {p_type}"
-                                self.logger.warn(msg)
-                                task_param['site'] = None
-                                task_param['processingType'] = p_type
-                            else:
-                                msg = f"task has coreCount {task_param['coreCount']} but task queue {task_param['site']} not in {queues}."
-                                self.logger.warn(msg)
-                    elif str(task_param['coreCount']) not in num_cores:
-                        # the number of requested cores is not a standard one. We need to send it to the queue which accepts random number of cpu cores
-
-                        # push queues
-                        push_queues = []
-                        push_processing_type = []
-                        for num_core in num_cores:
-                            if not str(num_core).isdigit():
-                                queues = self.core_to_queues.get(num_core, {}).get('queues', [])
-                                push_queues = push_queues + queues
-                                p_type = self.core_to_queues.get(num_core, {}).get('processing_type', None)
-                                if p_type:
-                                    push_processing_type.append(p_type)
-                        has_correct_queue = False
-                        has_wrong_queue = False
-                        for q in push_queues:
-                            if task_param['site'] and (task_param['site'] in q or q in task_param['site']):
-                                has_correct_queue = True
-                        if task_param['site'] and not has_correct_queue:
-                            has_wrong_queue = True
-                        has_correct_processing_type, has_wrong_processing_type = False, False
-                        if task_param['processingType']:
-                            if task_param['processingType'] in push_processing_type:
-                                has_correct_processing_type = True
-                            else:
-                                has_wrong_processing_type = True
-                        msg = f"task has_correct_queue {has_correct_queue}, has_wrong_queue {has_wrong_queue},"
-                        msg += f"has_correct_processing_type {has_correct_processing_type}, has_wrong_processing_type: {has_wrong_processing_type}"
+                    if task_param['processingType']:
+                        msg = f"processingType {task_param['processingType']} is already set, do nothing"
                         self.logger.debug(msg)
-                        if has_correct_queue:
-                            msg = "has correct queues, do nothing"
-                            self.logger.debug(msg)
-                        elif has_wrong_queue or (not has_correct_queue):
-                            if has_correct_processing_type:
-                                msg = "has correct processing_type, set panda queue None"
-                                task_param['site'] = None
-                                self.logger.debug(msg)
-                            else:
-                                n_cores = self.core_to_queues['any']
-                                p_type = self.core_to_queues.get(n_cores, {}).get('processing_type', None)
-                                msg = "queue not set or has wrong queues. "
-                                msg += f"set task queue to None. set processing_type to {p_type} (mapped from 'any' queue)"
-                                self.logger.warn(msg)
-                                task_param['site'] = None
+                    else:
+                        num_cores = []
+                        queue_processing_type = {}
+                        for k in self.core_to_queues:
+                            key = str(k)
+                            if not key.isdigit():
+                                num_cores.append(key)
+                            if key not in ['any']:
+                                queues = self.core_to_queues[k].get('queues', [])
+                                processing_type = self.core_to_queues[k].get('processing_type', '')
+                                for q in queues:
+                                    queue_processing_type[q] = processing_type
+
+                        if str(task_param['coreCount']) in num_cores:
+                            p_type = self.core_to_queues.get(str(task_param['coreCount']), {}).get('processing_type', None)
+                            if p_type and not task_param['processingType']:
+                                msg = f"processingType is not defined, set it to {p_type} based on coreCount {task_param['coreCount']}"
                                 task_param['processingType'] = p_type
+                                self.logger.warn(msg)
+                        else:
+                            if task_param['site']:
+                                for q in queue_processing_type:
+                                    if task_param['site'] in q or q in task_param['site']:
+                                        p_type = queue_processing_type[q]
+                                        if p_type:
+                                            msg = f"processingType is not defined, set it to {p_type} based on site {task_param['site']}"
+                                            task_param['processingType'] = p_type
+                                            self.logger.debug(msg)
+                            else:
+                                site = 'any'
+                                p_type = self.core_to_queues.get(site, {}).get('processing_type', None)
+                                if p_type:
+                                    msg = f"processingType is not defined, set it to {p_type} based on site 'any'"
+                                    task_param['processingType'] = p_type
+                                    self.logger.debug(msg)
                 except Exception as ex:
                     self.logger.warn(f"failed to set task parameter map with core_to_queues: {ex}")
 
