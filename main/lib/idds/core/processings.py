@@ -65,7 +65,7 @@ def add_processing(request_id, workload_id, transform_id, status, submitter=None
 
 
 @read_session
-def get_processing(processing_id=None, to_json=False, session=None):
+def get_processing(processing_id=None, request_id=None, transform_id=None, to_json=False, session=None):
     """
     Get processing or raise a NoObject exception.
 
@@ -77,7 +77,8 @@ def get_processing(processing_id=None, to_json=False, session=None):
 
     :returns: Processing.
     """
-    return orm_processings.get_processing(processing_id=processing_id, to_json=to_json, session=session)
+    return orm_processings.get_processing(processing_id=processing_id, request_id=request_id,
+                                          transform_id=transform_id, to_json=to_json, session=session)
 
 
 @read_session

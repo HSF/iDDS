@@ -111,7 +111,7 @@ def add_processing(request_id, workload_id, transform_id, status=ProcessingStatu
 
 
 @read_session
-def get_processing(processing_id, to_json=False, session=None):
+def get_processing(processing_id, request_id=None, transform_id=None, to_json=False, session=None):
     """
     Get processing or raise a NoObject exception.
 
@@ -128,6 +128,11 @@ def get_processing(processing_id, to_json=False, session=None):
     try:
         query = session.query(models.Processing)\
                        .filter_by(processing_id=processing_id)
+        if request_id is not None:
+            query = query.filter_by(request_id=request_id)
+        if transform_id is not None:
+            query = query.filter_by(transform_id=transform_id)
+
         ret = query.first()
         if not ret:
             return None
