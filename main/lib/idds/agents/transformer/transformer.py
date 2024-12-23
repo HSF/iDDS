@@ -571,17 +571,33 @@ class Transformer(BaseAgent):
         work_name_to_coll_map = core_transforms.get_work_name_to_coll_map(request_id=transform['request_id'])
         work.set_work_name_to_coll_map(work_name_to_coll_map)
 
-        # create processing
         new_processing_model = None
-        processing = work.get_processing(input_output_maps=[], without_creating=False)
-        self.logger.debug(log_pre + "work get_processing with creating: %s" % processing)
-        if processing and not processing.processing_id:
-            new_processing_model = self.generate_processing_model(transform)
 
-            proc_work = copy.deepcopy(work)
-            proc_work.clean_work()
-            processing.work = proc_work
-            new_processing_model['processing_metadata'] = {'processing': processing}
+        processing = work.get_processing(input_output_maps=[], without_creating=True)
+        self.logger.debug(log_pre + "work get_processing: %s" % processing)
+        processing_model = core_processings.get_processing(request_id=transform['request_id'], transform_id=transform['transform_id'])
+        if processing_model:
+            work.sync_processing(processing, processing_model)
+            proc = processing_model['processing_metadata']['processing']
+            work.sync_work_data(status=processing_model['status'], substatus=processing_model['substatus'],
+                                work=proc.work, output_data=processing_model['output_metadata'], processing=proc)
+            # processing_metadata = processing_model['processing_metadata']
+            if processing_model['errors']:
+                work.set_terminated_msg(processing_model['errors'])
+            # work.set_processing_output_metadata(processing, processing_model['output_metadata'])
+            work.set_output_data(processing.output_data)
+            transform['workload_id'] = processing_model['workload_id']
+        else:
+            # create processing
+            processing = work.get_processing(input_output_maps=[], without_creating=False)
+            self.logger.debug(log_pre + "work get_processing with creating: %s" % processing)
+            if processing and not processing.processing_id:
+                new_processing_model = self.generate_processing_model(transform)
+
+                proc_work = copy.deepcopy(work)
+                proc_work.clean_work()
+                processing.work = proc_work
+                new_processing_model['processing_metadata'] = {'processing': processing}
 
         transform_parameters = {'status': TransformStatus.Transforming,
                                 'locking': TransformLocking.Idle,
