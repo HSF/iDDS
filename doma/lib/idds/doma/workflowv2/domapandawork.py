@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2023
+# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2024
 # - Sergey Padolski, <spadolski@bnl.gov>, 2020
 
 
@@ -145,6 +145,8 @@ class DomaPanDAWork(Work):
 
         self.additional_task_parameters = {}
         self.additional_task_parameters_per_site = {}
+
+        self.core_to_queues = {}
 
     def my_condition(self):
         if self.is_finished():
@@ -363,6 +365,13 @@ class DomaPanDAWork(Work):
                             self.additional_task_parameters_per_site[site][key] = value
             except Exception as ex:
                 self.logger.warn(f"Failed to set additional_task_parameters_per_site: {ex}")
+
+        if 'core_to_queues' in self.agent_attributes and self.agent_attributes['core_to_queues']:
+            try:
+                self.agent_attributes['core_to_queues'] = json.loads(self.agent_attributes['core_to_queues'])
+                self.core_to_queues = self.agent_attributes['core_to_queues']
+            except Exception as ex:
+                self.logger.warn(f"Failed to set core_to_queues: {ex}")
 
     def depend_on(self, work):
         self.logger.debug("checking depending on")
@@ -765,9 +774,9 @@ class DomaPanDAWork(Work):
             # task_param_map['ramUnit'] = 'MB'
             task_param_map['ramUnit'] = 'MBPerCoreFixed'
         if self.task_rss_retry_offset:
-            task_param_map['retryRamOffset'] = self.task_rss_retry_offset
+            task_param_map['retryRamOffset'] = self.task_rss_retry_offset / self.core_count if self.core_count else self.task_rss_retry_offset
         if self.task_rss_retry_step:
-            task_param_map['retryRamStep'] = self.task_rss_retry_step
+            task_param_map['retryRamStep'] = self.task_rss_retry_step / self.core_count if self.core_count else self.task_rss_retry_step
         if self.task_rss_max:
             # todo: until PanDA supports it
             # taskParamMap['maxRamCount'] = self.task_rss_max
@@ -841,6 +850,54 @@ class DomaPanDAWork(Work):
                                     task_param[key] = value
                 except Exception as ex:
                     self.logger.warn(f"failed to set task parameter map with additional_task_parameters_per_site: {ex}")
+
+            if self.core_to_queues:
+                try:
+                    # core_to_queues = {"1": {"queues": ["Rubin", "Rubin_Extra_Himem"], "processing_type": ""},
+                    #                   "Rubin_Multi": {"queues": ["Rubin_Multi"], "processing_type": "Rubin_Multi"},
+                    #                   "Rubin_Merge": {"queues": ["Rubin_Merge"], "processing_type": "Rubin_Merge"},
+                    #                   "any": "Rubin_Multi"}
+
+                    if task_param['processingType']:
+                        msg = f"processingType {task_param['processingType']} is already set, do nothing"
+                        self.logger.debug(msg)
+                    else:
+                        num_cores = []
+                        queue_processing_type = {}
+                        for k in self.core_to_queues:
+                            key = str(k)
+                            if not key.isdigit():
+                                num_cores.append(key)
+                            if key not in ['any']:
+                                queues = self.core_to_queues[k].get('queues', [])
+                                processing_type = self.core_to_queues[k].get('processing_type', '')
+                                for q in queues:
+                                    queue_processing_type[q] = processing_type
+
+                        if str(task_param['coreCount']) in num_cores:
+                            p_type = self.core_to_queues.get(str(task_param['coreCount']), {}).get('processing_type', None)
+                            if p_type and not task_param['processingType']:
+                                msg = f"processingType is not defined, set it to {p_type} based on coreCount {task_param['coreCount']}"
+                                task_param['processingType'] = p_type
+                                self.logger.warn(msg)
+                        else:
+                            if task_param['site']:
+                                for q in queue_processing_type:
+                                    if task_param['site'] in q or q in task_param['site']:
+                                        p_type = queue_processing_type[q]
+                                        if p_type:
+                                            msg = f"processingType is not defined, set it to {p_type} based on site {task_param['site']}"
+                                            task_param['processingType'] = p_type
+                                            self.logger.debug(msg)
+                            else:
+                                site = 'any'
+                                p_type = self.core_to_queues.get(site, {}).get('processing_type', None)
+                                if p_type:
+                                    msg = f"processingType is not defined, set it to {p_type} based on site 'any'"
+                                    task_param['processingType'] = p_type
+                                    self.logger.debug(msg)
+                except Exception as ex:
+                    self.logger.warn(f"failed to set task parameter map with core_to_queues: {ex}")
 
             if self.has_dependency():
                 parent_tid = None
@@ -924,8 +981,8 @@ class DomaPanDAWork(Work):
         if 'processing' in processing['processing_metadata']:
             from pandaclient import Client
 
-            proc = processing['processing_metadata']['processing']
-            status, task_status = Client.getTaskStatus(proc.workload_id)
+            # proc = processing['processing_metadata']['processing']
+            status, task_status = Client.getTaskStatus(processing['workload_id'])
             if status == 0:
                 return task_status
         else:
@@ -1744,8 +1801,9 @@ class DomaPanDAWork(Work):
             from pandaclient import Client
 
             if processing:
-                proc = processing['processing_metadata']['processing']
-                task_id = proc.workload_id
+                # proc = processing['processing_metadata']['processing']
+                # task_id = proc.workload_id
+                task_id = processing['workload_id']
                 if task_id is None:
                     task_id = self.get_panda_task_id(processing)
 
@@ -1793,8 +1851,9 @@ class DomaPanDAWork(Work):
         try:
             if processing:
                 from pandaclient import Client
-                proc = processing['processing_metadata']['processing']
-                task_id = proc.workload_id
+                # proc = processing['processing_metadata']['processing']
+                # task_id = proc.workload_id
+                task_id = processing['workload_id']
                 # task_id = processing['processing_metadata']['task_id']
                 # Client.killTask(task_id)
                 Client.finishTask(task_id, soft=False)
@@ -1808,8 +1867,9 @@ class DomaPanDAWork(Work):
         try:
             if processing:
                 from pandaclient import Client
-                proc = processing['processing_metadata']['processing']
-                task_id = proc.workload_id
+                # proc = processing['processing_metadata']['processing']
+                # task_id = proc.workload_id
+                task_id = processing['workload_id']
                 # task_id = processing['processing_metadata']['task_id']
                 Client.killTask(task_id)
                 # Client.finishTask(task_id, soft=True)
@@ -1824,8 +1884,9 @@ class DomaPanDAWork(Work):
             if processing:
                 from pandaclient import Client
                 # task_id = processing['processing_metadata']['task_id']
-                proc = processing['processing_metadata']['processing']
-                task_id = proc.workload_id
+                # proc = processing['processing_metadata']['processing']
+                # task_id = proc.workload_id
+                task_id = processing['workload_id']
 
                 # Client.retryTask(task_id)
                 status, out = Client.retryTask(task_id, newParams={})
@@ -1841,8 +1902,9 @@ class DomaPanDAWork(Work):
         try:
             has_task = False
             if processing:
-                proc = processing['processing_metadata']['processing']
-                task_id = proc.workload_id
+                # proc = processing['processing_metadata']['processing']
+                # task_id = proc.workload_id
+                task_id = processing['workload_id']
                 if task_id:
                     has_task = True
                     self.kill_processing_force(processing, log_prefix=log_prefix)
@@ -1866,8 +1928,9 @@ class DomaPanDAWork(Work):
     def get_external_content_ids(self, processing, log_prefix=''):
         if processing:
             from pandaclient import Client
-            proc = processing['processing_metadata']['processing']
-            task_id = proc.workload_id
+            # proc = processing['processing_metadata']['processing']
+            # task_id = proc.workload_id
+            task_id = processing['workload_id']
             status, output = Client.get_files_in_datasets(task_id, verbose=False)
             if status == 0:
                 return output

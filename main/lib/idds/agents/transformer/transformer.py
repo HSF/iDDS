@@ -233,12 +233,40 @@ class Transformer(BaseAgent):
         default_value = {'new': 0, 'activated': 0, 'processed': 0}
         return num_input_contents.get(site_name, default_value), num_output_contents.get(site_name, default_value)
 
+    def get_closest_site(self, task_site, throttler_sites):
+        try:
+            if ',' in task_site:
+                cloud, site, queue = task_site.split(",")
+            else:
+                # cloud = None
+                site = task_site
+                queue = None
+
+            # Sort by length (descending) and alphabetically
+            sorted_sites = sorted(throttler_sites, key=lambda x: (-len(x), x))
+            for s in sorted_sites:
+                if queue and queue.startswith(s):
+                    return s
+                elif site and site.startswith(s):
+                    return s
+        except Exception as ex:
+            self.logger.warn(f"Failed to find closest site for {task_site}: {ex}")
+        return None
+
     def whether_to_throttle(self, transform):
         try:
+            throttlers = self.get_throttlers()
+
             site = transform['site']
             if site is None:
                 site = 'Default'
-            throttlers = self.get_throttlers()
+            else:
+                throttler_sites = [site for site in throttlers]
+                site = self.get_closest_site(site, throttler_sites)
+                if site is None:
+                    site = 'Default'
+            self.logger.info(f"throttler closest site for {transform['site']} is {site}")
+
             num_transforms = self.get_num_active_transforms(site)
             num_processings, active_transforms = self.get_num_active_processings(site)
             num_input_contents, num_output_contents = self.get_num_active_contents(site, active_transforms)
@@ -543,17 +571,33 @@ class Transformer(BaseAgent):
         work_name_to_coll_map = core_transforms.get_work_name_to_coll_map(request_id=transform['request_id'])
         work.set_work_name_to_coll_map(work_name_to_coll_map)
 
-        # create processing
         new_processing_model = None
-        processing = work.get_processing(input_output_maps=[], without_creating=False)
-        self.logger.debug(log_pre + "work get_processing with creating: %s" % processing)
-        if processing and not processing.processing_id:
-            new_processing_model = self.generate_processing_model(transform)
 
-            proc_work = copy.deepcopy(work)
-            proc_work.clean_work()
-            processing.work = proc_work
-            new_processing_model['processing_metadata'] = {'processing': processing}
+        processing = work.get_processing(input_output_maps=[], without_creating=True)
+        self.logger.debug(log_pre + "work get_processing: %s" % processing)
+        processing_model = core_processings.get_processing(request_id=transform['request_id'], transform_id=transform['transform_id'])
+        if processing_model:
+            work.sync_processing(processing, processing_model)
+            proc = processing_model['processing_metadata']['processing']
+            work.sync_work_data(status=processing_model['status'], substatus=processing_model['substatus'],
+                                work=proc.work, output_data=processing_model['output_metadata'], processing=proc)
+            # processing_metadata = processing_model['processing_metadata']
+            if processing_model['errors']:
+                work.set_terminated_msg(processing_model['errors'])
+            # work.set_processing_output_metadata(processing, processing_model['output_metadata'])
+            work.set_output_data(processing.output_data)
+            transform['workload_id'] = processing_model['workload_id']
+        else:
+            # create processing
+            processing = work.get_processing(input_output_maps=[], without_creating=False)
+            self.logger.debug(log_pre + "work get_processing with creating: %s" % processing)
+            if processing and not processing.processing_id:
+                new_processing_model = self.generate_processing_model(transform)
+
+                proc_work = copy.deepcopy(work)
+                proc_work.clean_work()
+                processing.work = proc_work
+                new_processing_model['processing_metadata'] = {'processing': processing}
 
         transform_parameters = {'status': TransformStatus.Transforming,
                                 'locking': TransformLocking.Idle,

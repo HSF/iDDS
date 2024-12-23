@@ -277,6 +277,8 @@ def setup_workflow():
                           task_name=taskN4.name, task_queue=task_queue3,
                           encode_command_line=True,
                           task_priority=981,
+                          core_count=2,
+                          task_rss=32000,
                           prodSourceLabel='managed',
                           task_log={"dataset": "PandaJob_#{pandaid}/",
                                     "destination": "local",
