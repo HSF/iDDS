@@ -485,6 +485,27 @@ class Clerk(BaseAgent):
         if has_previous_conditions:
             transform_status = TransformStatus.WaitForTrigger
 
+        site = req['site']
+        if not site:
+            try:
+                cloud = None
+                if hasattr(work, 'task_cloud') and work.task_cloud:
+                    cloud = work.task_cloud
+
+                if hasattr(work, 'task_queue') and work.task_queue:
+                    queue = work.task_queue
+                elif hasattr(work, 'queue') and work.queue:
+                    queue = work.queue
+                else:
+                    queue = None
+
+                task_site = None
+                if hasattr(work, 'task_site') and work.task_site:
+                    task_site = work.task_site
+                site = f"{cloud},{task_site},{queue}"
+            except Exception:
+                pass
+
         new_transform = {'request_id': req['request_id'],
                          'workload_id': req['workload_id'],
                          'transform_type': transform_type,
@@ -506,7 +527,7 @@ class Clerk(BaseAgent):
                          'triggered_conditions': triggered_conditions,
                          'untriggered_conditions': untriggered_conditions,
                          'loop_index': loop_index,
-                         'site': req['site'],
+                         'site': site,
                          'transform_metadata': {'internal_id': work.get_internal_id(),
                                                 'template_work_id': work.get_template_work_id(),
                                                 'sequence_id': work.get_sequence_id(),
@@ -674,6 +695,9 @@ class Clerk(BaseAgent):
         return throttlers
 
     def whether_to_throttle(self, request):
+        # disable throttler in clerk. throttler will run in transformer
+        return False
+
         try:
             site = request['site']
             if site is None:
