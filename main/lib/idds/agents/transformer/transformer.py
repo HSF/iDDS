@@ -235,6 +235,7 @@ class Transformer(BaseAgent):
 
     def get_closest_site(self, task_site, throttler_sites):
         try:
+            self.logger.debug(f"task_site: {task_site}, throttler_sites: {throttler_sites}")
             if ',' in task_site:
                 cloud, site, queue = task_site.split(",")
             else:
