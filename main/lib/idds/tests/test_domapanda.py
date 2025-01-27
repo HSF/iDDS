@@ -68,6 +68,8 @@ elif len(sys.argv) > 1 and sys.argv[1] == "ral":
     task_queue = 'RAL_Rubin'
     task_queue1 = 'RAL_Rubin_Medium'
     task_queue2 = 'RAL_Rubin_Himem'
+    task_queue1 = task_queue
+    task_queue2 = task_queue
     task_queue3 = 'RAL_Rubin_Extra_Himem'
     # task_queue3 = 'RAL_Rubin_Himem'
     task_queue4 = 'RAL_Rubin_Merge'

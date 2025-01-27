@@ -17,7 +17,7 @@ import datetime
 import random
 
 import sqlalchemy
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, func, select, not_
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.sql.expression import asc, desc
 
@@ -1179,7 +1179,10 @@ def update_request(request_id, parameters, update_request_metadata=False, sessio
         if 'processing_metadata' in parameters:
             parameters['_processing_metadata'] = parameters['processing_metadata']
             del parameters['processing_metadata']
+
+        build_status = [RequestStatus.Built, RequestStatus.Built]
         session.query(models.Request).filter_by(request_id=request_id)\
+               .filter(not_(models.Request.status.in_(build_status)))\
                .update(parameters, synchronize_session=False)
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('Request %s cannot be found: %s' % (request_id, error))
