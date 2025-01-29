@@ -1131,7 +1131,7 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, req
 
 
 @transactional_session
-def update_request(request_id, parameters, update_request_metadata=False, session=None):
+def update_request(request_id, parameters, update_request_metadata=False, locking=False, session=None):
     """
     update an request.
 
@@ -1181,11 +1181,17 @@ def update_request(request_id, parameters, update_request_metadata=False, sessio
             del parameters['processing_metadata']
 
         build_status = [RequestStatus.Built, RequestStatus.Built]
-        session.query(models.Request).filter_by(request_id=request_id)\
-               .filter(not_(models.Request.status.in_(build_status)))\
-               .update(parameters, synchronize_session=False)
+        query = session.query(models.Request).filter_by(request_id=request_id)\
+                       .filter(not_(models.Request.status.in_(build_status)))
+        if locking:
+            query = query.filter(models.Request.locking == RequestLocking.Idle)
+            query = query.with_for_update(skip_locked=True)
+
+        num_rows = query.update(parameters, synchronize_session=False)
+        return num_rows
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('Request %s cannot be found: %s' % (request_id, error))
+    return 0
 
 
 @transactional_session

@@ -109,7 +109,11 @@ def get_transform_by_id_status(transform_id, status=None, locking=False, session
         parameters['locking_pid'] = pid
         parameters['locking_thread_id'] = thread_id
         parameters['locking_thread_name'] = thread_name
-        orm_transforms.update_transform(transform_id=tf['transform_id'], parameters=parameters, session=session)
+        num_rows = orm_transforms.update_transform(transform_id=tf['transform_id'], parameters=parameters, locking=True, session=session)
+        if num_rows > 0:
+            return tf
+        else:
+            return None
     return tf
 
 
