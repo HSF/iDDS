@@ -390,6 +390,7 @@ class Transform(BASE, ModelBase):
 
     __table_args__ = (PrimaryKeyConstraint('transform_id', name='TRANSFORMS_PK'),
                       CheckConstraint('status IS NOT NULL', name='TRANSFORMS_STATUS_ID_NN'),
+                      UniqueConstraint('request_id', 'name', name='TRANSFORMS_NAME_UQ'),
                       Index('TRANSFORMS_TYPE_TAG_IDX', 'transform_type', 'transform_tag', 'transform_id'),
                       Index('TRANSFORMS_STATUS_UPDATED_AT_IDX', 'status', 'locking', 'updated_at', 'next_poll_at', 'created_at'),
                       Index('TRANSFORMS_REQ_IDX', 'request_id', 'transform_id'),
@@ -502,6 +503,7 @@ class Processing(BASE, ModelBase):
 
     __table_args__ = (PrimaryKeyConstraint('processing_id', name='PROCESSINGS_PK'),
                       ForeignKeyConstraint(['transform_id'], ['transforms.transform_id'], name='PROCESSINGS_TRANSFORM_ID_FK'),
+                      UniqueConstraint('request_id', 'transform_id', 'name', name='PROCESSINGS_NAME_UQ'),
                       CheckConstraint('status IS NOT NULL', name='PROCESSINGS_STATUS_ID_NN'),
                       CheckConstraint('transform_id IS NOT NULL', name='PROCESSINGS_TRANSFORM_ID_NN'),
                       Index('PROCESSINGS_STATUS_SITE', 'status', 'site', 'request_id', 'transform_id', 'processing_id'),
