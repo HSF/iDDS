@@ -503,7 +503,7 @@ class Processing(BASE, ModelBase):
 
     __table_args__ = (PrimaryKeyConstraint('processing_id', name='PROCESSINGS_PK'),
                       ForeignKeyConstraint(['transform_id'], ['transforms.transform_id'], name='PROCESSINGS_TRANSFORM_ID_FK'),
-                      UniqueConstraint('request_id', 'transform_id', 'name', name='PROCESSINGS_NAME_UQ'),
+                      UniqueConstraint('request_id', 'transform_id', name='PROCESSINGS_ID_UQ'),
                       CheckConstraint('status IS NOT NULL', name='PROCESSINGS_STATUS_ID_NN'),
                       CheckConstraint('transform_id IS NOT NULL', name='PROCESSINGS_TRANSFORM_ID_NN'),
                       Index('PROCESSINGS_STATUS_SITE', 'status', 'site', 'request_id', 'transform_id', 'processing_id'),

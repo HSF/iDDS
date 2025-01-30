@@ -22,6 +22,7 @@ plugin.<plugin_name>.<attr2> = <value2>
 """
 
 
+import traceback
 from idds.common.config import (config_has_section, config_has_option,
                                 config_list_options, config_get)
 
@@ -83,5 +84,9 @@ def load_plugins(config_section, logger=None):
             if option.startswith('plugin.'):
                 if option.count('.') == 1:
                     plugin_name = option.replace('plugin.', '').strip()
-                    plugins[plugin_name] = load_plugin(config_section, plugin_name, value, logger=logger)
+                    try:
+                        plugins[plugin_name] = load_plugin(config_section, plugin_name, value, logger=logger)
+                    except Exception as ex:
+                        print(f"Failed to load plugin {plugin_name}: {ex}")
+                        print(traceback.format_exc())
     return plugins

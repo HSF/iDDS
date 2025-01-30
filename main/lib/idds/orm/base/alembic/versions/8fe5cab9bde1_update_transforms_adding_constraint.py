@@ -31,7 +31,7 @@ def upgrade() -> None:
         schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
 
         op.create_unique_constraint('TRANSFORMS_NAME_UQ', 'transforms', ['request_id', 'name'], schema=schema)
-        op.create_unique_constraint('PROCESSINGS_NAME_UQ', 'processings', ['request_id', 'transform_id', 'name'], schema=schema)
+        op.create_unique_constraint('PROCESSINGS_ID_UQ', 'processings', ['request_id', 'transform_id'], schema=schema)
 
 
 def downgrade() -> None:
@@ -39,4 +39,4 @@ def downgrade() -> None:
         schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
 
         op.drop_constraint('TRANSFORMS_NAME_UQ', table_name='transforms', schema=schema)
-        op.drop_constraint('PROCESSINGS_NAME_UQ', table_name='processings', schema=schema)
+        op.drop_constraint('PROCESSINGS_ID_UQ', table_name='processings', schema=schema)
