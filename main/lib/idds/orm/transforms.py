@@ -455,7 +455,7 @@ def get_transforms_by_status(status, period=None, transform_ids=[], locking=Fals
 
 
 @transactional_session
-def update_transform(transform_id, parameters, session=None):
+def update_transform(transform_id, parameters, locking=False, session=None):
     """
     update a transform.
 
@@ -493,10 +493,16 @@ def update_transform(transform_id, parameters, session=None):
             parameters['_running_metadata'] = parameters['running_metadata']
             del parameters['running_metadata']
 
-        session.query(models.Transform).filter_by(transform_id=transform_id)\
-               .update(parameters, synchronize_session=False)
+        query = session.query(models.Transform).filter_by(transform_id=transform_id)
+        if locking:
+            query = query.filter(models.Transform.locking == TransformLocking.Idle)
+            query = query.with_for_update(skip_locked=True)
+
+        num_rows = query.update(parameters, synchronize_session=False)
+        return num_rows
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('Transfrom %s cannot be found: %s' % (transform_id, error))
+    return 0
 
 
 @transactional_session
