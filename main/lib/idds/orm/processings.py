@@ -347,7 +347,7 @@ def get_processings_by_status(status, period=None, processing_ids=[], locking=Fa
 
 
 @transactional_session
-def update_processing(processing_id, parameters, session=None):
+def update_processing(processing_id, parameters, locking=False, session=None):
     """
     update a processing.
 
@@ -382,10 +382,16 @@ def update_processing(processing_id, parameters, session=None):
             parameters['_running_metadata'] = parameters['running_metadata']
             del parameters['running_metadata']
 
-        session.query(models.Processing).filter_by(processing_id=processing_id)\
-               .update(parameters, synchronize_session=False)
+        query = session.query(models.Processing).filter_by(processing_id=processing_id)
+        if locking:
+            query = query.filter(models.Processing.locking == ProcessingLocking.Idle)
+            query = query.with_for_update(skip_locked=True)
+
+        num_rows = query.update(parameters, synchronize_session=False)
+        return num_rows
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('Processing %s cannot be found: %s' % (processing_id, error))
+    return 0
 
 
 @transactional_session

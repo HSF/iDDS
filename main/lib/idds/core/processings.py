@@ -132,8 +132,11 @@ def get_processing_by_id_status(processing_id, status=None, locking=False, lock_
                 parameters['locking_pid'] = pid
                 parameters['locking_thread_id'] = thread_id
                 parameters['locking_thread_name'] = thread_name
-                orm_processings.update_processing(processing_id=pr['processing_id'], parameters=parameters, session=session)
-                return pr
+                num_rows = orm_processings.update_processing(processing_id=pr['processing_id'], parameters=parameters, locking=True, session=session)
+                if num_rows > 0:
+                    return pr
+                else:
+                    return None
             else:
                 return None
         else:
@@ -145,8 +148,11 @@ def get_processing_by_id_status(processing_id, status=None, locking=False, lock_
             parameters['locking_pid'] = pid
             parameters['locking_thread_id'] = thread_id
             parameters['locking_thread_name'] = thread_name
-            orm_processings.update_processing(processing_id=pr['processing_id'], parameters=parameters, session=session)
-            return pr
+            num_rows = orm_processings.update_processing(processing_id=pr['processing_id'], parameters=parameters, locking=True, session=session)
+            if num_rows > 0:
+                return pr
+            else:
+                return None
     return pr
 
 

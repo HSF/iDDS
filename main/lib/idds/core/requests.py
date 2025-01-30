@@ -184,7 +184,11 @@ def get_request_by_id_status(request_id, status=None, locking=False, session=Non
         parameters['locking_pid'] = pid
         parameters['locking_thread_id'] = thread_id
         parameters['locking_thread_name'] = thread_name
-        orm_requests.update_request(request_id=req['request_id'], parameters=parameters, session=session)
+        num_rows = orm_requests.update_request(request_id=req['request_id'], parameters=parameters, locking=True, session=session)
+        if num_rows > 0:
+            return req
+        else:
+            return None
     return req
 
 
