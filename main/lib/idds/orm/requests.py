@@ -1181,11 +1181,13 @@ def update_request(request_id, parameters, update_request_metadata=False, lockin
             del parameters['processing_metadata']
 
         build_status = [RequestStatus.Built, RequestStatus.Built]
-        query = session.query(models.Request).filter_by(request_id=request_id)\
-                       .filter(not_(models.Request.status.in_(build_status)))
+        query = session.query(models.Request).filter_by(request_id=request_id)
+
         if locking:
             query = query.filter(models.Request.locking == RequestLocking.Idle)
             query = query.with_for_update(skip_locked=True)
+        else:
+            query = query.filter(not_(models.Request.status.in_(build_status)))
 
         num_rows = query.update(parameters, synchronize_session=False)
         return num_rows
