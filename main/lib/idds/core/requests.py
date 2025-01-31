@@ -327,7 +327,11 @@ def update_request_with_transforms(request_id, parameters,
 
             work = tf['transform_metadata']['work']
             tf_copy = copy.deepcopy(tf)
-            tf_id = orm_transforms.add_transform(**tf_copy, session=session)
+            ret_tf = orm_transforms.get_transform_by_name(request_id=request_id, name=tf['name'], session=session)
+            if ret_tf is None:
+                tf_id = orm_transforms.add_transform(**tf_copy, session=session)
+            else:
+                tf_id = ret_tf['transform_id']
             tf['transform_id'] = tf_id
 
             # work = tf['transform_metadata']['work']

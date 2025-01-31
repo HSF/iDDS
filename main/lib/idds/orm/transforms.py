@@ -246,6 +246,35 @@ def get_transform_by_id_status(transform_id, status=None, locking=False, session
 
 
 @read_session
+def get_transform_by_name(request_id, name, session=None):
+    """
+    Get a transform or raise a NoObject exception.
+
+    :param request_id: The request id.
+    :param name: transform name.
+    :param locking: the locking status.
+
+    :param session: The database session in use.
+
+    :raises NoObject: If no request is founded.
+
+    :returns: Transform.
+    """
+
+    try:
+        query = select(models.Transform).where(models.Transform.request_id == request_id)
+        query = query.where(models.Transform.name == name)
+
+        ret = session.execute(query).fetchone()
+        if not ret:
+            return None
+        else:
+            return ret[0].to_dict()
+    except sqlalchemy.orm.exc.NoResultFound as error:
+        raise exceptions.NoObject(f'transform (request_id: {request_id}, name: {name}) cannot be found: {error}')
+
+
+@read_session
 def get_transforms_with_input_collection(transform_type, transform_tag, coll_scope, coll_name, to_json=False, session=None):
     """
     Get transforms or raise a NoObject exception.
