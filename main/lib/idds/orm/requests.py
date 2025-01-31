@@ -1131,7 +1131,7 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, req
 
 
 @transactional_session
-def update_request(request_id, parameters, update_request_metadata=False, locking=False, session=None):
+def update_request(request_id, parameters, update_request_metadata=False, locking=False, origin_status=None, session=None):
     """
     update an request.
 
@@ -1180,17 +1180,29 @@ def update_request(request_id, parameters, update_request_metadata=False, lockin
             parameters['_processing_metadata'] = parameters['processing_metadata']
             del parameters['processing_metadata']
 
-        build_status = [RequestStatus.Built, RequestStatus.Built]
         query = session.query(models.Request).filter_by(request_id=request_id)
 
         if locking:
             query = query.filter(models.Request.locking == RequestLocking.Idle)
             query = query.with_for_update(skip_locked=True)
+            num_rows = query.update(parameters, synchronize_session=False)
+            return num_rows
         else:
-            query = query.filter(not_(models.Request.status.in_(build_status)))
+            build_status = [RequestStatus.Built, RequestStatus.Built]
+            if origin_status and origin_status not in build_status:
+                query_no_built = query.filter(not_(models.Request.status.in_(build_status)))
 
-        num_rows = query.update(parameters, synchronize_session=False)
-        return num_rows
+                num_rows = query_no_built.update(parameters, synchronize_session=False)
+                if num_rows > 0:
+                    return num_rows
+                else:
+                    if 'status' in parameters:
+                        parameters['status'] = origin_status
+                    num_rows = query.update(parameters, synchronize_session=False)
+                return num_rows
+            else:
+                num_rows = query.update(parameters, synchronize_session=False)
+                return num_rows
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('Request %s cannot be found: %s' % (request_id, error))
     return 0
