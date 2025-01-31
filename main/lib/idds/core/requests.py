@@ -304,6 +304,7 @@ def generate_collections(transform):
 
 @transactional_session
 def update_request_with_transforms(request_id, parameters,
+                                   origin_status=None,
                                    new_transforms=None, update_transforms=None,
                                    new_messages=None, update_messages=None,
                                    new_conditions=None, session=None):
@@ -369,7 +370,7 @@ def update_request_with_transforms(request_id, parameters,
     if new_conditions:
         orm_conditions.add_conditions(new_conditions, session=session)
 
-    return orm_requests.update_request(request_id, parameters, session=session), new_tf_ids, update_tf_ids
+    return orm_requests.update_request(request_id, parameters, origin_status=origin_status, session=session), new_tf_ids, update_tf_ids
 
 
 @transactional_session
