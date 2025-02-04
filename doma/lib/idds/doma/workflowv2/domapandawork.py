@@ -880,6 +880,14 @@ class DomaPanDAWork(Work):
                                 msg = f"processingType is not defined, set it to {p_type} based on coreCount {task_param['coreCount']}"
                                 task_param['processingType'] = p_type
                                 self.logger.warn(msg)
+                            if 'site' in task_param and task_param['site']:
+                                for q in queue_processing_type:
+                                    if task_param['site'] in q or q in task_param['site']:
+                                        p_type = queue_processing_type[q]
+                                        if p_type:
+                                            msg = f"processingType is not defined, set it to {p_type} based on site {task_param['site']}"
+                                            task_param['processingType'] = p_type
+                                            self.logger.debug(msg)
                         else:
                             if 'site' in task_param and task_param['site']:
                                 for q in queue_processing_type:
