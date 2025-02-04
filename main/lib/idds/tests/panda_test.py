@@ -14,8 +14,8 @@ os.environ['PANDA_URL_SSL'] = 'https://rubin-panda-server-dev.slac.stanford.edu:
 # os.environ['PANDA_URL_SSL'] = 'https://panda-doma-k8s-panda.cern.ch/server/panda'
 # os.environ['PANDA_URL'] = 'http://panda-doma-k8s-panda.cern.ch:25080/server/panda'
 
-os.environ['PANDA_URL'] = 'https://usdf-panda-server.slac.stanford.edu:8443/server/panda'
-os.environ['PANDA_URL_SSL'] = 'https://usdf-panda-server.slac.stanford.edu:8443/server/panda'
+# os.environ['PANDA_URL'] = 'https://usdf-panda-server.slac.stanford.edu:8443/server/panda'
+# os.environ['PANDA_URL_SSL'] = 'https://usdf-panda-server.slac.stanford.edu:8443/server/panda'
 
 # os.environ['PANDA_URL_SSL'] = 'https://pandaserver01.sdcc.bnl.gov:25443/server/panda'
 # os.environ['PANDA_URL'] = 'https://pandaserver01.sdcc.bnl.gov:25443/server/panda'
@@ -87,6 +87,9 @@ task_ids = [937, 938, 940, 941]
 task_ids = [124, 619]
 task_ids = [22707, 22708, 22709, 22710, 23211, 23212, 22155, 22158]
 task_ids = [24483, 24484, 25895, 26126, 26450, 26451, 26452, 26454, 26994, 27025, 27029]
+task_ids = [161489, 161496, 161502, 161508, 161514, 161520, 161526, 161532, 161538, 161544, 161550, 161556, 161562]
+task_ids = [3174, 3198, 3209, 3230, 3252, 3266, 3284, 3292, 3300, 3312, 3350, 3379, 3387]
+task_ids = [1548, 1555]
 for task_id in task_ids:
     print("Killing %s" % task_id)
     ret = Client.killTask(task_id, verbose=True)

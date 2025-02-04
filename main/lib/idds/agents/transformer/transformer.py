@@ -1175,7 +1175,11 @@ class Transformer(BaseAgent):
                         ret, is_terminated, ret_processing_id = self.handle_update_transform(tf, event)
                     new_pr_ids, update_pr_ids = self.update_transform(ret)
 
-                    if is_terminated or (event._content and 'event' in event._content and event._content['event'] == 'submitted'):
+                    has_update_workload_id = False
+                    new_workload_id = ret.get('transform_parameters', {}).get('workload_id', None)
+                    if new_workload_id and tf['workload_id'] != new_workload_id:
+                        has_update_workload_id = True
+                    if has_update_workload_id or is_terminated or (event._content and 'event' in event._content and event._content['event'] == 'submitted'):
                         self.logger.info(log_pre + "UpdateRequestEvent(request_id: %s)" % tf['request_id'])
                         event = UpdateRequestEvent(publisher_id=self.id, request_id=tf['request_id'], content=event._content)
                         self.event_bus.send(event)

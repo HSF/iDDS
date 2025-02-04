@@ -845,7 +845,7 @@ class DomaPanDAWork(Work):
             if self.additional_task_parameters_per_site:
                 try:
                     for site in self.additional_task_parameters_per_site:
-                        if (task_param['PandaSite'] and site in task_param['PandaSite']) or (task_param['site'] and site in task_param['site']):
+                        if ('PandaSite' in task_param and task_param['PandaSite'] and site in task_param['PandaSite']) or ('site' in task_param and task_param['site'] and site in task_param['site']):
                             for key, value in self.additional_task_parameters_per_site[site].items():
                                 if key not in task_param:
                                     task_param[key] = value
@@ -857,7 +857,7 @@ class DomaPanDAWork(Work):
                     # core_to_queues = {"1": {"queues": ["Rubin", "Rubin_Extra_Himem"], "processing_type": ""},
                     #                   "Rubin_Multi": {"queues": ["Rubin_Multi"], "processing_type": "Rubin_Multi"},
                     #                   "Rubin_Merge": {"queues": ["Rubin_Merge"], "processing_type": "Rubin_Merge"},
-                    #                   "any": "Rubin_Multi"}
+                    #                   "any": {"queues": ["Rubin_Multi"], "processing_type": "Rubin_Multi"}}
 
                     if task_param['processingType']:
                         msg = f"processingType {task_param['processingType']} is already set, do nothing"
@@ -867,8 +867,7 @@ class DomaPanDAWork(Work):
                         queue_processing_type = {}
                         for k in self.core_to_queues:
                             key = str(k)
-                            if not key.isdigit():
-                                num_cores.append(key)
+                            num_cores.append(key)
                             if key not in ['any']:
                                 queues = self.core_to_queues[k].get('queues', [])
                                 processing_type = self.core_to_queues[k].get('processing_type', '')
