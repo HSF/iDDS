@@ -383,7 +383,8 @@ class DomaPanDAWork(Work):
 
                 for input_d in inputs_dependency:
                     task_name = input_d['task']
-                    dependency_tasks.add(task_name)
+                    if task_name not in dependency_tasks:
+                        dependency_tasks.add(task_name)
             self.dependency_tasks = list(dependency_tasks)
 
         if work.task_name in self.dependency_tasks:
@@ -881,7 +882,7 @@ class DomaPanDAWork(Work):
                                 task_param['processingType'] = p_type
                                 self.logger.warn(msg)
                         else:
-                            if task_param['site']:
+                            if 'site' in task_param and task_param['site']:
                                 for q in queue_processing_type:
                                     if task_param['site'] in q or q in task_param['site']:
                                         p_type = queue_processing_type[q]
