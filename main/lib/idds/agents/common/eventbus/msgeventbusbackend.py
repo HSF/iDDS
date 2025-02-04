@@ -423,6 +423,9 @@ class MsgEventBusBackend(BaseEventBusBackend):
                 if self.debug:
                     self.logger.debug("MsgEventBusBackend send event: %s" % req)
 
+                if not self.manager_socket or self.manager_socket.closed:
+                    self.init_msg_channel()
+
                 self.manager_socket.send_string(req)
                 if self.manager_socket.poll(self.socket_timeout * 1000):
                     reply = self.manager_socket.recv_string()
@@ -464,6 +467,9 @@ class MsgEventBusBackend(BaseEventBusBackend):
                 # self.logger.debug("send:send %s" % req)
                 if self.debug:
                     self.logger.debug("MsgEventBusBackend send bulk event: %s" % req)
+
+                if not self.manager_socket or self.manager_socket.closed:
+                    self.init_msg_channel()
 
                 self.manager_socket.send_string(req)
                 if self.manager_socket.poll(self.socket_timeout * 1000):
@@ -510,6 +516,10 @@ class MsgEventBusBackend(BaseEventBusBackend):
 
                 if self.debug:
                     self.logger.debug("MsgEventBusBackend get event: %s" % req)
+
+                if not self.manager_socket or self.manager_socket.closed:
+                    self.init_msg_channel()
+
                 self.manager_socket.send_string(req)
 
                 if self.manager_socket.poll(10 * 1000):
