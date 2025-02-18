@@ -6,20 +6,101 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2023
+# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2025
 
 """
 Dict class.
 """
 
+import base64
+import json
 import logging
 import pickle
 import urllib
+import zlib
 import inspect
 from enum import Enum
 
 
 class DictClass(object):
+    def __init__(self):
+        self._zip_items = []
+        self._not_auto_unzip_items = []
+
+    def zip_data(self, data):
+        try:
+            if data.startswith("idds_zip:"):
+                # already zipped
+                retrun data
+
+            # Convert to JSON string
+            json_str = json.dumps(data)
+
+            # Compress with zlib
+            compressed = zlib.compress(json_str.encode())
+
+            # Encode to base64 for safe storage/transfer
+            compressed_str = base64.b64encode(compressed).decode()
+
+            return "idds_zip:" + compressed_str
+        except Exception as ex:
+            pass
+        return data
+
+    def unzip_data(self, data):
+        try:
+            if not data.startswith("idds_zip:"):
+                # not zipped data
+                return data
+
+            # remove the head 'idds_zip:'
+            actual_data = data[9:]
+
+            # Decode from base64
+            decoded = base64.b64decode(data)
+
+            # Decompress with zlib
+            decompressed = zlib.decompress(decoded).decode()
+
+            # Convert back to dictionary
+            original_data = json.loads(decompressed)
+
+            return original_data
+        except Exception as ex:
+            pass
+        return data
+
+    @zip_items.setter
+    def zip_items(self, value):
+        self._zip_items = value
+
+    @property
+    def zip_items(self):
+        return self._zip_items
+
+    @not_auto_unzip_items.setter
+    def not_auto_unzip_items(self, value):
+        self._not_auto_unzip_items = value
+
+    @property
+    def not_auto_unzip_items(self):
+        return self._not_auto_unzip_items
+
+    def should_zip(self, key):
+        if key in self.zip_items:
+            return True
+        return False
+
+    def should_auto_unzip(self, key):
+        if key in self.zip_items and key not in self.not_auto_unzip_items:
+            return True
+        return False
+
+    def should_unzip(self, key):
+        if key in self.zip_items:
+            return True
+        return False
+
     def to_dict_l(self, d):
         # print('to_dict_l')
         # print(d)
@@ -61,6 +142,8 @@ class DictClass(object):
             if not key.startswith('__'):
                 if key in ['logger']:
                     new_value = None
+                elif self.should_zip(key):
+                    new_value = self.zip_data(value)
                 else:
                     new_value = self.to_dict_l(value)
                 ret['attributes'][key] = new_value
@@ -128,6 +211,12 @@ class DictClass(object):
                 else:
                     value = DictClass.from_dict(value)
                 setattr(impl, key, value)
+
+            # unzip
+            for key, value in impl.__dict__.items():
+                if impl.should_auto_unzip(key):
+                    new_value = impl.unzip_data(value)
+                    setattr(impl, key, new_value)
 
             # print("last_items: %s" % str(last_items))
             for key, value in last_items.items():
