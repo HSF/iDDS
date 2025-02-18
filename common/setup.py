@@ -80,7 +80,7 @@ install_bin_path = get_python_bin_path()
 install_home_path = get_python_home()
 install_data_path = get_data_path()
 
-requirements_files = ['tools/env/environment.yml']
+requirements_files = ['tools/common/env/environment.yml']
 install_requires = parse_requirements(requirements_files=requirements_files)
 
 if sys.version_info[0] == 2:
@@ -90,7 +90,7 @@ data_files = [
     # config and cron files
     ('etc/idds/', glob.glob('etc/idds/*.template')),
     ('etc/idds/rest', glob.glob('etc/idds/rest/*template')),
-    ('tools/env/', glob.glob('tools/env/*.yml')),
+    ('tools/common/env/', glob.glob('tools/common/env/*.yml')),
 ]
 scripts = glob.glob('bin/*')
 
