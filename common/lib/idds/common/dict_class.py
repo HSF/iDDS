@@ -29,9 +29,9 @@ class DictClass(object):
 
     def zip_data(self, data):
         try:
-            if data.startswith("idds_zip:"):
+            if type(data) in [str] and data.startswith("idds_zip:"):
                 # already zipped
-                retrun data
+                return data
 
             # Convert to JSON string
             json_str = json.dumps(data)
@@ -44,12 +44,12 @@ class DictClass(object):
 
             return "idds_zip:" + compressed_str
         except Exception as ex:
-            pass
+            print(f"Dict_class failed to zip data: {ex}")
         return data
 
     def unzip_data(self, data):
         try:
-            if not data.startswith("idds_zip:"):
+            if type(data) not in [str] or not data.startswith("idds_zip:"):
                 # not zipped data
                 return data
 
@@ -57,7 +57,7 @@ class DictClass(object):
             actual_data = data[9:]
 
             # Decode from base64
-            decoded = base64.b64decode(data)
+            decoded = base64.b64decode(actual_data)
 
             # Decompress with zlib
             decompressed = zlib.decompress(decoded).decode()
@@ -67,24 +67,30 @@ class DictClass(object):
 
             return original_data
         except Exception as ex:
-            pass
+            print(f"Dict_class failed to unzip data: {ex}")
         return data
+
+    @property
+    def zip_items(self):
+        if hasattr(self, '_zip_items'):
+            return self._zip_items
+        else:
+            return []
 
     @zip_items.setter
     def zip_items(self, value):
         self._zip_items = value
 
     @property
-    def zip_items(self):
-        return self._zip_items
+    def not_auto_unzip_items(self):
+        if hasattr(self, '_not_auto_unzip_items'):
+            return self._not_auto_unzip_items
+        else:
+            return []
 
     @not_auto_unzip_items.setter
     def not_auto_unzip_items(self, value):
         self._not_auto_unzip_items = value
-
-    @property
-    def not_auto_unzip_items(self):
-        return self._not_auto_unzip_items
 
     def should_zip(self, key):
         if key in self.zip_items:
@@ -142,7 +148,7 @@ class DictClass(object):
             if not key.startswith('__'):
                 if key in ['logger']:
                     new_value = None
-                elif self.should_zip(key):
+                elif hasattr(self, 'should_zip') and self.should_zip(key):
                     new_value = self.zip_data(value)
                 else:
                     new_value = self.to_dict_l(value)
@@ -214,7 +220,7 @@ class DictClass(object):
 
             # unzip
             for key, value in impl.__dict__.items():
-                if impl.should_auto_unzip(key):
+                if hasattr(impl, 'should_auto_unzip') and impl.should_auto_unzip(key):
                     new_value = impl.unzip_data(value)
                     setattr(impl, key, new_value)
 
@@ -247,6 +253,7 @@ class DictClass(object):
 
 class DictMetadata(DictClass):
     def __init__(self):
+        super(DictMetadata, self).__init__()
         pass
 
     def add_item(self, key, value):
@@ -258,6 +265,7 @@ class DictMetadata(DictClass):
 
 class DictBase(DictClass):
     def __init__(self):
+        super(DictBase, self).__init__()
         self.metadata = DictMetadata()
         pass
 
