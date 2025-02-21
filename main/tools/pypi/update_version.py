@@ -16,7 +16,7 @@ import sys
 new_version = sys.argv[1]
 
 
-ver_files = ['main/lib/idds/version.py',
+ver_files = ['main/lib/idds/core/version.py',
              'atlas/lib/idds/atlas/version.py',
              'common/lib/idds/common/version.py',
              'workflow/lib/idds/workflow/version.py',

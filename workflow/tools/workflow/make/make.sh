@@ -1,7 +1,8 @@
 #!/bin/bash
 
 CurrentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-ToolsDir="$( dirname "$CurrentDir" )"
+ToolsWorkflowDir="$( dirname "$CurrentDir" )"
+ToolsDir="$( dirname "$ToolsWorkflowDir" )"
 WorkflowDir="$( dirname "$ToolsDir" )"
 RootDir="$( dirname "$WorkflowDir" )"
 
@@ -16,8 +17,8 @@ mkdir -p $workdir
 echo "setup virtualenv $workdir"
 # source /afs/cern.ch/user/w/wguan/workdisk/conda/setup_mini.sh
 # conda deactivate
-# echo conda env create --prefix=$workdir -f ${WorkflowDir}/tools/make/environment.yaml
-# conda env create --prefix=$workdir -f ${WorkflowDir}/tools/make/environment.yaml
+# echo conda env create --prefix=$workdir -f ${WorkflowDir}/tools/workflow/make/environment.yaml
+# conda env create --prefix=$workdir -f ${WorkflowDir}/tools/workflow/make/environment.yaml
 # conda activate $workdir
 
 python3 -m venv $workdir
@@ -75,5 +76,5 @@ zip -r $tmpzip  bin
 
 cd -
 
-cat ${WorkflowDir}/tools/make/zipheader $tmpzip > $EXECNAME
+cat ${WorkflowDir}/tools/workflow/make/zipheader $tmpzip > $EXECNAME
 chmod +x $EXECNAME

@@ -1,0 +1,131 @@
+#!/bin/bash
+
+which unzip > /dev/null
+if [ $? -ne 0 ]; then
+echo "ERROR:  unzip is missing"
+exit 111
+fi
+
+unzip -o $0 > /dev/null 2>&1
+# PYNAME=`echo $0 | sed -e "s/\(-.*$\)/.py/"`
+
+current_dir=$PWD
+export PATH=${current_dir}:${current_dir}/bin:$PATH
+
+chmod +x ${current_dir}/bin/*
+ln -fs ${current_dir}/bin/* ${current_dir}/
+
+export PYTHONPATH=${current_dir}/lib_py:$PYTHONPATH
+export IDDS_CONFIG=${current_dir}/etc/idds/idds.cfg.client.template
+
+if [[ ! -z "${PANDA_AUTH_DIR}" ]] && [[ ! -z "${PANDA_AUTH_ORIGIN}" ]]; then
+    export PANDA_AUTH_ID_TOKEN=$(cat $PANDA_AUTH_DIR);
+    export PANDA_AUTH_VO=$PANDA_AUTH_ORIGIN;
+    export IDDS_OIDC_TOKEN=$(cat $PANDA_AUTH_DIR);
+    export IDDS_VO=$PANDA_AUTH_ORIGIN;
+    export PANDA_AUTH=oidc;
+else
+    unset PANDA_AUTH;
+    export IDDS_AUTH_TYPE=x509_proxy;
+    if [ -f $X509_USER_PROXY ]; then
+	cp $X509_USER_PROXY ${current_dir}/x509_proxy
+    fi
+fi;
+
+export IDDS_LOG_LEVEL=debug
+
+export PANDA_CONFIG_ROOT=$(pwd);
+export PANDA_VERIFY_HOST=off;
+export PANDA_BEHIND_REAL_LB=true;
+
+myargs="$@"
+setup=""
+pre_setup=""
+
+POSITIONAL=()
+while [[ $# -gt 0 ]]; do
+    key="$1"
+    case $key in
+        --setup)
+        setup="$2"
+        shift
+        shift
+        ;;
+	--pre_setup)
+        pre_setup="$2"
+        shift
+        shift
+        ;;
+        *)
+        POSITIONAL+=("$1") # save it in an array for later
+        shift
+        ;;
+    esac
+done
+
+set -- "${POSITIONAL[@]}" # restore positional parameters
+run_args=$@
+
+set --
+
+echo "pre_setup: " $pre_setup
+echo "setup:" $setup
+
+pre_setup=$(decode_base64 "$pre_setup")
+setup=$(decode_base64 "$setup")
+
+echo "pre_setup after decoding: " $pre_setup
+echo "setup after decoding:" $setup
+echo "run_args: " $run_args
+
+cmdfile="run_workflow.sh"
+cat <<- EOF > ${current_dir}/$cmdfile
+#/bin/bash
+
+echo "current dir: " \$PWD
+
+which python
+which python3
+
+# cd ${current_dir}
+
+current_dir=\$PWD
+export PATH=\${current_dir}:\${current_dir}/tmp_bin:\${current_dir}/bin:\$PATH
+export PYTHONPATH=\${current_dir}:\${current_dir}/lib_py:\$PYTHONPATH
+
+if ! command -v python &> /dev/null
+then
+    echo "no python, alias python3 to python"
+    alias python=python3
+fi
+
+if [ -f \${current_dir}/x509_proxy ]; then
+    export X509_USER_PROXY=\${current_dir}/x509_proxy
+fi
+
+$run_args
+
+EOF
+
+chmod +x ${current_dir}/$cmdfile
+
+# exec python "$@"
+# python "$@"
+# exec "$@"
+
+# eval $pre_setup
+
+cmd="$pre_setup $setup ${current_dir}/$cmdfile"
+echo $cmd
+eval $cmd
+# $cmd
+ret=$?
+
+echo pwd
+pwd; ls
+
+echo rm -fr ${current_dir}/lib_py ${current_dir}/etc ${current_dir}/bin ${current_dir}/tmp_bin ${current_dir}/run_workflow_wrapper ${current_dir}/__pycache__
+rm -fr ${current_dir}/lib_py ${current_dir}/etc ${current_dir}/bin ${current_dir}/tmp_bin ${current_dir}/run_workflow_wrapper ${current_dir}/__pycache__
+
+echo "return code: " $ret
+exit $ret

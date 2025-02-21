@@ -14,9 +14,8 @@ import io
 import os
 import re
 import sys
-from distutils.sysconfig import get_python_lib
-from setuptools import setup, find_packages, Distribution
-from setuptools.command.install import install
+import sysconfig
+from setuptools import setup, find_packages
 
 
 current_dir = os.getcwd()
@@ -24,7 +23,7 @@ working_dir = os.path.dirname(os.path.realpath(__file__))
 os.chdir(working_dir)
 
 
-with io.open('lib/idds/version.py', "rt", encoding="utf8") as f:
+with io.open('lib/idds/core/version.py', "rt", encoding="utf8") as f:
     version = re.search(r'release_version = "(.*?)"', f.read()).group(1)
 
 
@@ -32,20 +31,12 @@ with io.open('README.md', "rt", encoding="utf8") as f:
     readme = f.read()
 
 
-class OnlyGetScriptPath(install):
-    def run(self):
-        self.distribution.install_scripts = self.install_scripts
+def get_python_lib():
+    return sysconfig.get_paths()["purelib"]
 
 
 def get_python_bin_path():
-    " Get the directory setuptools installs scripts to for current python "
-    dist = Distribution({'cmdclass': {'install': OnlyGetScriptPath}})
-    dist.dry_run = True  # not sure if necessary
-    dist.parse_config_files()
-    command = dist.get_command_obj('install')
-    command.ensure_finalized()
-    command.run()
-    return dist.install_scripts
+    return sysconfig.get_paths()["scripts"]
 
 
 def get_python_home():
@@ -53,7 +44,7 @@ def get_python_home():
 
 
 def get_data_path():
-    return sys.prefix
+    return sysconfig.get_paths()["data"]
 
 
 def get_reqs_from_file(requirements_file):
@@ -144,7 +135,7 @@ setup(
     author='IRIS-HEP Team',
     author_email='atlas-adc-panda@cern.ch',
     python_requires='>=3.6',
-    packages=find_packages(where='lib'),
+    packages=find_packages(where='lib', exclude=["idds"]),
     package_dir={'': 'lib'},
     install_requires=install_requires,
     extras_require=extras_requires,
