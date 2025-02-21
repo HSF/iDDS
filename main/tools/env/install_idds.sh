@@ -10,7 +10,7 @@
 
 python setup.py install --old-and-unmanageable --force
 
-bash workflow/tools/make/make.sh
+bash workflow/tools/workflow/make/make.sh
 
 echo cp workflow/bin/run_workflow_wrapper ~/www/wiscgroup/
 cp workflow/bin/run_workflow_wrapper ~/www/wiscgroup/

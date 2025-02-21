@@ -148,6 +148,9 @@ class DomaPanDAWork(Work):
 
         self.core_to_queues = {}
 
+        self.zip_items = ['_dependency_map']
+        self.not_auto_unzip_items = ['_dependency_map']
+
     def my_condition(self):
         if self.is_finished():
             return True
@@ -164,6 +167,10 @@ class DomaPanDAWork(Work):
 
     @property
     def dependency_map(self):
+        if self.should_unzip('_dependency_map'):
+            data = self.unzip_data(self._dependency_map)
+            return data
+
         return self._dependency_map
 
     @dependency_map.setter
