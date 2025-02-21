@@ -14,9 +14,8 @@ import io
 import os
 import re
 import sys
-from distutils.sysconfig import get_python_lib
-from setuptools import setup, find_packages, Distribution
-from setuptools.command.install import install
+import sysconfig
+from setuptools import setup, find_packages
 
 
 current_dir = os.getcwd()
@@ -32,20 +31,12 @@ with io.open('README.md', "rt", encoding="utf8") as f:
     readme = f.read()
 
 
-class OnlyGetScriptPath(install):
-    def run(self):
-        self.distribution.install_scripts = self.install_scripts
+def get_python_lib():
+    return sysconfig.get_paths()["purelib"]
 
 
 def get_python_bin_path():
-    " Get the directory setuptools installs scripts to for current python "
-    dist = Distribution({'cmdclass': {'install': OnlyGetScriptPath}})
-    dist.dry_run = True  # not sure if necessary
-    dist.parse_config_files()
-    command = dist.get_command_obj('install')
-    command.ensure_finalized()
-    command.run()
-    return dist.install_scripts
+    return sysconfig.get_paths()["scripts"]
 
 
 def get_python_home():
@@ -53,7 +44,7 @@ def get_python_home():
 
 
 def get_data_path():
-    return sys.prefix
+    return sysconfig.get_paths()["data"]
 
 
 def get_reqs_from_file(requirements_file):
