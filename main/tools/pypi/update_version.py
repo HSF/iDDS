@@ -26,12 +26,12 @@ ver_files = ['main/lib/idds/core/version.py',
              'monitor/lib/idds/monitor/version.py']
 
 
-env_files = ['atlas/tools/env/environment.yml',
-             'common/tools/env/environment.yml',
+env_files = ['atlas/tools/atlas/env/environment.yml',
+             'common/tools/common/env/environment.yml',
              'main/tools/env/environment.yml',
-             'client/tools/env/environment.yml',
-             'doma/tools/env/environment.yml',
-             'workflow/tools/env/environment.yml']
+             'client/tools/client/env/environment.yml',
+             'doma/tools/doma/env/environment.yml',
+             'workflow/tools/workflow/env/environment.yml']
 
 
 for ver_file in ver_files:
