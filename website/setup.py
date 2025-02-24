@@ -6,10 +6,11 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2025
 
 
 import glob
+import logging
 import io
 import os
 import re
@@ -17,6 +18,25 @@ import sys
 import shutil
 import sysconfig
 from setuptools import setup, find_packages
+from setuptools.command.install import install
+
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+class CustomInstallCommand(install):
+    """Custom install command to exclude top-level 'idds' during installation."""
+    def run(self):
+        # Remove 'idds' from the list of packages before installation
+        logger.info("idds-website installing")
+        logger.info(f"self.distribution.packages: {self.distribution.packages}")
+        self.distribution.packages = [
+            pkg for pkg in self.distribution.packages if pkg != 'idds'
+        ]
+        logger.info(f"self.distribution.packages: {self.distribution.packages}")
+        super().run()
 
 
 current_dir = os.getcwd()
@@ -134,6 +154,9 @@ setup(
     include_package_data=True,
     data_files=data_files,
     scripts=scripts,
+    cmdclass={
+        'install': CustomInstallCommand,  # Exclude 'idds' during installation
+    },
     project_urls={
         'Documentation': 'https://github.com/HSF/iDDS/wiki',
         'Source': 'https://github.com/HSF/iDDS',
