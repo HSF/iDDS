@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2023
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2025
 
 """
 Constants.
@@ -127,6 +127,44 @@ class WorkStatus(IDDSEnum):
     ToForceFinish = 19
     Running = 20
     Terminating = 21
+
+
+class RequestGroupStatus(IDDSEnum):
+    New = 0
+    Ready = 1
+    Transforming = 2
+    Finished = 3
+    SubFinished = 4
+    Failed = 5
+    Extend = 6
+    ToCancel = 7
+    Cancelling = 8
+    Cancelled = 9
+    ToSuspend = 10
+    Suspending = 11
+    Suspended = 12
+    ToResume = 13
+    Resuming = 14
+    ToExpire = 15
+    Expiring = 16
+    Expired = 17
+    ToFinish = 18
+    ToForceFinish = 19
+    Terminating = 20
+    Building = 21
+    Built = 22
+    Throttling = 23
+    ToClose = 24
+
+
+class RequestGroupLocking(IDDSEnum):
+    Idle = 0
+    Locking = 1
+
+
+class RequestGroupType(IDDSEnum):
+    Workflow = 0
+    Other = 99
 
 
 class RequestStatus(IDDSEnum):
