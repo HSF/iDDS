@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2024
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2025
 
 
 """
@@ -23,7 +23,8 @@ from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import object_mapper
 from sqlalchemy.schema import CheckConstraint, UniqueConstraint, Index, PrimaryKeyConstraint, ForeignKeyConstraint, Sequence, Table
 
-from idds.common.constants import (RequestType, RequestStatus, RequestLocking,
+from idds.common.constants import (RequestGroupType, RequestGroupStatus, RequestGroupLocking,
+                                   RequestType, RequestStatus, RequestLocking,
                                    WorkprogressStatus, WorkprogressLocking,
                                    TransformType, TransformStatus, TransformLocking,
                                    ProcessingType, ProcessingStatus, ProcessingLocking,
@@ -131,6 +132,52 @@ class ModelBase(object):
         return obj
 
 
+class RequestGroup(BASE, ModelBase):
+    """Represents a pre-cache request from other service"""
+    __tablename__ = 'requests_group'
+    group_id = Column(BigInteger().with_variant(Integer, "sqlite"), Sequence('REQUEST_GROUP_ID_SEQ', schema=DEFAULT_SCHEMA_NAME), primary_key=True)
+    campaign = Column(String(50), nullable=False, default='Default')
+    campaign_scope = Column(String(SCOPE_LENGTH), nullable=False, default='Default')
+    campaign_group = Column(String(NAME_LENGTH), nullable=False)
+    campaign_tag = Column(String(100), nullable=False)
+    requester = Column(String(20))
+    group_type = Column(EnumWithValue(RequestGroupType), nullable=False)
+    username = Column(String(20))
+    userdn = Column(String(200))
+    priority = Column(Integer())
+    status = Column(EnumWithValue(RequestGroupStatus), nullable=False)
+    substatus = Column(EnumWithValue(RequestGroupStatus), default=0)
+    oldstatus = Column(EnumWithValue(RequestGroupStatus), default=0)
+    locking = Column(EnumWithValue(RequestGroupLocking), nullable=False)
+    created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow, nullable=False)
+    updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
+    next_poll_at = Column("next_poll_at", DateTime, default=datetime.datetime.utcnow)
+    accessed_at = Column("accessed_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    expired_at = Column("expired_at", DateTime)
+    new_retries = Column(Integer(), default=0)
+    update_retries = Column(Integer(), default=0)
+    max_new_retries = Column(Integer(), default=3)
+    max_update_retries = Column(Integer(), default=0)
+    new_poll_period = Column(Interval(), default=datetime.timedelta(seconds=1))
+    update_poll_period = Column(Interval(), default=datetime.timedelta(seconds=10))
+    site = Column(String(50))
+    locking_hostname = Column(String(50))
+    locking_pid = Column(BigInteger, autoincrement=False)
+    locking_thread_id = Column(BigInteger, autoincrement=False)
+    locking_thread_name = Column(String(100))
+    errors = Column(JSONString(1024))
+    group_metadata = Column('group_metadata', JSON())
+    processing_metadata = Column('processing_metadata', JSON())
+
+    __table_args__ = (PrimaryKeyConstraint('group_id', name='REQUESTGROUP_PK'),
+                      CheckConstraint('status IS NOT NULL', name='REQUESTGROUP_STATUS_ID_NN'),
+                      UniqueConstraint('campaign', 'campaign_scope', 'campaign_group', 'campaign_tag', name='REQUESTGROUP_CM_UQ'),
+                      Index('REQUESTGROUP_CM_NAME_IDX', 'campaign', 'campaign_scope', 'campaign_group', 'campaign_tag'),
+                      Index('REQUESTGROUP_STATUS_SITE', 'status', 'site', 'request_id'),
+                      Index('REQUESTGROUP_STATUS_PRIO_IDX', 'status', 'priority', 'group_id', 'locking', 'updated_at', 'next_poll_at', 'created_at'),
+                      Index('REQUESTGROUP_STATUS_POLL_IDX', 'status', 'priority', 'locking', 'updated_at', 'new_poll_period', 'update_poll_period', 'created_at', 'group_id'))
+
+
 class Request(BASE, ModelBase):
     """Represents a pre-cache request from other service"""
     __tablename__ = 'requests'
@@ -143,6 +190,7 @@ class Request(BASE, ModelBase):
     userdn = Column(String(200))
     transform_tag = Column(String(20))
     workload_id = Column(Integer())
+    group_id = Column(BigInteger())
     priority = Column(Integer())
     status = Column(EnumWithValue(RequestStatus), nullable=False)
     substatus = Column(EnumWithValue(RequestStatus), default=0)
@@ -249,6 +297,7 @@ class Request(BASE, ModelBase):
 
     __table_args__ = (PrimaryKeyConstraint('request_id', name='REQUESTS_PK'),
                       CheckConstraint('status IS NOT NULL', name='REQUESTS_STATUS_ID_NN'),
+                      ForeignKeyConstraint(['group_id'], ['requests_group.group_id'], name='REQUESTS_GROUP_ID_FK'),
                       # UniqueConstraint('name', 'scope', 'requester', 'request_type', 'transform_tag', 'workload_id', name='REQUESTS_NAME_SCOPE_UQ '),
                       Index('REQUESTS_SCOPE_NAME_IDX', 'name', 'scope', 'workload_id'),
                       Index('REQUESTS_STATUS_SITE', 'status', 'site', 'request_id'),
