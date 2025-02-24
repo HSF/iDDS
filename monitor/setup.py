@@ -168,7 +168,7 @@ setup(
     author='IRIS-HEP Team',
     author_email='atlas-adc-panda@cern.ch',
     python_requires='>=3.6',
-    packages=find_packages('lib/', exclude=["idds"]),
+    packages=find_packages('lib/'),
     package_dir={'': 'lib'},
     install_requires=install_requires,
     include_package_data=True,
