@@ -77,9 +77,9 @@ def upgrade() -> None:
         op.create_unique_constraint('REQUESTGROUP_CM_UQ', 'requests_group', ['campaign', 'campaign_scope', 'campaign_group', 'campaign_tag'], schema=schema)
         op.create_check_constraint('REQUESTGROUP_STATUS_ID_NN', 'requests_group', 'status IS NOT NULL', schema=schema)
         op.create_index('REQUESTGROUP_CM_NAME_IDX', 'requests_group', ['campaign', 'campaign_scope', 'campaign_group', 'campaign_tag'], unique=True, schema=schema)
-        op.create_index('REQUESTGROUP_STATUS_SITE', 'requests_group', ['status', 'site', 'group_id']),
-        op.create_index('REQUESTGROUP_STATUS_PRIO_IDX', 'requests_group', ['status', 'priority', 'group_id', 'locking', 'updated_at', 'next_poll_at', 'created_at']),
-        op.create_index('REQUESTGROUP_STATUS_POLL_IDX', 'requests_group', ['status', 'priority', 'locking', 'updated_at', 'new_poll_period', 'update_poll_period', 'created_at', 'group_id'])
+        op.create_index('REQUESTGROUP_STATUS_SITE', 'requests_group', ['status', 'site', 'group_id'], schema=schema),
+        op.create_index('REQUESTGROUP_STATUS_PRIO_IDX', 'requests_group', ['status', 'priority', 'group_id', 'locking', 'updated_at', 'next_poll_at', 'created_at'], schema=schema),
+        op.create_index('REQUESTGROUP_STATUS_POLL_IDX', 'requests_group', ['status', 'priority', 'locking', 'updated_at', 'new_poll_period', 'update_poll_period', 'created_at', 'group_id'], schema=schema)
 
         # requests
         op.alter_column('requests', 'campaign_tag', type_=sa.String(100), schema=schema)
@@ -90,6 +90,11 @@ def upgrade() -> None:
 def downgrade() -> None:
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+
+        # requests
+        op.alter_column('requests', 'campaign_tag', type_=sa.String(20), schema=schema)
+        op.drop_constraint('REQUESTS_GROUP_ID_FK', table_name='requests', schema=schema)
+        op.drop_column('requests', 'group_id', schema=schema)
 
         # requests_group
         op.drop_constraint('REQUESTGROUP_STATUS_ID_NN', table_name='requests_group', schema=schema)
@@ -102,8 +107,3 @@ def downgrade() -> None:
         op.drop_index('REQUESTGROUP_STATUS_POLL_IDX', table_name='requests_group', schema=schema)
 
         op.drop_table('requests_group', schema=schema)
-
-        # requests
-        op.alter_column('requests', 'campaign_tag', type_=sa.String(20), schema=schema)
-        op.drop_constraint('REQUESTS_GROUP_ID_FK', table_name='requests', schema=schema)
-        op.drop_column('requests', 'group_id', schema=schema)
