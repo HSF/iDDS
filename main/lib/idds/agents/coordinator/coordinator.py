@@ -224,83 +224,115 @@ class Coordinator(BaseAgent):
 
     def send(self, event):
         with self._lock:
-            self.insert_event(event)
+            try:
+                self.insert_event(event)
+            except Exception as ex:
+                self.logger.error(f"Failed to send event: {ex}")
+                self.logger.error(traceback.format_exc())
 
     def send_bulk(self, events):
         with self._lock:
             for event in events:
-                self.insert_event(event)
+                try:
+                    self.insert_event(event)
+                except Exception as ex:
+                    self.logger.error(f"Failed to send event: {ex}")
+                    self.logger.error(traceback.format_exc())
 
     def get(self, event_type, num_events=1, wait=0):
         with self._lock:
             events = []
             for i in range(num_events):
-                if event_type in self.events_index:
-                    for scheduled_priority in [EventPriority.High, EventPriority.Medium, EventPriority.Low]:
-                        if (scheduled_priority in self.events_index[event_type] and self.events_index[event_type][scheduled_priority]):
-                            event_id = self.events_index[event_type][scheduled_priority][0]
-                            event = self.events[event_id]
-                            if event.scheduled_time <= time.time():
-                                event_id = self.events_index[event_type][scheduled_priority].pop(0)
-                                event = self.events[event_id]
-                                del self.events[event_id]
-                                self.events_ids[event.get_event_id()].remove(event_id)
+                try:
+                    if event_type in self.events_index:
+                        for scheduled_priority in [EventPriority.High, EventPriority.Medium, EventPriority.Low]:
+                            if (scheduled_priority in self.events_index[event_type] and self.events_index[event_type][scheduled_priority]):
+                                event_id = self.events_index[event_type][scheduled_priority][0]
+                                if event_id not in self.events:
+                                    self.events_index[event_type][scheduled_priority].pop(0)
+                                else:
+                                    event = self.events[event_id]
+                                    if event.scheduled_time <= time.time():
+                                        event_id = self.events_index[event_type][scheduled_priority].pop(0)
+                                        event = self.events[event_id]
+                                        del self.events[event_id]
+                                        self.events_ids[event.get_event_id()].remove(event_id)
 
-                                if event._event_type in self.accounts:
-                                    self.accounts[event._event_type]['total_queued_events'] -= 1
-                                    self.accounts[event._event_type]['total_processed_events'] += 1
+                                        if event._event_type in self.accounts:
+                                            self.accounts[event._event_type]['total_queued_events'] -= 1
+                                            self.accounts[event._event_type]['total_processed_events'] += 1
 
-                                self.logger.debug("Get event %s" % (event.to_json(strip=True)))
-                                events.append(event)
+                                        self.logger.debug("Get event %s" % (event.to_json(strip=True)))
+                                        events.append(event)
+                except Exception as ex:
+                    self.logger.error(f"Failed to send event: {ex}")
+                    self.logger.error(traceback.format_exc())
 
             if not events:
-                if event_type in self.accounts:
-                    if self.accounts[event_type]['total_queued_events'] == 0:
-                        self.accounts[event_type]['lack_events'] = True
+                try:
+                    if event_type in self.accounts:
+                        if self.accounts[event_type]['total_queued_events'] == 0:
+                            self.accounts[event_type]['lack_events'] = True
+                except Exception as ex:
+                    self.logger.error(f"Failed to send event: {ex}")
+                    self.logger.error(traceback.format_exc())
+
             return events
 
     def send_report(self, event, status, start_time, end_time, source, result):
-        event_id = event.get_event_id()
-        event_ret_status = status
-        event_name = event._event_type.name
-        if not event_ret_status and result:
-            event_ret_status = result.get("status", None)
-        if event_id not in self.report:
-            self.report[event_id] = {"status": event_ret_status,
-                                     "total_files": None,
-                                     "processed_files": None,
-                                     "event_types": {}}
-        self.report[event_id]['status'] = event_ret_status
-        self.report[event_id]['event_types'][event_name] = {'start_time': start_time,
-                                                            'end_time': end_time,
-                                                            'source': source,
-                                                            'status': event_ret_status,
-                                                            'result': result}
+        try:
+            event_id = event.get_event_id()
+            event_ret_status = status
+            event_name = event._event_type.name
+            if not event_ret_status and result:
+                event_ret_status = result.get("status", None)
+            if event_id not in self.report:
+                self.report[event_id] = {"status": event_ret_status,
+                                         "total_files": None,
+                                         "processed_files": None,
+                                         "event_types": {}}
+            self.report[event_id]['status'] = event_ret_status
+            self.report[event_id]['event_types'][event_name] = {'start_time': start_time,
+                                                                'end_time': end_time,
+                                                                'source': source,
+                                                                'status': event_ret_status,
+                                                                'result': result}
+        except Exception as ex:
+            self.logger.error(f"Failed to send event: {ex}")
+            self.logger.error(traceback.format_exc())
 
     def clean_cache_info(self):
         with self._lock:
-            event_ids = list(self.events_ids.keys())
-            for event_id in event_ids:
-                if not self.events_ids[event_id]:
-                    del self.events_ids[event_id]
+            try:
+                event_ids = list(self.events_ids.keys())
+                for event_id in event_ids:
+                    if not self.events_ids[event_id]:
+                        del self.events_ids[event_id]
 
-            event_ids = list(self.report.keys())
-            for event_id in event_ids:
-                event_types = list(self.report[event_id]['event_types'].keys())
-                for event_type in event_types:
-                    end_time = self.report[event_id]['event_types'][event_type].get('end_time', None)
-                    if not end_time or end_time < time.time() - 86400 * 10:
-                        del self.report[event_id]['event_types'][event_type]
-                if not self.report[event_id]['event_types']:
-                    del self.report[event_id]
+                event_ids = list(self.report.keys())
+                for event_id in event_ids:
+                    event_types = list(self.report[event_id]['event_types'].keys())
+                    for event_type in event_types:
+                        end_time = self.report[event_id]['event_types'][event_type].get('end_time', None)
+                        if not end_time or end_time < time.time() - 86400 * 10:
+                            del self.report[event_id]['event_types'][event_type]
+                    if not self.report[event_id]['event_types']:
+                        del self.report[event_id]
+            except Exception as ex:
+                self.logger.error(f"Failed to send event: {ex}")
+                self.logger.error(traceback.format_exc())
 
     def show_queued_events(self):
-        if self.show_queued_events_time is None or self.show_queued_events_time + self.show_queued_events_time_interval < time.time():
-            self.show_queued_events_time = time.time()
-            for event_type in self.events_index:
-                self.logger.info("Number of events has processed: %s: %s" % (event_type.name, self.accounts.get(event_type, {}).get('total_processed_events', None)))
-                for prio in self.events_index[event_type]:
-                    self.logger.info("Number of queued events: %s %s: %s" % (event_type.name, prio.name, len(self.events_index[event_type][prio])))
+        try:
+            if self.show_queued_events_time is None or self.show_queued_events_time + self.show_queued_events_time_interval < time.time():
+                self.show_queued_events_time = time.time()
+                for event_type in self.events_index:
+                    self.logger.info("Number of events has processed: %s: %s" % (event_type.name, self.accounts.get(event_type, {}).get('total_processed_events', None)))
+                    for prio in self.events_index[event_type]:
+                        self.logger.info("Number of queued events: %s %s: %s" % (event_type.name, prio.name, len(self.events_index[event_type][prio])))
+        except Exception as ex:
+            self.logger.error(f"Failed to send event: {ex}")
+            self.logger.error(traceback.format_exc())
 
     def coordinate(self):
         self.select_coordinator()
