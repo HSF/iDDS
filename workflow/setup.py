@@ -16,13 +16,20 @@ import os
 import re
 import sys
 import sysconfig
+from itertools import product, starmap
 from setuptools import setup, find_packages
 from setuptools.command.install import install
+from setuptools.command.install_lib import install_lib
+from setuptools.command.build_py import build_py as _build_py
+from wheel.bdist_wheel import bdist_wheel
 
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+EXCLUDED_PACKAGE = ["idds"]
 
 
 class CustomInstallCommand(install):
@@ -32,9 +39,93 @@ class CustomInstallCommand(install):
         logger.info("idds-workflow installing")
         logger.info(f"self.distribution.packages: {self.distribution.packages}")
         self.distribution.packages = [
-            pkg for pkg in self.distribution.packages if pkg != 'idds'
+            pkg for pkg in self.distribution.packages if pkg not in EXCLUDED_PACKAGE
         ]
         logger.info(f"self.distribution.packages: {self.distribution.packages}")
+        super().run()
+
+
+class CustomInstallLib(install_lib):
+    def run(self):
+        logger.info("Running CustomInstallLib...")
+
+        # Run the default behavior first
+        # super().run()
+        self.build()
+        outfiles = self.install()
+        logger.info(f"outfiles: {outfiles}")
+        if outfiles is not None:
+            # always compile, in case we have any extension stubs to deal with
+            self.byte_compile(outfiles)
+
+    def get_exclusions(self):
+        """
+        Return a collections.Sized collections.Container of paths to be
+        excluded for single_version_externally_managed installations.
+        """
+        all_packages = (
+            pkg
+            for ns_pkg in self._get_SVEM_NSPs()
+            for pkg in self._all_packages(ns_pkg)
+        )
+        ns_pkgs = [ns_pkg for ns_pkg in self._get_SVEM_NSPs()]
+        logger.info(f"ns_pkgs: {ns_pkgs}")
+        all_packages_tmp = [
+            pkg
+            for ns_pkg in self._get_SVEM_NSPs()
+            for pkg in self._all_packages(ns_pkg)
+        ]
+        logger.info(f"all_packages_tmp: {all_packages_tmp}")
+        logger.info(f"all_packages: {all_packages}")
+
+        excl_specs = product(all_packages, self._gen_exclusion_paths())
+        logger.info(f"excl_specs: {excl_specs}")
+        ret = set(starmap(self._exclude_pkg_path, excl_specs))
+        logger.info(f"excl set: {ret}")
+        return ret
+
+    def install(self):
+        if os.path.isdir(self.build_dir):
+            logger.info(f"build_dir: {self.build_dir}, install_dir: {self.install_dir}")
+            outfiles = self.copy_tree(self.build_dir, self.install_dir)
+        else:
+            self.warn("'%s' does not exist -- no Python modules to install" %
+                      self.build_dir)
+            return
+        return outfiles
+
+
+class CustomBuildPy(_build_py):
+    def find_package_modules(self, package, package_dir):
+        """Exclude the top-level 'idds' package but include its subpackages."""
+        modules = super().find_package_modules(package, package_dir)
+        logger.info(f"find package: {package}, package_dir: {package_dir}")
+        if package == "idds":
+            logger.info(f"Excluding top-level package: {package}")
+            return []  # Exclude the top-level 'idds' package
+        return modules
+
+    def run(self):
+        logger.info("Custom build_py is running!")
+        super().run()
+
+
+class CustomBdistWheel(bdist_wheel):
+    """Custom wheel builder to exclude the 'idds' package but keep subpackages."""
+    def finalize_options(self):
+        # Exclude only the top-level 'idds', not its subpackages
+        logger.info("idds-workflow wheel installing")
+        logger.info(f"self.distribution.packages: {self.distribution.packages}")
+        included_packages = [
+            pkg for pkg in find_packages('lib/')
+            if pkg not in EXCLUDED_PACKAGE
+        ]
+        self.distribution.packages = included_packages
+        logger.info(f"self.distribution.packages: {self.distribution.packages}")
+        super().finalize_options()
+
+    def run(self):
+        logger.info("CustomBdistWheel is running!")  # Debug print
         super().run()
 
 
@@ -124,6 +215,9 @@ setup(
     scripts=scripts,
     cmdclass={
         'install': CustomInstallCommand,  # Exclude 'idds' during installation
+        # 'install_lib': CustomInstallLib,
+        # 'build_py': CustomBuildPy,
+        'bdist_wheel': CustomBdistWheel,
     },
     project_urls={
         'Documentation': 'https://github.com/HSF/iDDS/wiki',
