@@ -19,6 +19,7 @@ import shutil
 import sysconfig
 from setuptools import setup, find_packages
 from setuptools.command.install import install
+from wheel.bdist_wheel import bdist_wheel
 
 
 # Configure logging
@@ -26,16 +27,38 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+EXCLUDED_PACKAGE = ["idds"]
+
+
 class CustomInstallCommand(install):
     """Custom install command to exclude top-level 'idds' during installation."""
     def run(self):
         # Remove 'idds' from the list of packages before installation
-        logger.info("idds-website installing")
+        logger.info("idds-atlas installing")
         logger.info(f"self.distribution.packages: {self.distribution.packages}")
         self.distribution.packages = [
-            pkg for pkg in self.distribution.packages if pkg != 'idds'
+            pkg for pkg in self.distribution.packages if pkg not in EXCLUDED_PACKAGE
         ]
         logger.info(f"self.distribution.packages: {self.distribution.packages}")
+        super().run()
+
+
+class CustomBdistWheel(bdist_wheel):
+    """Custom wheel builder to exclude the 'idds' package but keep subpackages."""
+    def finalize_options(self):
+        # Exclude only the top-level 'idds', not its subpackages
+        logger.info("idds-workflow wheel installing")
+        logger.info(f"self.distribution.packages: {self.distribution.packages}")
+        included_packages = [
+            pkg for pkg in find_packages('lib/')
+            if pkg not in EXCLUDED_PACKAGE
+        ]
+        self.distribution.packages = included_packages
+        logger.info(f"self.distribution.packages: {self.distribution.packages}")
+        super().finalize_options()
+
+    def run(self):
+        logger.info("CustomBdistWheel is running!")  # Debug print
         super().run()
 
 
@@ -156,6 +179,7 @@ setup(
     scripts=scripts,
     cmdclass={
         'install': CustomInstallCommand,  # Exclude 'idds' during installation
+        'bdist_wheel': CustomBdistWheel,
     },
     project_urls={
         'Documentation': 'https://github.com/HSF/iDDS/wiki',
