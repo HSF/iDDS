@@ -173,7 +173,7 @@ class RequestGroup(BASE, ModelBase):
                       CheckConstraint('status IS NOT NULL', name='REQUESTGROUP_STATUS_ID_NN'),
                       UniqueConstraint('campaign', 'campaign_scope', 'campaign_group', 'campaign_tag', name='REQUESTGROUP_CM_UQ'),
                       Index('REQUESTGROUP_CM_NAME_IDX', 'campaign', 'campaign_scope', 'campaign_group', 'campaign_tag'),
-                      Index('REQUESTGROUP_STATUS_SITE', 'status', 'site', 'request_id'),
+                      Index('REQUESTGROUP_STATUS_SITE', 'status', 'site', 'group_id'),
                       Index('REQUESTGROUP_STATUS_PRIO_IDX', 'status', 'priority', 'group_id', 'locking', 'updated_at', 'next_poll_at', 'created_at'),
                       Index('REQUESTGROUP_STATUS_POLL_IDX', 'status', 'priority', 'locking', 'updated_at', 'new_poll_period', 'update_poll_period', 'created_at', 'group_id'))
 
