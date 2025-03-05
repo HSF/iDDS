@@ -1818,7 +1818,10 @@ def handle_messages_processing(messages, logger=None, log_prefix='', update_proc
     update_contents = []
 
     for ori_msg in messages:
-        msg = json.loads(ori_msg)
+        if type(ori_msg) in [dict]:
+            msg = ori_msg
+        else:
+            msg = json.loads(ori_msg)
         if 'taskid' not in msg or not msg['taskid']:
             continue
 
