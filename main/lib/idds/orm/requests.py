@@ -1230,17 +1230,41 @@ def delete_requests(request_id=None, workload_id=None, session=None):
 
 
 @transactional_session
-def clean_locking(time_period=3600, session=None):
+def clean_locking(time_period=3600, min_request_id=None, health_items=[], session=None):
     """
     Clearn locking which is older than time period.
 
     :param time_period in seconds
     """
+    health_dict = {}
+    for item in health_items:
+        hostname = item['hostname']
+        pid = item['pid']
+        thread_id = item['thread_id']
+        if hostname not in health_dict:
+            health_dict[hostname] = {}
+        if pid not in health_dict[hostname]:
+            health_dict[hostname][pid] = []
+        if thread_id not in health_dict[hostname][pid]:
+            health_dict[hostname][pid].append(thread_id)
+    query = session.query(models.Request.request_id,
+                          models.Request.locking_hostname,
+                          models.Request.locking_pid,
+                          models.Request.locking_thread_id,
+                          models.Request.locking_thread_name)
+    query = query.filter(models.Request.locking == RequestLocking.Locking)
+    if min_request_id:
+        query = query.filter(models.Request.request_id >= min_request_id)
 
-    params = {'locking': 0}
-    session.query(models.Request).filter(models.Request.locking == RequestLocking.Locking)\
-           .filter(models.Request.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=time_period))\
-           .update(params, synchronize_session=False)
+    lost_request_ids = []
+    tmp = query.all()
+    if tmp:
+        for req in tmp:
+            req_id, locking_hostname, locking_pid, locking_thread_id, locking_thread_name = req
+            if locking_hostname not in health_dict or locking_pid not in health_dict[locking_hostname]:
+                lost_request_ids.append({"request_id": req_id, 'locking': 0})
+
+    session.bulk_update_mappings(models.Request, lost_request_ids)
 
 
 @transactional_session
