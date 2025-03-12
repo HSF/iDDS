@@ -683,6 +683,32 @@ def update_contents_from_others_by_dep_id(request_id=None, transform_id=None, se
     return orm_contents.update_contents_from_others_by_dep_id(request_id=request_id, transform_id=transform_id, session=session)
 
 
+@transactional_session
+def update_contents_from_others_by_dep_id_pages(request_id=None, transform_id=None, page_size=1000, status_not_to_check=None, session=None):
+    """
+    Update contents from others by content_dep_id
+
+    :param request_id: The Request id.
+    :param transfomr_id: The transform id.
+    """
+    return orm_contents.update_contents_from_others_by_dep_id(request_id=request_id, transform_id=transform_id, page_size=page_size,
+                                                              status_not_to_check=status_not_to_check, session=session)
+
+
+@transactional_session
+def update_input_contents_by_dependency_pages(request_id=None, transform_id=None, page_size=500, batch_size=1000,
+                                              terminated=False, status_not_to_check=None, session=None):
+    """
+    Update input contents by dependencies
+
+    :param request_id: The Request id.
+    :param transfomr_id: The transform id.
+    """
+    return orm_contents.update_input_contents_by_dependency_pages(request_id=request_id, transform_id=transform_id, page_size=page_size,
+                                                                  batch_size=batch_size, terminated=terminated,
+                                                                  status_not_to_check=status_not_to_check, session=session)
+
+
 @read_session
 def get_update_contents_from_others_by_dep_id(request_id=None, transform_id=None, session=None):
     """

@@ -166,15 +166,57 @@ class DomaPanDAWork(Work):
         return self.task_cloud
 
     @property
+    def num_inputs(self):
+        num = self.get_metadata_item('num_inputs', None)
+        return num
+
+    @num_inputs.setter
+    def num_inputs(self, value):
+        self.add_metadata_item('num_inputs', value)
+
+    @property
+    def num_dependencies(self):
+        num = self.get_metadata_item('num_dependencies', None)
+        return num
+
+    @num_dependencies.setter
+    def num_dependencies(self, value):
+        self.add_metadata_item('num_dependencies', value)
+
+    def count_dependencies(self, data):
+        if self.num_dependencies is not None and self.num_inputs is not None:
+            return self.num_inputs, self.num_dependencies
+
+        num_inputs = 0
+        num_dependencies = 0
+        try:
+            for item in data:
+                # item_name = item['name']
+                inputs_dependency = item["dependencies"]
+                num_dependencies += len(inputs_dependency)
+                num_inputs += 1
+        except Exception as ex:
+            self.logger.warn(f"Failed to count dependencies: {ex}")
+        return num_inputs, num_dependencies
+
+    @property
     def dependency_map(self):
         if self.should_unzip('_dependency_map'):
             data = self.unzip_data(self._dependency_map)
+            num_inputs, num_dependencies = self.count_dependencies(data)
+            self.num_inputs = num_inputs
+            self.num_dependencies = num_dependencies
             return data
 
+        num_inputs, num_dependencies = self.count_dependencies(self._dependency_map)
+        self.num_inputs = num_inputs
+        self.num_dependencies = num_dependencies
         return self._dependency_map
 
     @dependency_map.setter
     def dependency_map(self, value):
+        num_dependencies = 0
+        num_inputs = 0
         if value:
             if type(value) not in [list, tuple]:
                 raise exceptions.IDDSException("dependency_map should be a list or tuple")
@@ -184,6 +226,8 @@ class DomaPanDAWork(Work):
                 if len(item_name) > self.max_name_length:
                     raise exceptions.IDDSException("The file name is long (%s), which is bigger than the maximum name length (%s)" % (len(item_name), self.max_name_length))
                 inputs_dependency = item["dependencies"]
+                num_inputs += 1
+                num_dependencies += len(inputs_dependency)
                 if item_name not in item_names:
                     item_names[item_name] = item
                 else:
@@ -200,6 +244,9 @@ class DomaPanDAWork(Work):
                         raise exceptions.IDDSException("duplicated input dependency for item %s: %s" % (item_name, inputs_dependency))
 
         self._dependency_map = value
+
+        self.num_inputs = num_inputs
+        self.num_dependencies = num_dependencies
 
         if self.es:
             self.construct_es_files()

@@ -425,13 +425,13 @@ def clean_next_poll_at(status, session=None):
 
 
 @read_session
-def get_transform_input_output_maps(transform_id, input_coll_ids, output_coll_ids, log_coll_ids=[], with_sub_map_id=False, is_es=False, session=None):
+def get_transform_input_output_maps(transform_id, input_coll_ids, output_coll_ids, log_coll_ids=[], with_sub_map_id=False, is_es=False, with_deps=True, session=None):
     """
     Get transform input output maps.
 
     :param transform_id: transform id.
     """
-    contents = orm_contents.get_contents_by_request_transform(transform_id=transform_id, session=session)
+    contents = orm_contents.get_contents_by_request_transform(transform_id=transform_id, with_deps=with_deps, session=session)
     ret = {}
     for content in contents:
         map_id = content['map_id']
