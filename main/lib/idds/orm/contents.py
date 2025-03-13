@@ -739,17 +739,7 @@ def update_input_contents_by_dependency_pages(request_id=None, transform_id=None
         if status_not_to_check:
             main_query = main_query.filter(~(content_alias.substatus.in_(status_not_to_check)))
 
-        main_query = main_query.filter(
-            content_alias.content_relation_type == 0,
-            ~exists().where(
-                and_(
-                    content_alias.request_id == query_ex.c.request_id,
-                    content_alias.transform_id == query_ex.c.transform_id,
-                    content_alias.map_id == query_ex.c.map_id,
-                    content_alias.sub_map_id == query_ex.c.sub_map_id
-                )
-            )
-        )
+        main_query = main_query.filter(content_alias.content_relation_type == 0)
 
         # Aggregation function to determine final status
         def custom_aggregation(values, terminated=False):
@@ -861,8 +851,11 @@ def update_input_contents_by_dependency_pages(request_id=None, transform_id=None
                 session.commit()
 
             # Move to the next page
-            last_id = session.query(content_alias.content_id).order_by(content_alias.content_id.desc()).limit(1).scalar()
-
+            sub_query = main_query.order_by(content_alias.content_id)
+            if last_id is not None:
+                sub_query = sub_query.filter(models.Content.content_id > last_id)
+            sub_query = sub_query.limit(page_size).subquery()
+            last_id = session.query(sub_query.c.content_id).order_by(sub_query.c.content_id.desc()).limit(1).scalar()
     except Exception as ex:
         raise ex
 
