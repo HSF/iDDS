@@ -1505,7 +1505,7 @@ class DomaPanDAWork(Work):
             ret_job = item.get('job', None)
         return ret_event, ret_job
 
-    def get_update_contents(self, unterminated_jobs_status, input_output_maps, contents_ext, job_info_maps, abort=False, log_prefix=''):
+    def get_update_contents(self, unterminated_jobs_status, input_output_maps, contents_ext, job_info_maps, abort=False, terminated_status=False, log_prefix=''):
         inputname_to_map_id_outputs = {}
         for map_id in input_output_maps:
             inputs = input_output_maps[map_id]['inputs']
@@ -1828,7 +1828,7 @@ class DomaPanDAWork(Work):
                                     update_content_ext['exe_exit_diag'] = event_error_diag
                                 update_contents_ext.append(update_content_ext)
 
-        if abort:
+        if abort or terminated_status:
             for map_id in input_output_maps:
                 outputs = input_output_maps[map_id]['outputs']
                 for content in outputs:
@@ -1894,7 +1894,11 @@ class DomaPanDAWork(Work):
                     abort_status = False
                     if processing_status in [ProcessingStatus.Cancelled]:
                         abort_status = True
-                    ret_contents = self.get_update_contents(unterminated_jobs_status, input_output_maps, contents_ext, job_info_maps, abort=abort_status, log_prefix=log_prefix)
+                    terminated_status = False
+                    if processing_status in [ProcessingStatus.Cancelled, ProcessingStatus.Failed, ProcessingStatus.Broken]:
+                        terminated_status = True
+                    ret_contents = self.get_update_contents(unterminated_jobs_status, input_output_maps, contents_ext, job_info_maps,
+                                                            abort=abort_status, terminated_status=terminated_status, log_prefix=log_prefix)
                     updated_contents, update_contents_full, new_contents_ext, update_contents_ext = ret_contents
 
                     return processing_status, updated_contents, update_contents_full, new_contents_ext, update_contents_ext
