@@ -624,7 +624,7 @@ def update_contents_from_others_by_dep_id_pages(request_id=None, transform_id=No
             stmt = update(models.Content).where(
                 models.Content.content_relation_type == 3,
                 exists(
-                    select([1])  
+                    select(1)  
                     .where(models.Content.content_dep_id == main_subquery.c.content_id)
                     .correlate(models.Content)
                 )
