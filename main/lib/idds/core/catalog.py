@@ -691,8 +691,8 @@ def update_contents_from_others_by_dep_id_pages(request_id=None, transform_id=No
     :param request_id: The Request id.
     :param transfomr_id: The transform id.
     """
-    return orm_contents.update_contents_from_others_by_dep_id(request_id=request_id, transform_id=transform_id, page_size=page_size,
-                                                              status_not_to_check=status_not_to_check, session=session)
+    return orm_contents.update_contents_from_others_by_dep_id_pages(request_id=request_id, transform_id=transform_id, page_size=page_size,
+                                                                    status_not_to_check=status_not_to_check, session=session)
 
 
 @transactional_session
