@@ -23,7 +23,7 @@ from sqlalchemy import and_
 from sqlalchemy import func
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm import aliased
-from sqlalchemy.sql import exists, update
+from sqlalchemy.sql import exists, update, select
 from sqlalchemy.sql.expression import asc
 
 from idds.common import exceptions
