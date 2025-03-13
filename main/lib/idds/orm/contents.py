@@ -692,7 +692,7 @@ def update_input_contents_by_dependency_pages(request_id=None, transform_id=None
             )
         ).distinct().subquery()
 
-        # query deps
+        # query dependencies
         query_deps = session.query(
             models.Content.request_id.label("request_id"),
             models.Content.transform_id.label("transform_id"),
@@ -770,23 +770,23 @@ def update_input_contents_by_dependency_pages(request_id=None, transform_id=None
             paginated_query = paginated_query.subquery()
 
             paginated_query_deps = session.query(
-                query_deps.c.request_id,
-                query_deps.c.transform_id,
-                query_deps.c.map_id,
-                query_deps.c.sub_map_id,
-                query_deps.c.content_id,
+                query_deps.request_id,
+                query_deps.transform_id,
+                query_deps.map_id,
+                query_deps.sub_map_id,
+                query_deps.content_id,
                 paginated_query.c.content_id.label('input_content_id')
             ).join(
                 paginated_query,
                 and_(
-                    query_deps.c.request_id == paginated_query.c.request_id,
-                    query_deps.c.transform_id == paginated_query.c.transform_id,
-                    query_deps.c.map_id == paginated_query.c.map_id,
-                    query_deps.c.sub_map_id == paginated_query.c.sub_map_id
+                    query_deps.request_id == paginated_query.c.request_id,
+                    query_deps.transform_id == paginated_query.c.transform_id,
+                    query_deps.map_id == paginated_query.c.map_id,
+                    query_deps.sub_map_id == paginated_query.c.sub_map_id
                 )
             ).order_by(
-                query_deps.c.request_id, query_deps.c.transform_id,
-                query_deps.c.map_id, query_deps.c.sub_map_id
+                query_deps.request_id, query_deps.transform_id,
+                query_deps.map_id, query_deps.sub_map_id
             ).all()
 
             if not paginated_query_deps:
