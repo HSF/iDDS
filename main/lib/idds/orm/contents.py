@@ -23,7 +23,7 @@ from sqlalchemy import and_
 from sqlalchemy import func
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm import aliased
-from sqlalchemy.sql import exists
+from sqlalchemy.sql import exists, update
 from sqlalchemy.sql.expression import asc
 
 from idds.common import exceptions
@@ -601,7 +601,7 @@ def update_contents_from_others_by_dep_id_pages(request_id=None, transform_id=No
     """
     try:
         # Define alias for Content model to avoid conflicts
-        content_alias = aliased(models.Content)
+        # content_alias = aliased(models.Content)
 
         # Create the main subquery (dependent contents)
         main_subquery = session.query(
@@ -620,48 +620,40 @@ def update_contents_from_others_by_dep_id_pages(request_id=None, transform_id=No
         # Paginated Update Loop
         last_id = None
         while True:
-            # Paginate using keyset pagination
-            paginated_query = session.query(content_alias.content_id, content_alias.substatus)\
-                .filter(content_alias.content_relation_type == 3)
-
-            if request_id:
-                paginated_query = paginated_query.filter(content_alias.request_id == request_id)
-            if transform_id:
-                paginated_query = paginated_query.filter(content_alias.transform_id == transform_id)
-            if status_not_to_check:
-                paginated_query = paginated_query.filter(~content_alias.substatus.in_(status_not_to_check))  # Use `~` for NOT IN
-
-            # Keyset Pagination: Get next batch (avoids OFFSET)
-            if last_id:
-                paginated_query = paginated_query.filter(content_alias.content_id > last_id)
-
-            paginated_query = paginated_query.order_by(content_alias.content_id).limit(page_size)
-
-            # Update in a single transaction using CTE
-            cte = paginated_query.cte('cte')
-
-            substatus_query = session.query(main_subquery.c.substatus).filter(
-                models.Content.content_dep_id == main_subquery.c.content_id
-            ).scalar_subquery()
-
-            row_count = session.query(models.Content).filter(
-                models.Content.content_id.in_(session.query(cte.c.content_id))
-            ).update(
-                {
-                    models.Content.substatus: substatus_query,
-                    models.Content.status: substatus_query
-                },
-                synchronize_session=False
+            # Build the update statement dynamically
+            stmt = update(models.Content).where(
+                models.Content.content_relation_type == 3,
+                ~models.Content.substatus.in_(status_not_to_check),
+                exists().where(
+                    models.Content.content_dep_id == main_subquery.c.content_id
+                )
+            ).values(
+                substatus=main_subquery.c.substatus,
+                status=main_subquery.c.substatus
             )
 
+            if request_id:
+                stmt = stmt.where(models.Content.request_id == request_id)
+            if transform_id:
+                stmt = stmt.where(models.Content.transform_id == transform_id)
+            if status_not_to_check:
+                stmt = stmt.where(~models.Content.substatus.in_(status_not_to_check))
+            if last_id is not None:
+                stmt = stmt.where(models.Content.content_id > last_id)
+
+            result = session.execute(stmt)
             session.commit()
 
             # If no rows were updated, stop processing
-            if not row_count:
+            if not result.rowcount:
                 break
 
             # Update last processed ID (keyset pagination)
-            last_id = session.query(cte.c.content_id).order_by(cte.c.content_id.desc()).limit(1).scalar()
+            sub_query = session.query(models.Content.content_id)
+            if last_id is not None:
+                sub_query = sub_query.filter(models.Content.content_id > last_id)
+            sub_query = sub_query.order_by(models.Content.content_id).limit(page_size).subquery()
+            last_id = session.query(sub_query.c.content_id).order_by(sub_query.c.content_id.desc()).limit(1).scalar()
     except Exception as ex:
         raise ex
 
@@ -716,7 +708,18 @@ def update_input_contents_by_dependency_pages(request_id=None, transform_id=None
 
         query_deps = query_deps.filter(
             models.Content.content_relation_type == 3
-        ).subquery()
+        )
+
+        query_deps = query_deps.filter(
+            ~exists().where(
+                and_(
+                    models.Content.request_id == query_ex.c.request_id,
+                    models.Content.transform_id == query_ex.c.transform_id,
+                    models.Content.map_id == query_ex.c.map_id,
+                    models.Content.sub_map_id == query_ex.c.sub_map_id
+                )
+            )
+        )
 
         # Define the main query with the necessary filters
         main_query = session.query(
