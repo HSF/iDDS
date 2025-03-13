@@ -773,13 +773,15 @@ def update_input_contents_by_dependency_pages(request_id=None, transform_id=None
             if last_id:
                 paginated_query = paginated_query.filter(content_alias.content_id > last_id)
 
+            paginated_query = paginated_query.subquery()
+
             paginated_query_deps = session.query(
-                query_deps.request_id,
-                query_deps.transform_id,
-                query_deps.map_id,
-                query_deps.sub_map_id,
-                query_deps.content_id,
-                paginated_query.content_id.label('input_content_id')
+                query_deps.c.request_id,
+                query_deps.c.transform_id,
+                query_deps.c.map_id,
+                query_deps.c.sub_map_id,
+                query_deps.c.content_id,
+                paginated_query.c.content_id.label('input_content_id')
             ).join(
                 paginated_query,
                 and_(
