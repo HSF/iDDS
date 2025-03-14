@@ -655,6 +655,7 @@ def update_contents_from_others_by_dep_id_pages(request_id=None, transform_id=No
                 sub_query = sub_query.filter(models.Content.content_id > last_id)
             sub_query = sub_query.order_by(models.Content.content_id).limit(page_size).subquery()
             last_id = session.query(sub_query.c.content_id).order_by(sub_query.c.content_id.desc()).limit(1).scalar()
+            print(f"update_contents_from_others_by_dep_id_pages: last_id: {last_id}")
     except Exception as ex:
         raise ex
 
@@ -711,6 +712,7 @@ def update_input_contents_by_dependency_pages(request_id=None, transform_id=None
             models.Content.content_relation_type == 3
         )
 
+        """
         query_deps = query_deps.filter(
             ~exists(
                 select(
@@ -726,6 +728,7 @@ def update_input_contents_by_dependency_pages(request_id=None, transform_id=None
                 )
             )
         )
+        """
 
         query_deps = query_deps.subquery()
 
@@ -752,6 +755,22 @@ def update_input_contents_by_dependency_pages(request_id=None, transform_id=None
             main_query = main_query.filter(~(models.Content.substatus.in_(status_not_to_check)))
 
         main_query = main_query.filter(models.Content.content_relation_type == 0)
+
+        main_query = main_query.filter(
+            ~exists(
+                select(
+                    models.Content.request_id,
+                    models.Content.transform_id,
+                    models.Content.map_id,
+                    models.Content.sub_map_id
+                ).where(
+                    models.Content.request_id == query_ex.c.request_id,
+                    models.Content.transform_id == query_ex.c.transform_id,
+                    models.Content.map_id == query_ex.c.map_id,
+                    models.Content.sub_map_id == query_ex.c.sub_map_id
+                )
+            )
+        )
 
         # Aggregation function to determine final status
         def custom_aggregation(values, terminated=False):
@@ -781,19 +800,20 @@ def update_input_contents_by_dependency_pages(request_id=None, transform_id=None
             paginated_query = paginated_query.subquery()
 
             paginated_query_deps_query = session.query(
+                paginated_query.c.content_id.label('input_content_id'),
                 query_deps.c.request_id,
                 query_deps.c.transform_id,
                 query_deps.c.map_id,
                 query_deps.c.sub_map_id,
                 query_deps.c.content_id,
-                paginated_query.c.content_id.label('input_content_id')
+                query_deps.c.substatus,
             ).join(
                 paginated_query,
                 and_(
-                    query_deps.c.request_id == paginated_query.c.request_id,
-                    query_deps.c.transform_id == paginated_query.c.transform_id,
-                    query_deps.c.map_id == paginated_query.c.map_id,
-                    query_deps.c.sub_map_id == paginated_query.c.sub_map_id
+                    paginated_query.c.request_id == query_deps.c.request_id,
+                    paginated_query.c.transform_id == query_deps.c.transform_id,
+                    paginated_query.c.map_id == query_deps.c.map_id,
+                    paginated_query.c.sub_map_id == query_deps.c.sub_map_id
                 )
             ).order_by(
                 query_deps.c.request_id, query_deps.c.transform_id,
@@ -812,7 +832,7 @@ def update_input_contents_by_dependency_pages(request_id=None, transform_id=None
             # Aggregate results
             grouped_data = defaultdict(list)
             for row in paginated_query_deps:
-                request_id, transform_id, map_id, sub_map_id, content_id, input_content_id, status = row
+                input_content_id, request_id, transform_id, map_id, sub_map_id, status, content_id = row
                 grouped_data[(request_id, transform_id, map_id, sub_map_id, input_content_id)].append(status)
 
             aggregated_results = {key: custom_aggregation(values, terminated=terminated) for key, values in grouped_data.items()}
@@ -874,6 +894,7 @@ def update_input_contents_by_dependency_pages(request_id=None, transform_id=None
                 sub_query = sub_query.filter(models.Content.content_id > last_id)
             sub_query = sub_query.limit(page_size).subquery()
             last_id = session.query(sub_query.c.content_id).order_by(sub_query.c.content_id.desc()).limit(1).scalar()
+            print(f"update_input_contents_by_dependency_pages: last_id {last_id}")
     except Exception as ex:
         raise ex
 
