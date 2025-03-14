@@ -89,10 +89,10 @@ else:
     task_queue2 = 'SLAC_Rubin_Himem'
     task_queue3 = 'SLAC_Rubin_Extra_Himem'
     task_queue4 = 'SLAC_Rubin_Merge'
-    task_queue5 = 'SLAC_Rubin_IO'
+    task_queue5 = 'SLAC_Rubin'
     # task_queue = 'SLAC_Rubin_Extra_Himem_32Cores'
     # task_queue = 'SLAC_Rubin_Merge'
-    task_queue2 = 'SLAC_TEST'
+    task_queue2 = 'SLAC_Rubin'
     # task_queue4 = task_queue3 = task_queue2 = task_queue1 = task_queue
 
 # task_cloud = None
