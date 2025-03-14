@@ -732,9 +732,9 @@ def update_input_contents_by_dependency_pages(request_id=None, transform_id=None
 
         query_deps = query_deps.subquery()
 
-        # from sqlalchemy.dialects import postgresql
-        # query_deps_sql = query_deps.compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True})
-        # print(f"query_deps_sql: {query_deps_sql}")
+        from sqlalchemy.dialects import postgresql
+        query_deps_sql = query_deps.compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True})
+        print(f"query_deps_sql: {query_deps_sql}")
 
         # Define the main query with the necessary filters
         main_query = session.query(
@@ -793,10 +793,11 @@ def update_input_contents_by_dependency_pages(request_id=None, transform_id=None
         last_id = None
         while True:
             # Fetch next batch using keyset pagination
-            paginated_query = main_query.order_by(models.Content.content_id).limit(page_size)
+            paginated_query = main_query.order_by(models.Content.content_id)
             if last_id:
                 paginated_query = paginated_query.filter(models.Content.content_id > last_id)
 
+            paginated_query = paginated_query.limit(page_size)
             paginated_query = paginated_query.subquery()
 
             paginated_query_deps_query = session.query(
@@ -822,9 +823,9 @@ def update_input_contents_by_dependency_pages(request_id=None, transform_id=None
 
             paginated_query_deps = paginated_query_deps_query.all()
 
-            # from sqlalchemy.dialects import postgresql
-            # paginated_query_deps_query_sql = paginated_query_deps_query.subquery().compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True})
-            # print(f"paginated_query_deps_query_sql: {paginated_query_deps_query_sql}")
+            from sqlalchemy.dialects import postgresql
+            paginated_query_deps_query_sql = paginated_query_deps_query.subquery().compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True})
+            print(f"paginated_query_deps_query_sql: {paginated_query_deps_query_sql}")
 
             if not paginated_query_deps:
                 break  # No more rows to process

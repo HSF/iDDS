@@ -1429,7 +1429,7 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
     try:
         num_inputs = work.num_inputs
         num_dependencies = work.num_dependencies
-        if num_inputs is not None and num_dependencies is not None:
+        if num_inputs is not None and num_dependencies is not None and num_dependencies > 0:
             input_dep_page_size = int(max_dependencies * num_inputs / num_dependencies)
             if input_dep_page_size < default_input_dep_page_size:
                 default_input_dep_page_size = input_dep_page_size
