@@ -701,7 +701,7 @@ def get_input_output_sub_maps(inputs, outputs, inputs_dependency, logs=[]):
     return input_output_sub_maps
 
 
-def get_updated_contents_by_input_output_maps(input_output_maps=None, terminated=False, max_updates_per_round=2000, logger=None, log_prefix=''):
+def get_updated_contents_by_input_output_maps(input_output_maps=None, terminated=False, max_updates_per_round=2000, with_deps=False, logger=None, log_prefix=''):
     updated_contents, updated_contents_full_input, updated_contents_full_output = [], [], []
     updated_contents_full_input_deps = []
     new_update_contents = []
@@ -763,10 +763,12 @@ def get_updated_contents_by_input_output_maps(input_output_maps=None, terminated
             inputs_dependency_sub = input_output_sub_maps[sub_map_id]['inputs_dependency']
 
             input_content_update_status = None
-            if is_all_contents_available(inputs_dependency_sub):
-                input_content_update_status = ContentStatus.Available
-            elif is_all_contents_terminated(inputs_dependency_sub, terminated):
-                input_content_update_status = ContentStatus.Missing
+            if with_deps:
+                # if deps are not loaded. This part should not be executed. Otherwise it will release all jobs
+                if is_all_contents_available(inputs_dependency_sub):
+                    input_content_update_status = ContentStatus.Available
+                elif is_all_contents_terminated(inputs_dependency_sub, terminated):
+                    input_content_update_status = ContentStatus.Missing
             if input_content_update_status:
                 for content in inputs_sub:
                     if content['substatus'] != input_content_update_status:
@@ -1540,12 +1542,14 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
                                                                batch_size=1000, status_not_to_check=status_not_to_check)
         logger.debug(log_prefix + "update_input_contents_by_dependency_pages done")
 
-        input_output_maps = get_input_output_maps(transform_id, work, with_deps=False)
+        with_deps = False
+        input_output_maps = get_input_output_maps(transform_id, work, with_deps=with_deps)
         logger.debug(log_prefix + "input_output_maps.keys[:2]: %s" % str(list(input_output_maps.keys())[:2]))
 
         updated_contents_ret_chunks = get_updated_contents_by_input_output_maps(input_output_maps=input_output_maps,
                                                                                 terminated=terminated_processing,
                                                                                 max_updates_per_round=max_updates_per_round,
+                                                                                with_deps=with_deps,
                                                                                 logger=logger,
                                                                                 log_prefix=log_prefix)
 
