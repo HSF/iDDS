@@ -808,8 +808,8 @@ def update_input_contents_by_dependency_pages(request_id=None, transform_id=None
                 query_deps.c.sub_map_id,
                 query_deps.c.content_id,
                 query_deps.c.substatus,
-            ).join(
-                paginated_query,
+            ).outerjoin(
+                query_deps,
                 and_(
                     paginated_query.c.request_id == query_deps.c.request_id,
                     paginated_query.c.transform_id == query_deps.c.transform_id,
