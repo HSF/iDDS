@@ -773,7 +773,14 @@ def update_input_contents_by_dependency_pages(request_id=None, transform_id=None
         )
 
         # Aggregation function to determine final status
-        def custom_aggregation(values, terminated=False):
+        def custom_aggregation(key, values, terminated=False):
+            request_id, transform_id, map_id, sub_map_id, input_content_id = key
+            if request_id is None:
+                # left join, without right values
+                # no dependencies
+                print("custom_aggregation, no dependencies")
+                return ContentStatus.Available
+
             available_status = [ContentStatus.Available, ContentStatus.FakeAvailable]
             final_terminated_status = [ContentStatus.Available, ContentStatus.FakeAvailable,
                                        ContentStatus.FinalFailed, ContentStatus.Missing]
@@ -833,10 +840,10 @@ def update_input_contents_by_dependency_pages(request_id=None, transform_id=None
             # Aggregate results
             grouped_data = defaultdict(list)
             for row in paginated_query_deps:
-                input_content_id, request_id, transform_id, map_id, sub_map_id, status, content_id = row
+                input_content_id, request_id, transform_id, map_id, sub_map_id, content_id, status = row
                 grouped_data[(request_id, transform_id, map_id, sub_map_id, input_content_id)].append(status)
 
-            aggregated_results = {key: custom_aggregation(values, terminated=terminated) for key, values in grouped_data.items()}
+            aggregated_results = {key: custom_aggregation(key, values, terminated=terminated) for key, values in grouped_data.items()}
 
             # Perform batch update using `case()`
             """
