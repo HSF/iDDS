@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2024
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2025
 
 
 """
@@ -23,7 +23,7 @@ from sqlalchemy import and_
 from sqlalchemy import func
 from sqlalchemy.exc import DatabaseError, IntegrityError
 # from sqlalchemy.orm import aliased
-from sqlalchemy.sql import exists, update, select
+from sqlalchemy.sql import exists, select
 from sqlalchemy.sql.expression import asc
 
 from idds.common import exceptions
@@ -592,7 +592,7 @@ def update_contents_from_others_by_dep_id(request_id=None, transform_id=None, se
 
 
 @transactional_session
-def update_contents_from_others_by_dep_id_pages(request_id=None, transform_id=None, page_size=1000, status_not_to_check=None, session=None):
+def update_contents_from_others_by_dep_id_pages(request_id=None, transform_id=None, page_size=1000, batch_size=500, status_not_to_check=None, session=None):
     """
     Update contents from others by content_dep_id, with pages
 
@@ -605,49 +605,74 @@ def update_contents_from_others_by_dep_id_pages(request_id=None, transform_id=No
 
         # Create the main subquery (dependent contents)
         main_subquery = session.query(
-            models.Content.content_id.label("content_id"),
-            models.Content.substatus.label("substatus")
+            models.Content.content_id,
+            models.Content.substatus
         )
 
         if request_id:
             main_subquery = main_subquery.filter(models.Content.request_id == request_id)
 
         main_subquery = main_subquery.filter(
-            models.Content.content_relation_type == 1,
+            models.Content.content_relation_type == ContentRelationType.Output,
             models.Content.substatus != ContentStatus.New
         ).subquery()
+
+        # dep query
+        dep_subquery = session.query(
+            models.Content.content_id.label("content_id"),
+            models.Content.content_dep_id.label("content_dep_id"),
+            models.Content.substatus.label("substatus")
+        )
+
+        if request_id:
+            dep_subquery = dep_subquery.filter(models.Content.request_id == request_id)
+        if transform_id:
+            dep_subquery = dep_subquery.filter(models.Content.transform_id == transform_id)
+        if status_not_to_check:
+            dep_subquery = dep_subquery.filter(~models.Content.substatus.in_(status_not_to_check))
+
+        dep_subquery = dep_subquery.filter(models.Content.content_relation_type == ContentRelationType.InputDependency)
 
         # Paginated Update Loop
         last_id = None
         while True:
-            # Build the update statement dynamically
-            stmt = update(models.Content).where(
-                models.Content.content_relation_type == 3,
-                exists(
-                    select(1)
-                    .where(models.Content.content_dep_id == main_subquery.c.content_id)
-                    .correlate(models.Content)
+            if last_id is not None:
+                paginated_query = dep_subquery.filter(models.Content.content_id > last_id)
+
+            paginated_query = paginated_query.order_by(models.Content.content_id).limit(page_size)
+            paginated_query = paginated_query.subquery()
+
+            paginated_query_deps_query = session.query(
+                paginated_query.c.content_id.label('dep_content_id'),
+                main_subquery.c.substatus,
+            ).join(
+                paginated_query,
+                and_(
+                    paginated_query.c.content_dep_id == main_subquery.c.content_id,
+                    paginated_query.c.substatus != main_subquery.c.substatus
                 )
-            ).values(
-                substatus=main_subquery.c.substatus,
-                status=main_subquery.c.substatus
             )
 
-            if request_id:
-                stmt = stmt.where(models.Content.request_id == request_id)
-            if transform_id:
-                stmt = stmt.where(models.Content.transform_id == transform_id)
-            if status_not_to_check:
-                stmt = stmt.where(~models.Content.substatus.in_(status_not_to_check))
-            if last_id is not None:
-                stmt = stmt.where(models.Content.content_id > last_id)
+            from sqlalchemy.dialects import postgresql
+            query_deps_sql = paginated_query_deps_query.subquery().compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True})
+            print(f"query_update_sql: {query_deps_sql}")
 
-            result = session.execute(stmt)
-            session.commit()
-
-            # If no rows were updated, stop processing
-            if not result.rowcount:
+            results = paginated_query_deps_query.all()
+            if not results:
                 break
+
+            update_data = [
+                {
+                    "content_id": row[0],
+                    "substatus": row[1],
+                    "status": row[1]
+                }
+                for row in results
+            ]
+
+            for i in range(0, len(update_data), batch_size):
+                session.bulk_update_mappings(models.Content, update_data[i:i + batch_size])
+                session.commit()
 
             # Update last processed ID (keyset pagination)
             sub_query = session.query(models.Content.content_id)
@@ -661,7 +686,7 @@ def update_contents_from_others_by_dep_id_pages(request_id=None, transform_id=No
 
 
 @transactional_session
-def update_input_contents_by_dependency_pages(request_id=None, transform_id=None, page_size=500, batch_size=1000,
+def update_input_contents_by_dependency_pages(request_id=None, transform_id=None, page_size=500, batch_size=500,
                                               terminated=False, status_not_to_check=None, session=None):
     """
     Update contents input contents by dependencies, with pages

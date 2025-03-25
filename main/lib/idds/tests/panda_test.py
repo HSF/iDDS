@@ -168,6 +168,14 @@ panda_ids = [{'task_id': 166943, 'panda_id': 67228018}]
 ret = Client.get_events_status(panda_ids, verbose=True)
 print(ret)
 
+newOpts = {}
+taskIDs = [5050]
+taskIDs = [5007, 5008, 5009, 5011]
+for taskID in taskIDs:
+    status, out = Client.retryTask(taskID, verbose=True, properErrorCode=True, newParams=newOpts)
+    print(status)
+    print(out)
+
 sys.exit(0)
 
 """
@@ -295,7 +303,7 @@ newOpts = {}
 # site = newOpts.get('site', None)
 # excludedSite = newOpts.get('excludedSite', None)
 # for JEDI
-taskIDs = [10624]
+taskIDs = [5050]
 for taskID in taskIDs:
     status, out = Client.retryTask(taskID, verbose=True, properErrorCode=True, newParams=newOpts)
     print(status)
