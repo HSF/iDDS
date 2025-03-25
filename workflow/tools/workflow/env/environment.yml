@@ -5,5 +5,5 @@ dependencies:
 - pip:
   - anytree
   - networkx
-  - stomp.py<=8.0.1
+  - stomp.py
   - idds-common==2.2.21

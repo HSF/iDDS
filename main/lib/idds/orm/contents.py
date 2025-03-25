@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2024
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2025
 
 
 """
@@ -16,10 +16,14 @@ operations related to Requests.
 import datetime
 import hashlib
 
+from collections import defaultdict
+
 import sqlalchemy
 from sqlalchemy import and_
 from sqlalchemy import func
 from sqlalchemy.exc import DatabaseError, IntegrityError
+# from sqlalchemy.orm import aliased
+from sqlalchemy.sql import exists, select
 from sqlalchemy.sql.expression import asc
 
 from idds.common import exceptions
@@ -346,7 +350,7 @@ def get_contents(scope=None, name=None, request_id=None, transform_id=None, work
 
 
 @read_session
-def get_contents_by_request_transform(request_id=None, transform_id=None, workload_id=None, status=None, map_id=None, status_updated=False, session=None):
+def get_contents_by_request_transform(request_id=None, transform_id=None, workload_id=None, status=None, map_id=None, status_updated=False, with_deps=True, session=None):
     """
     Get content or raise a NoObject exception.
 
@@ -379,6 +383,9 @@ def get_contents_by_request_transform(request_id=None, transform_id=None, worklo
             query = query.filter(models.Content.map_id == map_id)
         if status_updated:
             query = query.filter(models.Content.status != models.Content.substatus)
+        if not with_deps:
+            query = query.filter(models.Content.content_relation_type != 3)
+
         query = query.order_by(asc(models.Content.request_id), asc(models.Content.transform_id), asc(models.Content.map_id))
 
         tmp = query.all()
@@ -580,6 +587,347 @@ def update_contents_from_others_by_dep_id(request_id=None, transform_id=None, se
     try:
         idds_proc = sqlalchemy.text("CALL %s.update_contents_from_others(:request_id, :transform_id)" % session.schema)
         session.execute(idds_proc, {"request_id": request_id, "transform_id": transform_id})
+    except Exception as ex:
+        raise ex
+
+
+@transactional_session
+def update_contents_from_others_by_dep_id_pages(request_id=None, transform_id=None, page_size=1000, batch_size=500, status_not_to_check=None, session=None):
+    """
+    Update contents from others by content_dep_id, with pages
+
+    :param request_id: The Request id.
+    :param transfomr_id: The transform id.
+    """
+    try:
+        # Define alias for Content model to avoid conflicts
+        # content_alias = aliased(models.Content)
+
+        # Create the main subquery (dependent contents)
+        main_subquery = session.query(
+            models.Content.content_id,
+            models.Content.substatus
+        )
+
+        if request_id:
+            main_subquery = main_subquery.filter(models.Content.request_id == request_id)
+
+        main_subquery = main_subquery.filter(
+            models.Content.content_relation_type == ContentRelationType.Output,
+            models.Content.substatus != ContentStatus.New
+        ).subquery()
+
+        # dep query
+        dep_subquery = session.query(
+            models.Content.content_id.label("content_id"),
+            models.Content.content_dep_id.label("content_dep_id"),
+            models.Content.substatus.label("substatus")
+        )
+
+        if request_id:
+            dep_subquery = dep_subquery.filter(models.Content.request_id == request_id)
+        if transform_id:
+            dep_subquery = dep_subquery.filter(models.Content.transform_id == transform_id)
+        if status_not_to_check:
+            dep_subquery = dep_subquery.filter(~models.Content.substatus.in_(status_not_to_check))
+
+        dep_subquery = dep_subquery.filter(models.Content.content_relation_type == ContentRelationType.InputDependency)
+
+        # Paginated Update Loop
+        last_id = None
+        while True:
+            if last_id is not None:
+                paginated_query = dep_subquery.filter(models.Content.content_id > last_id)
+
+            paginated_query = paginated_query.order_by(models.Content.content_id).limit(page_size)
+            paginated_query = paginated_query.subquery()
+
+            paginated_query_deps_query = session.query(
+                paginated_query.c.content_id.label('dep_content_id'),
+                main_subquery.c.substatus,
+            ).join(
+                paginated_query,
+                and_(
+                    paginated_query.c.content_dep_id == main_subquery.c.content_id,
+                    paginated_query.c.substatus != main_subquery.c.substatus
+                )
+            )
+
+            from sqlalchemy.dialects import postgresql
+            query_deps_sql = paginated_query_deps_query.subquery().compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True})
+            print(f"query_update_sql: {query_deps_sql}")
+
+            results = paginated_query_deps_query.all()
+            if not results:
+                break
+
+            update_data = [
+                {
+                    "content_id": row[0],
+                    "substatus": row[1],
+                    "status": row[1]
+                }
+                for row in results
+            ]
+
+            for i in range(0, len(update_data), batch_size):
+                session.bulk_update_mappings(models.Content, update_data[i:i + batch_size])
+                session.commit()
+
+            # Update last processed ID (keyset pagination)
+            sub_query = session.query(models.Content.content_id)
+            if last_id is not None:
+                sub_query = sub_query.filter(models.Content.content_id > last_id)
+            sub_query = sub_query.order_by(models.Content.content_id).limit(page_size).subquery()
+            last_id = session.query(sub_query.c.content_id).order_by(sub_query.c.content_id.desc()).limit(1).scalar()
+            print(f"update_contents_from_others_by_dep_id_pages: last_id: {last_id}")
+    except Exception as ex:
+        raise ex
+
+
+@transactional_session
+def update_input_contents_by_dependency_pages(request_id=None, transform_id=None, page_size=500, batch_size=500,
+                                              terminated=False, status_not_to_check=None, session=None):
+    """
+    Update contents input contents by dependencies, with pages
+
+    :param request_id: The Request id.
+    :param transfomr_id: The transform id.
+    """
+    try:
+        # Define alias for Content model to avoid conflicts
+        # content_alias = aliased(models.Content)
+
+        # Contents to be excluded by map_id and sub_map_id
+        query_ex = session.query(
+            models.Content.request_id.label("request_id"),
+            models.Content.transform_id.label("transform_id"),
+            models.Content.map_id.label("map_id"),
+            models.Content.sub_map_id.label("sub_map_id"),
+        )
+
+        if request_id:
+            query_ex = query_ex.filter(models.Content.request_id == request_id)
+        if transform_id:
+            query_ex = query_ex.filter(models.Content.transform_id == transform_id)
+
+        query_ex = query_ex.filter(
+            and_(
+                models.Content.content_relation_type == 3,
+                models.Content.substatus == ContentStatus.New        # dependencies not ready
+            )
+        ).distinct().subquery()
+
+        # query dependencies
+        query_deps = session.query(
+            models.Content.request_id.label("request_id"),
+            models.Content.transform_id.label("transform_id"),
+            models.Content.map_id.label("map_id"),
+            models.Content.sub_map_id.label("sub_map_id"),
+            models.Content.content_id.label("content_id"),
+            models.Content.substatus.label("substatus")
+        )
+
+        if request_id:
+            query_deps = query_deps.filter(models.Content.request_id == request_id)
+        if transform_id:
+            query_deps = query_deps.filter(models.Content.transform_id == transform_id)
+
+        query_deps = query_deps.filter(
+            models.Content.content_relation_type == 3
+        )
+
+        """
+        query_deps = query_deps.filter(
+            ~exists(
+                select(
+                    models.Content.request_id,
+                    models.Content.transform_id,
+                    models.Content.map_id,
+                    models.Content.sub_map_id
+                ).where(
+                    models.Content.request_id == query_ex.c.request_id,
+                    models.Content.transform_id == query_ex.c.transform_id,
+                    models.Content.map_id == query_ex.c.map_id,
+                    models.Content.sub_map_id == query_ex.c.sub_map_id
+                )
+            )
+        )
+        """
+
+        query_deps = query_deps.subquery()
+
+        from sqlalchemy.dialects import postgresql
+        query_deps_sql = query_deps.compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True})
+        print(f"query_deps_sql: {query_deps_sql}")
+
+        # Define the main query with the necessary filters
+        main_query = session.query(
+            models.Content.content_id,
+            models.Content.request_id,
+            models.Content.transform_id,
+            models.Content.map_id,
+            models.Content.sub_map_id
+        )
+
+        if request_id:
+            main_query = main_query.filter(models.Content.request_id == request_id)
+
+        if transform_id:
+            main_query = main_query.filter(models.Content.transform_id == transform_id)
+
+        if status_not_to_check:
+            main_query = main_query.filter(~(models.Content.substatus.in_(status_not_to_check)))
+
+        main_query = main_query.filter(models.Content.content_relation_type == 0)
+
+        main_query = main_query.filter(
+            ~exists(
+                select(
+                    models.Content.request_id,
+                    models.Content.transform_id,
+                    models.Content.map_id,
+                    models.Content.sub_map_id
+                ).where(
+                    models.Content.request_id == query_ex.c.request_id,
+                    models.Content.transform_id == query_ex.c.transform_id,
+                    models.Content.map_id == query_ex.c.map_id,
+                    models.Content.sub_map_id == query_ex.c.sub_map_id
+                )
+            )
+        )
+
+        # Aggregation function to determine final status
+        def custom_aggregation(key, values, terminated=False):
+            request_id, transform_id, map_id, sub_map_id, input_content_id = key
+            if request_id is None:
+                # left join, without right values
+                # no dependencies
+                print("custom_aggregation, no dependencies")
+                return ContentStatus.Available
+
+            available_status = [ContentStatus.Available, ContentStatus.FakeAvailable]
+            final_terminated_status = [ContentStatus.Available, ContentStatus.FakeAvailable,
+                                       ContentStatus.FinalFailed, ContentStatus.Missing]
+            terminated_status = [ContentStatus.Available, ContentStatus.FakeAvailable,
+                                 ContentStatus.Failed, ContentStatus.FinalFailed,
+                                 ContentStatus.Missing]
+
+            if all(v in available_status for v in values):
+                return ContentStatus.Available
+            elif all(v in final_terminated_status for v in values):
+                return ContentStatus.Missing
+            elif terminated and all(v in terminated_status for v in values):
+                return ContentStatus.Missing
+            return ContentStatus.New
+
+        # Paginated Update Loop
+        last_id = None
+        while True:
+            # Fetch next batch using keyset pagination
+            paginated_query = main_query.order_by(models.Content.content_id)
+            if last_id:
+                paginated_query = paginated_query.filter(models.Content.content_id > last_id)
+
+            paginated_query = paginated_query.limit(page_size)
+            paginated_query = paginated_query.subquery()
+
+            paginated_query_deps_query = session.query(
+                paginated_query.c.content_id.label('input_content_id'),
+                query_deps.c.request_id,
+                query_deps.c.transform_id,
+                query_deps.c.map_id,
+                query_deps.c.sub_map_id,
+                query_deps.c.content_id,
+                query_deps.c.substatus,
+            ).outerjoin(
+                query_deps,
+                and_(
+                    paginated_query.c.request_id == query_deps.c.request_id,
+                    paginated_query.c.transform_id == query_deps.c.transform_id,
+                    paginated_query.c.map_id == query_deps.c.map_id,
+                    paginated_query.c.sub_map_id == query_deps.c.sub_map_id
+                )
+            ).order_by(
+                query_deps.c.request_id, query_deps.c.transform_id,
+                query_deps.c.map_id, query_deps.c.sub_map_id
+            )
+
+            paginated_query_deps = paginated_query_deps_query.all()
+
+            from sqlalchemy.dialects import postgresql
+            paginated_query_deps_query_sql = paginated_query_deps_query.subquery().compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True})
+            print(f"paginated_query_deps_query_sql: {paginated_query_deps_query_sql}")
+
+            if not paginated_query_deps:
+                break  # No more rows to process
+
+            # Aggregate results
+            grouped_data = defaultdict(list)
+            for row in paginated_query_deps:
+                input_content_id, request_id, transform_id, map_id, sub_map_id, content_id, status = row
+                grouped_data[(request_id, transform_id, map_id, sub_map_id, input_content_id)].append(status)
+
+            aggregated_results = {key: custom_aggregation(key, values, terminated=terminated) for key, values in grouped_data.items()}
+
+            # Perform batch update using `case()`
+            """
+            stmt = update(models.Content).filter(content_alias.content_relation_type == 0).where(
+                tuple_(models.Content.request_id, models.Content.transform_id, models.Content.map_id, models.Content.sub_map_id)
+                .in_(aggregated_results.keys())
+            ).values(
+                substatus=case(
+                    [(tuple_(*key) == tuple_(models.Content.request_id, models.Content.transform_id, models.Content.map_id, models.Content.sub_map_id), value)
+                     for key, value in aggregated_results.items()],
+                    else_=models.Content.substatus
+                )
+            )
+
+            stmt = update(models.Content).where(
+                models.Content.content_relation_type == 0,
+                exists().where(
+                    and_(
+                        models.Content.request_id == bindparam("request_id"),
+                        models.Content.transform_id == bindparam("transform_id"),
+                        models.Content.map_id == bindparam("map_id"),
+                        models.Content.sub_map_id == bindparam("sub_map_id")
+                    )
+                )
+            ).values(
+                substatus=case(
+                    [
+                        (and_(
+                            models.Content.request_id == key[0],
+                            models.Content.transform_id == key[1],
+                            models.Content.map_id == key[2],
+                            models.Content.sub_map_id == key[3]
+                        ), value)
+                        for key, value in aggregated_results.items()
+                    ],
+                    else_=models.Content.substatus
+                )
+            )
+            """
+
+            update_data = [
+                {
+                    "content_id": key[4],
+                    "substatus": value
+                }
+                for key, value in aggregated_results.items()
+            ]
+
+            for i in range(0, len(update_data), batch_size):
+                session.bulk_update_mappings(models.Content, update_data[i:i + batch_size])
+                session.commit()
+
+            # Move to the next page
+            sub_query = main_query.order_by(models.Content.content_id)
+            if last_id is not None:
+                sub_query = sub_query.filter(models.Content.content_id > last_id)
+            sub_query = sub_query.limit(page_size).subquery()
+            last_id = session.query(sub_query.c.content_id).order_by(sub_query.c.content_id.desc()).limit(1).scalar()
+            print(f"update_input_contents_by_dependency_pages: last_id {last_id}")
     except Exception as ex:
         raise ex
 

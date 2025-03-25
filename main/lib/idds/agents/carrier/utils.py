@@ -184,7 +184,7 @@ def get_collection_ids(collections):
     return coll_ids
 
 
-def get_input_output_maps(transform_id, work):
+def get_input_output_maps(transform_id, work, with_deps=True):
     # link collections
     input_collections = work.get_input_collections()
     output_collections = work.get_output_collections()
@@ -202,7 +202,8 @@ def get_input_output_maps(transform_id, work):
                                                                                input_coll_ids=input_coll_ids,
                                                                                output_coll_ids=output_coll_ids,
                                                                                log_coll_ids=log_coll_ids,
-                                                                               with_sub_map_id=work.with_sub_map_id())
+                                                                               with_sub_map_id=work.with_sub_map_id(),
+                                                                               with_deps=with_deps)
 
     # work_name_to_coll_map = core_transforms.get_work_name_to_coll_map(request_id=transform['request_id'])
     # work.set_work_name_to_coll_map(work_name_to_coll_map)
@@ -603,7 +604,7 @@ def handle_new_processing(processing, agent_attributes, func_site_to_cloud=None,
             update_collections.append(u_coll)
 
     if proc.submitted_at:
-        input_output_maps = get_input_output_maps(transform_id, work)
+        input_output_maps = get_input_output_maps(transform_id, work, with_deps=False)
         new_input_output_maps = work.get_new_input_output_maps(input_output_maps)
         request_id = processing['request_id']
         transform_id = processing['transform_id']
@@ -700,7 +701,7 @@ def get_input_output_sub_maps(inputs, outputs, inputs_dependency, logs=[]):
     return input_output_sub_maps
 
 
-def get_updated_contents_by_input_output_maps(input_output_maps=None, terminated=False, max_updates_per_round=2000, logger=None, log_prefix=''):
+def get_updated_contents_by_input_output_maps(input_output_maps=None, terminated=False, max_updates_per_round=2000, with_deps=False, logger=None, log_prefix=''):
     updated_contents, updated_contents_full_input, updated_contents_full_output = [], [], []
     updated_contents_full_input_deps = []
     new_update_contents = []
@@ -762,10 +763,12 @@ def get_updated_contents_by_input_output_maps(input_output_maps=None, terminated
             inputs_dependency_sub = input_output_sub_maps[sub_map_id]['inputs_dependency']
 
             input_content_update_status = None
-            if is_all_contents_available(inputs_dependency_sub):
-                input_content_update_status = ContentStatus.Available
-            elif is_all_contents_terminated(inputs_dependency_sub, terminated):
-                input_content_update_status = ContentStatus.Missing
+            if with_deps:
+                # if deps are not loaded. This part should not be executed. Otherwise it will release all jobs
+                if is_all_contents_available(inputs_dependency_sub):
+                    input_content_update_status = ContentStatus.Available
+                elif is_all_contents_terminated(inputs_dependency_sub, terminated):
+                    input_content_update_status = ContentStatus.Missing
             if input_content_update_status:
                 for content in inputs_sub:
                     if content['substatus'] != input_content_update_status:
@@ -1187,7 +1190,7 @@ def handle_update_processing(processing, agent_attributes, max_updates_per_round
     work = proc.work
     work.set_agent_attributes(agent_attributes, processing)
 
-    input_output_maps = get_input_output_maps(transform_id, work)
+    input_output_maps = get_input_output_maps(transform_id, work, with_deps=False)
     logger.debug(log_prefix + "get_input_output_maps: len: %s" % len(input_output_maps))
     logger.debug(log_prefix + "get_input_output_maps.keys[:3]: %s" % str(list(input_output_maps.keys())[:3]))
 
@@ -1414,10 +1417,34 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
     request_id = processing['request_id']
     transform_id = processing['transform_id']
     workload_id = processing['workload_id']
+    processing_id = processing['processing_id']
 
     proc = processing['processing_metadata']['processing']
     work = proc.work
     work.set_agent_attributes(agent_attributes, processing)
+
+    num_dependencies = None
+    num_inputs = None
+    default_input_dep_page_size = 500
+    min_input_dep_page_size = 100
+    max_dependencies = 5000
+    try:
+        num_inputs = work.num_inputs
+        num_dependencies = work.num_dependencies
+        if num_inputs is not None and num_dependencies is not None and num_dependencies > 0:
+            input_dep_page_size = int(max_dependencies * num_inputs / num_dependencies)
+            if input_dep_page_size < default_input_dep_page_size:
+                default_input_dep_page_size = input_dep_page_size
+                log_info = f"input_dep_page_size ({input_dep_page_size}) is smaller than default_input_dep_page_size ({default_input_dep_page_size}),"
+                log_info = "update default_input_dep_page_size from input_dep_page_size"
+                logger.info(log_info)
+            if default_input_dep_page_size < min_input_dep_page_size:
+                log_info = f"default_input_dep_page_size ({default_input_dep_page_size}) is smaller than min_input_dep_page_size ({min_input_dep_page_size}),"
+                log_info = "update default_input_dep_page_size from min_input_dep_page_size"
+                logger.info(log_info)
+                default_input_dep_page_size = min_input_dep_page_size
+    except Exception as ex:
+        logger.warn(f"request_id ({request_id}) transform_id ({transform_id}) processing_id ({processing_id}) fails to get num_dependencies: {ex}")
 
     if (not work.use_dependency_to_release_jobs()) or workload_id is None:
         return processing['substatus'], [], [], {}, {}, {}, [], [], has_updates
@@ -1467,6 +1494,7 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
         core_catalog.delete_contents_update(request_id=request_id, transform_id=transform_id, fetch=True)
         logger.debug(log_prefix + "sync contents_update to contents done")
 
+        """
         logger.debug(log_prefix + "update_contents_from_others_by_dep_id")
         # core_catalog.update_contents_from_others_by_dep_id(request_id=request_id, transform_id=transform_id)
         to_triggered_contents = core_catalog.get_update_contents_from_others_by_dep_id(request_id=request_id, transform_id=transform_id)
@@ -1490,9 +1518,14 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
             wait_futures_finish(ret_futures, "update_contents_from_others_by_dep_id", logger, log_prefix)
 
         logger.debug(log_prefix + "update_contents_from_others_by_dep_id done")
+        """
 
-        input_output_maps = get_input_output_maps(transform_id, work)
-        logger.debug(log_prefix + "input_output_maps.keys[:2]: %s" % str(list(input_output_maps.keys())[:2]))
+        logger.debug(log_prefix + "update_contents_from_others_by_dep_id_pages")
+        status_not_to_check = [ContentStatus.Available, ContentStatus.FakeAvailable,
+                               ContentStatus.FinalFailed, ContentStatus.Missing]
+        core_catalog.update_contents_from_others_by_dep_id_pages(request_id=request_id, transform_id=transform_id,
+                                                                 page_size=1000, status_not_to_check=status_not_to_check)
+        logger.debug(log_prefix + "update_contents_from_others_by_dep_id_pages done")
 
         terminated_processing = False
         terminated_status = [ProcessingStatus.Finished, ProcessingStatus.Failed, ProcessingStatus.SubFinished,
@@ -1500,9 +1533,23 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
         if processing['status'] in terminated_status or processing['substatus'] in terminated_status:
             terminated_processing = True
 
+        logger.debug(log_prefix + "update_input_contents_by_dependency_pages")
+        status_not_to_check = [ContentStatus.Available, ContentStatus.FakeAvailable,
+                               ContentStatus.FinalFailed, ContentStatus.Missing]
+        core_catalog.update_input_contents_by_dependency_pages(request_id=request_id, transform_id=transform_id,
+                                                               page_size=default_input_dep_page_size,
+                                                               terminated=terminated_processing,
+                                                               batch_size=1000, status_not_to_check=status_not_to_check)
+        logger.debug(log_prefix + "update_input_contents_by_dependency_pages done")
+
+        with_deps = False
+        input_output_maps = get_input_output_maps(transform_id, work, with_deps=with_deps)
+        logger.debug(log_prefix + "input_output_maps.keys[:2]: %s" % str(list(input_output_maps.keys())[:2]))
+
         updated_contents_ret_chunks = get_updated_contents_by_input_output_maps(input_output_maps=input_output_maps,
                                                                                 terminated=terminated_processing,
                                                                                 max_updates_per_round=max_updates_per_round,
+                                                                                with_deps=with_deps,
                                                                                 logger=logger,
                                                                                 log_prefix=log_prefix)
 
@@ -1913,7 +1960,7 @@ def handle_messages_processing(messages, logger=None, log_prefix='', update_proc
 def sync_collection_status(request_id, transform_id, workload_id, work, input_output_maps=None,
                            close_collection=False, force_close_collection=False, abort=False, terminate=False):
     if input_output_maps is None:
-        input_output_maps = get_input_output_maps(transform_id, work)
+        input_output_maps = get_input_output_maps(transform_id, work, with_deps=False)
 
     all_updates_flushed = True
     coll_status = {}
@@ -2116,7 +2163,7 @@ def sync_processing(processing, agent_attributes, terminate=False, abort=False, 
     work.set_agent_attributes(agent_attributes, processing)
 
     messages = []
-    input_output_maps = get_input_output_maps(transform_id, work)
+    input_output_maps = get_input_output_maps(transform_id, work, with_deps=False)
     if processing['substatus'] in terminated_status or processing['substatus'] in terminated_status:
         terminate = True
     update_collections, all_updates_flushed, msgs = sync_collection_status(request_id, transform_id, workload_id, work,
@@ -2225,7 +2272,7 @@ def handle_resume_processing(processing, agent_attributes, logger=None, log_pref
                         'substatus': CollectionStatus.Open}
         update_collections.append(u_collection)
 
-    input_output_maps = get_input_output_maps(transform_id, work)
+    input_output_maps = get_input_output_maps(transform_id, work, with_deps=False)
     update_contents = reactive_contents(request_id, transform_id, workload_id, work, input_output_maps)
 
     processing['status'] = ProcessingStatus.Running

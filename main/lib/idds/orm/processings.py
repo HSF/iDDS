@@ -412,16 +412,41 @@ def delete_processing(processing_id=None, session=None):
 
 
 @transactional_session
-def clean_locking(time_period=3600, session=None):
+def clean_locking(time_period=3600, min_request_id=None, health_items=[], session=None):
     """
     Clearn locking which is older than time period.
 
     :param time_period in seconds
     """
-    params = {'locking': 0}
-    session.query(models.Processing).filter(models.Processing.locking == ProcessingLocking.Locking)\
-           .filter(models.Processing.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=time_period))\
-           .update(params, synchronize_session=False)
+    health_dict = {}
+    for item in health_items:
+        hostname = item['hostname']
+        pid = item['pid']
+        thread_id = item['thread_id']
+        if hostname not in health_dict:
+            health_dict[hostname] = {}
+        if pid not in health_dict[hostname]:
+            health_dict[hostname][pid] = []
+        if thread_id not in health_dict[hostname][pid]:
+            health_dict[hostname][pid].append(thread_id)
+    query = session.query(models.Processing.processing_id,
+                          models.Processing.locking_hostname,
+                          models.Processing.locking_pid,
+                          models.Processing.locking_thread_id,
+                          models.Processing.locking_thread_name)
+    query = query.filter(models.Processing.locking == ProcessingLocking.Locking)
+    if min_request_id:
+        query = query.filter(models.Processing.request_id >= min_request_id)
+
+    lost_processing_ids = []
+    tmp = query.all()
+    if tmp:
+        for req in tmp:
+            pr_id, locking_hostname, locking_pid, locking_thread_id, locking_thread_name = req
+            if locking_hostname not in health_dict or locking_pid not in health_dict[locking_hostname]:
+                lost_processing_ids.append({"processing_id": pr_id, 'locking': 0})
+
+    session.bulk_update_mappings(models.Processing, lost_processing_ids)
 
 
 @transactional_session
