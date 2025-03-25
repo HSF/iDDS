@@ -553,17 +553,41 @@ def delete_transform(transform_id=None, session=None):
 
 
 @transactional_session
-def clean_locking(time_period=3600, session=None):
+def clean_locking(time_period=3600, min_request_id=None, health_items=[], session=None):
     """
     Clearn locking which is older than time period.
 
     :param time_period in seconds
     """
+    health_dict = {}
+    for item in health_items:
+        hostname = item['hostname']
+        pid = item['pid']
+        thread_id = item['thread_id']
+        if hostname not in health_dict:
+            health_dict[hostname] = {}
+        if pid not in health_dict[hostname]:
+            health_dict[hostname][pid] = []
+        if thread_id not in health_dict[hostname][pid]:
+            health_dict[hostname][pid].append(thread_id)
+    query = session.query(models.Transform.transform_id,
+                          models.Transform.locking_hostname,
+                          models.Transform.locking_pid,
+                          models.Transform.locking_thread_id,
+                          models.Transform.locking_thread_name)
+    query = query.filter(models.Transform.locking == TransformLocking.Locking)
+    if min_request_id:
+        query = query.filter(models.Transform.request_id >= min_request_id)
 
-    params = {'locking': 0}
-    session.query(models.Transform).filter(models.Transform.locking == TransformLocking.Locking)\
-           .filter(models.Transform.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=time_period))\
-           .update(params, synchronize_session=False)
+    lost_transform_ids = []
+    tmp = query.all()
+    if tmp:
+        for req in tmp:
+            tf_id, locking_hostname, locking_pid, locking_thread_id, locking_thread_name = req
+            if locking_hostname not in health_dict or locking_pid not in health_dict[locking_hostname]:
+                lost_transform_ids.append({"transform_id": tf_id, 'locking': 0})
+
+    session.bulk_update_mappings(models.Transform, lost_transform_ids)
 
 
 @transactional_session

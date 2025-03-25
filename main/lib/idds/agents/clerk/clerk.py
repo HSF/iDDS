@@ -1890,7 +1890,9 @@ class Clerk(BaseAgent):
 
     def clean_locks(self):
         self.logger.info("clean locking")
-        core_requests.clean_locking()
+        health_items = self.get_health_items()
+        min_request_id = BaseAgent.min_request_id
+        core_requests.clean_locking(health_items=health_items, min_request_id=min_request_id, time_period=None)
 
     def init_event_function_map(self):
         self.event_func_map = {
@@ -1942,7 +1944,7 @@ class Clerk(BaseAgent):
             self.add_task(task)
             task = self.create_task(task_func=self.clean_min_request_id, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=3600, priority=1)
             self.add_task(task)
-            task = self.create_task(task_func=self.clean_locks, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1800, priority=1)
+            task = self.create_task(task_func=self.clean_locks, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=60, priority=1)
             self.add_task(task)
 
             self.execute()

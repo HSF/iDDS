@@ -8,6 +8,10 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2019
 
+# pip install git+https://github.com/wguanicedew/iDDS.git@dev
+# git clone -b dev https://github.com/wguanicedew/iDDS.git
+# cd iDDS
+# bash main/tools/env/install_idds.sh
 python setup.py install --old-and-unmanageable --force
 
 bash workflow/tools/workflow/make/make.sh

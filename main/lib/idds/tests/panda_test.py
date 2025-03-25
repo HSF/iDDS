@@ -91,6 +91,7 @@ task_ids = [161489, 161496, 161502, 161508, 161514, 161520, 161526, 161532, 1615
 task_ids = [3174, 3198, 3209, 3230, 3252, 3266, 3284, 3292, 3300, 3312, 3350, 3379, 3387]
 task_ids = [1548, 1555]
 task_ids = [3906, 4266, 4267, 4357, 4358, 4414, 4416, 4417, 4418]
+task_ids = [4559, 4558, 4725, 4727, 4732, 4734, 4737, 4741]
 for task_id in task_ids:
     print("Killing %s" % task_id)
     ret = Client.killTask(task_id, verbose=True)
@@ -166,6 +167,14 @@ print(ret)
 panda_ids = [{'task_id': 166943, 'panda_id': 67228018}]
 ret = Client.get_events_status(panda_ids, verbose=True)
 print(ret)
+
+newOpts = {}
+taskIDs = [5050]
+taskIDs = [5007, 5008, 5009, 5011]
+for taskID in taskIDs:
+    status, out = Client.retryTask(taskID, verbose=True, properErrorCode=True, newParams=newOpts)
+    print(status)
+    print(out)
 
 sys.exit(0)
 
@@ -294,7 +303,7 @@ newOpts = {}
 # site = newOpts.get('site', None)
 # excludedSite = newOpts.get('excludedSite', None)
 # for JEDI
-taskIDs = [10624]
+taskIDs = [5050]
 for taskID in taskIDs:
     status, out = Client.retryTask(taskID, verbose=True, properErrorCode=True, newParams=newOpts)
     print(status)

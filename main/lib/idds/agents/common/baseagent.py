@@ -6,10 +6,8 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2024
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2025
 
-import os
-import socket
 import time
 import traceback
 import threading
@@ -22,6 +20,7 @@ from idds.common.constants import (MessageType, MessageTypeStr,
                                    ReturnCode)
 from idds.common.plugin.plugin_base import PluginBase
 from idds.common.plugin.plugin_utils import load_plugins, load_plugin_sequence
+from idds.common.utils import get_process_thread_info
 from idds.common.utils import setup_logging, pid_exists, json_dumps, json_loads
 from idds.core import health as core_health, messages as core_messages
 from idds.agents.common.timerscheduler import TimerScheduler
@@ -59,7 +58,10 @@ class BaseAgent(TimerScheduler, PluginBase):
             setattr(self, key, kwargs[key])
 
         if not hasattr(self, 'heartbeat_delay'):
-            self.heartbeat_delay = 600
+            self.heartbeat_delay = 60
+
+        if not hasattr(self, 'health_message_delay'):
+            self.health_message_delay = 600
 
         if not hasattr(self, 'poll_operation_time_period'):
             self.poll_operation_time_period = 120
@@ -245,13 +247,15 @@ class BaseAgent(TimerScheduler, PluginBase):
         self.stop()
 
     def get_hostname(self):
-        hostname = socket.getfqdn()
+        hostname, pid, thread_id, thread_name = get_process_thread_info()
         return hostname
 
+    def get_process_thread_info(self):
+        hostname, pid, thread_id, thread_name = get_process_thread_info()
+        return hostname, pid, thread_id, thread_name
+
     def is_self(self, health_item):
-        hostname = socket.getfqdn()
-        pid = os.getpid()
-        thread_id = self.get_thread_id()
+        hostname, pid, thread_id, thread_name = get_process_thread_info()
         ret = False
         if ('hostname' in health_item and 'pid' in health_item and 'agent' in health_item
             and 'thread_id' in health_item and health_item['hostname'] == hostname        # noqa W503
@@ -273,10 +277,7 @@ class BaseAgent(TimerScheduler, PluginBase):
     def health_heartbeat(self, heartbeat_delay=None):
         if heartbeat_delay:
             self.heartbeat_delay = heartbeat_delay
-        hostname = socket.getfqdn()
-        pid = os.getpid()
-        thread_id = self.get_thread_id()
-        thread_name = self.get_thread_name()
+        hostname, pid, thread_id, thread_name = get_process_thread_info()
         payload = self.get_health_payload()
         if payload:
             payload = json_dumps(payload)
@@ -284,7 +285,7 @@ class BaseAgent(TimerScheduler, PluginBase):
             self.logger.debug("health heartbeat: agent %s, pid %s, thread %s, delay %s, payload %s" % (self.get_name(), pid, thread_name, self.heartbeat_delay, payload))
             core_health.add_health_item(agent=self.get_name(), hostname=hostname, pid=pid,
                                         thread_id=thread_id, thread_name=thread_name, payload=payload)
-            core_health.clean_health(older_than=self.heartbeat_delay * 2)
+            core_health.clean_health(older_than=self.heartbeat_delay * 3)
 
             health_items = core_health.retrieve_health_items()
             pids, pid_not_exists = [], []
@@ -301,8 +302,8 @@ class BaseAgent(TimerScheduler, PluginBase):
 
     def get_health_items(self):
         try:
-            hostname = socket.getfqdn()
-            core_health.clean_health(older_than=self.heartbeat_delay * 2)
+            hostname, pid, thread_id, thread_name = get_process_thread_info()
+            core_health.clean_health(older_than=self.heartbeat_delay * 3)
             health_items = core_health.retrieve_health_items()
             pids, pid_not_exists = [], []
             for health_item in health_items:
@@ -327,7 +328,7 @@ class BaseAgent(TimerScheduler, PluginBase):
         try:
             availability = {}
             health_items = self.get_health_items()
-            hostname = socket.getfqdn()
+            hostname, pid, thread_id, thread_name = get_process_thread_info()
             for item in health_items:
                 if item['hostname'] == hostname:
                     if item['agent'] not in availability:
@@ -355,7 +356,7 @@ class BaseAgent(TimerScheduler, PluginBase):
         self.add_task(task)
 
     def generate_health_messages(self):
-        core_health.clean_health(older_than=self.heartbeat_delay * 2)
+        core_health.clean_health(older_than=self.heartbeat_delay * 3)
         items = core_health.retrieve_health_items()
         msg_content = {'msg_type': MessageTypeStr.HealthHeartbeat.value,
                        'agents': items}
@@ -380,7 +381,7 @@ class BaseAgent(TimerScheduler, PluginBase):
 
     def add_health_message_task(self):
         task = self.create_task(task_func=self.generate_health_messages, task_output_queue=None,
-                                task_args=tuple(), task_kwargs={}, delay_time=self.heartbeat_delay,
+                                task_args=tuple(), task_kwargs={}, delay_time=self.health_message_delay,
                                 priority=1)
         self.add_task(task)
 

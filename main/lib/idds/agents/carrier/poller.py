@@ -603,7 +603,9 @@ class Poller(BaseAgent):
 
     def clean_locks(self):
         self.logger.info("clean locking")
-        core_processings.clean_locking(time_period=self.locking_period)
+        health_items = self.get_health_items()
+        min_request_id = BaseAgent.min_request_id
+        core_processings.clean_locking(health_items=health_items, min_request_id=min_request_id, time_period=None)
 
     def init_event_function_map(self):
         self.event_func_map = {

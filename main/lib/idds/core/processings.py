@@ -423,13 +423,13 @@ def update_processing_contents(update_processing, update_contents=None, update_m
 
 
 @transactional_session
-def clean_locking(time_period=3600, session=None):
+def clean_locking(time_period=3600, min_request_id=None, health_items=[], session=None):
     """
     Clearn locking which is older than time period.
 
     :param time_period in seconds
     """
-    orm_processings.clean_locking(time_period=time_period, session=session)
+    orm_processings.clean_locking(time_period=time_period, min_request_id=min_request_id, health_items=health_items, session=session)
 
 
 @transactional_session
