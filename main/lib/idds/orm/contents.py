@@ -638,6 +638,8 @@ def update_contents_from_others_by_dep_id_pages(request_id=None, transform_id=No
         while True:
             if last_id is not None:
                 paginated_query = dep_subquery.filter(models.Content.content_id > last_id)
+            else:
+                paginated_query = dep_subquery
 
             paginated_query = paginated_query.order_by(models.Content.content_id).limit(page_size)
             paginated_query = paginated_query.subquery()
