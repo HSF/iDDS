@@ -675,9 +675,10 @@ def update_contents_from_others_by_dep_id_pages(request_id=None, transform_id=No
                 session.commit()
 
             # Update last processed ID (keyset pagination)
-            sub_query = session.query(models.Content.content_id)
             if last_id is not None:
-                sub_query = sub_query.filter(models.Content.content_id > last_id)
+                sub_query = dep_subquery.filter(models.Content.content_id > last_id)
+            else:
+                sub_query = dep_subquery
             sub_query = sub_query.order_by(models.Content.content_id).limit(page_size).subquery()
             last_id = session.query(sub_query.c.content_id).order_by(sub_query.c.content_id.desc()).limit(1).scalar()
             print(f"update_contents_from_others_by_dep_id_pages: last_id: {last_id}")
