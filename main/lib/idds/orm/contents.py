@@ -593,7 +593,7 @@ def update_contents_from_others_by_dep_id(request_id=None, transform_id=None, se
 
 @transactional_session
 def update_contents_from_others_by_dep_id_pages(request_id=None, transform_id=None, page_size=1000, batch_size=500, status_not_to_check=None,
-                                                logger=None, session=None):
+                                                logger=None, log_prefix=None, session=None):
     """
     Update contents from others by content_dep_id, with pages
 
@@ -601,6 +601,9 @@ def update_contents_from_others_by_dep_id_pages(request_id=None, transform_id=No
     :param transfomr_id: The transform id.
     """
     try:
+        if log_prefix is None:
+            log_prefix = ""
+
         # Define alias for Content model to avoid conflicts
         # content_alias = aliased(models.Content)
 
@@ -659,7 +662,7 @@ def update_contents_from_others_by_dep_id_pages(request_id=None, transform_id=No
             # from sqlalchemy.dialects import postgresql
             # query_deps_sql = paginated_query_deps_query.subquery().compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True})
             # if logger:
-            #     logger.debug(f"query_update_sql: {query_deps_sql}")
+            #     logger.debug(f"{log_prefix}query_update_sql: {query_deps_sql}")
 
             results = paginated_query_deps_query.all()
             if not results:
@@ -686,14 +689,14 @@ def update_contents_from_others_by_dep_id_pages(request_id=None, transform_id=No
             sub_query = sub_query.order_by(models.Content.content_id).limit(page_size).subquery()
             last_id = session.query(sub_query.c.content_id).order_by(sub_query.c.content_id.desc()).limit(1).scalar()
             if logger:
-                logger.debug(f"update_contents_from_others_by_dep_id_pages: last_id: {last_id}")
+                logger.debug(f"{log_prefix}update_contents_from_others_by_dep_id_pages: last_id: {last_id}")
     except Exception as ex:
         raise ex
 
 
 @transactional_session
 def update_input_contents_by_dependency_pages(request_id=None, transform_id=None, page_size=500, batch_size=500, logger=None,
-                                              terminated=False, status_not_to_check=None, session=None):
+                                              log_prefix=None, terminated=False, status_not_to_check=None, session=None):
     """
     Update contents input contents by dependencies, with pages
 
@@ -701,6 +704,9 @@ def update_input_contents_by_dependency_pages(request_id=None, transform_id=None
     :param transfomr_id: The transform id.
     """
     try:
+        if log_prefix is None:
+            log_prefix = ""
+
         # Define alias for Content model to avoid conflicts
         # content_alias = aliased(models.Content)
 
@@ -748,7 +754,7 @@ def update_input_contents_by_dependency_pages(request_id=None, transform_id=None
         # from sqlalchemy.dialects import postgresql
         # query_deps_sql = query_deps.compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True})
         # if logger:
-        #     logger.debug(f"query_deps_sql: {query_deps_sql}")
+        #     logger.debug(f"{log_prefix}query_deps_sql: {query_deps_sql}")
 
         # Define the main query with the necessary filters
         main_query = session.query(
@@ -792,7 +798,7 @@ def update_input_contents_by_dependency_pages(request_id=None, transform_id=None
             if request_id is None:
                 # left join, without right values
                 # no dependencies
-                print("custom_aggregation, no dependencies")
+                logger.debug(f"{log_prefix}custom_aggregation, no dependencies")
                 return ContentStatus.Available
 
             available_status = [ContentStatus.Available, ContentStatus.FakeAvailable]
@@ -847,7 +853,7 @@ def update_input_contents_by_dependency_pages(request_id=None, transform_id=None
             # from sqlalchemy.dialects import postgresql
             # paginated_query_deps_query_sql = paginated_query_deps_query.subquery().compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True})
             # if logger:
-            #     logger.debug(f"paginated_query_deps_query_sql: {paginated_query_deps_query_sql}")
+            #     logger.debug(f"{log_prefix}paginated_query_deps_query_sql: {paginated_query_deps_query_sql}")
 
             if not paginated_query_deps:
                 break  # No more rows to process
@@ -879,7 +885,7 @@ def update_input_contents_by_dependency_pages(request_id=None, transform_id=None
             sub_query = sub_query.limit(page_size).subquery()
             last_id = session.query(sub_query.c.content_id).order_by(sub_query.c.content_id.desc()).limit(1).scalar()
             if logger:
-                logger.debug(f"update_input_contents_by_dependency_pages: last_id {last_id}")
+                logger.debug(f"{log_prefix}update_input_contents_by_dependency_pages: last_id {last_id}")
     except Exception as ex:
         raise ex
 

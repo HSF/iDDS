@@ -1525,7 +1525,7 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
                                ContentStatus.FinalFailed, ContentStatus.Missing]
         core_catalog.update_contents_from_others_by_dep_id_pages(request_id=request_id, transform_id=transform_id,
                                                                  page_size=1000, status_not_to_check=status_not_to_check,
-                                                                 logger=logger)
+                                                                 logger=logger, log_prefix=log_prefix)
         logger.debug(log_prefix + "update_contents_from_others_by_dep_id_pages done")
 
         terminated_processing = False
@@ -1541,7 +1541,7 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
                                                                page_size=default_input_dep_page_size,
                                                                terminated=terminated_processing,
                                                                batch_size=1000, status_not_to_check=status_not_to_check,
-                                                               logger=logger)
+                                                               logger=logger, log_prefix=log_prefix)
         logger.debug(log_prefix + "update_input_contents_by_dependency_pages done")
 
         with_deps = False

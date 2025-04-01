@@ -1811,8 +1811,13 @@ class Clerk(BaseAgent):
 
             processing_metadata = req['processing_metadata']
 
-            wf = req['request_metadata']['workflow']
-            wf.resume_works()
+            if 'workflow' in req['request_metadata'] and req['request_metadata']['workflow'] is not None:
+                wf = req['request_metadata']['workflow']
+                wf.resume_works()
+            elif 'build_workflow' in req['request_metadata'] and req['request_metadata']['build_workflow'] is not None:
+                req_status = RequestStatus.Building
+            else:
+                req_status = RequestStatus.Failed
 
             ret_req = {'request_id': req['request_id'],
                        'parameters': {'status': req_status,
