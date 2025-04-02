@@ -26,7 +26,8 @@ source $workdir/bin/activate
 
 echo "install panda client"
 pip install panda-client
-pip install tabulate requests urllib3==1.26.18 argcomplete packaging anytree networkx stomp.py==8.0.1
+# pip install tabulate requests urllib3==1.26.18 argcomplete packaging anytree networkx stomp.py==8.0.1
+pip install tabulate requests urllib3 argcomplete packaging anytree networkx stomp.py wheel
 
 echo "install idds-common"
 python ${RootDir}/common/setup.py clean --all

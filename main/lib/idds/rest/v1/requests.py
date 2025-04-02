@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2025
 
 
 from traceback import format_exc
@@ -267,8 +267,6 @@ class RequestBuild(IDDSController):
             req = get_request(request_id=request_id)
             if not req:
                 raise exceptions.IDDSException("Request %s is not found" % request_id)
-            if req['status'] not in [RequestStatus.Building]:
-                raise exceptions.IDDSException("Request (request_id: %s, status: %s) is not in Building status" % (request_id, req['status']))
 
             build_workflow = req['request_metadata']['build_workflow']
             works = build_workflow.get_all_works()
@@ -277,6 +275,9 @@ class RequestBuild(IDDSController):
                 raise exceptions.IDDSException("Request (request_id: %s) has a different signature(%s != %s)" % (request_id,
                                                                                                                  signature,
                                                                                                                  build_work.get_signature()))
+            if 'workflow' in req['request_metadata'] and req['request_metadata']['workflow'] is not None:
+                raise exceptions.IDDSException(f"Request(request_id: {request_id}, status: {req['status']}) already has defined workflow")
+
             req['request_metadata']['workflow'] = workflow
 
             parameters = {'status': RequestStatus.Built,

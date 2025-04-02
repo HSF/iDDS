@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2024
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2025
 
 
 """
@@ -684,7 +684,8 @@ def update_contents_from_others_by_dep_id(request_id=None, transform_id=None, se
 
 
 @transactional_session
-def update_contents_from_others_by_dep_id_pages(request_id=None, transform_id=None, page_size=1000, status_not_to_check=None, session=None):
+def update_contents_from_others_by_dep_id_pages(request_id=None, transform_id=None, page_size=1000, status_not_to_check=None,
+                                                logger=None, log_prefix=None, session=None):
     """
     Update contents from others by content_dep_id
 
@@ -692,11 +693,12 @@ def update_contents_from_others_by_dep_id_pages(request_id=None, transform_id=No
     :param transfomr_id: The transform id.
     """
     return orm_contents.update_contents_from_others_by_dep_id_pages(request_id=request_id, transform_id=transform_id, page_size=page_size,
-                                                                    status_not_to_check=status_not_to_check, session=session)
+                                                                    logger=logger, log_prefix=log_prefix, status_not_to_check=status_not_to_check,
+                                                                    session=session)
 
 
 @transactional_session
-def update_input_contents_by_dependency_pages(request_id=None, transform_id=None, page_size=500, batch_size=1000,
+def update_input_contents_by_dependency_pages(request_id=None, transform_id=None, page_size=500, batch_size=1000, logger=None, log_prefix=None,
                                               terminated=False, status_not_to_check=None, session=None):
     """
     Update input contents by dependencies
@@ -705,7 +707,7 @@ def update_input_contents_by_dependency_pages(request_id=None, transform_id=None
     :param transfomr_id: The transform id.
     """
     return orm_contents.update_input_contents_by_dependency_pages(request_id=request_id, transform_id=transform_id, page_size=page_size,
-                                                                  batch_size=batch_size, terminated=terminated,
+                                                                  batch_size=batch_size, terminated=terminated, logger=logger, log_prefix=log_prefix,
                                                                   status_not_to_check=status_not_to_check, session=session)
 
 
