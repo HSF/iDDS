@@ -592,7 +592,8 @@ def update_contents_from_others_by_dep_id(request_id=None, transform_id=None, se
 
 
 @transactional_session
-def update_contents_from_others_by_dep_id_pages(request_id=None, transform_id=None, page_size=1000, batch_size=500, status_not_to_check=None, session=None):
+def update_contents_from_others_by_dep_id_pages(request_id=None, transform_id=None, page_size=1000, batch_size=500, status_not_to_check=None,
+                                                logger=None, log_prefix=None, session=None):
     """
     Update contents from others by content_dep_id, with pages
 
@@ -600,6 +601,9 @@ def update_contents_from_others_by_dep_id_pages(request_id=None, transform_id=No
     :param transfomr_id: The transform id.
     """
     try:
+        if log_prefix is None:
+            log_prefix = ""
+
         # Define alias for Content model to avoid conflicts
         # content_alias = aliased(models.Content)
 
@@ -636,10 +640,16 @@ def update_contents_from_others_by_dep_id_pages(request_id=None, transform_id=No
         # Paginated Update Loop
         last_id = None
         while True:
+            paginated_query = dep_subquery.order_by(models.Content.content_id)
             if last_id is not None:
-                paginated_query = dep_subquery.filter(models.Content.content_id > last_id)
+                paginated_query = paginated_query.filter(models.Content.content_id > last_id)
+            else:
+                # paginated_query = dep_subquery
+                # it makes paginated_query and dep_subquery the same object
+                # updates in paginated_query will also be in dep_subquery
+                pass
 
-            paginated_query = paginated_query.order_by(models.Content.content_id).limit(page_size)
+            paginated_query = paginated_query.limit(page_size)
             paginated_query = paginated_query.subquery()
 
             paginated_query_deps_query = session.query(
@@ -653,41 +663,37 @@ def update_contents_from_others_by_dep_id_pages(request_id=None, transform_id=No
                 )
             )
 
-            from sqlalchemy.dialects import postgresql
-            query_deps_sql = paginated_query_deps_query.subquery().compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True})
-            print(f"query_update_sql: {query_deps_sql}")
+            # from sqlalchemy.dialects import postgresql
+            # query_deps_sql = paginated_query_deps_query.subquery().compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True})
+            # if logger:
+            #     logger.debug(f"{log_prefix}query_update_sql: {query_deps_sql}")
 
             results = paginated_query_deps_query.all()
             if not results:
                 break
 
-            update_data = [
-                {
-                    "content_id": row[0],
-                    "substatus": row[1],
-                    "status": row[1]
-                }
-                for row in results
-            ]
+            update_data = []
+            for row in results:
+                content_id = row[0]
+                substatus = row[1]
+                to_update = {"content_id": content_id, "substatus": substatus, "status": substatus}
+                update_data.append(to_update)
+                if last_id is None or content_id > last_id:
+                    last_id = content_id
 
             for i in range(0, len(update_data), batch_size):
                 session.bulk_update_mappings(models.Content, update_data[i:i + batch_size])
                 session.commit()
 
-            # Update last processed ID (keyset pagination)
-            sub_query = session.query(models.Content.content_id)
-            if last_id is not None:
-                sub_query = sub_query.filter(models.Content.content_id > last_id)
-            sub_query = sub_query.order_by(models.Content.content_id).limit(page_size).subquery()
-            last_id = session.query(sub_query.c.content_id).order_by(sub_query.c.content_id.desc()).limit(1).scalar()
-            print(f"update_contents_from_others_by_dep_id_pages: last_id: {last_id}")
+            if logger:
+                logger.debug(f"{log_prefix}update_contents_from_others_by_dep_id_pages: last_id: {last_id}")
     except Exception as ex:
         raise ex
 
 
 @transactional_session
-def update_input_contents_by_dependency_pages(request_id=None, transform_id=None, page_size=500, batch_size=500,
-                                              terminated=False, status_not_to_check=None, session=None):
+def update_input_contents_by_dependency_pages(request_id=None, transform_id=None, page_size=500, batch_size=500, logger=None,
+                                              log_prefix=None, terminated=False, status_not_to_check=None, session=None):
     """
     Update contents input contents by dependencies, with pages
 
@@ -695,6 +701,9 @@ def update_input_contents_by_dependency_pages(request_id=None, transform_id=None
     :param transfomr_id: The transform id.
     """
     try:
+        if log_prefix is None:
+            log_prefix = ""
+
         # Define alias for Content model to avoid conflicts
         # content_alias = aliased(models.Content)
 
@@ -737,29 +746,12 @@ def update_input_contents_by_dependency_pages(request_id=None, transform_id=None
             models.Content.content_relation_type == 3
         )
 
-        """
-        query_deps = query_deps.filter(
-            ~exists(
-                select(
-                    models.Content.request_id,
-                    models.Content.transform_id,
-                    models.Content.map_id,
-                    models.Content.sub_map_id
-                ).where(
-                    models.Content.request_id == query_ex.c.request_id,
-                    models.Content.transform_id == query_ex.c.transform_id,
-                    models.Content.map_id == query_ex.c.map_id,
-                    models.Content.sub_map_id == query_ex.c.sub_map_id
-                )
-            )
-        )
-        """
-
         query_deps = query_deps.subquery()
 
-        from sqlalchemy.dialects import postgresql
-        query_deps_sql = query_deps.compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True})
-        print(f"query_deps_sql: {query_deps_sql}")
+        # from sqlalchemy.dialects import postgresql
+        # query_deps_sql = query_deps.compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True})
+        # if logger:
+        #     logger.debug(f"{log_prefix}query_deps_sql: {query_deps_sql}")
 
         # Define the main query with the necessary filters
         main_query = session.query(
@@ -803,7 +795,7 @@ def update_input_contents_by_dependency_pages(request_id=None, transform_id=None
             if request_id is None:
                 # left join, without right values
                 # no dependencies
-                print("custom_aggregation, no dependencies")
+                logger.debug(f"{log_prefix}custom_aggregation, no dependencies")
                 return ContentStatus.Available
 
             available_status = [ContentStatus.Available, ContentStatus.FakeAvailable]
@@ -855,9 +847,10 @@ def update_input_contents_by_dependency_pages(request_id=None, transform_id=None
 
             paginated_query_deps = paginated_query_deps_query.all()
 
-            from sqlalchemy.dialects import postgresql
-            paginated_query_deps_query_sql = paginated_query_deps_query.subquery().compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True})
-            print(f"paginated_query_deps_query_sql: {paginated_query_deps_query_sql}")
+            # from sqlalchemy.dialects import postgresql
+            # paginated_query_deps_query_sql = paginated_query_deps_query.subquery().compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True})
+            # if logger:
+            #     logger.debug(f"{log_prefix}paginated_query_deps_query_sql: {paginated_query_deps_query_sql}")
 
             if not paginated_query_deps:
                 break  # No more rows to process
@@ -868,46 +861,10 @@ def update_input_contents_by_dependency_pages(request_id=None, transform_id=None
                 input_content_id, request_id, transform_id, map_id, sub_map_id, content_id, status = row
                 grouped_data[(request_id, transform_id, map_id, sub_map_id, input_content_id)].append(status)
 
+                if last_id is None or input_content_id > last_id:
+                    last_id = input_content_id
+
             aggregated_results = {key: custom_aggregation(key, values, terminated=terminated) for key, values in grouped_data.items()}
-
-            # Perform batch update using `case()`
-            """
-            stmt = update(models.Content).filter(content_alias.content_relation_type == 0).where(
-                tuple_(models.Content.request_id, models.Content.transform_id, models.Content.map_id, models.Content.sub_map_id)
-                .in_(aggregated_results.keys())
-            ).values(
-                substatus=case(
-                    [(tuple_(*key) == tuple_(models.Content.request_id, models.Content.transform_id, models.Content.map_id, models.Content.sub_map_id), value)
-                     for key, value in aggregated_results.items()],
-                    else_=models.Content.substatus
-                )
-            )
-
-            stmt = update(models.Content).where(
-                models.Content.content_relation_type == 0,
-                exists().where(
-                    and_(
-                        models.Content.request_id == bindparam("request_id"),
-                        models.Content.transform_id == bindparam("transform_id"),
-                        models.Content.map_id == bindparam("map_id"),
-                        models.Content.sub_map_id == bindparam("sub_map_id")
-                    )
-                )
-            ).values(
-                substatus=case(
-                    [
-                        (and_(
-                            models.Content.request_id == key[0],
-                            models.Content.transform_id == key[1],
-                            models.Content.map_id == key[2],
-                            models.Content.sub_map_id == key[3]
-                        ), value)
-                        for key, value in aggregated_results.items()
-                    ],
-                    else_=models.Content.substatus
-                )
-            )
-            """
 
             update_data = [
                 {
@@ -921,13 +878,8 @@ def update_input_contents_by_dependency_pages(request_id=None, transform_id=None
                 session.bulk_update_mappings(models.Content, update_data[i:i + batch_size])
                 session.commit()
 
-            # Move to the next page
-            sub_query = main_query.order_by(models.Content.content_id)
-            if last_id is not None:
-                sub_query = sub_query.filter(models.Content.content_id > last_id)
-            sub_query = sub_query.limit(page_size).subquery()
-            last_id = session.query(sub_query.c.content_id).order_by(sub_query.c.content_id.desc()).limit(1).scalar()
-            print(f"update_input_contents_by_dependency_pages: last_id {last_id}")
+            if logger:
+                logger.debug(f"{log_prefix}update_input_contents_by_dependency_pages: last_id {last_id}")
     except Exception as ex:
         raise ex
 
