@@ -640,12 +640,16 @@ def update_contents_from_others_by_dep_id_pages(request_id=None, transform_id=No
         # Paginated Update Loop
         last_id = None
         while True:
+            paginated_query = dep_subquery.order_by(models.Content.content_id)
             if last_id is not None:
-                paginated_query = dep_subquery.filter(models.Content.content_id > last_id)
+                paginated_query = paginated_query.filter(models.Content.content_id > last_id)
             else:
-                paginated_query = dep_subquery
+                # paginated_query = dep_subquery
+                # it makes paginated_query and dep_subquery the same object
+                # updates in paginated_query will also be in dep_subquery
+                pass
 
-            paginated_query = paginated_query.order_by(models.Content.content_id).limit(page_size)
+            paginated_query = paginated_query.limit(page_size)
             paginated_query = paginated_query.subquery()
 
             paginated_query_deps_query = session.query(
@@ -668,26 +672,19 @@ def update_contents_from_others_by_dep_id_pages(request_id=None, transform_id=No
             if not results:
                 break
 
-            update_data = [
-                {
-                    "content_id": row[0],
-                    "substatus": row[1],
-                    "status": row[1]
-                }
-                for row in results
-            ]
+            update_data = []
+            for row in results:
+                content_id = row[0]
+                substatus = row[1]
+                to_update = {"content_id": content_id, "substatus": substatus, "status": substatus}
+                update_data.append(to_update)
+                if last_id is None or content_id > last_id:
+                    last_id = content_id
 
             for i in range(0, len(update_data), batch_size):
                 session.bulk_update_mappings(models.Content, update_data[i:i + batch_size])
                 session.commit()
 
-            # Update last processed ID (keyset pagination)
-            if last_id is not None:
-                sub_query = dep_subquery.filter(models.Content.content_id > last_id)
-            else:
-                sub_query = dep_subquery
-            sub_query = sub_query.order_by(models.Content.content_id).limit(page_size).subquery()
-            last_id = session.query(sub_query.c.content_id).order_by(sub_query.c.content_id.desc()).limit(1).scalar()
             if logger:
                 logger.debug(f"{log_prefix}update_contents_from_others_by_dep_id_pages: last_id: {last_id}")
     except Exception as ex:
@@ -864,6 +861,9 @@ def update_input_contents_by_dependency_pages(request_id=None, transform_id=None
                 input_content_id, request_id, transform_id, map_id, sub_map_id, content_id, status = row
                 grouped_data[(request_id, transform_id, map_id, sub_map_id, input_content_id)].append(status)
 
+                if last_id is None or input_content_id > last_id:
+                    last_id = input_content_id
+
             aggregated_results = {key: custom_aggregation(key, values, terminated=terminated) for key, values in grouped_data.items()}
 
             update_data = [
@@ -878,12 +878,6 @@ def update_input_contents_by_dependency_pages(request_id=None, transform_id=None
                 session.bulk_update_mappings(models.Content, update_data[i:i + batch_size])
                 session.commit()
 
-            # Move to the next page
-            sub_query = main_query.order_by(models.Content.content_id)
-            if last_id is not None:
-                sub_query = sub_query.filter(models.Content.content_id > last_id)
-            sub_query = sub_query.limit(page_size).subquery()
-            last_id = session.query(sub_query.c.content_id).order_by(sub_query.c.content_id.desc()).limit(1).scalar()
             if logger:
                 logger.debug(f"{log_prefix}update_input_contents_by_dependency_pages: last_id {last_id}")
     except Exception as ex:
