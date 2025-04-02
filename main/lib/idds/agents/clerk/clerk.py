@@ -1870,20 +1870,21 @@ class Clerk(BaseAgent):
                         self.logger.info(log_pre + "process_resume_request result: %s" % str(ret))
 
                         self.update_request(ret, origin_req=req)
-                        wf = req['request_metadata']['workflow']
-                        works = wf.get_all_works()
-                        if works:
-                            for work in works:
-                                # if not work.is_finished():
-                                self.logger.info(log_pre + "ResumeTransformEvent(transform_id: %s)" % str(work.get_work_id()))
-                                event = ResumeTransformEvent(publisher_id=self.id,
-                                                             transform_id=work.get_work_id(),
-                                                             content=event._content)
+                        if 'workflow' in req['request_metadata']:
+                            wf = req['request_metadata']['workflow']
+                            works = wf.get_all_works()
+                            if works:
+                                for work in works:
+                                    # if not work.is_finished():
+                                    self.logger.info(log_pre + "ResumeTransformEvent(transform_id: %s)" % str(work.get_work_id()))
+                                    event = ResumeTransformEvent(publisher_id=self.id,
+                                                                 transform_id=work.get_work_id(),
+                                                                 content=event._content)
+                                    self.event_bus.send(event)
+                            else:
+                                self.logger.info(log_pre + "UpdateRequestEvent(request_id: %s)" % str(req['request_id']))
+                                event = UpdateRequestEvent(publisher_id=self.id, request_id=req['request_id'], content=event._content)
                                 self.event_bus.send(event)
-                        else:
-                            self.logger.info(log_pre + "UpdateRequestEvent(request_id: %s)" % str(req['request_id']))
-                            event = UpdateRequestEvent(publisher_id=self.id, request_id=req['request_id'], content=event._content)
-                            self.event_bus.send(event)
 
                         self.handle_command(event, cmd_status=CommandStatus.Processed, errors=None)
         except Exception as ex:
