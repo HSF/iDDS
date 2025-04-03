@@ -31,6 +31,7 @@ from idds.common import exceptions
 from idds.common.constants import (ContentType, ContentStatus, ContentLocking,
                                    ContentFetchStatus, ContentRelationType)
 from idds.common.utils import group_list
+from idds.common.utils import json_dumps
 from idds.orm.base.session import read_session, transactional_session
 from idds.orm.base import models
 
@@ -508,6 +509,7 @@ def custom_bulk_update_mappings(model, parameters, session=None):
             key: (
                 value.value if isinstance(value, Enum)
                 else value.isoformat() if isinstance(value, datetime.datetime)
+                else json_dumps(value) if isinstance(value, dict)
                 else value
             )
             for key, value in row.items()
