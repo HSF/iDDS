@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2022 - 2023
+# - Wen Guan, <wen.guan@cern.ch>, 2022 - 2025
 
 import concurrent.futures
 import json
@@ -307,8 +307,8 @@ def get_new_contents(request_id, transform_id, workload_id, new_input_output_map
 def get_update_content(content):
     updated_content = {'content_id': content['content_id'],
                        'request_id': content['request_id'],
-                       'status': content['substatus'],
-                       'substatus': content['substatus']}
+                       # 'substatus': content['substatus'],
+                       'status': content['substatus']}
     content['status'] = content['substatus']
     return updated_content, content
 
@@ -1465,8 +1465,8 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
             if not work.es or con['substatus'] in [ContentStatus.Available]:
                 con_dict = {'content_id': con['content_id'],
                             'request_id': con['request_id'],
-                            'status': con['substatus'],
-                            'substatus': con['substatus']}
+                            # 'substatus': con['substatus'],
+                            'status': con['substatus']}
                 if 'content_metadata' in con and con['content_metadata']:
                     con_dict['content_metadata'] = con['content_metadata']
                 new_contents_update_list.append(con_dict)
