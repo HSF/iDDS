@@ -16,6 +16,7 @@ operations related to Requests.
 import datetime
 import hashlib
 
+from enum import Enum
 from collections import defaultdict
 
 import sqlalchemy
@@ -484,6 +485,49 @@ def update_content(content_id, parameters, session=None):
 
 
 @transactional_session
+def custom_bulk_update_mappings(model, parameters, session=None):
+    """
+    update contents in bulk
+    """
+    if not parameters:
+        return
+
+    select_keys = ['content_id', 'request_id', 'transform_id']
+
+    first_row = parameters[0]
+    select_key_sql = [f"{key} = :{key}" for key in first_row if key in select_keys]
+    update_key_sql = [f"{key} = :{key}" for key in first_row if key not in select_keys]
+
+    if not update_key_sql or not select_key_sql or 'content_id' not in first_row.keys():
+        raise ValueError("No updatable columns found.")
+
+    # Convert Enum fields to their values
+    updated_parameters = []
+    for row in parameters:
+        updated_row = {
+            key: (
+                value.value if isinstance(value, Enum)
+                else value.isoformat() if isinstance(value, datetime)
+                else value
+            )
+            for key, value in row.items()
+        }
+        updated_parameters.append(updated_row)
+
+    # Construct SQL dynamically
+    schema_prefix = f"{model.metadata.schema}." if model.metadata.schema else ""
+    sql = f"""
+        UPDATE {schema_prefix}{model.__tablename__}
+        SET {", ".join(update_key_sql)}
+        WHERE {" AND ".join(select_key_sql)}
+    """
+
+    stmt = sqlalchemy.text(sql)
+    session.execute(stmt, updated_parameters)
+    session.commit()
+
+
+@transactional_session
 def update_contents(parameters, use_bulk_update_mappings=True, request_id=None, transform_id=None, session=None):
     """
     update contents.
@@ -500,7 +544,8 @@ def update_contents(parameters, use_bulk_update_mappings=True, request_id=None, 
             for parameter in parameters:
                 parameter['updated_at'] = datetime.datetime.utcnow()
 
-            session.bulk_update_mappings(models.Content, parameters)
+            # session.bulk_update_mappings(models.Content, parameters)
+            custom_bulk_update_mappings(models.Content, parameters, session=session)
         else:
             groups = group_list(parameters, key='content_id')
             for group_key in groups:
@@ -682,8 +727,9 @@ def update_contents_from_others_by_dep_id_pages(request_id=None, transform_id=No
                     last_id = content_id
 
             for i in range(0, len(update_data), batch_size):
-                session.bulk_update_mappings(models.Content, update_data[i:i + batch_size])
-                session.commit()
+                # session.bulk_update_mappings(models.Content, update_data[i:i + batch_size])
+                # session.commit()
+                custom_bulk_update_mappings(models.Content, update_data[i:i + batch_size], session=session)
 
             if logger:
                 logger.debug(f"{log_prefix}update_contents_from_others_by_dep_id_pages: last_id: {last_id}")
@@ -869,14 +915,16 @@ def update_input_contents_by_dependency_pages(request_id=None, transform_id=None
             update_data = [
                 {
                     "content_id": key[4],
+                    "request_id": key[0],
                     "substatus": value
                 }
                 for key, value in aggregated_results.items()
             ]
 
             for i in range(0, len(update_data), batch_size):
-                session.bulk_update_mappings(models.Content, update_data[i:i + batch_size])
-                session.commit()
+                # session.bulk_update_mappings(models.Content, update_data[i:i + batch_size])
+                # session.commit()
+                custom_bulk_update_mappings(models.Content, update_data[i:i + batch_size], session=session)
 
             if logger:
                 logger.debug(f"{log_prefix}update_input_contents_by_dependency_pages: last_id {last_id}")
@@ -1204,7 +1252,8 @@ def update_contents_ext(parameters, use_bulk_update_mappings=True, request_id=No
     """
     try:
         if use_bulk_update_mappings:
-            session.bulk_update_mappings(models.Content_ext, parameters)
+            # session.bulk_update_mappings(models.Content_ext, parameters)
+            custom_bulk_update_mappings(models.Content_ext, parameters, session=session)
         else:
             groups = group_list(parameters, key='content_id')
             for group_key in groups:
