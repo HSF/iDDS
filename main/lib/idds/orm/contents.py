@@ -507,7 +507,7 @@ def custom_bulk_update_mappings(model, parameters, session=None):
         updated_row = {
             key: (
                 value.value if isinstance(value, Enum)
-                else value.isoformat() if isinstance(value, datetime)
+                else value.isoformat() if isinstance(value, datetime.datetime)
                 else value
             )
             for key, value in row.items()
