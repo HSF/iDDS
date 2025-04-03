@@ -839,7 +839,7 @@ def update_input_contents_by_dependency_pages(request_id=None, transform_id=None
 
         # Aggregation function to determine final status
         def custom_aggregation(key, values, terminated=False):
-            request_id, transform_id, map_id, sub_map_id, input_content_id = key
+            input_request_id, request_id, transform_id, map_id, sub_map_id, input_content_id = key
             if request_id is None:
                 # left join, without right values
                 # no dependencies
@@ -874,6 +874,7 @@ def update_input_contents_by_dependency_pages(request_id=None, transform_id=None
 
             paginated_query_deps_query = session.query(
                 paginated_query.c.content_id.label('input_content_id'),
+                paginated_query.c.request_id.label('input_request_id'),
                 query_deps.c.request_id,
                 query_deps.c.transform_id,
                 query_deps.c.map_id,
@@ -906,8 +907,8 @@ def update_input_contents_by_dependency_pages(request_id=None, transform_id=None
             # Aggregate results
             grouped_data = defaultdict(list)
             for row in paginated_query_deps:
-                input_content_id, request_id, transform_id, map_id, sub_map_id, content_id, status = row
-                grouped_data[(request_id, transform_id, map_id, sub_map_id, input_content_id)].append(status)
+                input_content_id, input_request_id, request_id, transform_id, map_id, sub_map_id, content_id, status = row
+                grouped_data[(input_request_id, request_id, transform_id, map_id, sub_map_id, input_content_id)].append(status)
 
                 if last_id is None or input_content_id > last_id:
                     last_id = input_content_id
@@ -916,7 +917,7 @@ def update_input_contents_by_dependency_pages(request_id=None, transform_id=None
 
             update_data = [
                 {
-                    "content_id": key[4],
+                    "content_id": key[5],
                     "request_id": key[0],
                     "substatus": value
                 }
