@@ -169,7 +169,8 @@ def add_contents(contents, bulk_size=10000, session=None):
 
     try:
         for sub_param in sub_params:
-            session.bulk_insert_mappings(models.Content, sub_param)
+            # session.bulk_insert_mappings(models.Content, sub_param)
+            custom_bulk_insert_mappings(models.Content, sub_param, session=session)
         content_ids = [None for _ in range(len(contents))]
         return content_ids
     except IntegrityError as error:
@@ -483,6 +484,49 @@ def update_content(content_id, parameters, session=None):
                .update(parameters, synchronize_session=False)
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('Content %s cannot be found: %s' % (content_id, error))
+
+
+@transactional_session
+def custom_bulk_insert_mappings(model, parameters, session=None):
+    """
+    update contents in bulk
+    """
+    if not parameters:
+        return
+
+    def get_row_value(row, name):
+        """Process row values to ensure correct formatting for SQL"""
+        val = row.get(name, None)
+        if val is None:
+            return None
+        if isinstance(val, Enum):
+            return val.value
+        if isinstance(val, datetime.datetime):
+            return val.isoformat()
+        if isinstance(val, dict):
+            return json_dumps(val)
+        return val
+
+    columns = [column.name for column in model.__mapper__.columns]
+
+    column_key_sql = ", ".join(columns)
+    column_value_sql = ", ".join([f":{name}" for name in columns])
+
+    # Convert Enum fields to their values
+    updated_parameters = [
+        {column: get_row_value(row, column) for column in columns} for row in parameters
+    ]
+
+    # Construct SQL dynamically
+    schema_prefix = f"{model.metadata.schema}." if model.metadata.schema else ""
+    sql = f"""
+        INSERT INTO {schema_prefix}{model.__tablename__} ({column_key_sql})
+        VALUES ({column_value_sql})
+    """
+
+    stmt = sqlalchemy.text(sql)
+    session.execute(stmt, updated_parameters)
+    session.commit()
 
 
 @transactional_session
@@ -1096,7 +1140,8 @@ def add_contents_update(contents, bulk_size=10000, session=None):
 
     try:
         for sub_param in sub_params:
-            session.bulk_insert_mappings(models.Content_update, sub_param)
+            # session.bulk_insert_mappings(models.Content_update, sub_param)
+            custom_bulk_insert_mappings(models.Content_update, sub_param, session=session)
         content_ids = [None for _ in range(len(contents))]
         return content_ids
     except IntegrityError as error:
@@ -1232,7 +1277,8 @@ def add_contents_ext(contents, bulk_size=10000, session=None):
 
     try:
         for sub_param in sub_params:
-            session.bulk_insert_mappings(models.Content_ext, sub_param)
+            # session.bulk_insert_mappings(models.Content_ext, sub_param)
+            custom_bulk_insert_mappings(models.Content_ext, sub_param, session=session)
         content_ids = [None for _ in range(len(contents))]
         return content_ids
     except IntegrityError as error:
