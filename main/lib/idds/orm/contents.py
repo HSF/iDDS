@@ -15,6 +15,7 @@ operations related to Requests.
 
 import datetime
 import hashlib
+import traceback
 
 from enum import Enum
 from collections import defaultdict
@@ -24,7 +25,7 @@ from sqlalchemy import and_
 from sqlalchemy import func
 from sqlalchemy.exc import DatabaseError, IntegrityError
 # from sqlalchemy.orm import aliased
-from sqlalchemy.sql import exists, select
+from sqlalchemy.sql import exists, select, expression
 from sqlalchemy.sql.expression import asc
 
 from idds.common import exceptions
@@ -494,40 +495,59 @@ def custom_bulk_insert_mappings(model, parameters, session=None):
     if not parameters:
         return
 
-    def get_row_value(row, column):
-        """Process row values to ensure correct formatting for SQL"""
-        val = row.get(column.name, None)
-        if val is None:
-            return column.default
-        if isinstance(val, Enum):
-            return val.value
-        if isinstance(val, datetime.datetime):
-            return val.isoformat()
-        if isinstance(val, dict):
-            return json_dumps(val)
-        return val
+    try:
+        schema_prefix = f"{model.metadata.schema}." if model.metadata.schema else ""
 
-    exclude_columns = ['content_id']
-    columns = [column for column in model.__mapper__.columns if column.name not in exclude_columns]
+        def get_row_value(row, column):
+            """Process row values to ensure correct formatting for SQL"""
+            val = row.get(column.name, None)
+            if column.name == 'content_id' and (val is None or val == 'auto'):
+                val = sqlalchemy.text("nextval(f'{schema_prefix}.CONTENT_ID_SEQ')")
+            elif val is None:
+                if column.default is not None and not column.primary_key:
+                    default_val = column.default.arg
+                    if callable(default_val):
+                        try:
+                            return default_val()
+                        except TypeError:
+                            return None
+                    elif isinstance(default_val, expression.ClauseElement):
+                        return None
+                    return default_val
+                return None
+            elif isinstance(val, Enum):
+                return val.value
+            elif isinstance(val, datetime.datetime):
+                return val.isoformat()
+            elif isinstance(val, dict):
+                return json_dumps(val)
+            return val
 
-    column_key_sql = ", ".join([column.name for column in columns])
-    column_value_sql = ", ".join([f":{column.name}" for column in columns])
+        # exclude_columns = ['content_id']
+        exclude_columns = []
+        columns = [column for column in model.__mapper__.columns if column.name not in exclude_columns]
 
-    # Convert Enum fields to their values
-    updated_parameters = [
-        {column: get_row_value(row, column) for column in columns} for row in parameters
-    ]
+        column_key_sql = ", ".join([column.name for column in columns])
+        column_value_sql = ", ".join([f":{column.name}" for column in columns])
 
-    # Construct SQL dynamically
-    schema_prefix = f"{model.metadata.schema}." if model.metadata.schema else ""
-    sql = f"""
-        INSERT INTO {schema_prefix}{model.__tablename__} ({column_key_sql})
-        VALUES ({column_value_sql})
-    """
+        # Convert Enum fields to their values
+        updated_parameters = [
+            {column.name: get_row_value(row, column) for column in columns} for row in parameters
+        ]
 
-    stmt = sqlalchemy.text(sql)
-    session.execute(stmt, updated_parameters)
-    session.commit()
+        # Construct SQL dynamically
+        sql = f"""
+            INSERT INTO {schema_prefix}{model.__tablename__} ({column_key_sql})
+            VALUES ({column_value_sql})
+        """
+
+        stmt = sqlalchemy.text(sql)
+        session.execute(stmt, updated_parameters)
+        session.commit()
+    except Exception as ex:
+        print(f"custom_bulk_insert_mappings Exception: {ex}")
+        print(traceback.format_exc())
+        raise ex
 
 
 @transactional_session
