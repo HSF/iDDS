@@ -15,6 +15,7 @@ operations related to Requests.
 
 import datetime
 import hashlib
+import traceback
 
 from enum import Enum
 from collections import defaultdict
@@ -24,7 +25,7 @@ from sqlalchemy import and_
 from sqlalchemy import func
 from sqlalchemy.exc import DatabaseError, IntegrityError
 # from sqlalchemy.orm import aliased
-from sqlalchemy.sql import exists, select
+from sqlalchemy.sql import exists, select, expression
 from sqlalchemy.sql.expression import asc
 
 from idds.common import exceptions
@@ -169,7 +170,8 @@ def add_contents(contents, bulk_size=10000, session=None):
 
     try:
         for sub_param in sub_params:
-            session.bulk_insert_mappings(models.Content, sub_param)
+            # session.bulk_insert_mappings(models.Content, sub_param)
+            custom_bulk_insert_mappings(models.Content, sub_param, session=session)
         content_ids = [None for _ in range(len(contents))]
         return content_ids
     except IntegrityError as error:
@@ -486,7 +488,86 @@ def update_content(content_id, parameters, session=None):
 
 
 @transactional_session
-def custom_bulk_update_mappings(model, parameters, session=None):
+def custom_bulk_insert_mappings_old(model, parameters, session=None):
+    """
+    insert contents in bulk
+    """
+    if not parameters:
+        return
+
+    try:
+        schema_prefix = f"{model.metadata.schema}." if model.metadata.schema else ""
+
+        def get_row_value(row, column):
+            """Process row values to ensure correct formatting for SQL"""
+            val = row.get(column.name, None)
+            if column.name == 'content_id' and (val is None or val == 'auto'):
+                val = sqlalchemy.text(f"nextval('{schema_prefix}CONTENT_ID_SEQ')")
+            elif val is None:
+                if column.default is not None and not column.primary_key:
+                    default_val = column.default.arg
+                    if callable(default_val):
+                        try:
+                            return default_val()
+                        except TypeError:
+                            return None
+                    elif isinstance(default_val, expression.ClauseElement):
+                        return None
+                    return default_val
+                return None
+            elif isinstance(val, Enum):
+                return val.value
+            elif isinstance(val, datetime.datetime):
+                return val.isoformat()
+            elif isinstance(val, dict):
+                return json_dumps(val)
+            return val
+
+        # exclude_columns = ['content_id']
+        exclude_columns = []
+        columns = [column for column in model.__mapper__.columns if column.name not in exclude_columns]
+
+        column_key_sql = ", ".join([column.name for column in columns])
+        column_value_sql = ", ".join([f":{column.name}" for column in columns])
+
+        # Convert Enum fields to their values
+        updated_parameters = [
+            {column.name: get_row_value(row, column) for column in columns} for row in parameters
+        ]
+
+        # Construct SQL dynamically
+        sql = f"""
+            INSERT INTO {schema_prefix}{model.__tablename__} ({column_key_sql})
+            VALUES ({column_value_sql})
+        """
+
+        stmt = sqlalchemy.text(sql)
+        session.execute(stmt, updated_parameters)
+        session.commit()
+    except Exception as ex:
+        print(f"custom_bulk_insert_mappings Exception: {ex}")
+        print(traceback.format_exc())
+        raise ex
+
+
+@transactional_session
+def custom_bulk_insert_mappings(model, parameters, batch_size=1000, session=None):
+    """
+    insert contents in bulk
+    """
+    if not parameters:
+        return
+
+    for i in range(0, len(parameters), batch_size):
+        batch = parameters[i: i + batch_size]
+        session.bulk_insert_mappings(model, batch)
+        session.flush()
+
+    session.commit()
+
+
+@transactional_session
+def custom_bulk_update_mappings(model, parameters, batch_size=1000, session=None):
     """
     update contents in bulk
     """
@@ -502,30 +583,35 @@ def custom_bulk_update_mappings(model, parameters, session=None):
     if not update_key_sql or not select_key_sql or 'content_id' not in first_row.keys():
         raise ValueError("No updatable columns found.")
 
-    # Convert Enum fields to their values
-    updated_parameters = []
-    for row in parameters:
-        updated_row = {
-            key: (
-                value.value if isinstance(value, Enum)
-                else value.isoformat() if isinstance(value, datetime.datetime)
-                else json_dumps(value) if isinstance(value, dict)
-                else value
-            )
-            for key, value in row.items()
-        }
-        updated_parameters.append(updated_row)
+    for i in range(0, len(parameters), batch_size):
+        batch = parameters[i: i + batch_size]
 
-    # Construct SQL dynamically
-    schema_prefix = f"{model.metadata.schema}." if model.metadata.schema else ""
-    sql = f"""
-        UPDATE {schema_prefix}{model.__tablename__}
-        SET {", ".join(update_key_sql)}
-        WHERE {" AND ".join(select_key_sql)}
-    """
+        # Convert Enum fields to their values
+        updated_parameters = []
+        for row in batch:
+            updated_row = {
+                key: (
+                    value.value if isinstance(value, Enum)
+                    else value.isoformat() if isinstance(value, datetime.datetime)
+                    else json_dumps(value) if isinstance(value, dict)
+                    else value
+                )
+                for key, value in row.items()
+            }
+            updated_parameters.append(updated_row)
 
-    stmt = sqlalchemy.text(sql)
-    session.execute(stmt, updated_parameters)
+        # Construct SQL dynamically
+        schema_prefix = f"{model.metadata.schema}." if model.metadata.schema else ""
+        sql = f"""
+            UPDATE {schema_prefix}{model.__tablename__}
+            SET {", ".join(update_key_sql)}
+            WHERE {" AND ".join(select_key_sql)}
+        """
+
+        stmt = sqlalchemy.text(sql)
+        session.execute(stmt, updated_parameters)
+        session.flush()
+
     session.commit()
 
 
@@ -839,7 +925,7 @@ def update_input_contents_by_dependency_pages(request_id=None, transform_id=None
 
         # Aggregation function to determine final status
         def custom_aggregation(key, values, terminated=False):
-            request_id, transform_id, map_id, sub_map_id, input_content_id = key
+            input_request_id, request_id, transform_id, map_id, sub_map_id, input_content_id = key
             if request_id is None:
                 # left join, without right values
                 # no dependencies
@@ -874,6 +960,7 @@ def update_input_contents_by_dependency_pages(request_id=None, transform_id=None
 
             paginated_query_deps_query = session.query(
                 paginated_query.c.content_id.label('input_content_id'),
+                paginated_query.c.request_id.label('input_request_id'),
                 query_deps.c.request_id,
                 query_deps.c.transform_id,
                 query_deps.c.map_id,
@@ -906,8 +993,8 @@ def update_input_contents_by_dependency_pages(request_id=None, transform_id=None
             # Aggregate results
             grouped_data = defaultdict(list)
             for row in paginated_query_deps:
-                input_content_id, request_id, transform_id, map_id, sub_map_id, content_id, status = row
-                grouped_data[(request_id, transform_id, map_id, sub_map_id, input_content_id)].append(status)
+                input_content_id, input_request_id, request_id, transform_id, map_id, sub_map_id, content_id, status = row
+                grouped_data[(input_request_id, request_id, transform_id, map_id, sub_map_id, input_content_id)].append(status)
 
                 if last_id is None or input_content_id > last_id:
                     last_id = input_content_id
@@ -916,7 +1003,7 @@ def update_input_contents_by_dependency_pages(request_id=None, transform_id=None
 
             update_data = [
                 {
-                    "content_id": key[4],
+                    "content_id": key[5],
                     "request_id": key[0],
                     "substatus": value
                 }
@@ -1095,7 +1182,8 @@ def add_contents_update(contents, bulk_size=10000, session=None):
 
     try:
         for sub_param in sub_params:
-            session.bulk_insert_mappings(models.Content_update, sub_param)
+            # session.bulk_insert_mappings(models.Content_update, sub_param)
+            custom_bulk_insert_mappings(models.Content_update, sub_param, session=session)
         content_ids = [None for _ in range(len(contents))]
         return content_ids
     except IntegrityError as error:
@@ -1231,7 +1319,8 @@ def add_contents_ext(contents, bulk_size=10000, session=None):
 
     try:
         for sub_param in sub_params:
-            session.bulk_insert_mappings(models.Content_ext, sub_param)
+            # session.bulk_insert_mappings(models.Content_ext, sub_param)
+            custom_bulk_insert_mappings(models.Content_ext, sub_param, session=session)
         content_ids = [None for _ in range(len(contents))]
         return content_ids
     except IntegrityError as error:
