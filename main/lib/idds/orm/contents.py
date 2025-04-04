@@ -567,7 +567,7 @@ def custom_bulk_insert_mappings(model, parameters, batch_size=1000, session=None
 
 
 @transactional_session
-def custom_bulk_update_mappings(model, parameters, batch_size=1000, session=None):
+def custom_bulk_update_mappings_real(model, parameters, batch_size=1000, session=None):
     """
     update contents in bulk
     """
@@ -613,6 +613,24 @@ def custom_bulk_update_mappings(model, parameters, batch_size=1000, session=None
         session.flush()
 
     session.commit()
+
+
+@transactional_session
+def custom_bulk_update_mappings(model, parameters, batch_size=1000, session=None):
+    """
+    update contents in bulk
+    """
+    if not parameters:
+        return
+
+    column_key_groups = {}
+    for row in parameters:
+        keys = sorted(row.keys())  # consistent key ordering
+        keys_id = ','.join(keys)
+        column_key_groups.setdefault(keys_id, []).append(row)
+
+    for keys_id, rows in column_key_groups.items():
+        custom_bulk_update_mappings_real(model, rows, batch_size=batch_size, session=session)
 
 
 @transactional_session
