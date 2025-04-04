@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2023
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2025
 
 import time
 import threading
@@ -293,6 +293,7 @@ class Receiver(BaseAgent):
                     self.execute_schedules()
 
                     if not time_start or time.time() > time_start + self.bulk_message_delay:
+                        self.logger.info(f"is_selected: {self.is_selected()}, is_receiver_started: {self.is_receiver_started()}")
                         if self.is_selected():
                             if not self.is_receiver_started():
                                 self.resume_receiver()
