@@ -494,11 +494,11 @@ def custom_bulk_insert_mappings(model, parameters, session=None):
     if not parameters:
         return
 
-    def get_row_value(row, name):
+    def get_row_value(row, column):
         """Process row values to ensure correct formatting for SQL"""
-        val = row.get(name, None)
+        val = row.get(column.name, None)
         if val is None:
-            return None
+            return column.default
         if isinstance(val, Enum):
             return val.value
         if isinstance(val, datetime.datetime):
@@ -507,10 +507,11 @@ def custom_bulk_insert_mappings(model, parameters, session=None):
             return json_dumps(val)
         return val
 
-    columns = [column.name for column in model.__mapper__.columns]
+    exclude_columns = ['content_id']
+    columns = [column for column in model.__mapper__.columns if column.name not in exclude_columns]
 
-    column_key_sql = ", ".join(columns)
-    column_value_sql = ", ".join([f":{name}" for name in columns])
+    column_key_sql = ", ".join([column.name for column in columns])
+    column_value_sql = ", ".join([f":{column.name}" for column in columns])
 
     # Convert Enum fields to their values
     updated_parameters = [
