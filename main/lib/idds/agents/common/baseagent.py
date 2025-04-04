@@ -259,8 +259,7 @@ class BaseAgent(TimerScheduler, PluginBase):
         ret = False
         if ('hostname' in health_item and 'pid' in health_item and 'agent' in health_item
             and 'thread_id' in health_item and health_item['hostname'] == hostname        # noqa W503
-            and health_item['pid'] == pid and health_item['agent'] == self.get_name()     # noqa W503
-            and health_item['thread_id'] == thread_id):                                              # noqa W503
+            and health_item['pid'] == pid and health_item['agent'] == self.get_name()):     # noqa W503
             ret = True
         if not ret:
             pass
