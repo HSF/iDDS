@@ -488,9 +488,9 @@ def update_content(content_id, parameters, session=None):
 
 
 @transactional_session
-def custom_bulk_insert_mappings(model, parameters, session=None):
+def custom_bulk_insert_mappings_old(model, parameters, session=None):
     """
-    update contents in bulk
+    insert contents in bulk
     """
     if not parameters:
         return
@@ -502,7 +502,7 @@ def custom_bulk_insert_mappings(model, parameters, session=None):
             """Process row values to ensure correct formatting for SQL"""
             val = row.get(column.name, None)
             if column.name == 'content_id' and (val is None or val == 'auto'):
-                val = sqlalchemy.text("nextval(f'{schema_prefix}.CONTENT_ID_SEQ')")
+                val = sqlalchemy.text(f"nextval('{schema_prefix}CONTENT_ID_SEQ')")
             elif val is None:
                 if column.default is not None and not column.primary_key:
                     default_val = column.default.arg
@@ -551,7 +551,23 @@ def custom_bulk_insert_mappings(model, parameters, session=None):
 
 
 @transactional_session
-def custom_bulk_update_mappings(model, parameters, session=None):
+def custom_bulk_insert_mappings(model, parameters, batch_size=1000, session=None):
+    """
+    insert contents in bulk
+    """
+    if not parameters:
+        return
+
+    for i in range(0, len(parameters), batch_size):
+        batch = parameters[i: i + batch_size]
+        session.bulk_insert_mappings(model, batch)
+        session.flush()
+
+    session.commit()
+
+
+@transactional_session
+def custom_bulk_update_mappings(model, parameters, batch_size=1000, session=None):
     """
     update contents in bulk
     """
@@ -567,30 +583,35 @@ def custom_bulk_update_mappings(model, parameters, session=None):
     if not update_key_sql or not select_key_sql or 'content_id' not in first_row.keys():
         raise ValueError("No updatable columns found.")
 
-    # Convert Enum fields to their values
-    updated_parameters = []
-    for row in parameters:
-        updated_row = {
-            key: (
-                value.value if isinstance(value, Enum)
-                else value.isoformat() if isinstance(value, datetime.datetime)
-                else json_dumps(value) if isinstance(value, dict)
-                else value
-            )
-            for key, value in row.items()
-        }
-        updated_parameters.append(updated_row)
+    for i in range(0, len(parameters), batch_size):
+        batch = parameters[i: i + batch_size]
 
-    # Construct SQL dynamically
-    schema_prefix = f"{model.metadata.schema}." if model.metadata.schema else ""
-    sql = f"""
-        UPDATE {schema_prefix}{model.__tablename__}
-        SET {", ".join(update_key_sql)}
-        WHERE {" AND ".join(select_key_sql)}
-    """
+        # Convert Enum fields to their values
+        updated_parameters = []
+        for row in batch:
+            updated_row = {
+                key: (
+                    value.value if isinstance(value, Enum)
+                    else value.isoformat() if isinstance(value, datetime.datetime)
+                    else json_dumps(value) if isinstance(value, dict)
+                    else value
+                )
+                for key, value in row.items()
+            }
+            updated_parameters.append(updated_row)
 
-    stmt = sqlalchemy.text(sql)
-    session.execute(stmt, updated_parameters)
+        # Construct SQL dynamically
+        schema_prefix = f"{model.metadata.schema}." if model.metadata.schema else ""
+        sql = f"""
+            UPDATE {schema_prefix}{model.__tablename__}
+            SET {", ".join(update_key_sql)}
+            WHERE {" AND ".join(select_key_sql)}
+        """
+
+        stmt = sqlalchemy.text(sql)
+        session.execute(stmt, updated_parameters)
+        session.flush()
+
     session.commit()
 
 
