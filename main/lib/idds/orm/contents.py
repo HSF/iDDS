@@ -488,7 +488,7 @@ def update_content(content_id, parameters, session=None):
 
 
 @transactional_session
-def custom_bulk_insert_mappings_old(model, parameters, session=None):
+def custom_bulk_insert_mappings_real(model, parameters, session=None):
     """
     insert contents in bulk
     """
@@ -497,14 +497,18 @@ def custom_bulk_insert_mappings_old(model, parameters, session=None):
 
     try:
         schema_prefix = f"{model.metadata.schema}." if model.metadata.schema else ""
+        sequence_name = f'"{model.metadata.schema}"."CONTENT_ID_SEQ"' if model.metadata.schema else '"CONTENT_ID_SEQ"'
+        table_name = f"{schema_prefix}{model.__tablename__}"
 
         def get_row_value(row, column):
             """Process row values to ensure correct formatting for SQL"""
             val = row.get(column.name, None)
-            if column.name == 'content_id' and (val is None or val == 'auto'):
-                val = sqlalchemy.text(f"nextval('{schema_prefix}CONTENT_ID_SEQ')")
-            elif val is None:
-                if column.default is not None and not column.primary_key:
+            if val is None:
+                if column.name in ['map_id', 'fetch_status', 'sub_map_id', 'dep_sub_map_id', 'content_relation_type']:
+                    val = 0
+                elif column.name in ['created_at', 'updated_at', 'accessed_at']:
+                    val = datetime.datetime.utcnow().isoformat()
+                elif column.default is not None and not column.primary_key:
                     default_val = column.default.arg
                     if callable(default_val):
                         try:
@@ -514,7 +518,7 @@ def custom_bulk_insert_mappings_old(model, parameters, session=None):
                     elif isinstance(default_val, expression.ClauseElement):
                         return None
                     return default_val
-                return None
+                return val
             elif isinstance(val, Enum):
                 return val.value
             elif isinstance(val, datetime.datetime):
@@ -523,8 +527,11 @@ def custom_bulk_insert_mappings_old(model, parameters, session=None):
                 return json_dumps(val)
             return val
 
-        # exclude_columns = ['content_id']
-        exclude_columns = []
+        if model.__tablename__.lower() in ['contents']:
+            exclude_columns = ['content_id']
+        else:
+            exclude_columns = []
+
         columns = [column for column in model.__mapper__.columns if column.name not in exclude_columns]
 
         column_key_sql = ", ".join([column.name for column in columns])
@@ -535,11 +542,16 @@ def custom_bulk_insert_mappings_old(model, parameters, session=None):
             {column.name: get_row_value(row, column) for column in columns} for row in parameters
         ]
 
-        # Construct SQL dynamically
-        sql = f"""
-            INSERT INTO {schema_prefix}{model.__tablename__} ({column_key_sql})
-            VALUES ({column_value_sql})
-        """
+        if model.__tablename__.lower() == 'contents':
+            sql = f"""
+               INSERT INTO {table_name} (content_id, {column_key_sql})
+               VALUES (nextval('{sequence_name}'), {column_value_sql})
+            """
+        else:
+            sql = f"""
+               INSERT INTO {table_name} ({column_key_sql})
+               VALUES ({column_value_sql})
+            """
 
         stmt = sqlalchemy.text(sql)
         session.execute(stmt, updated_parameters)
@@ -560,8 +572,9 @@ def custom_bulk_insert_mappings(model, parameters, batch_size=1000, session=None
 
     for i in range(0, len(parameters), batch_size):
         batch = parameters[i: i + batch_size]
-        session.bulk_insert_mappings(model, batch)
-        session.flush()
+        # session.bulk_insert_mappings(model, batch)
+        # session.flush()
+        custom_bulk_insert_mappings_real(model=model, parameters=batch, session=session)
 
     session.commit()
 
