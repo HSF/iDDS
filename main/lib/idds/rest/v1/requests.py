@@ -20,7 +20,7 @@ from idds.common.constants import RequestStatus
 from idds.common.constants import (MessageType, MessageStatus,
                                    MessageSource, MessageDestination,
                                    CommandType)
-from idds.common.utils import json_loads, get_additional_request_data_storage
+from idds.common.utils import json_loads
 from idds.core.requests import (add_request, get_requests,
                                 get_request, update_request,
                                 get_request_ids_by_name)
@@ -29,6 +29,7 @@ from idds.core.commands import add_command
 from idds.rest.v1.controller import IDDSController
 
 from idds.rest.v1.utils import (convert_old_req_2_workflow_req,
+                                get_additional_request_data_storage,
                                 convert_data_to_use_additional_storage)
 
 

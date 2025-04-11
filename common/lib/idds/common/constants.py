@@ -34,6 +34,7 @@ class Sections:
     Cache = 'cache'
     Archiver = 'archiver'
     Coordinator = 'coordinator'
+    Rest = 'rest'
 
 
 class HTTP_STATUS_CODE:

@@ -10,8 +10,10 @@
 
 import copy
 import os
+import traceback
 
-from idds.common.constants import RequestType, RequestStatus
+from idds.common.constants import RequestType, RequestStatus, Sections
+from idds.common.config import config_has_section, config_has_option, config_get
 from idds.common.utils import is_new_version
 
 from idds.workflow.work import Collection, Processing
@@ -175,6 +177,26 @@ def convert_old_request_metadata(req):
         req['request_metadata'] = wf
         return req
     return req
+
+
+def get_additional_request_data_storage(data):
+    try:
+        if config_has_section(Sections.Rest) and config_has_option(Sections.Rest, 'max_request_data_length'):
+            max_request_data_length = config_get(Sections.Rest, 'max_request_data_length')
+        else:
+            max_request_data_length = 10000000
+
+        if config_has_section(Sections.Rest) and config_has_option(Sections.Rest, 'additional_storage'):
+            additional_storage = config_get(Sections.Rest, 'additional_storage')
+        else:
+            additional_storage = '/tmp'
+
+        if len(data) > max_request_data_length:
+            return additional_storage
+        return None
+    except Exception as ex:
+        print(f"get_additional_request_data_storage raise exception: {ex}: {traceback.format_exc()}")
+    return None
 
 
 def convert_data_to_use_additional_storage(data, additional_data_storage):

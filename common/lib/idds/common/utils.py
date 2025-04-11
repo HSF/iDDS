@@ -29,7 +29,6 @@ import sys
 import tarfile
 import threading
 import time
-import traceback
 
 from enum import Enum
 from functools import wraps
@@ -1142,16 +1141,3 @@ def run_command_with_timeout(command, timeout=600, stdout=sys.stdout, stderr=sys
     stderr_thread.join()
     process.wait()
     return process
-
-
-def get_additional_request_data_storage(data):
-    try:
-        max_request_data_length = 100000000
-        max_request_data_length = int(os.environ.get("MAX_REQUEST_DATA_LENGTH", max_request_data_length))
-        if len(data) > max_request_data_length:
-            additional_storage = os.environ.get("ADDITIONAL_REQUEST_DATA_STORAGE", '/tmp')
-            return additional_storage
-        return None
-    except Exception as ex:
-        print(f"is_to_store_additional_request_data_on_disk raise exception: {ex}: {traceback.format_exc()}")
-    return None
