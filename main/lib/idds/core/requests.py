@@ -38,6 +38,7 @@ def create_request(scope=None, name=None, requester=None, request_type=None,
                    new_poll_period=1, update_poll_period=10, site=None,
                    new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
                    campaign=None, campaign_group=None, campaign_tag=None,
+                   additional_data_storage=None,
                    processing_metadata=None):
     """
     Add a request.
@@ -69,7 +70,7 @@ def create_request(scope=None, name=None, requester=None, request_type=None,
               'new_retries': new_retries, 'update_retries': update_retries,
               'max_new_retries': max_new_retries, 'max_update_retries': max_update_retries,
               'site': site, 'campaign': campaign, 'campaign_group': campaign_group,
-              'campaign_tag': campaign_tag,
+              'campaign_tag': campaign_tag, 'additional_data_storage': additional_data_storage,
               'request_metadata': request_metadata, 'processing_metadata': processing_metadata}
     return orm_requests.create_request(**kwargs)
 
@@ -82,6 +83,7 @@ def add_request(scope=None, name=None, requester=None, request_type=None,
                 new_poll_period=1, update_poll_period=10, site=None,
                 new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
                 campaign=None, campaign_group=None, campaign_tag=None,
+                additional_data_storage=None,
                 processing_metadata=None, session=None):
     """
     Add a request.
@@ -120,6 +122,7 @@ def add_request(scope=None, name=None, requester=None, request_type=None,
               'new_retries': new_retries, 'update_retries': update_retries,
               'campaign': campaign, 'campaign_group': campaign_group, 'campaign_tag': campaign_tag,
               'max_new_retries': max_new_retries, 'max_update_retries': max_update_retries,
+              'additional_data_storage': additional_data_storage,
               'request_metadata': request_metadata, 'processing_metadata': processing_metadata,
               'session': session}
     return orm_requests.add_request(**kwargs)
