@@ -36,6 +36,7 @@ def add_transform(request_id, workload_id, transform_type, transform_tag=None, p
                   new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
                   parent_transform_id=None, previous_transform_id=None, current_processing_id=None,
                   internal_id=None, has_previous_conditions=None, loop_index=None,
+                  parent_internal_id=None,
                   cloned_from=None, triggered_conditions=None, untriggered_conditions=None,
                   site=None, workprogress_id=None, session=None):
     """
@@ -73,6 +74,7 @@ def add_transform(request_id, workload_id, transform_type, transform_tag=None, p
                                                 transform_metadata=transform_metadata,
                                                 site=site,
                                                 internal_id=internal_id,
+                                                parent_internal_id=parent_internal_id,
                                                 has_previous_conditions=has_previous_conditions,
                                                 loop_index=loop_index, cloned_from=cloned_from,
                                                 triggered_conditions=triggered_conditions,
