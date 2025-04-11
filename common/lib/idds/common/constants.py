@@ -167,6 +167,11 @@ class RequestGroupType(IDDSEnum):
     Other = 99
 
 
+class RequestAdditionalDataStorage(IDDSEnum):
+    Default = 0
+    OnDisk = 1
+
+
 class RequestStatus(IDDSEnum):
     New = 0
     Ready = 1

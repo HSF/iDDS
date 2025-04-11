@@ -20,7 +20,7 @@ from idds.common.constants import RequestStatus
 from idds.common.constants import (MessageType, MessageStatus,
                                    MessageSource, MessageDestination,
                                    CommandType)
-from idds.common.utils import json_loads
+from idds.common.utils import json_loads, get_additional_request_data_storage
 from idds.core.requests import (add_request, get_requests,
                                 get_request, update_request,
                                 get_request_ids_by_name)
@@ -28,7 +28,8 @@ from idds.core.messages import add_message
 from idds.core.commands import add_command
 from idds.rest.v1.controller import IDDSController
 
-from idds.rest.v1.utils import convert_old_req_2_workflow_req
+from idds.rest.v1.utils import (convert_old_req_2_workflow_req,
+                                convert_data_to_use_additional_storage)
 
 
 class Requests(IDDSController):
@@ -77,6 +78,8 @@ class Request(IDDSController):
             500 Internal Error
         """
         try:
+            additional_data_storage = get_additional_request_data_storage(self.get_request().data)
+
             parameters = self.get_request().data and json_loads(self.get_request().data)
             if 'status' not in parameters:
                 parameters['status'] = RequestStatus.New
@@ -87,11 +90,16 @@ class Request(IDDSController):
             if 'username' not in parameters or not parameters['username']:
                 if 'username' in self.get_request().environ and self.get_request().environ['username']:
                     parameters['username'] = self.get_request().environ['username']
+
+            if additional_data_storage:
+                parameters['additional_data_storage'] = additional_data_storage
         except ValueError:
             return self.generate_http_response(HTTP_STATUS_CODE.BadRequest, exc_cls=exceptions.BadRequest.__name__, exc_msg='Cannot decode json parameter dictionary')
 
         try:
             parameters = convert_old_req_2_workflow_req(parameters)
+            if additional_data_storage:
+                parameters = convert_data_to_use_additional_storage(parameters, additional_data_storage)
             request_id = add_request(**parameters)
         except exceptions.DuplicatedObject as error:
             return self.generate_http_response(HTTP_STATUS_CODE.Conflict, exc_cls=error.__class__.__name__, exc_msg=error)

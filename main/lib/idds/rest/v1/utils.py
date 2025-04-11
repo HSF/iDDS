@@ -6,9 +6,10 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2020
+# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2025
 
 import copy
+import os
 
 from idds.common.constants import RequestType, RequestStatus
 from idds.common.utils import is_new_version
@@ -174,3 +175,21 @@ def convert_old_request_metadata(req):
         req['request_metadata'] = wf
         return req
     return req
+
+
+def convert_data_to_use_additional_storage(data, additional_data_storage):
+    if not data:
+        return data
+
+    if ('request_metadata' in data and isinstance(data['request_metadata'], dict) and data['request_metadata'].get('workflow')):
+        workflow = data['request_metadata']['workflow']
+        internal_id = workflow.internal_id
+        storage = os.path.join(additional_data_storage, internal_id)
+        if not os.path.exists(storage):
+            os.makedirs(storage, exist_ok=True)
+
+        data['additional_data_storage'] = storage
+        workflow.set_additional_data_storage(storage)
+        workflow.convert_data_to_additional_data_storage(storage)
+        data['request_metadata']['workflow'] = workflow
+    return data
