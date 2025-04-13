@@ -44,7 +44,7 @@ class DomaPanDAWork(Work):
                  input_collections=None,
                  primary_output_collection=None, other_output_collections=None,
                  output_collections=None, log_collections=None,
-                 logger=None, dependency_map=None, task_name="",
+                 logger=None, dependency_map={}, task_name="",
                  task_queue=None, queue=None, processing_type=None,
                  prodSourceLabel='test', task_type='lsst',
                  maxwalltime=90000, maxattempt=5, core_count=1,
@@ -209,9 +209,13 @@ class DomaPanDAWork(Work):
         else:
             data = self._dependency_map
 
-        if 'idds_dependency_map_file' in data and data['idds_dependency_map_file']:
+        if data is None:
+            data = {}
+
+        if data and 'idds_dependency_map_file' in data and data['idds_dependency_map_file']:
             with open(data['idds_dependency_map_file'], 'r') as fd:
                 data = json.load(fd)
+                data = self.unzip_data(data)
 
         num_inputs, num_dependencies = self.count_dependencies(data)
         self.num_inputs = num_inputs
