@@ -20,7 +20,7 @@ from flask import Flask, Response
 from idds.common import exceptions
 # from idds.common.authentication import authenticate_x509, authenticate_oidc, authenticate_is_super_user
 from idds.common.constants import HTTP_STATUS_CODE
-from idds.common.utils import get_rest_debug
+from idds.common.utils import get_rest_debug, setup_logging
 # from idds.common.utils import get_rest_debug, setup_logging, get_logger
 from idds.core.authentication import authenticate_x509, authenticate_oidc, authenticate_is_super_user
 # from idds.common.utils import get_rest_url_prefix
@@ -156,7 +156,7 @@ def after_request(response):
 
 def create_app(auth_type=None):
 
-    # setup_logging(name='idds_app', log_file="idds_rest.log")
+    setup_logging(name='idds_app', log_file="idds_rest.log")
     # get_logger(name='idds_app', filename='idds_rest.log')
 
     # url_prefix = get_rest_url_prefix()

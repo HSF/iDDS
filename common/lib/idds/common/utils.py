@@ -138,7 +138,7 @@ def get_logger(name, filename=None, loglevel=None):
 
     formatter = logging.Formatter('%(asctime)s\t%(threadName)s\t%(name)s\t%(levelname)s\t%(message)s')
 
-    handler = logging.FileHandler(filename)
+    handler = logging.handlers.RotatingFileHandler(filename)
     handler.setFormatter(formatter)
     logger = logging.getLogger(name)
     logger.setLevel(loglevel)
