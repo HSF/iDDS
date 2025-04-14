@@ -27,7 +27,7 @@ class DictClass(object):
         self._zip_items = []
         self._not_auto_unzip_items = []
 
-    def zip_data(self, data):
+    def zip_data(self, data, name=None):
         try:
             if type(data) in [str] and data.startswith("idds_zip:"):
                 # already zipped
@@ -149,7 +149,7 @@ class DictClass(object):
                 if key in ['logger']:
                     new_value = None
                 elif hasattr(self, 'should_zip') and self.should_zip(key):
-                    new_value = self.zip_data(value)
+                    new_value = self.zip_data(value, name=key)
                 else:
                     new_value = self.to_dict_l(value)
                 ret['attributes'][key] = new_value

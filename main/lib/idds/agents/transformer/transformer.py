@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2024
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2025
 
 import copy
 import datetime
@@ -629,7 +629,24 @@ class Transformer(BaseAgent):
         """
         try:
             log_pre = self.get_log_prefix(transform)
-            ret = self.handle_new_transform_real(transform)
+            work = transform['transform_metadata']['work']
+            pre_works_are_ok = True
+            if work.parent_internal_id is not None:
+                tfs = core_transforms.get_transforms(request_id=transform['request_id'], internal_ids=[work.parent_internal_id])
+                if not tfs:
+                    pre_works_are_ok = False
+                else:
+                    for tf in tfs:
+                        if not tf['workload_id']:
+                            pre_works_are_ok = False
+            if pre_works_are_ok:
+                ret = self.handle_new_transform_real(transform)
+            else:
+                # not update the status
+                transform_parameters = {'locking': TransformLocking.Idle}
+                ret = {'transform': transform,
+                       'transform_parameters': transform_parameters,
+                       }
             self.logger.info(log_pre + "handle_new_transform result: %s" % str(ret))
         except Exception as ex:
             self.logger.error(ex)

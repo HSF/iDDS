@@ -33,6 +33,7 @@ def create_transform(request_id, workload_id, transform_type, transform_tag=None
                      new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
                      parent_transform_id=None, previous_transform_id=None, current_processing_id=None,
                      internal_id=None, has_previous_conditions=None, loop_index=None,
+                     parent_internal_id=None,
                      cloned_from=None, triggered_conditions=None, untriggered_conditions=None,
                      site=None, retries=0, expired_at=None, transform_metadata=None):
     """
@@ -61,6 +62,7 @@ def create_transform(request_id, workload_id, transform_type, transform_tag=None
                                      previous_transform_id=previous_transform_id,
                                      current_processing_id=current_processing_id,
                                      internal_id=internal_id, site=site,
+                                     parent_internal_id=parent_internal_id,
                                      has_previous_conditions=has_previous_conditions,
                                      loop_index=loop_index, cloned_from=cloned_from,
                                      triggered_conditions=triggered_conditions,
@@ -82,6 +84,7 @@ def add_transform(request_id, workload_id, transform_type, transform_tag=None, p
                   new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
                   parent_transform_id=None, previous_transform_id=None, current_processing_id=None,
                   internal_id=None, has_previous_conditions=None, loop_index=None,
+                  parent_internal_id=None,
                   cloned_from=None, triggered_conditions=None, untriggered_conditions=None,
                   transform_metadata=None, workprogress_id=None, site=None, session=None):
     """
@@ -116,6 +119,7 @@ def add_transform(request_id, workload_id, transform_type, transform_tag=None, p
                                          previous_transform_id=previous_transform_id,
                                          current_processing_id=current_processing_id,
                                          internal_id=internal_id, site=site,
+                                         parent_internal_id=parent_internal_id,
                                          has_previous_conditions=has_previous_conditions,
                                          loop_index=loop_index, cloned_from=cloned_from,
                                          triggered_conditions=triggered_conditions,
@@ -386,7 +390,7 @@ def get_transforms(request_id=None, workload_id=None, transform_id=None, loop_in
                 internal_ids = [internal_ids]
             if len(internal_ids) == 1:
                 internal_ids = [internal_ids[0], internal_ids[0]]
-            query = query.filter(models.Transform.internal_ids.in_(internal_ids))
+            query = query.filter(models.Transform.internal_id.in_(internal_ids))
 
         tmp = query.all()
         rets = []

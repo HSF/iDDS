@@ -34,6 +34,7 @@ class Sections:
     Cache = 'cache'
     Archiver = 'archiver'
     Coordinator = 'coordinator'
+    Rest = 'rest'
 
 
 class HTTP_STATUS_CODE:
@@ -165,6 +166,11 @@ class RequestGroupLocking(IDDSEnum):
 class RequestGroupType(IDDSEnum):
     Workflow = 0
     Other = 99
+
+
+class RequestAdditionalDataStorage(IDDSEnum):
+    Default = 0
+    OnDisk = 1
 
 
 class RequestStatus(IDDSEnum):
