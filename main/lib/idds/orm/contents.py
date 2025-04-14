@@ -546,11 +546,13 @@ def custom_bulk_insert_mappings_real(model, parameters, session=None):
             sql = f"""
                INSERT INTO {table_name} (content_id, {column_key_sql})
                VALUES (nextval('{sequence_name}'), {column_value_sql})
+               ON CONFLICT DO NOTHING
             """
         else:
             sql = f"""
                INSERT INTO {table_name} ({column_key_sql})
                VALUES ({column_value_sql})
+               ON CONFLICT DO NOTHING
             """
 
         stmt = sqlalchemy.text(sql)
@@ -570,11 +572,15 @@ def custom_bulk_insert_mappings(model, parameters, batch_size=1000, session=None
     if not parameters:
         return
 
+    dialect = session.bind.dialect.name
+
     for i in range(0, len(parameters), batch_size):
         batch = parameters[i: i + batch_size]
-        # session.bulk_insert_mappings(model, batch)
-        # session.flush()
-        custom_bulk_insert_mappings_real(model=model, parameters=batch, session=session)
+        if dialect == 'postgresql':
+            custom_bulk_insert_mappings_real(model=model, parameters=batch, session=session)
+        else:
+            session.bulk_insert_mappings(model, batch)
+            session.flush()
 
     session.commit()
 
