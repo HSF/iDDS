@@ -390,7 +390,7 @@ def get_transforms(request_id=None, workload_id=None, transform_id=None, loop_in
                 internal_ids = [internal_ids]
             if len(internal_ids) == 1:
                 internal_ids = [internal_ids[0], internal_ids[0]]
-            query = query.filter(models.Transform.internal_ids.in_(internal_ids))
+            query = query.filter(models.Transform.internal_id.in_(internal_ids))
 
         tmp = query.all()
         rets = []
