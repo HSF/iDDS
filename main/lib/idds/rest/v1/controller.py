@@ -32,6 +32,11 @@ class IDDSController(MethodView):
             self.logger = get_logger(name=self.get_class_name(), filename='idds_rest.log')
         return self.logger
 
+    def get_logger(self):
+        if hasattr(self, 'logger') and self.logger:
+            return self.logger
+        return self.setup_logger()
+
     def post(self):
         """ Not supported. """
         return Response(status=HTTP_STATUS_CODE.BadRequest, content_type='application/json')()

@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2024
+# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2025
 # - Sergey Padolski, <spadolski@bnl.gov>, 2020
 
 
@@ -44,7 +44,7 @@ class DomaPanDAWork(Work):
                  input_collections=None,
                  primary_output_collection=None, other_output_collections=None,
                  output_collections=None, log_collections=None,
-                 logger=None, dependency_map=None, task_name="",
+                 logger=None, dependency_map={}, task_name="",
                  task_queue=None, queue=None, processing_type=None,
                  prodSourceLabel='test', task_type='lsst',
                  maxwalltime=90000, maxattempt=5, core_count=1,
@@ -146,6 +146,9 @@ class DomaPanDAWork(Work):
         self.additional_task_parameters = {}
         self.additional_task_parameters_per_site = {}
 
+        self.max_dependency_map_length = 10000000
+        self.dependency_map_dir = '/tmp/idds'
+
         self.core_to_queues = {}
 
         self.zip_items = ['_dependency_map']
@@ -203,15 +206,31 @@ class DomaPanDAWork(Work):
     def dependency_map(self):
         if self.should_unzip('_dependency_map'):
             data = self.unzip_data(self._dependency_map)
-            num_inputs, num_dependencies = self.count_dependencies(data)
-            self.num_inputs = num_inputs
-            self.num_dependencies = num_dependencies
-            return data
+        else:
+            data = self._dependency_map
 
-        num_inputs, num_dependencies = self.count_dependencies(self._dependency_map)
+        if data is None:
+            data = {}
+
+        if data and 'idds_dependency_map_file' in data and data['idds_dependency_map_file']:
+            with open(data['idds_dependency_map_file'], 'r') as fd:
+                data = json.load(fd)
+                data = self.unzip_data(data)
+
+        num_inputs, num_dependencies = self.count_dependencies(data)
         self.num_inputs = num_inputs
         self.num_dependencies = num_dependencies
-        return self._dependency_map
+        return data
+
+    def convert_data_to_additional_data_storage(self, storage):
+        dependency_map_file = os.path.join(storage, self.get_work_name())
+        with open(dependency_map_file, 'w') as fd:
+            json.dump(self._dependency_map, fd)
+            new_dependency_map = {'idds_dependency_map_file': dependency_map_file}
+            self._dependency_map = new_dependency_map
+
+        if '_dependency_map' in self.zip_items:
+            self.zip_items.remove('_dependency_map')
 
     @dependency_map.setter
     def dependency_map(self, value):
@@ -426,6 +445,19 @@ class DomaPanDAWork(Work):
                 self.core_to_queues = self.agent_attributes['core_to_queues']
             except Exception as ex:
                 self.logger.warn(f"Failed to set core_to_queues: {ex}")
+
+        if 'max_dependency_map_length' in self.agent_attributes and self.agent_attributes['max_dependency_map_length']:
+            try:
+                self.agent_attributes['max_dependency_map_length'] = int(self.agent_attributes['max_dependency_map_length'])
+                self.max_dependency_map_length = self.agent_attributes['max_dependency_map_length']
+            except Exception as ex:
+                self.logger.warn(f"Failed to set max_dependency_map_length: {ex}")
+
+        if 'dependency_map_dir' in self.agent_attributes and self.agent_attributes['dependency_map_dir']:
+            try:
+                self.dependency_map_dir = self.agent_attributes['dependency_map_dir']
+            except Exception as ex:
+                self.logger.warn(f"Failed to set dependency_map_dir: {ex}")
 
     def depend_on(self, work):
         self.logger.debug("checking depending on")

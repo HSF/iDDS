@@ -696,6 +696,8 @@ class WorkflowBase(Base):
 
         self.synchronized = False
 
+        self.additional_data_storage = None
+
         """
         self._running_data_names = []
         for name in ['internal_id', 'template_work_id', 'workload_id', 'work_sequence', 'terminated_works',
@@ -1130,6 +1132,9 @@ class WorkflowBase(Base):
     def to_cancel(self, value):
         self.add_metadata_item('to_cancel', value)
 
+    def set_additional_data_storage(self, storage):
+        self.additional_data_storage = storage
+
     def refresh(self):
         self.refresh_works()
 
@@ -1310,6 +1315,12 @@ class WorkflowBase(Base):
     def add_build_work(self, work, initial=False, primary=False):
         self.build_work = work
         self.build_work.set_build_work()
+
+    def convert_data_to_additional_data_storage(self, storage):
+        for work_id in self.works.keys():
+            work = self.works[work_id]
+            work.convert_data_to_additional_data_storage(storage)
+            self.works[work_id] = work
 
     def get_build_work(self):
         return self.build_work
@@ -1513,8 +1524,11 @@ class WorkflowBase(Base):
             init_works = self.init_works
             starting_works = []
             for work_id in to_start_works:
-                if not self.works[work_id].has_dependency():
-                    starting_works.append(work_id)
+                # here release all works, then
+                # let the transformer check the parent_internal_id
+                # if not self.works[work_id].has_dependency():
+                #     starting_works.append(work_id)
+                starting_works.append(work_id)
             if not starting_works:
                 work_id = to_start_works.pop(0)
                 starting_works.append(work_id)
@@ -1672,6 +1686,13 @@ class WorkflowBase(Base):
                 break
         self.log_debug('independent_works: %s' % str(self.independent_works))
         self.log_debug("ordered independent works")
+
+        pre_work = None
+        for work_id in self.independent_works:
+            work = self.works[work_id]
+            if pre_work is not None:
+                work.parent_internal_id = pre_work.internal_id
+            pre_work = work
 
     def first_initialize(self):
         # set new_to_run works
@@ -2120,6 +2141,12 @@ class Workflow(Base):
 
     def get_template_id(self):
         return self.template.get_template_id()
+
+    def set_additional_data_storage(self, storage):
+        self.template.set_additional_data_storage(storage)
+
+    def convert_data_to_additional_data_storage(self, storage):
+        self.template.convert_data_to_additional_data_storage(storage)
 
     @property
     def metadata(self):

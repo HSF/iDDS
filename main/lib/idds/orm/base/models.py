@@ -207,6 +207,7 @@ class Request(BASE, ModelBase):
     max_update_retries = Column(Integer(), default=0)
     new_poll_period = Column(Interval(), default=datetime.timedelta(seconds=1))
     update_poll_period = Column(Interval(), default=datetime.timedelta(seconds=10))
+    additional_data_storage = Column(String(512))
     site = Column(String(50))
     locking_hostname = Column(String(50))
     locking_pid = Column(BigInteger, autoincrement=False)
@@ -354,6 +355,7 @@ class Transform(BASE, ModelBase):
     oldstatus = Column(EnumWithValue(TransformStatus), default=0)
     locking = Column(EnumWithValue(TransformLocking), nullable=False)
     retries = Column(Integer(), default=0)
+    parent_internal_id = Column(String(20))
     parent_transform_id = Column(BigInteger())
     previous_transform_id = Column(BigInteger())
     current_processing_id = Column(BigInteger())
@@ -661,7 +663,8 @@ class Content(BASE, ModelBase):
                       Index('CONTENTS_DEP_IDX', 'request_id', 'transform_id', 'content_dep_id'),
                       Index('CONTENTS_REL_IDX', 'request_id', 'content_relation_type', 'transform_id', 'substatus'),
                       Index('CONTENTS_TF_IDX', 'transform_id', 'request_id', 'coll_id', 'map_id', 'content_relation_type'),
-                      Index('CONTENTS_REQ_TF_COLL_IDX', 'request_id', 'transform_id', 'workload_id', 'coll_id', 'content_relation_type', 'status', 'substatus'))
+                      Index('CONTENTS_REQ_TF_COLL_IDX', 'request_id', 'transform_id', 'workload_id', 'coll_id', 'content_relation_type', 'status', 'substatus'),
+                      Index('CONTENTS_REQ_TF_DEP_ID', 'content_dep_id', 'request_id', 'transform_id'))
 
 
 class Content_update(BASE, ModelBase):

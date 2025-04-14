@@ -634,6 +634,14 @@ class Work(Base):
         self.add_metadata_item('internal_id', value)
 
     @property
+    def parent_internal_id(self):
+        return self.get_metadata_item('parent_internal_id')
+
+    @parent_internal_id.setter
+    def parent_internal_id(self, value):
+        self.add_metadata_item('parent_internal_id', value)
+
+    @property
     def template_work_id(self):
         return self.get_metadata_item('template_work_id')
 
@@ -1391,6 +1399,9 @@ class Work(Base):
 
     def get_arguments(self):
         return self.arguments
+
+    def convert_data_to_additional_data_storage(self, storage):
+        pass
 
     def get_ancestry_works(self):
         return []
