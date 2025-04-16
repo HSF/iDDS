@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2024
+# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2025
 
 
 """
@@ -530,6 +530,8 @@ class ClientManager:
             'transform_tag': transform_tag,
             'priority': work.priority,
             'retries': 0,
+            'internal_id': work.internal_id,
+            'parent_internal_id': work.get_parent_internal_id(),
             'parent_transform_id': None,
             'previous_transform_id': None,
             # 'site': work.site,

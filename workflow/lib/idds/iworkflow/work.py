@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2023 - 2024
+# - Wen Guan, <wen.guan@cern.ch>, 2023 - 2025
 # - Lino Oscar Gerlach, <lino.oscar.gerlach@cern.ch>, 2024
 
 import base64
@@ -55,6 +55,12 @@ class WorkContext(Context):
 
         self.init_env = init_env
         self.container_options = container_options
+
+        self._workload_id = None
+        self._parent_workload_id = None
+        self._no_wait_parent = None
+
+        self._other_attributes = {}
 
     def get_service(self):
         return self._workflow_context.service
@@ -222,6 +228,30 @@ class WorkContext(Context):
         self._workload_id = value
 
     @property
+    def parent_workload_id(self):
+        return self._parent_workload_id
+
+    @parent_workload_id.setter
+    def parent_workload_id(self, value):
+        self._parent_workload_id = value
+
+    @property
+    def no_wait_parent(self):
+        return self._no_wait_parent
+
+    @no_wait_parent.setter
+    def no_wait_parent(self, value):
+        self._no_wait_parent = value
+
+    @property
+    def other_attributes(self):
+        return self._other_attributes
+
+    @other_attributes.setter
+    def other_attributes(self, value):
+        self._other_attributes = value
+
+    @property
     def transform_id(self):
         return self._transform_id
 
@@ -368,7 +398,8 @@ class Work(Base):
 
     def __init__(self, func=None, workflow_context=None, context=None, pre_kwargs=None, args=None, kwargs=None, multi_jobs_kwargs_list=None,
                  current_job_kwargs=None, map_results=False, source_dir=None, init_env=None, is_unique_func_name=False, name=None,
-                 container_options=None):
+                 parent_workload_id=None, no_wait_parent=False, container_options=None, input_dataset_name=None, output_file_name=None,
+                 output_dataset_name=None, num_events=None, num_events_per_job=None, parent_transform_id=None, parent_internal_id=None):
         """
         Init a workflow.
         """
@@ -406,7 +437,16 @@ class Work(Base):
         self._async_result_initialized = False
         self._async_result_status = None
 
-        self._other_attributes = {}
+        self.parent_workload_id = parent_workload_id
+        self.no_wait_parent = no_wait_parent
+
+        self.other_attributes = {'input_dataset_name': input_dataset_name,
+                                 'output_file_name': output_file_name,
+                                 'output_dataset_name': output_dataset_name,
+                                 'num_events': num_events,
+                                 'num_events_per_job': num_events_per_job,
+                                 'parent_transform_id': parent_transform_id,
+                                 'parent_internal_id': parent_internal_id}
 
     @property
     def logger(self):
@@ -595,6 +635,25 @@ class Work(Base):
         return self.workload_id
 
     @property
+    def parent_workload_id(self):
+        return self._context.parent_workload_id
+
+    @parent_workload_id.setter
+    def parent_workload_id(self, value):
+        self._context.parent_workload_id = value
+
+    def get_parent_workload_id(self):
+        return self.parent_workload_id
+
+    @property
+    def no_wait_parent(self):
+        return self._context.no_wait_parent
+
+    @no_wait_parent.setter
+    def no_wait_parent(self, value):
+        self._context.no_wait_parent = value
+
+    @property
     def enable_separate_log(self):
         return self._context.enable_separate_log
 
@@ -609,6 +668,14 @@ class Work(Base):
     @container_options.setter
     def container_options(self, value):
         self._context.container_options = value
+
+    @property
+    def other_attributes(self):
+        return self._context.other_attributes
+
+    @other_attributes.setter
+    def other_attributes(self, value):
+        self._context.other_attributes = value
 
     @property
     def token(self):
@@ -638,6 +705,30 @@ class Work(Base):
     def add_other_attributes(self, other_attributes):
         for k, v in other_attributes.items():
             self._other_attributes[k] = v
+        self.other_attributes = self._other_attributes
+
+    def get_parent_transform_id(self):
+        if not self.other_attributes:
+            return None
+        return self.other_attributes.get("parent_transform_id", None)
+
+    @property
+    def parent_internal_id(self):
+        return self.get_parent_internal_id()
+
+    @parent_internal_id.setter
+    def parent_internal_id(self, value):
+        self.set_parent_internal_id(value)
+
+    def set_parent_internal_id(self, value):
+        if self.other_attributes is None:
+            self.other_attributes = {}
+        self.other_attributes["parent_internal_id"] = value
+
+    def get_parent_internal_id(self):
+        if not self.other_attributes:
+            return None
+        return self.other_attributes.get("parent_internal_id", None)
 
     def to_dict(self):
         func = self._func
@@ -1164,10 +1255,14 @@ def run_work_distributed(w):
 
 # foo = work(arg)(foo)
 def work(func=None, *, workflow=None, pre_kwargs={}, name=None, return_work=False, map_results=False, lazy=False, init_env=None, no_wraps=False,
-         container_options=None):
+         container_options=None, parent_workload_id=None, no_wait_parent=False, input_dataset_name=None, output_file_name=None,
+         output_dataset_name=None, num_events=None, num_events_per_job=None, parent_transform_id=None, parent_internal_id=None):
     if func is None:
         return functools.partial(work, workflow=workflow, pre_kwargs=pre_kwargs, return_work=return_work, no_wraps=no_wraps,
-                                 name=name, map_results=map_results, lazy=lazy, init_env=init_env, container_options=container_options)
+                                 name=name, map_results=map_results, lazy=lazy, init_env=init_env, container_options=container_options,
+                                 parent_workload_id=parent_workload_id, no_wait_parent=no_wait_parent, parent_transform_id=parent_transform_id,
+                                 input_dataset_name=input_dataset_name, output_file_name=output_file_name, output_dataset_name=output_dataset_name,
+                                 num_events=num_events, num_events_per_job=num_events_per_job, parent_internal_id=parent_internal_id)
 
     if 'IDDS_IGNORE_WORK_DECORATOR' in os.environ:
         return func
@@ -1185,7 +1280,10 @@ def work(func=None, *, workflow=None, pre_kwargs={}, name=None, return_work=Fals
                 logging.debug("setup work")
                 w = Work(workflow_context=workflow_context, func=func, pre_kwargs=pre_kwargs, args=args, kwargs=kwargs,
                          name=name, multi_jobs_kwargs_list=multi_jobs_kwargs_list, map_results=map_results, init_env=init_env,
-                         container_options=container_options)
+                         container_options=container_options, parent_workload_id=parent_workload_id, no_wait_parent=no_wait_parent,
+                         parent_transform_id=parent_transform_id, input_dataset_name=input_dataset_name, output_file_name=output_file_name,
+                         output_dataset_name=output_dataset_name, num_events=num_events, num_events_per_job=num_events_per_job,
+                         parent_internal_id=parent_internal_id)
                 # if distributed:
 
                 if return_work:
