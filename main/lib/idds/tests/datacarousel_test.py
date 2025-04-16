@@ -59,7 +59,7 @@ def create_rule(scope, name, rucio_client, src_rse, dest_rse, account='ddmadmin'
 
 
 # max_waiting_time is used for idds to create new rules
-def get_req_properties():
+def get_req_properties_old():
     req_properties = {
         'scope': 'data16_13TeV',
         'name': 'data16_13TeV.00298862.physics_Main.daq.RAW',
@@ -70,6 +70,21 @@ def get_req_properties():
         'priority': 0,
         'lifetime': 30,
         'request_metadata': {'workload_id': '20776840', 'max_waiting_time': 3600, 'src_rse': 'NDGF-T1_DATATAPE', 'dest_rse': 'NDGF-T1_DATADISK', 'rule_id': '236e4bf87e11490291e3259b14724e30'}
+    }
+    return req_properties
+
+
+def get_req_properties():
+    req_properties = {
+        'scope': 'data15_13TeV',
+        'name': 'data15_13TeV.00284484.physics_Main.merge.DRAW_EGZ.f644_m1453',
+        'requester': 'panda',
+        'request_type': RequestType.StageIn,
+        'transform_tag': 'prodsys2',
+        'status': RequestStatus.New,
+        'priority': 0,
+        'lifetime': 30,
+        'request_metadata': {'workload_id': '44158478', 'max_waiting_time': 3600, 'src_rse': 'BNL-OSG2_DATADISK', 'dest_rse': 'BNL-OSG2_DATADISK', 'rule_id': 'fd30d4b9e9744242a06f725bf40fc890'}
     }
     return req_properties
 
@@ -91,10 +106,10 @@ props = get_req_properties()
 # props = get_example_prodsys2_tape_stagein_request()
 # props = get_example_active_learning_request()
 
-props = pre_check(props)
+# props = pre_check(props)
 print(props)
 
-client = Client(host=host)
+client = Client(host=host, client_proxy='/tmp/x509up_u23959')
 
 request_id = client.add_request(**props)
 print(request_id)
