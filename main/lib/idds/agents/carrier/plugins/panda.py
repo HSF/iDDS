@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2024
+# - Wen Guan, <wen.guan@cern.ch>, 2024 - 2025
 
 
 try:
@@ -90,7 +90,11 @@ class PandaSubmitterPoller(BaseSubmitterPoller):
 
         task_params = self.get_task_params(work)
         try:
-            return_code = Client.insertTaskParams(task_params, verbose=True)
+            parent_tid = None
+            logger.info("parent_workload_id: %s" % work.parent_workload_id)
+            if work.parent_workload_id:
+                parent_tid = work.parent_workload_id
+            return_code = Client.insertTaskParams(task_params, verbose=True, parent_tid=parent_tid)
             if return_code[0] == 0 and return_code[1][0] is True:
                 try:
                     task_id = int(return_code[1][1])

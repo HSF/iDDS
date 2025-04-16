@@ -6,10 +6,11 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2024
+# - Wen Guan, <wen.guan@cern.ch>, 2024 - 2025
 
 import logging
 import json
+import re
 
 from idds.common.constants import WorkflowType
 from idds.common.utils import encode_base64, setup_logging
@@ -47,6 +48,9 @@ class BaseSubmitter(object):
         if work.cloud and len(work.cloud) > 0:
             task_param_map['cloud'] = work.cloud
 
+        if work.no_wait_parent:
+            task_param_map['noWaitParent'] = work.no_wait_parent
+
         task_param_map['workingGroup'] = work.working_group
 
         task_param_map['nFilesPerJob'] = 1
@@ -83,7 +87,7 @@ class BaseSubmitter(object):
         task_param_map['processingType'] = None
         task_param_map['prodSourceLabel'] = 'managed'   # managed, test, ptest
 
-        task_param_map['noWaitParent'] = True
+        # task_param_map['noWaitParent'] = True
         task_param_map['taskType'] = 'iDDS'
         task_param_map['coreCount'] = work.core_count
         task_param_map['skipScout'] = True
@@ -103,20 +107,69 @@ class BaseSubmitter(object):
         if task_param_map['maxFailure'] < work.max_attempt:
             task_param_map['maxFailure'] = work.max_attempt
 
+        if work.num_events:
+            task_param_map['nEvents'] = work.num_events
+            if work.num_events_per_job:
+                task_param_map['nEventsPerJob'] = work.num_events_per_job
+            else:
+                task_param_map['nEventsPerJob'] = work.num_events
+
+        if work.output_dataset_name:
+            if not work.output_dataset_name.endswith("/"):
+                work.output_dataset_name = work.output_dataset_name + "/"
+
         if work.enable_separate_log:
+            if work.output_dataset_name:
+                log_dataset_name = re.sub('/$', '.log/', work.output_dataset_name)
+            else:
+                log_dataset_name = "PandaJob_iworkflow/"   # "PandaJob_#{pandaid}/"
+
             logging.debug(f"BaseSubmitter enable_separate_log: {work.enable_separate_log}")
-            task_param_map['log'] = {"dataset": "PandaJob_iworkflow/",   # "PandaJob_#{pandaid}/"
+            task_param_map['log'] = {"dataset": log_dataset_name,
                                      "destination": "local",
                                      "param_type": "log",
                                      "token": "local",
                                      "type": "template",
-                                     "value": "log.tgz"}
-
+                                     # "value": "log.tgz"}
+                                     'value': '{0}.$JEDITASKID.${{SN}}.log.tgz'.format(log_dataset_name[:-1])
+                                     }
         task_param_map['jobParameters'] = [
             {'type': 'constant',
              'value': executable,  # noqa: E501
              },
         ]
+
+        if work.input_dataset_name:
+            tmp_dict = {
+                "type": "template",
+                "param_type": "input",
+                "value": '-i "${IN/T}"',
+                "dataset": work.input_dataset_name,
+                "exclude": "\.log\.tgz(\.\d+)*$"          # noqa W605
+            }
+            task_param_map['jobParameters'].append(tmp_dict)
+            task_param_map['dsForIN'] = work.input_dataset_name
+
+        if work.output_dataset_name and work.output_file_name:
+            tmp_dict = {"dataset": work.output_dataset_name,
+                        "container": work.output_dataset_name,
+                        "destination": "local",
+                        "param_type": "output",
+                        "token": "local",
+                        "type": "template",
+                        # "value": "log.tgz"}
+                        "value": work.output_file_name
+                        }
+
+            task_param_map['jobParameters'].append(tmp_dict)
+
+            output_map = {work.output_file_name: f"{work.output_dataset_name[:-1]}.$JEDITASKID._${{SN/P}}.{work.output_file_name}"}
+            task_param_map["jobParameters"] += [
+                {
+                    "type": "constant",
+                    "value": '-o "{0}"'.format(str(output_map)),
+                },
+            ]
 
         task_param_map['reqID'] = work.request_id
 

@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2024
+# - Wen Guan, <wen.guan@cern.ch>, 2024 - 2025
 
 
 from traceback import format_exc
@@ -35,6 +35,7 @@ class Transform(IDDSController):
             500 Internal Error
         """
         try:
+            logger = self.get_logger()
             parameters = self.get_request().data and json_loads(self.get_request().data)
             if 'status' not in parameters:
                 parameters['status'] = RequestStatus.New
@@ -74,8 +75,8 @@ class Transform(IDDSController):
         except exceptions.IDDSException as error:
             return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=error.__class__.__name__, exc_msg=error)
         except Exception as error:
-            print(error)
-            print(format_exc())
+            logger.error(error)
+            logger.error(format_exc())
             return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
 
         return self.generate_http_response(HTTP_STATUS_CODE.OK, data={'transform_id': transform_id})
