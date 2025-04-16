@@ -168,6 +168,8 @@ ADD main/tools/syslog-ng/http.conf /etc/syslog-ng/conf.d/
 
 RUN chown atlpan -R /etc/grid-security/certificates
 
+RUN mkdir -p /data/idds_requests
+RUN chmod 777 /data/idds_requests
 RUN chmod -R 777 /opt/idds/config
 RUN chmod -R 777 /var/log/idds
 RUN chmod -R 777 /var/idds
@@ -190,6 +192,7 @@ RUN ln -s /opt/idds/etc/idds/rest/ssl.conf /etc/httpd/conf.d/ssl.conf
 
 VOLUME /var/log/idds
 VOLUME /opt/idds/config
+VOLUME /data/idds_requests
 
 ENTRYPOINT ["start-daemon.sh"]
 

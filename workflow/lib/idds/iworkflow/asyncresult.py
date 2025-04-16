@@ -388,8 +388,6 @@ class AsyncResult(Base):
             if self._wait_num == 1:
                 if rets:
                     return rets[0]
-                else:
-                    return None
             return rets
 
     @results.setter
