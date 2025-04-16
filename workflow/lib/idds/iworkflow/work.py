@@ -712,23 +712,74 @@ class Work(Base):
             return None
         return self.other_attributes.get("parent_transform_id", None)
 
+    def set_other_attribute(self, name, value):
+        if self.other_attributes is None:
+            self.other_attributes = {}
+        self.other_attributes[name] = value
+
+    def get_other_attribute(self, name):
+        if not self.other_attributes:
+            return None
+        return self.other_attributes.get(name, None)
+
     @property
     def parent_internal_id(self):
-        return self.get_parent_internal_id()
+        return self.get_other_attribute('parent_internal_id')
 
     @parent_internal_id.setter
     def parent_internal_id(self, value):
-        self.set_parent_internal_id(value)
-
-    def set_parent_internal_id(self, value):
-        if self.other_attributes is None:
-            self.other_attributes = {}
-        self.other_attributes["parent_internal_id"] = value
+        self.set_other_attribute('parent_internal_id', value)
 
     def get_parent_internal_id(self):
-        if not self.other_attributes:
-            return None
-        return self.other_attributes.get("parent_internal_id", None)
+        return self.get_other_attribute('parent_internal_id')
+
+    @property
+    def input_dataset_name(self):
+        return self.get_other_attribute('input_dataset_name')
+
+    @input_dataset_name.setter
+    def input_dataset_name(self, value):
+        self.set_other_attribute('input_dataset_name', value)
+
+    @property
+    def output_file_name(self):
+        return self.get_other_attribute('output_file_name')
+
+    @output_file_name.setter
+    def output_file_name(self, value):
+        self.set_other_attribute('output_file_name', value)
+
+    @property
+    def output_dataset_name(self):
+        return self.get_other_attribute('output_dataset_name')
+
+    @output_dataset_name.setter
+    def output_dataset_name(self, value):
+        self.set_other_attribute('output_dataset_name', value)
+
+    @property
+    def num_events(self):
+        return self.get_other_attribute('num_events')
+
+    @num_events.setter
+    def num_events(self, value):
+        self.set_other_attribute('num_events', value)
+
+    @property
+    def num_events_per_job(self):
+        return self.get_other_attribute('num_events_per_job')
+
+    @num_events_per_job.setter
+    def num_events_per_job(self, value):
+        self.set_other_attribute('num_events_per_job', value)
+
+    @property
+    def parent_transform_id(self):
+        return self.get_other_attribute('parent_transform_id')
+
+    @parent_transform_id.setter
+    def parent_transform_id(self, value):
+        self.set_other_attribute('parent_transform_id', value)
 
     def to_dict(self):
         func = self._func
@@ -981,7 +1032,8 @@ class Work(Base):
                 self._async_ret = AsyncResult(self._context, name=self.get_func_name(), multi_jobs_kwargs_list=multi_jobs_kwargs_list,
                                               map_results=self.map_results, internal_id=self.internal_id)
             else:
-                self._async_ret = AsyncResult(self._context, name=self.get_func_name(), wait_num=1, internal_id=self.internal_id)
+                self._async_ret = AsyncResult(self._context, name=self.get_func_name(), wait_num=1, internal_id=self.internal_id,
+                                              map_results=self.map_results)
 
             self._async_result_initialized = True
             self._async_result_status = AsyncResultStatus.Running
