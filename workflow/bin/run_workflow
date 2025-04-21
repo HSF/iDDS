@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2024
+# - Wen Guan, <wen.guan@cern.ch>, 2024 - 2025
 
 
 """
@@ -71,7 +71,17 @@ def get_context_args(context, original_args, current_job_kwargs):
     return context, func_name, pre_kwargs, args, kwargs, multi_jobs_kwargs_list, current_job_kwargs
 
 
-def run_workflow(name, context, original_args, current_job_kwargs):
+def map_output_files(output_map):
+    if output_map:
+        for org_file, mapped_file in output_map:
+            if os.path.exists(org_file):
+                os.symlink(org_file, mapped_file)
+                logging.info(f"link {org_file} to {mapped_file}")
+            else:
+                logging.info(f"cannot link {org_file} to {mapped_file}, because it doesn't exist")
+
+
+def run_workflow(name, context, original_args, current_job_kwargs, output_map):
     context, func_name, pre_kwargs, args, kwargs, multi_jobs_kwargs_list, current_job_kwargs = get_context_args(context, original_args, current_job_kwargs)
     logging.info("name: %s" % name)
     logging.info("context: %s" % context)
@@ -81,6 +91,7 @@ def run_workflow(name, context, original_args, current_job_kwargs):
     logging.info("kwargs: %s" % kwargs)
     logging.info("multi_jobs_kwargs_list: %s" % str(multi_jobs_kwargs_list))
     logging.info("current_job_kwargs: %s" % str(current_job_kwargs))
+    logging.info(f"output_map: {output_map}")
 
     context.initialize()
     context.setup_source_files()
@@ -96,7 +107,7 @@ def run_workflow(name, context, original_args, current_job_kwargs):
     return 0
 
 
-def run_work(name, context, original_args, current_job_kwargs):
+def run_work(name, context, original_args, current_job_kwargs, output_map):
     context, func_name, pre_kwargs, args, kwargs, multi_jobs_kwargs_list, current_job_kwargs = get_context_args(context, original_args, current_job_kwargs)
     logging.info("name: %s" % name)
     logging.info("context: %s" % context)
@@ -106,6 +117,7 @@ def run_work(name, context, original_args, current_job_kwargs):
     logging.info("kwargs: %s" % kwargs)
     logging.info("multi_jobs_kwargs_list: %s" % str(multi_jobs_kwargs_list))
     logging.info("current_job_kwargs: %s" % str(current_job_kwargs))
+    logging.info(f"output_map: {output_map}")
 
     context.initialize()
     context.setup_source_files()
@@ -156,6 +168,12 @@ def run_iworkflow(args):
         if 'current_job_kwargs' in args_content:
             args.current_job_kwargs = args_content['current_job_kwargs']
 
+    if args.output_map:
+        try:
+            args.output_map = json.loads(args.output_map)
+        except Exception as ex:
+            logging.warn(f"failed to load args.output_map with json: {ex}")
+
     if args.type == 'workflow':
         logging.info("run workflow")
         password = context.broker_password
@@ -164,7 +182,7 @@ def run_iworkflow(args):
         context.broker_password = password
         logging.info("original_args: %s" % original_args)
         logging.info("current_job_kwargs: %s" % current_job_kwargs)
-        exit_code = run_workflow(args.name, context, original_args, current_job_kwargs)
+        exit_code = run_workflow(args.name, context, original_args, current_job_kwargs, args.output_map)
         logging.info("exit code: %s" % exit_code)
     else:
         logging.info("run work")
@@ -174,7 +192,7 @@ def run_iworkflow(args):
         context.broker_password = password
         logging.info("original_args: %s" % original_args)
         logging.info("current_job_kwargs: %s" % current_job_kwargs)
-        exit_code = run_work(args.name, context, original_args, current_job_kwargs)
+        exit_code = run_work(args.name, context, original_args, current_job_kwargs, args.output_map)
         logging.info("exit code: %s" % exit_code)
     return exit_code
 
@@ -207,6 +225,10 @@ def get_parser():
     oparser.add_argument('--original_args', dest='original_args', help="The original arguments.")
     oparser.add_argument('--current_job_kwargs', dest='current_job_kwargs', nargs='?', const=None, help="The current job arguments.")
     oparser.add_argument('--args_file', dest='args_file', help="The file with arguments")
+    oparser.add_argument('--output', dest='output', help="The output file name.")
+    oparser.add_argument('--mapped_output', dest='output', help="The output file name to be mapped.")
+    oparser.add_argument('--output_map', dest='output_map', help="The output map.")
+    oparser.add_argument('--others', dest='others', nargs='*', help="Additional custom arguments (e.g., key=value).")
     return oparser
 
 
