@@ -60,18 +60,19 @@ class BaseSubmitter(object):
             task_param_map['nFiles'] = len(in_files)
             task_param_map['noInput'] = True
             task_param_map['pfnList'] = in_files
-        elif work.num_events:
-            task_param_map['nEvents'] = work.num_events
-            if work.num_events_per_job:
-                task_param_map['nEventsPerJob'] = work.num_events_per_job
-            else:
-                task_param_map['nEventsPerJob'] = work.num_events
         else:
             # task_param_map['inputPreStaging'] = True
             in_files = [json.dumps('pseudo_file')]
             task_param_map['nFiles'] = len(in_files)
             task_param_map['noInput'] = True
             task_param_map['pfnList'] = in_files
+
+        if work.num_events:
+            task_param_map['nEvents'] = work.num_events
+            if work.num_events_per_job:
+                task_param_map['nEventsPerJob'] = work.num_events_per_job
+            else:
+                task_param_map['nEventsPerJob'] = work.num_events
 
         task_param_map['taskName'] = task_name
         task_param_map['userName'] = work.username if work.username else 'iDDS'

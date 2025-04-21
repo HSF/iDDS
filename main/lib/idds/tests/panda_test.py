@@ -17,8 +17,8 @@ os.environ['PANDA_URL_SSL'] = 'https://rubin-panda-server-dev.slac.stanford.edu:
 # os.environ['PANDA_URL'] = 'https://usdf-panda-server.slac.stanford.edu:8443/server/panda'
 # os.environ['PANDA_URL_SSL'] = 'https://usdf-panda-server.slac.stanford.edu:8443/server/panda'
 
-# os.environ['PANDA_URL_SSL'] = 'https://pandaserver01.sdcc.bnl.gov:25443/server/panda'
-# os.environ['PANDA_URL'] = 'https://pandaserver01.sdcc.bnl.gov:25443/server/panda'
+os.environ['PANDA_URL_SSL'] = 'https://pandaserver01.sdcc.bnl.gov:25443/server/panda'
+os.environ['PANDA_URL'] = 'https://pandaserver01.sdcc.bnl.gov:25443/server/panda'
 
 from pandaclient import Client  # noqa E402
 
@@ -92,6 +92,8 @@ task_ids = [3174, 3198, 3209, 3230, 3252, 3266, 3284, 3292, 3300, 3312, 3350, 33
 task_ids = [1548, 1555]
 task_ids = [3906, 4266, 4267, 4357, 4358, 4414, 4416, 4417, 4418]
 task_ids = [4559, 4558, 4725, 4727, 4732, 4734, 4737, 4741]
+task_ids = [i for i in range(7178, 7512)]
+task_ids = [7512]
 for task_id in task_ids:
     print("Killing %s" % task_id)
     ret = Client.killTask(task_id, verbose=True)
