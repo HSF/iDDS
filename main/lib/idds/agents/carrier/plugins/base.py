@@ -117,7 +117,8 @@ class BaseSubmitter(object):
             if not work.output_dataset_name.endswith("/"):
                 work.output_dataset_name = work.output_dataset_name + "/"
 
-        if work.enable_separate_log:
+        # if work.enable_separate_log:
+        if True:
             if work.output_dataset_name:
                 log_dataset_name = re.sub('/$', '.log/', work.output_dataset_name)
             else:
@@ -125,9 +126,10 @@ class BaseSubmitter(object):
 
             logging.debug(f"BaseSubmitter enable_separate_log: {work.enable_separate_log}")
             task_param_map['log'] = {"dataset": log_dataset_name,
-                                     "destination": "local",
+                                     "container": log_dataset_name,
+                                     # "destination": "local",
                                      "param_type": "log",
-                                     "token": "local",
+                                     # "token": "local",
                                      "type": "template",
                                      # "value": "log.tgz"}
                                      # 'value': '{0}.$JEDITASKID.${{SN}}.log.tgz'.format(log_dataset_name[:-1])
@@ -143,9 +145,10 @@ class BaseSubmitter(object):
             tmp_dict = {
                 "type": "template",
                 "param_type": "input",
+                "exclude": "\.log\.tgz(\.\d+)*$",   # noqa W605
+                "expand": True,
                 "value": '-i "${IN/T}"',
-                "dataset": work.input_dataset_name,
-                "exclude": "\.log\.tgz(\.\d+)*$"          # noqa W605
+                "dataset": work.input_dataset_name
             }
             task_param_map['jobParameters'].append(tmp_dict)
             task_param_map['dsForIN'] = work.input_dataset_name
@@ -156,7 +159,7 @@ class BaseSubmitter(object):
                         "container": work.output_dataset_name,
                         # "destination": "local",
                         "param_type": "output",
-                        "token": "local",
+                        # "token": "local",
                         "type": "template",
                         # "value": "log.tgz"}
                         "value": output_file_name
