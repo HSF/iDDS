@@ -269,11 +269,13 @@ class WorkContext(Context):
 
     @property
     def enable_separate_log(self):
-        return self._workflow_context.enable_separate_log
+        if self._workflow_context:
+            return self._workflow_context.enable_separate_log
 
     @enable_separate_log.setter
     def enable_separate_log(self, value):
-        self._workflow_context.enable_separate_log = value
+        if self._workflow_context:
+            self._workflow_context.enable_separate_log = value
 
     @property
     def brokers(self):
