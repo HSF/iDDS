@@ -1297,6 +1297,28 @@ class WorkflowBase(Base):
             pass
         return None
 
+    def get_cloud(self):
+        try:
+            work_id = self.primary_initial_work
+            if not work_id:
+                work_id = list(self.works.keys())[0]
+            work = self.works[work_id]
+            return work.get_cloud()
+        except Exception:
+            pass
+        return None
+
+    def get_queue(self):
+        try:
+            work_id = self.primary_initial_work
+            if not work_id:
+                work_id = list(self.works.keys())[0]
+            work = self.works[work_id]
+            return work.get_queue()
+        except Exception:
+            pass
+        return None
+
     def add_initial_works(self, work):
         self.initial_works.append(work.get_internal_id())
         if self.primary_initial_work is None:
@@ -2316,6 +2338,12 @@ class Workflow(Base):
 
     def get_site(self):
         return self.template.get_site()
+
+    def get_cloud(self):
+        return self.template.get_cloud()
+
+    def get_queue(self):
+        return self.template.get_queue()
 
     def add_work(self, work, initial=False, primary=False):
         self.template.add_work(work, initial, primary)

@@ -29,6 +29,7 @@ from idds.core.commands import add_command
 from idds.rest.v1.controller import IDDSController
 
 from idds.rest.v1.utils import (convert_old_req_2_workflow_req,
+                                get_workflow_item,
                                 get_additional_request_data_storage,
                                 convert_data_to_use_additional_storage)
 
@@ -88,6 +89,14 @@ class Request(IDDSController):
                 parameters['status'] = RequestStatus.New
             if 'priority' not in parameters:
                 parameters['priority'] = 0
+
+            if 'cloud' not in parameters or not parameters['cloud']:
+                parameters['cloud'] = get_workflow_item(parameters, 'get_cloud', logger)
+            if 'site' not in parameters or not parameters['site']:
+                parameters['site'] = get_workflow_item(parameters, 'get_site', logger)
+            if 'queue' not in parameters or not parameters['queue']:
+                parameters['queue'] = get_workflow_item(parameters, 'get_queue', logger)
+
             # if 'lifetime' not in parameters:
             #     parameters['lifetime'] = 30
             if 'username' not in parameters or not parameters['username']:

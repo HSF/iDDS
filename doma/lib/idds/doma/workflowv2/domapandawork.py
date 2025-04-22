@@ -168,6 +168,14 @@ class DomaPanDAWork(Work):
             return self.queue
         return self.task_cloud
 
+    def get_cloud(self):
+        return self.task_cloud
+
+    def get_queue(self):
+        if self.task_queue:
+            return self.task_queue
+        return self.queue
+
     @property
     def num_inputs(self):
         num = self.get_metadata_item('num_inputs', None)
