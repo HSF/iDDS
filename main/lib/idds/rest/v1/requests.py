@@ -114,8 +114,12 @@ class Request(IDDSController):
                 parameters = convert_data_to_use_additional_storage(parameters, additional_data_storage, logger)
             request_id = add_request(**parameters)
         except exceptions.DuplicatedObject as error:
+            logger.error(error)
+            logger.error(format_exc())
             return self.generate_http_response(HTTP_STATUS_CODE.Conflict, exc_cls=error.__class__.__name__, exc_msg=error)
         except exceptions.IDDSException as error:
+            logger.error(error)
+            logger.error(format_exc())
             return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=error.__class__.__name__, exc_msg=error)
         except Exception as error:
             logger.error(error)

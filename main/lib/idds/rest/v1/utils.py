@@ -231,6 +231,6 @@ def get_workflow_item(data, item_name, logger):
             workflow = request_metadata.get('build_workflow')
 
         if workflow:
-            return getattr(workflow, item_name, None)
+            return getattr(workflow, item_name, None)()
     except Exception as ex:
         logger.warning(f"failed to get workflow item {item_name}: {ex}")
