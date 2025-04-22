@@ -68,8 +68,13 @@ ret=$?
 echo pwd
 pwd; ls
 
-echo rm -fr ${current_dir}/lib_py ${current_dir}/etc ${current_dir}/bin ${current_dir}/tmp_bin ${current_dir}/run_workflow_wrapper ${current_dir}/__pycache__
-# rm -fr ${current_dir}/lib_py ${current_dir}/etc ${current_dir}/bin ${current_dir}/tmp_bin ${current_dir}/run_workflow_wrapper ${current_dir}/__pycache__
+echo unlink idds_parse_workflow_args
+unlink idds_parse_workflow_args
+echo unlink run_workflow
+unlink run_workflow
+
+echo rm -fr ${current_dir}/lib_py ${current_dir}/etc ${current_dir}/bin ${current_dir}/tmp_bin ${current_dir}/run_workflow_wrapper ${current_dir}/__pycache__  ${current_dir}/run_workflow.sh ${current_dir}/x509_proxy
+rm -fr ${current_dir}/lib_py ${current_dir}/etc ${current_dir}/bin ${current_dir}/tmp_bin ${current_dir}/run_workflow_wrapper ${current_dir}/__pycache__ ${current_dir}/run_workflow.sh ${current_dir}/x509_proxy
 
 echo "return code: " $ret
 exit $ret

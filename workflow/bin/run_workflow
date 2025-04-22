@@ -17,8 +17,9 @@ from __future__ import print_function
 
 import argparse
 # import argcomplete
+import ast
 import base64
-# import json
+import json
 import logging
 import pickle
 import os
@@ -170,9 +171,15 @@ def run_iworkflow(args):
 
     if args.output_map:
         try:
-            args.output_map = json.loads(args.output_map)
+            if not isinstance(args.output_map, dict):
+                args.output_map = ast.literal_eval(args.output_map)
         except Exception as ex:
-            logging.warn(f"failed to load args.output_map with json: {ex}")
+            logging.warning(f"failed to load args.output_map with ast: {ex}")
+        try:
+            if not isinstance(args.output_map, dict):
+                args.output_map = json.loads(args.output_map)
+        except Exception as ex:
+            logging.warning(f"failed to load args.output_map with json: {ex}")
 
     if args.type == 'workflow':
         logging.info("run workflow")
@@ -238,7 +245,7 @@ if __name__ == '__main__':
     oparser = get_parser()
     # argcomplete.autocomplete(oparser)
 
-    args = oparser.parse_args(arguments)
+    args, unknown = oparser.parse_known_args(arguments)
 
     try:
         if args.verbose:
