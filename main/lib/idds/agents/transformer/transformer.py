@@ -747,6 +747,7 @@ class Transformer(BaseAgent):
             log_pre = self.get_log_prefix(transform)
             work = transform['transform_metadata']['work']
             pre_works_are_ok = True
+            pre_workload_id = None
             if work.parent_internal_id is not None:
                 tfs = core_transforms.get_transforms(request_id=transform['request_id'], internal_ids=[work.parent_internal_id])
                 if not tfs:
@@ -755,6 +756,9 @@ class Transformer(BaseAgent):
                     for tf in tfs:
                         if not tf['workload_id']:
                             pre_works_are_ok = False
+                        pre_workload_id = tf['workload_id']
+            if pre_workload_id:
+                transform['transform_metadata']['work'].parent_workload_id = pre_workload_id
             if pre_works_are_ok:
                 ret = self.handle_new_itransform_real(transform)
             else:

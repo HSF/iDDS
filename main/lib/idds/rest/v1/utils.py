@@ -197,7 +197,7 @@ def get_additional_request_data_storage(data, logger):
             return additional_storage
         return None
     except Exception as ex:
-        logger.warn(f"get_additional_request_data_storage raise exception: {ex}: {traceback.format_exc()}")
+        logger.warning(f"get_additional_request_data_storage raise exception: {ex}: {traceback.format_exc()}")
     return None
 
 
@@ -217,3 +217,20 @@ def convert_data_to_use_additional_storage(data, additional_data_storage, logger
         workflow.convert_data_to_additional_data_storage(storage)
         data['request_metadata']['workflow'] = workflow
     return data
+
+
+def get_workflow_item(data, item_name, logger):
+    try:
+        if not data:
+            return None
+
+        request_metadata = data.get('request_metadata', {})
+        if 'workflow' in request_metadata:
+            workflow = request_metadata.get('workflow')
+        elif 'build_workflow' in request_metadata:
+            workflow = request_metadata.get('build_workflow')
+
+        if workflow:
+            return getattr(workflow, item_name, None)()
+    except Exception as ex:
+        logger.warning(f"failed to get workflow item {item_name}: {ex}")

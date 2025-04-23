@@ -269,11 +269,13 @@ class WorkContext(Context):
 
     @property
     def enable_separate_log(self):
-        return self._workflow_context.enable_separate_log
+        if self._workflow_context:
+            return self._workflow_context.enable_separate_log
 
     @enable_separate_log.setter
     def enable_separate_log(self, value):
-        self._workflow_context.enable_separate_log = value
+        if self._workflow_context:
+            self._workflow_context.enable_separate_log = value
 
     @property
     def brokers(self):
@@ -399,7 +401,8 @@ class Work(Base):
     def __init__(self, func=None, workflow_context=None, context=None, pre_kwargs=None, args=None, kwargs=None, multi_jobs_kwargs_list=None,
                  current_job_kwargs=None, map_results=False, source_dir=None, init_env=None, is_unique_func_name=False, name=None,
                  parent_workload_id=None, no_wait_parent=False, container_options=None, input_dataset_name=None, output_file_name=None,
-                 output_dataset_name=None, num_events=None, num_events_per_job=None, parent_transform_id=None, parent_internal_id=None):
+                 output_dataset_name=None, num_events=None, num_events_per_job=None, parent_transform_id=None, parent_internal_id=None,
+                 enable_separate_log=False):
         """
         Init a workflow.
         """
@@ -432,6 +435,7 @@ class Work(Base):
 
         self._async_ret = None
 
+        self.enable_separate_log = enable_separate_log
         self.map_results = map_results
         self._results = None
         self._async_result_initialized = False
@@ -712,23 +716,74 @@ class Work(Base):
             return None
         return self.other_attributes.get("parent_transform_id", None)
 
+    def set_other_attribute(self, name, value):
+        if self.other_attributes is None:
+            self.other_attributes = {}
+        self.other_attributes[name] = value
+
+    def get_other_attribute(self, name):
+        if not self.other_attributes:
+            return None
+        return self.other_attributes.get(name, None)
+
     @property
     def parent_internal_id(self):
-        return self.get_parent_internal_id()
+        return self.get_other_attribute('parent_internal_id')
 
     @parent_internal_id.setter
     def parent_internal_id(self, value):
-        self.set_parent_internal_id(value)
-
-    def set_parent_internal_id(self, value):
-        if self.other_attributes is None:
-            self.other_attributes = {}
-        self.other_attributes["parent_internal_id"] = value
+        self.set_other_attribute('parent_internal_id', value)
 
     def get_parent_internal_id(self):
-        if not self.other_attributes:
-            return None
-        return self.other_attributes.get("parent_internal_id", None)
+        return self.get_other_attribute('parent_internal_id')
+
+    @property
+    def input_dataset_name(self):
+        return self.get_other_attribute('input_dataset_name')
+
+    @input_dataset_name.setter
+    def input_dataset_name(self, value):
+        self.set_other_attribute('input_dataset_name', value)
+
+    @property
+    def output_file_name(self):
+        return self.get_other_attribute('output_file_name')
+
+    @output_file_name.setter
+    def output_file_name(self, value):
+        self.set_other_attribute('output_file_name', value)
+
+    @property
+    def output_dataset_name(self):
+        return self.get_other_attribute('output_dataset_name')
+
+    @output_dataset_name.setter
+    def output_dataset_name(self, value):
+        self.set_other_attribute('output_dataset_name', value)
+
+    @property
+    def num_events(self):
+        return self.get_other_attribute('num_events')
+
+    @num_events.setter
+    def num_events(self, value):
+        self.set_other_attribute('num_events', value)
+
+    @property
+    def num_events_per_job(self):
+        return self.get_other_attribute('num_events_per_job')
+
+    @num_events_per_job.setter
+    def num_events_per_job(self, value):
+        self.set_other_attribute('num_events_per_job', value)
+
+    @property
+    def parent_transform_id(self):
+        return self.get_other_attribute('parent_transform_id')
+
+    @parent_transform_id.setter
+    def parent_transform_id(self, value):
+        self.set_other_attribute('parent_transform_id', value)
 
     def to_dict(self):
         func = self._func
@@ -981,7 +1036,8 @@ class Work(Base):
                 self._async_ret = AsyncResult(self._context, name=self.get_func_name(), multi_jobs_kwargs_list=multi_jobs_kwargs_list,
                                               map_results=self.map_results, internal_id=self.internal_id)
             else:
-                self._async_ret = AsyncResult(self._context, name=self.get_func_name(), wait_num=1, internal_id=self.internal_id)
+                self._async_ret = AsyncResult(self._context, name=self.get_func_name(), wait_num=1, internal_id=self.internal_id,
+                                              map_results=self.map_results)
 
             self._async_result_initialized = True
             self._async_result_status = AsyncResultStatus.Running
@@ -1256,13 +1312,14 @@ def run_work_distributed(w):
 # foo = work(arg)(foo)
 def work(func=None, *, workflow=None, pre_kwargs={}, name=None, return_work=False, map_results=False, lazy=False, init_env=None, no_wraps=False,
          container_options=None, parent_workload_id=None, no_wait_parent=False, input_dataset_name=None, output_file_name=None,
-         output_dataset_name=None, num_events=None, num_events_per_job=None, parent_transform_id=None, parent_internal_id=None):
+         enable_separate_log=False, output_dataset_name=None, num_events=None, num_events_per_job=None, parent_transform_id=None, parent_internal_id=None):
     if func is None:
         return functools.partial(work, workflow=workflow, pre_kwargs=pre_kwargs, return_work=return_work, no_wraps=no_wraps,
                                  name=name, map_results=map_results, lazy=lazy, init_env=init_env, container_options=container_options,
                                  parent_workload_id=parent_workload_id, no_wait_parent=no_wait_parent, parent_transform_id=parent_transform_id,
                                  input_dataset_name=input_dataset_name, output_file_name=output_file_name, output_dataset_name=output_dataset_name,
-                                 num_events=num_events, num_events_per_job=num_events_per_job, parent_internal_id=parent_internal_id)
+                                 enable_separate_log=enable_separate_log, num_events=num_events, num_events_per_job=num_events_per_job,
+                                 parent_internal_id=parent_internal_id)
 
     if 'IDDS_IGNORE_WORK_DECORATOR' in os.environ:
         return func
@@ -1283,7 +1340,7 @@ def work(func=None, *, workflow=None, pre_kwargs={}, name=None, return_work=Fals
                          container_options=container_options, parent_workload_id=parent_workload_id, no_wait_parent=no_wait_parent,
                          parent_transform_id=parent_transform_id, input_dataset_name=input_dataset_name, output_file_name=output_file_name,
                          output_dataset_name=output_dataset_name, num_events=num_events, num_events_per_job=num_events_per_job,
-                         parent_internal_id=parent_internal_id)
+                         parent_internal_id=parent_internal_id, enable_separate_log=enable_separate_log)
                 # if distributed:
 
                 if return_work:
