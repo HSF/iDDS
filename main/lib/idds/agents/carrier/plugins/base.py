@@ -67,6 +67,13 @@ class BaseSubmitter(object):
             task_param_map['noInput'] = True
             task_param_map['pfnList'] = in_files
 
+        if work.num_events:
+            task_param_map['nEvents'] = work.num_events
+            if work.num_events_per_job:
+                task_param_map['nEventsPerJob'] = work.num_events_per_job
+            else:
+                task_param_map['nEventsPerJob'] = work.num_events
+
         task_param_map['taskName'] = task_name
         task_param_map['userName'] = work.username if work.username else 'iDDS'
         task_param_map['taskPriority'] = work.priority
@@ -107,18 +114,12 @@ class BaseSubmitter(object):
         if task_param_map['maxFailure'] < work.max_attempt:
             task_param_map['maxFailure'] = work.max_attempt
 
-        if work.num_events:
-            task_param_map['nEvents'] = work.num_events
-            if work.num_events_per_job:
-                task_param_map['nEventsPerJob'] = work.num_events_per_job
-            else:
-                task_param_map['nEventsPerJob'] = work.num_events
-
         if work.output_dataset_name:
             if not work.output_dataset_name.endswith("/"):
                 work.output_dataset_name = work.output_dataset_name + "/"
 
-        if work.enable_separate_log:
+        # if work.enable_separate_log:
+        if True:
             if work.output_dataset_name:
                 log_dataset_name = re.sub('/$', '.log/', work.output_dataset_name)
             else:
@@ -126,12 +127,14 @@ class BaseSubmitter(object):
 
             logging.debug(f"BaseSubmitter enable_separate_log: {work.enable_separate_log}")
             task_param_map['log'] = {"dataset": log_dataset_name,
-                                     "destination": "local",
+                                     "container": log_dataset_name,
+                                     # "destination": "local",
                                      "param_type": "log",
-                                     "token": "local",
+                                     # "token": "local",
                                      "type": "template",
                                      # "value": "log.tgz"}
-                                     'value': '{0}.$JEDITASKID.${{SN}}.log.tgz'.format(log_dataset_name[:-1])
+                                     # 'value': '{0}.$JEDITASKID.${{SN}}.log.tgz'.format(log_dataset_name[:-1])
+                                     'value': '{0}.${{SN}}.log.tgz'.format(log_dataset_name[:-1])
                                      }
         task_param_map['jobParameters'] = [
             {'type': 'constant',
@@ -143,31 +146,34 @@ class BaseSubmitter(object):
             tmp_dict = {
                 "type": "template",
                 "param_type": "input",
+                "exclude": "\.log\.tgz(\.\d+)*$",   # noqa W605
+                "expand": True,
                 "value": '-i "${IN/T}"',
-                "dataset": work.input_dataset_name,
-                "exclude": "\.log\.tgz(\.\d+)*$"          # noqa W605
+                "dataset": work.input_dataset_name
             }
             task_param_map['jobParameters'].append(tmp_dict)
             task_param_map['dsForIN'] = work.input_dataset_name
 
         if work.output_dataset_name and work.output_file_name:
+            output_file_name = f"{work.output_dataset_name[:-1]}_${{SN/P}}.{work.output_file_name}"
             tmp_dict = {"dataset": work.output_dataset_name,
                         "container": work.output_dataset_name,
-                        "destination": "local",
+                        # "destination": "local",
                         "param_type": "output",
-                        "token": "local",
+                        # "token": "local",
                         "type": "template",
                         # "value": "log.tgz"}
-                        "value": work.output_file_name
+                        "value": output_file_name
                         }
 
             task_param_map['jobParameters'].append(tmp_dict)
 
-            output_map = {work.output_file_name: f"{work.output_dataset_name[:-1]}.$JEDITASKID._${{SN/P}}.{work.output_file_name}"}
+            output_map = {work.output_file_name: output_file_name}
             task_param_map["jobParameters"] += [
                 {
                     "type": "constant",
-                    "value": '-o "{0}"'.format(str(output_map)),
+                    # "value": f" --output {work.output_file_name} --mapped_output {output_file_name}",
+                    "value": ' --output_map "{0}"'.format(str(output_map)),
                 },
             ]
 

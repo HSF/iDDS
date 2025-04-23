@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2023
+# - Wen Guan, <wen.guan@cern.ch>, 2020 - 2025
 
 import copy
 import datetime
@@ -623,6 +623,12 @@ class Work(Base):
         return self.sequence_id
 
     def get_site(self):
+        return None
+
+    def get_cloud(self):
+        return None
+
+    def get_queue(self):
         return None
 
     @property
