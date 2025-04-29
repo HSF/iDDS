@@ -123,7 +123,7 @@ class BaseSubmitter(object):
             if work.output_dataset_name:
                 log_dataset_name = re.sub('/$', '.log/', work.output_dataset_name)
             else:
-                log_dataset_name = "PandaJob_iworkflow/"   # "PandaJob_#{pandaid}/"
+                log_dataset_name = f"Panda.iworkflow.{work.request_id}/"   # "PandaJob_#{pandaid}/"
 
             log_dataset_name = log_dataset_name.replace("$WORKFLOWID", str(work.request_id))
             log_dataset_name_no_scope = log_dataset_name.split(":")[-1]
