@@ -125,6 +125,9 @@ class BaseSubmitter(object):
             else:
                 log_dataset_name = "PandaJob_iworkflow/"   # "PandaJob_#{pandaid}/"
 
+            log_dataset_name = log_dataset_name.replace("$WORKFLOWID", work.request_id)
+            log_dataset_name_no_scope = log_dataset_name.split(":")[-1]
+
             logging.debug(f"BaseSubmitter enable_separate_log: {work.enable_separate_log}")
             task_param_map['log'] = {"dataset": log_dataset_name,
                                      "container": log_dataset_name,
@@ -134,7 +137,7 @@ class BaseSubmitter(object):
                                      "type": "template",
                                      # "value": "log.tgz"}
                                      # 'value': '{0}.$JEDITASKID.${{SN}}.log.tgz'.format(log_dataset_name[:-1])
-                                     'value': '{0}.${{SN}}.log.tgz'.format(log_dataset_name[:-1])
+                                     'value': '{0}.${{SN}}.log.tgz'.format(log_dataset_name_no_scope[:-1])
                                      }
         task_param_map['jobParameters'] = [
             {'type': 'constant',
@@ -143,21 +146,24 @@ class BaseSubmitter(object):
         ]
 
         if work.input_dataset_name:
+            input_dataset_name = work.input_dataset_name.replace("$WORKFLOWID", work.request_id)
             tmp_dict = {
                 "type": "template",
                 "param_type": "input",
                 "exclude": "\.log\.tgz(\.\d+)*$",   # noqa W605
                 "expand": True,
                 "value": '-i "${IN/T}"',
-                "dataset": work.input_dataset_name
+                "dataset": input_dataset_name
             }
             task_param_map['jobParameters'].append(tmp_dict)
-            task_param_map['dsForIN'] = work.input_dataset_name
+            task_param_map['dsForIN'] = input_dataset_name
 
         if work.output_dataset_name and work.output_file_name:
-            output_file_name = f"{work.output_dataset_name[:-1]}_${{SN/P}}.{work.output_file_name}"
-            tmp_dict = {"dataset": work.output_dataset_name,
-                        "container": work.output_dataset_name,
+            output_dataset_name = work.output_dataset_name.replace("$WORKFLOWID", work.request_id)
+            output_dataset_name_no_scope = work.output_dataset_name.split(":")[-1]
+            output_file_name = f"{output_dataset_name_no_scope[:-1]}_${{SN/P}}.{work.output_file_name}"
+            tmp_dict = {"dataset": output_dataset_name,
+                        "container": output_dataset_name,
                         # "destination": "local",
                         "param_type": "output",
                         # "token": "local",
