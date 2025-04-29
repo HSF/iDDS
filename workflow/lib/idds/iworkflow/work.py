@@ -402,7 +402,7 @@ class Work(Base):
                  current_job_kwargs=None, map_results=False, source_dir=None, init_env=None, is_unique_func_name=False, name=None,
                  parent_workload_id=None, no_wait_parent=False, container_options=None, input_dataset_name=None, output_file_name=None,
                  output_dataset_name=None, num_events=None, num_events_per_job=None, parent_transform_id=None, parent_internal_id=None,
-                 enable_separate_log=False):
+                 log_dataset_name=None, enable_separate_log=False):
         """
         Init a workflow.
         """
@@ -447,6 +447,7 @@ class Work(Base):
         self.other_attributes = {'input_dataset_name': input_dataset_name,
                                  'output_file_name': output_file_name,
                                  'output_dataset_name': output_dataset_name,
+                                 'log_dataset_name': log_dataset_name,
                                  'num_events': num_events,
                                  'num_events_per_job': num_events_per_job,
                                  'parent_transform_id': parent_transform_id,
@@ -760,6 +761,14 @@ class Work(Base):
     @output_dataset_name.setter
     def output_dataset_name(self, value):
         self.set_other_attribute('output_dataset_name', value)
+
+    @property
+    def log_dataset_name(self):
+        return self.get_other_attribute('log_dataset_name')
+
+    @log_dataset_name.setter
+    def log_dataset_name(self, value):
+        self.set_other_attribute('log_dataset_name', value)
 
     @property
     def num_events(self):
@@ -1312,12 +1321,14 @@ def run_work_distributed(w):
 # foo = work(arg)(foo)
 def work(func=None, *, workflow=None, pre_kwargs={}, name=None, return_work=False, map_results=False, lazy=False, init_env=None, no_wraps=False,
          container_options=None, parent_workload_id=None, no_wait_parent=False, input_dataset_name=None, output_file_name=None,
-         enable_separate_log=False, output_dataset_name=None, num_events=None, num_events_per_job=None, parent_transform_id=None, parent_internal_id=None):
+         enable_separate_log=False, output_dataset_name=None, log_dataset_name=None, num_events=None, num_events_per_job=None,
+         parent_transform_id=None, parent_internal_id=None):
     if func is None:
         return functools.partial(work, workflow=workflow, pre_kwargs=pre_kwargs, return_work=return_work, no_wraps=no_wraps,
                                  name=name, map_results=map_results, lazy=lazy, init_env=init_env, container_options=container_options,
                                  parent_workload_id=parent_workload_id, no_wait_parent=no_wait_parent, parent_transform_id=parent_transform_id,
                                  input_dataset_name=input_dataset_name, output_file_name=output_file_name, output_dataset_name=output_dataset_name,
+                                 log_dataset_name=log_dataset_name,
                                  enable_separate_log=enable_separate_log, num_events=num_events, num_events_per_job=num_events_per_job,
                                  parent_internal_id=parent_internal_id)
 
@@ -1340,7 +1351,7 @@ def work(func=None, *, workflow=None, pre_kwargs={}, name=None, return_work=Fals
                          container_options=container_options, parent_workload_id=parent_workload_id, no_wait_parent=no_wait_parent,
                          parent_transform_id=parent_transform_id, input_dataset_name=input_dataset_name, output_file_name=output_file_name,
                          output_dataset_name=output_dataset_name, num_events=num_events, num_events_per_job=num_events_per_job,
-                         parent_internal_id=parent_internal_id, enable_separate_log=enable_separate_log)
+                         parent_internal_id=parent_internal_id, enable_separate_log=enable_separate_log, log_dataset_name=log_dataset_name)
                 # if distributed:
 
                 if return_work:

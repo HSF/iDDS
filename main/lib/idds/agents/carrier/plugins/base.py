@@ -114,31 +114,6 @@ class BaseSubmitter(object):
         if task_param_map['maxFailure'] < work.max_attempt:
             task_param_map['maxFailure'] = work.max_attempt
 
-        if work.output_dataset_name:
-            if not work.output_dataset_name.endswith("/"):
-                work.output_dataset_name = work.output_dataset_name + "/"
-
-        # if work.enable_separate_log:
-        if True:
-            if work.output_dataset_name:
-                log_dataset_name = re.sub('/$', '.log/', work.output_dataset_name)
-            else:
-                log_dataset_name = f"Panda.iworkflow.{work.request_id}/"   # "PandaJob_#{pandaid}/"
-
-            log_dataset_name = log_dataset_name.replace("$WORKFLOWID", str(work.request_id))
-            log_dataset_name_no_scope = log_dataset_name.split(":")[-1]
-
-            logging.debug(f"BaseSubmitter enable_separate_log: {work.enable_separate_log}")
-            task_param_map['log'] = {"dataset": log_dataset_name,
-                                     "container": log_dataset_name,
-                                     # "destination": "local",
-                                     "param_type": "log",
-                                     # "token": "local",
-                                     "type": "template",
-                                     # "value": "log.tgz"}
-                                     # 'value': '{0}.$JEDITASKID.${{SN}}.log.tgz'.format(log_dataset_name[:-1])
-                                     'value': '{0}.${{SN}}.log.tgz'.format(log_dataset_name_no_scope[:-1])
-                                     }
         task_param_map['jobParameters'] = [
             {'type': 'constant',
              'value': executable,  # noqa: E501
@@ -157,6 +132,10 @@ class BaseSubmitter(object):
             }
             task_param_map['jobParameters'].append(tmp_dict)
             task_param_map['dsForIN'] = input_dataset_name
+
+        if work.output_dataset_name:
+            if not work.output_dataset_name.endswith("/"):
+                work.output_dataset_name = work.output_dataset_name + "/"
 
         if work.output_dataset_name and work.output_file_name:
             output_dataset_name = work.output_dataset_name.replace("$WORKFLOWID", str(work.request_id))
@@ -182,6 +161,30 @@ class BaseSubmitter(object):
                     "value": ' --output_map "{0}"'.format(str(output_map)),
                 },
             ]
+
+        # if work.enable_separate_log:
+        if True:
+            if work.log_dataset_name:
+                log_dataset_name = work.log_dataset_name
+            elif work.output_dataset_name:
+                log_dataset_name = re.sub('/$', '.log/', work.output_dataset_name)
+            else:
+                log_dataset_name = f"Panda.iworkflow.{work.request_id}/"   # "PandaJob_#{pandaid}/"
+
+            log_dataset_name = log_dataset_name.replace("$WORKFLOWID", str(work.request_id))
+            log_dataset_name_no_scope = log_dataset_name.split(":")[-1]
+
+            logging.debug(f"BaseSubmitter enable_separate_log: {work.enable_separate_log}")
+            task_param_map['log'] = {"dataset": log_dataset_name,
+                                     "container": log_dataset_name,
+                                     # "destination": "local",
+                                     "param_type": "log",
+                                     # "token": "local",
+                                     "type": "template",
+                                     # "value": "log.tgz"}
+                                     # 'value': '{0}.$JEDITASKID.${{SN}}.log.tgz'.format(log_dataset_name[:-1])
+                                     'value': '{0}.${{SN}}.log.tgz'.format(log_dataset_name_no_scope[:-1])
+                                     }
 
         task_param_map['reqID'] = work.request_id
 
