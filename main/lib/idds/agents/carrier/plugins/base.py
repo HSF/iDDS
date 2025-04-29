@@ -160,7 +160,7 @@ class BaseSubmitter(object):
 
         if work.output_dataset_name and work.output_file_name:
             output_dataset_name = work.output_dataset_name.replace("$WORKFLOWID", str(work.request_id))
-            output_dataset_name_no_scope = work.output_dataset_name.split(":")[-1]
+            output_dataset_name_no_scope = output_dataset_name.split(":")[-1]
             output_file_name = f"{output_dataset_name_no_scope[:-1]}_${{SN/P}}.{work.output_file_name}"
             tmp_dict = {"dataset": output_dataset_name,
                         "container": output_dataset_name,
