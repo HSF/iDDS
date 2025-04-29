@@ -125,7 +125,7 @@ class BaseSubmitter(object):
             else:
                 log_dataset_name = "PandaJob_iworkflow/"   # "PandaJob_#{pandaid}/"
 
-            log_dataset_name = log_dataset_name.replace("$WORKFLOWID", work.request_id)
+            log_dataset_name = log_dataset_name.replace("$WORKFLOWID", str(work.request_id))
             log_dataset_name_no_scope = log_dataset_name.split(":")[-1]
 
             logging.debug(f"BaseSubmitter enable_separate_log: {work.enable_separate_log}")
@@ -146,7 +146,7 @@ class BaseSubmitter(object):
         ]
 
         if work.input_dataset_name:
-            input_dataset_name = work.input_dataset_name.replace("$WORKFLOWID", work.request_id)
+            input_dataset_name = work.input_dataset_name.replace("$WORKFLOWID", str(work.request_id))
             tmp_dict = {
                 "type": "template",
                 "param_type": "input",
@@ -159,7 +159,7 @@ class BaseSubmitter(object):
             task_param_map['dsForIN'] = input_dataset_name
 
         if work.output_dataset_name and work.output_file_name:
-            output_dataset_name = work.output_dataset_name.replace("$WORKFLOWID", work.request_id)
+            output_dataset_name = work.output_dataset_name.replace("$WORKFLOWID", str(work.request_id))
             output_dataset_name_no_scope = work.output_dataset_name.split(":")[-1]
             output_file_name = f"{output_dataset_name_no_scope[:-1]}_${{SN/P}}.{work.output_file_name}"
             tmp_dict = {"dataset": output_dataset_name,
