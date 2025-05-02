@@ -57,6 +57,7 @@ elif [ "$instance" == "bnl" ]; then
     # bnl rucio
     source /cvmfs/eic.opensciencegrid.org/rucio-clients/alrb_setup.sh
     voms-proxy-init
+    export RUCIO_ACCOUNT=wguan
 
 elif [ "$instance" == "usdf_dev" ]; then
     export PANDA_AUTH=oidc

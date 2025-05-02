@@ -53,19 +53,34 @@ class BaseSubmitter(object):
 
         task_param_map['workingGroup'] = work.working_group
 
-        task_param_map['nFilesPerJob'] = 1
+        # task_param_map['nFilesPerJob'] = 1
         if in_files:
             # if has_dependencies:
             #     task_param_map['inputPreStaging'] = True
             task_param_map['nFiles'] = len(in_files)
             task_param_map['noInput'] = True
             task_param_map['pfnList'] = in_files
+            task_param_map['nFilesPerJob'] = 1
+        elif work.input_datasets:
+            for input_file_name, input_dataset_name in work.input_datasets.items():
+                input_dataset_name = work.input_dataset_name.replace("$WORKFLOWID", str(work.request_id))
+                tmp_dict = {
+                    "type": "template",
+                    "param_type": "input",
+                    "exclude": "\.log\.tgz(\.\d+)*$",   # noqa W605
+                    "expand": True,
+                    "value": '--inputs "${IN/T}" --input_map %s' % input_file_name,
+                    "dataset": input_dataset_name
+                }
+                task_param_map['jobParameters'].append(tmp_dict)
+                task_param_map['dsForIN'] = input_dataset_name
         else:
             # task_param_map['inputPreStaging'] = True
             in_files = [json.dumps('pseudo_file')]
             task_param_map['nFiles'] = len(in_files)
             task_param_map['noInput'] = True
             task_param_map['pfnList'] = in_files
+            task_param_map['nFilesPerJob'] = 1
 
         if work.num_events:
             task_param_map['nEvents'] = work.num_events
@@ -119,19 +134,6 @@ class BaseSubmitter(object):
              'value': executable,  # noqa: E501
              },
         ]
-
-        if work.input_dataset_name:
-            input_dataset_name = work.input_dataset_name.replace("$WORKFLOWID", str(work.request_id))
-            tmp_dict = {
-                "type": "template",
-                "param_type": "input",
-                "exclude": "\.log\.tgz(\.\d+)*$",   # noqa W605
-                "expand": True,
-                "value": '-i "${IN/T}"',
-                "dataset": input_dataset_name
-            }
-            task_param_map['jobParameters'].append(tmp_dict)
-            task_param_map['dsForIN'] = input_dataset_name
 
         if work.output_dataset_name:
             if not work.output_dataset_name.endswith("/"):
