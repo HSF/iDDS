@@ -1590,9 +1590,11 @@ class WorkflowBase(Base):
 
         # make sure internal_id is loaded
         internal_id_relation_map = self.internal_id_relation_map
+        self.logger.debug(f"internal_id_relation_map: {internal_id_relation_map}")
         if internal_id_relation_map and works:
             for i, w in enumerate(works):
                 if not works[i].parent_internal_id:
+                    self.logger.debug(f"internal_id {works[i].internal_id} loads parent_internal_id {works[i].parent_internal_id}")
                     works[i].parent_internal_id = internal_id_relation_map.get(works[i].internal_id, None)
         return works
 
