@@ -22,11 +22,14 @@ import base64
 import json
 import logging
 import pickle
+import re
 import os
 import sys
 import time
 import traceback
 import zlib
+
+from collections import defaultdict
 
 from idds.common.utils import json_dumps, json_loads, setup_logging, decode_base64
 # from idds.common.utils import merge_dict
@@ -119,7 +122,7 @@ def run_workflow(name, context, original_args, current_job_kwargs, output_map, i
     return 0
 
 
-def run_work(name, context, original_args, current_job_kwargs, output_map, inputs, input_map):
+def run_work(name, context, original_args, current_job_kwargs, output_map, inputs, input_map, inputs_group):
     context, func_name, pre_kwargs, args, kwargs, multi_jobs_kwargs_list, current_job_kwargs = get_context_args(context, original_args, current_job_kwargs)
     logging.info("name: %s" % name)
     logging.info("context: %s" % context)
@@ -131,13 +134,12 @@ def run_work(name, context, original_args, current_job_kwargs, output_map, input
     logging.info("current_job_kwargs: %s" % str(current_job_kwargs))
     logging.info(f"output_map: {output_map}")
     logging.info(f"inputs: {inputs}")
-    logging.info(f"input_map: {input_map}")
 
     context.initialize()
     context.setup_source_files()
 
     work = Work(func=func_name, pre_kwargs=pre_kwargs, args=args, kwargs=kwargs, multi_jobs_kwargs_list=multi_jobs_kwargs_list,
-                current_job_kwargs=current_job_kwargs, context=context, name=name, inputs=inputs, input_map=input_map)
+                current_job_kwargs=current_job_kwargs, context=context, name=name, inputs=inputs, input_map=input_map, inputs_group=inputs_group)
     work.load()
     logging.info("work: %s" % work)
     ret = work.run()
@@ -148,7 +150,7 @@ def run_work(name, context, original_args, current_job_kwargs, output_map, input
     return 0
 
 
-def run_iworkflow(args):
+def run_iworkflow(args, inputs_group):
     if args.context:
         context = decode_base64(args.context)
         context = json_loads(context)
@@ -224,7 +226,10 @@ def run_iworkflow(args):
         context.broker_password = password
         logging.info("original_args: %s" % original_args)
         logging.info("current_job_kwargs: %s" % current_job_kwargs)
-        exit_code = run_workflow(args.name, context, original_args, current_job_kwargs, args.output_map, args.inputs, args.input_map)
+        logging.info(f"inputs: {args.inputs}")
+        logging.info(f"input_map: {args.input_map}")
+        logging.info(f"inputs_group: {inputs_group}")
+        exit_code = run_workflow(args.name, context, original_args, current_job_kwargs, args.output_map, args.inputs, args.input_map, inputs_group)
         logging.info("exit code: %s" % exit_code)
     else:
         logging.info("run work")
@@ -234,7 +239,10 @@ def run_iworkflow(args):
         context.broker_password = password
         logging.info("original_args: %s" % original_args)
         logging.info("current_job_kwargs: %s" % current_job_kwargs)
-        exit_code = run_work(args.name, context, original_args, current_job_kwargs, args.output_map, args.inputs, args.input_map)
+        logging.info(f"inputs: {args.inputs}")
+        logging.info(f"input_map: {args.input_map}")
+        logging.info(f"inputs_group: {inputs_group}")
+        exit_code = run_work(args.name, context, original_args, current_job_kwargs, args.output_map, args.inputs, args.input_map, inputs_group)
         logging.info("exit code: %s" % exit_code)
     return exit_code
 
@@ -250,6 +258,28 @@ def custom_action():
             print(values)
             # setattr(namespace, self.dest, values)
     return CustomAction
+
+
+def parse_unknown_grouped_args(args):
+    groups = defaultdict(lambda: {'inputs': [], 'input_map': None})
+    pattern = re.compile(r"--(inputs|input_map)(\d+)")
+    i = 0
+    while i < len(args):
+        match = pattern.match(args[i])
+        if match:
+            key, group_id = match.group(1), int(match.group(2))
+            i += 1
+            if i < len(args) and not args[i].startswith('--'):
+                groups[group_id][key] = args[i]
+                i += 1
+        else:
+            i += 1
+    # Convert dict
+    return {
+        group['input_map']: group['inputs']
+        for group in (groups[i] for i in sorted(groups.keys()))
+        if group['input_map'] is not None
+    }
 
 
 def get_parser():
@@ -289,7 +319,10 @@ if __name__ == '__main__':
             logging.getLogger().setLevel(logging.DEBUG)
         start_time = time.time()
 
-        exit_code = run_iworkflow(args)
+        # Parse dynamic grouped arguments
+        inputs_group = parse_unknown_grouped_args(unknown)
+
+        exit_code = run_iworkflow(args, inputs_group)
         end_time = time.time()
         if args.verbose:
             print("Completed in %-0.4f sec." % (end_time - start_time))

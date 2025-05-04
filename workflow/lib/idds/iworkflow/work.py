@@ -402,7 +402,7 @@ class Work(Base):
                  current_job_kwargs=None, map_results=False, source_dir=None, init_env=None, is_unique_func_name=False, name=None,
                  parent_workload_id=None, no_wait_parent=False, container_options=None, input_datasets=None, output_file_name=None,
                  output_dataset_name=None, num_events=None, num_events_per_job=None, parent_transform_id=None, parent_internal_id=None,
-                 log_dataset_name=None, inputs=None, input_map=None, enable_separate_log=False):
+                 log_dataset_name=None, inputs=None, input_map=None, inputs_group=None, enable_separate_log=False):
         """
         Init a workflow.
         """
@@ -454,6 +454,7 @@ class Work(Base):
                                  'parent_internal_id': parent_internal_id}
         self.inputs = inputs
         self.input_map = input_map
+        self.inputs_group = inputs_group
 
     @property
     def logger(self):
@@ -1205,6 +1206,12 @@ class Work(Base):
 
             if self.inputs and self.input_map:
                 new_kwargs = {self.input_map: ",".join[self.inputs]}
+                kwargs_copy.update(new_kwargs)
+            if self.inputs_group:
+                new_kwargs = {
+                    k: ",".join(v) if isinstance(v, (list, tuple)) else str(v)
+                    for k, v in self.inputs_group.items()
+                }
                 kwargs_copy.update(new_kwargs)
 
             ret_status, ret_output, ret_err = self.run_func(self._func, pre_kwargs_copy, args_copy, kwargs_copy)

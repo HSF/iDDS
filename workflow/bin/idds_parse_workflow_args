@@ -40,8 +40,9 @@ def get_parser(program):
     # common items
     oparser.add_argument('--pre_setup', dest='pre_setup', help="The pre_setup.")
     oparser.add_argument('--setup', dest='setup', help="The setup.")
-    oparser.add_argument('--output_map', dest='output_map', help="The output map.")
-    oparser.add_argument('--inputs', dest='inputs', help="The input list.")
+    # oparser.add_argument('--output_map', dest='output_map', help="The output map.")
+    # oparser.add_argument('--inputs', dest='inputs', help="The input list.")
+    # oparser.add_argument('--input_map', dest='input_map', help="The input map.")
     oparser.add_argument('run_args', nargs=argparse.REMAINDER, help="All other arguments")
     return oparser
 
@@ -121,10 +122,10 @@ def process_args(args):
     logging.debug(args.pre_setup)
     logging.debug("setup: ")
     logging.debug(args.setup)
-    logging.debug("output_map: ")
-    logging.debug(args.output_map)
-    logging.debug("inputs: ")
-    logging.debug(args.inputs)
+    # logging.debug("output_map: ")
+    # logging.debug(args.output_map)
+    # logging.debug("inputs: ")
+    # logging.debug(args.inputs)
     logging.debug("run_args:")
     logging.debug(args.run_args)
 
