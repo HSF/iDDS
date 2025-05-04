@@ -997,6 +997,14 @@ class WorkflowBase(Base):
         self.add_metadata_item('first_initial', value)
 
     @property
+    def internal_id_relation_map(self):
+        return self.get_metadata_item('internal_id_relation_map', False)
+
+    @internal_id_relation_map.setter
+    def internal_id_relation_map(self, value):
+        self.add_metadata_item('internal_id_relation_map', value)
+
+    @property
     def to_start_works(self):
         return self.get_metadata_item('to_start_works', [])
 
@@ -1579,6 +1587,13 @@ class WorkflowBase(Base):
         # for k in new_workflows:
         #     self.current_running_works.append(k)
         self.logger.info("%s get_new_works done" % self.get_internal_id())
+
+        # make sure internal_id is loaded
+        internal_id_relation_map = self.internal_id_relation_map
+        if internal_id_relation_map and works:
+            for i, w in enumerate(works):
+                if not works[i].parent_internal_id:
+                    works[i].parent_internal_id = internal_id_relation_map.get(works[i].internal_id, None)
         return works
 
     def get_current_works(self):
@@ -1710,11 +1725,14 @@ class WorkflowBase(Base):
         self.log_debug("ordered independent works")
 
         pre_work = None
+        internal_id_relation_map = {}
         for work_id in self.independent_works:
             work = self.works[work_id]
             if pre_work is not None:
                 work.parent_internal_id = pre_work.internal_id
             pre_work = work
+            internal_id_relation_map[work.internal_id] = work.parent_internal_id
+        self.internal_id_relation_map = internal_id_relation_map
 
     def first_initialize(self):
         # set new_to_run works
