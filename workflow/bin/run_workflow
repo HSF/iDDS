@@ -22,11 +22,14 @@ import base64
 import json
 import logging
 import pickle
+import re
 import os
 import sys
 import time
 import traceback
 import zlib
+
+from collections import defaultdict
 
 from idds.common.utils import json_dumps, json_loads, setup_logging, decode_base64
 # from idds.common.utils import merge_dict
@@ -58,6 +61,9 @@ def get_context_args(context, original_args, current_job_kwargs):
             logging.info("current_job_kwargs == original ${IN/L}, is not set")
         else:
             try:
+                # if type(current_job_kwargs) not in (list, tuple):
+                #     current_job_kwargs = ast.literal_eval(current_job_kwargs)
+
                 current_job_kwargs = json_loads(current_job_kwargs)
 
                 if current_job_kwargs:
@@ -73,16 +79,22 @@ def get_context_args(context, original_args, current_job_kwargs):
 
 
 def map_output_files(output_map):
-    if output_map:
-        for org_file, mapped_file in output_map:
-            if os.path.exists(org_file):
+    if not output_map:
+        logging.info("No output mapping provided.")
+        return
+
+    for org_file, mapped_file in output_map.items():
+        if os.path.exists(org_file):
+            try:
                 os.symlink(org_file, mapped_file)
                 logging.info(f"link {org_file} to {mapped_file}")
-            else:
-                logging.info(f"cannot link {org_file} to {mapped_file}, because it doesn't exist")
+            except Exception as e:
+                logging.error(f"Failed to link {org_file} to {mapped_file}: {e}")
+        else:
+            logging.warning(f"cannot link {org_file} to {mapped_file}, because it doesn't exist")
 
 
-def run_workflow(name, context, original_args, current_job_kwargs, output_map):
+def run_workflow(name, context, original_args, current_job_kwargs, output_map, inputs, input_map):
     context, func_name, pre_kwargs, args, kwargs, multi_jobs_kwargs_list, current_job_kwargs = get_context_args(context, original_args, current_job_kwargs)
     logging.info("name: %s" % name)
     logging.info("context: %s" % context)
@@ -93,6 +105,8 @@ def run_workflow(name, context, original_args, current_job_kwargs, output_map):
     logging.info("multi_jobs_kwargs_list: %s" % str(multi_jobs_kwargs_list))
     logging.info("current_job_kwargs: %s" % str(current_job_kwargs))
     logging.info(f"output_map: {output_map}")
+    logging.info(f"inputs: {inputs}")
+    logging.info(f"input_map: {input_map}")
 
     context.initialize()
     context.setup_source_files()
@@ -108,7 +122,7 @@ def run_workflow(name, context, original_args, current_job_kwargs, output_map):
     return 0
 
 
-def run_work(name, context, original_args, current_job_kwargs, output_map):
+def run_work(name, context, original_args, current_job_kwargs, output_map, inputs, input_map, inputs_group):
     context, func_name, pre_kwargs, args, kwargs, multi_jobs_kwargs_list, current_job_kwargs = get_context_args(context, original_args, current_job_kwargs)
     logging.info("name: %s" % name)
     logging.info("context: %s" % context)
@@ -119,21 +133,24 @@ def run_work(name, context, original_args, current_job_kwargs, output_map):
     logging.info("multi_jobs_kwargs_list: %s" % str(multi_jobs_kwargs_list))
     logging.info("current_job_kwargs: %s" % str(current_job_kwargs))
     logging.info(f"output_map: {output_map}")
+    logging.info(f"inputs: {inputs}")
 
     context.initialize()
     context.setup_source_files()
 
-    work = Work(func=func_name, pre_kwargs=pre_kwargs, args=args, kwargs=kwargs, multi_jobs_kwargs_list=multi_jobs_kwargs_list, current_job_kwargs=current_job_kwargs, context=context, name=name)
+    work = Work(func=func_name, pre_kwargs=pre_kwargs, args=args, kwargs=kwargs, multi_jobs_kwargs_list=multi_jobs_kwargs_list,
+                current_job_kwargs=current_job_kwargs, context=context, name=name, inputs=inputs, input_map=input_map, inputs_group=inputs_group)
     work.load()
     logging.info("work: %s" % work)
     ret = work.run()
     logging.info("run work result: %s" % str(ret))
+    map_output_files(output_map)
     if not ret:
         return -1
     return 0
 
 
-def run_iworkflow(args):
+def run_iworkflow(args, inputs_group):
     if args.context:
         context = decode_base64(args.context)
         context = json_loads(context)
@@ -181,6 +198,26 @@ def run_iworkflow(args):
         except Exception as ex:
             logging.warning(f"failed to load args.output_map with json: {ex}")
 
+    if args.inputs:
+        try:
+            args.inputs = ast.literal_eval(args.inputs)
+        except Exception as ex:
+            logging.warning(f"failed to load args.inputs with ast: {ex}")
+        try:
+            args.inputs = json.loads(args.inputs)
+        except Exception as ex:
+            logging.warning(f"failed to load args.inputs with json: {ex}")
+
+    if args.input_map:
+        try:
+            args.input_map = ast.literal_eval(args.input_map)
+        except Exception as ex:
+            logging.warning(f"failed to load args.input_map with ast: {ex}")
+        try:
+            args.input_map = json.loads(args.input_map)
+        except Exception as ex:
+            logging.warning(f"failed to load args.input_map with json: {ex}")
+
     if args.type == 'workflow':
         logging.info("run workflow")
         password = context.broker_password
@@ -188,8 +225,11 @@ def run_iworkflow(args):
         logging.info("context: %s" % json_dumps(context))
         context.broker_password = password
         logging.info("original_args: %s" % original_args)
-        logging.info("current_job_kwargs: %s" % current_job_kwargs)
-        exit_code = run_workflow(args.name, context, original_args, current_job_kwargs, args.output_map)
+        logging.info(f"current_job_kwargs: {type(current_job_kwargs)},{current_job_kwargs}")
+        logging.info(f"inputs: {args.inputs}")
+        logging.info(f"input_map: {args.input_map}")
+        logging.info(f"inputs_group: {inputs_group}")
+        exit_code = run_workflow(args.name, context, original_args, current_job_kwargs, args.output_map, args.inputs, args.input_map, inputs_group)
         logging.info("exit code: %s" % exit_code)
     else:
         logging.info("run work")
@@ -198,8 +238,11 @@ def run_iworkflow(args):
         logging.info("context: %s" % json_dumps(context))
         context.broker_password = password
         logging.info("original_args: %s" % original_args)
-        logging.info("current_job_kwargs: %s" % current_job_kwargs)
-        exit_code = run_work(args.name, context, original_args, current_job_kwargs, args.output_map)
+        logging.info(f"current_job_kwargs: {type(current_job_kwargs)},{current_job_kwargs}")
+        logging.info(f"inputs: {args.inputs}")
+        logging.info(f"input_map: {args.input_map}")
+        logging.info(f"inputs_group: {inputs_group}")
+        exit_code = run_work(args.name, context, original_args, current_job_kwargs, args.output_map, args.inputs, args.input_map, inputs_group)
         logging.info("exit code: %s" % exit_code)
     return exit_code
 
@@ -215,6 +258,42 @@ def custom_action():
             print(values)
             # setattr(namespace, self.dest, values)
     return CustomAction
+
+
+def parse_item(name, value):
+    try:
+        ret = value
+        ret = ast.literal_eval(ret)
+    except Exception as ex:
+        logging.warning(f"failed to load {name}: {ret} with ast: {ex}")
+    try:
+        ret = json.loads(ret)
+    except Exception as ex:
+        logging.warning(f"failed to load {name}: {ret} with json: {ex}")
+    return ret
+
+
+def parse_unknown_grouped_args(args):
+    groups = defaultdict(lambda: {'inputs': [], 'input_map': None})
+    pattern = re.compile(r"--(inputs|input_map)(\d+)")
+    i = 0
+    while i < len(args):
+        match = pattern.match(args[i])
+        if match:
+            key, group_id = match.group(1), int(match.group(2))
+            i += 1
+            if i < len(args) and not args[i].startswith('--'):
+                groups[group_id][key] = args[i]
+                i += 1
+        else:
+            i += 1
+    # Convert dict
+    rets = {}
+    for group in (groups[i] for i in sorted(groups.keys())):
+        if group['input_map'] is not None:
+            inputs = parse_item('inputs', group['inputs'])
+            rets[group['input_map']] = inputs
+    return rets
 
 
 def get_parser():
@@ -235,6 +314,8 @@ def get_parser():
     oparser.add_argument('--output', dest='output', help="The output file name.")
     oparser.add_argument('--mapped_output', dest='output', help="The output file name to be mapped.")
     oparser.add_argument('--output_map', dest='output_map', help="The output map.")
+    oparser.add_argument('--inputs', dest='inputs', help="The input list.")
+    oparser.add_argument('--input_map', dest='input_map', help="The input map.")
     oparser.add_argument('--others', dest='others', nargs='*', help="Additional custom arguments (e.g., key=value).")
     return oparser
 
@@ -252,7 +333,10 @@ if __name__ == '__main__':
             logging.getLogger().setLevel(logging.DEBUG)
         start_time = time.time()
 
-        exit_code = run_iworkflow(args)
+        # Parse dynamic grouped arguments
+        inputs_group = parse_unknown_grouped_args(unknown)
+
+        exit_code = run_iworkflow(args, inputs_group)
         end_time = time.time()
         if args.verbose:
             print("Completed in %-0.4f sec." % (end_time - start_time))

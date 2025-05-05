@@ -238,7 +238,7 @@ class Poller(BaseAgent):
                                                                      processing['transform_id'],
                                                                      processing['processing_id'])
 
-    def update_processing(self, processing, processing_model, use_bulk_update_mappings=True):
+    def update_processing(self, processing, processing_model, use_bulk_update_mappings=True, renew_updated_at=False):
         try:
             if processing:
                 log_prefix = self.get_log_prefix(processing_model)
@@ -247,7 +247,8 @@ class Poller(BaseAgent):
 
                 processing['update_processing']['parameters']['locking'] = ProcessingLocking.Idle
                 # self.logger.debug("wen: %s" % str(processing))
-                processing['update_processing']['parameters']['updated_at'] = datetime.datetime.utcnow()
+                if renew_updated_at:
+                    processing['update_processing']['parameters']['updated_at'] = datetime.datetime.utcnow()
                 # check update_processing status
                 if 'status' in processing['update_processing']['parameters']:
                     new_status = processing['update_processing']['parameters']['status']
@@ -556,7 +557,7 @@ class Poller(BaseAgent):
                                          'parameters': parameters}
                     ret = {'update_processing': update_processing,
                            'update_contents': []}
-                    self.update_processing(ret, pr)
+                    self.update_processing(ret, pr, renew_updated_at=True)
                     pro_ret = ReturnCode.Ok.value
                 else:
                     log_pre = self.get_log_prefix(pr)
@@ -568,7 +569,7 @@ class Poller(BaseAgent):
                         ret = self.handle_update_processing(pr)
                     # self.logger.info(log_pre + "process_update_processing result: %s" % str(ret))
 
-                    self.update_processing(ret, pr)
+                    self.update_processing(ret, pr, renew_updated_at=True)
 
                     if 'processing_status' in ret and ret['processing_status'] == ProcessingStatus.Triggering:
                         event_content = {}
