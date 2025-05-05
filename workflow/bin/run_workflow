@@ -225,7 +225,7 @@ def run_iworkflow(args, inputs_group):
         logging.info("context: %s" % json_dumps(context))
         context.broker_password = password
         logging.info("original_args: %s" % original_args)
-        logging.info("current_job_kwargs: %s" % current_job_kwargs)
+        logging.info(f"current_job_kwargs: {type(current_job_kwargs)},{current_job_kwargs}")
         logging.info(f"inputs: {args.inputs}")
         logging.info(f"input_map: {args.input_map}")
         logging.info(f"inputs_group: {inputs_group}")
@@ -238,7 +238,7 @@ def run_iworkflow(args, inputs_group):
         logging.info("context: %s" % json_dumps(context))
         context.broker_password = password
         logging.info("original_args: %s" % original_args)
-        logging.info("current_job_kwargs: %s" % current_job_kwargs)
+        logging.info(f"current_job_kwargs: {type(current_job_kwargs)},{current_job_kwargs}")
         logging.info(f"inputs: {args.inputs}")
         logging.info(f"input_map: {args.input_map}")
         logging.info(f"inputs_group: {inputs_group}")
@@ -260,6 +260,19 @@ def custom_action():
     return CustomAction
 
 
+def parse_item(name, value):
+    try:
+        ret = value
+        ret = ast.literal_eval(ret)
+    except Exception as ex:
+        logging.warning(f"failed to load {name}: {ret} with ast: {ex}")
+    try:
+        ret = json.loads(ret)
+    except Exception as ex:
+        logging.warning(f"failed to load {name}: {ret} with json: {ex}")
+    return ret
+
+
 def parse_unknown_grouped_args(args):
     groups = defaultdict(lambda: {'inputs': [], 'input_map': None})
     pattern = re.compile(r"--(inputs|input_map)(\d+)")
@@ -275,11 +288,12 @@ def parse_unknown_grouped_args(args):
         else:
             i += 1
     # Convert dict
-    return {
-        group['input_map']: group['inputs']
-        for group in (groups[i] for i in sorted(groups.keys()))
-        if group['input_map'] is not None
-    }
+    rets = {}
+    for group in (groups[i] for i in sorted(groups.keys())):
+        if group['input_map'] is not None:
+            inputs = parse_item('inputs', group['inputs'])
+            rets[group['input_map']] = inputs
+    return rets
 
 
 def get_parser():
