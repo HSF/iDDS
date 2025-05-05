@@ -194,7 +194,7 @@ class Finisher(Poller):
                                          'parameters': parameters}
                     ret = {'update_processing': update_processing,
                            'update_contents': []}
-                    self.update_processing(ret, pr)
+                    self.update_processing(ret, pr, renew_updated_at=True)
                     pro_ret = ReturnCode.Ok.value
                 else:
                     log_pre = self.get_log_prefix(pr)

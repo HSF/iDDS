@@ -53,6 +53,12 @@ elif [ "$instance" == "bnl" ]; then
     unset IDDS_HOST
     # doma
     # export IDDS_HOST=https://aipanda105.cern.ch:443/idds
+
+    # bnl rucio
+    source /cvmfs/eic.opensciencegrid.org/rucio-clients/alrb_setup.sh
+    voms-proxy-init
+    export RUCIO_ACCOUNT=wguan
+
 elif [ "$instance" == "usdf_dev" ]; then
     export PANDA_AUTH=oidc
     export PANDA_BEHIND_REAL_LB=true

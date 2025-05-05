@@ -70,8 +70,12 @@ def handle_update_iprocessing(processing, agent_attributes, plugin=None, max_upd
     workload_id = processing['workload_id']
 
     try:
-        status = plugin.poll(workload_id, logger=logger, log_prefix=log_prefix)
-        logger.info(log_prefix + "poll work (status: %s, workload_id: %s)" % (status, workload_id))
+        if workload_id is None:
+            logger.info(log_prefix + f"poll work (workload_id: {workload_id}) workload_id is None, fail the task")
+            status = ProcessingStatus.Failed
+        else:
+            status = plugin.poll(workload_id, logger=logger, log_prefix=log_prefix)
+            logger.info(log_prefix + "poll work (status: %s, workload_id: %s)" % (status, workload_id))
     except Exception as ex:
         err_msg = "poll work failed with exception: %s" % (ex)
         logger.error(log_prefix + err_msg)
