@@ -1208,10 +1208,11 @@ class Work(Base):
                 new_kwargs = {self.input_map: ",".join[self.inputs]}
                 kwargs_copy.update(new_kwargs)
             if self.inputs_group:
-                new_kwargs = {
-                    k: ",".join(v) if isinstance(v, (list, tuple)) else str(v)
-                    for k, v in self.inputs_group.items()
-                }
+                # new_kwargs = {
+                #     k: ",".join(v) if isinstance(v, (list, tuple)) else str(v)
+                #     for k, v in self.inputs_group.items()
+                # }
+                new_kwargs = {k: v for k, v in self.inputs_group.items()}
                 kwargs_copy.update(new_kwargs)
 
             ret_status, ret_output, ret_err = self.run_func(self._func, pre_kwargs_copy, args_copy, kwargs_copy)
