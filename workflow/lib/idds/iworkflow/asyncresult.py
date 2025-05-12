@@ -73,21 +73,21 @@ class MapResult(object):
         return str(self._name_results)
 
     def add_result(self, name=None, args=None, key=None, result=None):
-        name_key = key
-        if name_key is None:
+        if key is None:
             key = get_unique_id_for_dict(args)
             name_key = '%s:%s' % (name, key)
         else:
             # name_key = key
             # name = ':'.join(name_key.split(":")[:-1])
-            key = name_key.split(":")[-1]
+            # key = name_key.split(":")[-1]
+            name_key = '%s:%s' % (name, key)
 
         self._name_results[name_key] = result
         self._results[key] = result
 
     def has_result(self, name=None, args=None, key=None):
-        name_key = key
-        if name_key is not None:
+        if key is not None:
+            name_key = '%s:%s' % (name, key)
             if name_key in self._name_results:
                 return True
             return False
@@ -109,17 +109,14 @@ class MapResult(object):
             logging.info("get_result: key %s, name: %s, args: %s" % (key, name, args))
             logging.info("get_result: results: %s, name_results: %s" % (self._results, self._name_results))
 
-        name_key = key
-        if name_key is not None:
-            ret = self._name_results.get(name_key, None)
-        else:
+        if key is None:
             key = get_unique_id_for_dict(args)
 
-            if name is not None:
-                name_key = '%s:%s' % (name, key)
-                ret = self._name_results.get(name_key, None)
-            else:
-                ret = self._results.get(key, None)
+        if name is not None:
+            name_key = '%s:%s' % (name, key)
+            ret = self._name_results.get(name_key, None)
+        else:
+            ret = self._results.get(key, None)
         if verbose:
             logging.info("get_result: name key %s, args key %s, ret: %s" % (name_key, key, ret))
         return ret
@@ -129,17 +126,16 @@ class MapResult(object):
             logging.info("set_result: key %s, name: %s, args: %s, value: %s" % (key, name, args, value))
             logging.info("set_result: results: %s, name_results: %s" % (self._results, self._name_results))
 
-        name_key = key
-        if name_key is not None:
+        if key is None:
+            key = get_unique_id_for_dict(args)
+
+        if name is not None:
+            name_key = '%s:%s' % (name, key)
             self._name_results[name_key] = value
         else:
             key = get_unique_id_for_dict(args)
+            self._results[key] = value
 
-            if name is not None:
-                name_key = '%s:%s' % (name, key)
-                self._name_results[name_key] = value
-            else:
-                self._results[key] = value
         if verbose:
             logging.info("set_result: name key %s, args key %s, value: %s" % (name_key, key, value))
 
@@ -529,8 +525,8 @@ class AsyncResult(Base):
         if key is None:
             if self._current_job_kwargs:
                 key = get_unique_id_for_dict(self._current_job_kwargs)
-                key = "%s:%s" % (self._name, key)
-                self.logger.info(f"{self.internal_id} publish args ({self._current_job_kwargs}) to key: {key}")
+        key = "%s:%s" % (self._name, key)
+        self.logger.info(f"{self.internal_id} publish args ({self._current_job_kwargs}) to key: {key}")
 
         if workflow_context.workflow_type in [WorkflowType.iWorkflow, WorkflowType.iWorkflowLocal]:
             headers = {'persistent': 'true',
