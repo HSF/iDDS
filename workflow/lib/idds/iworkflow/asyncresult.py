@@ -86,23 +86,16 @@ class MapResult(object):
         self._results[key] = result
 
     def has_result(self, name=None, args=None, key=None):
-        if key is not None:
-            name_key = '%s:%s' % (name, key)
-            if name_key in self._name_results:
-                return True
-            return False
-        else:
+        if key is None:
             key = get_unique_id_for_dict(args)
-            name_key = '%s:%s' % (name, key)
 
-            if name is not None:
-                if name_key in self._name_results:
-                    return True
-                return False
-            else:
-                if key in self._result:
-                    return True
-                return False
+        name_key = '%s:%s' % (name, key)
+        if name_key in self._name_results:
+            return True
+        else:
+            if key in self._result:
+                return True
+        return False
 
     def get_result(self, name=None, args=None, key=None, verbose=False):
         if verbose:
@@ -112,8 +105,8 @@ class MapResult(object):
         if key is None:
             key = get_unique_id_for_dict(args)
 
-        if name is not None:
-            name_key = '%s:%s' % (name, key)
+        name_key = '%s:%s' % (name, key)
+        if name_key in self._name_results:
             ret = self._name_results.get(name_key, None)
         else:
             ret = self._results.get(key, None)
@@ -128,13 +121,10 @@ class MapResult(object):
 
         if key is None:
             key = get_unique_id_for_dict(args)
+        name_key = '%s:%s' % (name, key)
 
-        if name is not None:
-            name_key = '%s:%s' % (name, key)
-            self._name_results[name_key] = value
-        else:
-            key = get_unique_id_for_dict(args)
-            self._results[key] = value
+        self._name_results[name_key] = value
+        self._results[key] = value
 
         if verbose:
             logging.info("set_result: name key %s, args key %s, value: %s" % (name_key, key, value))
@@ -333,35 +323,52 @@ class AsyncResult(Base):
             self.logger.debug(f"{self.internal_id} _results: {self._results}, bad_results: {self._bad_results}")
             self.logger.debug(f"{self.internal_id} wait_keys: {self.wait_keys}, wait_num: {self._wait_num}")
 
-        rets_dict = {}
-        failure_dict = {}
+        rets_list = []
+        failure_list = []
         for result in self._results:
-            key = result['key']
+            # name = result['name']
+            # key = result['key']
             ret = result['ret']
             status, output, error = ret
             if status is True:
-                rets_dict[key] = output
+                rets_list.append(result)
             else:
-                if key not in failure_dict:
-                    failure_dict[key] = []
-                failure_dict[key].append(ret)
+                failure_list.append(result)
         if not self._nologs:
-            self.logger.debug(f"{self.internal_id} rets_dict: {rets_dict}, failure_dict: {failure_dict}")
+            self.logger.debug(f"{self.internal_id} rets_list: {rets_list}, failure_list: {failure_list}")
 
         if self._map_results:
             rets = {}
             if len(self.wait_keys) > 0:
-                for k in self.wait_keys:
-                    if k in rets_dict:
-                        rets[k] = rets_dict[k]
+                for result in rets_list:
+                    name = result['name']
+                    key = result['key']
+                    name_key = f"{name}:{key}"
+                    if name_key in self.wait_keys:
+                        ret = result['ret']
+                        status, output, error = ret
+                        rets[name_key] = output
                 self._results_percentage = len(list(rets.keys())) * 1.0 / len(self.wait_keys)
             else:
-                rets = rets_dict
+                for result in rets_list:
+                    name = result['name']
+                    key = result['key']
+                    name_key = f"{name}:{key}"
+                    ret = result['ret']
+                    status, output, error = ret
+
+                    rets[name_key] = output
                 self._results_percentage = len(list(rets.keys())) * 1.0 / self._wait_num
 
             ret_map = MapResult()
-            for k in rets:
-                ret_map.add_result(key=k, result=rets[k])
+            for k in rets_list:
+                name = result['name']
+                key = result['key']
+                name_key = f"{name}:{key}"
+                ret = result['ret']
+                status, output, error = ret
+
+                ret_map.add_result(name=name, key=key, result=output)
 
             if has_new_data:
                 self.logger.debug(f'{self.internal_id} percent {self._results_percentage}, results: {ret_map}')
@@ -370,12 +377,25 @@ class AsyncResult(Base):
         else:
             rets = []
             if len(self.wait_keys) > 0:
-                for k in self.wait_keys:
-                    if k in rets_dict:
-                        rets.append(rets_dict[k])
+                for result in rets_list:
+                    name = result['name']
+                    key = result['key']
+                    name_key = f"{name}:{key}"
+                    if name_key in self.wait_keys:
+                        ret = result['ret']
+                        status, output, error = ret
+                        rets.append(output)
+
                 self._results_percentage = len(rets) * 1.0 / len(self.wait_keys)
             else:
-                rets = [rets_dict[k] for k in rets_dict]
+                for result in rets_list:
+                    name = result['name']
+                    key = result['key']
+                    name_key = f"{name}:{key}"
+                    ret = result['ret']
+                    status, output, error = ret
+
+                    rets.append(output)
                 self._results_percentage = len(rets) * 1.0 / self._wait_num
 
             if has_new_data:
@@ -519,13 +539,15 @@ class AsyncResult(Base):
         self._subscribe_connections = conns
         return conns
 
-    def get_message(self, ret, key=None):
+    def get_message(self, ret, name=None, key=None):
         message = {}
         workflow_context = self._work_context
         if key is None:
             if self._current_job_kwargs:
                 key = get_unique_id_for_dict(self._current_job_kwargs)
-        key = "%s:%s" % (self._name, key)
+        if name is None:
+            name = self._name
+        # key = "%s:%s" % (self._name, key)
         self.logger.info(f"{self.internal_id} publish args ({self._current_job_kwargs}) to key: {key}")
 
         if workflow_context.workflow_type in [WorkflowType.iWorkflow, WorkflowType.iWorkflowLocal]:
@@ -534,7 +556,7 @@ class AsyncResult(Base):
                        'type': 'iworkflow',
                        'internal_id': str(self.internal_id),
                        'request_id': workflow_context.request_id}
-            body = {'ret': ret, 'key': key, 'internal_id': self.internal_id, 'type': 'iworkflow',
+            body = {'ret': ret, 'name': name, 'key': key, 'internal_id': self.internal_id, 'type': 'iworkflow',
                     'request_id': workflow_context.request_id}
             message = {"headers": headers, "body": body}
         elif workflow_context.workflow_type == WorkflowType.iWork:
@@ -544,14 +566,14 @@ class AsyncResult(Base):
                        'internal_id': str(self.internal_id),
                        'request_id': workflow_context.request_id,
                        'transform_id': workflow_context.transform_id}
-            body = {'ret': ret, 'key': key, 'internal_id': self.internal_id, 'type': 'iwork',
+            body = {'ret': ret, 'name': name, 'key': key, 'internal_id': self.internal_id, 'type': 'iwork',
                     'request_id': workflow_context.request_id,
                     'transform_id': workflow_context.transform_id}
             message = {"headers": headers, "body": body}
         return message
 
-    def publish_message(self, ret, key=None):
-        message = self.get_message(ret=ret, key=key)
+    def publish_message(self, ret, name=None, key=None):
+        message = self.get_message(ret=ret, name=name, key=key)
         headers = message['headers']
         body = message['body']
         conn = self.connect_to_messaging_broker()
@@ -617,8 +639,8 @@ class AsyncResult(Base):
         else:
             self.logger.error(f"{self.internal_id} failed to publish message through idds server, status: {status}, ret: {ret}")
 
-    def publish_through_api(self, ret, key=None, force=False):
-        message = self.get_message(ret=ret, key=key)
+    def publish_through_api(self, ret, name=None, key=None, force=False):
+        message = self.get_message(ret=ret, name=name, key=key)
         # headers = message['headers']
         # body = message['body']
         message['msg_type'] = 'async_result'
@@ -640,12 +662,12 @@ class AsyncResult(Base):
             self.logger.error(f"{self.internal_id} Failed to publish message through API: {ex}")
 
     @timeout_wrapper(timeout=90)
-    def publish(self, ret, key=None, force=False, ret_status=True, ret_error=None):
+    def publish(self, ret, name=None, key=None, force=False, ret_status=True, ret_error=None):
         stomp_failed = False
         if with_stomp and self._broker_initialized:
             try:
                 self.logger.info(f"{self.internal_id} publishing results through messaging brokers")
-                self.publish_message(ret=(ret_status, ret, ret_error), key=key)
+                self.publish_message(ret=(ret_status, ret, ret_error), name=name, key=key)
                 self.logger.info(f"{self.internal_id} finished to publish results through messaging brokers")
             except Exception as ex:
                 self.logger.warn(f"{self.internal_id} Failed to publish result through messaging brokers: {ex}")
@@ -653,7 +675,7 @@ class AsyncResult(Base):
 
         if not with_stomp or not self._broker_initialized or stomp_failed:
             self.logger.info(f"{self.internal_id} publishing results through http API")
-            self.publish_through_api(ret=(ret_status, ret, ret_error), key=key, force=force)
+            self.publish_through_api(ret=(ret_status, ret, ret_error), name=name, key=key, force=force)
             self.logger.info(f"{self.internal_id} finished to publish results through http API")
 
     def poll_messages_through_panda_server(self, request_id, transform_id, internal_id):
