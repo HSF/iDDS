@@ -402,7 +402,7 @@ class Work(Base):
                  current_job_kwargs=None, map_results=False, source_dir=None, init_env=None, is_unique_func_name=False, name=None,
                  parent_workload_id=None, no_wait_parent=False, container_options=None, input_datasets=None, output_file_name=None,
                  output_dataset_name=None, num_events=None, num_events_per_job=None, parent_transform_id=None, parent_internal_id=None,
-                 log_dataset_name=None, inputs=None, input_map=None, inputs_group=None, enable_separate_log=False):
+                 log_dataset_name=None, inputs=None, input_map=None, inputs_group=None, enable_separate_log=False, job_key=None):
         """
         Init a workflow.
         """
@@ -451,7 +451,8 @@ class Work(Base):
                                  'num_events': num_events,
                                  'num_events_per_job': num_events_per_job,
                                  'parent_transform_id': parent_transform_id,
-                                 'parent_internal_id': parent_internal_id}
+                                 'parent_internal_id': parent_internal_id,
+                                 'job_key': job_key}
         self.inputs = inputs
         self.input_map = input_map
         self.inputs_group = inputs_group
@@ -729,6 +730,14 @@ class Work(Base):
         if not self.other_attributes:
             return None
         return self.other_attributes.get(name, None)
+
+    @property
+    def job_key(self):
+        return self.get_other_attribute('job_key')
+
+    @job_key.setter
+    def job_key(self, value):
+        self.set_other_attribute('job_key', value)
 
     @property
     def parent_internal_id(self):
@@ -1208,10 +1217,11 @@ class Work(Base):
                 new_kwargs = {self.input_map: ",".join[self.inputs]}
                 kwargs_copy.update(new_kwargs)
             if self.inputs_group:
-                new_kwargs = {
-                    k: ",".join(v) if isinstance(v, (list, tuple)) else str(v)
-                    for k, v in self.inputs_group.items()
-                }
+                # new_kwargs = {
+                #     k: ",".join(v) if isinstance(v, (list, tuple)) else str(v)
+                #     for k, v in self.inputs_group.items()
+                # }
+                new_kwargs = {k: v for k, v in self.inputs_group.items()}
                 kwargs_copy.update(new_kwargs)
 
             ret_status, ret_output, ret_err = self.run_func(self._func, pre_kwargs_copy, args_copy, kwargs_copy)
@@ -1221,13 +1231,13 @@ class Work(Base):
             ret_log = f"(status: {ret_status}, return: {ret_output}, error: {ret_err})"
             logging.info(f"publishing AsyncResult to (request_id: {request_id}, transform_id: {transform_id}): {ret_log}")
             async_ret = AsyncResult(self._context, name=self.get_func_name(), internal_id=self.internal_id, current_job_kwargs=current_job_kwargs)
-            async_ret.publish(ret_output, ret_status=ret_status, ret_error=ret_err)
+            async_ret.publish(ret_output, ret_status=ret_status, ret_error=ret_err, key=self.job_key)
 
             if not self.map_results:
                 self._results = ret_output
             else:
                 self._results = MapResult()
-                self._results.add_result(name=self.get_func_name(), args=current_job_kwargs, result=ret_output)
+                self._results.add_result(name=self.get_func_name(), args=current_job_kwargs, result=ret_output, key=self.job_key)
             return ret_status
         else:
             if not multi_jobs_kwargs_list:
@@ -1236,7 +1246,7 @@ class Work(Base):
                     self._results = rets
                 else:
                     self._results = MapResult()
-                    self._results.add_result(name=self.get_func_name(), args=kwargs, result=rets)
+                    self._results.add_result(name=self.get_func_name(), args=kwargs, result=rets, key=self.job_key)
                 return ret_status
             else:
                 if not self.map_results:
@@ -1264,11 +1274,11 @@ class Work(Base):
                             args_copy = copy.deepcopy(one_job_kwargs)
 
                         ret_status, rets, ret_error = self.run_func(self._func, pre_kwargs_copy, args_copy, kwargs_copy)
-                        self._results.add_result(name=self.get_func_name(), args=one_job_kwargs, result=rets)
+                        self._results.add_result(name=self.get_func_name(), args=one_job_kwargs, result=rets, key=self.job_key)
                 return ret_status
 
     def get_run_command(self):
-        cmd = "run_workflow --type work --name %s " % self.name
+        cmd = f"run_workflow --type work --name {self.name} --key {self.job_key} "
         cmd += "--context %s --original_args %s " % (encode_base64(json_dumps(self._context)),
                                                      encode_base64(json_dumps(self._func_name_and_args)))
         cmd += '--current_job_kwargs "${IN/T}"'
@@ -1335,13 +1345,13 @@ def run_work_distributed(w):
 def work(func=None, *, workflow=None, pre_kwargs={}, name=None, return_work=False, map_results=False, lazy=False, init_env=None, no_wraps=False,
          container_options=None, parent_workload_id=None, no_wait_parent=False, input_datasets=None, output_file_name=None,
          enable_separate_log=False, output_dataset_name=None, log_dataset_name=None, num_events=None, num_events_per_job=None,
-         parent_transform_id=None, parent_internal_id=None):
+         parent_transform_id=None, parent_internal_id=None, job_key=None):
     if func is None:
         return functools.partial(work, workflow=workflow, pre_kwargs=pre_kwargs, return_work=return_work, no_wraps=no_wraps,
                                  name=name, map_results=map_results, lazy=lazy, init_env=init_env, container_options=container_options,
                                  parent_workload_id=parent_workload_id, no_wait_parent=no_wait_parent, parent_transform_id=parent_transform_id,
                                  input_datasets=input_datasets, output_file_name=output_file_name, output_dataset_name=output_dataset_name,
-                                 log_dataset_name=log_dataset_name,
+                                 log_dataset_name=log_dataset_name, job_key=job_key,
                                  enable_separate_log=enable_separate_log, num_events=num_events, num_events_per_job=num_events_per_job,
                                  parent_internal_id=parent_internal_id)
 
@@ -1364,7 +1374,8 @@ def work(func=None, *, workflow=None, pre_kwargs={}, name=None, return_work=Fals
                          container_options=container_options, parent_workload_id=parent_workload_id, no_wait_parent=no_wait_parent,
                          parent_transform_id=parent_transform_id, input_datasets=input_datasets, output_file_name=output_file_name,
                          output_dataset_name=output_dataset_name, num_events=num_events, num_events_per_job=num_events_per_job,
-                         parent_internal_id=parent_internal_id, enable_separate_log=enable_separate_log, log_dataset_name=log_dataset_name)
+                         parent_internal_id=parent_internal_id, enable_separate_log=enable_separate_log, log_dataset_name=log_dataset_name,
+                         job_key=job_key)
                 # if distributed:
 
                 if return_work:
@@ -1414,7 +1425,7 @@ def work(func=None, *, workflow=None, pre_kwargs={}, name=None, return_work=Fals
                         pre_kwargs_copy.update(kwargs_copy)
 
                         ret = func(*args_copy, **pre_kwargs_copy)
-                        rets.add_result(name=get_func_name(func), args=one_job_kwargs, result=ret)
+                        rets.add_result(name=get_func_name(func), args=one_job_kwargs, result=ret, key=job_key)
                     return rets
         except Exception as ex:
             logging.error("Failed to run workflow %s: %s" % (func, ex))
