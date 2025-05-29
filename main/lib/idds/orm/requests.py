@@ -34,8 +34,8 @@ def create_request(scope=None, name=None, requester=None, request_type=None,
                    new_poll_period=1, update_poll_period=10, site=None,
                    cloud=None, queue=None,
                    new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
-                   campaign=None, campaign_group=None, campaign_tag=None,
-                   additional_data_storage=None,
+                   group_id=None, campaign=None, campaign_scope=None, campaign_group=None,
+                   campaign_tag=None, additional_data_storage=None,
                    processing_metadata=None):
     """
     Create a request.
@@ -87,7 +87,8 @@ def create_request(scope=None, name=None, requester=None, request_type=None,
                                  cloud=cloud, queue=queue,
                                  new_retries=new_retries, update_retries=update_retries,
                                  max_new_retries=max_new_retries, max_update_retries=max_update_retries,
-                                 campaign=campaign, campaign_group=campaign_group, campaign_tag=campaign_tag,
+                                 group_id=group_id, campaign=campaign, campaign_scope=campaign_scope,
+                                 campaign_group=campaign_group, campaign_tag=campaign_tag,
                                  request_metadata=request_metadata, processing_metadata=processing_metadata)
     if new_poll_period:
         new_poll_period = datetime.timedelta(seconds=new_poll_period)
@@ -106,8 +107,8 @@ def add_request(scope=None, name=None, requester=None, request_type=None,
                 new_poll_period=1, update_poll_period=10, site=None,
                 cloud=None, queue=None,
                 new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
-                campaign=None, campaign_group=None, campaign_tag=None,
-                additional_data_storage=None,
+                group_id=None, campaign=None, campaign_scope=None, campaign_group=None,
+                campaign_tag=None, additional_data_storage=None,
                 processing_metadata=None, session=None):
     """
     Add a request.
@@ -142,7 +143,8 @@ def add_request(scope=None, name=None, requester=None, request_type=None,
                                      additional_data_storage=additional_data_storage,
                                      new_retries=new_retries, update_retries=update_retries,
                                      max_new_retries=max_new_retries, max_update_retries=max_update_retries,
-                                     campaign=campaign, campaign_group=campaign_group, campaign_tag=campaign_tag,
+                                     group_id=group_id, campaign=campaign, campaign_scope=campaign_scope,
+                                     campaign_group=campaign_group, campaign_tag=campaign_tag,
                                      request_metadata=request_metadata, processing_metadata=processing_metadata)
         new_request.save(session=session)
         request_id = new_request.request_id
