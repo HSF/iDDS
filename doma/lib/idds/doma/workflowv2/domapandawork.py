@@ -61,6 +61,7 @@ class DomaPanDAWork(Work):
                  vo='wlcg',
                  es=False,
                  es_label=None,
+                 enable_job_name_map=False,
                  max_events_per_job=40,
                  max_name_length=4000,
                  working_group='lsst'):
@@ -137,6 +138,7 @@ class DomaPanDAWork(Work):
         self.es_label = es_label
         self.max_events_per_job = max_events_per_job
         self.es_files = {}
+        self.enable_job_name_map = enable_job_name_map
 
         self.dependency_map = dependency_map
         if self.dependency_map is None:
@@ -1001,6 +1003,13 @@ class DomaPanDAWork(Work):
                 except Exception as ex:
                     self.logger.warn(f"failed to set task parameter map with core_to_queues: {ex}")
 
+            # check whether the task is already submitted
+            request_id = processing['request_id']
+            task_id = self.get_panda_task_id_from_name(request_id, task_param['taskName'])
+            if task_id:
+                # task is already submitted
+                return task_id, None
+
             if self.has_dependency():
                 parent_tid = None
                 self.logger.info("parent_workload_id: %s" % self.parent_workload_id)
@@ -1078,6 +1087,21 @@ class DomaPanDAWork(Work):
                     proc.submitted_at = datetime.datetime.utcnow()
 
         return task_id
+
+    def get_panda_task_id_from_name(self, request_id, task_name):
+        try:
+            from pandaclient import queryPandaMonUtils
+
+            ts, url, data = queryPandaMonUtils.query_tasks(reqid=request_id, taskname=task_name)
+            if isinstance(data, list) and data:
+                for task in data:
+                    if task['reqid'] == request_id and task['name'] == task_name:
+                        return task['jeditaskid']
+            return None
+        except Exception as ex:
+            self.logger.error(str(ex))
+            self.logger.error(traceback.format_exc())
+        return None
 
     def poll_panda_task_status(self, processing):
         if 'processing' in processing['processing_metadata']:
