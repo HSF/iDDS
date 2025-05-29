@@ -555,6 +555,10 @@ class ClientManager:
         self.setup_client()
 
         props = {
+            'campaign': workflow.campaign,
+            'campaign_scope': workflow.campaign_scope,
+            'campaign_group': workflow.campaign_group,
+            'campaign_tag': workflow.campaign_tag,
             'scope': 'workflow',
             'name': workflow.name,
             'requester': 'panda',
