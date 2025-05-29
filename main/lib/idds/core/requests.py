@@ -21,6 +21,7 @@ from idds.common.constants import (RequestStatus, RequestLocking, WorkStatus,
                                    MessageStatus, MetaStatus)
 from idds.common.utils import get_process_thread_info
 from idds.orm.base.session import read_session, transactional_session
+from idds.orm import requests_group as orm_requests_group
 from idds.orm import requests as orm_requests
 from idds.orm import transforms as orm_transforms
 from idds.orm import workprogress as orm_workprogresses
@@ -85,7 +86,7 @@ def add_request(scope=None, name=None, requester=None, request_type=None,
                 new_poll_period=1, update_poll_period=10, site=None,
                 cloud=None, queue=None,
                 new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
-                campaign=None, campaign_group=None, campaign_tag=None,
+                campaign=None, campaign_scope=None, campaign_group=None, campaign_tag=None,
                 additional_data_storage=None,
                 processing_metadata=None, session=None):
     """
@@ -117,6 +118,22 @@ def add_request(scope=None, name=None, requester=None, request_type=None,
         except Exception:
             pass
 
+    group_id = None
+    if campaign and campaign_scope and campaign_group and campaign_tag:
+        req_groups = orm_requests_group.get_request_groups(campaign=campaign, campaign_scope=campaign_scope,
+                                                           campaign_group=campaign_group, campaign_tag=campaign_tag,
+                                                           session=session)
+        if req_groups:
+            if len(req_groups) == 1:
+                group_id = req_groups[0].group_id
+        else:
+            group_id = orm_requests_group.add_request_group(campaign=campaign, campaign_scope=campaign_scope,
+                                                            campaign_group=campaign_group, campaign_tag=campaign_tag,
+                                                            requester=requester, username=username, userdn=userdn,
+                                                            lifetime=lifetime, max_new_retries=max_new_retries,
+                                                            max_update_retries=max_update_retries,
+                                                            session=session)
+
     kwargs = {'scope': scope, 'name': name, 'requester': requester, 'request_type': request_type,
               'username': username, 'userdn': userdn, 'site': site,
               'cloud': cloud, 'queue': queue,
@@ -124,7 +141,8 @@ def add_request(scope=None, name=None, requester=None, request_type=None,
               'priority': priority, 'lifetime': lifetime, 'workload_id': workload_id,
               'new_poll_period': new_poll_period, 'update_poll_period': update_poll_period,
               'new_retries': new_retries, 'update_retries': update_retries,
-              'campaign': campaign, 'campaign_group': campaign_group, 'campaign_tag': campaign_tag,
+              'group_id': group_id, 'campaign': campaign, 'campaign_scope': campaign_scope,
+              'campaign_group': campaign_group, 'campaign_tag': campaign_tag,
               'max_new_retries': max_new_retries, 'max_update_retries': max_update_retries,
               'additional_data_storage': additional_data_storage,
               'request_metadata': request_metadata, 'processing_metadata': processing_metadata,
