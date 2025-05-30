@@ -1016,9 +1016,9 @@ class DomaPanDAWork(Work):
                 if self.parent_workload_id and int(self.parent_workload_id) < time.time() - 604800:
                     parent_tid = self.parent_workload_id
                     parent_tid = None       # disable parent_tid for now
-                return_code = Client.insertTaskParams(task_param, verbose=True, parent_tid=parent_tid)
+                return_code = Client.insertTaskParams(task_param, verbose=False, parent_tid=parent_tid)
             else:
-                return_code = Client.insertTaskParams(task_param, verbose=True)
+                return_code = Client.insertTaskParams(task_param, verbose=False)
             if return_code[0] == 0 and return_code[1][0] is True:
                 try:
                     task_id = int(return_code[1][1])
@@ -1936,7 +1936,8 @@ class DomaPanDAWork(Work):
                 if task_id:
                     # ret_ids = Client.getPandaIDsWithTaskID(task_id, verbose=False)
                     self.logger.debug(log_prefix + "poll_panda_task, task_id: %s" % str(task_id))
-                    task_info = Client.getJediTaskDetails({'jediTaskID': task_id}, True, True, verbose=True)
+                    # task_info = Client.getJediTaskDetails({'jediTaskID': task_id}, True, True, verbose=True)
+                    task_info = Client.getJediTaskDetails({'jediTaskID': task_id}, True, True, verbose=False)
                     self.logger.debug(log_prefix + "poll_panda_task, task_info[0]: %s" % str(task_info[0]))
                     if task_info[0] != 0:
                         self.logger.warn(log_prefix + "poll_panda_task %s, error getting task status, task_info: %s" % (task_id, str(task_info)))
@@ -1953,7 +1954,8 @@ class DomaPanDAWork(Work):
                     self.logger.debug(log_prefix + "poll_panda_task, task_id: %s, all jobs: %s, unterminated_jobs: %s" % (str(task_id), len(all_jobs_ids), len(unterminated_jobs)))
 
                     unterminated_jobs_status = self.poll_panda_jobs(unterminated_jobs, executors=executors, log_prefix=log_prefix)
-                    self.logger.debug(log_prefix + "unterminated_jobs_status: %s" % str(unterminated_jobs_status))
+                    # self.logger.debug(log_prefix + "unterminated_jobs_status: %s" % str(unterminated_jobs_status))
+                    self.logger.debug(log_prefix + f"unterminated_jobs_status[:3]: {dict(list(unterminated_jobs_status.items())[:3])}")
 
                     abort_status = False
                     if processing_status in [ProcessingStatus.Cancelled]:

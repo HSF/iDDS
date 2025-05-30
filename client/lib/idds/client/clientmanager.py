@@ -455,6 +455,10 @@ class ClientManager:
             pass
 
         props = {
+            'campaign': workflow.campaign,
+            'campaign_scope': workflow.campaign_scope,
+            'campaign_group': workflow.campaign_group,
+            'campaign_tag': workflow.campaign_tag,
             'scope': scope,
             'name': workflow.name,
             'requester': 'panda',
