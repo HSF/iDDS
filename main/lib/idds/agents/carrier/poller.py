@@ -87,7 +87,7 @@ class Poller(BaseAgent):
         else:
             self.max_number_workers = int(self.max_number_workers)
 
-        self.max_updates_per_round = max_updates_per_round
+        self.max_updates_per_round = int(max_updates_per_round)
         self.logger.info("max_updates_per_round: %s" % self.max_updates_per_round)
 
         if not hasattr(self, 'enable_executors') or not self.enable_executors:
