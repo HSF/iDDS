@@ -1499,7 +1499,7 @@ class Transformer(BaseAgent):
         return pro_ret
 
     def clean_locks(self, force=False):
-        self.logger.info("clean locking")
+        self.logger.info(f"clean locking: force: {force}")
         health_items = self.get_health_items()
         min_request_id = BaseAgent.min_request_id
         hostname, pid, thread_id, thread_name = self.get_process_thread_info()
