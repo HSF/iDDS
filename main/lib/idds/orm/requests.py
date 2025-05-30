@@ -1239,7 +1239,7 @@ def delete_requests(request_id=None, workload_id=None, session=None):
 
 
 @transactional_session
-def clean_locking(time_period=3600, min_request_id=None, health_items=[], session=None):
+def clean_locking(time_period=3600, min_request_id=None, health_items=[], force=False, hostname=None, pid=None, session=None):
     """
     Clearn locking which is older than time period.
 
@@ -1270,7 +1270,10 @@ def clean_locking(time_period=3600, min_request_id=None, health_items=[], sessio
     if tmp:
         for req in tmp:
             req_id, locking_hostname, locking_pid, locking_thread_id, locking_thread_name = req
-            if locking_hostname not in health_dict or locking_pid not in health_dict[locking_hostname]:
+            if (
+                (locking_hostname not in health_dict or locking_pid not in health_dict[locking_hostname])
+                or (force and hostname == locking_hostname and pid == locking_pid)      # noqa W503
+            ):
                 lost_request_ids.append({"request_id": req_id, 'locking': 0})
 
     session.bulk_update_mappings(models.Request, lost_request_ids)

@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2024
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2025
 
 import datetime
 import random
@@ -1895,11 +1895,13 @@ class Clerk(BaseAgent):
         self.number_workers -= 1
         return pro_ret
 
-    def clean_locks(self):
+    def clean_locks(self, force=False):
         self.logger.info("clean locking")
         health_items = self.get_health_items()
         min_request_id = BaseAgent.min_request_id
-        core_requests.clean_locking(health_items=health_items, min_request_id=min_request_id, time_period=None)
+        hostname, pid, thread_id, thread_name = self.get_process_thread_info()
+        core_requests.clean_locking(health_items=health_items, min_request_id=min_request_id, time_period=None,
+                                    force=force, hostname=hostname, pid=pid)
 
     def init_event_function_map(self):
         self.event_func_map = {
@@ -1940,6 +1942,7 @@ class Clerk(BaseAgent):
             self.load_plugins()
 
             self.add_default_tasks()
+            self.clean_locks(force=True)
 
             self.init_event_function_map()
 
