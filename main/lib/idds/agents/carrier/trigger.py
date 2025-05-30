@@ -48,7 +48,7 @@ class Trigger(Poller):
                                       max_updates_per_round=max_updates_per_round, retrieve_bulk_size=retrieve_bulk_size, **kwargs)
         self.logger.info("num_threads: %s" % num_threads)
 
-        self.max_updates_per_round = max_updates_per_round
+        self.max_updates_per_round = int(max_updates_per_round)
         self.logger.info("max_updates_per_round: %s" % self.max_updates_per_round)
 
         if hasattr(self, 'trigger_max_number_workers'):
