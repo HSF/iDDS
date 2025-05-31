@@ -450,6 +450,7 @@ def clean_locking(time_period=3600, min_request_id=None, health_items=[], force=
                 lost_processing_ids.append({"processing_id": pr_id, 'locking': 0})
 
     session.bulk_update_mappings(models.Processing, lost_processing_ids)
+    return lost_processing_ids
 
 
 @transactional_session

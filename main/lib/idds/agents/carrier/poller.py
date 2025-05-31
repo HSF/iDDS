@@ -607,8 +607,9 @@ class Poller(BaseAgent):
         health_items = self.get_health_items()
         min_request_id = BaseAgent.min_request_id
         hostname, pid, thread_id, thread_name = self.get_process_thread_info()
-        core_processings.clean_locking(health_items=health_items, min_request_id=min_request_id, time_period=None,
-                                       force=force, hostname=hostname, pid=pid)
+        ret = core_processings.clean_locking(health_items=health_items, min_request_id=min_request_id, time_period=None,
+                                             force=force, hostname=hostname, pid=pid)
+        self.logger.info(f"clean locking finished. Cleaned locks: {ret}")
 
     def init_event_function_map(self):
         self.event_func_map = {
@@ -630,6 +631,7 @@ class Poller(BaseAgent):
             self.init()
 
             self.clean_locks(force=True)
+            time.sleep(5)
 
             self.add_default_tasks()
 

@@ -436,8 +436,8 @@ def clean_locking(time_period=3600, min_request_id=None, health_items=[], force=
 
     :param time_period in seconds
     """
-    orm_processings.clean_locking(time_period=time_period, min_request_id=min_request_id, health_items=health_items,
-                                  force=force, hostname=hostname, pid=pid, session=session)
+    return orm_processings.clean_locking(time_period=time_period, min_request_id=min_request_id, health_items=health_items,
+                                         force=force, hostname=hostname, pid=pid, session=session)
 
 
 @transactional_session
