@@ -613,19 +613,20 @@ def handle_new_processing(processing, agent_attributes, func_site_to_cloud=None,
                                                         new_input_dependency_contents=new_input_dependency_contents,
                                                         messages=ret_msgs)
     else:
-        ret_futures = set()
-        for ret_new_contents in ret_new_contents_chunks:
-            new_input_contents, new_output_contents, new_log_contents, new_input_dependency_contents = ret_new_contents
-            new_contents = new_input_contents + new_output_contents + new_log_contents
-            log_msg = "handle_new_processing thread: add %s new contents" % (len(new_contents))
-            kwargs = {'update_processing': None,
-                      'request_id': request_id,
-                      'new_contents': new_contents,
-                      'new_input_dependency_contents': new_input_dependency_contents,
-                      'messages': ret_msgs}
-            f = executors.submit(update_processing_contents_thread, logger, log_prefix, log_msg, kwargs)
-            ret_futures.add(f)
-        wait_futures_finish(ret_futures, "handle_new_processing", logger, log_prefix)
+        if ret_new_contents_chunks:
+            ret_futures = set()
+            for ret_new_contents in ret_new_contents_chunks:
+                new_input_contents, new_output_contents, new_log_contents, new_input_dependency_contents = ret_new_contents
+                new_contents = new_input_contents + new_output_contents + new_log_contents
+                log_msg = "handle_new_processing thread: add %s new contents" % (len(new_contents))
+                kwargs = {'update_processing': None,
+                          'request_id': request_id,
+                          'new_contents': new_contents,
+                          'new_input_dependency_contents': new_input_dependency_contents,
+                          'messages': ret_msgs}
+                f = executors.submit(update_processing_contents_thread, logger, log_prefix, log_msg, kwargs)
+                ret_futures.add(f)
+            wait_futures_finish(ret_futures, "handle_new_processing", logger, log_prefix)
 
     # return True, processing, update_collections, new_contents, new_input_dependency_contents, ret_msgs, errors
     return True, processing, update_collections, [], [], ret_msgs, None
