@@ -445,7 +445,7 @@ class Submitter(Poller):
                                'update_contents': []}
                         self.update_processing(ret, pr)
                     else:
-                        ret = self.handle_new_processing(pr)
+                        ret = self.handle_prepared_processing(pr)
                         # self.logger.info(log_pre + "process_new_processing result: %s" % str(ret))
 
                         self.update_processing(ret, pr)
