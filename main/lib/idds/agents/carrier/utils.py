@@ -593,6 +593,9 @@ def handle_new_processing(processing, agent_attributes, func_site_to_cloud=None,
     workload_id = processing['workload_id']
     ret_new_contents_chunks = get_new_contents(request_id, transform_id, workload_id, new_input_output_maps,
                                                max_updates_per_round=max_updates_per_round, logger=logger, log_prefix=log_prefix)
+    if not ret_new_contents_chunks:
+        logger.debug(log_prefix + "handle_new_processing: no new contnets")
+
     if executors is None:
         for ret_new_contents in ret_new_contents_chunks:
             new_input_contents, new_output_contents, new_log_contents, new_input_dependency_contents = ret_new_contents
@@ -627,6 +630,8 @@ def handle_new_processing(processing, agent_attributes, func_site_to_cloud=None,
                 f = executors.submit(update_processing_contents_thread, logger, log_prefix, log_msg, kwargs)
                 ret_futures.add(f)
             wait_futures_finish(ret_futures, "handle_new_processing", logger, log_prefix)
+
+    logger.debug(log_prefix + "handle_new_processing: finish")
 
     # return True, processing, update_collections, new_contents, new_input_dependency_contents, ret_msgs, errors
     return True, processing, update_collections, [], [], ret_msgs, None

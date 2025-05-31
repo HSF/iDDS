@@ -410,6 +410,7 @@ class Submitter(Poller):
                         self.event_bus.send(event)
                     else:
                         ret = self.handle_new_processing(pr)
+                        self.update_processing(ret, pr)
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
