@@ -506,11 +506,11 @@ class DomaPanDAWork(Work):
             if coll.status in [CollectionStatus.Closed]:
                 return coll
             else:
-                coll.coll_metadata['bytes'] = 1
-                coll.coll_metadata['availability'] = 1
-                coll.coll_metadata['events'] = 1
+                coll.coll_metadata['bytes'] = 0
+                coll.coll_metadata['availability'] = 0
+                coll.coll_metadata['events'] = 0
                 coll.coll_metadata['is_open'] = True
-                coll.coll_metadata['run_number'] = 1
+                coll.coll_metadata['run_number'] = 0
                 coll.coll_metadata['did_type'] = 'DATASET'
                 coll.coll_metadata['list_all_files'] = False
 
