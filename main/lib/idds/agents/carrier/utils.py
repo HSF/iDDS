@@ -1978,8 +1978,12 @@ def handle_messages_processing(messages, logger=None, log_prefix='', update_proc
     return update_processings, update_processings_by_job, terminated_processings, update_contents, []
 
 
-def sync_collection_status(request_id, transform_id, workload_id, work, input_output_maps=None,
+def sync_collection_status(request_id, transform_id, workload_id, work, input_output_maps=None, log_prefix='',
                            close_collection=False, force_close_collection=False, abort=False, terminate=False):
+    logger = get_logger()
+
+    logger.info(log_prefix + "sync_collection_status")
+
     if input_output_maps is None:
         input_output_maps = get_input_output_maps(transform_id, work, with_deps=False)
 
@@ -2035,6 +2039,8 @@ def sync_collection_status(request_id, transform_id, workload_id, work, input_ou
                 coll_status[content['coll_id']]['failed_ext_files'] += 1
             elif content['status'] in [ContentStatus.Lost, ContentStatus.Deleted, ContentStatus.Missing]:
                 coll_status[content['coll_id']]['missing_ext_files'] += 1
+
+    logger.info(log_prefix + f"sync_collection_status, coll_status: {coll_status}")
 
     input_collections = work.get_input_collections(poll_externel=True)
     output_collections = work.get_output_collections()
@@ -2128,6 +2134,9 @@ def sync_collection_status(request_id, transform_id, workload_id, work, input_ou
                 coll.substatus = CollectionStatus.Closed
 
         update_collections.append(u_coll)
+
+    logger.info(log_prefix + f"sync_collection_status, update_collections: {update_collections}")
+
     return update_collections, all_updates_flushed, messages
 
 
@@ -2194,7 +2203,7 @@ def sync_processing(processing, agent_attributes, terminate=False, abort=False, 
     if processing['substatus'] in terminated_status or processing['substatus'] in terminated_status:
         terminate = True
     update_collections, all_updates_flushed, msgs = sync_collection_status(request_id, transform_id, workload_id, work,
-                                                                           input_output_maps=input_output_maps,
+                                                                           input_output_maps=input_output_maps, log_prefix=log_prefix,
                                                                            close_collection=True, abort=abort, terminate=terminate)
 
     messages += msgs
