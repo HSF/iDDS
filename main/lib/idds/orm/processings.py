@@ -16,7 +16,7 @@ operations related to Processings.
 import datetime
 
 import sqlalchemy
-from sqlalchemy import func, select
+from sqlalchemy import func, select, not_
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.sql.expression import asc
 
@@ -149,7 +149,7 @@ def get_processing(processing_id, request_id=None, transform_id=None, to_json=Fa
 
 
 @read_session
-def get_processing_by_id_status(processing_id, status=None, locking=False, session=None):
+def get_processing_by_id_status(processing_id, status=None, exclude_status=None, locking=False, session=None):
     """
     Get a processing or raise a NoObject exception.
 
@@ -173,6 +173,13 @@ def get_processing_by_id_status(processing_id, status=None, locking=False, sessi
             if len(status) == 1:
                 status = [status[0], status[0]]
             query = query.where(models.Processing.status.in_(status))
+
+        if exclude_status:
+            if not isinstance(exclude_status, (list, tuple)):
+                exclude_status = [exclude_status]
+            if len(exclude_status) == 1:
+                exclude_status = [exclude_status[0], exclude_status[0]]
+            query = query.where(not_(models.Processing.status.in_(exclude_status)))
 
         if locking:
             query = query.where(models.Processing.locking == ProcessingLocking.Idle)

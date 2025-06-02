@@ -115,9 +115,10 @@ def get_processings_by_transform_id(transform_id=None, to_json=False, session=No
 
 
 @transactional_session
-def get_processing_by_id_status(processing_id, status=None, locking=False, lock_period=None, session=None):
+def get_processing_by_id_status(processing_id, status=None, exclude_status=None, locking=False, lock_period=None, session=None):
     # pr = orm_processings.get_processing_by_id_status(processing_id=processing_id, status=status, locking=locking, session=session)
-    pr = orm_processings.get_processing_by_id_status(processing_id=processing_id, status=status, session=session)
+    pr = orm_processings.get_processing_by_id_status(processing_id=processing_id, status=status,
+                                                     exclude_status=exclude_status, session=session)
     if pr is None:
         return pr
 

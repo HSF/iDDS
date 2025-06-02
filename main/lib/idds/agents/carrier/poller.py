@@ -185,10 +185,11 @@ class Poller(BaseAgent):
                 self.logger.error(traceback.format_exc())
         return []
 
-    def get_processing(self, processing_id, status=None, locking=False):
+    def get_processing(self, processing_id, status=None, exclude_status=None, locking=False):
         try:
             return core_processings.get_processing_by_id_status(processing_id=processing_id,
                                                                 status=status,
+                                                                exclude_status=exclude_status,
                                                                 locking=locking,
                                                                 lock_period=self.locking_period)
         except exceptions.DatabaseException as ex:
@@ -546,7 +547,7 @@ class Poller(BaseAgent):
                 original_event = event
                 self.logger.info("process_update_processing, event: %s" % str(event))
 
-                pr = self.get_processing(processing_id=event._processing_id, status=None, locking=True)
+                pr = self.get_processing(processing_id=event._processing_id, status=None, exclude_status=[ProcessingStatus.Prepared], locking=True)
                 if not pr:
                     self.logger.warn("Cannot find processing for event: %s" % str(event))
                     # pro_ret = ReturnCode.Locked.value
