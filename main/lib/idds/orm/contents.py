@@ -557,7 +557,7 @@ def custom_bulk_insert_mappings_real(model, parameters, session=None):
 
         stmt = sqlalchemy.text(sql)
         session.execute(stmt, updated_parameters)
-        session.commit()
+        # session.commit()
     except Exception as ex:
         print(f"custom_bulk_insert_mappings Exception: {ex}")
         print(traceback.format_exc())
@@ -580,9 +580,9 @@ def custom_bulk_insert_mappings(model, parameters, batch_size=1000, session=None
             custom_bulk_insert_mappings_real(model=model, parameters=batch, session=session)
         else:
             session.bulk_insert_mappings(model, batch)
-            session.flush()
+            # session.flush()
 
-    session.commit()
+    # session.commit()
 
 
 @transactional_session
@@ -629,9 +629,9 @@ def custom_bulk_update_mappings_real(model, parameters, batch_size=1000, session
 
         stmt = sqlalchemy.text(sql)
         session.execute(stmt, updated_parameters)
-        session.flush()
+        # session.flush()
 
-    session.commit()
+    # session.commit()
 
 
 @transactional_session

@@ -61,6 +61,7 @@ class DomaPanDAWork(Work):
                  vo='wlcg',
                  es=False,
                  es_label=None,
+                 enable_job_name_map=False,
                  max_events_per_job=40,
                  max_name_length=4000,
                  working_group='lsst'):
@@ -137,6 +138,7 @@ class DomaPanDAWork(Work):
         self.es_label = es_label
         self.max_events_per_job = max_events_per_job
         self.es_files = {}
+        self.enable_job_name_map = enable_job_name_map
 
         self.dependency_map = dependency_map
         if self.dependency_map is None:
@@ -504,11 +506,11 @@ class DomaPanDAWork(Work):
             if coll.status in [CollectionStatus.Closed]:
                 return coll
             else:
-                coll.coll_metadata['bytes'] = 1
-                coll.coll_metadata['availability'] = 1
-                coll.coll_metadata['events'] = 1
+                coll.coll_metadata['bytes'] = 0
+                coll.coll_metadata['availability'] = 0
+                coll.coll_metadata['events'] = 0
                 coll.coll_metadata['is_open'] = True
-                coll.coll_metadata['run_number'] = 1
+                coll.coll_metadata['run_number'] = 0
                 coll.coll_metadata['did_type'] = 'DATASET'
                 coll.coll_metadata['list_all_files'] = False
 
@@ -1001,15 +1003,22 @@ class DomaPanDAWork(Work):
                 except Exception as ex:
                     self.logger.warn(f"failed to set task parameter map with core_to_queues: {ex}")
 
+            # check whether the task is already submitted
+            request_id = processing['request_id']
+            task_id = self.get_panda_task_id_from_name(request_id, task_param['taskName'])
+            if task_id:
+                # task is already submitted
+                return task_id, None
+
             if self.has_dependency():
                 parent_tid = None
                 self.logger.info("parent_workload_id: %s" % self.parent_workload_id)
                 if self.parent_workload_id and int(self.parent_workload_id) < time.time() - 604800:
                     parent_tid = self.parent_workload_id
                     parent_tid = None       # disable parent_tid for now
-                return_code = Client.insertTaskParams(task_param, verbose=True, parent_tid=parent_tid)
+                return_code = Client.insertTaskParams(task_param, verbose=False, parent_tid=parent_tid)
             else:
-                return_code = Client.insertTaskParams(task_param, verbose=True)
+                return_code = Client.insertTaskParams(task_param, verbose=False)
             if return_code[0] == 0 and return_code[1][0] is True:
                 try:
                     task_id = int(return_code[1][1])
@@ -1078,6 +1087,21 @@ class DomaPanDAWork(Work):
                     proc.submitted_at = datetime.datetime.utcnow()
 
         return task_id
+
+    def get_panda_task_id_from_name(self, request_id, task_name):
+        try:
+            from pandaclient import queryPandaMonUtils
+
+            ts, url, data = queryPandaMonUtils.query_tasks(reqid=request_id, taskname=task_name)
+            if isinstance(data, list) and data:
+                for task in data:
+                    if task['reqid'] == request_id and task['name'] == task_name:
+                        return task['jeditaskid']
+            return None
+        except Exception as ex:
+            self.logger.error(str(ex))
+            self.logger.error(traceback.format_exc())
+        return None
 
     def poll_panda_task_status(self, processing):
         if 'processing' in processing['processing_metadata']:
@@ -1912,7 +1936,8 @@ class DomaPanDAWork(Work):
                 if task_id:
                     # ret_ids = Client.getPandaIDsWithTaskID(task_id, verbose=False)
                     self.logger.debug(log_prefix + "poll_panda_task, task_id: %s" % str(task_id))
-                    task_info = Client.getJediTaskDetails({'jediTaskID': task_id}, True, True, verbose=True)
+                    # task_info = Client.getJediTaskDetails({'jediTaskID': task_id}, True, True, verbose=True)
+                    task_info = Client.getJediTaskDetails({'jediTaskID': task_id}, True, True, verbose=False)
                     self.logger.debug(log_prefix + "poll_panda_task, task_info[0]: %s" % str(task_info[0]))
                     if task_info[0] != 0:
                         self.logger.warn(log_prefix + "poll_panda_task %s, error getting task status, task_info: %s" % (task_id, str(task_info)))
@@ -1929,7 +1954,8 @@ class DomaPanDAWork(Work):
                     self.logger.debug(log_prefix + "poll_panda_task, task_id: %s, all jobs: %s, unterminated_jobs: %s" % (str(task_id), len(all_jobs_ids), len(unterminated_jobs)))
 
                     unterminated_jobs_status = self.poll_panda_jobs(unterminated_jobs, executors=executors, log_prefix=log_prefix)
-                    self.logger.debug(log_prefix + "unterminated_jobs_status: %s" % str(unterminated_jobs_status))
+                    # self.logger.debug(log_prefix + "unterminated_jobs_status: %s" % str(unterminated_jobs_status))
+                    self.logger.debug(log_prefix + f"unterminated_jobs_status[:3]: {dict(list(unterminated_jobs_status.items())[:3])}")
 
                     abort_status = False
                     if processing_status in [ProcessingStatus.Cancelled]:

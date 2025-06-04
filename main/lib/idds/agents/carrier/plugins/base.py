@@ -63,7 +63,8 @@ class BaseSubmitter(object):
         task_param_map['taskName'] = task_name
         task_param_map['userName'] = work.username if work.username else 'iDDS'
         task_param_map['taskPriority'] = work.priority
-        task_param_map['architecture'] = ''
+        # task_param_map['architecture'] = ''
+        task_param_map['architecture'] = '@el9'
         task_param_map['transUses'] = ''
         task_param_map['transHome'] = None
 

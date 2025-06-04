@@ -698,6 +698,11 @@ class WorkflowBase(Base):
 
         self.additional_data_storage = None
 
+        self.campaign = None
+        self.campaign_scope = None
+        self.campaign_group = None
+        self.campaign_tag = None
+
         """
         self._running_data_names = []
         for name in ['internal_id', 'template_work_id', 'workload_id', 'work_sequence', 'terminated_works',
@@ -716,6 +721,38 @@ class WorkflowBase(Base):
     @name.setter
     def name(self, value):
         self._name = value
+
+    @property
+    def campaign(self):
+        return self._campaign
+
+    @campaign.setter
+    def campaign(self, value):
+        self._campaign = value
+
+    @property
+    def campaign_scope(self):
+        return self._campaign_scope
+
+    @campaign_scope.setter
+    def campaign_scope(self, value):
+        self._campaign_scope = value
+
+    @property
+    def campaign_group(self):
+        return self._campaign_group
+
+    @campaign_group.setter
+    def campaign_group(self, value):
+        self._campaign_group = value
+
+    @property
+    def campaign_tag(self):
+        return self._campaign_tag
+
+    @campaign_tag.setter
+    def campaign_tag(self, value):
+        self._campaign_tag = value
 
     def get_template_work_id(self):
         return self.template_work_id
@@ -2257,6 +2294,38 @@ class Workflow(Base):
     @name.setter
     def name(self, value):
         self.template.name = value
+
+    @property
+    def campaign(self):
+        return self.template.campaign
+
+    @campaign.setter
+    def campaign(self, value):
+        self.template.campaign = value
+
+    @property
+    def campaign_scope(self):
+        return self.template.campaign_scope
+
+    @campaign_scope.setter
+    def campaign_scope(self, value):
+        self.template.campaign_scope = value
+
+    @property
+    def campaign_group(self):
+        return self.template._campaign_group
+
+    @campaign_group.setter
+    def campaign_group(self, value):
+        self.template._campaign_group = value
+
+    @property
+    def campaign_tag(self):
+        return self.template._campaign_tag
+
+    @campaign_tag.setter
+    def campaign_tag(self, value):
+        self.template._campaign_tag = value
 
     @property
     def username(self):

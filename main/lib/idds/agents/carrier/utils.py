@@ -561,6 +561,7 @@ def wait_futures_finish(ret_futures, func_name, logger, log_prefix):
     logger.debug(log_prefix + "%s: wait_futures_finish" % func_name)
     # Wait for all subprocess to complete
     steps = 0
+    ex = None
     while True:
         steps += 1
         # Wait for all subprocess to complete in 3 minutes
@@ -570,7 +571,15 @@ def wait_futures_finish(ret_futures, func_name, logger, log_prefix):
             logger.debug(log_prefix + "%s thread: %s threads has been running for more than %s minutes" % (func_name, len(ret_futures), steps * 3))
         else:
             break
+        for c in completed:
+            try:
+                _ = c.result()   # This will raise the exception if the thread failed
+            except Exception as e:
+                ex = e
+                logger.error(f"{log_prefix} {func_name}: thread failed: {e}")
     logger.debug(log_prefix + "%s: wait_futures_finish end" % func_name)
+    if ex:
+        raise ex
 
 
 def handle_new_processing(processing, agent_attributes, func_site_to_cloud=None, max_updates_per_round=2000, executors=None, logger=None, log_prefix=''):
@@ -581,56 +590,42 @@ def handle_new_processing(processing, agent_attributes, func_site_to_cloud=None,
     work.set_agent_attributes(agent_attributes, processing)
     transform_id = processing['transform_id']
 
-    if func_site_to_cloud:
-        work.set_func_site_to_cloud(func_site_to_cloud)
-    status, workload_id, errors = work.submit_processing(processing)
-    logger.info(log_prefix + "submit_processing (status: %s, workload_id: %s, errors: %s)" % (status, workload_id, errors))
-
-    if not status:
-        logger.error(log_prefix + "Failed to submit processing (status: %s, workload_id: %s, errors: %s)" % (status, workload_id, errors))
-        return False, processing, [], [], [], [], errors
-
     ret_msgs = []
     new_contents = []
     new_input_dependency_contents = []
     update_collections = []
-    if proc.workload_id:
-        processing['workload_id'] = proc.workload_id
-        input_collections = work.get_input_collections()
-        output_collections = work.get_output_collections()
-        log_collections = work.get_log_collections()
-        for coll in input_collections + output_collections + log_collections:
-            u_coll = {'coll_id': coll.coll_id, 'workload_id': proc.workload_id}
-            update_collections.append(u_coll)
 
-    if proc.submitted_at:
-        input_output_maps = get_input_output_maps(transform_id, work, with_deps=False)
-        new_input_output_maps = work.get_new_input_output_maps(input_output_maps)
-        request_id = processing['request_id']
-        transform_id = processing['transform_id']
-        workload_id = processing['workload_id']
-        ret_new_contents_chunks = get_new_contents(request_id, transform_id, workload_id, new_input_output_maps,
-                                                   max_updates_per_round=max_updates_per_round, logger=logger, log_prefix=log_prefix)
-        if executors is None:
-            for ret_new_contents in ret_new_contents_chunks:
-                new_input_contents, new_output_contents, new_log_contents, new_input_dependency_contents = ret_new_contents
-                # new_contents = new_input_contents + new_output_contents + new_log_contents + new_input_dependency_contents
-                new_contents = new_input_contents + new_output_contents + new_log_contents
+    input_output_maps = get_input_output_maps(transform_id, work, with_deps=False)
+    new_input_output_maps = work.get_new_input_output_maps(input_output_maps)
+    request_id = processing['request_id']
+    transform_id = processing['transform_id']
+    workload_id = processing['workload_id']
+    ret_new_contents_chunks = get_new_contents(request_id, transform_id, workload_id, new_input_output_maps,
+                                               max_updates_per_round=max_updates_per_round, logger=logger, log_prefix=log_prefix)
+    if not ret_new_contents_chunks:
+        logger.debug(log_prefix + "handle_new_processing: no new contnets")
 
-                # not generate new messages
-                # if new_input_contents:
-                #     msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='file', files=new_input_contents, relation_type='input')
-                #     ret_msgs = ret_msgs + msgs
-                # if new_output_contents:
-                #     msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='file', files=new_input_contents, relation_type='output')
-                #     ret_msgs = ret_msgs + msgs
-                logger.debug(log_prefix + "handle_new_processing: add %s new contents" % (len(new_contents)))
-                core_processings.update_processing_contents(update_processing=None,
-                                                            request_id=request_id,
-                                                            new_contents=new_contents,
-                                                            new_input_dependency_contents=new_input_dependency_contents,
-                                                            messages=ret_msgs)
-        else:
+    if executors is None:
+        for ret_new_contents in ret_new_contents_chunks:
+            new_input_contents, new_output_contents, new_log_contents, new_input_dependency_contents = ret_new_contents
+            # new_contents = new_input_contents + new_output_contents + new_log_contents + new_input_dependency_contents
+            new_contents = new_input_contents + new_output_contents + new_log_contents
+
+            # not generate new messages
+            # if new_input_contents:
+            #     msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='file', files=new_input_contents, relation_type='input')
+            #     ret_msgs = ret_msgs + msgs
+            # if new_output_contents:
+            #     msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='file', files=new_input_contents, relation_type='output')
+            #     ret_msgs = ret_msgs + msgs
+            logger.debug(log_prefix + "handle_new_processing: add %s new contents" % (len(new_contents)))
+            core_processings.update_processing_contents(update_processing=None,
+                                                        request_id=request_id,
+                                                        new_contents=new_contents,
+                                                        new_input_dependency_contents=new_input_dependency_contents,
+                                                        messages=ret_msgs)
+    else:
+        if ret_new_contents_chunks:
             ret_futures = set()
             for ret_new_contents in ret_new_contents_chunks:
                 new_input_contents, new_output_contents, new_log_contents, new_input_dependency_contents = ret_new_contents
@@ -644,6 +639,39 @@ def handle_new_processing(processing, agent_attributes, func_site_to_cloud=None,
                 f = executors.submit(update_processing_contents_thread, logger, log_prefix, log_msg, kwargs)
                 ret_futures.add(f)
             wait_futures_finish(ret_futures, "handle_new_processing", logger, log_prefix)
+
+    logger.debug(log_prefix + "handle_new_processing: finish")
+
+    # return True, processing, update_collections, new_contents, new_input_dependency_contents, ret_msgs, errors
+    return True, processing, update_collections, [], [], ret_msgs, None
+
+
+def handle_prepared_processing(processing, agent_attributes, func_site_to_cloud=None, max_updates_per_round=2000, executors=None, logger=None, log_prefix=''):
+    logger = get_logger(logger)
+
+    proc = processing['processing_metadata']['processing']
+    work = proc.work
+    work.set_agent_attributes(agent_attributes, processing)
+
+    if func_site_to_cloud:
+        work.set_func_site_to_cloud(func_site_to_cloud)
+    status, workload_id, errors = work.submit_processing(processing)
+    logger.info(log_prefix + "submit_processing (status: %s, workload_id: %s, errors: %s)" % (status, workload_id, errors))
+
+    if not status:
+        logger.error(log_prefix + "Failed to submit processing (status: %s, workload_id: %s, errors: %s)" % (status, workload_id, errors))
+        return False, processing, [], [], [], [], errors
+
+    ret_msgs = []
+    update_collections = []
+    if proc.workload_id:
+        processing['workload_id'] = proc.workload_id
+        input_collections = work.get_input_collections()
+        output_collections = work.get_output_collections()
+        log_collections = work.get_log_collections()
+        for coll in input_collections + output_collections + log_collections:
+            u_coll = {'coll_id': coll.coll_id, 'workload_id': proc.workload_id}
+            update_collections.append(u_coll)
 
     # return True, processing, update_collections, new_contents, new_input_dependency_contents, ret_msgs, errors
     return True, processing, update_collections, [], [], ret_msgs, errors
@@ -1959,8 +1987,12 @@ def handle_messages_processing(messages, logger=None, log_prefix='', update_proc
     return update_processings, update_processings_by_job, terminated_processings, update_contents, []
 
 
-def sync_collection_status(request_id, transform_id, workload_id, work, input_output_maps=None,
+def sync_collection_status(request_id, transform_id, workload_id, work, input_output_maps=None, log_prefix='',
                            close_collection=False, force_close_collection=False, abort=False, terminate=False):
+    logger = get_logger()
+
+    logger.info(log_prefix + "sync_collection_status")
+
     if input_output_maps is None:
         input_output_maps = get_input_output_maps(transform_id, work, with_deps=False)
 
@@ -2017,6 +2049,8 @@ def sync_collection_status(request_id, transform_id, workload_id, work, input_ou
             elif content['status'] in [ContentStatus.Lost, ContentStatus.Deleted, ContentStatus.Missing]:
                 coll_status[content['coll_id']]['missing_ext_files'] += 1
 
+    logger.info(log_prefix + f"sync_collection_status, coll_status: {coll_status}")
+
     input_collections = work.get_input_collections(poll_externel=True)
     output_collections = work.get_output_collections()
     log_collections = work.get_log_collections()
@@ -2039,9 +2073,15 @@ def sync_collection_status(request_id, transform_id, workload_id, work, input_ou
             coll.failed_ext_files = coll_status[coll.coll_id]['failed_ext_files']
             coll.missing_ext_files = coll_status[coll.coll_id]['missing_ext_files']
         else:
-            coll.total_files = 0
-            coll.processed_files = 0
-            coll.processing_files = 0
+            if 'total_files' in coll.coll_metadata and coll.coll_metadata['total_files']:
+                coll.total_files = coll.coll_metadata['total_files']
+            else:
+                coll.total_files = 0
+            if 'availability' in coll.coll_metadata and coll.coll_metadata['availability']:
+                coll.processed_files = coll.coll_metadata['availability']
+            else:
+                coll.processed_files = 0
+            coll.processing_files = coll.total_files - coll.processed_files
             coll.new_files = 0
             coll.failed_files = 0
             coll.missing_files = 0
@@ -2103,6 +2143,9 @@ def sync_collection_status(request_id, transform_id, workload_id, work, input_ou
                 coll.substatus = CollectionStatus.Closed
 
         update_collections.append(u_coll)
+
+    logger.info(log_prefix + f"sync_collection_status, update_collections: {update_collections}")
+
     return update_collections, all_updates_flushed, messages
 
 
@@ -2169,7 +2212,7 @@ def sync_processing(processing, agent_attributes, terminate=False, abort=False, 
     if processing['substatus'] in terminated_status or processing['substatus'] in terminated_status:
         terminate = True
     update_collections, all_updates_flushed, msgs = sync_collection_status(request_id, transform_id, workload_id, work,
-                                                                           input_output_maps=input_output_maps,
+                                                                           input_output_maps=input_output_maps, log_prefix=log_prefix,
                                                                            close_collection=True, abort=abort, terminate=terminate)
 
     messages += msgs

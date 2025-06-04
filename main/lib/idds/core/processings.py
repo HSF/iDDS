@@ -115,9 +115,10 @@ def get_processings_by_transform_id(transform_id=None, to_json=False, session=No
 
 
 @transactional_session
-def get_processing_by_id_status(processing_id, status=None, locking=False, lock_period=None, session=None):
+def get_processing_by_id_status(processing_id, status=None, exclude_status=None, locking=False, lock_period=None, session=None):
     # pr = orm_processings.get_processing_by_id_status(processing_id=processing_id, status=status, locking=locking, session=session)
-    pr = orm_processings.get_processing_by_id_status(processing_id=processing_id, status=status, session=session)
+    pr = orm_processings.get_processing_by_id_status(processing_id=processing_id, status=status,
+                                                     exclude_status=exclude_status, session=session)
     if pr is None:
         return pr
 
@@ -365,13 +366,18 @@ def update_processing_contents(update_processing, update_contents=None, update_m
     :param update_processing: dict with processing id and parameters.
     :param update_contents: list of content files.
     """
-    if update_collections:
-        orm_collections.update_collections(update_collections, session=session)
-    if update_contents:
-        chunks = get_list_chunks(update_contents)
+    # new_update_contents, new_contents_ext, new_input_dependency_contents and then new_contents
+    # make sure new_contents the last one: when a process is killed, the session may break consistency.
+    # new_contents is used to check not inserted contents
+    if new_contents_ext:
+        chunks = get_list_chunks(new_contents_ext)
         for chunk in chunks:
-            orm_contents.update_contents(chunk, request_id=request_id, transform_id=transform_id,
-                                         use_bulk_update_mappings=use_bulk_update_mappings, session=session)
+            orm_contents.add_contents_ext(chunk, session=session)
+    if new_input_dependency_contents:
+        new_input_dependency_contents = resolve_input_dependency_id(new_input_dependency_contents, request_id=request_id, session=session)
+        chunks = get_list_chunks(new_input_dependency_contents)
+        for chunk in chunks:
+            orm_contents.add_contents(chunk, session=session)
     if new_update_contents:
         # first add and then delete, to trigger the trigger 'update_content_dep_status'.
         # too slow
@@ -380,24 +386,21 @@ def update_processing_contents(update_processing, update_contents=None, update_m
             orm_contents.add_contents_update(chunk, session=session)
         # orm_contents.delete_contents_update(session=session)
         pass
+    if messages:
+        if not type(messages) in [list, tuple]:
+            messages = [messages]
+        orm_messages.add_messages(messages, bulk_size=message_bulk_size, session=session)
     if new_contents:
         chunks = get_list_chunks(new_contents)
         for chunk in chunks:
             orm_contents.add_contents(chunk, session=session)
-    if new_contents_ext:
-        chunks = get_list_chunks(new_contents_ext)
-        for chunk in chunks:
-            orm_contents.add_contents_ext(chunk, session=session)
+
+    # update contents, keep the order
     if update_contents_ext:
         chunks = get_list_chunks(update_contents_ext)
         for chunk in chunks:
             orm_contents.update_contents_ext(chunk, request_id=request_id, transform_id=transform_id,
                                              use_bulk_update_mappings=use_bulk_update_mappings, session=session)
-    if new_input_dependency_contents:
-        new_input_dependency_contents = resolve_input_dependency_id(new_input_dependency_contents, request_id=request_id, session=session)
-        chunks = get_list_chunks(new_input_dependency_contents)
-        for chunk in chunks:
-            orm_contents.add_contents(chunk, session=session)
     if update_dep_contents:
         request_id, update_dep_contents_status_name, update_dep_contents_status = update_dep_contents
         for status_name in update_dep_contents_status_name:
@@ -407,29 +410,35 @@ def update_processing_contents(update_processing, update_contents=None, update_m
                 chunks = get_list_chunks(status_content_ids)
                 for chunk in chunks:
                     orm_contents.update_dep_contents(request_id, chunk, status, session=session)
-    if update_processing:
-        orm_processings.update_processing(processing_id=update_processing['processing_id'],
-                                          parameters=update_processing['parameters'],
-                                          session=session)
+    if update_contents:
+        chunks = get_list_chunks(update_contents)
+        for chunk in chunks:
+            orm_contents.update_contents(chunk, request_id=request_id, transform_id=transform_id,
+                                         use_bulk_update_mappings=use_bulk_update_mappings, session=session)
+    if update_collections:
+        orm_collections.update_collections(update_collections, session=session)
+
     if update_messages:
         chunks = get_list_chunks(update_messages)
         for chunk in chunks:
             orm_messages.update_messages(chunk, bulk_size=message_bulk_size, request_id=request_id, transform_id=transform_id,
                                          use_bulk_update_mappings=use_bulk_update_mappings, session=session)
-    if messages:
-        if not type(messages) in [list, tuple]:
-            messages = [messages]
-        orm_messages.add_messages(messages, bulk_size=message_bulk_size, session=session)
+
+    if update_processing:
+        orm_processings.update_processing(processing_id=update_processing['processing_id'],
+                                          parameters=update_processing['parameters'],
+                                          session=session)
 
 
 @transactional_session
-def clean_locking(time_period=3600, min_request_id=None, health_items=[], session=None):
+def clean_locking(time_period=3600, min_request_id=None, health_items=[], force=False, hostname=None, pid=None, session=None):
     """
     Clearn locking which is older than time period.
 
     :param time_period in seconds
     """
-    orm_processings.clean_locking(time_period=time_period, min_request_id=min_request_id, health_items=health_items, session=session)
+    return orm_processings.clean_locking(time_period=time_period, min_request_id=min_request_id, health_items=health_items,
+                                         force=force, hostname=hostname, pid=pid, session=session)
 
 
 @transactional_session
