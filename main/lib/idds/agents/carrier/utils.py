@@ -561,6 +561,7 @@ def wait_futures_finish(ret_futures, func_name, logger, log_prefix):
     logger.debug(log_prefix + "%s: wait_futures_finish" % func_name)
     # Wait for all subprocess to complete
     steps = 0
+    ex = None
     while True:
         steps += 1
         # Wait for all subprocess to complete in 3 minutes
@@ -570,7 +571,15 @@ def wait_futures_finish(ret_futures, func_name, logger, log_prefix):
             logger.debug(log_prefix + "%s thread: %s threads has been running for more than %s minutes" % (func_name, len(ret_futures), steps * 3))
         else:
             break
+        for c in completed:
+            try:
+                _ = c.result()   # This will raise the exception if the thread failed
+            except Exception as e:
+                ex = e
+                logger.error(f"{log_prefix} {func_name}: thread failed: {e}")
     logger.debug(log_prefix + "%s: wait_futures_finish end" % func_name)
+    if ex:
+        raise ex
 
 
 def handle_new_processing(processing, agent_attributes, func_site_to_cloud=None, max_updates_per_round=2000, executors=None, logger=None, log_prefix=''):
