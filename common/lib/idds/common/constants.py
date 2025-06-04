@@ -428,6 +428,7 @@ class ProcessingStatus(IDDSEnum):
     ToTrigger = 28
     Triggering = 29
     Synchronizing = 30
+    Prepared = 31
 
 
 Terminated_processing_status = [ProcessingStatus.Finished,

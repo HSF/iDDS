@@ -48,7 +48,7 @@ class Trigger(Poller):
                                       max_updates_per_round=max_updates_per_round, retrieve_bulk_size=retrieve_bulk_size, **kwargs)
         self.logger.info("num_threads: %s" % num_threads)
 
-        self.max_updates_per_round = max_updates_per_round
+        self.max_updates_per_round = int(max_updates_per_round)
         self.logger.info("max_updates_per_round: %s" % self.max_updates_per_round)
 
         if hasattr(self, 'trigger_max_number_workers'):
@@ -195,7 +195,7 @@ class Trigger(Poller):
                 original_event = event
                 # pr_status = [ProcessingStatus.New]
                 self.logger.info("process_trigger_processing, event: %s" % str(event))
-                pr = self.get_processing(processing_id=event._processing_id, status=None, locking=True)
+                pr = self.get_processing(processing_id=event._processing_id, status=None, exclude_status=[ProcessingStatus.Prepared], locking=True)
                 if not pr:
                     self.logger.warn("Cannot find processing for event: %s" % str(event))
                     # pro_ret = ReturnCode.Locked.value

@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2024
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2025
 
 import datetime
 import random
@@ -87,7 +87,7 @@ class Poller(BaseAgent):
         else:
             self.max_number_workers = int(self.max_number_workers)
 
-        self.max_updates_per_round = max_updates_per_round
+        self.max_updates_per_round = int(max_updates_per_round)
         self.logger.info("max_updates_per_round: %s" % self.max_updates_per_round)
 
         if not hasattr(self, 'enable_executors') or not self.enable_executors:
@@ -185,10 +185,11 @@ class Poller(BaseAgent):
                 self.logger.error(traceback.format_exc())
         return []
 
-    def get_processing(self, processing_id, status=None, locking=False):
+    def get_processing(self, processing_id, status=None, exclude_status=None, locking=False):
         try:
             return core_processings.get_processing_by_id_status(processing_id=processing_id,
                                                                 status=status,
+                                                                exclude_status=exclude_status,
                                                                 locking=locking,
                                                                 lock_period=self.locking_period)
         except exceptions.DatabaseException as ex:
@@ -546,7 +547,7 @@ class Poller(BaseAgent):
                 original_event = event
                 self.logger.info("process_update_processing, event: %s" % str(event))
 
-                pr = self.get_processing(processing_id=event._processing_id, status=None, locking=True)
+                pr = self.get_processing(processing_id=event._processing_id, status=None, exclude_status=[ProcessingStatus.Prepared], locking=True)
                 if not pr:
                     self.logger.warn("Cannot find processing for event: %s" % str(event))
                     # pro_ret = ReturnCode.Locked.value
@@ -602,11 +603,14 @@ class Poller(BaseAgent):
         self.number_workers -= 1
         return pro_ret
 
-    def clean_locks(self):
-        self.logger.info("clean locking")
+    def clean_locks(self, force=False):
+        self.logger.info(f"clean locking: force: {force}")
         health_items = self.get_health_items()
         min_request_id = BaseAgent.min_request_id
-        core_processings.clean_locking(health_items=health_items, min_request_id=min_request_id, time_period=None)
+        hostname, pid, thread_id, thread_name = self.get_process_thread_info()
+        ret = core_processings.clean_locking(health_items=health_items, min_request_id=min_request_id, time_period=None,
+                                             force=force, hostname=hostname, pid=pid)
+        self.logger.info(f"clean locking finished. Cleaned locks: {ret}")
 
     def init_event_function_map(self):
         self.event_func_map = {
@@ -626,6 +630,9 @@ class Poller(BaseAgent):
 
             self.load_plugins()
             self.init()
+
+            self.clean_locks(force=True)
+            time.sleep(5)
 
             self.add_default_tasks()
 

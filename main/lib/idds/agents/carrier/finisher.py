@@ -183,7 +183,7 @@ class Finisher(Poller):
         try:
             if event:
                 self.logger.info("process_sync_processing: event: %s" % event)
-                pr = self.get_processing(processing_id=event._processing_id, locking=True)
+                pr = self.get_processing(processing_id=event._processing_id, exclude_status=[ProcessingStatus.Prepared], locking=True)
                 if not pr:
                     self.logger.error("Cannot find processing for event: %s" % str(event))
                     # pro_ret = ReturnCode.Locked.value
@@ -288,7 +288,7 @@ class Finisher(Poller):
                     self.logger.warn("Event counter is bigger than 3, skip event: %s" % str(event))
                 else:
                     original_event = event
-                    pr = self.get_processing(processing_id=event._processing_id, locking=True)
+                    pr = self.get_processing(processing_id=event._processing_id, exclude_status=[ProcessingStatus.Prepared], locking=True)
                     if not pr:
                         self.logger.error("Cannot find processing for event: %s" % str(event))
                         # pro_ret = ReturnCode.Locked.value
@@ -412,7 +412,7 @@ class Finisher(Poller):
                                      ProcessingStatus.Suspended, ProcessingStatus.Expired,
                                      ProcessingStatus.Broken]
 
-                pr = self.get_processing(processing_id=event._processing_id, locking=True)
+                pr = self.get_processing(processing_id=event._processing_id, exclude_status=[ProcessingStatus.Prepared], locking=True)
 
                 if not pr:
                     self.logger.error("Cannot find processing for event: %s" % str(event))
@@ -528,7 +528,7 @@ class Finisher(Poller):
             if event:
                 processing_status = [ProcessingStatus.Finished]
 
-                pr = self.get_processing(processing_id=event._processing_id, locking=True)
+                pr = self.get_processing(processing_id=event._processing_id, exclude_status=[ProcessingStatus.Prepared], locking=True)
 
                 if not pr:
                     self.logger.error("Cannot find processing for event: %s" % str(event))

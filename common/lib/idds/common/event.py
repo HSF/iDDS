@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2022 - 2023
+# - Wen Guan, <wen.guan@cern.ch>, 2022 - 2025
 
 import time
 import uuid
@@ -52,6 +52,7 @@ class EventType(IDDSEnum):
     TerminatedProcessing = 35
     TriggerProcessing = 36
     MsgTriggerProcessing = 37
+    PreparedProcessing = 38
 
     UpdateCommand = 40
 
@@ -375,6 +376,20 @@ class NewProcessingEvent(Event):
 
     def to_json(self, strip=False):
         ret = super(NewProcessingEvent, self).to_json()
+        ret['processing_id'] = self._processing_id
+        return ret
+
+
+class PreparedProcessingEvent(Event):
+    def __init__(self, publisher_id=None, processing_id=None, content=None, counter=1):
+        super(PreparedProcessingEvent, self).__init__(publisher_id, event_type=EventType.PreparedProcessing, content=content, counter=counter)
+        self._processing_id = processing_id
+
+    def get_event_id(self):
+        return self._processing_id
+
+    def to_json(self, strip=False):
+        ret = super(PreparedProcessingEvent, self).to_json()
         ret['processing_id'] = self._processing_id
         return ret
 

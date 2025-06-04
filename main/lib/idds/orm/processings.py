@@ -16,7 +16,7 @@ operations related to Processings.
 import datetime
 
 import sqlalchemy
-from sqlalchemy import func, select
+from sqlalchemy import func, select, not_
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.sql.expression import asc
 
@@ -149,7 +149,7 @@ def get_processing(processing_id, request_id=None, transform_id=None, to_json=Fa
 
 
 @read_session
-def get_processing_by_id_status(processing_id, status=None, locking=False, session=None):
+def get_processing_by_id_status(processing_id, status=None, exclude_status=None, locking=False, session=None):
     """
     Get a processing or raise a NoObject exception.
 
@@ -173,6 +173,13 @@ def get_processing_by_id_status(processing_id, status=None, locking=False, sessi
             if len(status) == 1:
                 status = [status[0], status[0]]
             query = query.where(models.Processing.status.in_(status))
+
+        if exclude_status:
+            if not isinstance(exclude_status, (list, tuple)):
+                exclude_status = [exclude_status]
+            if len(exclude_status) == 1:
+                exclude_status = [exclude_status[0], exclude_status[0]]
+            query = query.where(not_(models.Processing.status.in_(exclude_status)))
 
         if locking:
             query = query.where(models.Processing.locking == ProcessingLocking.Idle)
@@ -412,7 +419,7 @@ def delete_processing(processing_id=None, session=None):
 
 
 @transactional_session
-def clean_locking(time_period=3600, min_request_id=None, health_items=[], session=None):
+def clean_locking(time_period=3600, min_request_id=None, health_items=[], force=False, hostname=None, pid=None, session=None):
     """
     Clearn locking which is older than time period.
 
@@ -443,10 +450,14 @@ def clean_locking(time_period=3600, min_request_id=None, health_items=[], sessio
     if tmp:
         for req in tmp:
             pr_id, locking_hostname, locking_pid, locking_thread_id, locking_thread_name = req
-            if locking_hostname not in health_dict or locking_pid not in health_dict[locking_hostname]:
+            if (
+                (locking_hostname not in health_dict or locking_pid not in health_dict[locking_hostname])
+                or (force and hostname == locking_hostname and pid == locking_pid)        # noqa W503
+            ):
                 lost_processing_ids.append({"processing_id": pr_id, 'locking': 0})
 
     session.bulk_update_mappings(models.Processing, lost_processing_ids)
+    return lost_processing_ids
 
 
 @transactional_session

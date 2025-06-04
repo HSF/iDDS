@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2023 - 2024
+# - Wen Guan, <wen.guan@cern.ch>, 2023 - 2025
 # - Lino Oscar Gerlach, <lino.oscar.gerlach@cern.ch>, 2024
 
 import base64
@@ -125,6 +125,11 @@ class WorkflowContext(Context):
         self._enable_separate_log = enable_separate_log
 
         self._container_options = container_options
+
+        self._campaign = None
+        self._campaign_scope = None
+        self._campaign_group = None
+        self._campaign_tag = None
 
     @property
     def logger(self):
@@ -362,6 +367,38 @@ class WorkflowContext(Context):
     @token.setter
     def token(self, value):
         self._token = value
+
+    @property
+    def campaign(self):
+        return self._campaign
+
+    @campaign.setter
+    def campaign(self, value):
+        self._campaign = value
+
+    @property
+    def campaign_scope(self):
+        return self._campaign_scope
+
+    @campaign_scope.setter
+    def campaign_scope(self, value):
+        self._campaign_scope = value
+
+    @property
+    def campaign_group(self):
+        return self._campaign_group
+
+    @campaign_group.setter
+    def campaign_group(self, value):
+        self._campaign_group = value
+
+    @property
+    def campaign_tag(self):
+        return self._campaign_tag
+
+    @campaign_tag.setter
+    def campaign_tag(self, value):
+        self._campaign_tag = value
 
     def init_brokers(self):
         if not self._broker_initialized:
@@ -989,6 +1026,38 @@ class Workflow(Base):
 
     def get_work_name(self):
         return self._name
+
+    @property
+    def campaign(self):
+        return self._context.campaign
+
+    @campaign.setter
+    def campaign(self, value):
+        self._context.campaign = value
+
+    @property
+    def campaign_scope(self):
+        return self._context.campaign_scope
+
+    @campaign_scope.setter
+    def campaign_scope(self, value):
+        self._context.campaign_scope = value
+
+    @property
+    def campaign_group(self):
+        return self._context.campaign_group
+
+    @campaign_group.setter
+    def campaign_group(self, value):
+        self._context.campaign_group = value
+
+    @property
+    def campaign_tag(self):
+        return self._context.campaign_tag
+
+    @campaign_tag.setter
+    def campaign_tag(self, value):
+        self._context.campaign_tag = value
 
     @property
     def multi_jobs_kwargs_list(self):
