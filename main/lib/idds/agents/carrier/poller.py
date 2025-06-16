@@ -109,6 +109,11 @@ class Poller(BaseAgent):
 
         self._running_processing_status = None
 
+        if hasattr(self, 'clean_locks_time_period'):
+            self.clean_locks_time_period = int(self.clean_locks_time_period)
+        else:
+            self.clean_locks_time_period = 1800
+
     def get_extra_executors(self):
         if self.enable_executors:
             if self.extra_executors is None:
@@ -612,7 +617,8 @@ class Poller(BaseAgent):
         health_items = self.get_health_items()
         min_request_id = BaseAgent.min_request_id
         hostname, pid, thread_id, thread_name = self.get_process_thread_info()
-        ret = core_processings.clean_locking(health_items=health_items, min_request_id=min_request_id, time_period=1800,
+        ret = core_processings.clean_locking(health_items=health_items, min_request_id=min_request_id,
+                                             time_period=self.clean_locks_time_period,
                                              force=force, hostname=hostname, pid=pid)
         self.logger.info(f"clean locking finished. Cleaned locks: {ret}")
 
