@@ -129,6 +129,11 @@ class Clerk(BaseAgent):
 
         self.show_queue_size_time = None
 
+        if hasattr(self, 'clean_locks_time_period'):
+            self.clean_locks_time_period = int(self.clean_locks_time_period)
+        else:
+            self.clean_locks_time_period = 1800
+
     def is_ok_to_run_more_requests(self):
         if self.number_workers >= self.max_number_workers:
             return False
@@ -1900,7 +1905,8 @@ class Clerk(BaseAgent):
         health_items = self.get_health_items()
         min_request_id = BaseAgent.min_request_id
         hostname, pid, thread_id, thread_name = self.get_process_thread_info()
-        core_requests.clean_locking(health_items=health_items, min_request_id=min_request_id, time_period=None,
+        core_requests.clean_locking(health_items=health_items, min_request_id=min_request_id,
+                                    time_period=self.clean_locks_time_period,
                                     force=force, hostname=hostname, pid=pid)
 
     def init_event_function_map(self):

@@ -578,7 +578,8 @@ def clean_locking(time_period=3600, min_request_id=None, health_items=[], force=
                           models.Transform.locking_hostname,
                           models.Transform.locking_pid,
                           models.Transform.locking_thread_id,
-                          models.Transform.locking_thread_name)
+                          models.Transform.locking_thread_name,
+                          models.Transform.updated_at)
     query = query.filter(models.Transform.locking == TransformLocking.Locking)
     if min_request_id:
         query = query.filter(models.Transform.request_id >= min_request_id)
@@ -587,10 +588,11 @@ def clean_locking(time_period=3600, min_request_id=None, health_items=[], force=
     tmp = query.all()
     if tmp:
         for req in tmp:
-            tf_id, locking_hostname, locking_pid, locking_thread_id, locking_thread_name = req
+            tf_id, locking_hostname, locking_pid, locking_thread_id, locking_thread_name, updated_at = req
             if (
                 (locking_hostname not in health_dict or locking_pid not in health_dict[locking_hostname])
                 or (force and hostname == locking_hostname and pid == locking_pid)      # noqa W503
+                or (updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=time_period))    # noqa W503
             ):
                 lost_transform_ids.append({"transform_id": tf_id, 'locking': 0})
 

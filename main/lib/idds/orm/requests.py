@@ -1260,7 +1260,8 @@ def clean_locking(time_period=3600, min_request_id=None, health_items=[], force=
                           models.Request.locking_hostname,
                           models.Request.locking_pid,
                           models.Request.locking_thread_id,
-                          models.Request.locking_thread_name)
+                          models.Request.locking_thread_name,
+                          models.Request.updated_at)
     query = query.filter(models.Request.locking == RequestLocking.Locking)
     if min_request_id:
         query = query.filter(models.Request.request_id >= min_request_id)
@@ -1269,10 +1270,11 @@ def clean_locking(time_period=3600, min_request_id=None, health_items=[], force=
     tmp = query.all()
     if tmp:
         for req in tmp:
-            req_id, locking_hostname, locking_pid, locking_thread_id, locking_thread_name = req
+            req_id, locking_hostname, locking_pid, locking_thread_id, locking_thread_name, updated_at = req
             if (
                 (locking_hostname not in health_dict or locking_pid not in health_dict[locking_hostname])
-                or (force and hostname == locking_hostname and pid == locking_pid)      # noqa W503
+                or (force and hostname == locking_hostname and pid == locking_pid)      # noqa W503,
+                or (updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=time_period))    # noqa W503
             ):
                 lost_request_ids.append({"request_id": req_id, 'locking': 0})
 
