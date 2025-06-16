@@ -38,8 +38,12 @@ class Poller(BaseAgent):
     """
 
     def __init__(self, num_threads=1, max_number_workers=3, poll_period=10, retries=3, retrieve_bulk_size=2,
-                 max_updates_per_round=2000, name='Poller', message_bulk_size=1000, locking_period=1800, **kwargs):
-        self.max_number_workers = max_number_workers
+                 max_updates_per_round=2000, name='Poller', message_bulk_size=1000, locking_period=1800,
+                 poller_max_number_workers=None, **kwargs):
+        if poller_max_number_workers:
+            self.max_number_workers = int(poller_max_number_workers)
+        else:
+            self.max_number_workers = int(max_number_workers)
         if int(num_threads) < int(self.max_number_workers):
             num_threads = int(self.max_number_workers)
 
@@ -608,7 +612,7 @@ class Poller(BaseAgent):
         health_items = self.get_health_items()
         min_request_id = BaseAgent.min_request_id
         hostname, pid, thread_id, thread_name = self.get_process_thread_info()
-        ret = core_processings.clean_locking(health_items=health_items, min_request_id=min_request_id, time_period=None,
+        ret = core_processings.clean_locking(health_items=health_items, min_request_id=min_request_id, time_period=1800,
                                              force=force, hostname=hostname, pid=pid)
         self.logger.info(f"clean locking finished. Cleaned locks: {ret}")
 

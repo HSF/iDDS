@@ -1503,7 +1503,7 @@ class Transformer(BaseAgent):
         health_items = self.get_health_items()
         min_request_id = BaseAgent.min_request_id
         hostname, pid, thread_id, thread_name = self.get_process_thread_info()
-        core_transforms.clean_locking(health_items=health_items, min_request_id=min_request_id, time_period=None,
+        core_transforms.clean_locking(health_items=health_items, min_request_id=min_request_id, time_period=1800,
                                       force=force, hostname=hostname, pid=pid)
 
     def init_event_function_map(self):

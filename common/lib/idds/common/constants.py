@@ -363,6 +363,7 @@ class ContentStatus(IDDSEnum):
     Activated = 11
     SubAvailable = 12
     FinalSubAvailable = 13
+    PreProcessing = 14
 
 
 class ContentLocking(IDDSEnum):
