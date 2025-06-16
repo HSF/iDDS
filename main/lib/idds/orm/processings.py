@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2024
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2025
 
 
 """
@@ -440,7 +440,8 @@ def clean_locking(time_period=3600, min_request_id=None, health_items=[], force=
                           models.Processing.locking_hostname,
                           models.Processing.locking_pid,
                           models.Processing.locking_thread_id,
-                          models.Processing.locking_thread_name)
+                          models.Processing.locking_thread_name,
+                          models.Processing.updated_at)
     query = query.filter(models.Processing.locking == ProcessingLocking.Locking)
     if min_request_id:
         query = query.filter(models.Processing.request_id >= min_request_id)
@@ -449,10 +450,11 @@ def clean_locking(time_period=3600, min_request_id=None, health_items=[], force=
     tmp = query.all()
     if tmp:
         for req in tmp:
-            pr_id, locking_hostname, locking_pid, locking_thread_id, locking_thread_name = req
+            pr_id, locking_hostname, locking_pid, locking_thread_id, locking_thread_name, updated_at = req
             if (
                 (locking_hostname not in health_dict or locking_pid not in health_dict[locking_hostname])
                 or (force and hostname == locking_hostname and pid == locking_pid)        # noqa W503
+                or (updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=time_period))    # noqa W503
             ):
                 lost_processing_ids.append({"processing_id": pr_id, 'locking': 0})
 
