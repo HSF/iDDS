@@ -58,6 +58,7 @@ class Base(DictBase):
                                pre_kwargs=None,
                                args=None,
                                kwargs=None,
+                               base_dir=None,
                                multi_jobs_kwargs_list=None):
 
         if args is None:
@@ -82,7 +83,7 @@ class Base(DictBase):
             func_name = func
         elif inspect.ismethod(func) or inspect.isfunction(func) or inspect.isbuiltin(func):
             # func_name = '{0}.{1}'.format(func.__module__, func.__qualname__)
-            func_name = get_func_name(func)
+            func_name = get_func_name(func, base_dir=base_dir)
             func_call = func
         else:
             # raise TypeError('Expected a callable or a string, but got: {0}'.format(func))

@@ -180,7 +180,11 @@ class DictClass(object):
         if issubclass(cls, Enum):
             impl = cls(d['attributes']['_value_'])
         else:
-            impl = cls()
+            sig = inspect.signature(cls.__init__)
+            if 'json_load' in sig.parameters:
+                impl = cls(json_load=True)
+            else:
+                impl = cls()
         return impl
 
     @staticmethod
