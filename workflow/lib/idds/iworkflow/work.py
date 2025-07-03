@@ -61,13 +61,10 @@ class WorkContext(Context):
         self._no_wait_parent = None
 
         self._other_attributes = {}
+        self.logger = logging.getLogger(self.__class__.__name__)
 
     def get_service(self):
         return self._workflow_context.service
-
-    @property
-    def logger(self):
-        return logging.getLogger(self.__class__.__name__)
 
     @property
     def distributed(self):
@@ -402,16 +399,14 @@ class Work(Base):
                  current_job_kwargs=None, map_results=False, source_dir=None, init_env=None, is_unique_func_name=False, name=None,
                  parent_workload_id=None, no_wait_parent=False, container_options=None, input_datasets=None, output_file_name=None,
                  output_dataset_name=None, num_events=None, num_events_per_job=None, parent_transform_id=None, parent_internal_id=None,
-                 log_dataset_name=None, inputs=None, input_map=None, inputs_group=None, enable_separate_log=False, job_key=None):
+                 log_dataset_name=None, inputs=None, input_map=None, inputs_group=None, enable_separate_log=False, job_key=None,
+                 json_load=False):
         """
         Init a workflow.
         """
         super(Work, self).__init__()
         self.prepared = False
-
-        # self._func = func
-        self._func, self._func_name_and_args, self._multi_jobs_kwargs_list = self.get_func_name_and_args(func, pre_kwargs, args, kwargs, multi_jobs_kwargs_list)
-        self._func = None
+        self.logger = logging.getLogger(self.__class__.__name__)
 
         self._current_job_kwargs = current_job_kwargs
         if self._current_job_kwargs:
@@ -420,7 +415,7 @@ class Work(Base):
         if name:
             self._name = name
         else:
-            self._name = self._func_name_and_args[0]
+            self._name = func.__name__ if func else None
             if self._name:
                 self._name = self._name.replace('__main__:', '').replace('.py', '').replace(':', '.')
                 self._name = self._name.replace("/", "_").replace(".", "_").replace(":", "_")
@@ -432,6 +427,19 @@ class Work(Base):
             self._context = context
         else:
             self._context = WorkContext(name=self._name, workflow_context=workflow_context, init_env=init_env, container_options=container_options)
+
+        # self._func = func
+        self._func, self._func_name_and_args, self._multi_jobs_kwargs_list = self.get_func_name_and_args(
+            func=func,
+            pre_kwargs=pre_kwargs,
+            args=args,
+            kwargs=kwargs,
+            base_dir=self._context.get_source_dir(),
+            multi_jobs_kwargs_list=multi_jobs_kwargs_list
+        )
+        self._func = None
+        if not json_load:
+            self.logger.info(f"func: {self._func}, func_name_and_args: {self._func_name_and_args}, multi_jobs_kwargs_list: {self._multi_jobs_kwargs_list}")
 
         self._async_ret = None
 
@@ -457,9 +465,7 @@ class Work(Base):
         self.input_map = input_map
         self.inputs_group = inputs_group
 
-    @property
-    def logger(self):
-        return logging.getLogger(self.__class__.__name__)
+        self.num_checks = 0
 
     @property
     def internal_id(self):
@@ -833,7 +839,7 @@ class Work(Base):
         ret = self.load_context(source_dir, self._name)
         if ret:
             ret = json_loads(ret)
-            logging.info(f"Loaded context: {ret}")
+            self.logger.info(f"Loaded context: {ret}")
             if 'multi_jobs_kwargs_list' in ret:
                 self._multi_jobs_kwargs_list = ret['multi_jobs_kwargs_list']
 
@@ -849,7 +855,7 @@ class Work(Base):
         client = ClientManager(host=self._context.get_idds_server(), timeout=60)
         request_id = self._context.request_id
         transform_id = client.submit_work(request_id, self, use_dataset_name=False)
-        logging.info("Submitted into iDDS with transform id=%s", str(transform_id))
+        self.logger.info("Submitted into iDDS with transform id=%s", str(transform_id))
         return transform_id
 
     def submit_to_panda_server(self):
@@ -873,9 +879,9 @@ class Work(Base):
             transform_id = ret[1][1]
         else:
             transform_id = None
-            logging.error("Failed to submit work to PanDA-iDDS with error: %s" % str(ret))
+            self.logger.error("Failed to submit work to PanDA-iDDS with error: %s" % str(ret))
 
-        logging.info("Submitted work into PanDA-iDDS with transform id=%s", str(transform_id))
+        self.logger.info("Submitted work into PanDA-iDDS with transform id=%s", str(transform_id))
         return transform_id
 
     def submit(self):
@@ -892,13 +898,13 @@ class Work(Base):
             else:
                 tf_id = self.submit_to_idds_server()
         except Exception as ex:
-            logging.error("Failed to submit work: %s" % str(ex))
+            self.logger.error("Failed to submit work: %s" % str(ex))
 
         try:
             self._context.transform_id = int(tf_id)
             return tf_id
         except Exception as ex:
-            logging.error("Transform id (%s) is not integer, there should be some submission errors: %s" % (tf_id, str(ex)))
+            self.logger.error("Transform id (%s) is not integer, there should be some submission errors: %s" % (tf_id, str(ex)))
 
         return None
 
@@ -917,7 +923,7 @@ class Work(Base):
         transform_id = self._context.transform_id
         if not transform_id:
             log_msg = f"No transform id defined (request_id: {request_id}, transform_id: {transform_id}, internal_id: {self.internal_id})"
-            logging.error(log_msg)
+            self.logger.error(log_msg)
             return exceptions.IDDSException(log_msg)
 
         ret = client.get_transform(request_id=request_id, transform_id=transform_id)
@@ -929,17 +935,19 @@ class Work(Base):
                 try:
                     tf = json_loads(tf)
                 except Exception as ex:
-                    logging.warn(f"Failed to json loads transform({tf}): {ex}")
+                    self.logger.warn(f"Failed to json loads transform({tf}): {ex}")
         else:
             tf = None
-            logging.error(f"Failed to get transform (request_id: {request_id}, transform_id: {transform_id}, internal_id: {self.internal_id}) status from PanDA-iDDS: {ret}")
+            self.logger.error(f"Failed to get transform (request_id: {request_id}, transform_id: {transform_id}, internal_id: {self.internal_id}) status from PanDA-iDDS: {ret}")
             return TransformStatus.Transforming
 
         if not tf:
-            logging.info(f"Get transform (request_id: {request_id}, transform_id: {transform_id}, internal_id: {self.internal_id}) from PanDA-iDDS: {tf}")
+            self.logger.info(f"Get transform (request_id: {request_id}, transform_id: {transform_id}, internal_id: {self.internal_id}) from PanDA-iDDS: {tf}")
             return None
 
-        logging.info(f"Get transform status (request_id: {request_id}, transform_id: {transform_id}, internal_id: {self.internal_id}) from PanDA-iDDS: {tf['status']}")
+        if self.num_checks % 60 == 0:
+            self.logger.info(f"Get transform status (request_id: {request_id}, transform_id: {transform_id}, internal_id: {self.internal_id}) from PanDA-iDDS: {tf['status']}")
+        self.num_checks += 1
 
         return tf['status']
 
@@ -951,24 +959,98 @@ class Work(Base):
         transform_id = self._context.transform_id
         if not transform_id:
             log_msg = f"No transform id defined (request_id: {request_id}, transform_id: {transform_id}, internal_id: {self.internal_id})"
-            logging.error(log_msg)
+            self.logger.error(log_msg)
             return exceptions.IDDSException(log_msg)
 
         tf = client.get_transform(request_id=request_id, transform_id=transform_id)
         if not tf:
-            logging.info(f"Get transform (request_id: {request_id}, transform_id: {transform_id}, internal_id: {self.internal_id}) from iDDS: {tf}")
+            self.logger.info(f"Get transform (request_id: {request_id}, transform_id: {transform_id}, internal_id: {self.internal_id}) from iDDS: {tf}")
             return None
 
-        logging.info(f"Get transform status (request_id: {request_id}, transform_id: {transform_id}, internal_id: {self.internal_id}) from iDDS: {tf['status']}")
+        self.logger.info(f"Get transform status (request_id: {request_id}, transform_id: {transform_id}, internal_id: {self.internal_id}) from iDDS: {tf['status']}")
         return tf['status']
 
     def get_status(self):
+        if self._context.get_service() == 'panda':
+            return self.get_status_from_panda_server()
+        return self.get_status_from_idds_server()
+
         try:
             if self._context.get_service() == 'panda':
                 return self.get_status_from_panda_server()
             return self.get_status_from_idds_server()
         except Exception as ex:
-            logging.info("Failed to get transform status: %s" % str(ex))
+            self.logger.info("Failed to get transform status: %s" % str(ex))
+
+    def cancel_from_panda_server(self):
+        import idds.common.utils as idds_utils
+        import pandaclient.idds_api as idds_api
+
+        idds_server = self._context.get_idds_server()
+        client = idds_api.get_api(idds_utils.json_dumps,
+                                  idds_host=idds_server,
+                                  compress=True,
+                                  verbose=is_panda_client_verbose(),
+                                  manager=True)
+
+        request_id = self._context.request_id
+        # transform_id = self._context.transform_id
+        workload_id = self._context.workload_id
+        if not workload_id:
+            log_msg = f"No workload id defined (request_id: {request_id}, workload_id: {workload_id}, internal_id: {self.internal_id})"
+            self.logger.error(log_msg)
+            return exceptions.IDDSException(log_msg)
+
+        ret = client.abort_task(request_id=request_id, workload_id=workload_id)
+        if ret[0] == 0 and ret[1][0]:
+            ret_value = ret[1][1]
+            if type(ret_value) in [dict]:
+                ret_value = json_loads(json.dumps(ret_value))
+            elif type(ret_value) in [str]:
+                try:
+                    ret_value = json_loads(ret_value)
+                except Exception as ex:
+                    self.logger.warn(f"Failed to json cancel transform({ret_value}): {ex}")
+        else:
+            ret_value = None
+            self.logger.error(f"Failed to cancel transform (request_id: {request_id}, worklaod_id: {workload_id}, internal_id: {self.internal_id}) status from PanDA-iDDS: {ret}")
+            return TransformStatus.Transforming
+
+        if not ret_value:
+            self.logger.info(f"Failed to cancel transform (request_id: {request_id}, workload_id: {workload_id}, internal_id: {self.internal_id}) from PanDA-iDDS: {ret_value}")
+            return None
+
+        self.logger.info(f"Cancel transform (request_id: {request_id}, workload_id: {workload_id}, internal_id: {self.internal_id}) from PanDA-iDDS: {ret_value}")
+
+        return ret_value
+
+    def cancel_from_idds_server(self):
+        from idds.client.clientmanager import ClientManager
+        client = ClientManager(host=self._context.get_idds_server(), timeout=60)
+
+        request_id = self._context.request_id
+        # transform_id = self._context.transform_id
+        workload_id = self._context.workload_id
+        if not workload_id:
+            log_msg = f"No workload id defined (request_id: {request_id}, workload_id: {workload_id}, internal_id: {self.internal_id})"
+            self.logger.error(log_msg)
+            return exceptions.IDDSException(log_msg)
+
+        ret = client.abort_task(request_id=request_id, workload_id=workload_id)
+        if not ret:
+            self.logger.info(f"Cancel transform (request_id: {request_id}, workload_id: {workload_id}, internal_id: {self.internal_id}) from iDDS: {ret}")
+            return None
+
+        self.logger.info(f"Cancel transform (request_id: {request_id}, workload_id: {workload_id}, internal_id: {self.internal_id}) from iDDS: {ret}")
+        return ret
+
+    def cancel(self):
+        try:
+            if self._context.get_service() == 'panda':
+                return self.cancel_from_panda_server()
+            return self.cancel_from_idds_server()
+        except Exception as ex:
+            self.logger.info("Failed to get transform status: %s" % str(ex))
 
     def get_finished_status(self):
         return [TransformStatus.Finished]
@@ -985,8 +1067,9 @@ class Work(Base):
                 TransformStatus.Failed, TransformStatus.Cancelled,
                 TransformStatus.Suspended, TransformStatus.Expired]
 
-    def is_terminated(self):
-        status = self.get_status()
+    def is_terminated(self, status=None):
+        if status is None:
+            status = self.get_status()
         if status in self.get_terminated_status():
             self.stop_async_result()
             return True
@@ -999,8 +1082,9 @@ class Work(Base):
             return True
         return False
 
-    def is_finished(self):
-        status = self.get_status()
+    def is_finished(self, status=None):
+        if status is None:
+            status = self.get_status()
         if status in self.get_finished_status():
             self.stop_async_result()
             return True
@@ -1013,8 +1097,9 @@ class Work(Base):
             return True
         return False
 
-    def is_subfinished(self):
-        status = self.get_status()
+    def is_subfinished(self, status=None):
+        if status is None:
+            status = self.get_status()
         if status in self.get_subfinished_status():
             self.stop_async_result()
             return True
@@ -1027,8 +1112,9 @@ class Work(Base):
             return True
         return False
 
-    def is_failed(self):
-        status = self.get_status()
+    def is_failed(self, status=None):
+        if status is None:
+            status = self.get_status()
         if status in self.get_failed_status():
             self.stop_async_result()
             return True
@@ -1093,15 +1179,15 @@ class Work(Base):
 
             status = self.get_status()
             time_last_check_status = time.time()
-            logging.info("waiting for results")
+            self.logger.info("waiting for results")
             while status not in terminated_status:
                 # time.sleep(10)
                 ret = self._async_ret.wait_results(timeout=10)
                 if ret:
-                    logging.info("Recevied result: %s" % str(ret))
+                    self.logger.info("Recevied result: %s" % str(ret))
                     break
                 if self._async_ret.waiting_result_terminated:
-                    logging.info("waiting_result_terminated is set, Received result is: %s" % str(ret))
+                    self.logger.info("waiting_result_terminated is set, Received result is: %s" % str(ret))
                 if time.time() - time_last_check_status > 600:   # 10 minutes
                     status = self.get_status()
                     time_last_check_status = time.time()
@@ -1110,7 +1196,7 @@ class Work(Base):
             self.stop_async_result()
             return self._results
         except Exception as ex:
-            logging.error("wait_results got some errors: %s" % str(ex))
+            self.logger.error("wait_results got some errors: %s" % str(ex))
             self.stop_async_result()
             return ex
 
@@ -1148,32 +1234,32 @@ class Work(Base):
         try:
             workflow_context = self._context
             if workflow_context.distributed:
-                logging.info("Test AsyncResult")
+                self.logger.info("Test AsyncResult")
                 a_ret = AsyncResult(workflow_context, wait_num=1, timeout=30)
                 ret = a_ret.is_ok()
                 a_ret.stop()
-                logging.info(f"pre_run asyncresult test is_ok: {ret}")
+                self.logger.info(f"pre_run asyncresult test is_ok: {ret}")
                 return ret
             return True
         except Exception as ex:
-            logging.error(f"pre_run failed with error: {ex}")
-            logging.error(traceback.format_exc())
+            self.logger.error(f"pre_run failed with error: {ex}")
+            self.logger.error(traceback.format_exc())
         if a_ret:
             a_ret.stop()
         return False
 
     def run(self):
-        logging.info("Start work run().")
+        self.logger.info("Start work run().")
         ret = None
         try:
             ret = self.run_local()
         except Exception as ex:
-            logging.error(f"Failed to run function: {ex}")
-            logging.error(traceback.format_exc())
+            self.logger.error(f"Failed to run function: {ex}")
+            self.logger.error(traceback.format_exc())
         except:
-            logging.error("Unknow error")
-            logging.error(traceback.format_exc())
-        logging.info(f"finish work run() with ret: {ret}")
+            self.logger.error("Unknow error")
+            self.logger.error(traceback.format_exc())
+        self.logger.info(f"finish work run() with ret: {ret}")
         return ret
 
     def run_local(self):
@@ -1182,7 +1268,7 @@ class Work(Base):
         """
         is_ok = self.pre_run()
         if not is_ok:
-            logging.error(f"pre_run is_ok: {is_ok}, will exit.")
+            self.logger.error(f"pre_run is_ok: {is_ok}, will exit.")
             raise Exception("work pre_run failed")
 
         func_name, pre_kwargs, args, kwargs = self._func_name_and_args
@@ -1229,7 +1315,7 @@ class Work(Base):
             request_id = self._context.request_id
             transform_id = self._context.transform_id
             ret_log = f"(status: {ret_status}, return: {ret_output}, error: {ret_err})"
-            logging.info(f"publishing AsyncResult to (request_id: {request_id}, transform_id: {transform_id}): {ret_log}")
+            self.logger.info(f"publishing AsyncResult to (request_id: {request_id}, transform_id: {transform_id}): {ret_log}")
             async_ret = AsyncResult(self._context, name=self.get_func_name(), internal_id=self.internal_id, current_job_kwargs=current_job_kwargs)
             async_ret.publish(ret_output, ret_status=ret_status, ret_error=ret_err, key=self.job_key)
 
@@ -1326,18 +1412,19 @@ class Work(Base):
 
 def run_work_distributed(w):
     try:
+        logger = logging.getLogger("run_work_distributed")
         tf_id = w.submit()
         if tf_id:
-            logging.info("wait for results")
+            logger.info("wait for results")
             rets = w.wait_results()
-            logging.info("Got results: %s" % rets)
+            logger.info("Got results: %s" % rets)
             return rets
         else:
-            logging.error("Failed to distribute work: %s" % w.name)
+            logger.error("Failed to distribute work: %s" % w.name)
         return None
     except Exception as ex:
-        logging.error("Failed to run the work distributedly: %s" % ex)
-        logging.error(traceback.format_exc())
+        logger.error("Failed to run the work distributedly: %s" % ex)
+        logger.error(traceback.format_exc())
         return None
 
 
@@ -1361,14 +1448,15 @@ def work(func=None, *, workflow=None, pre_kwargs={}, name=None, return_work=Fals
     # @functools.wraps(func)
     def wrapper(*args, **kwargs):
         try:
+            logger = logging.getLogger("work_def")
             f = workflow or kwargs.pop('workflow', None) or WorkflowCanvas.get_current_workflow()
             workflow_context = f._context
             multi_jobs_kwargs_list = kwargs.pop('multi_jobs_kwargs_list', [])
-            logging.debug("workflow context: %s" % workflow_context)
+            logger.debug("workflow context: %s" % workflow_context)
 
-            logging.debug("work decorator: func: %s, map_results: %s" % (func, map_results))
+            logger.debug("work decorator: func: %s, map_results: %s" % (func, map_results))
             if workflow_context:
-                logging.debug("setup work")
+                logger.debug("setup work")
                 w = Work(workflow_context=workflow_context, func=func, pre_kwargs=pre_kwargs, args=args, kwargs=kwargs,
                          name=name, multi_jobs_kwargs_list=multi_jobs_kwargs_list, map_results=map_results, init_env=init_env,
                          container_options=container_options, parent_workload_id=parent_workload_id, no_wait_parent=no_wait_parent,
@@ -1387,7 +1475,7 @@ def work(func=None, *, workflow=None, pre_kwargs={}, name=None, return_work=Fals
 
                 return w.run()
             else:
-                logging.info("workflow context is not defined, run function locally")
+                logger.info("workflow context is not defined, run function locally")
                 if not multi_jobs_kwargs_list:
                     kwargs_copy = copy.deepcopy(pre_kwargs)
                     kwargs_copy.update(kwargs)
@@ -1428,7 +1516,7 @@ def work(func=None, *, workflow=None, pre_kwargs={}, name=None, return_work=Fals
                         rets.add_result(name=get_func_name(func), args=one_job_kwargs, result=ret, key=job_key)
                     return rets
         except Exception as ex:
-            logging.error("Failed to run workflow %s: %s" % (func, ex))
+            logger.error("Failed to run workflow %s: %s" % (func, ex))
             raise ex
         except:
             raise

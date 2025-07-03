@@ -131,9 +131,7 @@ class WorkflowContext(Context):
         self._campaign_group = None
         self._campaign_tag = None
 
-    @property
-    def logger(self):
-        return logging.getLogger(self.__class__.__name__)
+        self.logger = logging.getLogger(self.__class__.__name__)
 
     @property
     def distributed(self):
@@ -402,7 +400,7 @@ class WorkflowContext(Context):
 
     def init_brokers(self):
         if not self._broker_initialized:
-            logging.info("To initialize broker")
+            self.logger.info("To initialize broker")
             brokers = os.environ.get("IDDS_BROKERS", None)
             broker_destination = os.environ.get("IDDS_BROKER_DESTINATION", None)
             broker_timeout = os.environ.get("IDDS_BROKER_TIMEOUT", 180)
@@ -416,9 +414,9 @@ class WorkflowContext(Context):
                 self._broker_destination = broker_destination
 
                 self._broker_initialized = True
-                logging.info("Initialized brokers from environment")
+                self.logger.info("Initialized brokers from environment")
             else:
-                logging.info("Getting brokers information from central service")
+                self.logger.info("Getting brokers information from central service")
                 broker_info = self.get_broker_info()
                 if broker_info:
                     brokers = broker_info.get("brokers", None)
@@ -434,11 +432,11 @@ class WorkflowContext(Context):
                         self._broker_destination = broker_destination
 
                         self._broker_initialized = True
-                        logging.info("Initialized brokers from central service")
+                        self.logger.info("Initialized brokers from central service")
                     else:
-                        logging.warn("Broker information from the central service is missing, will not initialize it")
+                        self.logger.warn("Broker information from the central service is missing, will not initialize it")
         if not self._broker_initialized:
-            logging.warn("Broker is not initialized")
+            self.logger.warn("Broker is not initialized")
         return self._broker_initialized
 
     def get_broker_info_from_idds_server(self):
@@ -447,7 +445,7 @@ class WorkflowContext(Context):
 
         :raise Exception when failing to get broker information.
         """
-        logging.info("Getting broker information through idds server.")
+        self.logger.info("Getting broker information through idds server.")
         # iDDS ClientManager
         from idds.client.clientmanager import ClientManager
 
@@ -456,7 +454,7 @@ class WorkflowContext(Context):
         if type(ret) in (list, tuple) and ret[0] is True:
             return ret[1]
         else:
-            logging.warn(f"Failed to get broker info: {ret}")
+            self.logger.warn(f"Failed to get broker info: {ret}")
             return None
 
         return ret
@@ -467,7 +465,7 @@ class WorkflowContext(Context):
 
         :raise Exception when failing to get broker information.
         """
-        logging.info("Get broker information through panda server.")
+        self.logger.info("Get broker information through panda server.")
 
         import idds.common.utils as idds_utils
         import pandaclient.idds_api as idds_api
@@ -489,13 +487,13 @@ class WorkflowContext(Context):
                     try:
                         meta_info = json_loads(meta_info)
                     except Exception as ex:
-                        logging.warn("Failed to json loads meta info(%s): %s" % (meta_info, ex))
+                        self.logger.warn("Failed to json loads meta info(%s): %s" % (meta_info, ex))
             else:
                 meta_info = None
-                logging.warn("Failed to get meta info: %s" % str(ret))
+                self.logger.warn("Failed to get meta info: %s" % str(ret))
         else:
             meta_info = None
-            logging.warn("Failed to get meta info: %s" % str(ret))
+            self.logger.warn("Failed to get meta info: %s" % str(ret))
 
         return meta_info
 
@@ -505,7 +503,7 @@ class WorkflowContext(Context):
                 return self.get_broker_info_from_panda_server()
             return self.get_broker_info_from_idds_server()
         except Exception as ex:
-            logging.error("Failed to get broker info: %s" % str(ex))
+            self.logger.error("Failed to get broker info: %s" % str(ex))
 
     def init_idds(self):
         if not self._idds_initialized:
@@ -593,14 +591,14 @@ class WorkflowContext(Context):
         archive_basename = os.path.basename(filename)
         target_dir = os.getcwd()
         full_output_filename = os.path.join(target_dir, archive_basename)
-        logging.info("Downloading %s to %s" % (filename, full_output_filename))
+        self.logger.info("Downloading %s to %s" % (filename, full_output_filename))
 
         if filename.startswith("https:"):
             panda_cache_url = os.path.dirname(os.path.dirname(filename))
             os.environ["PANDACACHE_URL"] = panda_cache_url
         elif "PANDACACHE_URL" not in os.environ and "PANDA_URL_SSL" in os.environ:
             os.environ["PANDACACHE_URL"] = os.environ["PANDA_URL_SSL"]
-        logging.info("PANDACACHE_URL: %s" % os.environ.get("PANDACACHE_URL", None))
+        self.logger.info("PANDACACHE_URL: %s" % os.environ.get("PANDACACHE_URL", None))
 
         from pandaclient import Client
 
@@ -612,14 +610,14 @@ class WorkflowContext(Context):
             status, output = Client.getFile(archive_basename, output_path=full_output_filename)
             if status == 0:
                 done = True
-        logging.info(f"Download archive file from pandacache status: {status}, output: {output}")
+        self.logger.info(f"Download archive file from pandacache status: {status}, output: {output}")
         if status != 0:
             raise RuntimeError("Failed to download archive file from pandacache")
         with tarfile.open(full_output_filename, "r:gz") as f:
             f.extractall(target_dir)
-        logging.info(f"Extract {full_output_filename} to {target_dir}")
+        self.logger.info(f"Extract {full_output_filename} to {target_dir}")
         os.remove(full_output_filename)
-        logging.info("Remove %s" % full_output_filename)
+        self.logger.info("Remove %s" % full_output_filename)
         return target_dir
 
     def setup_panda(self):
@@ -701,7 +699,7 @@ class WorkflowContext(Context):
 
         archive_name = self.get_archive_name()
         archive_file = create_archive_file('/tmp', archive_name, [self._source_dir], exclude_files=self._exclude_source_files)
-        logging.info("created archive file: %s" % archive_file)
+        self.logger.info(f"created archive file {archive_file} from [{self._source_dir}]")
         from pandaclient import Client
 
         attempt = 0
@@ -712,12 +710,12 @@ class WorkflowContext(Context):
             status, out = Client.putFile(archive_file, True)
             if status == 0:
                 done = True
-        logging.info(f"copy_files_to_pandacache: status: {status}, out: {out}")
+        self.logger.info(f"copy_files_to_pandacache: status: {status}, out: {out}")
         if out.startswith("NewFileName:"):
             # found the same input sandbox to reuse
             archive_file = out.split(":")[-1]
         elif out != "True":
-            logging.error(out)
+            self.logger.error(out)
             return None
 
         filename = os.path.basename(archive_file)
@@ -731,14 +729,14 @@ class WorkflowContext(Context):
 
         :raise Exception when failed.
         """
-        logging.info("preparing workflow with PanDA")
+        self.logger.info("preparing workflow with PanDA")
         self._panda_env = self.get_panda_env()
         remote_file_name = self.upload_source_files_to_panda()
         self.remote_source_file = remote_file_name
-        logging.info("remote source file: %s" % self.remote_source_file)
+        self.logger.info("remote source file: %s" % self.remote_source_file)
         if self.remote_source_file is None:
             raise exceptions.IDDSException("Failed to upload source files to PanDA cache. Please check log file ${IDDS_LOG_FILE} or direct output for details.")
-        logging.info("prepared workflow with PanDA")
+        self.logger.info("prepared workflow with PanDA")
 
     def get_idds_env(self):
         env_list = ['IDDS_HOST', 'IDDS_AUTH_TYPE', 'IDDS_VO', 'IDDS_AUTH_NO_VERIFY',
@@ -791,15 +789,29 @@ class Workflow(Base):
     def __init__(self, func=None, service='panda', context=None, source_dir=None, local=False, distributed=True,
                  pre_kwargs={}, args=None, kwargs={}, multi_jobs_kwargs_list=[], current_job_kwargs=None, name=None,
                  init_env=None, is_unique_func_name=False, max_walltime=24 * 3600, source_dir_parent_level=None,
-                 enable_separate_log=False, exclude_source_files=[], clean_env=None, container_options=None):
+                 enable_separate_log=False, exclude_source_files=[], clean_env=None, container_options=None,
+                 use_func_dir=False, json_load=False):
         """
         Init a workflow.
         """
         super(Workflow, self).__init__()
         self.prepared = False
 
+        self.logger = logging.getLogger(self.__class__.__name__)
+
         # self._func = func
-        self._func, self._func_name_and_args, self._multi_jobs_kwargs_list = self.get_func_name_and_args(func, pre_kwargs, args, kwargs, multi_jobs_kwargs_list)
+        source_dir = self.get_source_dir(func, source_dir, source_dir_parent_level=source_dir_parent_level)
+        self._func, self._func_name_and_args, self._multi_jobs_kwargs_list = self.get_func_name_and_args(
+            func=func,
+            pre_kwargs=pre_kwargs,
+            args=args,
+            kwargs=kwargs,
+            base_dir=source_dir,
+            multi_jobs_kwargs_list=multi_jobs_kwargs_list
+        )
+        if not json_load:
+            self.logger.info(f"func: {self._func}, func_name_and_args: {self._func_name_and_args}, multi_jobs_kwargs_list: {self._multi_jobs_kwargs_list}")
+
         self._current_job_kwargs = current_job_kwargs
         if self._current_job_kwargs:
             self._current_job_kwargs = base64.b64encode(zlib.compress(pickle.dumps(self._current_job_kwargs))).decode("utf-8")
@@ -814,7 +826,6 @@ class Workflow(Base):
             if not is_unique_func_name:
                 if self._name:
                     self._name = self._name + "_" + datetime.datetime.utcnow().strftime("%Y_%m_%d_%H_%M_%S")
-        source_dir = self.get_source_dir(self._func, source_dir, source_dir_parent_level=source_dir_parent_level)
 
         workflow_type = WorkflowType.iWorkflow
         if local:
@@ -832,10 +843,6 @@ class Workflow(Base):
     @property
     def service(self):
         return self._context.service
-
-    @property
-    def logger(self):
-        return logging.getLogger(self.__class__.__name__)
 
     @property
     def internal_id(self):
@@ -1074,10 +1081,10 @@ class Workflow(Base):
         self._func = func
         return obj
 
-    def get_source_dir(self, func, source_dir, source_dir_parent_level=None):
+    def get_source_dir(self, func, source_dir, source_dir_parent_level=None, use_func_dir=False):
         if source_dir:
             return source_dir
-        if func:
+        if func and use_func_dir:
             if inspect.isbuiltin(func):
                 return None
             source_file = inspect.getsourcefile(func)
@@ -1089,7 +1096,8 @@ class Workflow(Base):
                 for _ in range(0, source_dir_parent_level):
                     source_dir = os.path.dirname(source_dir)
             return source_dir
-        return None
+        current_dir = os.path.abspath(os.getcwd())
+        return current_dir
 
     def store(self):
         if self._context:
@@ -1111,7 +1119,7 @@ class Workflow(Base):
         ret = self.load_context(source_dir, self._name)
         if ret:
             ret = json_loads(ret)
-            logging.info(f"Loaded context: {ret}")
+            self.logger.info(f"Loaded context: {ret}")
             if 'multi_jobs_kwargs_list' in ret:
                 self._multi_jobs_kwargs_list = ret['multi_jobs_kwargs_list']
 
@@ -1137,7 +1145,7 @@ class Workflow(Base):
         client = ClientManager(host=self._context.get_idds_server(), timeout=60)
         request_id = client.submit(self, use_dataset_name=False)
 
-        logging.info("Submitted into iDDS with request id=%s", str(request_id))
+        self.logger.info("Submitted into iDDS with request id=%s", str(request_id))
         return request_id
 
     def submit_to_panda_server(self):
@@ -1161,9 +1169,9 @@ class Workflow(Base):
             request_id = ret[1][1]
         else:
             request_id = None
-            logging.error("Failed to submit workflow to PanDA-iDDS with error: %s" % str(ret))
+            self.logger.error("Failed to submit workflow to PanDA-iDDS with error: %s" % str(ret))
 
-        logging.info("Submitted into PanDA-iDDS with request id=%s", str(request_id))
+        self.logger.info("Submitted into PanDA-iDDS with request id=%s", str(request_id))
         return request_id
 
     def submit(self):
@@ -1181,13 +1189,13 @@ class Workflow(Base):
             else:
                 request_id = self.submit_to_idds_server()
         except Exception as ex:
-            logging.error("Failed to submit workflow: %s" % str(ex))
+            self.logger.error("Failed to submit workflow: %s" % str(ex))
 
         try:
             self._context.request_id = int(request_id)
             return request_id
         except Exception as ex:
-            logging.error("Request id (%s) is not integer, there should be some submission errors: %s" % (request_id, str(ex)))
+            self.logger.error("Request id (%s) is not integer, there should be some submission errors: %s" % (request_id, str(ex)))
 
         return None
 
@@ -1204,7 +1212,7 @@ class Workflow(Base):
         client = ClientManager(host=self._context.get_idds_server(), timeout=60)
         ret = client.close(request_id)
 
-        logging.info("Close request id=%s to iDDS server: %s", str(request_id), str(ret))
+        self.logger.info("Close request id=%s to iDDS server: %s", str(request_id), str(ret))
         return request_id
 
     def close_to_panda_server(self, request_id):
@@ -1225,7 +1233,7 @@ class Workflow(Base):
                                   manager=True)
         ret = client.close(request_id)
 
-        logging.info("Close request id=%s through PanDA-iDDS: %s", str(request_id), str(ret))
+        self.logger.info("Close request id=%s through PanDA-iDDS: %s", str(request_id), str(ret))
         return request_id
 
     def close(self):
@@ -1241,7 +1249,7 @@ class Workflow(Base):
                 else:
                     self.close_to_idds_server(self._context.request_id)
             except Exception as ex:
-                logging.error("Failed to close request(%s): %s" % (self._context.request_id, str(ex)))
+                self.logger.error("Failed to close request(%s): %s" % (self._context.request_id, str(ex)))
 
     def __del__(self):
         # self.close()
@@ -1282,32 +1290,32 @@ class Workflow(Base):
         try:
             workflow_context = self._context
             if workflow_context.distributed:
-                logging.info("Test AsyncResult")
+                self.logger.info("Test AsyncResult")
                 a_ret = AsyncResult(workflow_context, wait_num=1, timeout=30)
                 ret = a_ret.is_ok()
                 a_ret.stop()
-                logging.info(f"pre_run asyncresult test is_ok: {ret}")
+                self.logger.info(f"pre_run asyncresult test is_ok: {ret}")
                 return ret
             return True
         except Exception as ex:
-            logging.error(f"pre_run failed with error: {ex}")
-            logging.error(traceback.format_exc())
+            self.logger.error(f"pre_run failed with error: {ex}")
+            self.logger.error(traceback.format_exc())
         if a_ret:
             a_ret.stop()
         return False
 
     def run(self):
-        logging.info("Start workflow run().")
+        self.logger.info("Start workflow run().")
         ret = None
         try:
             ret = self.run_local()
         except Exception as ex:
-            logging.error(f"Failed to run function: {ex}")
-            logging.error(traceback.format_exc())
+            self.logger.error(f"Failed to run function: {ex}")
+            self.logger.error(traceback.format_exc())
         except:
-            logging.error("Unknow error")
-            logging.error(traceback.format_exc())
-        logging.info(f"finish workflow run() with ret: {ret}.")
+            self.logger.error("Unknow error")
+            self.logger.error(traceback.format_exc())
+        self.logger.info(f"finish workflow run() with ret: {ret}.")
         return ret
 
     def run_local(self):
@@ -1318,7 +1326,7 @@ class Workflow(Base):
         if True:
             is_ok = self.pre_run()
             if not is_ok:
-                logging.error(f"pre_run is_ok: {is_ok}, will exit.")
+                self.logger.error(f"pre_run is_ok: {is_ok}, will exit.")
                 raise Exception("workflow pre_run failed")
 
             func_name, pre_kwargs, args, kwargs = self._func_name_and_args
@@ -1337,9 +1345,9 @@ class Workflow(Base):
                 self._func = func
             status, output, error = self.run_func(self._func, pre_kwargs, args, kwargs)
             if status:
-                logging.info(f"run workflow successfully. output: {output}, error: {error}")
+                self.logger.info(f"run workflow successfully. output: {output}, error: {error}")
             else:
-                logging.error(f"run workflow failed. output: {output}, error: {error}")
+                self.logger.error(f"run workflow failed. output: {output}, error: {error}")
             return status
 
     # Context Manager -----------------------------------------------
@@ -1393,14 +1401,14 @@ class Workflow(Base):
 def workflow(func=None, *, local=False, service='idds', source_dir=None, primary=False, queue=None, site=None, cloud=None,
              max_walltime=24 * 3600, distributed=True, init_env=None, pre_kwargs={}, return_workflow=False, no_wraps=False,
              source_dir_parent_level=None, exclude_source_files=[], enable_separate_log=False, clean_env=None,
-             core_count=1, total_memory=4000,    # MB
-             container_options=None):
+             name=None, core_count=1, total_memory=4000,    # MB
+             container_options=None, use_func_dir=False):
     if func is None:
         return functools.partial(workflow, local=local, service=service, source_dir=source_dir, primary=primary, queue=queue, site=site, cloud=cloud,
                                  max_walltime=max_walltime, distributed=distributed, init_env=init_env, pre_kwargs=pre_kwargs, no_wraps=no_wraps,
                                  return_workflow=return_workflow, source_dir_parent_level=source_dir_parent_level,
                                  exclude_source_files=exclude_source_files, clean_env=clean_env, enable_separate_log=enable_separate_log,
-                                 core_count=core_count, total_memory=total_memory,
+                                 name=name, core_count=core_count, total_memory=total_memory, use_func_dir=use_func_dir,
                                  container_options=container_options)
 
     if 'IDDS_IGNORE_WORKFLOW_DECORATOR' in os.environ:
@@ -1409,10 +1417,11 @@ def workflow(func=None, *, local=False, service='idds', source_dir=None, primary
     # @functools.wraps(func)
     def wrapper(*args, **kwargs):
         try:
+            logger = logging.getLogger("workflow_def")
             f = Workflow(func, service=service, source_dir=source_dir, local=local, max_walltime=max_walltime, distributed=distributed,
                          pre_kwargs=pre_kwargs, args=args, kwargs=kwargs, init_env=init_env, source_dir_parent_level=source_dir_parent_level,
                          exclude_source_files=exclude_source_files, clean_env=clean_env, enable_separate_log=enable_separate_log,
-                         container_options=container_options)
+                         name=name, container_options=container_options, use_func_dir=use_func_dir)
 
             f.queue = queue
             f.site = site
@@ -1420,27 +1429,27 @@ def workflow(func=None, *, local=False, service='idds', source_dir=None, primary
             f.core_count = core_count
             f.total_memory = total_memory
 
-            logging.info("return_workflow %s" % return_workflow)
+            logger.info("return_workflow %s" % return_workflow)
             if return_workflow:
                 return f
 
-            logging.info("Prepare workflow")
+            logger.info("Prepare workflow")
             f.prepare()
-            logging.info("Prepared workflow")
+            logger.info("Prepared workflow")
 
-            logging.info("Registering workflow")
+            logger.info("Registering workflow")
             f.submit()
 
             if not local:
-                logging.info("Run workflow at remote sites")
+                logger.info("Run workflow at remote sites")
                 return f
             else:
-                logging.info("Run workflow locally")
+                logger.info("Run workflow locally")
                 with f:
                     ret = f.run()
                 return ret
         except Exception as ex:
-            logging.error("Failed to run workflow %s: %s" % (func, ex))
+            logger.error("Failed to run workflow %s: %s" % (func, ex))
             raise ex
         except:
             raise

@@ -6,11 +6,12 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2024
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2025
 
 
 import logging
 import importlib
+import importlib.util
 import inspect
 import os
 import sys
@@ -42,6 +43,18 @@ def add_cwd_path():
                 pass
 
 
+def list_files(path, exclude_dir=None):
+    ret = []
+    if exclude_dir and not exclude_dir.startswith(path):
+        exclude_dir = os.path.join(path, exclude_dir)
+
+    for root, dirs, files in os.walk(path):
+        for file in files:
+            if not exclude_dir or not root.startswith(exclude_dir):
+                ret.append(os.path.join(root, file))
+    return ret
+
+
 def get_func_name(func: Callable, base_dir=None) -> str:
     """
     Return function name from a function.
@@ -54,7 +67,7 @@ def get_func_name(func: Callable, base_dir=None) -> str:
     else:
         filename = os.path.relpath(filename, base_dir)
     if 'site-packages' in filename:
-        filename = filename.split('site-packages')
+        filename = filename.split('site-packages')[-1]
     if filename.startswith('/'):
         filename = filename[1:]
     return filename + ":" + module_name + ":" + func.__name__
@@ -84,21 +97,36 @@ def import_func(name: str) -> Callable[..., Any]:
         logging.info(f"import_func sys.path: {sys.path}")
         logging.info(f"import_func PYTHONPATH: {os.environ.get('PYTHONPATH', None)}")
         filename, module_name_bits, attribute_bits = name.split(':')
-        # module_name_bits, attribute_bits = name_bits[:-1], [name_bits[-1]]
-        if module_name_bits == '__main__':
-            module_name_bits = filename.replace('.py', '').replace('.pyc', '')
-            module_name_bits = module_name_bits.replace('/', '.')
-        module_name_bits = module_name_bits.split('.')
-        attribute_bits = attribute_bits.split('.')
         module = None
-        while len(module_name_bits):
-            try:
-                module_name = '.'.join(module_name_bits)
-                module = importlib.import_module(module_name)
-                break
-            except ImportError as ex:
-                logging.warn(f"import_func import error: {ex}")
-                attribute_bits.insert(0, module_name_bits.pop())
+        attribute_bits = attribute_bits.split('.')
+
+        import_failed = False
+        try:
+            file_path = filename
+            file_module_name = os.path.splitext(os.path.basename(file_path))[0]
+
+            spec = importlib.util.spec_from_file_location(file_module_name, file_path)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+        except Exception as ex:
+            import_failed = True
+            all_files = list_files(os.getcwd(), exclude_dir="lib_py")
+            logging.warn(f"import_func import error: {ex}, current dir contents: {all_files}")
+
+        if import_failed:
+            # module_name_bits, attribute_bits = name_bits[:-1], [name_bits[-1]]
+            if module_name_bits == '__main__':
+                module_name_bits = filename.replace('.py', '').replace('.pyc', '')
+                module_name_bits = module_name_bits.replace('/', '.')
+            module_name_bits = module_name_bits.split('.')
+            while len(module_name_bits):
+                try:
+                    module_name = '.'.join(module_name_bits)
+                    module = importlib.import_module(module_name)
+                    break
+                except ImportError as ex:
+                    logging.warn(f"import_func import error: {ex}")
+                    attribute_bits.insert(0, module_name_bits.pop())
 
         if module is None:
             # maybe it's a builtin
