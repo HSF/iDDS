@@ -418,15 +418,15 @@ class X509Authentication(BaseAuthentication):
 # "/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=wguan/CN=667815/CN=Wen Guan/CN=1883443395"
 def get_user_name_from_dn1(dn):
     try:
-        up = re.compile('/(DC|O|OU|C|L)=[^\/]+')        # noqa W605
+        up = re.compile(r'/(DC|O|OU|C|L)=[^\/]+')        # noqa W605
         username = up.sub('', dn)
-        up2 = re.compile('/CN=[0-9]+')
+        up2 = re.compile(r'/CN=[0-9]+')
         username = up2.sub('', username)
-        up2 = re.compile('/CN=[0-9]+')
+        up2 = re.compile(r'/CN=[0-9]+')
         username = up2.sub('', username)
-        up3 = re.compile(' [0-9]+')
+        up3 = re.compile(r' [0-9]+')
         username = up3.sub('', username)
-        up4 = re.compile('_[0-9]+')
+        up4 = re.compile(r'_[0-9]+')
         username = up4.sub('', username)
         username = username.replace('/CN=proxy', '')
         username = username.replace('/CN=limited proxy', '')
@@ -434,7 +434,7 @@ def get_user_name_from_dn1(dn):
         username = re.sub('/CN=Robot:[^/]+', '', username)
         username = re.sub('/CN=Robot[^/]+', '', username)
         username = re.sub('/CN=nickname:[^/]+', '', username)
-        pat = re.compile('.*/CN=([^\/]+)/CN=([^\/]+)')         # noqa W605
+        pat = re.compile(r'.*/CN=([^\/]+)/CN=([^\/]+)')         # noqa W605
         mat = pat.match(username)
         if mat:
             username = mat.group(2)
@@ -442,7 +442,7 @@ def get_user_name_from_dn1(dn):
             username = username.replace('/CN=', '')
         if username.lower().find('/email') > 0:
             username = username[:username.lower().find('/email')]
-        pat = re.compile('.*(limited.*proxy).*')
+        pat = re.compile(r'.*(limited.*proxy).*')
         mat = pat.match(username)
         if mat:
             username = mat.group(1)
@@ -457,15 +457,15 @@ def get_user_name_from_dn1(dn):
 # 'CN=203633261,CN=Wen Guan,CN=667815,CN=wguan,OU=Users,OU=Organic Units,DC=cern,DC=ch'
 def get_user_name_from_dn2(dn):
     try:
-        up = re.compile(',(DC|O|OU|C|L)=[^\,]+')        # noqa W605
+        up = re.compile(r',(DC|O|OU|C|L)=[^\,]+')        # noqa W605
         username = up.sub('', dn)
-        up2 = re.compile(',CN=[0-9]+')
+        up2 = re.compile(r',CN=[0-9]+')
         username = up2.sub('', username)
-        up2 = re.compile('CN=[0-9]+,')
+        up2 = re.compile(r'CN=[0-9]+,')
         username = up2.sub(',', username)
-        up3 = re.compile(' [0-9]+')
+        up3 = re.compile(r' [0-9]+')
         username = up3.sub('', username)
-        up4 = re.compile('_[0-9]+')
+        up4 = re.compile(r'_[0-9]+')
         username = up4.sub('', username)
         username = username.replace(',CN=proxy', '')
         username = username.replace(',CN=limited proxy', '')
@@ -476,7 +476,7 @@ def get_user_name_from_dn2(dn):
         username = re.sub(',CN=Robot[^/]+', '', username)
         username = re.sub(',CN=nickname:[^/]+,', ',', username)
         username = re.sub(',CN=nickname:[^/]+', '', username)
-        pat = re.compile('.*,CN=([^\,]+),CN=([^\,]+)')         # noqa W605
+        pat = re.compile(r'.*,CN=([^\,]+),CN=([^\,]+)')         # noqa W605
         mat = pat.match(username)
         if mat:
             username = mat.group(1)
@@ -484,7 +484,7 @@ def get_user_name_from_dn2(dn):
             username = username.replace(',CN=', '')
         if username.lower().find(',email') > 0:
             username = username[:username.lower().find(',email')]
-        pat = re.compile('.*(limited.*proxy).*')
+        pat = re.compile(r'.*(limited.*proxy).*')
         mat = pat.match(username)
         if mat:
             username = mat.group(1)
