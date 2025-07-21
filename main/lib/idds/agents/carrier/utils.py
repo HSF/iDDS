@@ -2008,9 +2008,9 @@ def sync_collection_status(request_id, transform_id, workload_id, work, input_ou
         for content in inputs + outputs + logs:
             if content['coll_id'] not in coll_status:
                 coll_status[content['coll_id']] = {'total_files': 0, 'processed_files': 0, 'processing_files': 0, 'bytes': 0,
-                                                   'new_files': 0, 'failed_files': 0, 'missing_files': 0,
+                                                   'new_files': 0, 'activated_files': 0, 'failed_files': 0, 'missing_files': 0,
                                                    'ext_files': 0, 'processed_ext_files': 0, 'failed_ext_files': 0,
-                                                   'missing_ext_files': 0}
+                                                   'preprocessing_files': 0, 'missing_ext_files': 0}
             coll_status[content['coll_id']]['total_files'] += 1
 
             if content['status'] in [ContentStatus.Available, ContentStatus.Mapped,
@@ -2025,8 +2025,12 @@ def sync_collection_status(request_id, transform_id, workload_id, work, input_ou
                 coll_status[content['coll_id']]['failed_files'] += 1
             elif content['status'] in [ContentStatus.Lost, ContentStatus.Deleted, ContentStatus.Missing]:
                 coll_status[content['coll_id']]['missing_files'] += 1
-            else:
+            elif content['status'] in [ContentStatus.Processing]:
                 coll_status[content['coll_id']]['processing_files'] += 1
+            elif content['status'] in [ContentStatus.Activated]:
+                coll_status[content['coll_id']]['activated_files'] += 1
+            else:
+                coll_status[content['coll_id']]['preprocessing_files'] += 1
 
             if content['status'] != content['substatus']:
                 all_updates_flushed = False
@@ -2064,6 +2068,8 @@ def sync_collection_status(request_id, transform_id, workload_id, work, input_ou
                 coll.total_files = coll_status[coll.coll_id]['total_files']
             coll.processed_files = coll_status[coll.coll_id]['processed_files']
             coll.processing_files = coll_status[coll.coll_id]['processing_files']
+            coll.preprocessing_files = coll_status[coll.coll_id]['preprocessing_files']
+            coll.activated_files = coll_status[coll.coll_id]['activated_files']
             coll.bytes = coll_status[coll.coll_id]['bytes']
             coll.new_files = coll_status[coll.coll_id]['new_files']
             coll.failed_files = coll_status[coll.coll_id]['failed_files']
@@ -2083,6 +2089,8 @@ def sync_collection_status(request_id, transform_id, workload_id, work, input_ou
                 coll.processed_files = 0
             coll.processing_files = coll.total_files - coll.processed_files
             coll.new_files = 0
+            coll.preprocessing_files = 0
+            coll.activated_files = 0
             coll.failed_files = 0
             coll.missing_files = 0
             coll.ext_files = 0
@@ -2094,6 +2102,8 @@ def sync_collection_status(request_id, transform_id, workload_id, work, input_ou
                   'total_files': coll.total_files,
                   'processed_files': coll.processed_files,
                   'processing_files': coll.processing_files,
+                  'activated_files': coll.activated_files,
+                  'preprocessing_files': coll.preprocessing_files,
                   'new_files': coll.new_files,
                   'failed_files': coll.failed_files,
                   'missing_files': coll.missing_files,

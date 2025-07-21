@@ -67,6 +67,8 @@ class Collection(Base):
         self.total_files = 0
         self.processed_files = 0
         self.processing_files = 0
+        self.activated_files = 0
+        self.preprocessing_files = 0
         self.bytes = 0
         self.new_files = 0
         self.failed_files = 0
@@ -151,6 +153,8 @@ class Collection(Base):
             self.total_files = self._collection['total_files']
             self.processed_files = self._collection['processed_files']
             self.processing_files = self._collection['processing_files']
+            self.activated_files = self._collection.get('activated_files', 0)
+            self.preprocessing_files = self._collection.get('preprocessing_files', 0)
             self.bytes = self._collection['bytes']
 
     def to_origin_dict(self):

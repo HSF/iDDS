@@ -702,6 +702,7 @@ class WorkflowBase(Base):
         self.campaign_scope = None
         self.campaign_group = None
         self.campaign_tag = None
+        self.max_processing_requests = -1
 
         """
         self._running_data_names = []
@@ -753,6 +754,14 @@ class WorkflowBase(Base):
     @campaign_tag.setter
     def campaign_tag(self, value):
         self._campaign_tag = value
+
+    @property
+    def max_processing_requests(self):
+        return self._max_processing_requests
+
+    @max_processing_requests.setter
+    def max_processing_requests(self, value):
+        self._max_processing_requests = value
 
     def get_template_work_id(self):
         return self.template_work_id
@@ -2326,6 +2335,14 @@ class Workflow(Base):
     @campaign_tag.setter
     def campaign_tag(self, value):
         self.template._campaign_tag = value
+
+    @property
+    def max_processing_requests(self):
+        return self.template._max_processing_requests
+
+    @max_processing_requests.setter
+    def max_processing_requests(self, value):
+        self.template._max_processing_requests = value
 
     @property
     def username(self):

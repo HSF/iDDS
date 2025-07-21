@@ -755,6 +755,7 @@ class Transformer(BaseAgent):
             pre_workload_id = None
             if work.parent_internal_id is not None:
                 tfs = core_transforms.get_transforms(request_id=transform['request_id'], internal_ids=[work.parent_internal_id])
+                self.logger.info(log_pre + f"handle_new_itransform parent_internal_id {work.parent_internal_id}, parent_transforms: {tfs}")
                 if not tfs:
                     pre_works_are_ok = False
                 else:

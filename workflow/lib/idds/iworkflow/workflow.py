@@ -130,6 +130,7 @@ class WorkflowContext(Context):
         self._campaign_scope = None
         self._campaign_group = None
         self._campaign_tag = None
+        self._max_processing_requests = -1
 
         self.logger = logging.getLogger(self.__class__.__name__)
 
@@ -397,6 +398,14 @@ class WorkflowContext(Context):
     @campaign_tag.setter
     def campaign_tag(self, value):
         self._campaign_tag = value
+
+    @property
+    def max_processing_requests(self):
+        return self._max_processing_requests
+
+    @max_processing_requests.setter
+    def max_processing_requests(self, value):
+        self._max_processing_requests = value
 
     def init_brokers(self):
         if not self._broker_initialized:
@@ -1065,6 +1074,14 @@ class Workflow(Base):
     @campaign_tag.setter
     def campaign_tag(self, value):
         self._context.campaign_tag = value
+
+    @property
+    def max_processing_requests(self):
+        return self._context.max_processing_requests
+
+    @max_processing_requests.setter
+    def max_processing_requests(self, value):
+        self._context.max_processing_requests = value
 
     @property
     def multi_jobs_kwargs_list(self):
