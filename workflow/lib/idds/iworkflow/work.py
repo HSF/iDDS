@@ -946,7 +946,10 @@ class Work(Base):
             return None
 
         if self.num_checks % 60 == 0:
-            self.logger.info(f"Get transform status (request_id: {request_id}, transform_id: {transform_id}, internal_id: {self.internal_id}) from PanDA-iDDS: {tf['status']}")
+            if type(tf) in [dict] and "status" in tf:
+                self.logger.info(f"Get transform status (request_id: {request_id}, transform_id: {transform_id}, internal_id: {self.internal_id}) from PanDA-iDDS: {tf['status']}")
+            else:
+                self.logger.info(f"Get transform status (request_id: {request_id}, transform_id: {transform_id}, internal_id: {self.internal_id}) from PanDA-iDDS: {tf}")
         self.num_checks += 1
 
         return tf['status']

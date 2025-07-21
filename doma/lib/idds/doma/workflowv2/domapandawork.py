@@ -853,7 +853,8 @@ class DomaPanDAWork(Work):
 
         if self.encode_command_line:
             # task_param_map['transPath'] = 'https://atlpan.web.cern.ch/atlpan/bash-c-enc'
-            task_param_map['transPath'] = 'https://storage.googleapis.com/drp-us-central1-containers/bash-c-enc'
+            # task_param_map['transPath'] = 'https://storage.googleapis.com/drp-us-central1-containers/bash-c-enc'
+            task_param_map['transPath'] = 'https://storage.googleapis.com/drp-us-central1-containers/bash-c-enc-new'
             task_param_map['encJobParams'] = True
         else:
             # task_param_map['transPath'] = 'https://atlpan.web.cern.ch/atlpan/bash-c'
@@ -1205,8 +1206,10 @@ class DomaPanDAWork(Work):
                     return ContentStatus.Failed
             elif jobstatus in ['activated']:
                 return ContentStatus.Activated
-            else:
+            elif jobstatus in ['sent', 'starting', 'running', 'holding', 'transfering', 'merging']:
                 return ContentStatus.Processing
+            else:
+                return ContentStatus.PreProcessing
         else:
             # job_info.eventService is 6
             jobsubstatus = job_info.jobSubStatus
@@ -1239,8 +1242,10 @@ class DomaPanDAWork(Work):
                     return ContentStatus.Failed
             elif jobstatus in ['activated']:
                 return ContentStatus.Activated
-            else:
+            elif jobstatus in ['sent', 'starting', 'running', 'holding', 'transfering', 'merging']:
                 return ContentStatus.Processing
+            else:
+                return ContentStatus.PreProcessing
 
     def get_job_status_from_contents(self, contents, contents_ext_dict):
         all_finished, all_terminated, has_finished, panda_id = True, True, False, None
