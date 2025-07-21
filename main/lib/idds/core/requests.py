@@ -40,7 +40,7 @@ def create_request(scope=None, name=None, requester=None, request_type=None,
                    cloud=None, queue=None,
                    new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
                    campaign=None, campaign_group=None, campaign_tag=None,
-                   additional_data_storage=None,
+                   max_processing_requests=-1, additional_data_storage=None,
                    processing_metadata=None):
     """
     Add a request.
@@ -72,7 +72,7 @@ def create_request(scope=None, name=None, requester=None, request_type=None,
               'new_retries': new_retries, 'update_retries': update_retries,
               'max_new_retries': max_new_retries, 'max_update_retries': max_update_retries,
               'site': site, 'campaign': campaign, 'campaign_group': campaign_group,
-              'cloud': cloud, 'queue': queue,
+              'cloud': cloud, 'queue': queue, 'max_processing_requests': max_processing_requests,
               'campaign_tag': campaign_tag, 'additional_data_storage': additional_data_storage,
               'request_metadata': request_metadata, 'processing_metadata': processing_metadata}
     return orm_requests.create_request(**kwargs)
@@ -87,7 +87,7 @@ def add_request(scope=None, name=None, requester=None, request_type=None,
                 cloud=None, queue=None,
                 new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
                 campaign=None, campaign_scope=None, campaign_group=None, campaign_tag=None,
-                additional_data_storage=None,
+                additional_data_storage=None, max_processing_requests=-1,
                 processing_metadata=None, session=None):
     """
     Add a request.
@@ -132,6 +132,7 @@ def add_request(scope=None, name=None, requester=None, request_type=None,
                                                             requester=requester, username=username, userdn=userdn,
                                                             lifetime=lifetime, max_new_retries=max_new_retries,
                                                             max_update_retries=max_update_retries,
+                                                            max_processing_requests=max_processing_requests,
                                                             session=session)
 
     kwargs = {'scope': scope, 'name': name, 'requester': requester, 'request_type': request_type,

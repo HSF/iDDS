@@ -459,6 +459,7 @@ class ClientManager:
             'campaign_scope': workflow.campaign_scope,
             'campaign_group': workflow.campaign_group,
             'campaign_tag': workflow.campaign_tag,
+            'max_processing_requests': workflow.max_processing_requests,
             'scope': scope,
             'name': workflow.name,
             'requester': 'panda',
