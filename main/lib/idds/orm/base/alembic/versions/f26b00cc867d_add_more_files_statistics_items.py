@@ -31,13 +31,13 @@ def upgrade() -> None:
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
 
-        op.add_column('processings', sa.Column('preprocessing_files', sa.BigInteger()), schema=schema)
-        op.add_column('processings', sa.Column('activated_files', sa.BigInteger()), schema=schema)
+        op.add_column('collections', sa.Column('preprocessing_files', sa.BigInteger()), schema=schema)
+        op.add_column('collections', sa.Column('activated_files', sa.BigInteger()), schema=schema)
 
 
 def downgrade() -> None:
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
 
-        op.drop_column('processings', 'preprocessing_files', schema=schema)
-        op.drop_column('processings', 'activated_files', schema=schema)
+        op.drop_column('collections', 'preprocessing_files', schema=schema)
+        op.drop_column('collections', 'activated_files', schema=schema)
