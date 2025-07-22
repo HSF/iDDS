@@ -25,7 +25,7 @@ def add_request_group(campaign=None, campaign_scope=None, campaign_group=None, c
                       status=RequestGroupStatus.New, locking=RequestGroupLocking.Idle, lifetime=None,
                       new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
                       new_poll_period=1, update_poll_period=10, group_metadata=None, processing_metadata=None,
-                      session=None):
+                      max_processing_requests=-1, session=None):
     """
     Add a request group.
 
@@ -52,7 +52,8 @@ def add_request_group(campaign=None, campaign_scope=None, campaign_group=None, c
               'lifetime': lifetime, 'new_retries': new_retries, 'update_retries': update_retries,
               'max_new_retries': max_new_retries, 'max_update_retries': max_update_retries,
               'new_poll_period': new_poll_period, 'update_poll_period': update_poll_period,
-              'group_metadata': group_metadata, 'processing_metadata': processing_metadata, 'session': session}
+              'group_metadata': group_metadata, 'processing_metadata': processing_metadata,
+              'max_processing_requests': max_processing_requests, 'session': session}
 
     return orm_requests_group.add_request_group(**kwargs)
 
