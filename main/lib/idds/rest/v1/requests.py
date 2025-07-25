@@ -85,6 +85,8 @@ class Request(IDDSController):
             logger.info(f"additional_data_storage: {additional_data_storage}")
 
             parameters = self.get_request().data and json_loads(self.get_request().data)
+            logger.debug(f"parameters: {parameters}")
+
             if 'status' not in parameters:
                 parameters['status'] = RequestStatus.New
             if 'priority' not in parameters:
