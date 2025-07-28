@@ -1094,6 +1094,7 @@ class DomaPanDAWork(Work):
             from pandaclient import queryPandaMonUtils
 
             ts, url, data = queryPandaMonUtils.query_tasks(reqid=request_id, taskname=task_name)
+            self.logger.info(f"get_panda_task_id_from_name with request_id {request_id} and task name {task_name}: {data}")
             if isinstance(data, list) and data:
                 for task in data:
                     if task['reqid'] == request_id and task['name'] == task_name:
