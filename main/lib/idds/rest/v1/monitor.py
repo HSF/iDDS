@@ -59,22 +59,22 @@ class Monitor(IDDSController):
                         ret_reqs[req['request_id']]['transforms'][req['transform_status'].name] = 0
                     ret_reqs[req['request_id']]['transforms'][req['transform_status'].name] += 1
 
-                    if req['input_total_files']:
+                    if 'input_total_files' in req and req['input_total_files']:
                         ret_reqs[req['request_id']]['input_total_files'] += req['input_total_files']
-                    if req['input_coll_bytes']:
+                    if 'input_coll_bytes' in req and req['input_coll_bytes']:
                         ret_reqs[req['request_id']]['input_coll_bytes'] += req['input_coll_bytes']
-                    if req['input_processed_files']:
+                    if 'input_processed_files' in req and req['input_processed_files']:
                         ret_reqs[req['request_id']]['input_processed_files'] += req['input_processed_files']
-                    if req['input_processing_files']:
+                    if 'input_processing_files' in req and req['input_processing_files']:
                         ret_reqs[req['request_id']]['input_processing_files'] += req['input_processing_files']
 
-                    if req['output_total_files']:
+                    if 'output_total_files' in req and req['output_total_files']:
                         ret_reqs[req['request_id']]['output_total_files'] += req['output_total_files']
-                    if req['output_coll_bytes']:
+                    if 'output_coll_bytes' in req and req['output_coll_bytes']:
                         ret_reqs[req['request_id']]['output_coll_bytes'] += req['output_coll_bytes']
-                    if req['output_processed_files']:
+                    if 'output_processed_files' in req and req['output_processed_files']:
                         ret_reqs[req['request_id']]['output_processed_files'] += req['output_processed_files']
-                    if req['output_processing_files']:
+                    if 'output_processing_files' in req and req['output_processing_files']:
                         ret_reqs[req['request_id']]['output_processing_files'] += req['output_processing_files']
 
             for req_id in ret_reqs:
@@ -91,21 +91,21 @@ class Monitor(IDDSController):
                        'workload_id': req['workload_id'],
                        'transform_workload_id': req['transform_workload_id'],
                        'transform_type': req['transform_type'].name if req['transform_type'] else req['transform_type'],
-                       'output_coll_scope': req['output_coll_scope'],
-                       'output_coll_name': req['output_coll_name'],
+                       'output_coll_scope': req['output_coll_scope'] if 'output_coll_scope' in req and req['output_coll_scope'] else 0,
+                       'output_coll_name': req['output_coll_name'] if 'output_coll_name' in req else '',
                        'transform_status': req['transform_status'].name if req['transform_status'] else req['transform_status'],
                        'transform_created_at': req['transform_created_at'],
                        'transform_updated_at': req['transform_updated_at'],
                        'transform_finished_at': req['transform_finished_at'],
-                       'input_total_files': req['input_total_files'] if req['input_total_files'] else 0,
-                       'input_coll_bytes': req['input_coll_bytes'] if req['input_coll_bytes'] else 0,
-                       'input_processed_files': req['input_processed_files'] if req['input_processed_files'] else 0,
-                       'input_processing_files': req['input_processing_files'] if req['input_processing_files'] else 0,
-                       'output_total_files': req['output_total_files'] if req['output_total_files'] else 0,
-                       'output_coll_bytes': req['output_coll_bytes'] if req['output_coll_bytes'] else 0,
-                       'output_processed_files': req['output_processed_files'] if req['output_processed_files'] else 0,
-                       'output_processing_files': req['output_processing_files'] if req['output_processing_files'] else 0,
-                       'errors': req['errors']
+                       'input_total_files': req['input_total_files'] if 'input_total_files' in req and req['input_total_files'] else 0,
+                       'input_coll_bytes': req['input_coll_bytes'] if 'input_coll_bytes' in req and req['input_coll_bytes'] else 0,
+                       'input_processed_files': req['input_processed_files'] if 'input_processed_files' in req and req['input_processed_files'] else 0,
+                       'input_processing_files': req['input_processing_files'] if 'input_processing_files' in req and req['input_processing_files'] else 0,
+                       'output_total_files': req['output_total_files'] if 'output_total_files' in req and req['output_total_files'] else 0,
+                       'output_coll_bytes': req['output_coll_bytes'] if 'output_coll_bytes' in req and req['output_coll_bytes'] else 0,
+                       'output_processed_files': req['output_processed_files'] if 'output_processed_files' in req and req['output_processed_files'] else 0,
+                       'output_processing_files': req['output_processing_files'] if 'output_processing_files' in req and req['output_processing_files'] else 0,
+                       'errors': req['errors'] if 'errors' in req else ''
                        }
                 rets.append(ret)
             return rets
