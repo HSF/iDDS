@@ -23,7 +23,7 @@ from sqlalchemy.sql.expression import asc, desc
 
 from idds.common import exceptions
 from idds.common.constants import RequestType, RequestStatus, RequestLocking
-from idds.orm.base.session import read_session, transactional_session
+from idds.orm.base.session import read_session, transactional_session, safe_bulk_update_mappings
 from idds.orm.base import models
 
 
@@ -1278,7 +1278,8 @@ def clean_locking(time_period=3600, min_request_id=None, health_items=[], force=
             ):
                 lost_request_ids.append({"request_id": req_id, 'locking': 0})
 
-    session.bulk_update_mappings(models.Request, lost_request_ids)
+    # session.bulk_update_mappings(models.Request, lost_request_ids)
+    safe_bulk_update_mappings(session, models.Request, lost_request_ids)
 
 
 @transactional_session

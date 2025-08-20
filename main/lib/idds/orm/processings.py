@@ -22,7 +22,7 @@ from sqlalchemy.sql.expression import asc
 
 from idds.common import exceptions
 from idds.common.constants import ProcessingType, ProcessingStatus, ProcessingLocking, GranularityType
-from idds.orm.base.session import read_session, transactional_session
+from idds.orm.base.session import read_session, transactional_session, safe_bulk_update_mappings
 from idds.orm.base import models
 
 
@@ -458,8 +458,9 @@ def clean_locking(time_period=3600, min_request_id=None, health_items=[], force=
             ):
                 lost_processing_ids.append({"processing_id": pr_id, 'locking': 0})
 
-    session.bulk_update_mappings(models.Processing, lost_processing_ids)
-    return lost_processing_ids
+    # This one can cause dead locks
+    # session.bulk_update_mappings(models.Processing, lost_processing_ids)
+    safe_bulk_update_mappings(session, models.Processing, lost_processing_ids)
 
 
 @transactional_session
