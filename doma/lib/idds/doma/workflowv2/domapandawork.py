@@ -153,6 +153,8 @@ class DomaPanDAWork(Work):
 
         self.core_to_queues = {}
 
+        self.dispatch_ext_content = False
+
         self.zip_items = ['_dependency_map']
         self.not_auto_unzip_items = ['_dependency_map']
 
@@ -468,6 +470,12 @@ class DomaPanDAWork(Work):
                 self.dependency_map_dir = self.agent_attributes['dependency_map_dir']
             except Exception as ex:
                 self.logger.warn(f"Failed to set dependency_map_dir: {ex}")
+
+        if "dispatch_ext_content" in self.agent_attributes:
+            try:
+                self.dispatch_ext_content = self.agent_attributes["dispatch_ext_content"]
+            except Exception as ex:
+                self.logger.warn(f"Failed to set dispatch_ext_content: {ex}")
 
     def depend_on(self, work):
         self.logger.debug("checking depending on")
