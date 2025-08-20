@@ -109,6 +109,12 @@ for task_id in task_ids:
     ret = Client.killTask(task_id, verbose=True)
     print(ret)
 
+task_ids = [45742, 45745]
+for task_id in task_ids:
+    print("finishing %s" % task_id)
+    ret = Client.finishTask(task_id, soft=True, verbose=True)
+    print(ret)
+
 # sys.exit(0)
 
 jediTaskID = 166303

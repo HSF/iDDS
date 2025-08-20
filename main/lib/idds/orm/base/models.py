@@ -154,6 +154,7 @@ class RequestGroup(BASE, ModelBase):
     subfinished_requests = Column(Integer())
     failed_requests = Column(Integer())
     processing_requests = Column(Integer())
+    new_requests = Column(Integer())
     max_processing_requests = Column(Integer())
     created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow, nullable=False)
     updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
