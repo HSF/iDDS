@@ -552,8 +552,10 @@ def update_processing_contents_thread(logger, log_prefix, log_msg, kwargs):
         logger.debug(log_prefix + " end")
     except Exception as ex:
         logger.error(log_prefix + "update_processing_contents_thread: %s" % str(ex))
+        raise ex
     except:
         logger.error(traceback.format_exc())
+        raise Exception("update_processing_contents_thread error")
 
 
 def wait_futures_finish(ret_futures, func_name, logger, log_prefix):
@@ -1430,8 +1432,10 @@ def update_contents_thread(logger, log_prefix, log_msg, kwargs):
         logger.debug(log_prefix + " end")
     except Exception as ex:
         logger.error(log_prefix + "update_contents_thread: %s" % str(ex))
+        raise ex
     except:
         logger.error(traceback.format_exc())
+        raise Exception("update_contents_thread error")
 
 
 def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=False, max_updates_per_round=2000, executors=None, logger=None, log_prefix=''):
