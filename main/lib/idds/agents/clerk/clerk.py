@@ -1163,9 +1163,10 @@ class Clerk(BaseAgent):
                 # work.set_status(work_status)
                 work.sync_work_data(status=tf['status'], substatus=tf['substatus'], work=transform_work, workload_id=tf['workload_id'])
                 self.logger.info(log_pre + "transform status: %s, work status: %s" % (tf['status'], work.status))
-        wf.refresh_works()
+        wf.refresh_works(clean=True)
 
         new_transforms = []
+        self.logger.info(log_pre + f"request status: {req['status']} and to_cancel: {wf.to_cancel}")
         if req['status'] in [RequestStatus.Transforming] and not wf.to_cancel:
             # new works
             works = wf.get_new_works()

@@ -58,7 +58,7 @@ class Poller(BaseAgent):
         self.message_bulk_size = int(message_bulk_size)
 
         if not hasattr(self, 'new_poll_period') or not self.new_poll_period:
-            self.new_poll_period = self.poll_period
+            self.new_poll_period = 120
         else:
             self.new_poll_period = int(self.new_poll_period)
         if not hasattr(self, 'update_poll_period') or not self.update_poll_period:
@@ -301,6 +301,7 @@ class Poller(BaseAgent):
                                 random_sleep = random.randint(1, 60)
                             else:
                                 random_sleep = random.randint(1, 120)
+                            self.logger.error(f"{log_prefix} retry_num: {retry_num} random_sleep: {random_sleep}")
                             time.sleep(random_sleep)
                         else:
                             raise ex
@@ -342,8 +343,55 @@ class Poller(BaseAgent):
 
             process_status, new_contents, new_input_dependency_contents, ret_msgs, update_contents, parameters, new_contents_ext, update_contents_ext = ret_handle_update_processing
 
+            coll_metadata = parameters.pop("coll_metadata", None)
+
             proc = processing['processing_metadata']['processing']
             work = proc.work
+
+            update_collections = []
+            if work.is_data_work():
+                input_collections = work.get_input_collections(poll_externel=True)
+                output_collections = work.get_output_collections()
+                for output_coll in output_collections:
+                    if not output_coll.coll_metadata:
+                        output_coll.coll_metadata = {}
+                    for k, v in coll_metadata:
+                        output_coll.coll_metadata[k] = v
+                for coll in input_collections:
+                    u_coll = {
+                        'coll_id': coll.coll_id,
+                        'total_files': coll.get("total_files", 0),
+                        'processed_files': coll.get("availability", 0),
+                        'processing_files': 0,
+                        'activated_files': 0,
+                        'preprocessing_files': 0,
+                        'new_files': 0,
+                        'failed_files': 0,
+                        'missing_files': 0,
+                        'bytes': coll.get("bytes", 0),
+                        'ext_files': 0,
+                        'processed_ext_files': 0,
+                        'failed_ext_files': 0,
+                        'missing_ext_files': 0,
+                        'coll_metadata': coll.coll_metadata,
+                    }
+                    update_collections.append(u_coll)
+                for coll in output_collections:
+                    u_coll = {
+                        'coll_id': coll.coll_id,
+                        'total_files': coll.get("total_files", 0),
+                        'processed_files': coll.get("availability", 0),
+                        'processing_files': coll.get("processing", 0),
+                        'activated_files': 0,
+                        'preprocessing_files': 0,
+                        'new_files': 0,
+                        'failed_files': coll.get("stuck", 0),
+                        'missing_files': 0,
+                        'bytes': 0,
+                        'coll_metadata': coll.coll_metadata,
+                    }
+                    update_collections.append(u_coll)
+
             if work.use_dependency_to_release_jobs():
                 new_process_status = ProcessingStatus.Triggering
             else:
@@ -367,13 +415,16 @@ class Poller(BaseAgent):
                                                 'substatus': process_status,
                                                 'locking': ProcessingLocking.Idle}}
 
+            if coll_metadata and 'error' in coll_metadata:
+                update_processing['parameters']['errors'] = coll_metadata['error']
+
             update_processing['parameters'] = self.load_poll_period(processing, update_processing['parameters'])
 
             if proc.submitted_at:
                 if not processing['submitted_at'] or processing['submitted_at'] < proc.submitted_at:
                     update_processing['parameters']['submitted_at'] = proc.submitted_at
 
-            if proc.workload_id:
+            if proc.workload_id and not processing['workload_id']:
                 update_processing['parameters']['workload_id'] = proc.workload_id
 
             # update_processing['parameters']['expired_at'] = work.get_expired_at(processing)

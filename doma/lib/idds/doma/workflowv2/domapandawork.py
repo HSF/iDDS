@@ -153,6 +153,8 @@ class DomaPanDAWork(Work):
 
         self.core_to_queues = {}
 
+        self.dispatch_ext_content = False
+
         self.zip_items = ['_dependency_map']
         self.not_auto_unzip_items = ['_dependency_map']
 
@@ -468,6 +470,12 @@ class DomaPanDAWork(Work):
                 self.dependency_map_dir = self.agent_attributes['dependency_map_dir']
             except Exception as ex:
                 self.logger.warn(f"Failed to set dependency_map_dir: {ex}")
+
+        if "dispatch_ext_content" in self.agent_attributes:
+            try:
+                self.dispatch_ext_content = self.agent_attributes["dispatch_ext_content"]
+            except Exception as ex:
+                self.logger.warn(f"Failed to set dispatch_ext_content: {ex}")
 
     def depend_on(self, work):
         self.logger.debug("checking depending on")
@@ -923,6 +931,9 @@ class DomaPanDAWork(Work):
             from pandaclient import Client
 
             proc = processing['processing_metadata']['processing']
+            if processing['workload_id']:
+                return processing['workload_id'], None
+
             task_param = proc.processing_metadata['task_param']
             if 'new_retries' in processing and processing['new_retries']:
                 new_retries = int(processing['new_retries'])
@@ -1067,7 +1078,7 @@ class DomaPanDAWork(Work):
 
         start_time = datetime.datetime.utcnow() - datetime.timedelta(hours=10)
         start_time = start_time.strftime('%Y-%m-%d %H:%M:%S')
-        status, results = Client.getJobIDsJediTasksInTimeRange(start_time, task_type=self.task_type, verbose=False)
+        status, results = Client.getJobIDsJediTasksInTimeRange(start_time, task_type=self.prodSourceLabel, verbose=False)
         if status != 0:
             self.logger.warn("Error to poll latest tasks in last ten hours: %s, %s" % (status, results))
             return None
@@ -1094,9 +1105,10 @@ class DomaPanDAWork(Work):
             from pandaclient import queryPandaMonUtils
 
             ts, url, data = queryPandaMonUtils.query_tasks(reqid=request_id, taskname=task_name)
+            self.logger.info(f"get_panda_task_id_from_name with request_id {request_id} and task name {task_name}: {data}")
             if isinstance(data, list) and data:
                 for task in data:
-                    if task['reqid'] == request_id and task['name'] == task_name:
+                    if task['reqid'] == request_id and task['taskname'] == task_name:
                         return task['jeditaskid']
             return None
         except Exception as ex:
@@ -1936,7 +1948,14 @@ class DomaPanDAWork(Work):
                 # task_id = proc.workload_id
                 task_id = processing['workload_id']
                 if task_id is None:
-                    task_id = self.get_panda_task_id(processing)
+                    proc = processing['processing_metadata']['processing']
+                    task_param = proc.processing_metadata['task_param']
+                    if 'new_retries' in processing and processing['new_retries']:
+                        new_retries = int(processing['new_retries'])
+                        task_name = task_param['taskName'] + "_" + str(new_retries)
+
+                    # task_id = self.get_panda_task_id(processing)
+                    task_id = self.get_panda_task_id_from_name(processing['request_id'], task_name)
 
                 if task_id:
                     # ret_ids = Client.getPandaIDsWithTaskID(task_id, verbose=False)

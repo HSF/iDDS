@@ -5,7 +5,7 @@
 
 # one week
 while true; do
-    /usr/sbin/logrotate -s /var/log/idds/logrotate.status /etc/logrotate.d/idds
+    /usr/sbin/logrotate -s /var/log/idds/logrotate.status -d -v /etc/logrotate.d/idds
     sleep 604800
 
     # random sleep to avoid all severs restart at the same time

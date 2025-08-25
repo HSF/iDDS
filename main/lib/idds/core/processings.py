@@ -350,6 +350,7 @@ def resolve_input_dependency_id(new_input_dependency_contents, request_id=None, 
         # content_dep_id = content_name_id_map[content['coll_id']][content['name']][dep_sub_map_id]
         content_dep_id = content_name_id_map[content['coll_id']][content['name']]
         content['content_dep_id'] = content_dep_id
+        content['name'] = content_dep_id
     return new_input_dependency_contents
 
 

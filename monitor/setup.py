@@ -167,7 +167,7 @@ install_requires = parse_requirements(requirements_files=requirements_files)
 install_requires = install_requires
 
 hostname = get_full_hostname()
-config_api_host(conf_file_template="data/conf.js.template", conf_file='data/conf.js', hostname=hostname)
+# config_api_host(conf_file_template="data/conf.js.template", conf_file='data/conf.js', hostname=hostname)
 
 data_files = [
     # config and cron files

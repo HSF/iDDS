@@ -219,7 +219,7 @@ python /opt/idds/tools/env/create_database.py
 alembic upgrade heads
 
 # configure monitor
-python /opt/idds/tools/env/config_monitor.py -s ${IDDS_HOME}/monitor/data/conf.js.template -d ${IDDS_HOME}/monitor/data/conf.js  --host ${IDDS_SERVER}
+python /opt/idds/tools/env/config_monitor.py -s ${IDDS_HOME}/monitor/data/conf.js.template -d ${IDDS_HOME}/monitor/data/conf.js  --host ${IDDS_REST_HOST}
 
 if ! [ -f /opt/idds/config/.token ]; then
     echo "/opt/idds/config/.token does not exist."

@@ -309,6 +309,7 @@ class CollectionType(IDDSEnum):
     Dataset = 1
     File = 2
     PseudoDataset = 3
+    NoContentDataset = 4
 
 
 class CollectionRelationType(IDDSEnum):

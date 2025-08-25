@@ -552,8 +552,10 @@ def update_processing_contents_thread(logger, log_prefix, log_msg, kwargs):
         logger.debug(log_prefix + " end")
     except Exception as ex:
         logger.error(log_prefix + "update_processing_contents_thread: %s" % str(ex))
+        raise ex
     except:
         logger.error(traceback.format_exc())
+        raise Exception("update_processing_contents_thread error")
 
 
 def wait_futures_finish(ret_futures, func_name, logger, log_prefix):
@@ -1248,6 +1250,7 @@ def handle_update_processing(processing, agent_attributes, max_updates_per_round
     logger.debug(log_prefix + "poll_processing_updates content_updates[:3]: %s" % content_updates[:3])
     logger.debug(log_prefix + "poll_processing_updates new_input_output_maps1.keys[:3]: %s" % (list(new_input_output_maps1.keys())[:3]))
     logger.debug(log_prefix + "poll_processing_updates updated_contents_full[:3]: %s" % (updated_contents_full[:3]))
+    logger.debug(log_prefix + f"poll_processing_updates parameters: {parameters}")
 
     ret_futures = set()
 
@@ -1429,8 +1432,10 @@ def update_contents_thread(logger, log_prefix, log_msg, kwargs):
         logger.debug(log_prefix + " end")
     except Exception as ex:
         logger.error(log_prefix + "update_contents_thread: %s" % str(ex))
+        raise ex
     except:
         logger.error(traceback.format_exc())
+        raise Exception("update_contents_thread error")
 
 
 def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=False, max_updates_per_round=2000, executors=None, logger=None, log_prefix=''):
@@ -2087,11 +2092,17 @@ def sync_collection_status(request_id, transform_id, workload_id, work, input_ou
                 coll.processed_files = coll.coll_metadata['availability']
             else:
                 coll.processed_files = 0
-            coll.processing_files = coll.total_files - coll.processed_files
+            if 'stuck' in coll.coll_metadata and coll.coll_metadata['stuck']:
+                coll.failed_files = coll.coll_metadata['stuck']
+            else:
+                coll.failed_files = 0
+            if 'processing' in coll.coll_metadata and coll.coll_metadata['processing']:
+                coll.processing_files = coll.coll_metadata['processing']
+            else:
+                coll.processing_files = coll.total_files - coll.processed_files - coll.failed_files
             coll.new_files = 0
             coll.preprocessing_files = 0
             coll.activated_files = 0
-            coll.failed_files = 0
             coll.missing_files = 0
             coll.ext_files = 0
             coll.processed_ext_files = 0
@@ -2242,7 +2253,9 @@ def sync_processing(processing, agent_attributes, terminate=False, abort=False, 
         else:
             processing['status'] = ProcessingStatus.SubFinished
 
-        if work.require_ext_contents():
+        # if work.require_ext_contents():
+        if work.dispatch_ext_content:
+            logger.info(f"{log_prefix} generating messages for ext contents")
             contents_ext = core_catalog.get_contents_ext(request_id=request_id, transform_id=transform_id)
             msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='content_ext', files=contents_ext,
                                      relation_type='output', input_output_maps=input_output_maps)
