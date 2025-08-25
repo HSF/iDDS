@@ -22,7 +22,7 @@ from sqlalchemy.sql.expression import asc
 
 from idds.common import exceptions
 from idds.common.constants import ProcessingType, ProcessingStatus, ProcessingLocking, GranularityType
-from idds.orm.base.session import read_session, transactional_session
+from idds.orm.base.session import read_session, transactional_session, safe_bulk_update_mappings
 from idds.orm.base import models
 
 
@@ -393,9 +393,19 @@ def update_processing(processing_id, parameters, locking=False, session=None):
         if locking:
             query = query.filter(models.Processing.locking == ProcessingLocking.Idle)
             query = query.with_for_update(skip_locked=True)
+        row = query.one_or_none()
+        if not row:
+            return 0
 
-        num_rows = query.update(parameters, synchronize_session=False)
-        return num_rows
+        if "workload_id" in parameters and parameters["workload_id"]:
+            if row.workflow_id == parameters["workload_id"]:
+                return 0
+
+        # apply updates
+        for k, v in parameters.items():
+            setattr(row, k, v)
+
+        return 1
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('Processing %s cannot be found: %s' % (processing_id, error))
     return 0
@@ -458,8 +468,9 @@ def clean_locking(time_period=3600, min_request_id=None, health_items=[], force=
             ):
                 lost_processing_ids.append({"processing_id": pr_id, 'locking': 0})
 
-    session.bulk_update_mappings(models.Processing, lost_processing_ids)
-    return lost_processing_ids
+    # This one can cause dead locks
+    # session.bulk_update_mappings(models.Processing, lost_processing_ids)
+    safe_bulk_update_mappings(session, models.Processing, lost_processing_ids)
 
 
 @transactional_session

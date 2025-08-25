@@ -259,6 +259,16 @@ class CompositeCondition(Base):
     def get_work_from_id(self, work_id, works):
         return works[work_id]
 
+    def clean(self):
+        for work in self.true_works:
+            if isinstance(work, CompositeCondition):
+                work.clean()
+            else:
+                true_work_meta = self.get_metadata_item('true_works', {})
+                if work.get_internal_id() in true_work_meta:
+                    if true_work_meta[work.get_internal_id()]['triggered'] and not work.submitted:
+                        true_work_meta[work.get_internal_id()]['triggered'] = False
+
     def load_conditions(self, works):
         # print("load_conditions")
         self.log_debug("load_conditions conditions: %s" % self.conditions)
@@ -405,7 +415,9 @@ class CompositeCondition(Base):
     def get_cond_status(self):
         if self.operator == ConditionOperator.And:
             for cond in self.conditions:
-                if not self.get_current_cond_status(cond):
+                cond_status = self.get_current_cond_status(cond)
+                # self.log_debug(f"And cond {cond} status: {cond_status}")
+                if not cond_status:
                     return False
             return True
         else:
@@ -429,8 +441,10 @@ class CompositeCondition(Base):
 
     def get_next_works(self, trigger=ConditionTrigger.NotTriggered):
         works = []
+        self.log_debug(f"get_next_works get_cond_status: {self.get_cond_status()} trigger: {trigger}")
         if self.get_cond_status():
             true_work_meta = self.get_metadata_item('true_works', {})
+            self.log_debug(f"get_next_works true_work_meta: {true_work_meta}")
             for work in self.true_works:
                 if isinstance(work, CompositeCondition):
                     works = works + work.get_next_works(trigger=trigger)
@@ -451,6 +465,7 @@ class CompositeCondition(Base):
             self.add_metadata_item('true_works', true_work_meta)
         else:
             false_work_meta = self.get_metadata_item('false_works', {})
+            self.log_debug(f"get_next_works false_work_meta: {false_work_meta}")
             for work in self.false_works:
                 if isinstance(work, CompositeCondition):
                     works = works + work.get_next_works(trigger=trigger)
@@ -851,8 +866,14 @@ class WorkflowBase(Base):
                                         'transforming': work.transforming}
         self.add_metadata_item('works', work_metadata)
 
-    def refresh_works(self):
+    def refresh_works(self, clean=False):
         work_metadata = {}
+        if clean:
+            self.submitting_works = []
+            for cond_id in self.conditions:
+                cond = self.conditions[cond_id]
+                cond.clean()
+
         if self._works:
             for k in self._works:
                 work = self._works[k]
@@ -1281,28 +1302,29 @@ class WorkflowBase(Base):
             self.current_running_works.append(work.get_internal_id())
             self.last_work = work.get_internal_id()
         else:
-            new_parameters = self.get_destination_parameters(work_id)
-            if new_parameters:
-                work.set_parameters(new_parameters)
-            work.sequence_id = self.num_total_works
+            if work.get_internal_id() not in self.new_to_run_works:
+                new_parameters = self.get_destination_parameters(work_id)
+                if new_parameters:
+                    work.set_parameters(new_parameters)
+                work.sequence_id = self.num_total_works
 
-            work.num_run = self.get_combined_num_run()
-            work.initialize_work()
-            work.sync_global_parameters(self.global_parameters, self.sliced_global_parameters)
-            work.renew_parameters_from_attributes()
-            if work.parent_workload_id is None and self.num_total_works > 0:
-                last_work_id = self.work_sequence[str(self.num_total_works - 1)]
-                last_work = self.works[last_work_id]
-                if isinstance(last_work, Work):
-                    work.parent_workload_id = last_work.workload_id
-                last_work.add_next_work(work.get_internal_id())
-            works = self.works
-            self.works = works
-            # self.work_sequence.append(new_work.get_internal_id())
-            self.work_sequence[str(self.num_total_works)] = work.get_internal_id()
-            self.num_total_works += 1
-            self.new_to_run_works.append(work.get_internal_id())
-            self.last_work = work.get_internal_id()
+                work.num_run = self.get_combined_num_run()
+                work.initialize_work()
+                work.sync_global_parameters(self.global_parameters, self.sliced_global_parameters)
+                work.renew_parameters_from_attributes()
+                if work.parent_workload_id is None and self.num_total_works > 0:
+                    last_work_id = self.work_sequence[str(self.num_total_works - 1)]
+                    last_work = self.works[last_work_id]
+                    if isinstance(last_work, Work):
+                        work.parent_workload_id = last_work.workload_id
+                    last_work.add_next_work(work.get_internal_id())
+                works = self.works
+                self.works = works
+                # self.work_sequence.append(new_work.get_internal_id())
+                self.work_sequence[str(self.num_total_works)] = work.get_internal_id()
+                self.num_total_works += 1
+                self.new_to_run_works.append(work.get_internal_id())
+                self.last_work = work.get_internal_id()
 
         return work
 
@@ -1548,6 +1570,7 @@ class WorkflowBase(Base):
         new_next_works = []
         if next_works is not None:
             for next_work in next_works:
+                self.log_info(f"next work {next_work.get_internal_id()} is_submitted: {next_work.submitted}, transforming: {next_work.transforming}")
                 # parameters = self.get_destination_parameters(next_work.get_internal_id())
                 new_next_work = self.get_new_work_to_run(next_work.get_internal_id())
                 work.add_next_work(new_next_work.get_internal_id())
@@ -1582,14 +1605,15 @@ class WorkflowBase(Base):
 
         new works to be ready to start
         """
-        self.logger.info("%s get_new_works" % self.get_internal_id())
-        if self.to_cancel:
-            return []
+        self.logger.info(f"{self.get_internal_id()} get_new_works, to_cancel: {self.to_cancel}")
+        # if self.to_cancel:
+        #     return []
 
         if synchronize:
             self.sync_works(to_cancel=self.to_cancel)
         works = []
 
+        self.logger.info(f"{self.get_internal_id()} submitting_works: {self.submitting_works}")
         if self.submitting_works:
             # wait the work to be submitted
             return works
@@ -1618,6 +1642,7 @@ class WorkflowBase(Base):
             self.logger.info("%s starting_works: %s" % (self.get_internal_id(), str(starting_works)))
 
         # new_workflows = []
+        self.logger.info(f"{self.get_internal_id()} new_to_run_works: {self.new_to_run_works}")
         for k in self.new_to_run_works:
             if isinstance(self.works[k], Work):
                 self.works[k] = self.get_new_parameters_for_work(self.works[k])
@@ -1820,6 +1845,9 @@ class WorkflowBase(Base):
             if work.get_internal_id() not in self.current_running_works and work.get_status() in [WorkStatus.Transforming]:
                 self.current_running_works.append(work.get_internal_id())
 
+        self.log_debug(f"{self.get_internal_id()} current_running_works: {self.current_running_works}")
+        self.log_debug(f"{self.get_internal_id()} new_to_run_works: {self.new_to_run_works}")
+        self.log_debug(f"{self.get_internal_id()} submitting_works: {self.submitting_works}")
         submitting_works = self.submitting_works
         for work in [self.works[k] for k in self.new_to_run_works]:
             if work.transforming:
@@ -1833,7 +1861,9 @@ class WorkflowBase(Base):
             if work.submitted:
                 self.submitting_works.remove(work.get_internal_id())
 
-        for work in [self.works[k] for k in self.current_running_works]:
+        # for work in [self.works[k] for k in self.current_running_works]:
+        for k in self.works:
+            work = self.works[k]
             if isinstance(work, Workflow):
                 work.sync_works(to_cancel=self.to_cancel)
 
@@ -1859,15 +1889,19 @@ class WorkflowBase(Base):
                 if work.get_internal_id() not in self.work_conds:
                     # has no next work
                     self.log_info("Work %s has no condition dependencies" % work.get_internal_id())
-                    self.terminated_works.append(work.get_internal_id())
-                    self.current_running_works.remove(work.get_internal_id())
+                    if work.get_internal_id() not in self.terminated_works:
+                        self.terminated_works.append(work.get_internal_id())
+                    if work.get_internal_id() in self.current_running_works:
+                        self.current_running_works.remove(work.get_internal_id())
                 else:
                     # self.log_debug("Work %s has condition dependencies %s" % (work.get_internal_id(),
                     #                                                           json_dumps(self.work_conds[work.get_template_id()], sort_keys=True, indent=4)))
                     # for cond in self.work_conds[work.get_template_id()]:
                     #     self.enable_next_works(work, cond)
-                    self.terminated_works.append(work.get_internal_id())
-                    self.current_running_works.remove(work.get_internal_id())
+                    if work.get_internal_id() not in self.terminated_works:
+                        self.terminated_works.append(work.get_internal_id())
+                    if work.get_internal_id() in self.current_running_works:
+                        self.current_running_works.remove(work.get_internal_id())
 
         self.num_finished_works = 0
         self.num_subfinished_works = 0
@@ -2777,9 +2811,9 @@ class Workflow(Base):
     def refresh(self):
         self.refresh_works()
 
-    def refresh_works(self):
+    def refresh_works(self, clean=False):
         if self.runs:
-            self.runs[str(self.num_run)].refresh_works()
+            self.runs[str(self.num_run)].refresh_works(clean=clean)
 
     def sync_works(self, to_cancel=False):
         if to_cancel:

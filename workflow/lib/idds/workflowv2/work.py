@@ -596,6 +596,8 @@ class Work(Base):
 
         self.func_site_to_cloud = None
 
+        self.dispatch_ext_content = False
+
         """
         self._running_data_names = []
         for name in ['internal_id', 'template_work_id', 'initialized', 'sequence_id', 'parameters', 'work_id', 'transforming', 'workdir',
@@ -634,6 +636,9 @@ class Work(Base):
 
     def get_queue(self):
         return None
+
+    def is_data_work(self):
+        return False
 
     @property
     def internal_id(self):

@@ -1,14 +1,19 @@
-/var/log/idds/*.log {
+/var/log/idds/logrotate.log{
+    su root root
     daily
-    missingok
-    rotate 3
-    size 2G
-    compress
-    delaycompress
     postrotate
         /usr/bin/supervisorctl stop httpd > /dev/null 2>/dev/null || true
         /usr/bin/supervisorctl start httpd > /dev/null 2>/dev/null || true
         /usr/bin/supervisorctl stop idds-server > /dev/null 2>/dev/null || true
         /usr/bin/supervisorctl start idds-server > /dev/null 2>/dev/null || true
     endscript
+}
+/var/log/idds/*.log {
+    su root root
+    daily
+    missingok
+    rotate 3
+    size 2G
+    compress
+    delaycompress
 }

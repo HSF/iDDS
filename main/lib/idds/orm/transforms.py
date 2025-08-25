@@ -22,7 +22,7 @@ from sqlalchemy.sql.expression import asc, desc
 
 from idds.common import exceptions
 from idds.common.constants import TransformStatus, TransformLocking, CollectionRelationType
-from idds.orm.base.session import read_session, transactional_session
+from idds.orm.base.session import read_session, transactional_session, safe_bulk_update_mappings
 from idds.orm.base import models
 
 
@@ -596,7 +596,8 @@ def clean_locking(time_period=3600, min_request_id=None, health_items=[], force=
             ):
                 lost_transform_ids.append({"transform_id": tf_id, 'locking': 0})
 
-    session.bulk_update_mappings(models.Transform, lost_transform_ids)
+    # session.bulk_update_mappings(models.Transform, lost_transform_ids)
+    safe_bulk_update_mappings(session, models.Transform, lost_transform_ids)
 
 
 @transactional_session

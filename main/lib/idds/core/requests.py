@@ -125,7 +125,7 @@ def add_request(scope=None, name=None, requester=None, request_type=None,
                                                            session=session)
         if req_groups:
             if len(req_groups) == 1:
-                group_id = req_groups[0].group_id
+                group_id = req_groups[0]["group_id"]
         else:
             group_id = orm_requests_group.add_request_group(campaign=campaign, campaign_scope=campaign_scope,
                                                             campaign_group=campaign_group, campaign_tag=campaign_tag,

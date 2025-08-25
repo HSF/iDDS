@@ -31,3 +31,6 @@ class DataWork(Work):
                                        log_collections=log_collections,
                                        agent_attributes=agent_attributes,
                                        logger=logger)
+
+    def is_data_work(self):
+        return True

@@ -11,6 +11,7 @@
 import base64
 import json
 import jwt
+import traceback
 
 # from cryptography import x509
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicNumbers
@@ -31,13 +32,17 @@ class OIDCAuthentication(authentication.OIDCAuthentication):
     def __init__(self, timeout=None):
         super(OIDCAuthentication, self).__init__(timeout=timeout)
 
-    def get_public_key(self, token, jwks_uri, no_verify=False):
+    def get_public_key(self, token, jwks_uri, no_verify=False, with_cache=True):
         headers = jwt.get_unverified_header(token)
         if headers is None or 'kid' not in headers:
             raise jwt.exceptions.InvalidTokenError('cannot extract kid from headers')
         kid = headers['kid']
 
-        jwks = self.get_cache_value(jwks_uri)
+        if with_cache:
+            jwks = self.get_cache_value(jwks_uri)
+        else:
+            jwks = None
+
         if not jwks:
             jwks_content = self.get_http_content(jwks_uri, no_verify=no_verify)
             jwks = json.loads(jwks_content)
@@ -55,7 +60,7 @@ class OIDCAuthentication(authentication.OIDCAuthentication):
         pem = public_key.public_bytes(encoding=serialization.Encoding.PEM, format=serialization.PublicFormat.SubjectPublicKeyInfo)
         return pem
 
-    def verify_id_token(self, vo, token):
+    def verify_id_token_cache(self, vo, token, with_cache=True):
         try:
             auth_config, endpoint_config = self.get_auth_endpoint_config(vo)
 
@@ -66,7 +71,7 @@ class OIDCAuthentication(authentication.OIDCAuthentication):
                 # discovery_endpoint = auth_config['oidc_config_url']
                 return False, "The audience %s of the token doesn't match vo configuration(client_id: %s)." % (audience, auth_config['client_id']), None
 
-            public_key = self.get_public_key(token, endpoint_config['jwks_uri'], no_verify=auth_config['no_verify'])
+            public_key = self.get_public_key(token, endpoint_config['jwks_uri'], no_verify=auth_config['no_verify'], with_cache=with_cache)
             # decode token only with RS256
             if 'iss' in decoded_token and decoded_token['iss'] and decoded_token['iss'] != endpoint_config['issuer'] and endpoint_config['issuer'].startswith(decoded_token['iss']):
                 # iss is missing the last '/' in access tokens
@@ -83,7 +88,15 @@ class OIDCAuthentication(authentication.OIDCAuthentication):
                 username = None
             return True, decoded, username
         except Exception as error:
+            print(error)
+            print(traceback.format_exc())
             return False, 'Failed to verify oidc token: ' + str(error), None
+
+    def verify_id_token(self, vo, token):
+        status, data, username = self.verify_id_token_cache(vo, token, with_cache=True)
+        if status:
+            return status, data, username
+        return self.verify_id_token_cache(vo, token, with_cache=False)
 
 
 class OIDCAuthenticationUtils(authentication.OIDCAuthenticationUtils):

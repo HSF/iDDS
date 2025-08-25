@@ -952,7 +952,11 @@ class Work(Base):
                 self.logger.info(f"Get transform status (request_id: {request_id}, transform_id: {transform_id}, internal_id: {self.internal_id}) from PanDA-iDDS: {tf}")
         self.num_checks += 1
 
-        return tf['status']
+        if type(tf) in [dict] and 'status' in tf:
+            return tf['status']
+        else:
+            self.logger.info(f"Get transform status (request_id: {request_id}, transform_id: {transform_id}, internal_id: {self.internal_id}) from PanDA-iDDS: {tf}")
+            raise Exception(f"Wrong transfrom status: {tf}")
 
     def get_status_from_idds_server(self):
         from idds.client.clientmanager import ClientManager

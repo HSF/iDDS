@@ -502,3 +502,118 @@ CREATE TABLE conditions
     CONSTRAINT CONDITION_PK PRIMARY KEY (condition_id), -- USING INDEX LOCAL,
     CONSTRAINT CONDITION_ID_UQ UNIQUE (request_id, internal_id)
 );
+
+--- 20250806
+alter table requests add (locking_hostname VARCHAR2(50), locking_pid NUMBER(12), locking_thread_id NUMBER(12), locking_thread_name VARCHAR2(100));
+alter table transforms add (locking_hostname VARCHAR2(50), locking_pid NUMBER(12), locking_thread_id NUMBER(12), locking_thread_name VARCHAR2(100));
+alter table processings add (locking_hostname VARCHAR2(50), locking_pid NUMBER(12), locking_thread_id NUMBER(12), locking_thread_name VARCHAR2(100));
+
+CREATE SEQUENCE REQUEST_GROUP_ID_SEQ MINVALUE 1 INCREMENT BY 1 START WITH 1 NOCACHE ORDER NOCYCLE GLOBAL;
+CREATE TABLE requests_group (
+    group_id NUMBER(19,0) DEFAULT REQUEST_GROUP_ID_SEQ.NEXTVAL,
+    campaign VARCHAR2(50 CHAR) DEFAULT 'Default' NOT NULL,
+    campaign_scope VARCHAR2(25 CHAR) DEFAULT 'Default' NOT NULL, -- Replace XXX with SCOPE_LENGTH
+    campaign_group VARCHAR2(255 CHAR) NOT NULL, -- Replace YYY with NAME_LENGTH
+    campaign_tag VARCHAR2(100 CHAR) NOT NULL,
+    requester VARCHAR2(20 CHAR),
+    group_type VARCHAR2(255 CHAR) NOT NULL, -- Enums are typically VARCHARs in DB
+    username VARCHAR2(20 CHAR),
+    userdn VARCHAR2(200 CHAR),
+    priority NUMBER(10,0) DEFAULT 50 NOT NULL,
+    status VARCHAR2(255 CHAR) NOT NULL,
+    substatus VARCHAR2(255 CHAR) DEFAULT '0',
+    oldstatus VARCHAR2(255 CHAR) DEFAULT '0',
+    locking VARCHAR2(255 CHAR) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    next_poll_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    accessed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expired_at TIMESTAMP,
+    new_retries NUMBER(10,0) DEFAULT 0,
+    update_retries NUMBER(10,0) DEFAULT 0,
+    max_new_retries NUMBER(10,0) DEFAULT 3,
+    max_update_retries NUMBER(10,0) DEFAULT 0,
+    new_poll_period INTERVAL DAY TO SECOND DEFAULT INTERVAL '1' SECOND,
+    update_poll_period INTERVAL DAY TO SECOND DEFAULT INTERVAL '10' SECOND,
+    site VARCHAR2(50 CHAR),
+    locking_hostname VARCHAR2(50 CHAR),
+    locking_pid NUMBER(19,0),
+    locking_thread_id NUMBER(19,0),
+    locking_thread_name VARCHAR2(100 CHAR),
+    errors CLOB, -- Assuming JSON string as CLOB
+    group_metadata CLOB, -- JSON Field
+    processing_metadata CLOB -- JSON Field
+);
+
+ALTER TABLE requests_group ADD CONSTRAINT REQUESTGROUP_PK PRIMARY KEY (group_id);
+
+ALTER TABLE requests_group ADD CONSTRAINT REQUESTGROUP_CM_UQ UNIQUE (campaign, campaign_scope, campaign_group, campaign_tag);
+
+ALTER TABLE requests_group ADD CONSTRAINT REQUESTGROUP_STATUS_ID_NN CHECK (status IS NOT NULL);
+
+CREATE UNIQUE INDEX REQUESTGROUP_CM_NAME_IDX ON requests_group (campaign, campaign_scope, campaign_group, campaign_tag);
+
+CREATE INDEX REQUESTGROUP_STATUS_SITE ON requests_group (status, site, group_id);
+
+CREATE INDEX REQUESTGROUP_STATUS_PRIO_IDX ON requests_group (status, priority, group_id, locking, updated_at, next_poll_at, created_at);
+
+CREATE INDEX REQUESTGROUP_STATUS_POLL_IDX ON requests_group (status, priority, locking, updated_at, new_poll_period, update_poll_period, created_at, group_id);
+
+-- Alter 'requests' table
+ALTER TABLE requests MODIFY campaign_tag VARCHAR2(100 CHAR);
+
+ALTER TABLE requests ADD (group_id NUMBER(19,0));
+
+ALTER TABLE requests ADD CONSTRAINT REQUESTS_GROUP_ID_FK FOREIGN KEY (group_id) REFERENCES schema_name.requests_group(group_id);
+
+
+-- Add 'additional_data_storage' column to 'requests' table
+ALTER TABLE requests ADD (additional_data_storage VARCHAR2(512 CHAR));
+
+-- Add 'parent_internal_id' column to 'transforms' table
+ALTER TABLE transforms ADD (parent_internal_id VARCHAR2(20 CHAR));
+
+
+-- Add 'cloud' and 'queue' columns to 'requests' table
+ALTER TABLE requests ADD (
+    cloud VARCHAR2(50 CHAR),
+    queue VARCHAR2(50 CHAR)
+);
+
+-- Add 'cloud' and 'queue' columns to 'requests_group' table
+ALTER TABLE requests_group ADD (
+    cloud VARCHAR2(50 CHAR),
+    queue VARCHAR2(50 CHAR)
+);
+
+-- Alter 'requests' table
+ALTER TABLE requests ADD (
+    campaign_scope VARCHAR2(SCOPE_LENGTH CHAR),
+    total_transforms NUMBER(10),
+    finished_transforms NUMBER(10),
+    subfinished_transforms NUMBER(10),
+    failed_transforms NUMBER(10),
+    processing_transforms NUMBER(10)
+);
+
+ALTER TABLE requests MODIFY (
+    campaign_group VARCHAR2(NAME_LENGTH CHAR),
+    campaign_tag VARCHAR2(100 CHAR)
+);
+
+-- Alter 'requests_group' table
+ALTER TABLE requests_group ADD (
+    total_requests NUMBER(10),
+    finished_requests NUMBER(10),
+    subfinished_requests NUMBER(10),
+    failed_requests NUMBER(10),
+    processing_requests NUMBER(10),
+    new_requests NUMBER(10)
+);
+
+ALTER TABLE requests_group ADD (max_processing_requests NUMBER(10));
+
+ALTER TABLE collections ADD (preprocessing_files NUMBER(19));
+ALTER TABLE collections ADD (activated_files NUMBER(19));
+
+
