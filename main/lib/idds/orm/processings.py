@@ -398,7 +398,7 @@ def update_processing(processing_id, parameters, locking=False, session=None):
             return 0
 
         if "workload_id" in parameters and parameters["workload_id"]:
-            if row.workflow_id == parameters["workload_id"]:
+            if row.workload_id == parameters["workload_id"]:
                 return 0
 
         # apply updates
