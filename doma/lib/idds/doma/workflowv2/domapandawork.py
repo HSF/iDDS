@@ -1018,6 +1018,7 @@ class DomaPanDAWork(Work):
             # check whether the task is already submitted
             request_id = processing['request_id']
             task_id = self.get_panda_task_id_from_name(request_id, task_param['taskName'])
+            self.logger.debug(f"Get task id from name {task_param['taskName']}: {task_id}")
             if task_id:
                 # task is already submitted
                 return task_id, None
@@ -1956,6 +1957,7 @@ class DomaPanDAWork(Work):
 
                     # task_id = self.get_panda_task_id(processing)
                     task_id = self.get_panda_task_id_from_name(processing['request_id'], task_name)
+                    self.logger.debug(f"task_id not found. Get task id from name {task_name}: {task_id}")
 
                 if task_id:
                     # ret_ids = Client.getPandaIDsWithTaskID(task_id, verbose=False)
