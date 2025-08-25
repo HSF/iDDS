@@ -58,7 +58,7 @@ class Poller(BaseAgent):
         self.message_bulk_size = int(message_bulk_size)
 
         if not hasattr(self, 'new_poll_period') or not self.new_poll_period:
-            self.new_poll_period = self.poll_period
+            self.new_poll_period = 120
         else:
             self.new_poll_period = int(self.new_poll_period)
         if not hasattr(self, 'update_poll_period') or not self.update_poll_period:
@@ -424,7 +424,7 @@ class Poller(BaseAgent):
                 if not processing['submitted_at'] or processing['submitted_at'] < proc.submitted_at:
                     update_processing['parameters']['submitted_at'] = proc.submitted_at
 
-            if proc.workload_id:
+            if proc.workload_id and not processing['workload_id']:
                 update_processing['parameters']['workload_id'] = proc.workload_id
 
             # update_processing['parameters']['expired_at'] = work.get_expired_at(processing)

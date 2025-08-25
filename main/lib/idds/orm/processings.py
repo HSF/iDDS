@@ -393,9 +393,19 @@ def update_processing(processing_id, parameters, locking=False, session=None):
         if locking:
             query = query.filter(models.Processing.locking == ProcessingLocking.Idle)
             query = query.with_for_update(skip_locked=True)
+        row = query.one_or_none()
+        if not row:
+            return 0
 
-        num_rows = query.update(parameters, synchronize_session=False)
-        return num_rows
+        if "workload_id" in parameters and parameters["workload_id"]:
+            if row.workflow_id == parameters["workload_id"]:
+                return 0
+
+        # apply updates
+        for k, v in parameters.items():
+            setattr(row, k, v)
+
+        return 1
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('Processing %s cannot be found: %s' % (processing_id, error))
     return 0

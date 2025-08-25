@@ -931,6 +931,9 @@ class DomaPanDAWork(Work):
             from pandaclient import Client
 
             proc = processing['processing_metadata']['processing']
+            if processing['workload_id']:
+                return processing['workload_id'], None
+
             task_param = proc.processing_metadata['task_param']
             if 'new_retries' in processing and processing['new_retries']:
                 new_retries = int(processing['new_retries'])
