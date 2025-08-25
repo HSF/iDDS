@@ -415,7 +415,7 @@ class Poller(BaseAgent):
                                                 'substatus': process_status,
                                                 'locking': ProcessingLocking.Idle}}
 
-            if 'error' in coll_metadata:
+            if coll_metadata and 'error' in coll_metadata:
                 update_processing['parameters']['errors'] = coll_metadata['error']
 
             update_processing['parameters'] = self.load_poll_period(processing, update_processing['parameters'])

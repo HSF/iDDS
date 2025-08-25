@@ -1078,7 +1078,7 @@ class DomaPanDAWork(Work):
 
         start_time = datetime.datetime.utcnow() - datetime.timedelta(hours=10)
         start_time = start_time.strftime('%Y-%m-%d %H:%M:%S')
-        status, results = Client.getJobIDsJediTasksInTimeRange(start_time, task_type=self.task_type, verbose=False)
+        status, results = Client.getJobIDsJediTasksInTimeRange(start_time, task_type=self.prodSourceLabel, verbose=False)
         if status != 0:
             self.logger.warn("Error to poll latest tasks in last ten hours: %s, %s" % (status, results))
             return None
@@ -1108,7 +1108,7 @@ class DomaPanDAWork(Work):
             self.logger.info(f"get_panda_task_id_from_name with request_id {request_id} and task name {task_name}: {data}")
             if isinstance(data, list) and data:
                 for task in data:
-                    if task['reqid'] == request_id and task['name'] == task_name:
+                    if task['reqid'] == request_id and task['taskname'] == task_name:
                         return task['jeditaskid']
             return None
         except Exception as ex:
@@ -1948,7 +1948,14 @@ class DomaPanDAWork(Work):
                 # task_id = proc.workload_id
                 task_id = processing['workload_id']
                 if task_id is None:
-                    task_id = self.get_panda_task_id(processing)
+                    proc = processing['processing_metadata']['processing']
+                    task_param = proc.processing_metadata['task_param']
+                    if 'new_retries' in processing and processing['new_retries']:
+                        new_retries = int(processing['new_retries'])
+                        task_name = task_param['taskName'] + "_" + str(new_retries)
+
+                    # task_id = self.get_panda_task_id(processing)
+                    task_id = self.get_panda_task_id_from_name(processing['request_id'], task_name)
 
                 if task_id:
                     # ret_ids = Client.getPandaIDsWithTaskID(task_id, verbose=False)
