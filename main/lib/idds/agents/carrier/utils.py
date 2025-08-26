@@ -551,34 +551,32 @@ def update_processing_contents_thread(logger, log_prefix, log_msg, kwargs):
         core_processings.update_processing_contents(**kwargs)
         logger.debug(log_prefix + " end")
     except Exception as ex:
-        logger.error(log_prefix + "update_processing_contents_thread: %s" % str(ex))
-        raise ex
-    except:
-        logger.error(traceback.format_exc())
-        raise Exception("update_processing_contents_thread error")
+        logger.error(f"{log_prefix}update_processing_contents_thread: {ex}")
+        raise Exception(f"update_processing_contents_thread: {ex}")
 
 
-def wait_futures_finish(ret_futures, func_name, logger, log_prefix):
+def wait_futures_finish(ret_futures, func_name, logger, log_prefix, timeout=180):
     logger = get_logger(logger)
-    logger.debug(log_prefix + "%s: wait_futures_finish" % func_name)
+    logger.debug(f"{log_prefix}{func_name}: wait_futures_finish")
     # Wait for all subprocess to complete
     steps = 0
     ex = None
     while True:
         steps += 1
         # Wait for all subprocess to complete in 3 minutes
-        completed, _ = concurrent.futures.wait(ret_futures, timeout=180, return_when=concurrent.futures.ALL_COMPLETED)
-        ret_futures = ret_futures - completed
-        if len(ret_futures) > 0:
-            logger.debug(log_prefix + "%s thread: %s threads has been running for more than %s minutes" % (func_name, len(ret_futures), steps * 3))
-        else:
-            break
+        completed, ret_futures = concurrent.futures.wait(ret_futures, timeout=180, return_when=concurrent.futures.ALL_COMPLETED)
+
         for c in completed:
             try:
                 _ = c.result()   # This will raise the exception if the thread failed
             except Exception as e:
                 ex = e
                 logger.error(f"{log_prefix} {func_name}: thread failed: {e}")
+
+        if len(ret_futures) > 0:
+            logger.debug(log_prefix + "%s thread: %s threads has been running for more than %s minutes" % (func_name, len(ret_futures), steps * 3))
+        else:
+            break
     logger.debug(log_prefix + "%s: wait_futures_finish end" % func_name)
     if ex:
         raise ex
