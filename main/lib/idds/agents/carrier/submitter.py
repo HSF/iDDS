@@ -333,7 +333,7 @@ class Submitter(Poller):
                     parameters['submitted_at'] = proc.submitted_at
 
             # if processing['processing_metadata'] and 'processing' in processing['processing_metadata']:
-            if proc.workload_id:
+            if proc.workload_id and not processing['workload_id']:
                 parameters['workload_id'] = proc.workload_id
 
             update_processing = {'processing_id': processing['processing_id'],

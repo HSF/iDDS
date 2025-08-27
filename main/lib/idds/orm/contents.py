@@ -911,6 +911,7 @@ def update_contents_from_others_by_dep_id_pages_with_coll_id(request_id, transfo
         if logger:
             logger.debug(f"Updated {result.rowcount} rows (with skip locked)")
             logger.info(f"Update request_id {request_id} transform_id {transform_id} coll_id {coll_id} rows {result.rowcount} with {time_used} seconds")
+        return result.rowcount
     except Exception as ex:
         raise ex
 
