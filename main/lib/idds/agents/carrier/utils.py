@@ -665,7 +665,7 @@ def handle_prepared_processing(processing, agent_attributes, func_site_to_cloud=
     ret_msgs = []
     update_collections = []
     if proc.workload_id:
-        processing['workload_id'] = proc.workload_id
+        # processing['workload_id'] = proc.workload_id
         input_collections = work.get_input_collections()
         output_collections = work.get_output_collections()
         log_collections = work.get_log_collections()
