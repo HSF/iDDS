@@ -48,7 +48,7 @@ def get_new_content(request_id, transform_id, workload_id, map_id, input_content
     content = {'transform_id': transform_id,
                'coll_id': input_content['coll_id'],
                'request_id': request_id,
-               'workload_id': workload_id,
+               # 'workload_id': workload_id,
                'map_id': map_id,
                'scope': input_content['scope'],
                'name': input_content['name'],
