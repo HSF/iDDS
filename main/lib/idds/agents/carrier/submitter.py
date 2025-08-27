@@ -356,6 +356,8 @@ class Submitter(Poller):
                 pr_status = ProcessingStatus.Failed
             # increase poll period
             new_poll_period = int(processing['new_poll_period'].total_seconds() * self.poll_period_increase_rate)
+            if new_poll_period < self.new_fail_poll_period:
+                new_poll_period = self.new_fail_poll_period
             if new_poll_period > self.max_new_poll_period:
                 new_poll_period = self.max_new_poll_period
 
