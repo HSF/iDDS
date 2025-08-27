@@ -1167,7 +1167,9 @@ class Clerk(BaseAgent):
 
         new_transforms = []
         self.logger.info(log_pre + f"request status: {req['status']} and to_cancel: {wf.to_cancel}")
-        if req['status'] in [RequestStatus.Transforming] and not wf.to_cancel:
+        # if req['status'] in [RequestStatus.Transforming] and not wf.to_cancel:
+        # To let the last final task to be submitted
+        if req['status'] in [RequestStatus.Transforming]:
             # new works
             works = wf.get_new_works()
             for work in works:
