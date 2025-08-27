@@ -980,7 +980,7 @@ def update_contents_from_others_by_dep_id_pages(request_id=None, transform_id=No
 
 
 @transactional_session
-def update_input_contents_by_dependency_pages(request_id=None, transform_id=None, page_size=500, batch_size=500, logger=None,
+def update_input_contents_by_dependency_pages(request_id=None, transform_id=None, page_size=2000, batch_size=2000, logger=None,
                                               log_prefix=None, terminated=False, status_not_to_check=None, session=None):
     """
     Update contents input contents by dependencies, with pages
