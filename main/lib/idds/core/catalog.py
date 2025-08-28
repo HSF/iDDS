@@ -684,7 +684,7 @@ def update_contents_from_others_by_dep_id(request_id=None, transform_id=None, se
 
 
 @transactional_session
-def update_contents_from_others_by_dep_id_pages(request_id=None, transform_id=None, page_size=1000, status_not_to_check=None,
+def update_contents_from_others_by_dep_id_pages(request_id=None, transform_id=None, page_size=2000, status_not_to_check=None,
                                                 logger=None, log_prefix=None, session=None):
     """
     Update contents from others by content_dep_id
@@ -698,7 +698,7 @@ def update_contents_from_others_by_dep_id_pages(request_id=None, transform_id=No
 
 
 @transactional_session
-def update_input_contents_by_dependency_pages(request_id=None, transform_id=None, page_size=500, batch_size=1000, logger=None, log_prefix=None,
+def update_input_contents_by_dependency_pages(request_id=None, transform_id=None, page_size=2000, batch_size=2000, logger=None, log_prefix=None,
                                               terminated=False, status_not_to_check=None, session=None):
     """
     Update input contents by dependencies

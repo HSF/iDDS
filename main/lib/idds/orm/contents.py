@@ -15,6 +15,7 @@ operations related to Requests.
 
 import datetime
 import hashlib
+import time
 import traceback
 
 from enum import Enum
@@ -25,7 +26,7 @@ from sqlalchemy import and_
 from sqlalchemy import func
 from sqlalchemy.exc import DatabaseError, IntegrityError
 # from sqlalchemy.orm import aliased
-from sqlalchemy.sql import exists, select, expression
+from sqlalchemy.sql import exists, select, expression, update
 from sqlalchemy.sql.expression import asc
 
 from idds.common import exceptions
@@ -762,8 +763,8 @@ def update_contents_from_others_by_dep_id(request_id=None, transform_id=None, se
 
 
 @transactional_session
-def update_contents_from_others_by_dep_id_pages(request_id=None, transform_id=None, page_size=1000, batch_size=500, status_not_to_check=None,
-                                                logger=None, log_prefix=None, session=None):
+def update_contents_from_others_by_dep_id_pages_old(request_id=None, transform_id=None, page_size=1000, batch_size=500,
+                                                    status_not_to_check=None, logger=None, log_prefix=None, session=None):
     """
     Update contents from others by content_dep_id, with pages
 
@@ -863,7 +864,123 @@ def update_contents_from_others_by_dep_id_pages(request_id=None, transform_id=No
 
 
 @transactional_session
-def update_input_contents_by_dependency_pages(request_id=None, transform_id=None, page_size=500, batch_size=500, logger=None,
+def update_contents_from_others_by_dep_id_pages_with_coll_id(request_id, transform_id, coll_id, page_size=5000, batch_size=2000,
+                                                             status_not_to_check=None, logger=None, log_prefix=None, session=None):
+    """
+    Update contents from others by content_dep_id, with pages
+
+    :param request_id: The Request id.
+    :param transfomr_id: The transform id.
+    """
+    try:
+        if log_prefix is None:
+            log_prefix = ""
+
+        start = time.time()
+        # Subquery of dependent contents
+        main_subquery = (
+            session.query(
+                models.Content.content_id,
+                models.Content.substatus.label("substatus")
+            )
+            .filter(models.Content.request_id == request_id)
+            .filter(models.Content.coll_id == coll_id)
+            .filter(models.Content.content_relation_type == ContentRelationType.Output)
+            .filter(models.Content.substatus != ContentStatus.New)
+        )
+
+        main_subquery = main_subquery.subquery()
+
+        to_update = (
+            update(models.Content)
+            .values(status=main_subquery.c.substatus, substatus=main_subquery.c.substatus)
+            .where(models.Content.request_id == request_id)
+            .where(models.Content.transform_id == transform_id)
+            .where(models.Content.coll_id == coll_id)
+            .where(models.Content.content_relation_type == ContentRelationType.InputDependency)
+            .where(models.Content.content_dep_id == main_subquery.c.content_id)
+            .where(models.Content.substatus != main_subquery.c.substatus)
+        )
+
+        # Execute
+        result = session.execute(to_update)
+        session.commit()
+
+        end = time.time()
+        time_used = end - start
+        if logger:
+            logger.debug(f"Updated {result.rowcount} rows (with skip locked)")
+            logger.info(f"Update request_id {request_id} transform_id {transform_id} coll_id {coll_id} rows {result.rowcount} with {time_used} seconds")
+        return result.rowcount
+    except Exception as ex:
+        raise ex
+
+
+@transactional_session
+def update_contents_from_others_by_dep_id_pages(request_id=None, transform_id=None, page_size=5000, batch_size=5000, status_not_to_check=None,
+                                                logger=None, log_prefix=None, session=None):
+    """
+    Update contents from others by content_dep_id, with pages
+
+    :param request_id: The Request id.
+    :param transfomr_id: The transform id.
+    """
+    try:
+        if log_prefix is None:
+            log_prefix = ""
+
+        # get coll_id with unterminated contents
+        coll_query = session.query(
+            models.Content.request_id,
+            models.Content.transform_id,
+            models.Content.coll_id
+        )
+
+        if request_id:
+            coll_query = coll_query.filter(models.Content.request_id == request_id)
+        if transform_id:
+            coll_query = coll_query.filter(models.Content.transform_id == transform_id)
+        if status_not_to_check:
+            coll_query = coll_query.filter(~models.Content.substatus.in_(status_not_to_check))
+
+        coll_query = coll_query.filter(models.Content.content_relation_type == ContentRelationType.InputDependency)
+        coll_query = coll_query.group_by(models.Content.request_id, models.Content.transform_id, models.Content.coll_id)
+        coll_rows = coll_query.all()
+
+        coll_req_tf_coll = [(row.request_id, row.transform_id, row.coll_id) for row in coll_rows]
+        coll_ids = [row.coll_id for row in coll_rows]
+
+        # get depended tasks' coll_id with terminated contents
+        src_coll_query = session.query(
+            models.Content.coll_id
+        )
+        if request_id:
+            src_coll_query = src_coll_query.filter(models.Content.request_id == request_id)
+        src_coll_query = src_coll_query.filter(models.Content.coll_id.in_(coll_ids))
+        src_coll_query = src_coll_query.filter(models.Content.content_relation_type == ContentRelationType.Output)
+        if status_not_to_check:
+            src_coll_query = src_coll_query.filter(models.Content.substatus.in_(status_not_to_check))
+        src_coll_rows = src_coll_query.distinct()
+        src_coll_ids = [row.coll_id for row in src_coll_rows]
+
+        # coll_ids with terminated jobs in depended tasks and with unterminated jobs in current tasks
+        for req_id, tf_id, coll_id in coll_req_tf_coll:
+            if coll_id in src_coll_ids:
+                update_contents_from_others_by_dep_id_pages_with_coll_id(request_id=request_id,
+                                                                         transform_id=transform_id,
+                                                                         coll_id=coll_id,
+                                                                         page_size=page_size,
+                                                                         batch_size=batch_size,
+                                                                         status_not_to_check=status_not_to_check,
+                                                                         logger=logger,
+                                                                         log_prefix=log_prefix,
+                                                                         session=session)
+    except Exception as ex:
+        raise ex
+
+
+@transactional_session
+def update_input_contents_by_dependency_pages(request_id=None, transform_id=None, page_size=2000, batch_size=2000, logger=None,
                                               log_prefix=None, terminated=False, status_not_to_check=None, session=None):
     """
     Update contents input contents by dependencies, with pages
@@ -1051,6 +1168,7 @@ def update_input_contents_by_dependency_pages(request_id=None, transform_id=None
                 # session.bulk_update_mappings(models.Content, update_data[i:i + batch_size])
                 # session.commit()
                 custom_bulk_update_mappings(models.Content, update_data[i:i + batch_size], session=session)
+                session.commit()
 
             if logger:
                 logger.debug(f"{log_prefix}update_input_contents_by_dependency_pages: last_id {last_id}")

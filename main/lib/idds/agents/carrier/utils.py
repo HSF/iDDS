@@ -48,7 +48,7 @@ def get_new_content(request_id, transform_id, workload_id, map_id, input_content
     content = {'transform_id': transform_id,
                'coll_id': input_content['coll_id'],
                'request_id': request_id,
-               'workload_id': workload_id,
+               # 'workload_id': workload_id,
                'map_id': map_id,
                'scope': input_content['scope'],
                'name': input_content['name'],
@@ -551,34 +551,32 @@ def update_processing_contents_thread(logger, log_prefix, log_msg, kwargs):
         core_processings.update_processing_contents(**kwargs)
         logger.debug(log_prefix + " end")
     except Exception as ex:
-        logger.error(log_prefix + "update_processing_contents_thread: %s" % str(ex))
-        raise ex
-    except:
-        logger.error(traceback.format_exc())
-        raise Exception("update_processing_contents_thread error")
+        logger.error(f"{log_prefix}update_processing_contents_thread: {ex}")
+        raise Exception(f"update_processing_contents_thread: {ex}")
 
 
-def wait_futures_finish(ret_futures, func_name, logger, log_prefix):
+def wait_futures_finish(ret_futures, func_name, logger, log_prefix, timeout=180):
     logger = get_logger(logger)
-    logger.debug(log_prefix + "%s: wait_futures_finish" % func_name)
+    logger.debug(f"{log_prefix}{func_name}: wait_futures_finish")
     # Wait for all subprocess to complete
     steps = 0
     ex = None
     while True:
         steps += 1
         # Wait for all subprocess to complete in 3 minutes
-        completed, _ = concurrent.futures.wait(ret_futures, timeout=180, return_when=concurrent.futures.ALL_COMPLETED)
-        ret_futures = ret_futures - completed
-        if len(ret_futures) > 0:
-            logger.debug(log_prefix + "%s thread: %s threads has been running for more than %s minutes" % (func_name, len(ret_futures), steps * 3))
-        else:
-            break
+        completed, ret_futures = concurrent.futures.wait(ret_futures, timeout=180, return_when=concurrent.futures.ALL_COMPLETED)
+
         for c in completed:
             try:
                 _ = c.result()   # This will raise the exception if the thread failed
             except Exception as e:
                 ex = e
                 logger.error(f"{log_prefix} {func_name}: thread failed: {e}")
+
+        if len(ret_futures) > 0:
+            logger.debug(log_prefix + "%s thread: %s threads has been running for more than %s minutes" % (func_name, len(ret_futures), steps * 3))
+        else:
+            break
     logger.debug(log_prefix + "%s: wait_futures_finish end" % func_name)
     if ex:
         raise ex
@@ -667,7 +665,7 @@ def handle_prepared_processing(processing, agent_attributes, func_site_to_cloud=
     ret_msgs = []
     update_collections = []
     if proc.workload_id:
-        processing['workload_id'] = proc.workload_id
+        # processing['workload_id'] = proc.workload_id
         input_collections = work.get_input_collections()
         output_collections = work.get_output_collections()
         log_collections = work.get_log_collections()
@@ -1557,7 +1555,7 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
         status_not_to_check = [ContentStatus.Available, ContentStatus.FakeAvailable,
                                ContentStatus.FinalFailed, ContentStatus.Missing]
         core_catalog.update_contents_from_others_by_dep_id_pages(request_id=request_id, transform_id=transform_id,
-                                                                 page_size=1000, status_not_to_check=status_not_to_check,
+                                                                 page_size=2000, status_not_to_check=status_not_to_check,
                                                                  logger=logger, log_prefix=log_prefix)
         logger.debug(log_prefix + "update_contents_from_others_by_dep_id_pages done")
 
@@ -1573,7 +1571,7 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
         core_catalog.update_input_contents_by_dependency_pages(request_id=request_id, transform_id=transform_id,
                                                                page_size=default_input_dep_page_size,
                                                                terminated=terminated_processing,
-                                                               batch_size=1000, status_not_to_check=status_not_to_check,
+                                                               batch_size=2000, status_not_to_check=status_not_to_check,
                                                                logger=logger, log_prefix=log_prefix)
         logger.debug(log_prefix + "update_input_contents_by_dependency_pages done")
 

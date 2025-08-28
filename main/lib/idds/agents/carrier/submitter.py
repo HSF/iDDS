@@ -333,7 +333,7 @@ class Submitter(Poller):
                     parameters['submitted_at'] = proc.submitted_at
 
             # if processing['processing_metadata'] and 'processing' in processing['processing_metadata']:
-            if proc.workload_id:
+            if proc.workload_id and not processing['workload_id']:
                 parameters['workload_id'] = proc.workload_id
 
             update_processing = {'processing_id': processing['processing_id'],
@@ -356,6 +356,8 @@ class Submitter(Poller):
                 pr_status = ProcessingStatus.Failed
             # increase poll period
             new_poll_period = int(processing['new_poll_period'].total_seconds() * self.poll_period_increase_rate)
+            if new_poll_period < self.new_fail_poll_period:
+                new_poll_period = self.new_fail_poll_period
             if new_poll_period > self.max_new_poll_period:
                 new_poll_period = self.max_new_poll_period
 

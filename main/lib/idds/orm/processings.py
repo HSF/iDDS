@@ -397,10 +397,6 @@ def update_processing(processing_id, parameters, locking=False, session=None):
         if not row:
             return 0
 
-        if "workload_id" in parameters and parameters["workload_id"]:
-            if row.workload_id == parameters["workload_id"]:
-                return 0
-
         # apply updates
         for k, v in parameters.items():
             setattr(row, k, v)
