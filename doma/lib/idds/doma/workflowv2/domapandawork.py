@@ -1951,6 +1951,7 @@ class DomaPanDAWork(Work):
                 if task_id is None:
                     proc = processing['processing_metadata']['processing']
                     task_param = proc.processing_metadata['task_param']
+                    task_name = task_param['taskName']
                     if 'new_retries' in processing and processing['new_retries']:
                         new_retries = int(processing['new_retries'])
                         task_name = task_param['taskName'] + "_" + str(new_retries)

@@ -58,9 +58,13 @@ class Poller(BaseAgent):
         self.message_bulk_size = int(message_bulk_size)
 
         if not hasattr(self, 'new_poll_period') or not self.new_poll_period:
-            self.new_poll_period = 120
+            self.new_poll_period = 10
         else:
             self.new_poll_period = int(self.new_poll_period)
+        if not hasattr(self, 'new_fail_poll_period') or not self.new_fail_poll_period:
+            self.new_fail_poll_period = 120
+        else:
+            self.new_fail_poll_period = int(self.new_fail_poll_period)
         if not hasattr(self, 'update_poll_period') or not self.update_poll_period:
             self.update_poll_period = self.poll_period
         else:
