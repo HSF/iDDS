@@ -13,6 +13,7 @@ import logging
 import os
 import random
 import socket
+import sys
 import threading
 import time
 import traceback
@@ -791,7 +792,8 @@ class AsyncResult(Base):
                 self.logger.info(f"{self.internal_id} graceful stop is set")
 
             try:
-                self.poll_messages(force=force)
+                if not sys.is_finalizing():
+                    self.poll_messages(force=force)
             except Exception as ex:
                 self.logger.info(f"{self.internal_id} run subscriber fails to poll messages: {ex}")
 
