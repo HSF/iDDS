@@ -1888,9 +1888,9 @@ class DomaPanDAWork(Work):
                                         del new_content_ext[job_info_item]
                                 if event_error_code is not None:
                                     new_content_ext['trans_exit_code'] = event_error_code
-                                    new_content_ext['exe_exit_code'] = event_error_code
+                                    new_content_ext['exe_error_code'] = event_error_code
                                 if event_error_diag is not None:
-                                    new_content_ext['exe_exit_diag'] = event_error_diag
+                                    new_content_ext['exe_error_diag'] = event_error_diag
                                 new_contents_ext.append(new_content_ext)
                                 new_contents_ext_dict[new_content_ext['content_id']] = new_content_ext
                             else:
@@ -1905,9 +1905,9 @@ class DomaPanDAWork(Work):
                                         del update_content_ext[job_info_item]
                                 if event_error_code is not None:
                                     update_content_ext['trans_exit_code'] = event_error_code
-                                    update_content_ext['exe_exit_code'] = event_error_code
+                                    update_content_ext['exe_error_code'] = event_error_code
                                 if event_error_diag is not None:
-                                    update_content_ext['exe_exit_diag'] = event_error_diag
+                                    update_content_ext['exe_error_diag'] = event_error_diag
                                 update_contents_ext.append(update_content_ext)
 
         if abort or terminated_status:

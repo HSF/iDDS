@@ -1126,6 +1126,40 @@ class Clerk(BaseAgent):
             self.logger.error(traceback.format_exc())
         self.number_workers -= 1
 
+    def get_workflow_status(self, wf, tf_statuses, has_new_transforms, to_abort):
+        if has_new_transforms:
+            return RequestStatus.Transforming
+        terminated_status = [
+            TransformStatus.Finished,
+            TransformStatus.SubFinished,
+            TransformStatus.Failed,
+            TransformStatus.Cancelled,
+            TransformStatus.Suspended,
+            TransformStatus.Expired,
+            TransformStatus.Built
+        ]
+        finished_status = [TransformStatus.Finished]
+        failed_status = [
+            TransformStatus.Failed,
+            TransformStatus.Cancelled,
+            TransformStatus.Suspended,
+            TransformStatus.Expired,
+        ]
+
+        all_terminated = all(status in terminated_status for status in tf_statuses)
+        all_finished = all(status in finished_status for status in tf_statuses)
+        all_failed = all(status in failed_status for status in tf_statuses)
+
+        if all_finished:
+            return RequestStatus.Finished
+        elif all_failed:
+            return RequestStatus.Failed
+        elif all_terminated:
+            if to_abort:
+                return RequestStatus.Cancelled
+            return RequestStatus.SubFinished
+        return RequestStatus.Transforming
+
     def handle_update_request_real(self, req, event):
         """
         process running request
@@ -1154,15 +1188,20 @@ class Clerk(BaseAgent):
         # current works
         works = wf.get_all_works()
         # print(works)
+        all_released_work_status = []
         for work in works:
             # print(work.get_work_id())
             tf = core_transforms.get_transform(transform_id=work.get_work_id())
             if tf:
+                all_released_work_status.append(tf['status'])
                 transform_work = tf['transform_metadata']['work']
                 # work_status = WorkStatus(tf['status'].value)
                 # work.set_status(work_status)
                 work.sync_work_data(status=tf['status'], substatus=tf['substatus'], work=transform_work, workload_id=tf['workload_id'])
                 self.logger.info(log_pre + "transform status: %s, work status: %s" % (tf['status'], work.status))
+            else:
+                all_released_work_status.append(None)
+
         wf.refresh_works(clean=True)
 
         new_transforms = []
@@ -1170,10 +1209,12 @@ class Clerk(BaseAgent):
         # if req['status'] in [RequestStatus.Transforming] and not wf.to_cancel:
         # To let the last final task to be submitted
         # if req['status'] in [RequestStatus.Transforming]:
+        has_new_transforms = False
         if True:
             # new works
             works = wf.get_new_works()
             for work in works:
+                has_new_transforms = True
                 # new_work = work.copy()
                 new_work = work
                 new_work.add_proxy(wf.get_proxy())
@@ -1181,7 +1222,8 @@ class Clerk(BaseAgent):
                 new_transforms.append(new_transform)
             self.logger.debug(log_pre + " Processing request(%s): new transforms: %s" % (req['request_id'], str(new_transforms)))
 
-        req_status = RequestStatus.Transforming
+        req_status = self.get_workflow_status(wf, all_released_work_status, has_new_transforms, to_abort)
+        """
         if wf.is_terminated():
             if wf.is_finished(synchronize=False):
                 req_status = RequestStatus.Finished
@@ -1196,8 +1238,10 @@ class Clerk(BaseAgent):
                     req_status = RequestStatus.Failed
                 else:
                     req_status = RequestStatus.Failed
+
             # req_msg = wf.get_terminated_msg()
-        else:
+        """
+        if req_status in [RequestStatus.Transforming]:
             if wf.is_to_expire(req['expired_at'], self.pending_time, request_id=req['request_id']):
                 wf.expired = True
                 event_content = {'request_id': req['request_id'],
