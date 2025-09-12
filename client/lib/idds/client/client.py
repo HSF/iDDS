@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2025
+# - Wen Guan, <wen.guan@cern.ch>, 2019
 
 
 """
@@ -32,17 +32,6 @@ from idds.client.metainfoclient import MetaInfoClient
 
 
 warnings.filterwarnings("ignore")
-
-
-class Result(object):
-
-    """Base Result"""
-
-    def __init__(self, status=0, result=None, resultMsg=None, error=None):
-        self.status = status
-        self.result = result
-        self.resultMsg = resultMsg
-        self.error = error
 
 
 class Client(RequestClient, TransformClient, CatalogClient, CacherClient, HPOClient, LogsClient, MessageClient, PingClient, AuthClient, MetaInfoClient):

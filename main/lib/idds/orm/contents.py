@@ -1086,13 +1086,12 @@ def update_input_contents_by_dependency_pages(request_id=None, transform_id=None
                 logger.debug(f"{log_prefix}custom_aggregation, no dependencies")
                 return ContentStatus.Available
 
-            available_status = [ContentStatus.Available, ContentStatus.FakeAvailable, ContentStatus.FinalSubAvailable]
+            available_status = [ContentStatus.Available, ContentStatus.FakeAvailable]
             final_terminated_status = [ContentStatus.Available, ContentStatus.FakeAvailable,
-                                       ContentStatus.FinalFailed, ContentStatus.Missing,
-                                       ContentStatus.FinalSubAvailable]
+                                       ContentStatus.FinalFailed, ContentStatus.Missing]
             terminated_status = [ContentStatus.Available, ContentStatus.FakeAvailable,
                                  ContentStatus.Failed, ContentStatus.FinalFailed,
-                                 ContentStatus.Missing, ContentStatus.FinalSubAvailable]
+                                 ContentStatus.Missing]
 
             if all(v in available_status for v in values):
                 return ContentStatus.Available
