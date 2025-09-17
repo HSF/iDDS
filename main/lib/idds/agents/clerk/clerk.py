@@ -1288,6 +1288,7 @@ class Clerk(BaseAgent):
         # current works
         works = wf.get_all_works()
         # print(works)
+        finished_build_transforms = []
         for work in works:
             # print(work.get_work_id())
             tf = core_transforms.get_transform(transform_id=work.get_work_id())
@@ -1297,6 +1298,8 @@ class Clerk(BaseAgent):
                 # work.set_status(work_status)
                 work.sync_work_data(status=tf['status'], substatus=tf['substatus'], work=transform_work, workload_id=tf['workload_id'])
                 self.logger.info(log_pre + "transform status: %s, work status: %s" % (tf['status'], work.status))
+                if tf['status'] in [TransformStatus.Finished]:
+                    finished_build_transforms.append(tf['transform_id'])
         wf.refresh_works()
 
         new_transforms = []
@@ -1314,7 +1317,10 @@ class Clerk(BaseAgent):
         req_status = RequestStatus.Building
         if wf.is_terminated():
             if wf.is_finished(synchronize=False):
-                req_status = RequestStatus.Failed
+                if finished_build_transforms:
+                    req_status = RequestStatus.Built
+                else:
+                    req_status = RequestStatus.Failed
             else:
                 if to_abort and not to_abort_transform_id:
                     req_status = RequestStatus.Cancelled
