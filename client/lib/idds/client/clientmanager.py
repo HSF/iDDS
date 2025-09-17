@@ -35,7 +35,7 @@ from idds.common.authentication import OIDCAuthentication, OIDCAuthenticationUti
 from idds.common.utils import setup_logging, get_proxy_path, idds_mask
 
 from idds.client.version import release_version
-from idds.client.client import Client, Result as IDDSResult
+from idds.client.client import Client
 from idds.common import exceptions
 from idds.common.config import (get_local_cfg_file, get_local_config_root,
                                 get_local_config_value, get_main_config_file)
@@ -262,146 +262,104 @@ class ClientManager:
         """"
         Setup oidc token
         """
-        try:
-            self.setup_client(auth_setup=True)
+        self.setup_client(auth_setup=True)
 
-            sign_url = self.client.get_oidc_sign_url(self.vo)
-            logging.info(("Please go to {0} and sign in. "
-                          "Waiting until authentication is completed").format(sign_url['verification_uri_complete']))
+        sign_url = self.client.get_oidc_sign_url(self.vo)
+        logging.info(("Please go to {0} and sign in. "
+                      "Waiting until authentication is completed").format(sign_url['verification_uri_complete']))
 
-            logging.info('Ready to get ID token?')
-            while True:
-                sys.stdout.write("[y/n] \n")
-                choice = raw_input().lower()
-                if choice == 'y':
-                    break
-                elif choice == 'n':
-                    logging.info('aborted')
-                    idds_result = IDDSResult(status=-1, result=None, error="aborted")
-                    return idds_result
+        logging.info('Ready to get ID token?')
+        while True:
+            sys.stdout.write("[y/n] \n")
+            choice = raw_input().lower()
+            if choice == 'y':
+                break
+            elif choice == 'n':
+                logging.info('aborted')
+                return
 
-            if 'interval' in sign_url:
-                interval = sign_url['interval']
+        if 'interval' in sign_url:
+            interval = sign_url['interval']
+        else:
+            interval = 5
+
+        if 'expires_in' in sign_url:
+            expires_in = sign_url['expires_in']
+        else:
+            expires_in = 60
+
+        token = None
+        count = 0
+        start_time = datetime.datetime.utcnow()
+        while datetime.datetime.utcnow() - start_time < datetime.timedelta(seconds=expires_in):
+            try:
+                output = self.client.get_id_token(self.vo, sign_url['device_code'])
+                logging.debug("get_id_token: %s" % (output))
+                token = output
+                break
+            except exceptions.AuthenticationPending as error:
+                logging.debug("Authentication pending: %s" % str(error))
+                time.sleep(interval)
+                count += 1
+                # if count % 5 == 0:
+                logging.info("Authentication is still pending. Please follow the link to authorize it.")
+            except Exception as error:
+                logging.error("get_id_token: exception: %s" % str(error))
+                break
+
+        if not token:
+            logging.error("Failed to get token.")
+        else:
+            oidc_util = OIDCAuthenticationUtils()
+            status, output = oidc_util.save_token(self.oidc_token_file, token)
+            if status:
+                logging.info("Token is saved to %s" % (self.oidc_token_file))
             else:
-                interval = 5
-
-            if 'expires_in' in sign_url:
-                expires_in = sign_url['expires_in']
-            else:
-                expires_in = 60
-
-            token = None
-            count = 0
-            start_time = datetime.datetime.utcnow()
-            while datetime.datetime.utcnow() - start_time < datetime.timedelta(seconds=expires_in):
-                try:
-                    output = self.client.get_id_token(self.vo, sign_url['device_code'])
-                    logging.debug("get_id_token: %s" % (output))
-                    token = output
-                    break
-                except exceptions.AuthenticationPending as error:
-                    logging.debug("Authentication pending: %s" % str(error))
-                    time.sleep(interval)
-                    count += 1
-                    # if count % 5 == 0:
-                    logging.info("Authentication is still pending. Please follow the link to authorize it.")
-                except Exception as error:
-                    logging.error("get_id_token: exception: %s" % str(error))
-                    idds_result = IDDSResult(status=-1, result=None, error=f"get_id_token: exception: {error}")
-                    return idds_result
-
-            if not token:
-                logging.error("Failed to get token.")
-            else:
-                oidc_util = OIDCAuthenticationUtils()
-                status, output = oidc_util.save_token(self.oidc_token_file, token)
-                if status:
-                    logging.info("Token is saved to %s" % (self.oidc_token_file))
-                    idds_result = IDDSResult(status=0, result=None, resultMsg=f"Token is saved to {self.oidc_token_file}")
-                    return idds_result
-                else:
-                    err_msg = "Failed to save token to %s: (status: %s, output: %s)" % (self.oidc_token_file, status, output)
-                    logging.info(err_msg)
-                    idds_result = IDDSResult(status=-1, result=None, error=err_msg)
-                    return idds_result
-        except Exception as error:
-            err_msg = f"setup_oidc_token: exception: {error}"
-            logging.info(err_msg)
-            idds_result = IDDSResult(status=-1, result=None, error=err_msg)
-            return idds_result
+                logging.info("Failed to save token to %s: (status: %s, output: %s)" % (self.oidc_token_file, status, output))
 
     def setup_oidc_client_token(self, issuer, client_id, client_secret, scope, audience):
         """"
         Setup oidc client token
         """
-        try:
-            self.setup_client(auth_setup=True)
-            oidc_auth = OIDCAuthentication()
-            status, token = oidc_auth.setup_oidc_client_token(issuer=issuer, client_id=client_id,
-                                                              client_secret=client_secret, scope=scope,
-                                                              audience=audience)
+        self.setup_client(auth_setup=True)
+        oidc_auth = OIDCAuthentication()
+        status, token = oidc_auth.setup_oidc_client_token(issuer=issuer, client_id=client_id,
+                                                          client_secret=client_secret, scope=scope,
+                                                          audience=audience)
 
-            if not status:
-                logging.error("Failed to get token.")
-                idds_result = IDDSResult(status=-1, result=None, error="Failed to get token.")
-                return idds_result
+        if not status:
+            logging.error("Failed to get token.")
+        else:
+            oidc_util = OIDCAuthenticationUtils()
+            token_file = self.oidc_token_file + "_client"
+            status, output = oidc_util.save_token(token_file, token)
+            if status:
+                logging.info("Token is saved to %s" % (token_file))
             else:
-                oidc_util = OIDCAuthenticationUtils()
-                token_file = self.oidc_token_file + "_client"
-                status, output = oidc_util.save_token(token_file, token)
-                if status:
-                    logging.info("Token is saved to %s" % (token_file))
-                    idds_result = IDDSResult(status=0, result=None, resultMsg=f"Token is saved to {token_file}")
-                    return idds_result
-                else:
-                    err_msg = "Failed to save token to %s: (status: %s, output: %s)" % (token_file, status, output)
-                    logging.info(err_msg)
-                    idds_result = IDDSResult(status=-1, result=None, error=err_msg)
-                    return idds_result
-        except Exception as error:
-            err_msg = f"setup_oidc_client_token: exception: {error}"
-            logging.info(err_msg)
-            idds_result = IDDSResult(status=-1, result=None, error=err_msg)
-            return idds_result
+                logging.info("Failed to save token to %s: (status: %s, output: %s)" % (token_file, status, output))
 
     def refresh_oidc_token(self):
         """"
         refresh oidc token
         """
-        try:
-            self.setup_client(auth_setup=True)
+        self.setup_client(auth_setup=True)
 
-            oidc_util = OIDCAuthenticationUtils()
-            status, token = oidc_util.load_token(self.oidc_token_file)
-            if not status:
-                err_msg = "Token %s cannot be loaded: %s" % (status, token)
-                logging.error(err_msg)
-                idds_result = IDDSResult(status=-1, result=None, error=err_msg)
-                return idds_result
+        oidc_util = OIDCAuthenticationUtils()
+        status, token = oidc_util.load_token(self.oidc_token_file)
+        if not status:
+            logging.error("Token %s cannot be loaded: %s" % (status, token))
+            return
 
-            is_expired, output = oidc_util.is_token_expired(token)
-            if is_expired:
-                err_msg = "Token %s is already expired(%s). Cannot refresh." % (self.oidc_token_file, output)
-                logging.error(err_msg)
-                idds_result = IDDSResult(status=-1, result=None, error=err_msg)
-                return idds_result
+        is_expired, output = oidc_util.is_token_expired(token)
+        if is_expired:
+            logging.error("Token %s is already expired(%s). Cannot refresh." % self.oidc_token_file, output)
+        else:
+            new_token = self.client.refresh_id_token(self.vo, token['refresh_token'])
+            status, data = oidc_util.save_token(self.oidc_token_file, new_token)
+            if status:
+                logging.info("New token saved to %s" % self.oidc_token_file)
             else:
-                new_token = self.client.refresh_id_token(self.vo, token['refresh_token'])
-                status, data = oidc_util.save_token(self.oidc_token_file, new_token)
-                if status:
-                    logging.info("New token saved to %s" % self.oidc_token_file)
-                    idds_result = IDDSResult(status=0, result=None, resultMsg=f"New token saved to {self.oidc_token_file}")
-                    return idds_result
-                else:
-                    err_msg = "Failed to save token to %s: %s" % (self.oidc_token_file, data)
-                    logging.info(err_msg)
-                    idds_result = IDDSResult(status=-1, result=None, error=err_msg)
-                    return idds_result
-        except Exception as error:
-            err_msg = f"refresh_oidc_token: exception: {error}"
-            logging.info(err_msg)
-            idds_result = IDDSResult(status=-1, result=None, error=err_msg)
-            return idds_result
+                logging.info("Failed to save token to %s: %s" % (self.oidc_token_file, data))
 
     @exception_handler
     def clean_oidc_token(self):
