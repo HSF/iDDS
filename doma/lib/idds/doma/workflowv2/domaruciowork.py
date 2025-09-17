@@ -23,7 +23,7 @@ from idds.workflowv2.work import Processing
 from idds.workflowv2.datawork import DataWork
 
 
-class DOMARucioWork(DataWork):
+class DomaRucioWork(DataWork):
     def __init__(self, executable=None, arguments=None, parameters=None, setup=None,
                  work_tag='stagein', exec_type='local', sandbox=None, work_id=None,
                  primary_input_collection=None, other_input_collections=None, input_collections=None,
@@ -31,7 +31,7 @@ class DOMARucioWork(DataWork):
                  output_collections=None, log_collections=None,
                  agent_attributes=None,
                  logger=None,
-                 max_waiting_time=3600 * 7 * 24, src_rse=None, dest_rse=None, rule_id=None):
+                 max_waiting_time=3600 * 30 * 24, src_rse=None, dest_rse=None, rule_id=None):
         """
         Init a work/task/transformation.
 
@@ -52,7 +52,7 @@ class DOMARucioWork(DataWork):
         :param dest_rse: The destination rse.
         :param rule_id: The rule id.
         """
-        super(DOMARucioWork, self).__init__(executable=executable, arguments=arguments,
+        super(DomaRucioWork, self).__init__(executable=executable, arguments=arguments,
                                             parameters=parameters, setup=setup, work_type=TransformType.StageIn,
                                             exec_type=exec_type, sandbox=sandbox, work_id=work_id,
                                             primary_input_collection=primary_input_collection,
@@ -134,7 +134,7 @@ class DOMARucioWork(DataWork):
             if poll_externel:
                 coll = self.poll_external_collection(coll)
             self.collections[coll_int_id] = coll
-        return super(DOMARucioWork, self).get_input_collections()
+        return super(DomaRucioWork, self).get_input_collections()
 
     def get_input_contents(self):
         """
@@ -288,7 +288,7 @@ class DOMARucioWork(DataWork):
         return status_statistics
 
     def syn_work_status(self, registered_input_output_maps, all_updates_flushed=True, output_statistics={}, to_release_input_contents=[]):
-        super(DOMARucioWork, self).syn_work_status(registered_input_output_maps)
+        super(DomaRucioWork, self).syn_work_status(registered_input_output_maps)
         self.get_status_statistics(registered_input_output_maps)
 
         # self.syn_collection_status()
