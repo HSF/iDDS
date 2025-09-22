@@ -69,11 +69,13 @@ class MapResult(object):
     def __init__(self):
         self._name_results = {}
         self._results = {}
+        self._details = {}
+        self._name_details = {}
 
     def __str__(self):
         return str(self._name_results)
 
-    def add_result(self, name=None, args=None, key=None, result=None):
+    def add_result(self, name=None, args=None, key=None, result=None, details=None):
         if key is None:
             key = get_unique_id_for_dict(args)
             name_key = '%s:%s' % (name, key)
@@ -85,6 +87,8 @@ class MapResult(object):
 
         self._name_results[name_key] = result
         self._results[key] = result
+        self._details[key] = details   # {"status": status, "error": error, "metris": metrics}
+        self._name_details[name_key] = details
 
     def has_result(self, name=None, args=None, key=None):
         if key is None:
@@ -98,10 +102,11 @@ class MapResult(object):
                 return True
         return False
 
-    def get_result(self, name=None, args=None, key=None, verbose=False):
+    def get_result(self, name=None, args=None, key=None, verbose=False, with_details=False):
         if verbose:
             logging.info("get_result: key %s, name: %s, args: %s" % (key, name, args))
             logging.info("get_result: results: %s, name_results: %s" % (self._results, self._name_results))
+            logging.info(f"get_result: details: {self._details}, name_details: {self._name_details}")
 
         if key is None:
             key = get_unique_id_for_dict(args)
@@ -109,16 +114,21 @@ class MapResult(object):
         name_key = '%s:%s' % (name, key)
         if name_key in self._name_results:
             ret = self._name_results.get(name_key, None)
+            details = self._name_details.get(name_key, None)
         else:
             ret = self._results.get(key, None)
+            details = self._details.get(key, None)
         if verbose:
-            logging.info("get_result: name key %s, args key %s, ret: %s" % (name_key, key, ret))
+            logging.info("get_result: name key %s, args key %s, ret: %s, details: %s" % (name_key, key, ret, details))
+        if with_details:
+            return ret, details
         return ret
 
-    def set_result(self, name=None, args=None, key=None, value=None, verbose=False):
+    def set_result(self, name=None, args=None, key=None, value=None, verbose=False, details=None):
         if verbose:
-            logging.info("set_result: key %s, name: %s, args: %s, value: %s" % (key, name, args, value))
+            logging.info("set_result: key %s, name: %s, args: %s, value: %s, details: %s" % (key, name, args, value, details))
             logging.info("set_result: results: %s, name_results: %s" % (self._results, self._name_results))
+            logging.info(f"get_result: details: {self._details}, name_details: {self._name_details}")
 
         if key is None:
             key = get_unique_id_for_dict(args)
@@ -126,19 +136,23 @@ class MapResult(object):
 
         self._name_results[name_key] = value
         self._results[key] = value
+        self._name_details[name_key] = details
+        self._details[key] = details
 
         if verbose:
-            logging.info("set_result: name key %s, args key %s, value: %s" % (name_key, key, value))
+            logging.info("set_result: name key %s, args key %s, value: %s, details: %s" % (name_key, key, value, details))
 
     def get_all_results(self):
         return self._results
 
     def get_dict_results(self):
-        return {'results': self._results, 'name_results': self._name_results}
+        return {'results': self._results, 'name_results': self._name_results, 'details': self._details, 'name_details': self._name_details}
 
     def set_from_dict_results(self, results):
         self._results = results.get('results', {})
         self._name_results = results.get('name_results', {})
+        self._details = results.get('details', {})
+        self._name_details = results.get('name_details', {})
 
 
 class AsyncResult(Base):
@@ -330,7 +344,7 @@ class AsyncResult(Base):
             # name = result['name']
             # key = result['key']
             ret = result['ret']
-            status, output, error = ret
+            status, output, error, metrics = ret
             if status is True:
                 rets_list.append(result)
             else:
@@ -347,7 +361,7 @@ class AsyncResult(Base):
                     name_key = f"{name}:{key}"
                     if name_key in self.wait_keys:
                         ret = result['ret']
-                        status, output, error = ret
+                        status, output, error, metrics = ret
                         rets[name_key] = output
                 self._results_percentage = len(list(rets.keys())) * 1.0 / len(self.wait_keys)
             else:
@@ -356,7 +370,7 @@ class AsyncResult(Base):
                     key = result['key']
                     name_key = f"{name}:{key}"
                     ret = result['ret']
-                    status, output, error = ret
+                    status, output, error, metrics = ret
 
                     rets[name_key] = output
                 self._results_percentage = len(list(rets.keys())) * 1.0 / self._wait_num
@@ -367,9 +381,10 @@ class AsyncResult(Base):
                 key = result['key']
                 name_key = f"{name}:{key}"
                 ret = result['ret']
-                status, output, error = ret
+                status, output, error, metrics = ret
+                details = {"status": status, "error": error, "metrics": metrics}
 
-                ret_map.add_result(name=name, key=key, result=output)
+                ret_map.add_result(name=name, key=key, result=output, details=details)
 
             if has_new_data:
                 self.logger.debug(f'{self.internal_id} percent {self._results_percentage}, results: {ret_map}')
@@ -663,12 +678,12 @@ class AsyncResult(Base):
             self.logger.error(f"{self.internal_id} Failed to publish message through API: {ex}")
 
     @timeout_wrapper(timeout=90)
-    def publish(self, ret, name=None, key=None, force=False, ret_status=True, ret_error=None):
+    def publish(self, ret, name=None, key=None, force=False, ret_status=True, ret_error=None, metrics=None):
         stomp_failed = False
         if with_stomp and self._broker_initialized:
             try:
                 self.logger.info(f"{self.internal_id} publishing results through messaging brokers")
-                self.publish_message(ret=(ret_status, ret, ret_error), name=name, key=key)
+                self.publish_message(ret=(ret_status, ret, ret_error, metrics), name=name, key=key)
                 self.logger.info(f"{self.internal_id} finished to publish results through messaging brokers")
             except Exception as ex:
                 self.logger.warn(f"{self.internal_id} Failed to publish result through messaging brokers: {ex}")
@@ -676,7 +691,7 @@ class AsyncResult(Base):
 
         if not with_stomp or not self._broker_initialized or stomp_failed:
             self.logger.info(f"{self.internal_id} publishing results through http API")
-            self.publish_through_api(ret=(ret_status, ret, ret_error), name=name, key=key, force=force)
+            self.publish_through_api(ret=(ret_status, ret, ret_error, metrics), name=name, key=key, force=force)
             self.logger.info(f"{self.internal_id} finished to publish results through http API")
 
     def poll_messages_through_panda_server(self, request_id, transform_id, internal_id):
