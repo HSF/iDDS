@@ -16,8 +16,6 @@ from idds.common.utils import setup_logging, truncate_string
 from idds.core import processings as core_processings
 from idds.agents.common.baseagent import BaseAgent
 from idds.agents.common.eventbus.event import (EventType,
-                                               NewProcessingEvent,
-                                               PreparedProcessingEvent,
                                                SyncProcessingEvent,
                                                UpdateTransformEvent)
 
@@ -62,21 +60,17 @@ class Submitter(Poller):
             processing_status = [ProcessingStatus.New]
             self._new_processing_status = processing_status
             processings = core_processings.get_processings_by_status(status=processing_status, locking=True,
-                                                                     not_lock=True,
-                                                                     new_poll=True, only_return_id=True,
+                                                                     new_poll=True,
                                                                      min_request_id=BaseAgent.min_request_id,
-                                                                     bulk_size=self.retrieve_bulk_size)
+                                                                     bulk_size=self.get_bulk_size())
 
             # self.logger.debug("Main thread get %s [new] processings to process" % len(processings))
             if processings:
-                self.logger.info("Main thread get [new] processings to process: %s" % str(processings))
+                processing_ids = [pr['processing_id'] for pr in processings]
+                self.logger.info("Main thread get [new] processings to process: %s" % str(processing_ids))
 
-            events = []
-            for pr_id in processings:
-                self.logger.info("NewProcessingEvent(processing_id: %s)" % pr_id)
-                event = NewProcessingEvent(publisher_id=self.id, processing_id=pr_id)
-                events.append(event)
-            self.event_bus.send_bulk(events)
+            for pr in processings:
+                self.submit(self.process_new_processing, kwargs={"processing": pr})
 
             return processings
         except exceptions.DatabaseException as ex:
@@ -104,21 +98,17 @@ class Submitter(Poller):
             processing_status = [ProcessingStatus.Prepared]
             self._prepared_processing_status = processing_status
             processings = core_processings.get_processings_by_status(status=processing_status, locking=True,
-                                                                     not_lock=True,
-                                                                     new_poll=True, only_return_id=True,
+                                                                     new_poll=True,
                                                                      min_request_id=BaseAgent.min_request_id,
-                                                                     bulk_size=self.retrieve_bulk_size)
+                                                                     bulk_size=self.get_bulk_size())
 
             # self.logger.debug("Main thread get %s [new] processings to process" % len(processings))
             if processings:
-                self.logger.info("Main thread get [prepared] processings to process: %s" % str(processings))
+                processing_ids = [pr['processing_id'] for pr in processings]
+                self.logger.info("Main thread get [prepared] processings to process: %s" % str(processing_ids))
 
-            events = []
-            for pr_id in processings:
-                self.logger.info("PreparedProcessingEvent(processing_id: %s)" % pr_id)
-                event = PreparedProcessingEvent(publisher_id=self.id, processing_id=pr_id)
-                events.append(event)
-            self.event_bus.send_bulk(events)
+            for pr in processings:
+                self.submit(self.process_update_processing, kwargs={"processing": pr})
 
             return processings
         except exceptions.DatabaseException as ex:

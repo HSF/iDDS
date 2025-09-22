@@ -21,7 +21,7 @@ from idds.common.utils import setup_logging, truncate_string, json_dumps
 from idds.core import processings as core_processings
 from idds.agents.common.baseagent import BaseAgent
 from idds.agents.common.eventbus.event import (EventType,
-                                               UpdateProcessingEvent,
+                                               # UpdateProcessingEvent,
                                                TriggerProcessingEvent,
                                                SyncProcessingEvent,
                                                TerminatedProcessingEvent)
@@ -126,9 +126,12 @@ class Poller(BaseAgent):
         return self.extra_executors
 
     def is_ok_to_run_more_processings(self):
-        if self.number_workers >= self.max_number_workers:
-            return False
-        return True
+        if self.get_num_free_workers() > 0:
+            return True
+        return False
+
+    def get_bulk_size(self):
+        return min(self.retrieve_bulk_size, self.get_num_free_workers())
 
     def show_queue_size(self):
         if self.show_queue_size_time is None or time.time() - self.show_queue_size_time >= 600:
@@ -172,21 +175,17 @@ class Poller(BaseAgent):
             # next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_period)
             processings = core_processings.get_processings_by_status(status=processing_status,
                                                                      locking=True, update_poll=True,
-                                                                     not_lock=True,
-                                                                     only_return_id=True,
                                                                      min_request_id=BaseAgent.min_request_id,
-                                                                     bulk_size=self.retrieve_bulk_size)
+                                                                     bulk_size=self.get_bulk_size())
 
             # self.logger.debug("Main thread get %s [submitting + submitted + running] processings to process" % (len(processings)))
             if processings:
-                self.logger.info("Main thread get [submitting + submitted + running] processings to process: %s" % (str(processings)))
+                processing_ids = [pr['processing_id'] for pr in processings]
+                self.logger.info("Main thread get [submitting + submitted + running] processings to process: %s" % (str(processing_ids)))
 
-            events = []
-            for pr_id in processings:
-                self.logger.info("UpdateProcessingEvent(processing_id: %s)" % pr_id)
-                event = UpdateProcessingEvent(publisher_id=self.id, processing_id=pr_id)
-                events.append(event)
-            self.event_bus.send_bulk(events)
+            for pr in processings:
+                # pr_id = pr['processing_id']
+                self.submit(self.process_update_processing, kwargs={"processing": pr})
 
             return processings
         except exceptions.DatabaseException as ex:

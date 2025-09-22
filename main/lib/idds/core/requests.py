@@ -454,62 +454,11 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, loc
         if not min_request_id:
             min_request_id = 0
 
-    if locking:
-        if not only_return_id and bulk_size:
-            # order by cannot work together with locking. So first select 2 * bulk_size without locking with order by.
-            # then select with locking.
-            req_ids = orm_requests.get_requests_by_status_type(status, request_type, time_period, locking=locking, bulk_size=bulk_size * 2,
-                                                               locking_for_update=False, to_json=False, by_substatus=by_substatus,
-                                                               new_poll=new_poll, update_poll=update_poll,
-                                                               min_request_id=min_request_id,
-                                                               only_return_id=True, session=session)
-            if req_ids:
-                req2s = orm_requests.get_requests_by_status_type(status, request_type, time_period, request_ids=req_ids,
-                                                                 locking=locking, locking_for_update=False, bulk_size=None,
-                                                                 to_json=to_json,
-                                                                 min_request_id=min_request_id,
-                                                                 new_poll=new_poll, update_poll=update_poll,
-                                                                 by_substatus=by_substatus, session=session)
-                if req2s:
-                    # reqs = req2s[:bulk_size]
-                    # order requests
-                    reqs = []
-                    for req_id in req_ids:
-                        if len(reqs) >= bulk_size:
-                            break
-                        for req in req2s:
-                            if req['request_id'] == req_id:
-                                reqs.append(req)
-                                break
-                    # reqs = reqs[:bulk_size]
-                else:
-                    reqs = []
-            else:
-                reqs = []
-        else:
-            reqs = orm_requests.get_requests_by_status_type(status, request_type, time_period, locking=locking, locking_for_update=False,
-                                                            bulk_size=bulk_size,
-                                                            min_request_id=min_request_id,
-                                                            new_poll=new_poll, update_poll=update_poll, only_return_id=only_return_id,
-                                                            to_json=to_json, by_substatus=by_substatus, session=session)
+    reqs = orm_requests.get_requests_by_status_type(status, request_type, time_period, locking=locking, locking_for_update=False,
+                                                    bulk_size=bulk_size, min_request_id=min_request_id, not_lock=not_lock,
+                                                    new_poll=new_poll, update_poll=update_poll, only_return_id=only_return_id,
+                                                    to_json=to_json, by_substatus=by_substatus, session=session)
 
-        parameters = {}
-        if not not_lock:
-            parameters['locking'] = RequestLocking.Locking
-        if next_poll_at:
-            parameters['next_poll_at'] = next_poll_at
-        parameters['updated_at'] = datetime.datetime.utcnow()
-        if parameters:
-            for req in reqs:
-                if type(req) in [dict]:
-                    orm_requests.update_request(request_id=req['request_id'], parameters=parameters, session=session)
-                else:
-                    orm_requests.update_request(request_id=req, parameters=parameters, session=session)
-    else:
-        reqs = orm_requests.get_requests_by_status_type(status, request_type, time_period, locking=locking, bulk_size=bulk_size,
-                                                        new_poll=new_poll, update_poll=update_poll, only_return_id=only_return_id,
-                                                        min_request_id=min_request_id,
-                                                        to_json=to_json, by_substatus=by_substatus, session=session)
     return reqs
 
 

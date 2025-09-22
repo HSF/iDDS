@@ -40,7 +40,8 @@ AGENTS = {
     'conductor': ['idds.agents.conductor.conductor.Conductor', Sections.Conductor],
     'consumer': ['idds.agents.conductor.consumer.Consumer', Sections.Consumer],
     'archiver': ['idds.agents.archive.archiver.Archiver', Sections.Archiver],
-    'coordinator': ['idds.agents.coordinator.coordinator.Coordinator', Sections.Coordinator]
+    'coordinator': ['idds.agents.coordinator.coordinator.Coordinator', Sections.Coordinator],
+    'natscoordinator': ['idds.agents.coordinator.nats_coordinator.NATSCoordinator', Sections.Coordinator]
 }
 
 RUNNING_AGENTS = []

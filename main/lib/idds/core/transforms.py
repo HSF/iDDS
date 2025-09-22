@@ -192,70 +192,14 @@ def get_transforms_by_status(status, period=None, locking=False, bulk_size=None,
 
     :returns: list of transform.
     """
-    if locking:
-        if not only_return_id and bulk_size:
-            # order by cannot work together with locking. So first select 2 * bulk_size without locking with order by.
-            # then select with locking.
-            tf_ids = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking,
-                                                             bulk_size=bulk_size * 2, locking_for_update=False,
-                                                             to_json=False, only_return_id=True,
-                                                             min_request_id=min_request_id,
-                                                             order_by_fifo=order_by_fifo,
-                                                             new_poll=new_poll, update_poll=update_poll,
-                                                             by_substatus=by_substatus, session=session)
-            if tf_ids:
-                transform2s = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking,
-                                                                      bulk_size=None, locking_for_update=False,
-                                                                      to_json=to_json, transform_ids=tf_ids,
-                                                                      new_poll=new_poll, update_poll=update_poll,
-                                                                      min_request_id=min_request_id,
-                                                                      order_by_fifo=order_by_fifo,
-                                                                      by_substatus=by_substatus, session=session)
-                if transform2s:
-                    # reqs = req2s[:bulk_size]
-                    # order requests
-                    transforms = []
-                    for tf_id in tf_ids:
-                        if len(transforms) >= bulk_size:
-                            break
-                        for tf in transform2s:
-                            if tf['transform_id'] == tf_id:
-                                transforms.append(tf)
-                                break
-                    # transforms = transforms[:bulk_size]
-                else:
-                    transforms = []
-            else:
-                transforms = []
-        else:
-            transforms = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking,
-                                                                 locking_for_update=False, order_by_fifo=order_by_fifo,
-                                                                 bulk_size=bulk_size, to_json=to_json,
-                                                                 new_poll=new_poll, update_poll=update_poll,
-                                                                 only_return_id=only_return_id,
-                                                                 min_request_id=min_request_id,
-                                                                 by_substatus=by_substatus, session=session)
+    transforms = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking,
+                                                         locking_for_update=False, order_by_fifo=order_by_fifo,
+                                                         bulk_size=bulk_size, to_json=to_json,
+                                                         new_poll=new_poll, update_poll=update_poll,
+                                                         only_return_id=only_return_id,
+                                                         min_request_id=min_request_id, not_lock=not_lock,
+                                                         by_substatus=by_substatus, session=session)
 
-        parameters = {}
-        if not not_lock:
-            parameters['locking'] = TransformLocking.Locking
-        if next_poll_at:
-            parameters['next_poll_at'] = next_poll_at
-        parameters['updated_at'] = datetime.datetime.utcnow()
-        if parameters:
-            for transform in transforms:
-                if type(transform) in [dict]:
-                    orm_transforms.update_transform(transform_id=transform['transform_id'], parameters=parameters, session=session)
-                else:
-                    orm_transforms.update_transform(transform_id=transform, parameters=parameters, session=session)
-    else:
-        transforms = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking,
-                                                             bulk_size=bulk_size, to_json=to_json,
-                                                             new_poll=new_poll, update_poll=update_poll,
-                                                             only_return_id=only_return_id,
-                                                             order_by_fifo=order_by_fifo,
-                                                             min_request_id=min_request_id,
-                                                             by_substatus=by_substatus, session=session)
     return transforms
 
 

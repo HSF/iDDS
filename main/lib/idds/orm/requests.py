@@ -1065,7 +1065,7 @@ def get_requests_by_requester(scope, name, requester, to_json=False, session=Non
 def get_requests_by_status_type(status, request_type=None, time_period=None, request_ids=[], locking=False,
                                 locking_for_update=False, bulk_size=None, to_json=False, by_substatus=False,
                                 min_request_id=None, new_poll=False, update_poll=False, only_return_id=False,
-                                session=None):
+                                not_lock=False, session=None):
     """
     Get requests.
 
@@ -1117,8 +1117,9 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, req
         else:
             # query = query.order_by(asc(models.Request.updated_at))\
             #              .order_by(desc(models.Request.priority))
-            query = query.order_by(desc(models.Request.priority))\
-                         .order_by(asc(models.Request.updated_at))
+            # query = query.order_by(desc(models.Request.priority))\
+            #              .order_by(asc(models.Request.updated_at))
+            query = query.order_by(asc(models.Request.updated_at))
 
         if bulk_size:
             query = query.limit(bulk_size)
@@ -1127,6 +1128,10 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, req
         rets = []
         if tmp:
             for req in tmp:
+                if not not_lock:
+                    req.updated_at = datetime.datetime.utcnow()
+                    req.locking = RequestLocking.Locking
+
                 if only_return_id:
                     rets.append(req[0])
                 else:

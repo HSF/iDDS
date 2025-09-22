@@ -18,7 +18,7 @@ import datetime
 import sqlalchemy
 from sqlalchemy import and_, func, select
 from sqlalchemy.exc import DatabaseError, IntegrityError
-from sqlalchemy.sql.expression import asc, desc
+from sqlalchemy.sql.expression import asc
 
 from idds.common import exceptions
 from idds.common.constants import TransformStatus, TransformLocking, CollectionRelationType
@@ -411,7 +411,8 @@ def get_transforms(request_id=None, workload_id=None, transform_id=None, loop_in
 @transactional_session
 def get_transforms_by_status(status, period=None, transform_ids=[], locking=False, locking_for_update=False,
                              bulk_size=None, to_json=False, by_substatus=False, only_return_id=False,
-                             order_by_fifo=False, min_request_id=None, new_poll=False, update_poll=False, session=None):
+                             not_lock=False, order_by_fifo=False, min_request_id=None, new_poll=False,
+                             update_poll=False, session=None):
     """
     Get transforms or raise a NoObject exception.
 
@@ -460,10 +461,11 @@ def get_transforms_by_status(status, period=None, transform_ids=[], locking=Fals
         if locking_for_update:
             query = query.with_for_update(skip_locked=True)
         else:
-            if order_by_fifo:
-                query = query.order_by(desc(models.Transform.priority)).order_by(asc(models.Transform.transform_id))
-            else:
-                query = query.order_by(asc(models.Transform.updated_at)).order_by(desc(models.Transform.priority))
+            # if order_by_fifo:
+            #     query = query.order_by(desc(models.Transform.priority)).order_by(asc(models.Transform.transform_id))
+            # else:
+            #     query = query.order_by(asc(models.Transform.updated_at)).order_by(desc(models.Transform.priority))
+            query = query.order_by(asc(models.Transform.updated_at))
 
         if bulk_size:
             query = query.limit(bulk_size)
@@ -472,6 +474,10 @@ def get_transforms_by_status(status, period=None, transform_ids=[], locking=Fals
         rets = []
         if tmp:
             for t in tmp:
+                if not not_lock:
+                    t.updated_at = datetime.datetime.utcnow()
+                    t.locking = TransformLocking.Locking
+
                 if only_return_id:
                     rets.append(t[0])
                 else:

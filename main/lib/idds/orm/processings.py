@@ -274,7 +274,7 @@ def get_processings_by_transform_id(transform_id=None, to_json=False, session=No
 @transactional_session
 def get_processings_by_status(status, period=None, processing_ids=[], locking=False, locking_for_update=False,
                               bulk_size=None, submitter=None, to_json=False, by_substatus=False, only_return_id=False,
-                              min_request_id=None, new_poll=False, update_poll=False, for_poller=False, session=None):
+                              not_lock=False, min_request_id=None, new_poll=False, update_poll=False, for_poller=False, session=None):
     """
     Get processing or raise a NoObject exception.
 
@@ -339,6 +339,10 @@ def get_processings_by_status(status, period=None, processing_ids=[], locking=Fa
         rets = []
         if tmp:
             for t in tmp:
+                if not not_lock:
+                    t.updated_at = datetime.datetime.utcnow()
+                    t.locking = ProcessingLocking.Locking
+
                 if only_return_id:
                     rets.append(t[0])
                 else:

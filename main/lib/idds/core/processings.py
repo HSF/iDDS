@@ -174,69 +174,14 @@ def get_processings_by_status(status, time_period=None, locking=False, bulk_size
 
     :returns: Processings.
     """
-    if locking:
-        if not only_return_id and bulk_size:
-            # order by cannot work together with locking. So first select 2 * bulk_size without locking with order by.
-            # then select with locking.
-            proc_ids = orm_processings.get_processings_by_status(status=status, period=time_period, locking=locking,
-                                                                 bulk_size=bulk_size * 2, to_json=False, locking_for_update=False,
-                                                                 by_substatus=by_substatus, only_return_id=True,
-                                                                 for_poller=for_poller, new_poll=new_poll,
-                                                                 min_request_id=min_request_id,
-                                                                 update_poll=update_poll, session=session)
-            if proc_ids:
-                processing2s = orm_processings.get_processings_by_status(status=status, period=time_period, locking=locking,
-                                                                         processing_ids=proc_ids,
-                                                                         min_request_id=min_request_id,
-                                                                         bulk_size=None, to_json=to_json,
-                                                                         locking_for_update=locking_for_update,
-                                                                         by_substatus=by_substatus, only_return_id=only_return_id,
-                                                                         new_poll=new_poll, update_poll=update_poll,
-                                                                         for_poller=for_poller, session=session)
-                if processing2s:
-                    # reqs = req2s[:bulk_size]
-                    # order requests
-                    processings = []
-                    for proc_id in proc_ids:
-                        if len(processings) >= bulk_size:
-                            break
-                        for p in processing2s:
-                            if p['processing_id'] == proc_id:
-                                processings.append(p)
-                                break
-                    # processings = processings[:bulk_size]
-                else:
-                    processings = []
-            else:
-                processings = []
-        else:
-            processings = orm_processings.get_processings_by_status(status=status, period=time_period, locking=locking,
-                                                                    bulk_size=bulk_size, to_json=to_json,
-                                                                    locking_for_update=locking_for_update,
-                                                                    new_poll=new_poll, update_poll=update_poll,
-                                                                    only_return_id=only_return_id,
-                                                                    min_request_id=min_request_id,
-                                                                    by_substatus=by_substatus, for_poller=for_poller, session=session)
+    processings = orm_processings.get_processings_by_status(status=status, period=time_period, locking=locking,
+                                                            bulk_size=bulk_size, to_json=to_json,
+                                                            locking_for_update=locking_for_update,
+                                                            new_poll=new_poll, update_poll=update_poll,
+                                                            only_return_id=only_return_id,
+                                                            min_request_id=min_request_id, not_lock=not_lock,
+                                                            by_substatus=by_substatus, for_poller=for_poller, session=session)
 
-        parameters = {}
-        if not not_lock:
-            parameters['locking'] = ProcessingLocking.Locking
-        if next_poll_at:
-            parameters['next_poll_at'] = next_poll_at
-        parameters['updated_at'] = datetime.datetime.utcnow()
-        if parameters:
-            for processing in processings:
-                if type(processing) in [dict]:
-                    orm_processings.update_processing(processing['processing_id'], parameters=parameters, session=session)
-                else:
-                    orm_processings.update_processing(processing, parameters=parameters, session=session)
-    else:
-        processings = orm_processings.get_processings_by_status(status=status, period=time_period, locking=locking,
-                                                                bulk_size=bulk_size, to_json=to_json,
-                                                                new_poll=new_poll, update_poll=update_poll,
-                                                                only_return_id=only_return_id,
-                                                                min_request_id=min_request_id,
-                                                                by_substatus=by_substatus, for_poller=for_poller, session=session)
     return processings
 
 
