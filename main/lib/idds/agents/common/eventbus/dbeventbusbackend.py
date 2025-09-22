@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2023
+# - Wen Guan, <wen.guan@cern.ch>, 2023 - 2025
 
 import logging
 import time
@@ -70,9 +70,13 @@ class DBEventBusBackend(BaseEventBusBackend):
             ret = core_events.add_event(event)
             self.logger.info("add event: %s, ret: %s" % (event, ret))
 
-    def get(self, event_type, num_events=1, wait=0):
-        event = core_events.get_event_for_processing(event_type=event_type, num_events=num_events)
-        return event
+    def get(self, event_type, num_events=1, wait=0, callback=None):
+        events = core_events.get_event_for_processing(event_type=event_type, num_events=num_events)
+        if callback:
+            for event in events:
+                callback(event)
+
+        return events
 
     def clean_event(self, event):
         core_events.clean_event(event, to_archive=self.to_archive)

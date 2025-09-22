@@ -8,7 +8,7 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2019 - 2025
 
-import time
+import math
 import traceback
 import threading
 import uuid
@@ -16,8 +16,7 @@ import uuid
 from idds.common import exceptions
 from idds.common.constants import Sections
 from idds.common.constants import (MessageType, MessageTypeStr,
-                                   MessageStatus, MessageSource,
-                                   ReturnCode)
+                                   MessageStatus, MessageSource)
 from idds.common.plugin.plugin_base import PluginBase
 from idds.common.plugin.plugin_utils import load_plugins, load_plugin_sequence
 from idds.common.utils import get_process_thread_info
@@ -154,6 +153,9 @@ class BaseAgent(TimerScheduler, PluginBase):
     def get_num_hang_active_workers(self):
         return self.num_hang_workers, self.num_active_workers
 
+    def get_event_bulk_size(self):
+        return math.ceil(self.get_num_free_workers() / 2)
+
     def init_event_function_map(self):
         self.event_func_map = {}
 
@@ -161,48 +163,14 @@ class BaseAgent(TimerScheduler, PluginBase):
         return self.event_func_map
 
     def execute_event_schedule(self):
-        event_ids = list(self.event_futures.keys())
-        self.num_hang_workers, self.num_active_workers = 0, len(event_ids)
-
-        for event_id in event_ids:
-            event, future, start_time = self.event_futures[event_id]
-            if future.done():
-                ret = future.result()
-                status = "finished"
-                end_time = time.time()
-                if ret is None or ret == 0:
-                    self.event_bus.clean_event(event)
-                elif ret == ReturnCode.Locked.value:
-                    status = "locked"
-                    self.event_bus.fail_event(event)
-                else:
-                    status = "failed"
-                    self.event_bus.fail_event(event)
-                del self.event_futures[event_id]
-                self.event_bus.send_report(event, status, start_time, end_time, self.get_hostname(), ret)
-                if status == 'locked':
-                    self.logger.warning("Corresponding resource is locked, put the event back again: %s" % json_dumps(event))
-                    event.requeue()
-                    self.event_bus.send(event)
-            else:
-                if time.time() - start_time > self.max_worker_exec_time:
-                    self.num_hang_workers += 1
-
         event_funcs = self.get_event_function_map()
         for event_type in event_funcs:
             exec_func = event_funcs[event_type]['exec_func']
-            # pre_check = event_funcs[event_type]['pre_check']
-            to_exec_at = event_funcs[event_type].get("to_exec_at", None)
-            if to_exec_at is None or to_exec_at < time.time():
-                # if pre_check():
-                num_free_workers = self.executors.get_num_free_workers()
-                if num_free_workers > 0:
-                    events = self.event_bus.get(event_type, num_free_workers)
-                    if events:
-                        for event in events:
-                            future = self.executors.submit(exec_func, event)
-                            self.event_futures[event._id] = (event, future, time.time())
-                event_funcs[event_type]["to_exec_at"] = time.time() + self.event_interval_delay
+            bulk_size = self.get_event_bulk_size()
+            if bulk_size > 0:
+                events = self.event_bus.get(event_type, num_events=bulk_size, wait=2, callback=None)
+                for event in events:
+                    self.submit(exec_func, event)
 
     def execute_schedules(self):
         # self.execute_timer_schedule()

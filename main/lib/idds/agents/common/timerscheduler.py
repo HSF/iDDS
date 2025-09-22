@@ -84,6 +84,15 @@ class TimerScheduler(threading.Thread):
         executors = IDDSThreadPoolExecutor(max_workers=max_workers, thread_name_prefix=name)
         return executors
 
+    def get_max_workers(self):
+        return self.executors.get_max_workers()
+
+    def get_num_workers(self):
+        return self.executors.get_num_workers()
+
+    def get_num_free_workers(self):
+        return self.executors.get_num_free_workers()
+
     def create_task(self, task_func, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=10, priority=1):
         return TimerTask(task_func, task_output_queue, task_args, task_kwargs, delay_time, priority, self.logger)
 
@@ -109,6 +118,11 @@ class TimerScheduler(threading.Thread):
                 heapq.heappop(self._task_queue)
                 return task
         return None
+
+    def submit(self, fn, *args, **kwargs):
+        self.logger.info(f"Executors submit: func: {fn}, args: {args}, kwargs: {kwargs}")
+        future = self.executors.submit(fn, *args, **kwargs)
+        return future
 
     def execute_task(self, task):
         # self.logger.info('execute task: %s' % task)
