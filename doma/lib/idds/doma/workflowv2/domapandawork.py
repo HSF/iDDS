@@ -279,6 +279,18 @@ class DomaPanDAWork(Work):
         self.num_inputs = num_inputs
         self.num_dependencies = num_dependencies
 
+        if self.dependency_tasks is None:
+            self.logger.debug("constructing dependency_tasks set")
+            dependency_tasks = set([])
+            for job in self._dependency_map:
+                inputs_dependency = job["dependencies"]
+
+                for input_d in inputs_dependency:
+                    task_name = input_d['task']
+                    if task_name not in dependency_tasks:
+                        dependency_tasks.add(task_name)
+            self.dependency_tasks = list(dependency_tasks)
+
         if self.es:
             self.construct_es_files()
 
