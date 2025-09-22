@@ -47,6 +47,9 @@ RUN wget https://download.oracle.com/otn_software/linux/instantclient/oracle-ins
     wget https://download.oracle.com/otn_software/linux/instantclient/oracle-instantclient-devel-linuxx64.rpm -P /tmp/ && \
     yum install -y /tmp/oracle-instantclient-devel-linuxx64.rpm
 
+# install NATS
+RUN yum install -y https://github.com/nats-io/nats-server/releases/download/v2.11.9/nats-server-v2.11.9-amd64.rpm https://github.com/nats-io/natscli/releases/download/v0.2.4/nats-0.2.4-amd64.rpm
+
 # RUN curl http://repository.egi.eu/sw/production/cas/1/current/repo-files/EGI-trustanchors.repo -o /etc/yum.repos.d/EGI-trustanchors.repo/
 RUN curl https://repository.egi.eu/sw/production/cas/1/current/repo-files/egi-trustanchors.repo -o /etc/yum.repos.d/EGI-trustanchors.repo
 
@@ -100,7 +103,7 @@ RUN source /etc/profile.d/conda.sh; conda activate /opt/idds; python3 -m pip ins
 RUN source /etc/profile.d/conda.sh; conda activate /opt/idds; python3 -m pip install --no-cache-dir --upgrade setuptools
 
 RUN source /etc/profile.d/conda.sh; conda activate /opt/idds; python3 -m pip install --no-cache-dir --upgrade requests SQLAlchemy urllib3 retrying mod_wsgi flask futures stomp.py cx-Oracle oracledb unittest2 pep8 flake8 pytest nose sphinx recommonmark sphinx-rtd-theme nevergrad
-RUN source /etc/profile.d/conda.sh; conda activate /opt/idds; python3 -m pip install --no-cache-dir --upgrade psycopg2-binary
+RUN source /etc/profile.d/conda.sh; conda activate /opt/idds; python3 -m pip install --no-cache-dir --upgrade psycopg2-binary nats-py asyncio
 RUN source /etc/profile.d/conda.sh; conda activate /opt/idds; python3 -m pip install --no-cache-dir --upgrade rucio-clients-atlas rucio-clients panda-client-light
 
 
@@ -159,6 +162,7 @@ RUN ln -fs /opt/idds/config/idds/supervisord_httpd.ini /etc/supervisord.d/httpd.
 RUN ln -fs /opt/idds/config/idds/supervisord_logrotate.ini /etc/supervisord.d/logrotate.ini
 RUN ln -fs /opt/idds/config/idds/supervisord_healthmonitor.ini /etc/supervisord.d/healthmonitor.ini
 RUN ln -fs /opt/idds/config/idds/logrotate_idds /etc/logrotate.d/idds
+RUN ln -fs /opt/idds/config/idds/supervisord_nats.ini /etc/supervisord.d/nats.ini
 
 # for syslog-ng
 RUN mv /etc/syslog-ng/syslog-ng.conf /etc/syslog-ng/syslog-ng.conf.back

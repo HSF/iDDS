@@ -246,6 +246,16 @@ if [ ! -h /var/lib/redis ]; then
 fi
 /usr/bin/redis-server /etc/redis/redis.conf --supervised systemd &
 
+# start NATS
+cp /opt/idds/config_default/supervisord_nats.ini /opt/idds/config/idds/supervisord_nats.ini
+cp /opt/idds/config_default/nats_daemon.sh /opt/idds/config/idds/nats_daemon.sh
+chmod +x /opt/idds/config/idds/nats_daemon.sh
+if [ ! -z "$NATS_TOKEN" ]; then
+    # Replace ${NATS_TOKEN} in the file with the actual value
+    sed -i "s|\${NATS_TOKEN}|$NATS_TOKEN|g" /opt/idds/config/idds/nats_daemon.sh
+fi
+
+
 echo "clean heartbeats"
 python /opt/idds/tools/env/clean_heartbeat.py
 
