@@ -9,7 +9,6 @@
 # - Wen Guan, <wen.guan@cern.ch>, 2023 - 2025
 
 import logging
-import json
 import os
 import socket
 import asyncio
@@ -69,7 +68,6 @@ class NATSCoordinator(BaseAgent):
         self.init_local_nats()
 
         self.selected_nats_server = None
-        self.selected_nats = None
 
     def init_local_nats(self):
         hostname = socket.getfqdn()
@@ -116,12 +114,9 @@ class NATSCoordinator(BaseAgent):
         return payload
 
     def set_selected_nats_server(self, nats_server):
-        if not nats_server:
-            if self.selected_nats is not None:
-                asyncio.run(self.selected_nats.close())
-            self.selected_nats_server = None
-            self.logger.info(f"No selected NATS: {nats_server}")
-            return False
+        self.selected_nats_server = nats_server
+        return self.selected_nats_server
+
         if not self.selected_nats_server or self.selected_nats_server != nats_server:
             # set new nats_server
             if self.selected_nats is not None:
@@ -137,6 +132,8 @@ class NATSCoordinator(BaseAgent):
         return False
 
     def get_selected_nats_server(self):
+        return self.selected_nats_server
+
         if self.selected_nats:
             if not self.selected_nats.is_connected and self.selected_nats_server:
                 asyncio.run(self.selected_nats.connect(
@@ -167,14 +164,21 @@ class NATSCoordinator(BaseAgent):
     def send(self, event):
         async def publish_event(event):
             try:
-                nc = self.get_selected_nats_server()
-                if nc:
+                nats_server = self.get_selected_nats_server()
+                if nats_server:
+                    nc = NATS()
+                    await nc.connect(
+                        servers=[nats_server["nats_url"]],
+                        token=nats_server["nats_token"]
+                    )
+                    self.logger.info(f"Connected to selected NATS: {nats_server}")
+
                     js = nc.jetstream()
                     await js.publish(f"event.{event.event_type}", json_dumps(event).encode("utf-8"), timeout=5)
                     # await nc.flush()
                     self.logger.debug(f"Published event.{event.event_type}: {json_dumps(event)}")
                 else:
-                    self.logger.error(f"Failed to published event.{event.event_type} because of NATS is not available(nats: {nc}): {json_dumps(event)}")
+                    self.logger.error(f"Failed to published event.{event.event_type} because of NATS is not available(nats: {nats_server}): {json_dumps(event)}")
             except Exception as e:
                 self.logger.error(f"Failed to publish event.{event.event_type}: {json_dumps(event)}: {e}")
 
@@ -187,8 +191,15 @@ class NATSCoordinator(BaseAgent):
     def get(self, event_type, num_events=1, wait=5, callback=None):
         async def fetch_events():
             try:
-                nc = self.get_selected_nats_server()
-                if nc:
+                nats_server = self.get_selected_nats_server()
+                if nats_server:
+                    nc = NATS()
+                    await nc.connect(
+                        servers=[nats_server["nats_url"]],
+                        token=nats_server["nats_token"]
+                    )
+                    self.logger.info(f"Connected to selected NATS: {nats_server}")
+
                     js = nc.jetstream()
                     short_hostname = socket.gethostname().split(".")[0]
                     durable = f"event.{event_type}.{short_hostname}"
@@ -205,7 +216,7 @@ class NATSCoordinator(BaseAgent):
                 else:
                     if self.show_get_events_time is None or self.show_get_events_time + self.show_get_events_time_interval > time.time():
                         self.show_get_events_time = time.time()
-                        self.logger.error(f"Failed to get event.{event_type} because of NATS is not available(nats: {nc})")
+                        self.logger.error(f"Failed to get event.{event_type} because of NATS is not available(nats: {nats_server})")
             except NATSTimeoutError:
                 pass
             except Exception as e:
@@ -226,21 +237,30 @@ class NATSCoordinator(BaseAgent):
     def show_stream_info(self):
         async def show():
             try:
-                nc = self.get_selected_nats_server()
-                if nc:
+                nats_server = self.get_selected_nats_server()
+                if nats_server:
+                    nc = NATS()
+                    await nc.connect(
+                        servers=[nats_server["nats_url"]],
+                        token=nats_server["nats_token"]
+                    )
+                    self.logger.info(f"Connected to selected NATS: {nats_server}")
+
                     js = nc.jetstream()
                     # streams = await js.stream_names()
-                    resp = await nc.request("$JS.API.STREAM.LIST", b'{}')
-                    streams = json.loads(resp.data.decode())["streams"]
+                    # resp = await nc.request("$JS.API.STREAM.LIST", b'{}')
+                    # streams = json.loads(resp.data.decode())["streams"]
+                    streams = await js.streams_info()
 
                     report = ""
                     for stream_conf in streams:
-                        stream = stream_conf["config"]["name"]
+                        stream = stream_conf.config.name
                         sinfo = await js.stream_info(stream)
                         report += f"Stream {stream} info: {sinfo}\n"
 
-                        consumers = await js.consumer_names(stream)
-                        for consumer in consumers:
+                        consumers = await js.consumers_info(stream)
+                        for consumer_conf in consumers:
+                            consumer = consumer_conf.name
                             cinfo = await js.consumer_info(stream, consumer)
                             report += f"    Consumer info: {cinfo}\n"
                     self.logger.info(report)
