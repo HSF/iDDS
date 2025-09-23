@@ -48,7 +48,7 @@ class NATSCoordinator(BaseAgent):
         self.max_queued_events = int(max_queued_events or 20)
         self.max_total_files_for_small_task = int(max_total_files_for_small_task or 1000)
         self.interval_delay_for_big_task = int(interval_delay_for_big_task or 300)
-        self.show_queued_events_time_interval = int(show_queued_events_time_interval, 300)
+        self.show_queued_events_time_interval = int(show_queued_events_time_interval or 300)
 
         self._lock = threading.RLock()
         self.logger = get_logger(self.__class__.__name__)
@@ -89,7 +89,7 @@ class NATSCoordinator(BaseAgent):
         return success
 
     def __del__(self):
-        self.stop_coordinator()
+        self.stop()
 
     def is_ready(self):
         return self.is_local_nats_ok
