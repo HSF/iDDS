@@ -97,7 +97,7 @@ class NATSCoordinator(BaseAgent):
     def get_health_payload(self):
         payload = super(NATSCoordinator, self).get_health_payload()
 
-        ok = self.check_nats_status()
+        ok = self.check_local_nats_status()
         nats_server = {"nats_url": self.nats_url_local, "nats_token": self.nats_token_local} if ok else None
 
         if payload:
