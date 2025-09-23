@@ -9,6 +9,7 @@
 # - Wen Guan, <wen.guan@cern.ch>, 2023 - 2025
 
 import logging
+import json
 import os
 import socket
 import asyncio
@@ -228,9 +229,13 @@ class NATSCoordinator(BaseAgent):
                 nc = self.get_selected_nats_server()
                 if nc:
                     js = nc.jetstream()
-                    streams = await js.stream_names()
+                    # streams = await js.stream_names()
+                    resp = await nc.request("$JS.API.STREAM.LIST", b'{}')
+                    streams = json.loads(resp.data.decode())["streams"]
+
                     report = ""
-                    for stream in streams:
+                    for stream_conf in streams:
+                        stream = stream_conf["config"]["name"]
                         sinfo = await js.stream_info(stream)
                         report += f"Stream {stream} info: {sinfo}\n"
 
