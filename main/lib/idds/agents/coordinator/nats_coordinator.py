@@ -117,31 +117,8 @@ class NATSCoordinator(BaseAgent):
         self.selected_nats_server = nats_server
         return self.selected_nats_server
 
-        if not self.selected_nats_server or self.selected_nats_server != nats_server:
-            # set new nats_server
-            if self.selected_nats is not None:
-                asyncio.run(self.selected_nats.close())
-            self.selected_nats = NATS()
-            asyncio.run(self.selected_nats.connect(
-                servers=[nats_server["nats_url"]],
-                token=nats_server["nats_token"]
-            ))
-            self.selected_nats_server = nats_server
-            self.logger.info(f"Connected to selected NATS: {nats_server}")
-            return True
-        return False
-
     def get_selected_nats_server(self):
         return self.selected_nats_server
-
-        if self.selected_nats:
-            if not self.selected_nats.is_connected and self.selected_nats_server:
-                asyncio.run(self.selected_nats.connect(
-                    servers=[self.selected_nats_server["nats_url"]],
-                    token=self.selected_nats_server["nats_token"]
-                ))
-            return self.selected_nats
-        return None
 
     def select_coordinator(self):
         self.health_heartbeat(self.coordination_interval_delay)
