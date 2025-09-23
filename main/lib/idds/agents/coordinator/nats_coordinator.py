@@ -191,6 +191,7 @@ class NATSCoordinator(BaseAgent):
                             callback(data)
                         await msg.ack()
                         data_all.append(data)
+                    self.logger.debug(f"Get event.{event_type.name}: {data_all}")
                     return data_all
                 else:
                     if self.show_get_events_time is None or self.show_get_events_time + self.show_get_events_time_interval > time.time():
@@ -287,8 +288,6 @@ class NATSCoordinator(BaseAgent):
 
     def stop(self):
         super(NATSCoordinator, self).stop()
-        if self.selected_nats and self.selected_nats.is_connected:
-            asyncio.run(self.selected_nats.close())
 
 
 if __name__ == '__main__':
