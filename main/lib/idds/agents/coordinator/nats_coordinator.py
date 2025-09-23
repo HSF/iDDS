@@ -139,11 +139,14 @@ class NATSCoordinator(BaseAgent):
             newer_than=self.coordination_interval_delay * 2
         )
         self.logger.debug("Selected coordinator: %s" % self.selected_coordinator)
-        payload = json_loads(self.selected_coordinator['payload'])
-        selected_nats_server = payload['nats_server']
-        ok = self.set_selected_nats_server(selected_nats_server)
-        if ok:
-            self.event_bus.set_coordinator(self)
+        if self.selected_coordinator:
+            payload = json_loads(self.selected_coordinator['payload'])
+            selected_nats_server = payload['nats_server']
+            ok = self.set_selected_nats_server(selected_nats_server)
+            if ok:
+                self.event_bus.set_coordinator(self)
+            else:
+                self.event_bus.set_coordinator(None)
         else:
             self.event_bus.set_coordinator(None)
 
