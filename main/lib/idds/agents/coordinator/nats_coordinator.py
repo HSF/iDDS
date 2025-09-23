@@ -8,6 +8,7 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2023 - 2025
 
+import logging
 import os
 import socket
 import asyncio
@@ -24,6 +25,7 @@ from idds.core import health as core_health
 from idds.agents.common.baseagent import BaseAgent
 
 
+logging.getLogger("asyncio").setLevel(logging.WARNING)
 setup_logging(__name__)
 
 

@@ -233,6 +233,9 @@ fi
 # get vomsproxy renew
 cp /opt/idds/config_default/vomsprox-renew /opt/idds/config/vomsprox-renew
 chmod +x /opt/idds/config/vomsprox-renew
+if [ -d "/opt/idds/sandbox/vomses" ] && [ ! -e "/etc/vomses" ]; then
+    ln -s /opt/idds/sandbox/vomses /etc/vomses
+fi
 
 # fetch-crl cron
 cronExec=/opt/idds/cronExec
