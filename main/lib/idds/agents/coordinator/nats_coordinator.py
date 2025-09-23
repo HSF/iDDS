@@ -15,8 +15,9 @@ import asyncio
 import time
 import threading
 import traceback
-from nats.errors import TimeoutError as NATSTimeoutError
 from nats.aio.client import Client as NATS
+from nats.errors import TimeoutError as NATSTimeoutError
+from nats.js.errors import NotFoundError as NATSNotFoundError
 
 from idds.common.constants import (Sections)
 from idds.common.exceptions import IDDSException
@@ -114,6 +115,7 @@ class NATSCoordinator(BaseAgent):
         return payload
 
     def set_selected_nats_server(self, nats_server):
+        self.logger.debug(f"Set NATS server: {nats_server}")
         self.selected_nats_server = nats_server
         return self.selected_nats_server
 
@@ -148,7 +150,7 @@ class NATSCoordinator(BaseAgent):
                         servers=[nats_server["nats_url"]],
                         token=nats_server["nats_token"]
                     )
-                    self.logger.info(f"Connected to selected NATS: {nats_server}")
+                    # self.logger.info(f"Connected to selected NATS: {nats_server}")
 
                     js = nc.jetstream()
                     await js.publish(f"event.{event.event_type}", json_dumps(event).encode("utf-8"), timeout=5)
@@ -175,7 +177,7 @@ class NATSCoordinator(BaseAgent):
                         servers=[nats_server["nats_url"]],
                         token=nats_server["nats_token"]
                     )
-                    self.logger.info(f"Connected to selected NATS: {nats_server}")
+                    # self.logger.info(f"Connected to selected NATS: {nats_server}")
 
                     js = nc.jetstream()
                     short_hostname = socket.gethostname().split(".")[0]
@@ -195,6 +197,8 @@ class NATSCoordinator(BaseAgent):
                         self.show_get_events_time = time.time()
                         self.logger.error(f"Failed to get event.{event_type} because of NATS is not available(nats: {nats_server})")
             except NATSTimeoutError:
+                pass
+            except NATSNotFoundError:
                 pass
             except Exception as e:
                 self.logger.error(f"Failed to get event.{event_type}: {e}")
