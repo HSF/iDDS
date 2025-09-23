@@ -169,7 +169,7 @@ class NATSCoordinator(BaseAgent):
                 nc = self.get_selected_nats_server()
                 if nc:
                     js = nc.jetstream()
-                    await js.publish(f"event.{event.event_type}", json_dumps(event).encode("utf-8"))
+                    await js.publish(f"event.{event.event_type}", json_dumps(event).encode("utf-8"), timeout=5)
                     # await nc.flush()
                     self.logger.debug(f"Published event.{event.event_type}: {json_dumps(event)}")
                 else:
@@ -183,7 +183,7 @@ class NATSCoordinator(BaseAgent):
         for event in events:
             self.send(event)
 
-    def get(self, event_type, num_events=1, wait=1, callback=None):
+    def get(self, event_type, num_events=1, wait=5, callback=None):
         async def fetch_events():
             try:
                 nc = self.get_selected_nats_server()
