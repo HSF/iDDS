@@ -36,7 +36,9 @@ class NATSCoordinator(BaseAgent):
                  max_total_files_for_small_task=1000,
                  interval_delay_for_big_task=60,
                  max_boost_interval_delay=3,
-                 show_queued_events_time_interval=300, **kwargs):
+                 show_queued_events_time_interval=300,
+                 show_get_events_time_interval=300,
+                 **kwargs):
         super(NATSCoordinator, self).__init__(num_threads=num_threads, name='Coordinator', **kwargs)
         self.config_section = Sections.Coordinator
 
@@ -54,6 +56,8 @@ class NATSCoordinator(BaseAgent):
         self.logger = get_logger(self.__class__.__name__)
 
         self.show_queued_events_time = None
+        self.show_get_events_time = None
+        self.show_get_events_time_interval = int(show_get_events_time_interval or 300)
 
         self.is_local_nats_ok = False
         self.nats_url_local = None
@@ -112,7 +116,7 @@ class NATSCoordinator(BaseAgent):
             if self.selected_nats is not None:
                 asyncio.run(self.selected_nats.close())
             self.selected_nats_server = None
-            self.logger.info(f"Connected to selected NATS: {nats_server}")
+            self.logger.info(f"No selected NATS: {nats_server}")
             return False
         if not self.selected_nats_server or self.selected_nats_server != nats_server:
             # set new nats_server
@@ -135,7 +139,7 @@ class NATSCoordinator(BaseAgent):
                     servers=[self.selected_nats_server["nats_url"]],
                     token=self.selected_nats_server["nats_token"]
                 ))
-                return self.selected_nats
+            return self.selected_nats
         return None
 
     def select_coordinator(self):
@@ -192,7 +196,9 @@ class NATSCoordinator(BaseAgent):
                         await msg.ack()
                     return msgs
                 else:
-                    self.logger.error(f"Failed to get event.{event_type} because of NATS is not available(nats: {nc})")
+                    if self.show_get_events_time is None or self.show_get_events_time + self.show_get_events_time_interval > time.time():
+                        self.show_get_events_time = time.time()
+                        self.logger.error(f"Failed to get event.{event_type} because of NATS is not available(nats: {nc})")
             except Exception as e:
                 self.logger.error(f"Failed to get event.{event_type}: {e}")
             return []
@@ -230,7 +236,9 @@ class NATSCoordinator(BaseAgent):
             except Exception as ex:
                 self.logger.error(f"Failed show stream information: {ex}")
                 self.logger.error(traceback.format_exc())
-        asyncio.run(show())
+        if self.show_queued_events_time is None or self.show_queued_events_time + self.show_queued_events_time_interval > time.time():
+            asyncio.run(show())
+            self.show_queued_events_time = time.time()
 
     def coordinate(self):
         self.select_coordinator()
