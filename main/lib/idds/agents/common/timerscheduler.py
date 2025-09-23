@@ -9,6 +9,7 @@
 # - Wen Guan, <wen.guan@cern.ch>, 2020 - 2023
 
 
+import logging
 import heapq
 import threading
 import traceback
@@ -40,6 +41,10 @@ class IDDSThreadPoolExecutor(futures.ThreadPoolExecutor):
         with self._lock:
             for future in self.futures.copy():
                 if future.done():
+                    try:
+                        future.result()
+                    except Exception as ex:
+                        logging.info(f"Executor pool execution exception: {ex}")
                     self.futures.remove(future)
             return len(self.futures)
 
@@ -120,9 +125,12 @@ class TimerScheduler(threading.Thread):
         return None
 
     def submit(self, fn, *args, **kwargs):
-        self.logger.info(f"Executors submit: func: {fn}, args: {args}, kwargs: {kwargs}")
-        future = self.executors.submit(fn, *args, **kwargs)
-        return future
+        try:
+            self.logger.info(f"Executors submit: func: {fn}, args: {args}, kwargs: {kwargs}")
+            future = self.executors.submit(fn, *args, **kwargs)
+            return future
+        except Exception as ex:
+            self.logger.error(f"Executors submit failed: {ex}")
 
     def execute_task(self, task):
         # self.logger.info('execute task: %s' % task)

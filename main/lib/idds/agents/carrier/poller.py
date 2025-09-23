@@ -137,12 +137,9 @@ class Poller(BaseAgent):
         if self.show_queue_size_time is None or time.time() - self.show_queue_size_time >= 600:
             self.show_queue_size_time = time.time()
 
-            q_str = "number of processings: %s, max number of processings: %s" % (self.number_workers, self.max_number_workers)
-            self.logger.debug(q_str)
-
             exec_max_workers = self.executors.get_max_workers()
             exec_num_workers = self.executors.get_num_workers()
-            q_str = "Executor number of processings: %s, max number of processings: %s" % (exec_num_workers, exec_max_workers)
+            q_str = "number of processings: %s, max number of processings: %s" % (exec_num_workers, exec_max_workers)
             self.logger.debug(q_str)
 
     def init(self):
@@ -602,11 +599,11 @@ class Poller(BaseAgent):
                    'update_contents': []}
         return ret
 
-    def process_update_processing(self, event):
+    def process_update_processing(self, event=None, processing=None):
         self.number_workers += 1
         pro_ret = ReturnCode.Ok.value
         try:
-            if event:
+            if processing is None and event:
                 original_event = event
                 self.logger.info("process_update_processing, event: %s" % str(event))
 
@@ -624,41 +621,44 @@ class Poller(BaseAgent):
                     self.update_processing(ret, pr, renew_updated_at=True)
                     pro_ret = ReturnCode.Ok.value
                 else:
-                    log_pre = self.get_log_prefix(pr)
+                    processing = pr
+            if processing:
+                pr = processing
+                log_pre = self.get_log_prefix(pr)
 
-                    self.logger.info(log_pre + "process_update_processing")
-                    if pr['processing_type'] and pr['processing_type'] in [ProcessingType.iWorkflow, ProcessingType.iWork]:
-                        ret = self.handle_update_iprocessing(pr)
-                    else:
-                        ret = self.handle_update_processing(pr)
-                    # self.logger.info(log_pre + "process_update_processing result: %s" % str(ret))
+                self.logger.info(log_pre + "process_update_processing")
+                if pr['processing_type'] and pr['processing_type'] in [ProcessingType.iWorkflow, ProcessingType.iWork]:
+                    ret = self.handle_update_iprocessing(pr)
+                else:
+                    ret = self.handle_update_processing(pr)
+                # self.logger.info(log_pre + "process_update_processing result: %s" % str(ret))
 
-                    self.update_processing(ret, pr, renew_updated_at=True)
+                self.update_processing(ret, pr, renew_updated_at=True)
 
-                    if 'processing_status' in ret and ret['processing_status'] == ProcessingStatus.Triggering:
-                        event_content = {}
-                        if (('update_contents' in ret and ret['update_contents']) or ('new_contents' in ret and ret['new_contents'])):
-                            event_content['has_updates'] = True
-                        if is_process_terminated(pr['substatus']):
-                            event_content['Terminated'] = True
-                            event_content['is_terminating'] = True
-                        self.logger.info(log_pre + "TriggerProcessingEvent(processing_id: %s)" % pr['processing_id'])
-                        event = TriggerProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'], content=event_content,
-                                                       counter=original_event._counter)
+                if 'processing_status' in ret and ret['processing_status'] == ProcessingStatus.Triggering:
+                    event_content = {}
+                    if (('update_contents' in ret and ret['update_contents']) or ('new_contents' in ret and ret['new_contents'])):
+                        event_content['has_updates'] = True
+                    if is_process_terminated(pr['substatus']):
+                        event_content['Terminated'] = True
+                        event_content['is_terminating'] = True
+                    self.logger.info(log_pre + "TriggerProcessingEvent(processing_id: %s)" % pr['processing_id'])
+                    event = TriggerProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'], content=event_content,
+                                                   counter=original_event._counter)
+                    self.event_bus.send(event)
+                elif 'processing_status' in ret and ret['processing_status'] == ProcessingStatus.Terminating:
+                    self.logger.info(log_pre + "TerminatedProcessingEvent(processing_id: %s)" % pr['processing_id'])
+                    event = TerminatedProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'],
+                                                      counter=original_event._counter if original_event else 0)
+                    event.set_terminating()
+                    self.event_bus.send(event)
+                else:
+                    if 'processing_status' in ret and ret['processing_status'] == ProcessingStatus.Synchronizing:
+                        self.logger.info(log_pre + "SyncProcessingEvent(processing_id: %s)" % pr['processing_id'])
+                        event = SyncProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'],
+                                                    counter=original_event._counter if original_event else 0)
+                        event.set_has_updates()
                         self.event_bus.send(event)
-                    elif 'processing_status' in ret and ret['processing_status'] == ProcessingStatus.Terminating:
-                        self.logger.info(log_pre + "TerminatedProcessingEvent(processing_id: %s)" % pr['processing_id'])
-                        event = TerminatedProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'],
-                                                          counter=original_event._counter)
-                        event.set_terminating()
-                        self.event_bus.send(event)
-                    else:
-                        if 'processing_status' in ret and ret['processing_status'] == ProcessingStatus.Synchronizing:
-                            self.logger.info(log_pre + "SyncProcessingEvent(processing_id: %s)" % pr['processing_id'])
-                            event = SyncProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'],
-                                                        counter=original_event._counter)
-                            event.set_has_updates()
-                            self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())

@@ -230,10 +230,15 @@ if ! [ -f /opt/idds/config/.token ]; then
     fi
 fi
 
+# get vomsproxy renew
+cp /opt/idds/config_default/vomsprox-renew /opt/idds/config/vomsprox-renew
+chmod +x /opt/idds/config/vomsprox-renew
+
 # fetch-crl cron
 cronExec=/opt/idds/cronExec
 cat <<EOT >> ${cronExec}
 while true; do /usr/sbin/fetch-crl; sleep 36000; done &
+while true; do /opt/idds/config/vomsprox-renew; sleep 50000; done &
 EOT
 chmod +x ${cronExec}
 bash ${cronExec}

@@ -263,9 +263,9 @@ class Trigger(Poller):
             pro_ret = ReturnCode.Failed.value
         return pro_ret
 
-    def process_trigger_processing(self, event):
+    def process_trigger_processing(self, event=None, processing=None):
         self.number_workers += 1
-        ret = self.process_trigger_processing_real(event)
+        ret = self.process_trigger_processing_real(event=event, processing=processing)
         self.number_workers -= 1
         return ret
 
