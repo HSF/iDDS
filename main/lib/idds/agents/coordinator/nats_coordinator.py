@@ -14,6 +14,7 @@ import asyncio
 import time
 import threading
 import traceback
+from nats.errors import TimeoutError
 from nats.aio.client import Client as NATS
 
 from idds.common.constants import (Sections)
@@ -199,6 +200,8 @@ class NATSCoordinator(BaseAgent):
                     if self.show_get_events_time is None or self.show_get_events_time + self.show_get_events_time_interval > time.time():
                         self.show_get_events_time = time.time()
                         self.logger.error(f"Failed to get event.{event_type} because of NATS is not available(nats: {nc})")
+            except TimeoutError:
+                pass
             except Exception as e:
                 self.logger.error(f"Failed to get event.{event_type}: {e}")
             return []
