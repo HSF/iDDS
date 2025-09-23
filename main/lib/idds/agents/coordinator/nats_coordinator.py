@@ -181,8 +181,8 @@ class NATSCoordinator(BaseAgent):
 
                     js = nc.jetstream()
                     short_hostname = socket.gethostname().split(".")[0]
-                    durable = f"event.{event_type}.{short_hostname}"
-                    subscriber = await js.pull_subscribe(f"event.{event_type}", durable=durable)
+                    durable = f"event.{event_type.name}.{short_hostname}"
+                    subscriber = await js.pull_subscribe(f"event.{event_type.name}", durable=durable)
                     msgs = await subscriber.fetch(num_events, timeout=wait)
                     data_all = []
                     for msg in msgs:
@@ -195,13 +195,13 @@ class NATSCoordinator(BaseAgent):
                 else:
                     if self.show_get_events_time is None or self.show_get_events_time + self.show_get_events_time_interval > time.time():
                         self.show_get_events_time = time.time()
-                        self.logger.error(f"Failed to get event.{event_type} because of NATS is not available(nats: {nats_server})")
+                        self.logger.error(f"Failed to get event.{event_type.name} because of NATS is not available(nats: {nats_server})")
             except NATSTimeoutError:
                 pass
             except NATSNotFoundError:
                 pass
             except Exception as e:
-                self.logger.error(f"Failed to get event.{event_type}: {e}")
+                self.logger.error(f"Failed to get event.{event_type.name}: {e}")
             return []
         return asyncio.run(fetch_events())
 
