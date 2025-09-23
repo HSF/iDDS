@@ -14,7 +14,7 @@ import asyncio
 import time
 import threading
 import traceback
-from nats.errors import TimeoutError
+from nats.errors import TimeoutError as NATSTimeoutError
 from nats.aio.client import Client as NATS
 
 from idds.common.constants import (Sections)
@@ -167,7 +167,7 @@ class NATSCoordinator(BaseAgent):
                 nc = self.get_selected_nats_server()
                 if nc:
                     js = nc.jetstream()
-                    await js.publish(f"event.{event.event_type}", json_dumps(event))
+                    await js.publish(f"event.{event.event_type}", json_dumps(event).encode("utf-8"))
                     # await nc.flush()
                     self.logger.debug(f"Published event.{event.event_type}: {json_dumps(event)}")
                 else:
@@ -191,16 +191,19 @@ class NATSCoordinator(BaseAgent):
                     durable = f"event.{event_type}.{short_hostname}"
                     subscriber = await js.pull_subscribe(f"event.{event_type}", durable=durable)
                     msgs = await subscriber.fetch(num_events, timeout=wait)
+                    data_all = []
                     for msg in msgs:
+                        data = msg.data.decode("utf-8")
                         if callback:
-                            callback(msg)
+                            callback(data)
                         await msg.ack()
-                    return msgs
+                        data_all.append(data)
+                    return data_all
                 else:
                     if self.show_get_events_time is None or self.show_get_events_time + self.show_get_events_time_interval > time.time():
                         self.show_get_events_time = time.time()
                         self.logger.error(f"Failed to get event.{event_type} because of NATS is not available(nats: {nc})")
-            except TimeoutError:
+            except NATSTimeoutError:
                 pass
             except Exception as e:
                 self.logger.error(f"Failed to get event.{event_type}: {e}")
