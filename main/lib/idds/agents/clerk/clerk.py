@@ -1187,16 +1187,19 @@ class Clerk(BaseAgent):
         all_released_work_status = []
         for work in works:
             # print(work.get_work_id())
-            tf = core_transforms.get_transform(transform_id=work.get_work_id())
-            if tf:
-                all_released_work_status.append(tf['status'])
-                transform_work = tf['transform_metadata']['work']
-                # work_status = WorkStatus(tf['status'].value)
-                # work.set_status(work_status)
-                work.sync_work_data(status=tf['status'], substatus=tf['substatus'], work=transform_work, workload_id=tf['workload_id'])
-                self.logger.info(log_pre + "transform status: %s, work status: %s" % (tf['status'], work.status))
-            else:
-                tfs = core_transforms.get_transforms(request_id=req['request_id'], internal_ids=work.internal_id)
+            found_match_works = False
+            if work.get_work_id():
+                tf = core_transforms.get_transform(transform_id=work.get_work_id(), request_id=req['request_id'])
+                if tf:
+                    all_released_work_status.append(tf['status'])
+                    transform_work = tf['transform_metadata']['work']
+                    # work_status = WorkStatus(tf['status'].value)
+                    # work.set_status(work_status)
+                    work.sync_work_data(status=tf['status'], substatus=tf['substatus'], work=transform_work, workload_id=tf['workload_id'])
+                    self.logger.info(log_pre + "transform status: %s, work status: %s" % (tf['status'], work.status))
+                    found_match_works = True
+            if not found_match_works:
+                tfs = core_transforms.get_transforms(request_id=req['request_id'], internal_ids=work.internal_id, loop_index=work.get_loop_index())
                 if not tfs:
                     self.logger.info(f"{log_pre} Found transforms with request_id {req['request_id']} internal_ids [{work.internal_id}]: {tfs}")
                 else:
@@ -1228,7 +1231,7 @@ class Clerk(BaseAgent):
             # new works
             works = wf.get_new_works()
             for work in works:
-                tfs = core_transforms.get_transforms(request_id=req['request_id'], internal_ids=work.internal_id)
+                tfs = core_transforms.get_transforms(request_id=req['request_id'], internal_ids=work.internal_id, loop_index=work.get_loop_index())
                 if not tfs:
                     self.logger.info(f"{log_pre} Found transforms for new work with request_id {req['request_id']} internal_ids [{work.internal_id}]: {tfs}")
                 else:

@@ -113,3 +113,13 @@ yum install lcg-CA
 yum install redis
 systemctl start redis
 systemctl enable redis
+
+
+# install nats
+
+yum install -y https://github.com/nats-io/nats-server/releases/download/v2.11.9/nats-server-v2.11.9-amd64.rpm https://github.com/nats-io/natscli/releases/download/v0.2.4/nats-0.2.4-amd64.rpm
+source /etc/profile.d/conda.sh; conda activate /opt/idds;
+pip install nats-py asyncio
+
+nats --token my_default_token --server=127.0.0.1:4222 stream ls
+nats --server nats://127.0.0.1:4222 --token my_default_token stream ls

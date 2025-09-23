@@ -1070,6 +1070,9 @@ class Work(Base):
                     if "___idds___" not in coll.name:
                         coll.name = coll.name + "." + str(value)
 
+    def get_loop_index(self):
+        return self.num_run
+
     @property
     def primary_input_collection(self):
         if self._primary_input_collection:

@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2022 - 2023
+# - Wen Guan, <wen.guan@cern.ch>, 2022 - 2025
 
 IDDS_SERVICE=$1
 
@@ -162,6 +162,8 @@ else
     chmod 600 /etc/grid-security/hostkey.pem
 fi
 
+cp /opt/idds/config_default/httpd_daemon.sh /opt/idds/config/idds/httpd_daemon.sh
+
 mkdir -p /opt/idds/config/.panda/
 
 if [ ! -z "$IDDS_PRINT_CFG" ]; then
@@ -264,7 +266,8 @@ if [ "${IDDS_SERVICE}" == "rest" ]; then
   # systemctl restart httpd.service
   # systemctl enable httpd.service
   # systemctl status httpd.service
-  /usr/sbin/httpd
+  # /usr/sbin/httpd
+  /usr/bin/supervisord -c /etc/supervisord.conf
 elif [ "${IDDS_SERVICE}" == "daemon" ]; then
   echo "starting iDDS ${IDDS_SERVICE} service"
   # systemctl enable supervisord
