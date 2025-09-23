@@ -87,7 +87,6 @@ class Finisher(Poller):
             # next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_period)
             processings = core_processings.get_processings_by_status(status=processing_status,
                                                                      locking=True, update_poll=True,
-                                                                     # only_return_id=True,
                                                                      min_request_id=BaseAgent.min_request_id,
                                                                      bulk_size=self.retrieve_bulk_size)
 

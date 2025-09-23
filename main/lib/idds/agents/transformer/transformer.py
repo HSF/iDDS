@@ -376,7 +376,7 @@ class Transformer(BaseAgent):
             # next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_period)
             transforms_new = core_transforms.get_transforms_by_status(status=transform_status, locking=True,
                                                                       not_lock=True, order_by_fifo=True,
-                                                                      new_poll=True, only_return_id=True,
+                                                                      new_poll=True,
                                                                       min_request_id=BaseAgent.min_request_id,
                                                                       bulk_size=self.get_bulk_size())
 
@@ -422,7 +422,7 @@ class Transformer(BaseAgent):
                                                                   locking=True,
                                                                   not_lock=True,
                                                                   min_request_id=BaseAgent.min_request_id,
-                                                                  update_poll=True, only_return_id=True,
+                                                                  update_poll=True,
                                                                   bulk_size=self.get_bulk_size())
 
             # self.logger.debug("Main thread get %s transforming transforms to process" % len(transforms))
