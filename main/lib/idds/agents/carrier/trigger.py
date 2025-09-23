@@ -82,7 +82,7 @@ class Trigger(Poller):
                 self.logger.info("Main thread get [ToTrigger, Triggering] processings to process: %s" % (str(processing_ids)))
 
             for pr in processings:
-                self.submit(self.process_trigger_processing, kwargs={"processing": pr})
+                self.submit(self.process_trigger_processing, **{"processing": pr})
 
             return processings
         except exceptions.DatabaseException as ex:

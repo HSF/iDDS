@@ -70,7 +70,7 @@ class Submitter(Poller):
                 self.logger.info("Main thread get [new] processings to process: %s" % str(processing_ids))
 
             for pr in processings:
-                self.submit(self.process_new_processing, kwargs={"processing": pr})
+                self.submit(self.process_new_processing, **{"processing": pr})
 
             return processings
         except exceptions.DatabaseException as ex:
@@ -108,7 +108,7 @@ class Submitter(Poller):
                 self.logger.info("Main thread get [prepared] processings to process: %s" % str(processing_ids))
 
             for pr in processings:
-                self.submit(self.process_update_processing, kwargs={"processing": pr})
+                self.submit(self.process_update_processing, **{"processing": pr})
 
             return processings
         except exceptions.DatabaseException as ex:

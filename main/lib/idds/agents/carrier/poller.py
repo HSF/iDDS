@@ -185,7 +185,7 @@ class Poller(BaseAgent):
 
             for pr in processings:
                 # pr_id = pr['processing_id']
-                self.submit(self.process_update_processing, kwargs={"processing": pr})
+                self.submit(self.process_update_processing, **{"processing": pr})
 
             return processings
         except exceptions.DatabaseException as ex:

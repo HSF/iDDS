@@ -98,9 +98,9 @@ class Finisher(Poller):
             for pr in processings:
                 pr_status = pr['status']
                 if pr_status in [ProcessingStatus.Terminating]:
-                    self.submit(self.process_terminated_processing, kwargs={"processing": pr})
+                    self.submit(self.process_terminated_processing, **{"processing": pr})
                 elif pr_status in [ProcessingStatus.Synchronizing]:
-                    self.submit(self.process_sync_processing, kwargs={"processing": pr})
+                    self.submit(self.process_sync_processing, **{"processing": pr})
         except exceptions.DatabaseException as ex:
             if 'ORA-00060' in str(ex):
                 self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")

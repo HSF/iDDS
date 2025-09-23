@@ -386,7 +386,7 @@ class Transformer(BaseAgent):
                 self.logger.info("Main thread get New+Ready+Extend transforms to process: %s" % str(tf_ids))
 
             for tf in transforms_new:
-                self.submit(self.process_new_transform, kwargs={"transform": tf})
+                self.submit(self.process_new_transform, transform=tf)
 
             return transforms_new
         except exceptions.DatabaseException as ex:
@@ -431,7 +431,7 @@ class Transformer(BaseAgent):
                 self.logger.info("Main thread get transforming transforms to process: %s" % str(tf_ids))
 
             for tf in transforms:
-                self.submit(self.process_update_transform, kwargs={"transform": tf})
+                self.submit(self.process_update_transform, transform=tf)
 
             return transforms
         except exceptions.DatabaseException as ex:

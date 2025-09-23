@@ -198,7 +198,7 @@ class Clerk(BaseAgent):
 
             for req in reqs_new:
                 req_id = req["request_id"]
-                self.submit(self.process_new_request, kwargs={"request": req})
+                self.submit(self.process_new_request, **{"request": req})
                 BaseAgent.min_request_id_cache[req_id] = time.time()
                 if BaseAgent.min_request_id is None or BaseAgent.min_request_id > req_id:
                     BaseAgent.min_request_id = req_id
@@ -264,7 +264,7 @@ class Clerk(BaseAgent):
 
             for req in reqs:
                 req_id = req["request_id"]
-                self.submit(self.process_update_request, kwargs={"request": req})
+                self.submit(self.process_update_request, **{"request": req})
 
                 BaseAgent.min_request_id_cache[req_id] = time.time()
                 if BaseAgent.min_request_id is None or BaseAgent.min_request_id > req_id:
@@ -320,11 +320,11 @@ class Clerk(BaseAgent):
                     req = self.get_request(request_id, status=None, locking=True)
                     if req:
                         if cmd_type in [CommandType.AbortRequest]:
-                            self.submit(self.process_abort_request, kwargs={"request": req})
+                            self.submit(self.process_abort_request, **{"request": req})
                         elif cmd_type in [CommandType.ResumeRequest]:
-                            self.submit(self.process_resume_request, kwargs={"request": req})
+                            self.submit(self.process_resume_request, **{"request": req})
                         elif cmd_type in [CommandType.CloseRequest]:
-                            self.submit(self.process_close_request, kwargs={"request": req})
+                            self.submit(self.process_close_request, **{"request": req})
 
                         u_command = {'cmd_id': cmd['cmd_id'],
                                      'status': CommandStatus.Processing,
