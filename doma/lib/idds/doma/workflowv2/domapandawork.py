@@ -190,6 +190,15 @@ class DomaPanDAWork(Work):
         self.add_metadata_item('num_inputs', value)
 
     @property
+    def has_unmapped_jobs(self):
+        value = self.get_metadata_item('has_unmapped_jobs', True)
+        return value
+
+    @has_unmapped_jobs.setter
+    def has_unmapped_jobs(self, value):
+        self.add_metadata_item('has_unmapped_jobs', value)
+
+    @property
     def num_dependencies(self):
         num = self.get_metadata_item('num_dependencies', None)
         return num
@@ -491,7 +500,7 @@ class DomaPanDAWork(Work):
 
     def depend_on(self, work):
         self.logger.debug("checking depending on")
-        if self.dependency_tasks is None:
+        if not self.dependency_tasks:
             self.logger.debug("constructing dependency_tasks set")
             dependency_tasks = set([])
             for job in self.dependency_map:
@@ -511,6 +520,8 @@ class DomaPanDAWork(Work):
             return False
 
     def get_ancestry_works(self):
+        if self.dependency_tasks:
+            return self.dependency_tasks
         tasks = set([])
         for job in self.dependency_map:
             inputs_dependency = job["dependencies"]
@@ -616,6 +627,16 @@ class DomaPanDAWork(Work):
         return content
 
     def is_all_dependency_tasks_available(self, inputs_dependency, task_name_to_coll_map):
+        if self.dependency_tasks:
+            for task_name in self.dependency_tasks:
+                if (
+                    task_name not in task_name_to_coll_map                    # noqa: W503
+                    or 'outputs' not in task_name_to_coll_map[task_name]      # noqa: W503
+                    or not task_name_to_coll_map[task_name]['outputs']      # noqa: W503
+                ):
+                    return False
+            return True
+
         for input_d in inputs_dependency:
             task_name = input_d['task']
             if (task_name not in task_name_to_coll_map                    # noqa: W503
@@ -642,6 +663,8 @@ class DomaPanDAWork(Work):
         return False
 
     def get_parent_work_names(self):
+        if self.dependency_tasks:
+            return self.dependency_tasks
         parent_work_names = []
         for job in self.dependency_map:
             if "dependencies" in job and job["dependencies"]:
@@ -672,18 +695,23 @@ class DomaPanDAWork(Work):
         """
         new_input_output_maps = {}
 
+        task_name_to_coll_map = self.get_work_name_to_coll_map()
+        if self.dependency_tasks and not self.is_all_dependency_tasks_available([], task_name_to_coll_map):
+            # not all parent tasks available, wait
+            self.set_has_new_inputs(True)
+            return new_input_output_maps
+
         unmapped_jobs = self.get_unmapped_jobs(mapped_input_output_maps)
         if not unmapped_jobs:
             self.set_has_new_inputs(False)
             return new_input_output_maps
 
+        has_left_inputs = False
         if unmapped_jobs:
             input_coll = self.get_input_collections()[0]
             input_coll_id = input_coll.coll_id
             output_coll = self.get_output_collections()[0]
             output_coll_id = output_coll.coll_id
-
-            task_name_to_coll_map = self.get_work_name_to_coll_map()
 
             if not self.es:
                 mapped_keys = mapped_input_output_maps.keys()
@@ -721,6 +749,7 @@ class DomaPanDAWork(Work):
                         # self.dependency_map_deleted.append(job)
                         next_key += 1
                     else:
+                        has_left_inputs = True
                         # not all inputs for this job can be parsed.
                         # self.dependency_map.append(job)
                         pass
@@ -785,6 +814,12 @@ class DomaPanDAWork(Work):
                                     self.logger.debug("get_new_input_output_maps, duplicated input dependency for job %s: %s" % (job['name'], str(job["dependencies"])))
 
                             new_input_output_maps[next_key]["sub_maps"].append(sub_map)
+                    else:
+                        has_left_inputs = True
+        if has_left_inputs:
+            self.set_has_new_inputs(True)
+        else:
+            self.set_has_new_inputs(False)
 
         # self.logger.debug("get_new_input_output_maps, new_input_output_maps: %s" % str(new_input_output_maps))
         self.logger.debug("get_new_input_output_maps, new_input_output_maps len: %s" % len(new_input_output_maps))

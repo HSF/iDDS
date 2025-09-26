@@ -186,7 +186,6 @@ class Trigger(Poller):
         pro_ret = ReturnCode.Ok.value
         try:
             if processing is None and event:
-                original_event = event
                 # pr_status = [ProcessingStatus.New]
                 self.logger.info("process_trigger_processing, event: %s" % str(event))
                 pr = self.get_processing(processing_id=event._processing_id, status=None, exclude_status=[ProcessingStatus.Prepared], locking=True)
@@ -242,8 +241,7 @@ class Trigger(Poller):
                     self.logger.info(log_pre + "TerminatedProcessingEvent(processing_id: %s)" % pr['processing_id'])
                     event = TerminatedProcessingEvent(publisher_id=self.id,
                                                       processing_id=pr['processing_id'],
-                                                      content=event._content if event else None,
-                                                      counter=original_event._counter if original_event else 0)
+                                                      content=event._content if event else None)
                     event.set_terminating()
                     self.event_bus.send(event)
                 else:
@@ -254,8 +252,7 @@ class Trigger(Poller):
                         or has_updates):                                            # noqa E129
                         self.logger.info(log_pre + "SyncProcessingEvent(processing_id: %s)" % pr['processing_id'])
                         event = SyncProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'],
-                                                    content=event._content if event else None,
-                                                    counter=original_event._counter if original_event else 0)
+                                                    content=event._content if event else None)
                         self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)

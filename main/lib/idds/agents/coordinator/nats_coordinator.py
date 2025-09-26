@@ -169,6 +169,8 @@ class NATSCoordinator(BaseAgent):
 
     def get(self, event_type, num_events=1, wait=5, callback=None):
         async def fetch_events():
+            nc = None
+            data_all = []
             try:
                 nats_server = self.get_selected_nats_server()
                 if nats_server:
@@ -184,7 +186,6 @@ class NATSCoordinator(BaseAgent):
                     durable = f"event.{event_type.name}.{short_hostname}"
                     subscriber = await js.pull_subscribe(f"event.{event_type.name}", durable=durable)
                     msgs = await subscriber.fetch(num_events, timeout=wait)
-                    data_all = []
                     for msg in msgs:
                         data = msg.data.decode("utf-8")
                         if callback:
@@ -192,7 +193,6 @@ class NATSCoordinator(BaseAgent):
                         await msg.ack()
                         data_all.append(data)
                     self.logger.debug(f"Get event.{event_type.name}: {data_all}")
-                    return data_all
                 else:
                     if self.show_get_events_time is None or self.show_get_events_time + self.show_get_events_time_interval > time.time():
                         self.show_get_events_time = time.time()
@@ -203,7 +203,10 @@ class NATSCoordinator(BaseAgent):
                 pass
             except Exception as e:
                 self.logger.error(f"Failed to get event.{event_type.name}: {e}")
-            return []
+            finally:
+                if nc:
+                    await nc.close()
+            return data_all
         return asyncio.run(fetch_events())
 
     def send_report(self, event, status, start_time, end_time, source, result):

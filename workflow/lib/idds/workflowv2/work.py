@@ -700,6 +700,24 @@ class Work(Base):
         self.add_metadata_item('sequence_id', value)
 
     @property
+    def num_inputs(self):
+        num = self.get_metadata_item('num_inputs', None)
+        return num
+
+    @num_inputs.setter
+    def num_inputs(self, value):
+        self.add_metadata_item('num_inputs', value)
+
+    @property
+    def has_unmapped_jobs(self):
+        value = self.get_metadata_item('has_unmapped_jobs', True)
+        return value
+
+    @has_unmapped_jobs.setter
+    def has_unmapped_jobs(self, value):
+        self.add_metadata_item('has_unmapped_jobs', value)
+
+    @property
     def parameters(self):
         return self.get_metadata_item('parameters', None)
 

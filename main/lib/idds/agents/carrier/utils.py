@@ -1227,9 +1227,16 @@ def handle_update_processing(processing, agent_attributes, max_updates_per_round
         update_external_content_ids = get_update_external_content_ids(input_output_maps, external_content_ids)
         core_catalog.update_contents(update_external_content_ids)
 
-    new_input_output_maps = work.get_new_input_output_maps(input_output_maps)
-    logger.debug(log_prefix + "get_new_input_output_maps: len: %s" % len(new_input_output_maps))
-    logger.debug(log_prefix + "get_new_input_output_maps.keys[:3]: %s" % str(list(new_input_output_maps.keys())[:3]))
+    num_inputs = None
+    if hasattr(work, "num_inputs"):
+        num_inputs = work.num_inputs
+    num_input_output_maps = len(input_output_maps)
+    if processing["num_unmapped_jobs"] > 0 or work.has_new_inputs or (num_inputs is not None and num_inputs > num_input_output_maps):
+        new_input_output_maps = work.get_new_input_output_maps(input_output_maps)
+        logger.debug(log_prefix + "get_new_input_output_maps: len: %s" % len(new_input_output_maps))
+        logger.debug(log_prefix + "get_new_input_output_maps.keys[:3]: %s" % str(list(new_input_output_maps.keys())[:3]))
+    if num_inputs:
+        processing["num_unmapped_jobs"] = num_inputs - num_input_output_maps
 
     contents_ext = []
     if work.require_ext_contents():
@@ -1391,6 +1398,10 @@ def handle_update_processing(processing, agent_attributes, max_updates_per_round
 
     if len(ret_futures) > 0:
         wait_futures_finish(ret_futures, "handle_update_processing", logger, log_prefix)
+
+    if not parameters:
+        parameters = {}
+    parameters["num_unmapped_jobs"] = processing["num_unmapped_jobs"]
 
     # return process_status, new_contents, new_input_dependency_contents, ret_msgs, content_updates + content_updates_missing, parameters, new_contents_ext, update_contents_ext
     return process_status, [], [], ret_msgs, [], parameters, [], []

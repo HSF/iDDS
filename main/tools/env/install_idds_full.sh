@@ -121,5 +121,10 @@ yum install -y https://github.com/nats-io/nats-server/releases/download/v2.11.9/
 source /etc/profile.d/conda.sh; conda activate /opt/idds;
 pip install nats-py asyncio
 
+nats --server nats://127.0.0.1:4222 --token my_default_token pub "event.UpdateProcessing" '{"foo":"bar"}'
+
 nats --token my_default_token --server=127.0.0.1:4222 stream ls
 nats --server nats://127.0.0.1:4222 --token my_default_token stream ls
+nats --server nats://127.0.0.1:4222 --token my_default_token stream info event_stream
+nats --server nats://127.0.0.1:4222 --token my_default_token stream get event_stream --last-for=event.UpdateProcessing
+

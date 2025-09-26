@@ -604,7 +604,6 @@ class Poller(BaseAgent):
         pro_ret = ReturnCode.Ok.value
         try:
             if processing is None and event:
-                original_event = event
                 self.logger.info("process_update_processing, event: %s" % str(event))
 
                 pr = self.get_processing(processing_id=event._processing_id, status=None, exclude_status=[ProcessingStatus.Prepared], locking=True)
@@ -643,20 +642,17 @@ class Poller(BaseAgent):
                         event_content['Terminated'] = True
                         event_content['is_terminating'] = True
                     self.logger.info(log_pre + "TriggerProcessingEvent(processing_id: %s)" % pr['processing_id'])
-                    event = TriggerProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'], content=event_content,
-                                                   counter=original_event._counter)
+                    event = TriggerProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'], content=event_content)
                     self.event_bus.send(event)
                 elif 'processing_status' in ret and ret['processing_status'] == ProcessingStatus.Terminating:
                     self.logger.info(log_pre + "TerminatedProcessingEvent(processing_id: %s)" % pr['processing_id'])
-                    event = TerminatedProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'],
-                                                      counter=original_event._counter if original_event else 0)
+                    event = TerminatedProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'])
                     event.set_terminating()
                     self.event_bus.send(event)
                 else:
                     if 'processing_status' in ret and ret['processing_status'] == ProcessingStatus.Synchronizing:
                         self.logger.info(log_pre + "SyncProcessingEvent(processing_id: %s)" % pr['processing_id'])
-                        event = SyncProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'],
-                                                    counter=original_event._counter if original_event else 0)
+                        event = SyncProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'])
                         event.set_has_updates()
                         self.event_bus.send(event)
         except Exception as ex:
