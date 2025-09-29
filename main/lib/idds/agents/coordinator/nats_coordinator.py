@@ -131,12 +131,14 @@ class IDDSNATS(Singleton):
     async def close(self, nc=None):
         try:
             if nc:
-                await nc.drain()   # flush pending messages safely
+                # await nc.drain()   # flush pending messages safely
                 await nc.close()
                 if self.debug_mode and self.logger:
                     self.logger.debug("NATS connection drained and closed")
         except Exception as ex:
             self.logger.error(f"Failed to close connection: {ex}")
+        except NATSTimeoutError:
+            pass
 
 
 class NATSCoordinator(BaseAgent):
