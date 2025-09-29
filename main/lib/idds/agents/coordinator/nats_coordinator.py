@@ -79,6 +79,7 @@ class IDDSNATS(Singleton):
             msgs = await subscriber.fetch(num_events, timeout=wait)
             for msg in msgs:
                 data = msg.data.decode("utf-8")
+                data = json_loads(data)
                 if callback:
                     callback(data)
                 await msg.ack()
