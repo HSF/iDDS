@@ -127,4 +127,5 @@ nats --token my_default_token --server=127.0.0.1:4222 stream ls
 nats --server nats://127.0.0.1:4222 --token my_default_token stream ls
 nats --server nats://127.0.0.1:4222 --token my_default_token stream info event_stream
 nats --server nats://127.0.0.1:4222 --token my_default_token stream get event_stream --last-for=event.UpdateProcessing
+nats --server nats://127.0.0.1:4222 --token my_default_token consumer list event_stream
 

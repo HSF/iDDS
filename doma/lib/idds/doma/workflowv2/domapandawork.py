@@ -1586,7 +1586,7 @@ class DomaPanDAWork(Work):
                         # new version of panda result
                         event_status = event_result.get('status', None)
                         event_error = event_result.get('error', None)
-                        event_diag = event_result.get('diag', None)
+                        event_diag = event_result.get('dialog', None)
                     else:
                         event_status = event_result
                         event_error, event_diag = None, None
@@ -1605,7 +1605,7 @@ class DomaPanDAWork(Work):
                         # new version of panda result
                         event_status = event_result.get('status', None)
                         event_error = event_result.get('error', None)
-                        event_diag = event_result.get('diag', None)
+                        event_diag = event_result.get('dialog', None)
                     else:
                         event_status = event_result
                         event_error, event_diag = None, None
@@ -1870,14 +1870,20 @@ class DomaPanDAWork(Work):
                                         panda_id = ",".join([str(i) for i in panda_ids])
                                         job_info = unterminated_jobs_status[input_file]['job_info']
                                 else:
-                                    event_status = panda_status
+                                    if panda_status in [ContentStatus.FinalSubAvailable]:
+                                        event_status = ContentStatus.FinalFailed
+                                    else:
+                                        event_status = panda_status
                                     event_error_code = None
                                     event_error_diag = None
                                     panda_ids = unterminated_jobs_status[input_file]['panda_id']
                                     panda_id = ",".join([str(i) for i in panda_ids])
                                     job_info = unterminated_jobs_status[input_file]['job_info']
                             else:
-                                event_status = panda_status
+                                if panda_status in [ContentStatus.FinalSubAvailable]:
+                                    event_status = ContentStatus.FinalFailed
+                                else:
+                                    event_status = panda_status
                                 event_error_code = None
                                 event_error_diag = None
 
