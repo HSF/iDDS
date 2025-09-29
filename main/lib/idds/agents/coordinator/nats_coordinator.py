@@ -275,21 +275,31 @@ class NATSCoordinator(BaseAgent):
             self.event_bus.set_coordinator(None)
 
     def send(self, event):
-        if self.idds_nats:
-            asyncio.run(self.idds_nats.publish_event(event))
-        else:
-            self.logger.error(f"idds nats({self.idds_nats}) is not set, failed to send event {event}")
+        try:
+            if self.idds_nats:
+                asyncio.run(self.idds_nats.publish_event(event))
+            else:
+                self.logger.error(f"idds nats({self.idds_nats}) is not set, failed to send event {event}")
+        except RuntimeError as ex:
+            self.logger.error(f"Failed to send event: {ex}")
+        except Exception as ex:
+            self.logger.error(f"Failed to send event: {ex}")
 
     def send_bulk(self, events):
         for event in events:
             self.send(event)
 
     def get(self, event_type, num_events=1, wait=5, callback=None):
-        if self.idds_nats:
-            return asyncio.run(self.idds_nats.fetch_events(event_type_name=event_type.name, num_events=num_events, wait=wait, callback=callback))
-        else:
-            self.logger.error(f"idds nats({self.idds_nats}) is not set, failed to fetch events for {event_type.name}")
-            return []
+        try:
+            if self.idds_nats:
+                return asyncio.run(self.idds_nats.fetch_events(event_type_name=event_type.name, num_events=num_events, wait=wait, callback=callback))
+            else:
+                self.logger.error(f"idds nats({self.idds_nats}) is not set, failed to fetch events for {event_type.name}")
+                return []
+        except RuntimeError as ex:
+            self.logger.error(f"Failed to get event: {ex}")
+        except Exception as ex:
+            self.logger.error(f"Failed to get event: {ex}")
 
     def send_report(self, event, status, start_time, end_time, source, result):
         try:
@@ -302,10 +312,15 @@ class NATSCoordinator(BaseAgent):
         pass
 
     def show_stream_info(self):
-        if self.show_queued_events_time is None or self.show_queued_events_time + self.show_queued_events_time_interval > time.time():
-            if self.idds_nats:
-                asyncio.run(self.idds_nats.show())
-            self.show_queued_events_time = time.time()
+        try:
+            if self.show_queued_events_time is None or self.show_queued_events_time + self.show_queued_events_time_interval > time.time():
+                if self.idds_nats:
+                    asyncio.run(self.idds_nats.show())
+                self.show_queued_events_time = time.time()
+        except RuntimeError as ex:
+            self.logger.error(f"Failed to show stream info: {ex}")
+        except Exception as ex:
+            self.logger.error(f"Failed to show stream info: {ex}")
 
     def coordinate(self):
         self.select_coordinator()
