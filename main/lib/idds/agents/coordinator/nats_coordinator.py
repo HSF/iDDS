@@ -21,6 +21,7 @@ from nats.js.errors import NotFoundError as NATSNotFoundError
 
 from idds.common.constants import (Sections)
 from idds.common.exceptions import IDDSException
+from idds.common.singleton import Singleton
 from idds.common.utils import setup_logging, get_logger, json_loads, json_dumps
 from idds.core import health as core_health
 from idds.agents.common.baseagent import BaseAgent
@@ -28,6 +29,142 @@ from idds.agents.common.baseagent import BaseAgent
 
 logging.getLogger("asyncio").setLevel(logging.WARNING)
 setup_logging(__name__)
+
+
+class IDDSNATS(Singleton):
+class NatsPublisher:
+    def __init__(self, nats_server, logger=None):
+        self.nats_server = nats_server
+        self.nc = None
+        self.js = None
+        self.logger = logger
+
+    async def connect(self):
+        if not self.nc:
+            self.nc = NATS()
+            await self.nc.connect(
+                servers=[self.nats_server["nats_url"]],
+                token=self.nats_server["nats_token"]
+            )
+            self.js = self.nc.jetstream()
+
+    async def publish_event(self, event):
+        try:
+            await self.connect()
+            await self.js.publish(
+                f"event.{event.event_type}",
+                json_dumps(event).encode("utf-8"),
+                timeout=5
+            )
+        except Exception as e:
+            # add structured logging
+            print(f"Publish failed for event {event.event_type}: {e}")
+
+        async def publish_event(event):
+            nc = None
+            try:
+                nats_server = self.get_selected_nats_server()
+                if nats_server:
+                    nc = NATS()
+                    await nc.connect(
+                        servers=[nats_server["nats_url"]],
+                        token=nats_server["nats_token"]
+                    )
+                    # self.logger.info(f"Connected to selected NATS: {nats_server}")
+
+                    js = nc.jetstream()
+                    await js.publish(f"event.{event.event_type}", json_dumps(event).encode("utf-8"), timeout=5)
+                    # await nc.flush()
+                    self.logger.debug(f"Published event.{event.event_type}: {json_dumps(event)}")
+                else:
+                    self.logger.error(f"Failed to published event.{event.event_type} because of NATS is not available(nats: {nats_server}): {json_dumps(event)}")
+            except Exception as e:
+                self.logger.error(f"Failed to publish event.{event.event_type}: {json_dumps(event)}: {e}")
+            finally:
+                if nc:
+                    await nc.close()
+
+        async def fetch_events(event_type, num_events=1, wait=5, callback=None):
+            nc = None
+            data_all = []
+            try:
+                nats_server = self.get_selected_nats_server()
+                if nats_server:
+                    nc = NATS()
+                    await nc.connect(
+                        servers=[nats_server["nats_url"]],
+                        token=nats_server["nats_token"]
+                    )
+                    # self.logger.info(f"Connected to selected NATS: {nats_server}")
+
+                    js = nc.jetstream()
+                    short_hostname = socket.gethostname().split(".")[0]
+                    durable = f"event.{event_type.name}.{short_hostname}"
+                    subscriber = await js.pull_subscribe(f"event.{event_type.name}", durable=durable)
+                    msgs = await subscriber.fetch(num_events, timeout=wait)
+                    for msg in msgs:
+                        data = msg.data.decode("utf-8")
+                        if callback:
+                            callback(data)
+                        await msg.ack()
+                        data_all.append(data)
+                    self.logger.debug(f"Get event.{event_type.name}: {data_all}")
+                else:
+                    if self.show_get_events_time is None or self.show_get_events_time + self.show_get_events_time_interval > time.time():
+                        self.show_get_events_time = time.time()
+                        self.logger.error(f"Failed to get event.{event_type.name} because of NATS is not available(nats: {nats_server})")
+            except NATSTimeoutError:
+                pass
+            except NATSNotFoundError:
+                pass
+            except Exception as e:
+                self.logger.error(f"Failed to get event.{event_type.name}: {e}")
+            finally:
+                if nc:
+                    await nc.close()
+            return data_all
+
+        async def show():
+            try:
+                nats_server = self.get_selected_nats_server()
+                if nats_server:
+                    nc = NATS()
+                    await nc.connect(
+                        servers=[nats_server["nats_url"]],
+                        token=nats_server["nats_token"]
+                    )
+                    self.logger.info(f"Connected to selected NATS: {nats_server}")
+
+                    js = nc.jetstream()
+                    # streams = await js.stream_names()
+                    # resp = await nc.request("$JS.API.STREAM.LIST", b'{}')
+                    # streams = json.loads(resp.data.decode())["streams"]
+                    streams = await js.streams_info()
+
+                    report = ""
+                    for stream_conf in streams:
+                        stream = stream_conf.config.name
+                        sinfo = await js.stream_info(stream)
+                        report += f"Stream {stream} info: {sinfo}\n"
+
+                        consumers = await js.consumers_info(stream)
+                        for consumer_conf in consumers:
+                            consumer = consumer_conf.name
+                            cinfo = await js.consumer_info(stream, consumer)
+                            report += f"    Consumer info: {cinfo}\n"
+                    self.logger.info(report)
+                else:
+                    self.logger.error(f"Failed to show stream info because of NATS is not available(nats: {nc})")
+            except Exception as ex:
+                self.logger.error(f"Failed show stream information: {ex}")
+                self.logger.error(traceback.format_exc())
+
+    async def close(self):
+        if self.nc:
+            await self.nc.drain()   # flush pending messages safely
+            await self.nc.close()
+            self.nc = None
+            self.js = None
 
 
 class NATSCoordinator(BaseAgent):
@@ -69,6 +206,7 @@ class NATSCoordinator(BaseAgent):
         self.init_local_nats()
 
         self.selected_nats_server = None
+        self.idds_nats = None
 
     def init_local_nats(self):
         hostname = socket.getfqdn()
@@ -116,11 +254,14 @@ class NATSCoordinator(BaseAgent):
 
     def set_selected_nats_server(self, nats_server):
         self.logger.debug(f"Set NATS server: {nats_server}")
+        if self.idds_nats and self.selected_nats_server != nats_server:
+            self.idds_nats.close()
+        self.idds_nats = IDDSNATS(nats_server)
         self.selected_nats_server = nats_server
-        return self.selected_nats_server
+        return self.idds_nats
 
     def get_selected_nats_server(self):
-        return self.selected_nats_server
+        return self.idds_nats
 
     def select_coordinator(self):
         self.health_heartbeat(self.coordination_interval_delay)
@@ -141,73 +282,21 @@ class NATSCoordinator(BaseAgent):
             self.event_bus.set_coordinator(None)
 
     def send(self, event):
-        async def publish_event(event):
-            try:
-                nats_server = self.get_selected_nats_server()
-                if nats_server:
-                    nc = NATS()
-                    await nc.connect(
-                        servers=[nats_server["nats_url"]],
-                        token=nats_server["nats_token"]
-                    )
-                    # self.logger.info(f"Connected to selected NATS: {nats_server}")
-
-                    js = nc.jetstream()
-                    await js.publish(f"event.{event.event_type}", json_dumps(event).encode("utf-8"), timeout=5)
-                    # await nc.flush()
-                    self.logger.debug(f"Published event.{event.event_type}: {json_dumps(event)}")
-                else:
-                    self.logger.error(f"Failed to published event.{event.event_type} because of NATS is not available(nats: {nats_server}): {json_dumps(event)}")
-            except Exception as e:
-                self.logger.error(f"Failed to publish event.{event.event_type}: {json_dumps(event)}: {e}")
-
-        asyncio.run(publish_event(event))
+        if self.idds_nats:
+            asyncio.run(self.idds_nats.publish_event(event))
+        else:
+            self.logger.error(f"idds nats({self.idds_nats}) is not set, failed to send event {event}")
 
     def send_bulk(self, events):
         for event in events:
             self.send(event)
 
     def get(self, event_type, num_events=1, wait=5, callback=None):
-        async def fetch_events():
-            nc = None
-            data_all = []
-            try:
-                nats_server = self.get_selected_nats_server()
-                if nats_server:
-                    nc = NATS()
-                    await nc.connect(
-                        servers=[nats_server["nats_url"]],
-                        token=nats_server["nats_token"]
-                    )
-                    # self.logger.info(f"Connected to selected NATS: {nats_server}")
-
-                    js = nc.jetstream()
-                    short_hostname = socket.gethostname().split(".")[0]
-                    durable = f"event.{event_type.name}.{short_hostname}"
-                    subscriber = await js.pull_subscribe(f"event.{event_type.name}", durable=durable)
-                    msgs = await subscriber.fetch(num_events, timeout=wait)
-                    for msg in msgs:
-                        data = msg.data.decode("utf-8")
-                        if callback:
-                            callback(data)
-                        await msg.ack()
-                        data_all.append(data)
-                    self.logger.debug(f"Get event.{event_type.name}: {data_all}")
-                else:
-                    if self.show_get_events_time is None or self.show_get_events_time + self.show_get_events_time_interval > time.time():
-                        self.show_get_events_time = time.time()
-                        self.logger.error(f"Failed to get event.{event_type.name} because of NATS is not available(nats: {nats_server})")
-            except NATSTimeoutError:
-                pass
-            except NATSNotFoundError:
-                pass
-            except Exception as e:
-                self.logger.error(f"Failed to get event.{event_type.name}: {e}")
-            finally:
-                if nc:
-                    await nc.close()
-            return data_all
-        return asyncio.run(fetch_events())
+        if self.idds_nats:
+            return asyncio.run(self.idds_nats.fetch_events(event_type=event_type.name, num_events=num_events, wait=wait, callback=callback))
+        else:
+            self.logger.error(f"idds nats({self.idds_nats}) is not set, failed to fetch events for {event_type.name}")
+            return []
 
     def send_report(self, event, status, start_time, end_time, source, result):
         try:
@@ -220,42 +309,9 @@ class NATSCoordinator(BaseAgent):
         pass
 
     def show_stream_info(self):
-        async def show():
-            try:
-                nats_server = self.get_selected_nats_server()
-                if nats_server:
-                    nc = NATS()
-                    await nc.connect(
-                        servers=[nats_server["nats_url"]],
-                        token=nats_server["nats_token"]
-                    )
-                    self.logger.info(f"Connected to selected NATS: {nats_server}")
-
-                    js = nc.jetstream()
-                    # streams = await js.stream_names()
-                    # resp = await nc.request("$JS.API.STREAM.LIST", b'{}')
-                    # streams = json.loads(resp.data.decode())["streams"]
-                    streams = await js.streams_info()
-
-                    report = ""
-                    for stream_conf in streams:
-                        stream = stream_conf.config.name
-                        sinfo = await js.stream_info(stream)
-                        report += f"Stream {stream} info: {sinfo}\n"
-
-                        consumers = await js.consumers_info(stream)
-                        for consumer_conf in consumers:
-                            consumer = consumer_conf.name
-                            cinfo = await js.consumer_info(stream, consumer)
-                            report += f"    Consumer info: {cinfo}\n"
-                    self.logger.info(report)
-                else:
-                    self.logger.error(f"Failed to show stream info because of NATS is not available(nats: {nc})")
-            except Exception as ex:
-                self.logger.error(f"Failed show stream information: {ex}")
-                self.logger.error(traceback.format_exc())
         if self.show_queued_events_time is None or self.show_queued_events_time + self.show_queued_events_time_interval > time.time():
-            asyncio.run(show())
+            if self.idds_nats:
+                asyncio.run(self.idds_nats.show())
             self.show_queued_events_time = time.time()
 
     def coordinate(self):
