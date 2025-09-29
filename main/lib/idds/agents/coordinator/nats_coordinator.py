@@ -32,7 +32,7 @@ setup_logging(__name__)
 
 
 class IDDSNATS(Singleton):
-    def __init__(self, nats_server: dict, logger=None):
+    def __init__(self, nats_server: dict, logger=None, debug_mode=False):
         if getattr(self, "_initialized", False):
             return
         self.nats_server = nats_server
@@ -40,6 +40,7 @@ class IDDSNATS(Singleton):
         self.js = None
         self.logger = logger
         self._initialized = True
+        self.debug_mode = debug_mode
 
     async def connect(self):
         nc = NATS()
@@ -48,7 +49,7 @@ class IDDSNATS(Singleton):
             token=self.nats_server["nats_token"]
         )
         js = nc.jetstream()
-        if self.logger:
+        if self.debug_mode and self.logger:
             self.logger.info(f"Connected to NATS: {self.nats_server}")
         return nc, js
 
@@ -58,14 +59,14 @@ class IDDSNATS(Singleton):
             nc, js = await self.connect()
             payload = json_dumps(event).encode("utf-8")
             ack = await js.publish(f"event.{event.event_type}", payload, timeout=5)
-            if self.logger:
+            if self.debug_mode and self.logger:
                 self.logger.debug(f"Published event.{event.event_type} -> stream={ack.stream} seq={ack.seq}")
             return ack
         except Exception as e:
             if self.logger:
                 self.logger.error(f"Publish failed for event {event.event_type}: event: {event}, error: {e}")
         finally:
-            self.close(nc)
+            await self.close(nc)
 
     async def fetch_events(self, event_type_name, num_events=1, wait=5, callback=None):
         data_all = []
@@ -93,7 +94,7 @@ class IDDSNATS(Singleton):
             if self.logger:
                 self.logger.error(f"Failed to fetch event.{event_type_name}: {e}")
         finally:
-            self.close(nc)
+            await self.close(nc)
         return data_all
 
     async def show(self):
@@ -125,14 +126,14 @@ class IDDSNATS(Singleton):
             self.logger.error(f"Failed show stream information: {ex}")
             self.logger.error(traceback.format_exc())
         finally:
-            self.close(nc)
+            await self.close(nc)
 
     async def close(self, nc=None):
         try:
             if nc:
                 await nc.drain()   # flush pending messages safely
                 await nc.close()
-                if self.logger:
+                if self.debug_mode and self.logger:
                     self.logger.debug("NATS connection drained and closed")
         except Exception as ex:
             self.logger.error(f"Failed to close connection: {ex}")
@@ -150,9 +151,12 @@ class NATSCoordinator(BaseAgent):
                  max_boost_interval_delay=3,
                  show_queued_events_time_interval=300,
                  show_get_events_time_interval=300,
+                 debug_mode=False,
                  **kwargs):
         super(NATSCoordinator, self).__init__(num_threads=num_threads, name='Coordinator', **kwargs)
         self.config_section = Sections.Coordinator
+
+        self.debug_mode = bool(debug_mode)
 
         # -- config --
         self.coordination_interval_delay = int(coordination_interval_delay or 300)
@@ -239,7 +243,7 @@ class NATSCoordinator(BaseAgent):
             if self.idds_nats:
                 asyncio.run(self.idds_nats.close())
 
-            self.idds_nats = IDDSNATS(nats_server, logger=self.logger)
+            self.idds_nats = IDDSNATS(nats_server, logger=self.logger, debug_mode=self.debug_mode)
             self.selected_nats_server = nats_server
             return self.idds_nats
         except Exception as ex:
