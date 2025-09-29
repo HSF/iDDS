@@ -42,36 +42,39 @@ class IDDSNATS(Singleton):
         self._initialized = True
 
     async def connect(self):
-        if self.nc and self.nc.is_connected:
-            return
-        self.nc = NATS()
-        await self.nc.connect(
+        nc = NATS()
+        await nc.connect(
             servers=[self.nats_server["nats_url"]],
             token=self.nats_server["nats_token"]
         )
-        self.js = self.nc.jetstream()
+        js = nc.jetstream()
         if self.logger:
             self.logger.info(f"Connected to NATS: {self.nats_server}")
+        return nc, js
 
     async def publish_event(self, event):
+        nc = None
         try:
-            await self.connect()
+            nc, js = await self.connect()
             payload = json_dumps(event).encode("utf-8")
-            ack = await self.js.publish(f"event.{event.event_type}", payload, timeout=5)
+            ack = await js.publish(f"event.{event.event_type}", payload, timeout=5)
             if self.logger:
                 self.logger.debug(f"Published event.{event.event_type} -> stream={ack.stream} seq={ack.seq}")
             return ack
         except Exception as e:
             if self.logger:
                 self.logger.error(f"Publish failed for event {event.event_type}: event: {event}, error: {e}")
+        finally:
+            self.close(nc)
 
     async def fetch_events(self, event_type_name, num_events=1, wait=5, callback=None):
         data_all = []
+        nc = None
         try:
-            await self.connect()
+            nc, js = await self.connect()
             subject = f"event.{event_type_name}"
             durable = event_type_name
-            subscriber = await self.js.pull_subscribe(subject, durable=durable)
+            subscriber = await js.pull_subscribe(subject, durable=durable)
             msgs = await subscriber.fetch(num_events, timeout=wait)
             for msg in msgs:
                 data = msg.data.decode("utf-8")
@@ -89,26 +92,29 @@ class IDDSNATS(Singleton):
         except Exception as e:
             if self.logger:
                 self.logger.error(f"Failed to fetch event.{event_type_name}: {e}")
+        finally:
+            self.close(nc)
         return data_all
 
     async def show(self):
+        nc = None
         try:
-            await self.connect()
-            streams = await self.js.streams_info()
+            nc, js = await self.connect()
+            streams = await js.streams_info()
 
             report_lines = []
             for stream_conf in streams:
                 stream = stream_conf.config.name
-                sinfo = await self.js.stream_info(stream)
+                sinfo = await js.stream_info(stream)
                 report_line = f"Stream {stream} info: {sinfo}"
                 report_lines.append(report_line)
 
-                consumers = await self.js.consumers_info(stream)
+                consumers = await js.consumers_info(stream)
                 for consumer_conf in consumers:
                     consumer = consumer_conf.name
                     report_line = f"  Consumer {consumer} config: {consumer_conf}"
                     report_lines.append(report_line)
-                    cinfo = await self.js.consumer_info(stream, consumer)
+                    cinfo = await js.consumer_info(stream, consumer)
                     report_line = f"  Consumer {consumer} info: {cinfo}"
                     report_lines.append(report_line)
             report = "\n".join(report_lines)
@@ -118,17 +124,18 @@ class IDDSNATS(Singleton):
         except Exception as ex:
             self.logger.error(f"Failed show stream information: {ex}")
             self.logger.error(traceback.format_exc())
+        finally:
+            self.close(nc)
 
-    async def close(self):
+    async def close(self, nc=None):
         try:
-            if self.nc:
-                await self.nc.drain()   # flush pending messages safely
-                await self.nc.close()
+            if nc:
+                await nc.drain()   # flush pending messages safely
+                await nc.close()
                 if self.logger:
                     self.logger.debug("NATS connection drained and closed")
-        finally:
-            self.nc = None
-            self.js = None
+        except Exception as ex:
+            self.logger.error(f"Failed to close connection: {ex}")
 
 
 class NATSCoordinator(BaseAgent):
