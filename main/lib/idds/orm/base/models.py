@@ -493,6 +493,7 @@ class Processing(BASE, ModelBase):
     submitted_id = Column(Integer())
     granularity = Column(Integer())
     granularity_type = Column(EnumWithValue(GranularityType))
+    num_unmapped = Column(Integer(), default=0)
     created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow, nullable=False)
     updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
     next_poll_at = Column("next_poll_at", DateTime, default=datetime.datetime.utcnow)

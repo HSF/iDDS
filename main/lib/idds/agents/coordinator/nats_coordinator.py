@@ -32,11 +32,14 @@ setup_logging(__name__)
 
 
 class IDDSNATS(Singleton):
-    def __init__(self, nats_server: dict, logger=None, durable_suffix=None):
+    def __init__(self, nats_server: dict, logger=None):
+        if getattr(self, "_initialized", False):
+            return
         self.nats_server = nats_server
         self.nc = None
         self.js = None
         self.logger = logger
+        self._initialized = True
 
     async def connect(self):
         if self.nc and self.nc.is_connected:
