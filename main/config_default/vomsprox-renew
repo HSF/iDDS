@@ -1,0 +1,27 @@
+#!/bin/bash
+
+proxy_path=/opt/idds/certs
+new_proxy_path=/opt/idds/config/
+proxy_user=iddssv1
+
+proxy_cert=${proxy_path}/pilot_usercert.pem
+proxy_key=${proxy_path}/pilot_userkey.pem
+
+proxy=${new_proxy_path}/x509up
+
+cp  $proxy_cert $new_proxy_path
+cp $proxy_key $new_proxy_path
+new_proxy_cert=${new_proxy_path}/pilot_usercert.pem
+new_proxy_key=${new_proxy_path}/pilot_userkey.pem
+chmod 600 $new_proxy_cert
+chmod 600 $new_proxy_key
+
+voms-proxy-init3 -valid 96:00 -rfc -voms lsst:/lsst/Role=drp -q -cert $new_proxy_cert -key $new_proxy_key -out $proxy
+
+#check lifetime of certificate
+voms-proxy-info3 -exists -hours 11 -file $proxy
+
+if [ $? -ne 0 ]; then
+  echo $proxy expires in 11 hours on `hostname`, Please check| mail -s "[VOMS_PROXY]WARNING : Grid proxy for Rubin k8s expires soon on `hostname`" atlas-adc-idds-k8s@cern.ch
+fi
+
