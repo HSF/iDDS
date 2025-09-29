@@ -111,7 +111,7 @@ class IDDSNATS(Singleton):
                     cinfo = await self.js.consumer_info(stream, consumer)
                     report_line = f"  Consumer {consumer} info: {cinfo}"
                     report_lines.append(report_line)
-            report = "\n".jon(report_lines)
+            report = "\n".join(report_lines)
             if self.logger:
                 self.logger.info(report)
             return report
@@ -272,7 +272,7 @@ class NATSCoordinator(BaseAgent):
 
     def get(self, event_type, num_events=1, wait=5, callback=None):
         if self.idds_nats:
-            return asyncio.run(self.idds_nats.fetch_events(event_type=event_type.name, num_events=num_events, wait=wait, callback=callback))
+            return asyncio.run(self.idds_nats.fetch_events(event_type_name=event_type.name, num_events=num_events, wait=wait, callback=callback))
         else:
             self.logger.error(f"idds nats({self.idds_nats}) is not set, failed to fetch events for {event_type.name}")
             return []
