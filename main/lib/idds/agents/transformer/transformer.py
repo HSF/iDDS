@@ -1267,10 +1267,10 @@ class Transformer(BaseAgent):
                     self.logger.info(log_pre + "UpdateProcessingEvent(processing_id: %s)" % pr_id)
                     event = UpdateProcessingEvent(publisher_id=self.id, processing_id=pr_id)
                     self.event_bus.send(event)
-                if ret_processing_id:
-                    self.logger.info(log_pre + "UpdateProcessingEvent(processing_id: %s)" % ret_processing_id)
-                    event = UpdateProcessingEvent(publisher_id=self.id, processing_id=ret_processing_id)
-                    self.event_bus.send(event)
+                # if ret_processing_id:
+                #     self.logger.info(log_pre + "UpdateProcessingEvent(processing_id: %s)" % ret_processing_id)
+                #     event = UpdateProcessingEvent(publisher_id=self.id, processing_id=ret_processing_id)
+                #     self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())

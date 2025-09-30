@@ -226,6 +226,7 @@ class DomaPanDAWork(Work):
     @property
     def dependency_map(self):
         if self.should_unzip('_dependency_map'):
+            self.logger.debug("unzipping _dependency_map")
             data = self.unzip_data(self._dependency_map)
         else:
             data = self._dependency_map
@@ -257,7 +258,7 @@ class DomaPanDAWork(Work):
     def dependency_map(self, value):
         num_dependencies = 0
         num_inputs = 0
-        if value:
+        if value and not self._loading:
             if type(value) not in [list, tuple]:
                 raise exceptions.IDDSException("dependency_map should be a list or tuple")
             item_names = {}
@@ -288,7 +289,7 @@ class DomaPanDAWork(Work):
         self.num_inputs = num_inputs
         self.num_dependencies = num_dependencies
 
-        if self.dependency_tasks is None:
+        if self.dependency_tasks is None and not self._loading:
             self.logger.debug(f"{self.get_work_name()} constructing dependency_tasks set")
             dependency_tasks = set([])
             for job in self._dependency_map:
@@ -300,7 +301,7 @@ class DomaPanDAWork(Work):
                         dependency_tasks.add(task_name)
             self.dependency_tasks = list(dependency_tasks)
 
-        if self.es:
+        if self.es and not self._loading:
             self.construct_es_files()
 
     def construct_es_files(self):

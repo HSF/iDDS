@@ -26,6 +26,7 @@ class DictClass(object):
     def __init__(self):
         self._zip_items = []
         self._not_auto_unzip_items = []
+        self._loading = False
 
     def zip_data(self, data, name=None):
         try:
@@ -134,6 +135,7 @@ class DictClass(object):
 
     def to_dict(self):
         # print('to_dict')
+        self._loading = False
         ret = {'class': self.__class__.__name__,
                'module': self.__class__.__module__,
                'attributes': {}}
@@ -209,6 +211,7 @@ class DictClass(object):
 
         if DictClass.is_class(d):
             impl = DictClass.load_instance(d)
+            impl._loading = True
             last_items = {}
             for key, value in d['attributes'].items():
                 # print(key)
@@ -233,6 +236,7 @@ class DictClass(object):
                 value = DictClass.from_dict(value)
                 setattr(impl, key, value)
 
+            impl._loading = False
             return impl
         elif DictClass.is_class_method(d):
             impl = DictClass.load_instance_method(d)
