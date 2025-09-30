@@ -341,15 +341,7 @@ class Transformer(BaseAgent):
             if transforms_q:
                 self.logger.info("Main thread get queued transforms to process: %s" % str(transforms_q))
                 for tf in transforms_q:
-                    to_throttle = self.whether_to_throttle(tf)
-                    transform_parameters = {'locking': TransformLocking.Idle}
-                    parameters = self.load_poll_period(tf, transform_parameters)
-                    if to_throttle:
-                        parameters['status'] = TransformStatus.Throttling
-                    else:
-                        parameters['status'] = TransformStatus.New
-                    core_transforms.update_transform(transform_id=tf['transform_id'], parameters=parameters)
-
+                    self.process_queue_transform(transform=tf)
         except exceptions.DatabaseException as ex:
             if 'ORA-00060' in str(ex):
                 self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
@@ -358,6 +350,41 @@ class Transformer(BaseAgent):
                 self.logger.error(ex)
                 self.logger.error(traceback.format_exc())
         return []
+
+    def process_queue_transform(self, event=None, transform=None):
+        self.number_workers += 1
+        try:
+            if transform is None and event:
+                tf_status = [TransformStatus.Queue, TransformStatus.Throttling]
+                tf = self.get_transform(transform_id=event._transform_id, status=tf_status, locking=True)
+                if not tf:
+                    self.logger.warn("Cannot find transform for event: %s" % str(event))
+                else:
+                    transform = tf
+            if transform:
+                tf = transform
+                log_pre = self.get_log_prefix(tf)
+                self.logger.info(log_pre + "process_queue_transform")
+                to_throttle = self.whether_to_throttle(tf)
+                transform_parameters = {'locking': TransformLocking.Idle}
+                parameters = self.load_poll_period(tf, transform_parameters)
+                if to_throttle:
+                    parameters['status'] = TransformStatus.Throttling
+                    core_transforms.update_transform(transform_id=tf['transform_id'], parameters=parameters)
+                else:
+                    # parameters['status'] = TransformStatus.New
+                    # self.submit(self.process_new_transform, transform=tf)
+                    # self.process_new_transform(transform=tf)
+                    parameters['status'] = TransformStatus.New
+                    core_transforms.update_transform(transform_id=tf['transform_id'], parameters=parameters)
+
+                    self.logger.info(log_pre + "NewTransformEvent(transform_id: %s)" % str(tf['transform_id']))
+                    event = NewTransformEvent(publisher_id=self.id, transform_id=tf['transform_id'])
+                    self.event_bus.send(event)
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+        self.number_workers -= 1
 
     def get_new_transforms(self):
         """
@@ -1518,6 +1545,10 @@ class Transformer(BaseAgent):
 
     def init_event_function_map(self):
         self.event_func_map = {
+            EventType.QueueTransform: {
+                'pre_check': self.is_ok_to_run_more_transforms,
+                'exec_func': self.process_queue_transform
+            },
             EventType.NewTransform: {
                 'pre_check': self.is_ok_to_run_more_transforms,
                 'exec_func': self.process_new_transform

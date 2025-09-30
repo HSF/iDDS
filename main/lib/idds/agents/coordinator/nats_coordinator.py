@@ -28,6 +28,7 @@ from idds.agents.common.baseagent import BaseAgent
 
 
 logging.getLogger("asyncio").setLevel(logging.WARNING)
+logging.getLogger("nats.aio.client").setLevel(logging.CRITICAL)
 setup_logging(__name__)
 
 

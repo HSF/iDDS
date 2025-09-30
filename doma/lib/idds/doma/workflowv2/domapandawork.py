@@ -289,7 +289,7 @@ class DomaPanDAWork(Work):
         self.num_dependencies = num_dependencies
 
         if self.dependency_tasks is None:
-            self.logger.debug("constructing dependency_tasks set")
+            self.logger.debug(f"{self.get_work_name()} constructing dependency_tasks set")
             dependency_tasks = set([])
             for job in self._dependency_map:
                 inputs_dependency = job["dependencies"]
@@ -501,7 +501,7 @@ class DomaPanDAWork(Work):
     def depend_on(self, work):
         self.logger.debug("checking depending on")
         if not self.dependency_tasks:
-            self.logger.debug("constructing dependency_tasks set")
+            self.logger.debug(f"{self.get_work_name()} constructing dependency_tasks set")
             dependency_tasks = set([])
             for job in self.dependency_map:
                 inputs_dependency = job["dependencies"]

@@ -366,6 +366,20 @@ class ResumeTransformEvent(Event):
         return ret
 
 
+class QueueTransformEvent(Event):
+    def __init__(self, publisher_id=None, transform_id=None, content=None, counter=1):
+        super(QueueTransformEvent, self).__init__(publisher_id, event_type=EventType.QueueTransform, content=content, counter=counter)
+        self._transform_id = transform_id
+
+    def get_event_id(self):
+        return self._transform_id
+
+    def to_json(self, strip=False):
+        ret = super(QueueTransformEvent, self).to_json()
+        ret['transform_id'] = self._transform_id
+        return ret
+
+
 class NewProcessingEvent(Event):
     def __init__(self, publisher_id=None, processing_id=None, content=None, counter=1):
         super(NewProcessingEvent, self).__init__(publisher_id, event_type=EventType.NewProcessing, content=content, counter=counter)

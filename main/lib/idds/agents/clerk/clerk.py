@@ -34,7 +34,8 @@ from idds.agents.common.eventbus.event import (EventType,
                                                # AbortRequestEvent,
                                                # CloseRequestEvent,
                                                # ResumeRequestEvent,
-                                               NewTransformEvent,
+                                               # NewTransformEvent,
+                                               QueueTransformEvent,
                                                UpdateTransformEvent,
                                                AbortTransformEvent,
                                                ResumeTransformEvent,
@@ -1109,10 +1110,12 @@ class Clerk(BaseAgent):
                     ret = self.handle_new_request(req)
                 new_tf_ids, update_tf_ids = self.update_request(ret, origin_req=req)
                 for tf_id in new_tf_ids:
-                    self.logger.info(log_pre + "NewTransformEvent(transform_id: %s)" % str(tf_id))
-                    event = NewTransformEvent(publisher_id=self.id, transform_id=tf_id)
+                    # self.logger.info(log_pre + "NewTransformEvent(transform_id: %s)" % str(tf_id))
+                    # event = NewTransformEvent(publisher_id=self.id, transform_id=tf_id)
+                    self.logger.info(log_pre + "QueueTransformEvent(transform_id: %s)" % str(tf_id))
+                    event = QueueTransformEvent(publisher_id=self.id, transform_id=tf_id)
                     self.event_bus.send(event)
-                    time.sleep(1)
+                    # time.sleep(1)
                 for tf_id in update_tf_ids:
                     self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % str(tf_id))
                     event = UpdateTransformEvent(publisher_id=self.id, transform_id=tf_id)
@@ -1557,8 +1560,10 @@ class Clerk(BaseAgent):
                     ret = self.handle_update_request(req, event=event)
                 new_tf_ids, update_tf_ids = self.update_request(ret, origin_req=req)
                 for tf_id in new_tf_ids:
-                    self.logger.info(log_pre + "NewTransformEvent(transform_id: %s)" % tf_id)
-                    event = NewTransformEvent(publisher_id=self.id, transform_id=tf_id, content=event._content)
+                    # self.logger.info(log_pre + "NewTransformEvent(transform_id: %s)" % tf_id)
+                    # event = NewTransformEvent(publisher_id=self.id, transform_id=tf_id, content=event._content)
+                    self.logger.info(log_pre + "QueueTransformEvent(transform_id: %s)" % str(tf_id))
+                    event = QueueTransformEvent(publisher_id=self.id, transform_id=tf_id)
                     self.event_bus.send(event)
                 for tf_id in update_tf_ids:
                     self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % tf_id)
