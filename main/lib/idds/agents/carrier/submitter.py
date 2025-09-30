@@ -16,7 +16,7 @@ from idds.common.utils import setup_logging, truncate_string
 from idds.core import processings as core_processings
 from idds.agents.common.baseagent import BaseAgent
 from idds.agents.common.eventbus.event import (EventType,
-                                               SyncProcessingEvent,
+                                               PreparedProcessingEvent,
                                                UpdateTransformEvent)
 
 from .utils import handle_new_processing, handle_prepared_processing
@@ -393,14 +393,8 @@ class Submitter(Poller):
 
                     self.update_processing(ret, pr)
 
-                    self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
-                    submit_event_content = {'event': 'submitted'}
-                    event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'], content=submit_event_content)
-                    event.set_has_updates()
-                    self.event_bus.send(event)
-
-                    self.logger.info(log_pre + "SyncProcessingEvent(processing_id: %s)" % pr['processing_id'])
-                    event = SyncProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'])
+                    self.logger.info(log_pre + "PreparedProcessingEvent(processing_id: %s)" % pr['processing_id'])
+                    event = PreparedProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'])
                     event.set_has_updates()
                     self.event_bus.send(event)
                 else:
@@ -454,10 +448,10 @@ class Submitter(Poller):
                     event.set_has_updates()
                     self.event_bus.send(event)
 
-                    self.logger.info(log_pre + "SyncProcessingEvent(processing_id: %s)" % pr['processing_id'])
-                    event = SyncProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'])
-                    event.set_has_updates()
-                    self.event_bus.send(event)
+                    # self.logger.info(log_pre + "SyncProcessingEvent(processing_id: %s)" % pr['processing_id'])
+                    # event = SyncProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'])
+                    # event.set_has_updates()
+                    # self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())

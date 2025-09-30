@@ -234,7 +234,11 @@ class Poller(BaseAgent):
             parameters['new_poll_period'] = self.new_poll_period
 
         if new:
-            parameters['update_poll_period'] = self.update_poll_period_for_new_task
+            work_tag_update_poll_period_for_new = self.get_work_tag_attribute(work_tag, "update_poll_period_for_new_task")
+            if work_tag_update_poll_period_for_new:
+                parameters['update_poll_period'] = work_tag_update_poll_period_for_new
+            elif self.update_poll_period_for_new_task and processing['update_poll_period'] != self.update_poll_period_for_new_task:
+                parameters['update_poll_period'] = self.update_poll_period_for_new_task
         else:
             work_tag_update_poll_period = self.get_work_tag_attribute(work_tag, "update_poll_period")
             if work_tag_update_poll_period:

@@ -32,6 +32,7 @@ from idds.core import (transforms as core_transforms,
                        conditions as core_conditions)
 from idds.agents.common.baseagent import BaseAgent
 from idds.agents.common.eventbus.event import (EventType,
+                                               NewTransformEvent,
                                                UpdateTransformEvent,
                                                AbortProcessingEvent,
                                                ResumeProcessingEvent,

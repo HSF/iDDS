@@ -17,7 +17,6 @@ from idds.common.utils import setup_logging, truncate_string
 from idds.core import processings as core_processings
 from idds.agents.common.baseagent import BaseAgent
 from idds.agents.common.eventbus.event import (EventType,
-                                               UpdateTransformEvent,
                                                TerminatedProcessingEvent,
                                                SyncProcessingEvent)
 
@@ -215,27 +214,6 @@ class Trigger(Poller):
                 # ret_update_contents = ret.get('update_contents', None)
                 self.update_processing(ret, pr)
 
-                update_transforms = ret.get('update_transforms', None)
-                has_updates = ret.get('has_updates', None)
-                if update_transforms:
-                    # self.logger.info(log_pre + "update_contents_to_others_by_dep_id")
-                    # core_catalog.update_contents_to_others_by_dep_id(request_id=pr['request_id'], transform_id=pr['transform_id'])
-                    # self.logger.info(log_pre + "update_contents_to_others_by_dep_id done")
-
-                    # core_catalog.delete_contents_update(request_id=pr['request_id'], transform_id=pr['transform_id'])
-                    # update_transforms = get_updated_transforms_by_content_status(request_id=pr['request_id'],
-                    #                                                              transform_id=pr['transform_id'])
-                    self.logger.info(log_pre + "update_transforms: %s" % str(update_transforms))
-                    for update_transform in update_transforms:
-                        if 'transform_id' in update_transform:
-                            update_transform_id = update_transform['transform_id']
-                            if update_transform_id != pr['transform_id']:
-                                event = UpdateTransformEvent(publisher_id=self.id,
-                                                             transform_id=update_transform_id,
-                                                             content={'event': 'Trigger'})
-                                self.logger.info(log_pre + "Trigger UpdateTransformEvent(transform_id: %s)" % update_transform_id)
-                                self.event_bus.send(event)
-
                 if (('processing_status' in ret and ret['processing_status'] == ProcessingStatus.Terminating)
                     or (event and event._content and 'Terminated' in event._content and event._content['Terminated'])):   # noqa W503
                     self.logger.info(log_pre + "TerminatedProcessingEvent(processing_id: %s)" % pr['processing_id'])
@@ -249,7 +227,7 @@ class Trigger(Poller):
                         or ('update_contents' in ret and ret['update_contents'])    # noqa W503
                         or ('new_contents' in ret and ret['new_contents'])          # noqa W503
                         or ('messages' in ret and ret['messages'])                  # noqa W503
-                        or has_updates):                                            # noqa E129
+                        or ('has_updates' in ret and ret['has_updates'])):                                            # noqa E129
                         self.logger.info(log_pre + "SyncProcessingEvent(processing_id: %s)" % pr['processing_id'])
                         event = SyncProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'],
                                                     content=event._content if event else None)
