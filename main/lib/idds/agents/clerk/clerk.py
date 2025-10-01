@@ -321,11 +321,11 @@ class Clerk(BaseAgent):
                     req = self.get_request(request_id, status=None, locking=True)
                     if req:
                         if cmd_type in [CommandType.AbortRequest]:
-                            self.submit(self.process_abort_request, **{"request": req, "command": cmd})
+                            self.submit(self.process_abort_request, **{"request": req, "command": cmd["cmd_id"]})
                         elif cmd_type in [CommandType.ResumeRequest]:
-                            self.submit(self.process_resume_request, **{"request": req, "command": cmd})
+                            self.submit(self.process_resume_request, **{"request": req, "command": cmd["cmd_id"]})
                         elif cmd_type in [CommandType.CloseRequest]:
-                            self.submit(self.process_close_request, **{"request": req, "command": cmd})
+                            self.submit(self.process_close_request, **{"request": req, "command": cmd["cmd_id"]})
 
                         u_command = {'cmd_id': cmd['cmd_id'],
                                      'status': CommandStatus.Processing,
@@ -1637,7 +1637,7 @@ class Clerk(BaseAgent):
                 u_command['errors'] = errors
             core_commands.update_commands([u_command])
         if command:
-            u_command = {'cmd_id': command['cmd_id'],
+            u_command = {'cmd_id': command,
                          'status': cmd_status,
                          'locking': CommandLocking.Idle}
             if errors:
