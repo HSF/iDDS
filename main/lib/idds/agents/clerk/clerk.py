@@ -1674,6 +1674,10 @@ class Clerk(BaseAgent):
                     ret = self.handle_abort_request(req, event)
                     self.logger.info(log_pre + "process_abort_request result: %s" % str(ret))
                     self.update_request(ret, origin_req=req)
+
+                    core_transforms.abort_resume_transformss(request_id=req['request_id'], abort=True)
+                    core_processings.abort_resume_processings(request_id=req['request_id'], abort=True)
+
                     to_abort_transform_id = None
                     if event and event._content and event._content['cmd_content'] and 'transform_id' in event._content['cmd_content']:
                         to_abort_transform_id = event._content['cmd_content']['transform_id']
@@ -1997,6 +2001,9 @@ class Clerk(BaseAgent):
                             self.logger.info(log_pre + "UpdateRequestEvent(request_id: %s)" % str(req['request_id']))
                             event = UpdateRequestEvent(publisher_id=self.id, request_id=req['request_id'], content=event._content if event else None)
                             self.event_bus.send(event)
+
+                    core_transforms.abort_resume_transformss(request_id=req['request_id'], resume=True)
+                    core_processings.abort_resume_processings(request_id=req['request_id'], resume=True)
 
                     self.handle_command(event, cmd_status=CommandStatus.Processed, errors=None)
         except Exception as ex:

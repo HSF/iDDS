@@ -337,6 +337,21 @@ def add_transform_outputs(transform, transform_parameters, input_collections=Non
 
 
 @transactional_session
+def abort_resume_transforms(transform_id=None, request_id=None, abort=False, resume=False, session=None):
+    """
+    abort/resume transforms.
+
+    :param request_id: The request id.
+    :param transform_id: The id of the transform.
+    :param session: The database session in use.
+
+    :raises NoObject: If no content is founded.
+    :raises DatabaseException: If there is a database error.
+    """
+    orm_transforms.abort_resume_transforms(transform_id=transform_id, request_id=request_id, abort=abort, resume=resume, session=session)
+
+
+@transactional_session
 def delete_transform(transform_id=None, session=None):
     """
     delete a transform.

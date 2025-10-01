@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2024
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2025
 
 
 """
@@ -537,6 +537,40 @@ def update_transform(transform_id, parameters, locking=False, session=None):
             query = query.filter(models.Transform.locking == TransformLocking.Idle)
             query = query.with_for_update(skip_locked=True)
 
+        num_rows = query.update(parameters, synchronize_session=False)
+        return num_rows
+    except sqlalchemy.orm.exc.NoResultFound as error:
+        raise exceptions.NoObject('Transfrom %s cannot be found: %s' % (transform_id, error))
+    return 0
+
+
+@transactional_session
+def abort_resume_transforms(transform_id=None, request_id=None, abort=False, resume=False, session=None):
+    """
+    abort/resume transforms.
+
+    :param request_id: The request id.
+    :param transform_id: The id of the transform.
+    :param session: The database session in use.
+
+    :raises NoObject: If no content is founded.
+    :raises DatabaseException: If there is a database error.
+    """
+    if not abort and not resume:
+        return
+    if not transform_id and not request_id:
+        return
+
+    try:
+        if abort:
+            parameters = {'substatus': TransformStatus.ToCancel}
+        if resume:
+            parameters = {'substatus': TransformStatus.ToResume}
+        query = session.query(models.Transform)
+        if transform_id:
+            query = query.filter_by(transform_id=transform_id)
+        if request_id:
+            query = query.filter_by(request_id=request_id)
         num_rows = query.update(parameters, synchronize_session=False)
         return num_rows
     except sqlalchemy.orm.exc.NoResultFound as error:

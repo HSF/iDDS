@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2024
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2025
 
 
 """
@@ -199,6 +199,23 @@ def update_processing(processing_id, parameters, session=None):
 
     """
     return orm_processings.update_processing(processing_id=processing_id, parameters=parameters, session=session)
+
+
+@transactional_session
+def abort_resume_processings(transform_id=None, request_id=None, processing_id=None, abort=False, resume=False, session=None):
+    """
+    abort/resume processings.
+
+    :param request_id: The request id.
+    :param transform_id: The id of the transform.
+    :param session: The database session in use.
+
+    :raises NoObject: If no content is founded.
+    :raises DatabaseException: If there is a database error.
+    """
+    orm_processings.abort_resume_processings(
+        transform_id=transform_id, request_id=request_id, processing_id=processing_id, abort=abort, resume=resume, session=session
+    )
 
 
 @transactional_session

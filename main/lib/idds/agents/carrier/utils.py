@@ -1202,6 +1202,11 @@ def handle_update_processing(processing, agent_attributes, max_updates_per_round
     work = proc.work
     work.set_agent_attributes(agent_attributes, processing)
 
+    if processing['substatus'] in [ProcessingStatus.ToCancel]:
+        handle_abort_processing(processing, agent_attributes=agent_attributes, logger=logger, log_prefix=log_prefix)
+    if processing['substatus'] in [ProcessingStatus.ToResume]:
+        handle_resume_processing(processing, agent_attributes=agent_attributes, logger=logger, log_prefix=log_prefix)
+
     input_output_maps = get_input_output_maps(transform_id, work, with_deps=False)
     logger.debug(log_prefix + "get_input_output_maps: len: %s" % len(input_output_maps))
     logger.debug(log_prefix + "get_input_output_maps.keys[:3]: %s" % str(list(input_output_maps.keys())[:3]))
