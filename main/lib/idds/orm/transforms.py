@@ -22,6 +22,7 @@ from sqlalchemy.sql.expression import asc
 
 from idds.common import exceptions
 from idds.common.constants import TransformStatus, TransformLocking, CollectionRelationType
+from idds.common.utils import get_process_thread_info
 from idds.orm.base.session import read_session, transactional_session, safe_bulk_update_mappings
 from idds.orm.base import models
 
@@ -244,6 +245,15 @@ def get_transform_by_id_status(transform_id, status=None, locking=False, session
         if not ret:
             return None
         else:
+            if locking:
+                ret[0].updated_at = datetime.datetime.utcnow()
+                ret[0].locking = TransformLocking.Locking
+                hostname, pid, thread_id, thread_name = get_process_thread_info()
+                ret[0].locking_hostname = hostname
+                ret[0].locking_pid = pid
+                ret[0].locking_thread_id = thread_id
+                ret[0].locking_thread_name = thread_name
+
             return ret[0].to_dict()
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('transform transform_id: %s cannot be found: %s' % (transform_id, error))
@@ -477,6 +487,12 @@ def get_transforms_by_status(status, period=None, transform_ids=[], locking=Fals
                 if not not_lock:
                     t.updated_at = datetime.datetime.utcnow()
                     t.locking = TransformLocking.Locking
+
+                    hostname, pid, thread_id, thread_name = get_process_thread_info()
+                    t.locking_hostname = hostname
+                    t.locking_pid = pid
+                    t.locking_thread_id = thread_id
+                    t.locking_thread_name = thread_name
 
                 if only_return_id:
                     rets.append(t[0])

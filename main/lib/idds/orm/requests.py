@@ -23,6 +23,7 @@ from sqlalchemy.sql.expression import asc, desc
 
 from idds.common import exceptions
 from idds.common.constants import RequestType, RequestStatus, RequestLocking
+from idds.common.utils import get_process_thread_info
 from idds.orm.base.session import read_session, transactional_session, safe_bulk_update_mappings
 from idds.orm.base import models
 
@@ -291,6 +292,15 @@ def get_request_by_id_status(request_id, status=None, locking=False, session=Non
         if not ret:
             return None
         else:
+            if locking:
+                ret[0].updated_at = datetime.datetime.utcnow()
+                ret[0].locking = RequestLocking.Locking
+                hostname, pid, thread_id, thread_name = get_process_thread_info()
+                ret[0].locking_hostname = hostname
+                ret[0].locking_pid = pid
+                ret[0].locking_thread_id = thread_id
+                ret[0].locking_thread_name = thread_name
+
             return ret[0].to_dict()
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('request request_id: %s cannot be found: %s' % (request_id, error))
@@ -1131,6 +1141,12 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, req
                 if not not_lock:
                     req.updated_at = datetime.datetime.utcnow()
                     req.locking = RequestLocking.Locking
+
+                    hostname, pid, thread_id, thread_name = get_process_thread_info()
+                    req.locking_hostname = hostname
+                    req.locking_pid = pid
+                    req.locking_thread_id = thread_id
+                    req.locking_thread_name = thread_name
 
                 if only_return_id:
                     rets.append(req[0])

@@ -200,6 +200,7 @@ class Poller(BaseAgent):
                                                                 status=status,
                                                                 exclude_status=exclude_status,
                                                                 locking=locking,
+                                                                to_lock=True,
                                                                 lock_period=self.locking_period)
         except exceptions.DatabaseException as ex:
             if 'ORA-00060' in str(ex):

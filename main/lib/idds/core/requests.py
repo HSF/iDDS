@@ -14,12 +14,10 @@ operations related to Requests.
 """
 
 import copy
-import datetime
 
 from idds.common.constants import (RequestStatus, RequestLocking, WorkStatus,
                                    CollectionType, CollectionStatus, CollectionRelationType,
                                    MessageStatus, MetaStatus)
-from idds.common.utils import get_process_thread_info
 from idds.orm.base.session import read_session, transactional_session
 from idds.orm import requests_group as orm_requests_group
 from idds.orm import requests as orm_requests
@@ -201,20 +199,6 @@ def get_request_ids_by_name(name, session=None):
 @transactional_session
 def get_request_by_id_status(request_id, status=None, locking=False, session=None):
     req = orm_requests.get_request_by_id_status(request_id=request_id, status=status, locking=locking, session=session)
-    if req is not None and locking:
-        parameters = {}
-        parameters['locking'] = RequestLocking.Locking
-        parameters['updated_at'] = datetime.datetime.utcnow()
-        hostname, pid, thread_id, thread_name = get_process_thread_info()
-        parameters['locking_hostname'] = hostname
-        parameters['locking_pid'] = pid
-        parameters['locking_thread_id'] = thread_id
-        parameters['locking_thread_name'] = thread_name
-        num_rows = orm_requests.update_request(request_id=req['request_id'], parameters=parameters, locking=True, session=session)
-        if num_rows > 0:
-            return req
-        else:
-            return None
     return req
 
 

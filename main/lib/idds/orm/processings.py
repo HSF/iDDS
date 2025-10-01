@@ -22,6 +22,7 @@ from sqlalchemy.sql.expression import asc
 
 from idds.common import exceptions
 from idds.common.constants import ProcessingType, ProcessingStatus, ProcessingLocking, GranularityType
+from idds.common.utils import get_process_thread_info
 from idds.orm.base.session import read_session, transactional_session, safe_bulk_update_mappings
 from idds.orm.base import models
 
@@ -149,7 +150,7 @@ def get_processing(processing_id, request_id=None, transform_id=None, to_json=Fa
 
 
 @read_session
-def get_processing_by_id_status(processing_id, status=None, exclude_status=None, locking=False, session=None):
+def get_processing_by_id_status(processing_id, status=None, exclude_status=None, locking=False, to_lock=False, session=None):
     """
     Get a processing or raise a NoObject exception.
 
@@ -189,6 +190,15 @@ def get_processing_by_id_status(processing_id, status=None, exclude_status=None,
         if not ret:
             return None
         else:
+            if locking:
+                ret[0].updated_at = datetime.datetime.utcnow()
+                ret[0].locking = ProcessingLocking.Locking
+                hostname, pid, thread_id, thread_name = get_process_thread_info()
+                ret[0].locking_hostname = hostname
+                ret[0].locking_pid = pid
+                ret[0].locking_thread_id = thread_id
+                ret[0].locking_thread_name = thread_name
+
             return ret[0].to_dict()
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('processing processing_id: %s cannot be found: %s' % (processing_id, error))
@@ -342,6 +352,12 @@ def get_processings_by_status(status, period=None, processing_ids=[], locking=Fa
                 if not not_lock:
                     t.updated_at = datetime.datetime.utcnow()
                     t.locking = ProcessingLocking.Locking
+
+                    hostname, pid, thread_id, thread_name = get_process_thread_info()
+                    t.locking_hostname = hostname
+                    t.locking_pid = pid
+                    t.locking_thread_id = thread_id
+                    t.locking_thread_name = thread_name
 
                 if only_return_id:
                     rets.append(t[0])

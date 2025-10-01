@@ -13,14 +13,12 @@
 operations related to Transform.
 """
 
-import datetime
 import logging
 
 # from idds.common import exceptions
 
 from idds.common.constants import (TransformStatus, ContentRelationType, ContentStatus,
                                    TransformLocking, CollectionRelationType)
-from idds.common.utils import get_process_thread_info
 from idds.orm.base.session import read_session, transactional_session
 from idds.orm import (transforms as orm_transforms,
                       collections as orm_collections,
@@ -102,20 +100,6 @@ def get_transform(transform_id, request_id=None, to_json=False, session=None):
 @transactional_session
 def get_transform_by_id_status(transform_id, status=None, locking=False, session=None):
     tf = orm_transforms.get_transform_by_id_status(transform_id=transform_id, status=status, locking=locking, session=session)
-    if tf is not None and locking:
-        parameters = {}
-        parameters['locking'] = TransformLocking.Locking
-        parameters['updated_at'] = datetime.datetime.utcnow()
-        hostname, pid, thread_id, thread_name = get_process_thread_info()
-        parameters['locking_hostname'] = hostname
-        parameters['locking_pid'] = pid
-        parameters['locking_thread_id'] = thread_id
-        parameters['locking_thread_name'] = thread_name
-        num_rows = orm_transforms.update_transform(transform_id=tf['transform_id'], parameters=parameters, locking=True, session=session)
-        if num_rows > 0:
-            return tf
-        else:
-            return None
     return tf
 
 

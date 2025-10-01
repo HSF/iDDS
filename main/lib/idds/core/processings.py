@@ -13,11 +13,9 @@
 operations related to Processings.
 """
 
-import datetime
-
 from idds.orm.base.session import read_session, transactional_session
-from idds.common.constants import ProcessingLocking, ProcessingStatus, ProcessingType, GranularityType, ContentRelationType
-from idds.common.utils import get_list_chunks, get_process_thread_info
+from idds.common.constants import ProcessingStatus, ProcessingType, GranularityType, ContentRelationType
+from idds.common.utils import get_list_chunks
 from idds.orm import (processings as orm_processings,
                       collections as orm_collections,
                       contents as orm_contents,
@@ -115,45 +113,11 @@ def get_processings_by_transform_id(transform_id=None, to_json=False, session=No
 
 
 @transactional_session
-def get_processing_by_id_status(processing_id, status=None, exclude_status=None, locking=False, lock_period=None, session=None):
+def get_processing_by_id_status(processing_id, status=None, exclude_status=None, locking=False, to_lock=False, lock_period=None, session=None):
     # pr = orm_processings.get_processing_by_id_status(processing_id=processing_id, status=status, locking=locking, session=session)
     pr = orm_processings.get_processing_by_id_status(processing_id=processing_id, status=status,
-                                                     exclude_status=exclude_status, session=session)
-    if pr is None:
-        return pr
-
-    if locking:
-        if pr['locking'] in [ProcessingLocking.Locking]:
-            if lock_period and pr['updated_at'] < datetime.datetime.utcnow() - datetime.timedelta(seconds=lock_period):
-                parameters = {}
-                parameters['locking'] = ProcessingLocking.Locking
-                parameters['updated_at'] = datetime.datetime.utcnow()
-                hostname, pid, thread_id, thread_name = get_process_thread_info()
-                parameters['locking_hostname'] = hostname
-                parameters['locking_pid'] = pid
-                parameters['locking_thread_id'] = thread_id
-                parameters['locking_thread_name'] = thread_name
-                num_rows = orm_processings.update_processing(processing_id=pr['processing_id'], parameters=parameters, locking=True, session=session)
-                if num_rows > 0:
-                    return pr
-                else:
-                    return None
-            else:
-                return None
-        else:
-            parameters = {}
-            parameters['locking'] = ProcessingLocking.Locking
-            parameters['updated_at'] = datetime.datetime.utcnow()
-            hostname, pid, thread_id, thread_name = get_process_thread_info()
-            parameters['locking_hostname'] = hostname
-            parameters['locking_pid'] = pid
-            parameters['locking_thread_id'] = thread_id
-            parameters['locking_thread_name'] = thread_name
-            num_rows = orm_processings.update_processing(processing_id=pr['processing_id'], parameters=parameters, locking=True, session=session)
-            if num_rows > 0:
-                return pr
-            else:
-                return None
+                                                     exclude_status=exclude_status, locking=locking,
+                                                     to_lock=to_lock, session=session)
     return pr
 
 
