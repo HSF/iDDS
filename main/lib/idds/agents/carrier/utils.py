@@ -1203,7 +1203,7 @@ def handle_update_processing(processing, agent_attributes, max_updates_per_round
     work.set_agent_attributes(agent_attributes, processing)
 
     if processing['substatus'] in [ProcessingStatus.ToCancel]:
-        handle_abort_processing(processing, agent_attributes=agent_attributes, logger=logger, log_prefix=log_prefix)
+        handle_abort_processing(processing, agent_attributes=agent_attributes, sync=False, logger=logger, log_prefix=log_prefix)
     if processing['substatus'] in [ProcessingStatus.ToResume]:
         handle_resume_processing(processing, agent_attributes=agent_attributes, logger=logger, log_prefix=log_prefix)
 
@@ -2266,7 +2266,7 @@ def sync_processing(processing, agent_attributes, terminate=False, abort=False, 
     return processing, update_collections, messages
 
 
-def handle_abort_processing(processing, agent_attributes, logger=None, log_prefix=''):
+def handle_abort_processing(processing, agent_attributes, logger=None, sync=True, log_prefix=''):
     logger = get_logger(logger)
 
     # request_id = processing['request_id']
@@ -2291,7 +2291,8 @@ def handle_abort_processing(processing, agent_attributes, logger=None, log_prefi
     # for coll in input_collections + output_collections + log_collections:
     #     coll.status = CollectionStatus.Closed
     #     coll.substatus = CollectionStatus.Closed
-    processing, update_collections, messages = sync_processing(processing, agent_attributes, terminate=True, abort=True, logger=logger, log_prefix=log_prefix)
+    if sync:
+        processing, update_collections, messages = sync_processing(processing, agent_attributes, terminate=True, abort=True, logger=logger, log_prefix=log_prefix)
     update_contents = []
 
     # processing['status'] = ProcessingStatus.Cancelled
