@@ -1567,7 +1567,7 @@ class Clerk(BaseAgent):
                     self.event_bus.send(event)
                 for tf_id in update_tf_ids:
                     self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % tf_id)
-                    event = UpdateTransformEvent(publisher_id=self.id, transform_id=tf_id, content=event._content)
+                    event = UpdateTransformEvent(publisher_id=self.id, transform_id=tf_id, content=event._content if event else None)
                     self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
@@ -1610,6 +1610,7 @@ class Clerk(BaseAgent):
 
             ret_req = {'request_id': req['request_id'],
                        'parameters': {'status': req_status,
+                                      'substatus': RequestStatus.ToCancel,
                                       'locking': RequestLocking.Idle,
                                       'request_metadata': req['request_metadata']},
                        }
@@ -1693,18 +1694,18 @@ class Clerk(BaseAgent):
                                     self.logger.info(log_pre + "AbortTransformEvent(transform_id: %s)" % str(work.get_work_id()))
                                     event = AbortTransformEvent(publisher_id=self.id,
                                                                 transform_id=work.get_work_id(),
-                                                                content=event._content)
+                                                                content=event._content if event else None)
                                     self.event_bus.send(event)
                                     has_abort_work = True
                         if not has_abort_work:
                             self.logger.info(log_pre + "not has abort work")
                             self.logger.info(log_pre + "UpdateRequestEvent(request_id: %s)" % str(req['request_id']))
-                            event = UpdateRequestEvent(publisher_id=self.id, request_id=req['request_id'], content=event._content)
+                            event = UpdateRequestEvent(publisher_id=self.id, request_id=req['request_id'], content=event._content if event else None)
                             self.event_bus.send(event)
                     else:
                         # no works. should trigger update request
                         self.logger.info(log_pre + "UpdateRequestEvent(request_id: %s)" % str(req['request_id']))
-                        event = UpdateRequestEvent(publisher_id=self.id, request_id=req['request_id'], content=event._content)
+                        event = UpdateRequestEvent(publisher_id=self.id, request_id=req['request_id'], content=event._content if event else None)
                         self.event_bus.send(event)
 
                     self.handle_command(event, cmd_status=CommandStatus.Processed, errors=None)
@@ -1743,7 +1744,7 @@ class Clerk(BaseAgent):
                 else:
                     event = AbortTransformEvent(publisher_id=self.id,
                                                 transform_id=tf['transform_id'],
-                                                content=event._content)
+                                                content=event._content if event else None)
                     self.event_bus.send(event)
 
             req_status = RequestStatus.Transforming
@@ -1842,18 +1843,18 @@ class Clerk(BaseAgent):
                                         self.logger.info(log_pre + "AbortTransformEvent(transform_id: %s)" % str(work.get_work_id()))
                                         event = AbortTransformEvent(publisher_id=self.id,
                                                                     transform_id=work.get_work_id(),
-                                                                    content=event._content)
+                                                                    content=event._content if event else None)
                                         self.event_bus.send(event)
                                         has_abort_work = True
                             if not has_abort_work:
                                 self.logger.info(log_pre + "not has abort work")
                                 self.logger.info(log_pre + "UpdateRequestEvent(request_id: %s)" % str(req['request_id']))
-                                event = UpdateRequestEvent(publisher_id=self.id, request_id=req['request_id'], content=event._content)
+                                event = UpdateRequestEvent(publisher_id=self.id, request_id=req['request_id'], content=event._content if event else None)
                                 self.event_bus.send(event)
                         else:
                             # no works. should trigger update request
                             self.logger.info(log_pre + "UpdateRequestEvent(request_id: %s)" % str(req['request_id']))
-                            event = UpdateRequestEvent(publisher_id=self.id, request_id=req['request_id'], content=event._content)
+                            event = UpdateRequestEvent(publisher_id=self.id, request_id=req['request_id'], content=event._content if event else None)
                             self.event_bus.send(event)
 
                     self.handle_command(event, cmd_status=CommandStatus.Processed, errors=None)
@@ -1885,7 +1886,7 @@ class Clerk(BaseAgent):
                 else:
                     event = ResumeTransformEvent(publisher_id=self.id,
                                                  transform_id=tf['transform_id'],
-                                                 content=event._content)
+                                                 content=event._content if event else None)
                     self.event_bus.send(event)
 
             parameters = {'status': RequestStatus.Transforming,
@@ -1990,11 +1991,11 @@ class Clerk(BaseAgent):
                                 self.logger.info(log_pre + "ResumeTransformEvent(transform_id: %s)" % str(work.get_work_id()))
                                 event = ResumeTransformEvent(publisher_id=self.id,
                                                              transform_id=work.get_work_id(),
-                                                             content=event._content)
+                                                             content=event._content if event else None)
                                 self.event_bus.send(event)
                         else:
                             self.logger.info(log_pre + "UpdateRequestEvent(request_id: %s)" % str(req['request_id']))
-                            event = UpdateRequestEvent(publisher_id=self.id, request_id=req['request_id'], content=event._content)
+                            event = UpdateRequestEvent(publisher_id=self.id, request_id=req['request_id'], content=event._content if event else None)
                             self.event_bus.send(event)
 
                     self.handle_command(event, cmd_status=CommandStatus.Processed, errors=None)

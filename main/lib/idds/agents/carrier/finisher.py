@@ -429,7 +429,7 @@ class Finisher(Poller):
                             self.update_processing(ret, pr, use_bulk_update_mappings=False)
 
                             self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
-                            event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'], content=event._content)
+                            event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'], content=event._content if event else None)
                             self.event_bus.send(event)
                         else:
                             ret = self.handle_abort_processing(pr, log_prefix=log_pre)
@@ -441,7 +441,7 @@ class Finisher(Poller):
 
                             self.update_processing(ret, pr)
                             self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
-                            event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'], content=event._content)
+                            event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'], content=event._content if event else None)
                             self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
@@ -547,7 +547,7 @@ class Finisher(Poller):
                             self.update_processing(ret, pr, use_bulk_update_mappings=False)
 
                             self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
-                            event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'], content=event._content)
+                            event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'], content=event._content if event else None)
                             self.event_bus.send(event)
                         else:
                             ret = self.handle_resume_processing(pr, log_prefix=log_pre)
@@ -556,7 +556,7 @@ class Finisher(Poller):
                             self.update_processing(ret, pr, use_bulk_update_mappings=False)
 
                             self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
-                            event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'], content=event._content)
+                            event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'], content=event._content if event else None)
                             self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)

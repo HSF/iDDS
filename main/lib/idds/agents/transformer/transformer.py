@@ -1331,7 +1331,7 @@ class Transformer(BaseAgent):
                 self.logger.info(log_pre + "AbortProcessingEvent(processing_id: %s)" % pr['processing_id'])
                 event = AbortProcessingEvent(publisher_id=self.id,
                                              processing_id=pr['processing_id'],
-                                             content=event._content)
+                                             content=event._content if event else None)
                 self.event_bus.send(event)
 
             transform_parameters = {'status': TransformStatus.Transforming,
@@ -1399,7 +1399,7 @@ class Transformer(BaseAgent):
                             processing = work.get_processing(input_output_maps=[], without_creating=True)
                             if processing and processing.processing_id:
                                 self.logger.info(log_pre + "AbortProcessingEvent(processing_id: %s)" % processing.processing_id)
-                                event = AbortProcessingEvent(publisher_id=self.id, processing_id=processing.processing_id, content=event._content)
+                                event = AbortProcessingEvent(publisher_id=self.id, processing_id=processing.processing_id, content=event._content if event else None)
                                 self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
@@ -1455,7 +1455,7 @@ class Transformer(BaseAgent):
                 self.logger.info(log_pre + "ResumeProcessingEvent(processing_id: %s)" % pr['processing_id'])
                 event = ResumeProcessingEvent(publisher_id=self.id,
                                               processing_id=pr['processing_id'],
-                                              content=event._content)
+                                              content=event._content if event else None)
                 self.event_bus.send(event)
 
             transform_parameters = {'status': TransformStatus.Transforming,
@@ -1520,13 +1520,13 @@ class Transformer(BaseAgent):
                                 self.logger.info(log_pre + "ResumeProcessingEvent(processing_id: %s)" % processing.processing_id)
                                 event = ResumeProcessingEvent(publisher_id=self.id,
                                                               processing_id=processing.processing_id,
-                                                              content=event._content)
+                                                              content=event._content if event else None)
                                 self.event_bus.send(event)
                             else:
                                 self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % tf['transform_id'])
                                 event = UpdateTransformEvent(publisher_id=self.id,
                                                              transform_id=tf['transform_id'],
-                                                             content=event._content)
+                                                             content=event._content if event else None)
                                 self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
