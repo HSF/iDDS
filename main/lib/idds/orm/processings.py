@@ -349,7 +349,7 @@ def get_processings_by_status(status, period=None, processing_ids=[], locking=Fa
         rets = []
         if tmp:
             for t in tmp:
-                if not not_lock:
+                if locking:
                     t.updated_at = datetime.datetime.utcnow()
                     t.locking = ProcessingLocking.Locking
 

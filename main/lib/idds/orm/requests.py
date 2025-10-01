@@ -1138,7 +1138,7 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, req
         rets = []
         if tmp:
             for req in tmp:
-                if not not_lock:
+                if locking:
                     req.updated_at = datetime.datetime.utcnow()
                     req.locking = RequestLocking.Locking
 

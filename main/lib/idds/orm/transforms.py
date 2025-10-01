@@ -484,7 +484,7 @@ def get_transforms_by_status(status, period=None, transform_ids=[], locking=Fals
         rets = []
         if tmp:
             for t in tmp:
-                if not not_lock:
+                if locking:
                     t.updated_at = datetime.datetime.utcnow()
                     t.locking = TransformLocking.Locking
 

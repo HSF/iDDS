@@ -1663,7 +1663,7 @@ class Clerk(BaseAgent):
                         ret['parameters']['errors']['msg'] = req['errors']['msg']
                     self.logger.info(log_pre + "process_abort_request result: %s" % str(ret))
                     self.update_request(ret, origin_req=req)
-                    self.handle_command(event, cmd_status=CommandStatus.Failed, errors="Request is already terminated. Cannot be aborted")
+                    self.handle_command(event, cmd_status=CommandStatus.Processed, errors="Request is already terminated. Cannot be aborted")
                 elif req['request_type'] in [RequestType.iWorkflow, RequestType.iWorkflowLocal]:
                     ret = self.handle_close_irequest(req, event=event)
                     self.update_request(ret, origin_req=req)
