@@ -443,7 +443,7 @@ class Work(Base):
                  primary_input_collection=None, other_input_collections=None, input_collections=None,
                  primary_output_collection=None, other_output_collections=None, output_collections=None,
                  log_collections=None, release_inputs_after_submitting=False, username=None,
-                 agent_attributes=None, is_template=False,
+                 agent_attributes=None, is_template=False, loading=False,
                  logger=None):
         """
         Init a work/task/transformation.
@@ -469,7 +469,7 @@ class Work(Base):
 
         self._processings = {}
 
-        super(Work, self).__init__()
+        super(Work, self).__init__(loading=loading)
 
         self.internal_id = str(uuid.uuid4())[:8]
         self.template_work_id = self.internal_id

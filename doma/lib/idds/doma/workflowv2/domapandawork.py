@@ -41,7 +41,7 @@ class DomaPanDAWork(Work):
     def __init__(self, executable=None, arguments=None, parameters=None, setup=None,
                  work_tag='lsst', exec_type='panda', sandbox=None, work_id=None,
                  primary_input_collection=None, other_input_collections=None,
-                 input_collections=None,
+                 input_collections=None, loading=False,
                  primary_output_collection=None, other_output_collections=None,
                  output_collections=None, log_collections=None,
                  logger=None, dependency_map={}, task_name="",
@@ -77,6 +77,7 @@ class DomaPanDAWork(Work):
                                             output_collections=output_collections,
                                             log_collections=log_collections,
                                             release_inputs_after_submitting=True,
+                                            loading=loading,
                                             logger=logger)
         # self.pandamonitor = None
         self.panda_url = None
@@ -289,7 +290,7 @@ class DomaPanDAWork(Work):
         self.num_inputs = num_inputs
         self.num_dependencies = num_dependencies
 
-        if self.dependency_tasks is None and not self._loading:
+        if self.dependency_tasks is None and not self._loading and self._dependency_map:
             self.logger.debug(f"{self.get_work_name()} constructing dependency_tasks set")
             dependency_tasks = set([])
             for job in self._dependency_map:
