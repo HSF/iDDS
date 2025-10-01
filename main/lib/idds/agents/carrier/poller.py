@@ -143,9 +143,12 @@ class Poller(BaseAgent):
             self.logger.debug(q_str)
 
     def init(self):
-        status = [ProcessingStatus.New, ProcessingStatus.Submitting, ProcessingStatus.Submitted,
-                  ProcessingStatus.Running, ProcessingStatus.FinishedOnExec]
-        core_processings.clean_next_poll_at(status)
+        try:
+            status = [ProcessingStatus.New, ProcessingStatus.Submitting, ProcessingStatus.Submitted,
+                      ProcessingStatus.Running, ProcessingStatus.FinishedOnExec]
+            core_processings.clean_next_poll_at(status)
+        except Exception as ex:
+            self.logger.info(f"Failed clean next_poll_at: {ex}")
 
     def get_running_processings(self):
         """
@@ -668,14 +671,17 @@ class Poller(BaseAgent):
         return pro_ret
 
     def clean_locks(self, force=False):
-        self.logger.info(f"clean locking: force: {force}")
-        health_items = self.get_health_items()
-        min_request_id = BaseAgent.min_request_id
-        hostname, pid, thread_id, thread_name = self.get_process_thread_info()
-        ret = core_processings.clean_locking(health_items=health_items, min_request_id=min_request_id,
-                                             time_period=self.clean_locks_time_period,
-                                             force=force, hostname=hostname, pid=pid)
-        self.logger.info(f"clean locking finished. Cleaned locks: {ret}")
+        try:
+            self.logger.info(f"clean locking: force: {force}")
+            health_items = self.get_health_items()
+            min_request_id = BaseAgent.min_request_id
+            hostname, pid, thread_id, thread_name = self.get_process_thread_info()
+            ret = core_processings.clean_locking(health_items=health_items, min_request_id=min_request_id,
+                                                 time_period=self.clean_locks_time_period,
+                                                 force=force, hostname=hostname, pid=pid)
+            self.logger.info(f"clean locking finished. Cleaned locks: {ret}")
+        except Exception as ex:
+            self.logger.info(f"Failed clean locking: {ex}")
 
     def init_event_function_map(self):
         self.event_func_map = {

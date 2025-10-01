@@ -1536,13 +1536,16 @@ class Transformer(BaseAgent):
         return pro_ret
 
     def clean_locks(self, force=False):
-        self.logger.info(f"clean locking: force: {force}")
-        health_items = self.get_health_items()
-        min_request_id = BaseAgent.min_request_id
-        hostname, pid, thread_id, thread_name = self.get_process_thread_info()
-        core_transforms.clean_locking(health_items=health_items, min_request_id=min_request_id,
-                                      time_period=self.clean_locks_time_period,
-                                      force=force, hostname=hostname, pid=pid)
+        try:
+            self.logger.info(f"clean locking: force: {force}")
+            health_items = self.get_health_items()
+            min_request_id = BaseAgent.min_request_id
+            hostname, pid, thread_id, thread_name = self.get_process_thread_info()
+            core_transforms.clean_locking(health_items=health_items, min_request_id=min_request_id,
+                                          time_period=self.clean_locks_time_period,
+                                          force=force, hostname=hostname, pid=pid)
+        except Exception as ex:
+            self.logger.info(f"Failed clean locking: {ex}")
 
     def init_event_function_map(self):
         self.event_func_map = {
