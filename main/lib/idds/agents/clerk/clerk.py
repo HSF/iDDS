@@ -321,11 +321,11 @@ class Clerk(BaseAgent):
                     req = self.get_request(request_id, status=None, locking=True)
                     if req:
                         if cmd_type in [CommandType.AbortRequest]:
-                            self.submit(self.process_abort_request, **{"request": req})
+                            self.submit(self.process_abort_request, **{"request": req, "command": cmd})
                         elif cmd_type in [CommandType.ResumeRequest]:
-                            self.submit(self.process_resume_request, **{"request": req})
+                            self.submit(self.process_resume_request, **{"request": req, "command": cmd})
                         elif cmd_type in [CommandType.CloseRequest]:
-                            self.submit(self.process_close_request, **{"request": req})
+                            self.submit(self.process_close_request, **{"request": req, "command": cmd})
 
                         u_command = {'cmd_id': cmd['cmd_id'],
                                      'status': CommandStatus.Processing,
@@ -1628,7 +1628,7 @@ class Clerk(BaseAgent):
             self.logger.info(log_pre + "handle_abort_request exception result: %s" % str(ret_req))
         return ret_req
 
-    def handle_command(self, event, cmd_status, errors=None):
+    def handle_command(self, event, cmd_status=None, command=None, errors=None):
         if (event and event._content and 'cmd_id' in event._content and event._content['cmd_id']):
             u_command = {'cmd_id': event._content['cmd_id'],
                          'status': cmd_status,
@@ -1636,8 +1636,15 @@ class Clerk(BaseAgent):
             if errors:
                 u_command['errors'] = errors
             core_commands.update_commands([u_command])
+        if command:
+            u_command = {'cmd_id': command['cmd_id'],
+                         'status': cmd_status,
+                         'locking': CommandLocking.Idle}
+            if errors:
+                u_command['errors'] = errors
+            core_commands.update_commands([u_command])
 
-    def process_abort_request(self, event=None, request=None):
+    def process_abort_request(self, event=None, request=None, command=None):
         self.number_workers += 1
         pro_ret = ReturnCode.Ok.value
         try:
@@ -1651,7 +1658,7 @@ class Clerk(BaseAgent):
             if request:
                 req = request
                 log_pre = self.get_log_prefix(req)
-                self.logger.info(log_pre + f"process_abort_request request: {req['request_id']}, event: {event}")
+                self.logger.info(log_pre + f"process_abort_request request: {req['request_id']}, event: {event}, command: {command}")
 
                 if req['status'] in [RequestStatus.Finished, RequestStatus.SubFinished,
                                      RequestStatus.Failed, RequestStatus.Cancelled,
@@ -1663,13 +1670,13 @@ class Clerk(BaseAgent):
                         ret['parameters']['errors']['msg'] = req['errors']['msg']
                     self.logger.info(log_pre + "process_abort_request result: %s" % str(ret))
                     self.update_request(ret, origin_req=req)
-                    self.handle_command(event, cmd_status=CommandStatus.Processed, errors="Request is already terminated. Cannot be aborted")
+                    self.handle_command(event, command=command, cmd_status=CommandStatus.Processed, errors="Request is already terminated. Cannot be aborted")
                 elif req['request_type'] in [RequestType.iWorkflow, RequestType.iWorkflowLocal]:
                     ret = self.handle_close_irequest(req, event=event)
                     self.update_request(ret, origin_req=req)
 
                     # self.handle_command(event, cmd_status=CommandStatus.Failed, errors="Not support abortion for iWorkflow")
-                    self.handle_command(event, cmd_status=CommandStatus.Processed, errors=None)
+                    self.handle_command(event, command=command, cmd_status=CommandStatus.Processed, errors=None)
                 else:
                     ret = self.handle_abort_request(req, event)
                     self.logger.info(log_pre + "process_abort_request result: %s" % str(ret))
@@ -1712,12 +1719,12 @@ class Clerk(BaseAgent):
                         event = UpdateRequestEvent(publisher_id=self.id, request_id=req['request_id'], content=event._content if event else None)
                         self.event_bus.send(event)
 
-                    self.handle_command(event, cmd_status=CommandStatus.Processed, errors=None)
+                    self.handle_command(event, command=command, cmd_status=CommandStatus.Processed, errors=None)
         except AssertionError as ex:
             self.logger.error("process_abort_request, Failed to process event: %s" % str(event))
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
-            self.handle_command(event, cmd_status=CommandStatus.Processed, errors=str(ex))
+            self.handle_command(event, command=command, cmd_status=CommandStatus.Processed, errors=str(ex))
             pro_ret = ReturnCode.Failed.value
         except Exception as ex:
             self.logger.error(ex)
@@ -1791,7 +1798,7 @@ class Clerk(BaseAgent):
             self.logger.info(log_pre + "handle_close_irequest exception result: %s" % str(ret_req))
         return ret_req
 
-    def process_close_request(self, event=None, request=None):
+    def process_close_request(self, event=None, request=None, command=None):
         self.number_workers += 1
         pro_ret = ReturnCode.Ok.value
         try:
@@ -1817,7 +1824,7 @@ class Clerk(BaseAgent):
                         ret['parameters']['errors']['msg'] = req['errors']['msg']
                     self.logger.info(log_pre + "process_abort_request result: %s" % str(ret))
                     self.update_request(ret, origin_req=req)
-                    self.handle_command(event, cmd_status=CommandStatus.Failed, errors="Request is already terminated. Cannot be closed")
+                    self.handle_command(event, command=command, cmd_status=CommandStatus.Failed, errors="Request is already terminated. Cannot be closed")
                 else:
                     if req['request_type'] in [RequestType.iWorkflow, RequestType.iWorkflowLocal]:
                         ret = self.handle_close_irequest(req, event=event)
@@ -1861,12 +1868,12 @@ class Clerk(BaseAgent):
                             event = UpdateRequestEvent(publisher_id=self.id, request_id=req['request_id'], content=event._content if event else None)
                             self.event_bus.send(event)
 
-                    self.handle_command(event, cmd_status=CommandStatus.Processed, errors=None)
+                    self.handle_command(event, command=command, cmd_status=CommandStatus.Processed, errors=None)
         except AssertionError as ex:
             self.logger.error("process_close_request, Failed to process event: %s" % str(event))
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
-            self.handle_command(event, cmd_status=CommandStatus.Processed, errors=str(ex))
+            self.handle_command(event, command=command, cmd_status=CommandStatus.Processed, errors=str(ex))
             pro_ret = ReturnCode.Failed.value
         except Exception as ex:
             self.logger.error(ex)
@@ -1951,7 +1958,7 @@ class Clerk(BaseAgent):
             ret_req['parameters']['errors'].update(error)
         return ret_req
 
-    def process_resume_request(self, event=None, request=None):
+    def process_resume_request(self, event=None, request=None, command=None):
         self.number_workers += 1
         pro_ret = ReturnCode.Ok.value
         try:
@@ -1975,12 +1982,12 @@ class Clerk(BaseAgent):
                     self.logger.info(log_pre + "process_resume_request result: %s" % str(ret))
 
                     self.update_request(ret, origin_req=req)
-                    self.handle_command(event, cmd_status=CommandStatus.Failed, errors="Request is already finished. Cannot be resumed")
+                    self.handle_command(event, command=command, cmd_status=CommandStatus.Failed, errors="Request is already finished. Cannot be resumed")
                 elif req['request_type'] in [RequestType.iWorkflow, RequestType.iWorkflowLocal]:
                     ret = self.handle_resume_irequest(req)
                     self.update_request(ret, origin_req=req)
                     # self.handle_command(event, cmd_status=CommandStatus.Failed, errors="Not support to reusme for iWorkflow")
-                    self.handle_command(event, cmd_status=CommandStatus.Processed, errors=None)
+                    self.handle_command(event, command=command, cmd_status=CommandStatus.Processed, errors=None)
                 else:
                     ret = self.handle_resume_request(req)
                     self.logger.info(log_pre + "process_resume_request result: %s" % str(ret))
@@ -2005,7 +2012,7 @@ class Clerk(BaseAgent):
                     core_transforms.abort_resume_transforms(request_id=req['request_id'], resume=True)
                     core_processings.abort_resume_processings(request_id=req['request_id'], resume=True)
 
-                    self.handle_command(event, cmd_status=CommandStatus.Processed, errors=None)
+                    self.handle_command(event, command=command, cmd_status=CommandStatus.Processed, errors=None)
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
