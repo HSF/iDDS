@@ -41,7 +41,7 @@ class DomaPanDAWork(Work):
     def __init__(self, executable=None, arguments=None, parameters=None, setup=None,
                  work_tag='lsst', exec_type='panda', sandbox=None, work_id=None,
                  primary_input_collection=None, other_input_collections=None,
-                 input_collections=None,
+                 input_collections=None, loading=False,
                  primary_output_collection=None, other_output_collections=None,
                  output_collections=None, log_collections=None,
                  logger=None, dependency_map={}, task_name="",
@@ -77,6 +77,7 @@ class DomaPanDAWork(Work):
                                             output_collections=output_collections,
                                             log_collections=log_collections,
                                             release_inputs_after_submitting=True,
+                                            loading=loading,
                                             logger=logger)
         # self.pandamonitor = None
         self.panda_url = None
@@ -190,6 +191,15 @@ class DomaPanDAWork(Work):
         self.add_metadata_item('num_inputs', value)
 
     @property
+    def has_unmapped_jobs(self):
+        value = self.get_metadata_item('has_unmapped_jobs', True)
+        return value
+
+    @has_unmapped_jobs.setter
+    def has_unmapped_jobs(self, value):
+        self.add_metadata_item('has_unmapped_jobs', value)
+
+    @property
     def num_dependencies(self):
         num = self.get_metadata_item('num_dependencies', None)
         return num
@@ -217,6 +227,7 @@ class DomaPanDAWork(Work):
     @property
     def dependency_map(self):
         if self.should_unzip('_dependency_map'):
+            self.logger.debug("unzipping _dependency_map")
             data = self.unzip_data(self._dependency_map)
         else:
             data = self._dependency_map
@@ -248,7 +259,7 @@ class DomaPanDAWork(Work):
     def dependency_map(self, value):
         num_dependencies = 0
         num_inputs = 0
-        if value:
+        if value and not self._loading:
             if type(value) not in [list, tuple]:
                 raise exceptions.IDDSException("dependency_map should be a list or tuple")
             item_names = {}
@@ -279,7 +290,19 @@ class DomaPanDAWork(Work):
         self.num_inputs = num_inputs
         self.num_dependencies = num_dependencies
 
-        if self.es:
+        if self.dependency_tasks is None and not self._loading and self._dependency_map:
+            self.logger.debug(f"{self.get_work_name()} constructing dependency_tasks set")
+            dependency_tasks = set([])
+            for job in self._dependency_map:
+                inputs_dependency = job["dependencies"]
+
+                for input_d in inputs_dependency:
+                    task_name = input_d['task']
+                    if task_name not in dependency_tasks:
+                        dependency_tasks.add(task_name)
+            self.dependency_tasks = list(dependency_tasks)
+
+        if self.es and not self._loading:
             self.construct_es_files()
 
     def construct_es_files(self):
@@ -479,8 +502,8 @@ class DomaPanDAWork(Work):
 
     def depend_on(self, work):
         self.logger.debug("checking depending on")
-        if self.dependency_tasks is None:
-            self.logger.debug("constructing dependency_tasks set")
+        if not self.dependency_tasks:
+            self.logger.debug(f"{self.get_work_name()} constructing dependency_tasks set")
             dependency_tasks = set([])
             for job in self.dependency_map:
                 inputs_dependency = job["dependencies"]
@@ -499,6 +522,8 @@ class DomaPanDAWork(Work):
             return False
 
     def get_ancestry_works(self):
+        if self.dependency_tasks:
+            return self.dependency_tasks
         tasks = set([])
         for job in self.dependency_map:
             inputs_dependency = job["dependencies"]
@@ -604,6 +629,16 @@ class DomaPanDAWork(Work):
         return content
 
     def is_all_dependency_tasks_available(self, inputs_dependency, task_name_to_coll_map):
+        if self.dependency_tasks:
+            for task_name in self.dependency_tasks:
+                if (
+                    task_name not in task_name_to_coll_map                    # noqa: W503
+                    or 'outputs' not in task_name_to_coll_map[task_name]      # noqa: W503
+                    or not task_name_to_coll_map[task_name]['outputs']      # noqa: W503
+                ):
+                    return False
+            return True
+
         for input_d in inputs_dependency:
             task_name = input_d['task']
             if (task_name not in task_name_to_coll_map                    # noqa: W503
@@ -630,6 +665,8 @@ class DomaPanDAWork(Work):
         return False
 
     def get_parent_work_names(self):
+        if self.dependency_tasks:
+            return self.dependency_tasks
         parent_work_names = []
         for job in self.dependency_map:
             if "dependencies" in job and job["dependencies"]:
@@ -660,18 +697,23 @@ class DomaPanDAWork(Work):
         """
         new_input_output_maps = {}
 
+        task_name_to_coll_map = self.get_work_name_to_coll_map()
+        if self.dependency_tasks and not self.is_all_dependency_tasks_available([], task_name_to_coll_map):
+            # not all parent tasks available, wait
+            self.set_has_new_inputs(True)
+            return new_input_output_maps
+
         unmapped_jobs = self.get_unmapped_jobs(mapped_input_output_maps)
         if not unmapped_jobs:
             self.set_has_new_inputs(False)
             return new_input_output_maps
 
+        has_left_inputs = False
         if unmapped_jobs:
             input_coll = self.get_input_collections()[0]
             input_coll_id = input_coll.coll_id
             output_coll = self.get_output_collections()[0]
             output_coll_id = output_coll.coll_id
-
-            task_name_to_coll_map = self.get_work_name_to_coll_map()
 
             if not self.es:
                 mapped_keys = mapped_input_output_maps.keys()
@@ -709,6 +751,7 @@ class DomaPanDAWork(Work):
                         # self.dependency_map_deleted.append(job)
                         next_key += 1
                     else:
+                        has_left_inputs = True
                         # not all inputs for this job can be parsed.
                         # self.dependency_map.append(job)
                         pass
@@ -773,6 +816,12 @@ class DomaPanDAWork(Work):
                                     self.logger.debug("get_new_input_output_maps, duplicated input dependency for job %s: %s" % (job['name'], str(job["dependencies"])))
 
                             new_input_output_maps[next_key]["sub_maps"].append(sub_map)
+                    else:
+                        has_left_inputs = True
+        if has_left_inputs:
+            self.set_has_new_inputs(True)
+        else:
+            self.set_has_new_inputs(False)
 
         # self.logger.debug("get_new_input_output_maps, new_input_output_maps: %s" % str(new_input_output_maps))
         self.logger.debug("get_new_input_output_maps, new_input_output_maps len: %s" % len(new_input_output_maps))
@@ -1539,7 +1588,7 @@ class DomaPanDAWork(Work):
                         # new version of panda result
                         event_status = event_result.get('status', None)
                         event_error = event_result.get('error', None)
-                        event_diag = event_result.get('diag', None)
+                        event_diag = event_result.get('dialog', None)
                     else:
                         event_status = event_result
                         event_error, event_diag = None, None
@@ -1558,7 +1607,7 @@ class DomaPanDAWork(Work):
                         # new version of panda result
                         event_status = event_result.get('status', None)
                         event_error = event_result.get('error', None)
-                        event_diag = event_result.get('diag', None)
+                        event_diag = event_result.get('dialog', None)
                     else:
                         event_status = event_result
                         event_error, event_diag = None, None
@@ -1823,14 +1872,20 @@ class DomaPanDAWork(Work):
                                         panda_id = ",".join([str(i) for i in panda_ids])
                                         job_info = unterminated_jobs_status[input_file]['job_info']
                                 else:
-                                    event_status = panda_status
+                                    if panda_status in [ContentStatus.FinalSubAvailable]:
+                                        event_status = ContentStatus.FinalFailed
+                                    else:
+                                        event_status = panda_status
                                     event_error_code = None
                                     event_error_diag = None
                                     panda_ids = unterminated_jobs_status[input_file]['panda_id']
                                     panda_id = ",".join([str(i) for i in panda_ids])
                                     job_info = unterminated_jobs_status[input_file]['job_info']
                             else:
-                                event_status = panda_status
+                                if panda_status in [ContentStatus.FinalSubAvailable]:
+                                    event_status = ContentStatus.FinalFailed
+                                else:
+                                    event_status = panda_status
                                 event_error_code = None
                                 event_error_diag = None
 

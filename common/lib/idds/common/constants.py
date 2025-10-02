@@ -261,6 +261,7 @@ class TransformType(IDDSEnum):
     iWork = 10
     GenericWorkflow = 11
     GenericWork = 12
+    BuildWork = 13
     Other = 99
 
 
@@ -395,6 +396,9 @@ class ProcessingType(IDDSEnum):
     Data = 8
     iWorkflow = 9
     iWork = 10
+    GenericWorkflow = 11
+    GenericWork = 12
+    BuildWork = 13
     Other = 99
 
 
@@ -567,10 +571,22 @@ class MessageDestination(IDDSEnum):
 
 
 class CommandType(IDDSEnum):
-    AbortRequest = 0
-    ResumeRequest = 1
-    ExpireRequest = 2
-    CloseRequest = 3
+    NoneCommand = 0
+
+    AbortRequest = 10
+    ResumeRequest = 11
+    ExpireRequest = 12
+    CloseRequest = 13
+
+    AbortTransform = 20
+    ResumeTransform = 21
+    ExpireTransform = 22
+    CloseTransform = 23
+
+    AbortProcessing = 30
+    ResumeProcessing = 31
+    ExpireProcessing = 32
+    CloseProcessing = 33
 
 
 class CommandStatus(IDDSEnum):
@@ -701,6 +717,9 @@ def get_processing_type_from_transform_type(tf_type):
            TransformType.Data: ProcessingType.Data,
            TransformType.iWorkflow: ProcessingType.iWorkflow,
            TransformType.iWork: ProcessingType.iWork,
+           TransformType.GenericWorkflow: ProcessingType.GenericWorkflow,
+           TransformType.GenericWork: ProcessingType.GenericWork,
+           TransformType.BuildWork: ProcessingType.BuildWork,
            TransformType.Other: ProcessingType.Other}
     if tf_type in map:
         return map[tf_type]

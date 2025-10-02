@@ -21,7 +21,7 @@ from idds.common.utils import setup_logging, truncate_string, json_dumps
 from idds.core import processings as core_processings
 from idds.agents.common.baseagent import BaseAgent
 from idds.agents.common.eventbus.event import (EventType,
-                                               UpdateProcessingEvent,
+                                               # UpdateProcessingEvent,
                                                TriggerProcessingEvent,
                                                SyncProcessingEvent,
                                                TerminatedProcessingEvent)
@@ -126,26 +126,29 @@ class Poller(BaseAgent):
         return self.extra_executors
 
     def is_ok_to_run_more_processings(self):
-        if self.number_workers >= self.max_number_workers:
-            return False
-        return True
+        if self.get_num_free_workers() > 0:
+            return True
+        return False
+
+    def get_bulk_size(self):
+        return min(self.retrieve_bulk_size, self.get_num_free_workers())
 
     def show_queue_size(self):
         if self.show_queue_size_time is None or time.time() - self.show_queue_size_time >= 600:
             self.show_queue_size_time = time.time()
 
-            q_str = "number of processings: %s, max number of processings: %s" % (self.number_workers, self.max_number_workers)
-            self.logger.debug(q_str)
-
             exec_max_workers = self.executors.get_max_workers()
             exec_num_workers = self.executors.get_num_workers()
-            q_str = "Executor number of processings: %s, max number of processings: %s" % (exec_num_workers, exec_max_workers)
+            q_str = "number of processings: %s, max number of processings: %s" % (exec_num_workers, exec_max_workers)
             self.logger.debug(q_str)
 
     def init(self):
-        status = [ProcessingStatus.New, ProcessingStatus.Submitting, ProcessingStatus.Submitted,
-                  ProcessingStatus.Running, ProcessingStatus.FinishedOnExec]
-        core_processings.clean_next_poll_at(status)
+        try:
+            status = [ProcessingStatus.New, ProcessingStatus.Submitting, ProcessingStatus.Submitted,
+                      ProcessingStatus.Running, ProcessingStatus.FinishedOnExec]
+            core_processings.clean_next_poll_at(status)
+        except Exception as ex:
+            self.logger.info(f"Failed clean next_poll_at: {ex}")
 
     def get_running_processings(self):
         """
@@ -172,21 +175,17 @@ class Poller(BaseAgent):
             # next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_period)
             processings = core_processings.get_processings_by_status(status=processing_status,
                                                                      locking=True, update_poll=True,
-                                                                     not_lock=True,
-                                                                     only_return_id=True,
                                                                      min_request_id=BaseAgent.min_request_id,
-                                                                     bulk_size=self.retrieve_bulk_size)
+                                                                     bulk_size=self.get_bulk_size())
 
             # self.logger.debug("Main thread get %s [submitting + submitted + running] processings to process" % (len(processings)))
             if processings:
-                self.logger.info("Main thread get [submitting + submitted + running] processings to process: %s" % (str(processings)))
+                processing_ids = [pr['processing_id'] for pr in processings]
+                self.logger.info("Main thread get [submitting + submitted + running] processings to process: %s" % (str(processing_ids)))
 
-            events = []
-            for pr_id in processings:
-                self.logger.info("UpdateProcessingEvent(processing_id: %s)" % pr_id)
-                event = UpdateProcessingEvent(publisher_id=self.id, processing_id=pr_id)
-                events.append(event)
-            self.event_bus.send_bulk(events)
+            for pr in processings:
+                # pr_id = pr['processing_id']
+                self.submit(self.process_update_processing, **{"processing": pr})
 
             return processings
         except exceptions.DatabaseException as ex:
@@ -204,6 +203,7 @@ class Poller(BaseAgent):
                                                                 status=status,
                                                                 exclude_status=exclude_status,
                                                                 locking=locking,
+                                                                to_lock=True,
                                                                 lock_period=self.locking_period)
         except exceptions.DatabaseException as ex:
             if 'ORA-00060' in str(ex):
@@ -238,7 +238,11 @@ class Poller(BaseAgent):
             parameters['new_poll_period'] = self.new_poll_period
 
         if new:
-            parameters['update_poll_period'] = self.update_poll_period_for_new_task
+            work_tag_update_poll_period_for_new = self.get_work_tag_attribute(work_tag, "update_poll_period_for_new_task")
+            if work_tag_update_poll_period_for_new:
+                parameters['update_poll_period'] = work_tag_update_poll_period_for_new
+            elif self.update_poll_period_for_new_task and processing['update_poll_period'] != self.update_poll_period_for_new_task:
+                parameters['update_poll_period'] = self.update_poll_period_for_new_task
         else:
             work_tag_update_poll_period = self.get_work_tag_attribute(work_tag, "update_poll_period")
             if work_tag_update_poll_period:
@@ -603,12 +607,11 @@ class Poller(BaseAgent):
                    'update_contents': []}
         return ret
 
-    def process_update_processing(self, event):
+    def process_update_processing(self, event=None, processing=None):
         self.number_workers += 1
         pro_ret = ReturnCode.Ok.value
         try:
-            if event:
-                original_event = event
+            if processing is None and event:
                 self.logger.info("process_update_processing, event: %s" % str(event))
 
                 pr = self.get_processing(processing_id=event._processing_id, status=None, exclude_status=[ProcessingStatus.Prepared], locking=True)
@@ -625,41 +628,41 @@ class Poller(BaseAgent):
                     self.update_processing(ret, pr, renew_updated_at=True)
                     pro_ret = ReturnCode.Ok.value
                 else:
-                    log_pre = self.get_log_prefix(pr)
+                    processing = pr
+            if processing:
+                pr = processing
+                log_pre = self.get_log_prefix(pr)
 
-                    self.logger.info(log_pre + "process_update_processing")
-                    if pr['processing_type'] and pr['processing_type'] in [ProcessingType.iWorkflow, ProcessingType.iWork]:
-                        ret = self.handle_update_iprocessing(pr)
-                    else:
-                        ret = self.handle_update_processing(pr)
-                    # self.logger.info(log_pre + "process_update_processing result: %s" % str(ret))
+                self.logger.info(log_pre + "process_update_processing")
+                if pr['processing_type'] and pr['processing_type'] in [ProcessingType.iWorkflow, ProcessingType.iWork]:
+                    ret = self.handle_update_iprocessing(pr)
+                else:
+                    ret = self.handle_update_processing(pr)
+                # self.logger.info(log_pre + "process_update_processing result: %s" % str(ret))
 
-                    self.update_processing(ret, pr, renew_updated_at=True)
+                self.update_processing(ret, pr, renew_updated_at=True)
 
-                    if 'processing_status' in ret and ret['processing_status'] == ProcessingStatus.Triggering:
-                        event_content = {}
-                        if (('update_contents' in ret and ret['update_contents']) or ('new_contents' in ret and ret['new_contents'])):
-                            event_content['has_updates'] = True
-                        if is_process_terminated(pr['substatus']):
-                            event_content['Terminated'] = True
-                            event_content['is_terminating'] = True
-                        self.logger.info(log_pre + "TriggerProcessingEvent(processing_id: %s)" % pr['processing_id'])
-                        event = TriggerProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'], content=event_content,
-                                                       counter=original_event._counter)
+                if 'processing_status' in ret and ret['processing_status'] == ProcessingStatus.Triggering:
+                    event_content = {}
+                    if (('update_contents' in ret and ret['update_contents']) or ('new_contents' in ret and ret['new_contents'])):
+                        event_content['has_updates'] = True
+                    if is_process_terminated(pr['substatus']):
+                        event_content['Terminated'] = True
+                        event_content['is_terminating'] = True
+                    self.logger.info(log_pre + "TriggerProcessingEvent(processing_id: %s)" % pr['processing_id'])
+                    event = TriggerProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'], content=event_content)
+                    self.event_bus.send(event)
+                elif 'processing_status' in ret and ret['processing_status'] == ProcessingStatus.Terminating:
+                    self.logger.info(log_pre + "TerminatedProcessingEvent(processing_id: %s)" % pr['processing_id'])
+                    event = TerminatedProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'])
+                    event.set_terminating()
+                    self.event_bus.send(event)
+                else:
+                    if 'processing_status' in ret and ret['processing_status'] == ProcessingStatus.Synchronizing:
+                        self.logger.info(log_pre + "SyncProcessingEvent(processing_id: %s)" % pr['processing_id'])
+                        event = SyncProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'])
+                        event.set_has_updates()
                         self.event_bus.send(event)
-                    elif 'processing_status' in ret and ret['processing_status'] == ProcessingStatus.Terminating:
-                        self.logger.info(log_pre + "TerminatedProcessingEvent(processing_id: %s)" % pr['processing_id'])
-                        event = TerminatedProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'],
-                                                          counter=original_event._counter)
-                        event.set_terminating()
-                        self.event_bus.send(event)
-                    else:
-                        if 'processing_status' in ret and ret['processing_status'] == ProcessingStatus.Synchronizing:
-                            self.logger.info(log_pre + "SyncProcessingEvent(processing_id: %s)" % pr['processing_id'])
-                            event = SyncProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'],
-                                                        counter=original_event._counter)
-                            event.set_has_updates()
-                            self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
@@ -668,14 +671,17 @@ class Poller(BaseAgent):
         return pro_ret
 
     def clean_locks(self, force=False):
-        self.logger.info(f"clean locking: force: {force}")
-        health_items = self.get_health_items()
-        min_request_id = BaseAgent.min_request_id
-        hostname, pid, thread_id, thread_name = self.get_process_thread_info()
-        ret = core_processings.clean_locking(health_items=health_items, min_request_id=min_request_id,
-                                             time_period=self.clean_locks_time_period,
-                                             force=force, hostname=hostname, pid=pid)
-        self.logger.info(f"clean locking finished. Cleaned locks: {ret}")
+        try:
+            self.logger.info(f"clean locking: force: {force}")
+            health_items = self.get_health_items()
+            min_request_id = BaseAgent.min_request_id
+            hostname, pid, thread_id, thread_name = self.get_process_thread_info()
+            ret = core_processings.clean_locking(health_items=health_items, min_request_id=min_request_id,
+                                                 time_period=self.clean_locks_time_period,
+                                                 force=force, hostname=hostname, pid=pid)
+            self.logger.info(f"clean locking finished. Cleaned locks: {ret}")
+        except Exception as ex:
+            self.logger.info(f"Failed clean locking: {ex}")
 
     def init_event_function_map(self):
         self.event_func_map = {

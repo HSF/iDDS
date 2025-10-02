@@ -27,6 +27,6 @@ class IDDSMetadata(DictMetadata):
 
 
 class Base(DictBase):
-    def __init__(self):
-        super(Base, self).__init__()
+    def __init__(self, loading=False):
+        super(Base, self).__init__(loading=loading)
         pass

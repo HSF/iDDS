@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2024
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2025
 
 import time
 import traceback
@@ -20,8 +20,6 @@ from idds.core import processings as core_processings
 from idds.agents.common.baseagent import BaseAgent
 from idds.agents.common.eventbus.event import (EventType,
                                                UpdateProcessingEvent,
-                                               SyncProcessingEvent,
-                                               TerminatedProcessingEvent,
                                                UpdateTransformEvent)
 
 
@@ -69,7 +67,7 @@ class Finisher(Poller):
     def show_queue_size(self):
         if self.show_queue_size_time is None or time.time() - self.show_queue_size_time >= 600:
             self.show_queue_size_time = time.time()
-            q_str = "number of processings: %s, max number of processings: %s" % (self.number_workers, self.max_number_workers)
+            q_str = "number of processings: %s, max number of processings: %s" % (self.get_num_workers(), self.get_max_workers())
             self.logger.debug(q_str)
 
     def get_finishing_processings(self):
@@ -89,31 +87,20 @@ class Finisher(Poller):
             # next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_period)
             processings = core_processings.get_processings_by_status(status=processing_status,
                                                                      locking=True, update_poll=True,
-                                                                     not_lock=True,
-                                                                     # only_return_id=True,
                                                                      min_request_id=BaseAgent.min_request_id,
                                                                      bulk_size=self.retrieve_bulk_size)
 
             # self.logger.debug("Main thread get %s [submitting + submitted + running] processings to process" % (len(processings)))
             if processings:
-                self.logger.info("Main thread get terminating/synchronizing processings to process: %s" % (str(processings)))
+                processing_ids = [pr['processing_id'] for pr in processings]
+                self.logger.info("Main thread get terminating/synchronizing processings to process: %s" % (str(processing_ids)))
 
-            events, pr_ids = [], []
             for pr in processings:
-                pr_id = pr['processing_id']
-                pr_ids.append(pr_id)
                 pr_status = pr['status']
                 if pr_status in [ProcessingStatus.Terminating]:
-                    self.logger.info("TerminatedProcessingEvent(processing_id: %s)" % pr_id)
-                    event = TerminatedProcessingEvent(publisher_id=self.id, processing_id=pr_id)
-                    events.append(event)
+                    self.submit(self.process_terminated_processing, **{"processing": pr})
                 elif pr_status in [ProcessingStatus.Synchronizing]:
-                    self.logger.info("SyncProcessingEvent(processing_id: %s)" % pr_id)
-                    event = SyncProcessingEvent(publisher_id=self.id, processing_id=pr_id)
-                    events.append(event)
-            self.event_bus.send_bulk(events)
-
-            return pr_ids
+                    self.submit(self.process_sync_processing, **{"processing": pr})
         except exceptions.DatabaseException as ex:
             if 'ORA-00060' in str(ex):
                 self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
@@ -177,11 +164,11 @@ class Finisher(Poller):
             return ret
         return None
 
-    def process_sync_processing(self, event):
+    def process_sync_processing(self, event=None, processing=None):
         self.number_workers += 1
         pro_ret = ReturnCode.Ok.value
         try:
-            if event:
+            if processing is None and event:
                 self.logger.info("process_sync_processing: event: %s" % event)
                 pr = self.get_processing(processing_id=event._processing_id, exclude_status=[ProcessingStatus.Prepared], locking=True)
                 if not pr:
@@ -197,25 +184,28 @@ class Finisher(Poller):
                     self.update_processing(ret, pr, renew_updated_at=True)
                     pro_ret = ReturnCode.Ok.value
                 else:
-                    log_pre = self.get_log_prefix(pr)
+                    processing = pr
+            if processing:
+                pr = processing
+                log_pre = self.get_log_prefix(pr)
 
-                    self.logger.info(log_pre + "process_sync_processing")
-                    if pr['processing_type'] and pr['processing_type'] in [ProcessingType.iWorkflow, ProcessingType.iWork]:
-                        ret = self.handle_sync_iprocessing(pr, log_prefix=log_pre)
-                    else:
-                        ret = self.handle_sync_processing(pr, log_prefix=log_pre)
-                    ret_copy = {}
-                    for ret_key in ret:
-                        if ret_key != 'messages':
-                            ret_copy[ret_key] = ret[ret_key]
-                    self.logger.info(log_pre + "process_sync_processing result: %s" % str(ret_copy))
+                self.logger.info(log_pre + "process_sync_processing")
+                if pr['processing_type'] and pr['processing_type'] in [ProcessingType.iWorkflow, ProcessingType.iWork]:
+                    ret = self.handle_sync_iprocessing(pr, log_prefix=log_pre)
+                else:
+                    ret = self.handle_sync_processing(pr, log_prefix=log_pre)
+                ret_copy = {}
+                for ret_key in ret:
+                    if ret_key != 'messages':
+                        ret_copy[ret_key] = ret[ret_key]
+                self.logger.info(log_pre + "process_sync_processing result: %s" % str(ret_copy))
 
-                    self.update_processing(ret, pr)
+                self.update_processing(ret, pr)
 
-                    # no need to update transform
-                    # self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
-                    # event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'])
-                    # self.event_bus.send(event)
+                # no need to update transform
+                # self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
+                # event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'])
+                # self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
@@ -279,15 +269,14 @@ class Finisher(Poller):
             return ret
         return None
 
-    def process_terminated_processing(self, event):
+    def process_terminated_processing(self, event=None, processing=None):
         self.number_workers += 1
         pro_ret = ReturnCode.Ok.value
         try:
-            if event:
+            if processing is None and event:
                 if event._counter > 3:
                     self.logger.warn("Event counter is bigger than 3, skip event: %s" % str(event))
                 else:
-                    original_event = event
                     pr = self.get_processing(processing_id=event._processing_id, exclude_status=[ProcessingStatus.Prepared], locking=True)
                     if not pr:
                         self.logger.error("Cannot find processing for event: %s" % str(event))
@@ -302,33 +291,37 @@ class Finisher(Poller):
                         self.update_processing(ret, pr)
                         pro_ret = ReturnCode.Ok.value
                     else:
-                        log_pre = self.get_log_prefix(pr)
+                        processing = pr
+            if processing:
+                pr = processing
+                log_pre = self.get_log_prefix(pr)
 
-                        self.logger.info(log_pre + "process_terminated_processing")
-                        if pr['processing_type'] and pr['processing_type'] in [ProcessingType.iWorkflow, ProcessingType.iWork]:
-                            ret = self.handle_terminated_iprocessing(pr, log_prefix=log_pre)
-                        else:
-                            ret = self.handle_terminated_processing(pr, log_prefix=log_pre)
-                        ret_copy = {}
-                        for ret_key in ret:
-                            if ret_key != 'messages':
-                                ret_copy[ret_key] = ret[ret_key]
-                        self.logger.info(log_pre + "process_terminated_processing result: %s" % str(ret_copy))
+                self.logger.info(log_pre + "process_terminated_processing")
+                if pr['processing_type'] and pr['processing_type'] in [ProcessingType.iWorkflow, ProcessingType.iWork]:
+                    ret = self.handle_terminated_iprocessing(pr, log_prefix=log_pre)
+                else:
+                    ret = self.handle_terminated_processing(pr, log_prefix=log_pre)
+                ret_copy = {}
+                for ret_key in ret:
+                    if ret_key != 'messages':
+                        ret_copy[ret_key] = ret[ret_key]
+                self.logger.info(log_pre + "process_terminated_processing result: %s" % str(ret_copy))
 
-                        self.update_processing(ret, pr)
-                        self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
-                        event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'])
+                self.update_processing(ret, pr)
+                self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
+                event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'])
+                self.event_bus.send(event)
+
+                if pr['processing_type'] and pr['processing_type'] in [ProcessingType.iWorkflow, ProcessingType.iWork]:
+                    pass
+                else:
+                    if pr['status'] not in [ProcessingStatus.Finished, ProcessingStatus.Failed, ProcessingStatus.SubFinished, ProcessingStatus.Broken]:
+                        # some files are missing, poll it.
+                        self.logger.info(log_pre + "UpdateProcessingEvent(processing_id: %s)" % pr['processing_id'])
+                        event = UpdateProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'],
+                                                      counter=event._counter + 1 if event else 0)
+                        event.set_terminating()
                         self.event_bus.send(event)
-
-                        if pr['processing_type'] and pr['processing_type'] in [ProcessingType.iWorkflow, ProcessingType.iWork]:
-                            pass
-                        else:
-                            if pr['status'] not in [ProcessingStatus.Finished, ProcessingStatus.Failed, ProcessingStatus.SubFinished, ProcessingStatus.Broken]:
-                                # some files are missing, poll it.
-                                self.logger.info(log_pre + "UpdateProcessingEvent(processing_id: %s)" % pr['processing_id'])
-                                event = UpdateProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'], counter=original_event._counter + 1)
-                                event.set_terminating()
-                                self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
@@ -436,7 +429,7 @@ class Finisher(Poller):
                             self.update_processing(ret, pr, use_bulk_update_mappings=False)
 
                             self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
-                            event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'], content=event._content)
+                            event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'], content=event._content if event else None)
                             self.event_bus.send(event)
                         else:
                             ret = self.handle_abort_processing(pr, log_prefix=log_pre)
@@ -448,7 +441,7 @@ class Finisher(Poller):
 
                             self.update_processing(ret, pr)
                             self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
-                            event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'], content=event._content)
+                            event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'], content=event._content if event else None)
                             self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
@@ -554,7 +547,7 @@ class Finisher(Poller):
                             self.update_processing(ret, pr, use_bulk_update_mappings=False)
 
                             self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
-                            event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'], content=event._content)
+                            event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'], content=event._content if event else None)
                             self.event_bus.send(event)
                         else:
                             ret = self.handle_resume_processing(pr, log_prefix=log_pre)
@@ -563,7 +556,7 @@ class Finisher(Poller):
                             self.update_processing(ret, pr, use_bulk_update_mappings=False)
 
                             self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
-                            event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'], content=event._content)
+                            event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'], content=event._content if event else None)
                             self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)

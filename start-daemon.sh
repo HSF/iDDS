@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2022 - 2023
+# - Wen Guan, <wen.guan@cern.ch>, 2022 - 2025
 
 IDDS_SERVICE=$1
 
@@ -162,6 +162,8 @@ else
     chmod 600 /etc/grid-security/hostkey.pem
 fi
 
+cp /opt/idds/config_default/httpd_daemon.sh /opt/idds/config/idds/httpd_daemon.sh
+
 mkdir -p /opt/idds/config/.panda/
 
 if [ ! -z "$IDDS_PRINT_CFG" ]; then
@@ -228,10 +230,18 @@ if ! [ -f /opt/idds/config/.token ]; then
     fi
 fi
 
+# get vomsproxy renew
+cp /opt/idds/config_default/vomsprox-renew /opt/idds/config/vomsprox-renew
+chmod +x /opt/idds/config/vomsprox-renew
+if [ -d "/opt/idds/sandbox/vomses" ] && [ ! -e "/etc/vomses" ]; then
+    ln -s /opt/idds/sandbox/vomses /etc/vomses
+fi
+
 # fetch-crl cron
 cronExec=/opt/idds/cronExec
 cat <<EOT >> ${cronExec}
 while true; do /usr/sbin/fetch-crl; sleep 36000; done &
+while true; do /opt/idds/config/vomsprox-renew; sleep 50000; done &
 EOT
 chmod +x ${cronExec}
 bash ${cronExec}
@@ -246,6 +256,16 @@ if [ ! -h /var/lib/redis ]; then
 fi
 /usr/bin/redis-server /etc/redis/redis.conf --supervised systemd &
 
+# start NATS
+cp /opt/idds/config_default/supervisord_nats.ini /opt/idds/config/idds/supervisord_nats.ini
+cp /opt/idds/config_default/nats_daemon.sh /opt/idds/config/idds/nats_daemon.sh
+chmod +x /opt/idds/config/idds/nats_daemon.sh
+if [ ! -z "$NATS_TOKEN" ]; then
+    # Replace ${NATS_TOKEN} in the file with the actual value
+    sed -i "s|\${NATS_TOKEN}|$NATS_TOKEN|g" /opt/idds/config/idds/nats_daemon.sh
+fi
+
+
 echo "clean heartbeats"
 python /opt/idds/tools/env/clean_heartbeat.py
 
@@ -254,7 +274,8 @@ if [ "${IDDS_SERVICE}" == "rest" ]; then
   # systemctl restart httpd.service
   # systemctl enable httpd.service
   # systemctl status httpd.service
-  /usr/sbin/httpd
+  # /usr/sbin/httpd
+  /usr/bin/supervisord -c /etc/supervisord.conf
 elif [ "${IDDS_SERVICE}" == "daemon" ]; then
   echo "starting iDDS ${IDDS_SERVICE} service"
   # systemctl enable supervisord

@@ -15,7 +15,8 @@ import time
 import threading
 import traceback
 
-from idds.common.constants import (ProcessingStatus,
+from idds.common.constants import (CommandType,
+                                   ProcessingStatus,
                                    CollectionStatus,
                                    ContentStatus, ContentType,
                                    ContentRelationType,
@@ -729,7 +730,7 @@ def get_input_output_sub_maps(inputs, outputs, inputs_dependency, logs=[]):
     return input_output_sub_maps
 
 
-def get_updated_contents_by_input_output_maps(input_output_maps=None, terminated=False, max_updates_per_round=2000, with_deps=False, logger=None, log_prefix=''):
+def get_updated_contents_by_input_output_maps(input_output_maps=None, terminated=False, max_updates_per_round=2000, with_deps=False, es=False, logger=None, log_prefix=''):
     updated_contents, updated_contents_full_input, updated_contents_full_output = [], [], []
     updated_contents_full_input_deps = []
     new_update_contents = []
@@ -738,6 +739,16 @@ def get_updated_contents_by_input_output_maps(input_output_maps=None, terminated
     status_to_check = [ContentStatus.Available, ContentStatus.FakeAvailable, ContentStatus.FinalFailed,
                        ContentStatus.Missing, ContentStatus.Failed, ContentStatus.Lost,
                        ContentStatus.Deleted]
+    available_status = [ContentStatus.Available, ContentStatus.FakeAvailable]
+    if terminated:
+        terminated_status = [ContentStatus.Available, ContentStatus.FakeAvailable,
+                             ContentStatus.FinalFailed, ContentStatus.Missing,
+                             ContentStatus.Lost, ContentStatus.Deleted,
+                             ContentStatus.Failed]
+    else:
+        terminated_status = [ContentStatus.Available, ContentStatus.FakeAvailable,
+                             ContentStatus.FinalFailed, ContentStatus.Missing,
+                             ContentStatus.Lost, ContentStatus.Deleted]
 
     for map_id in input_output_maps:
         inputs = input_output_maps[map_id]['inputs'] if 'inputs' in input_output_maps[map_id] else []
@@ -745,10 +756,16 @@ def get_updated_contents_by_input_output_maps(input_output_maps=None, terminated
         outputs = input_output_maps[map_id]['outputs'] if 'outputs' in input_output_maps[map_id] else []
         # logs = input_output_maps[map_id]['logs'] if 'logs' in input_output_maps[map_id] else []
 
-        input_output_sub_maps = get_input_output_sub_maps(inputs, outputs, inputs_dependency)
+        # input_output_sub_maps = get_input_output_sub_maps(inputs, outputs, inputs_dependency)
 
+        has_updated_inputs, all_inputs_available, all_inputs_terminated = False, True, True
         for content in inputs:
+            if not content['substatus'] in available_status:
+                all_inputs_available = False
+            if not content['substatus'] in terminated_status:
+                all_inputs_terminated = False
             if (content['status'] != content['substatus']) and content['substatus'] in status_to_check:
+                has_updated_inputs = True
                 u_content = {'content_id': content['content_id'],
                              'request_id': content['request_id'],
                              'status': content['substatus']}
@@ -760,7 +777,23 @@ def get_updated_contents_by_input_output_maps(input_output_maps=None, terminated
                                        'workload_id': content['workload_id'],
                                        'coll_id': content['coll_id']}
                 new_update_contents.append(u_content_substatus)
-                updated_contents_full_input.append(content)
+                if not es:
+                    updated_contents_full_input.append(content)
+        if es and has_updated_inputs:
+            # for es, multiple contents map to one ES job
+            # The 'path' is the ES job name
+            if all_inputs_available:
+                content_copy = content.copy()
+                content_copy['name'] = content_copy['path']
+                content_copy['status'] = ContentStatus.Available
+                content_copy['substatus'] = ContentStatus.Available
+                updated_contents_full_input.append(content_copy)
+            elif all_inputs_terminated:
+                content_copy = content.copy()
+                content_copy['name'] = content_copy['path']
+                content_copy['status'] = ContentStatus.Missing
+                content_copy['substatus'] = ContentStatus.Missing
+                updated_contents_full_input.append(content_copy)
 
         for content in outputs:
             if (content['status'] != content['substatus']) and content['substatus'] in status_to_check:
@@ -784,64 +817,6 @@ def get_updated_contents_by_input_output_maps(input_output_maps=None, terminated
                              'status': content['substatus']}
                 updated_contents.append(u_content)
                 updated_contents_full_input_deps.append(content)
-
-        for sub_map_id in input_output_sub_maps:
-            inputs_sub = input_output_sub_maps[sub_map_id]['inputs']
-            outputs_sub = input_output_sub_maps[sub_map_id]['outputs']
-            inputs_dependency_sub = input_output_sub_maps[sub_map_id]['inputs_dependency']
-
-            input_content_update_status = None
-            if with_deps:
-                # if deps are not loaded. This part should not be executed. Otherwise it will release all jobs
-                if is_all_contents_available(inputs_dependency_sub):
-                    input_content_update_status = ContentStatus.Available
-                elif is_all_contents_terminated(inputs_dependency_sub, terminated):
-                    input_content_update_status = ContentStatus.Missing
-            if input_content_update_status:
-                for content in inputs_sub:
-                    if content['substatus'] != input_content_update_status:
-                        u_content = {'content_id': content['content_id'],
-                                     'request_id': content['request_id'],
-                                     'status': input_content_update_status,
-                                     'substatus': input_content_update_status}
-                        updated_contents.append(u_content)
-                        content['status'] = input_content_update_status
-                        content['substatus'] = input_content_update_status
-                        updated_contents_full_input.append(content)
-                        u_content_substatus = {'content_id': content['content_id'],
-                                               'status': content['substatus'],
-                                               'substatus': content['substatus'],
-                                               'request_id': content['request_id'],
-                                               'transform_id': content['transform_id'],
-                                               'workload_id': content['workload_id'],
-                                               'coll_id': content['coll_id']}
-                        new_update_contents.append(u_content_substatus)
-
-            output_content_update_status = None
-            if is_all_contents_available(inputs_sub):
-                # wait for the job to finish
-                pass
-            elif is_all_contents_terminated_but_not_available(inputs_sub, terminated):
-                output_content_update_status = ContentStatus.Missing
-            if output_content_update_status:
-                for content in outputs_sub:
-                    if content['substatus'] != output_content_update_status:
-                        u_content = {'content_id': content['content_id'],
-                                     'request_id': content['request_id'],
-                                     'status': output_content_update_status,
-                                     'substatus': output_content_update_status}
-                        updated_contents.append(u_content)
-                        content['status'] = output_content_update_status
-                        content['substatus'] = output_content_update_status
-                        updated_contents_full_output.append(content)
-                        u_content_substatus = {'content_id': content['content_id'],
-                                               'status': content['substatus'],
-                                               'substatus': content['substatus'],
-                                               'request_id': content['request_id'],
-                                               'transform_id': content['transform_id'],
-                                               'workload_id': content['workload_id'],
-                                               'coll_id': content['coll_id']}
-                        new_update_contents.append(u_content_substatus)
 
         if len(updated_contents) > max_updates_per_round:
             chunk = updated_contents, updated_contents_full_input, updated_contents_full_output, updated_contents_full_input_deps, new_update_contents
@@ -1174,16 +1149,26 @@ def has_external_content_id(input_output_maps):
     return True
 
 
-def get_update_external_content_ids(input_output_maps, external_content_ids):
+def get_update_external_content_ids(input_output_maps, external_content_ids, es=False):
     name_to_id_map = {}
     update_contents = []
-    for map_id in input_output_maps:
-        inputs = input_output_maps[map_id]['inputs'] if 'inputs' in input_output_maps[map_id] else []
-        outputs = input_output_maps[map_id]['outputs'] if 'outputs' in input_output_maps[map_id] else []
-        for content in inputs + outputs:
-            if content['name'] not in name_to_id_map:
-                name_to_id_map[content['name']] = []
-            name_to_id_map[content['name']].append(content['content_id'])
+    if not es:
+        for map_id in input_output_maps:
+            inputs = input_output_maps[map_id]['inputs'] if 'inputs' in input_output_maps[map_id] else []
+            outputs = input_output_maps[map_id]['outputs'] if 'outputs' in input_output_maps[map_id] else []
+            for content in inputs + outputs:
+                if content['name'] not in name_to_id_map:
+                    name_to_id_map[content['name']] = []
+                name_to_id_map[content['name']].append(content['content_id'])
+    else:
+        # for es jobs, 'path' saves the es file name
+        for map_id in input_output_maps:
+            inputs = input_output_maps[map_id]['inputs'] if 'inputs' in input_output_maps[map_id] else []
+            outputs = input_output_maps[map_id]['outputs'] if 'outputs' in input_output_maps[map_id] else []
+            for content in inputs + outputs:
+                if content['path'] not in name_to_id_map:
+                    name_to_id_map[content['path']] = []
+                name_to_id_map[content['path']].append(content['content_id'])
     for dataset in external_content_ids:
         dataset_id = dataset['dataset']['id']
         files = dataset['files']
@@ -1218,18 +1203,30 @@ def handle_update_processing(processing, agent_attributes, max_updates_per_round
     work = proc.work
     work.set_agent_attributes(agent_attributes, processing)
 
+    if processing['command'] in [CommandType.AbortProcessing]:
+        handle_abort_processing(processing, agent_attributes=agent_attributes, sync=False, logger=logger, log_prefix=log_prefix)
+    if processing['command'] in [CommandType.ResumeProcessing]:
+        handle_resume_processing(processing, agent_attributes=agent_attributes, logger=logger, log_prefix=log_prefix)
+
     input_output_maps = get_input_output_maps(transform_id, work, with_deps=False)
     logger.debug(log_prefix + "get_input_output_maps: len: %s" % len(input_output_maps))
     logger.debug(log_prefix + "get_input_output_maps.keys[:3]: %s" % str(list(input_output_maps.keys())[:3]))
 
     if work.has_external_content_id() and not has_external_content_id(input_output_maps):
         external_content_ids = work.get_external_content_ids(processing, log_prefix=log_prefix)
-        update_external_content_ids = get_update_external_content_ids(input_output_maps, external_content_ids)
+        update_external_content_ids = get_update_external_content_ids(input_output_maps, external_content_ids, es=work.es)
         core_catalog.update_contents(update_external_content_ids)
 
-    new_input_output_maps = work.get_new_input_output_maps(input_output_maps)
-    logger.debug(log_prefix + "get_new_input_output_maps: len: %s" % len(new_input_output_maps))
-    logger.debug(log_prefix + "get_new_input_output_maps.keys[:3]: %s" % str(list(new_input_output_maps.keys())[:3]))
+    num_inputs = None
+    if hasattr(work, "num_inputs"):
+        num_inputs = work.num_inputs
+    num_input_output_maps = len(input_output_maps)
+    if processing["num_unmapped"] > 0 or work.has_new_inputs or (num_inputs is not None and num_inputs > num_input_output_maps):
+        new_input_output_maps = work.get_new_input_output_maps(input_output_maps)
+        logger.debug(log_prefix + "get_new_input_output_maps: len: %s" % len(new_input_output_maps))
+        logger.debug(log_prefix + "get_new_input_output_maps.keys[:3]: %s" % str(list(new_input_output_maps.keys())[:3]))
+    if num_inputs:
+        processing["num_unmapped"] = num_inputs - num_input_output_maps
 
     contents_ext = []
     if work.require_ext_contents():
@@ -1391,6 +1388,10 @@ def handle_update_processing(processing, agent_attributes, max_updates_per_round
 
     if len(ret_futures) > 0:
         wait_futures_finish(ret_futures, "handle_update_processing", logger, log_prefix)
+
+    if not parameters:
+        parameters = {}
+    parameters["num_unmapped"] = processing["num_unmapped"]
 
     # return process_status, new_contents, new_input_dependency_contents, ret_msgs, content_updates + content_updates_missing, parameters, new_contents_ext, update_contents_ext
     return process_status, [], [], ret_msgs, [], parameters, [], []
@@ -1582,6 +1583,7 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
         updated_contents_ret_chunks = get_updated_contents_by_input_output_maps(input_output_maps=input_output_maps,
                                                                                 terminated=terminated_processing,
                                                                                 max_updates_per_round=max_updates_per_round,
+                                                                                es=work.es,
                                                                                 with_deps=with_deps,
                                                                                 logger=logger,
                                                                                 log_prefix=log_prefix)
@@ -2265,7 +2267,7 @@ def sync_processing(processing, agent_attributes, terminate=False, abort=False, 
     return processing, update_collections, messages
 
 
-def handle_abort_processing(processing, agent_attributes, logger=None, log_prefix=''):
+def handle_abort_processing(processing, agent_attributes, logger=None, sync=True, log_prefix=''):
     logger = get_logger(logger)
 
     # request_id = processing['request_id']
@@ -2290,7 +2292,8 @@ def handle_abort_processing(processing, agent_attributes, logger=None, log_prefi
     # for coll in input_collections + output_collections + log_collections:
     #     coll.status = CollectionStatus.Closed
     #     coll.substatus = CollectionStatus.Closed
-    processing, update_collections, messages = sync_processing(processing, agent_attributes, terminate=True, abort=True, logger=logger, log_prefix=log_prefix)
+    if sync:
+        processing, update_collections, messages = sync_processing(processing, agent_attributes, terminate=True, abort=True, logger=logger, log_prefix=log_prefix)
     update_contents = []
 
     # processing['status'] = ProcessingStatus.Cancelled

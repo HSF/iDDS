@@ -13,14 +13,12 @@
 operations related to Transform.
 """
 
-import datetime
 import logging
 
 # from idds.common import exceptions
 
 from idds.common.constants import (TransformStatus, ContentRelationType, ContentStatus,
-                                   TransformLocking, CollectionRelationType)
-from idds.common.utils import get_process_thread_info
+                                   TransformLocking, CollectionRelationType, CommandType)
 from idds.orm.base.session import read_session, transactional_session
 from idds.orm import (transforms as orm_transforms,
                       collections as orm_collections,
@@ -36,7 +34,7 @@ def add_transform(request_id, workload_id, transform_type, transform_tag=None, p
                   new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
                   parent_transform_id=None, previous_transform_id=None, current_processing_id=None,
                   internal_id=None, has_previous_conditions=None, loop_index=None,
-                  parent_internal_id=None,
+                  parent_internal_id=None, command=CommandType.NoneCommand,
                   cloned_from=None, triggered_conditions=None, untriggered_conditions=None,
                   site=None, workprogress_id=None, session=None):
     """
@@ -73,6 +71,7 @@ def add_transform(request_id, workload_id, transform_type, transform_tag=None, p
                                                 expired_at=expired_at,
                                                 transform_metadata=transform_metadata,
                                                 site=site,
+                                                command=command,
                                                 internal_id=internal_id,
                                                 parent_internal_id=parent_internal_id,
                                                 has_previous_conditions=has_previous_conditions,
@@ -102,20 +101,6 @@ def get_transform(transform_id, request_id=None, to_json=False, session=None):
 @transactional_session
 def get_transform_by_id_status(transform_id, status=None, locking=False, session=None):
     tf = orm_transforms.get_transform_by_id_status(transform_id=transform_id, status=status, locking=locking, session=session)
-    if tf is not None and locking:
-        parameters = {}
-        parameters['locking'] = TransformLocking.Locking
-        parameters['updated_at'] = datetime.datetime.utcnow()
-        hostname, pid, thread_id, thread_name = get_process_thread_info()
-        parameters['locking_hostname'] = hostname
-        parameters['locking_pid'] = pid
-        parameters['locking_thread_id'] = thread_id
-        parameters['locking_thread_name'] = thread_name
-        num_rows = orm_transforms.update_transform(transform_id=tf['transform_id'], parameters=parameters, locking=True, session=session)
-        if num_rows > 0:
-            return tf
-        else:
-            return None
     return tf
 
 
@@ -192,70 +177,14 @@ def get_transforms_by_status(status, period=None, locking=False, bulk_size=None,
 
     :returns: list of transform.
     """
-    if locking:
-        if not only_return_id and bulk_size:
-            # order by cannot work together with locking. So first select 2 * bulk_size without locking with order by.
-            # then select with locking.
-            tf_ids = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking,
-                                                             bulk_size=bulk_size * 2, locking_for_update=False,
-                                                             to_json=False, only_return_id=True,
-                                                             min_request_id=min_request_id,
-                                                             order_by_fifo=order_by_fifo,
-                                                             new_poll=new_poll, update_poll=update_poll,
-                                                             by_substatus=by_substatus, session=session)
-            if tf_ids:
-                transform2s = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking,
-                                                                      bulk_size=None, locking_for_update=False,
-                                                                      to_json=to_json, transform_ids=tf_ids,
-                                                                      new_poll=new_poll, update_poll=update_poll,
-                                                                      min_request_id=min_request_id,
-                                                                      order_by_fifo=order_by_fifo,
-                                                                      by_substatus=by_substatus, session=session)
-                if transform2s:
-                    # reqs = req2s[:bulk_size]
-                    # order requests
-                    transforms = []
-                    for tf_id in tf_ids:
-                        if len(transforms) >= bulk_size:
-                            break
-                        for tf in transform2s:
-                            if tf['transform_id'] == tf_id:
-                                transforms.append(tf)
-                                break
-                    # transforms = transforms[:bulk_size]
-                else:
-                    transforms = []
-            else:
-                transforms = []
-        else:
-            transforms = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking,
-                                                                 locking_for_update=False, order_by_fifo=order_by_fifo,
-                                                                 bulk_size=bulk_size, to_json=to_json,
-                                                                 new_poll=new_poll, update_poll=update_poll,
-                                                                 only_return_id=only_return_id,
-                                                                 min_request_id=min_request_id,
-                                                                 by_substatus=by_substatus, session=session)
+    transforms = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking,
+                                                         locking_for_update=False, order_by_fifo=order_by_fifo,
+                                                         bulk_size=bulk_size, to_json=to_json,
+                                                         new_poll=new_poll, update_poll=update_poll,
+                                                         only_return_id=only_return_id,
+                                                         min_request_id=min_request_id, not_lock=not_lock,
+                                                         by_substatus=by_substatus, session=session)
 
-        parameters = {}
-        if not not_lock:
-            parameters['locking'] = TransformLocking.Locking
-        if next_poll_at:
-            parameters['next_poll_at'] = next_poll_at
-        parameters['updated_at'] = datetime.datetime.utcnow()
-        if parameters:
-            for transform in transforms:
-                if type(transform) in [dict]:
-                    orm_transforms.update_transform(transform_id=transform['transform_id'], parameters=parameters, session=session)
-                else:
-                    orm_transforms.update_transform(transform_id=transform, parameters=parameters, session=session)
-    else:
-        transforms = orm_transforms.get_transforms_by_status(status=status, period=period, locking=locking,
-                                                             bulk_size=bulk_size, to_json=to_json,
-                                                             new_poll=new_poll, update_poll=update_poll,
-                                                             only_return_id=only_return_id,
-                                                             order_by_fifo=order_by_fifo,
-                                                             min_request_id=min_request_id,
-                                                             by_substatus=by_substatus, session=session)
     return transforms
 
 
@@ -390,6 +319,21 @@ def add_transform_outputs(transform, transform_parameters, input_collections=Non
                                         parameters=transform_parameters,
                                         session=session)
     return new_pr_ids, update_pr_ids
+
+
+@transactional_session
+def abort_resume_transforms(transform_id=None, request_id=None, abort=False, resume=False, session=None):
+    """
+    abort/resume transforms.
+
+    :param request_id: The request id.
+    :param transform_id: The id of the transform.
+    :param session: The database session in use.
+
+    :raises NoObject: If no content is founded.
+    :raises DatabaseException: If there is a database error.
+    """
+    orm_transforms.abort_resume_transforms(transform_id=transform_id, request_id=request_id, abort=abort, resume=resume, session=session)
 
 
 @transactional_session

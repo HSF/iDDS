@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2023
+# - Wen Guan, <wen.guan@cern.ch>, 2023 - 2025
 
 import logging
 import time
@@ -77,9 +77,9 @@ class BaseEventBusBackend(threading.Thread):
                     self._events[event._event_type][event._id] = event
                     self._events_index[event._event_type].append(event._id)
 
-    def get(self, event_type, num_events=1, wait=0):
+    def get(self, event_type, num_events=1, wait=0, callback=None):
         if self.get_coordinator():
-            return self.get_coordinator().get(event_type, num_events=num_events, wait=wait)
+            return self.get_coordinator().get(event_type, num_events=num_events, wait=wait, callback=callback)
         else:
             with self._lock:
                 events = []
@@ -91,6 +91,9 @@ class BaseEventBusBackend(threading.Thread):
                         events.append(event)
                     else:
                         break
+                if callback:
+                    for event in events:
+                        callback(event)
                 return events
 
     def send_report(self, event, status, start_time, end_time, source, result):

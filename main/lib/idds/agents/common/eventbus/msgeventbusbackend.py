@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2023
+# - Wen Guan, <wen.guan@cern.ch>, 2023 - 2025
 
 import logging
 import random
@@ -208,7 +208,7 @@ class MsgEventBusBackendReceiver(threading.Thread):
                 self.insert_event(event)
             self.clean_events()
 
-    def get(self, event_type, num_events=1, wait=0):
+    def get(self, event_type, num_events=1, wait=0, callback=None):
         with self._lock:
             events = []
             for i in range(num_events):
@@ -220,6 +220,10 @@ class MsgEventBusBackendReceiver(threading.Thread):
                     del self._events[event_type][event_id]
                     del self._events_insert_time[event._event_type][event._id]
                     events.append(event)
+            if callback:
+                for event in events:
+                    callback(event)
+
             return events
 
 
