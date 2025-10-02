@@ -22,7 +22,7 @@ from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.sql.expression import asc, desc
 
 from idds.common import exceptions
-from idds.common.constants import RequestType, RequestStatus, RequestLocking
+from idds.common.constants import RequestType, RequestStatus, RequestLocking, CommandType
 from idds.common.utils import get_process_thread_info
 from idds.orm.base.session import read_session, transactional_session, safe_bulk_update_mappings
 from idds.orm.base import models
@@ -33,7 +33,7 @@ def create_request(scope=None, name=None, requester=None, request_type=None,
                    status=RequestStatus.New, locking=RequestLocking.Idle, priority=0,
                    lifetime=None, workload_id=None, request_metadata=None,
                    new_poll_period=1, update_poll_period=10, site=None,
-                   cloud=None, queue=None,
+                   cloud=None, queue=None, command=CommandType.NoneCommand,
                    new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
                    group_id=None, campaign=None, campaign_scope=None, campaign_group=None,
                    campaign_tag=None, additional_data_storage=None,
@@ -85,7 +85,7 @@ def create_request(scope=None, name=None, requester=None, request_type=None,
                                  transform_tag=transform_tag, status=status, locking=locking,
                                  priority=priority, workload_id=workload_id,
                                  expired_at=expired_at, site=site, additional_data_storage=additional_data_storage,
-                                 cloud=cloud, queue=queue,
+                                 cloud=cloud, queue=queue, command=command,
                                  new_retries=new_retries, update_retries=update_retries,
                                  max_new_retries=max_new_retries, max_update_retries=max_update_retries,
                                  group_id=group_id, campaign=campaign, campaign_scope=campaign_scope,
@@ -106,7 +106,7 @@ def add_request(scope=None, name=None, requester=None, request_type=None,
                 status=RequestStatus.New, locking=RequestLocking.Idle, priority=0,
                 lifetime=None, workload_id=None, request_metadata=None,
                 new_poll_period=1, update_poll_period=10, site=None,
-                cloud=None, queue=None,
+                cloud=None, queue=None, command=CommandType.NoneCommand,
                 new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
                 group_id=None, campaign=None, campaign_scope=None, campaign_group=None,
                 campaign_tag=None, additional_data_storage=None,
@@ -140,6 +140,7 @@ def add_request(scope=None, name=None, requester=None, request_type=None,
                                      priority=priority, workload_id=workload_id, lifetime=lifetime,
                                      new_poll_period=new_poll_period, site=site,
                                      cloud=cloud, queue=queue,
+                                     command=command,
                                      update_poll_period=update_poll_period,
                                      additional_data_storage=additional_data_storage,
                                      new_retries=new_retries, update_retries=update_retries,

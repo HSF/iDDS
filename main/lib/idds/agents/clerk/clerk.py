@@ -1667,6 +1667,7 @@ class Clerk(BaseAgent):
                                      RequestStatus.Suspended, RequestStatus.Expired]:
                     ret = {'request_id': req['request_id'],
                            'parameters': {'locking': RequestLocking.Idle,
+                                          'command': CommandType.AbortRequest,
                                           'errors': {'extra_msg': "Request is already terminated. Cannot be aborted"}}}
                     if req['errors'] and 'msg' in req['errors']:
                         ret['parameters']['errors']['msg'] = req['errors']['msg']
@@ -1821,6 +1822,7 @@ class Clerk(BaseAgent):
                                      RequestStatus.Suspended, RequestStatus.Expired]:
                     ret = {'request_id': req['request_id'],
                            'parameters': {'locking': RequestLocking.Idle,
+                                          'command': CommandType.CloseRequest,
                                           'errors': {'extra_msg': "Request is already terminated. Cannot be closed"}}}
                     if req['errors'] and 'msg' in req['errors']:
                         ret['parameters']['errors']['msg'] = req['errors']['msg']
@@ -1978,6 +1980,7 @@ class Clerk(BaseAgent):
                 if req['status'] in [RequestStatus.Finished]:
                     ret = {'request_id': req['request_id'],
                            'parameters': {'locking': RequestLocking.Idle,
+                                          'command': CommandType.ResumeRequest,
                                           'errors': {'extra_msg': "Request is already finished. Cannot be resumed"}}}
                     if req['errors'] and 'msg' in req['errors']:
                         ret['parameters']['errors']['msg'] = req['errors']['msg']

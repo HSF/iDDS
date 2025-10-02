@@ -31,6 +31,7 @@ def create_processing(request_id, workload_id, transform_id, status=ProcessingSt
                       granularity=None, granularity_type=GranularityType.File, expired_at=None, processing_metadata=None,
                       new_poll_period=1, update_poll_period=10, processing_type=ProcessingType.Workflow,
                       new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
+                      command=CommandType.NoneCommand,
                       substatus=ProcessingStatus.New, output_metadata=None):
     """
     Create a processing.
@@ -53,7 +54,7 @@ def create_processing(request_id, workload_id, transform_id, status=ProcessingSt
                                        submitter=submitter, granularity=granularity, granularity_type=granularity_type,
                                        expired_at=expired_at, processing_metadata=processing_metadata,
                                        new_retries=new_retries, update_retries=update_retries,
-                                       processing_type=processing_type,
+                                       processing_type=processing_type, command=command,
                                        max_new_retries=max_new_retries, max_update_retries=max_update_retries,
                                        output_metadata=output_metadata)
 
@@ -72,6 +73,7 @@ def add_processing(request_id, workload_id, transform_id, status=ProcessingStatu
                    granularity=None, granularity_type=GranularityType.File, expired_at=None,
                    processing_metadata=None, new_poll_period=1, update_poll_period=10,
                    processing_type=ProcessingType.Workflow,
+                   command=CommandType.NoneCommand,
                    new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
                    output_metadata=None, session=None):
     """
@@ -100,6 +102,7 @@ def add_processing(request_id, workload_id, transform_id, status=ProcessingStatu
                                            expired_at=expired_at, new_poll_period=new_poll_period,
                                            update_poll_period=update_poll_period, processing_type=processing_type,
                                            new_retries=new_retries, update_retries=update_retries,
+                                           command=command,
                                            max_new_retries=max_new_retries, max_update_retries=max_update_retries,
                                            processing_metadata=processing_metadata, output_metadata=output_metadata)
         new_processing.save(session=session)
@@ -448,7 +451,9 @@ def abort_resume_processings(transform_id=None, request_id=None, processing_id=N
         if abort:
             # parameters = {'substatus': ProcessingStatus.ToCancel}
             parameters = {'command': CommandType.AbortProcessing}
+            command = CommandType.AbortProcessing
         if resume:
+            command = CommandType.ResumeProcessing
             # parameters = {'status': ProcessingStatus.ToResume,
             #               'substatus': ProcessingStatus.ToResume}
             parameters = {'status': ProcessingStatus.ToResume, 'command': CommandType.ResumeProcessing}
@@ -460,6 +465,7 @@ def abort_resume_processings(transform_id=None, request_id=None, processing_id=N
             query = query.filter_by(transform_id=transform_id)
         if request_id:
             query = query.filter_by(request_id=request_id)
+        query = query.filter(models.Processing.command != command)
         num_rows = query.update(parameters, synchronize_session=False)
         return num_rows
     except sqlalchemy.orm.exc.NoResultFound as error:

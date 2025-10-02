@@ -18,7 +18,7 @@ import logging
 # from idds.common import exceptions
 
 from idds.common.constants import (TransformStatus, ContentRelationType, ContentStatus,
-                                   TransformLocking, CollectionRelationType)
+                                   TransformLocking, CollectionRelationType, CommandType)
 from idds.orm.base.session import read_session, transactional_session
 from idds.orm import (transforms as orm_transforms,
                       collections as orm_collections,
@@ -34,7 +34,7 @@ def add_transform(request_id, workload_id, transform_type, transform_tag=None, p
                   new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
                   parent_transform_id=None, previous_transform_id=None, current_processing_id=None,
                   internal_id=None, has_previous_conditions=None, loop_index=None,
-                  parent_internal_id=None,
+                  parent_internal_id=None, command=CommandType.NoneCommand,
                   cloned_from=None, triggered_conditions=None, untriggered_conditions=None,
                   site=None, workprogress_id=None, session=None):
     """
@@ -71,6 +71,7 @@ def add_transform(request_id, workload_id, transform_type, transform_tag=None, p
                                                 expired_at=expired_at,
                                                 transform_metadata=transform_metadata,
                                                 site=site,
+                                                command=command,
                                                 internal_id=internal_id,
                                                 parent_internal_id=parent_internal_id,
                                                 has_previous_conditions=has_previous_conditions,

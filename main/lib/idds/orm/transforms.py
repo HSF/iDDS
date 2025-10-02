@@ -34,7 +34,7 @@ def create_transform(request_id, workload_id, transform_type, transform_tag=None
                      new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
                      parent_transform_id=None, previous_transform_id=None, current_processing_id=None,
                      internal_id=None, has_previous_conditions=None, loop_index=None,
-                     parent_internal_id=None,
+                     parent_internal_id=None, command=CommandType.NoneCommand,
                      cloned_from=None, triggered_conditions=None, untriggered_conditions=None,
                      site=None, retries=0, expired_at=None, transform_metadata=None):
     """
@@ -63,6 +63,7 @@ def create_transform(request_id, workload_id, transform_type, transform_tag=None
                                      previous_transform_id=previous_transform_id,
                                      current_processing_id=current_processing_id,
                                      internal_id=internal_id, site=site,
+                                     command=command,
                                      parent_internal_id=parent_internal_id,
                                      has_previous_conditions=has_previous_conditions,
                                      loop_index=loop_index, cloned_from=cloned_from,
@@ -85,7 +86,7 @@ def add_transform(request_id, workload_id, transform_type, transform_tag=None, p
                   new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
                   parent_transform_id=None, previous_transform_id=None, current_processing_id=None,
                   internal_id=None, has_previous_conditions=None, loop_index=None,
-                  parent_internal_id=None,
+                  parent_internal_id=None, command=CommandType.NoneCommand,
                   cloned_from=None, triggered_conditions=None, untriggered_conditions=None,
                   transform_metadata=None, workprogress_id=None, site=None, session=None):
     """
@@ -120,6 +121,7 @@ def add_transform(request_id, workload_id, transform_type, transform_tag=None, p
                                          previous_transform_id=previous_transform_id,
                                          current_processing_id=current_processing_id,
                                          internal_id=internal_id, site=site,
+                                         command=command,
                                          parent_internal_id=parent_internal_id,
                                          has_previous_conditions=has_previous_conditions,
                                          loop_index=loop_index, cloned_from=cloned_from,
@@ -581,14 +583,17 @@ def abort_resume_transforms(transform_id=None, request_id=None, abort=False, res
         if abort:
             # parameters = {'substatus': TransformStatus.ToCancel}
             parameters = {'command': CommandType.AbortTransform}
+            command = CommandType.AbortTransform
         if resume:
             # parameters = {'substatus': TransformStatus.ToResume}
             parameters = {'command': CommandType.ResumeTransform}
+            command = CommandType.ResumeTransform
         query = session.query(models.Transform)
         if transform_id:
             query = query.filter_by(transform_id=transform_id)
         if request_id:
             query = query.filter_by(request_id=request_id)
+        query = query.filter(models.Transform.command != command)
         num_rows = query.update(parameters, synchronize_session=False)
         return num_rows
     except sqlalchemy.orm.exc.NoResultFound as error:
