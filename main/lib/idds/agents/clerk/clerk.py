@@ -1974,6 +1974,7 @@ class Clerk(BaseAgent):
                 else:
                     request = req
             if request:
+                req = request
                 log_pre = self.get_log_prefix(req)
                 self.logger.info(log_pre + f"process_resume_request request: {req['request_id']} event: {event}")
 
