@@ -14,12 +14,10 @@ operations related to Requests.
 """
 
 import copy
-import datetime
 
 from idds.common.constants import (RequestStatus, RequestLocking, WorkStatus,
                                    CollectionType, CollectionStatus, CollectionRelationType,
-                                   MessageStatus, MetaStatus)
-from idds.common.utils import get_process_thread_info
+                                   MessageStatus, MetaStatus, CommandType)
 from idds.orm.base.session import read_session, transactional_session
 from idds.orm import requests_group as orm_requests_group
 from idds.orm import requests as orm_requests
@@ -37,7 +35,7 @@ def create_request(scope=None, name=None, requester=None, request_type=None,
                    status=RequestStatus.New, locking=RequestLocking.Idle, priority=0,
                    lifetime=None, workload_id=None, request_metadata=None,
                    new_poll_period=1, update_poll_period=10, site=None,
-                   cloud=None, queue=None,
+                   cloud=None, queue=None, command=CommandType.NoneCommand,
                    new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
                    campaign=None, campaign_group=None, campaign_tag=None,
                    max_processing_requests=-1, additional_data_storage=None,
@@ -65,7 +63,7 @@ def create_request(scope=None, name=None, requester=None, request_type=None,
 
     # request_metadata = convert_request_metadata_to_workflow(scope, name, workload_id, request_type, request_metadata)
     kwargs = {'scope': scope, 'name': name, 'requester': requester, 'request_type': request_type,
-              'username': username, 'userdn': userdn,
+              'username': username, 'userdn': userdn, 'command': command,
               'transform_tag': transform_tag, 'status': status, 'locking': locking,
               'priority': priority, 'lifetime': lifetime, 'workload_id': workload_id,
               'new_poll_period': new_poll_period, 'update_poll_period': update_poll_period,
@@ -84,7 +82,7 @@ def add_request(scope=None, name=None, requester=None, request_type=None,
                 status=RequestStatus.New, locking=RequestLocking.Idle, priority=0,
                 lifetime=None, workload_id=None, request_metadata=None,
                 new_poll_period=1, update_poll_period=10, site=None,
-                cloud=None, queue=None,
+                cloud=None, queue=None, command=CommandType.NoneCommand,
                 new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
                 campaign=None, campaign_scope=None, campaign_group=None, campaign_tag=None,
                 additional_data_storage=None, max_processing_requests=-1,
@@ -137,7 +135,7 @@ def add_request(scope=None, name=None, requester=None, request_type=None,
 
     kwargs = {'scope': scope, 'name': name, 'requester': requester, 'request_type': request_type,
               'username': username, 'userdn': userdn, 'site': site,
-              'cloud': cloud, 'queue': queue,
+              'cloud': cloud, 'queue': queue, 'command': command,
               'transform_tag': transform_tag, 'status': status, 'locking': locking,
               'priority': priority, 'lifetime': lifetime, 'workload_id': workload_id,
               'new_poll_period': new_poll_period, 'update_poll_period': update_poll_period,
@@ -201,20 +199,6 @@ def get_request_ids_by_name(name, session=None):
 @transactional_session
 def get_request_by_id_status(request_id, status=None, locking=False, session=None):
     req = orm_requests.get_request_by_id_status(request_id=request_id, status=status, locking=locking, session=session)
-    if req is not None and locking:
-        parameters = {}
-        parameters['locking'] = RequestLocking.Locking
-        parameters['updated_at'] = datetime.datetime.utcnow()
-        hostname, pid, thread_id, thread_name = get_process_thread_info()
-        parameters['locking_hostname'] = hostname
-        parameters['locking_pid'] = pid
-        parameters['locking_thread_id'] = thread_id
-        parameters['locking_thread_name'] = thread_name
-        num_rows = orm_requests.update_request(request_id=req['request_id'], parameters=parameters, locking=True, session=session)
-        if num_rows > 0:
-            return req
-        else:
-            return None
     return req
 
 
@@ -454,62 +438,11 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, loc
         if not min_request_id:
             min_request_id = 0
 
-    if locking:
-        if not only_return_id and bulk_size:
-            # order by cannot work together with locking. So first select 2 * bulk_size without locking with order by.
-            # then select with locking.
-            req_ids = orm_requests.get_requests_by_status_type(status, request_type, time_period, locking=locking, bulk_size=bulk_size * 2,
-                                                               locking_for_update=False, to_json=False, by_substatus=by_substatus,
-                                                               new_poll=new_poll, update_poll=update_poll,
-                                                               min_request_id=min_request_id,
-                                                               only_return_id=True, session=session)
-            if req_ids:
-                req2s = orm_requests.get_requests_by_status_type(status, request_type, time_period, request_ids=req_ids,
-                                                                 locking=locking, locking_for_update=False, bulk_size=None,
-                                                                 to_json=to_json,
-                                                                 min_request_id=min_request_id,
-                                                                 new_poll=new_poll, update_poll=update_poll,
-                                                                 by_substatus=by_substatus, session=session)
-                if req2s:
-                    # reqs = req2s[:bulk_size]
-                    # order requests
-                    reqs = []
-                    for req_id in req_ids:
-                        if len(reqs) >= bulk_size:
-                            break
-                        for req in req2s:
-                            if req['request_id'] == req_id:
-                                reqs.append(req)
-                                break
-                    # reqs = reqs[:bulk_size]
-                else:
-                    reqs = []
-            else:
-                reqs = []
-        else:
-            reqs = orm_requests.get_requests_by_status_type(status, request_type, time_period, locking=locking, locking_for_update=False,
-                                                            bulk_size=bulk_size,
-                                                            min_request_id=min_request_id,
-                                                            new_poll=new_poll, update_poll=update_poll, only_return_id=only_return_id,
-                                                            to_json=to_json, by_substatus=by_substatus, session=session)
+    reqs = orm_requests.get_requests_by_status_type(status, request_type, time_period, locking=locking, locking_for_update=False,
+                                                    bulk_size=bulk_size, min_request_id=min_request_id, not_lock=not_lock,
+                                                    new_poll=new_poll, update_poll=update_poll, only_return_id=only_return_id,
+                                                    to_json=to_json, by_substatus=by_substatus, session=session)
 
-        parameters = {}
-        if not not_lock:
-            parameters['locking'] = RequestLocking.Locking
-        if next_poll_at:
-            parameters['next_poll_at'] = next_poll_at
-        parameters['updated_at'] = datetime.datetime.utcnow()
-        if parameters:
-            for req in reqs:
-                if type(req) in [dict]:
-                    orm_requests.update_request(request_id=req['request_id'], parameters=parameters, session=session)
-                else:
-                    orm_requests.update_request(request_id=req, parameters=parameters, session=session)
-    else:
-        reqs = orm_requests.get_requests_by_status_type(status, request_type, time_period, locking=locking, bulk_size=bulk_size,
-                                                        new_poll=new_poll, update_poll=update_poll, only_return_id=only_return_id,
-                                                        min_request_id=min_request_id,
-                                                        to_json=to_json, by_substatus=by_substatus, session=session)
     return reqs
 
 

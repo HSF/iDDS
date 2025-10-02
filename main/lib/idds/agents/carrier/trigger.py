@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2023
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2025
 
 import traceback
 
@@ -17,8 +17,6 @@ from idds.common.utils import setup_logging, truncate_string
 from idds.core import processings as core_processings
 from idds.agents.common.baseagent import BaseAgent
 from idds.agents.common.eventbus.event import (EventType,
-                                               UpdateTransformEvent,
-                                               TriggerProcessingEvent,
                                                TerminatedProcessingEvent,
                                                SyncProcessingEvent)
 
@@ -56,9 +54,9 @@ class Trigger(Poller):
         self.number_msg_workers = 0
 
     def is_ok_to_run_more_msg_processings(self):
-        if self.number_msg_workers >= self.max_number_workers:
-            return False
-        return True
+        if self.get_num_free_workers() > 0:
+            return True
+        return False
 
     def get_trigger_processings(self):
         """
@@ -76,19 +74,14 @@ class Trigger(Poller):
             processing_status = [ProcessingStatus.ToTrigger, ProcessingStatus.Triggering]
             processings = core_processings.get_processings_by_status(status=processing_status,
                                                                      locking=True, update_poll=True,
-                                                                     not_lock=True,
-                                                                     only_return_id=True,
                                                                      min_request_id=BaseAgent.min_request_id,
                                                                      bulk_size=self.retrieve_bulk_size)
             if processings:
-                self.logger.info("Main thread get [ToTrigger, Triggering] processings to process: %s" % (str(processings)))
+                processing_ids = [pr['processing_id'] for pr in processings]
+                self.logger.info("Main thread get [ToTrigger, Triggering] processings to process: %s" % (str(processing_ids)))
 
-            events = []
-            for pr_id in processings:
-                self.logger.info("UpdateProcessingEvent(processing_id: %s)" % pr_id)
-                event = TriggerProcessingEvent(publisher_id=self.id, processing_id=pr_id)
-                events.append(event)
-            self.event_bus.send_bulk(events)
+            for pr in processings:
+                self.submit(self.process_trigger_processing, **{"processing": pr})
 
             return processings
         except exceptions.DatabaseException as ex:
@@ -188,11 +181,10 @@ class Trigger(Poller):
                    'update_contents': []}
         return ret
 
-    def process_trigger_processing_real(self, event):
+    def process_trigger_processing_real(self, event=None, processing=None):
         pro_ret = ReturnCode.Ok.value
         try:
-            if event:
-                original_event = event
+            if processing is None and event:
                 # pr_status = [ProcessingStatus.New]
                 self.logger.info("process_trigger_processing, event: %s" % str(event))
                 pr = self.get_processing(processing_id=event._processing_id, status=None, exclude_status=[ProcessingStatus.Prepared], locking=True)
@@ -209,66 +201,46 @@ class Trigger(Poller):
                     self.update_processing(ret, pr)
                     pro_ret = ReturnCode.Ok.value
                 else:
-                    log_pre = self.get_log_prefix(pr)
-                    self.logger.info(log_pre + "process_trigger_processing")
-                    ret = self.handle_trigger_processing(pr)
-                    # self.logger.info(log_pre + "process_trigger_processing result: %s" % str(ret))
+                    processing = pr
+            if processing:
+                pr = processing
+                log_pre = self.get_log_prefix(pr)
+                self.logger.info(log_pre + "process_trigger_processing")
+                ret = self.handle_trigger_processing(pr)
+                # self.logger.info(log_pre + "process_trigger_processing result: %s" % str(ret))
 
-                    # new_update_contents = ret.get('new_update_contents', None)
-                    ret['new_update_contents'] = None
-                    # ret_update_contents = ret.get('update_contents', None)
-                    self.update_processing(ret, pr)
+                # new_update_contents = ret.get('new_update_contents', None)
+                ret['new_update_contents'] = None
+                # ret_update_contents = ret.get('update_contents', None)
+                self.update_processing(ret, pr)
 
-                    update_transforms = ret.get('update_transforms', None)
-                    has_updates = ret.get('has_updates', None)
-                    if update_transforms:
-                        # self.logger.info(log_pre + "update_contents_to_others_by_dep_id")
-                        # core_catalog.update_contents_to_others_by_dep_id(request_id=pr['request_id'], transform_id=pr['transform_id'])
-                        # self.logger.info(log_pre + "update_contents_to_others_by_dep_id done")
-
-                        # core_catalog.delete_contents_update(request_id=pr['request_id'], transform_id=pr['transform_id'])
-                        # update_transforms = get_updated_transforms_by_content_status(request_id=pr['request_id'],
-                        #                                                              transform_id=pr['transform_id'])
-                        self.logger.info(log_pre + "update_transforms: %s" % str(update_transforms))
-                        for update_transform in update_transforms:
-                            if 'transform_id' in update_transform:
-                                update_transform_id = update_transform['transform_id']
-                                if update_transform_id != pr['transform_id']:
-                                    event = UpdateTransformEvent(publisher_id=self.id,
-                                                                 transform_id=update_transform_id,
-                                                                 content={'event': 'Trigger'})
-                                    self.logger.info(log_pre + "Trigger UpdateTransformEvent(transform_id: %s)" % update_transform_id)
-                                    self.event_bus.send(event)
-
-                    if (('processing_status' in ret and ret['processing_status'] == ProcessingStatus.Terminating)
-                        or (event._content and 'Terminated' in event._content and event._content['Terminated'])):   # noqa W503
-                        self.logger.info(log_pre + "TerminatedProcessingEvent(processing_id: %s)" % pr['processing_id'])
-                        event = TerminatedProcessingEvent(publisher_id=self.id,
-                                                          processing_id=pr['processing_id'],
-                                                          content=event._content,
-                                                          counter=original_event._counter)
-                        event.set_terminating()
+                if (('processing_status' in ret and ret['processing_status'] == ProcessingStatus.Terminating)
+                    or (event and event._content and 'Terminated' in event._content and event._content['Terminated'])):   # noqa W503
+                    self.logger.info(log_pre + "TerminatedProcessingEvent(processing_id: %s)" % pr['processing_id'])
+                    event = TerminatedProcessingEvent(publisher_id=self.id,
+                                                      processing_id=pr['processing_id'],
+                                                      content=event._content if event else None)
+                    event.set_terminating()
+                    self.event_bus.send(event)
+                else:
+                    if ((event and event._content and 'has_updates' in event._content and event._content['has_updates'])
+                        or ('update_contents' in ret and ret['update_contents'])    # noqa W503
+                        or ('new_contents' in ret and ret['new_contents'])          # noqa W503
+                        or ('messages' in ret and ret['messages'])                  # noqa W503
+                        or ('has_updates' in ret and ret['has_updates'])):                                            # noqa E129
+                        self.logger.info(log_pre + "SyncProcessingEvent(processing_id: %s)" % pr['processing_id'])
+                        event = SyncProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'],
+                                                    content=event._content if event else None)
                         self.event_bus.send(event)
-                    else:
-                        if ((event._content and 'has_updates' in event._content and event._content['has_updates'])
-                            or ('update_contents' in ret and ret['update_contents'])    # noqa W503
-                            or ('new_contents' in ret and ret['new_contents'])          # noqa W503
-                            or ('messages' in ret and ret['messages'])                  # noqa W503
-                            or has_updates):                                            # noqa E129
-                            self.logger.info(log_pre + "SyncProcessingEvent(processing_id: %s)" % pr['processing_id'])
-                            event = SyncProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'],
-                                                        content=event._content,
-                                                        counter=original_event._counter)
-                            self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
             pro_ret = ReturnCode.Failed.value
         return pro_ret
 
-    def process_trigger_processing(self, event):
+    def process_trigger_processing(self, event=None, processing=None):
         self.number_workers += 1
-        ret = self.process_trigger_processing_real(event)
+        ret = self.process_trigger_processing_real(event=event, processing=processing)
         self.number_workers -= 1
         return ret
 

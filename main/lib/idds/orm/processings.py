@@ -21,7 +21,8 @@ from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.sql.expression import asc
 
 from idds.common import exceptions
-from idds.common.constants import ProcessingType, ProcessingStatus, ProcessingLocking, GranularityType
+from idds.common.constants import CommandType, ProcessingType, ProcessingStatus, ProcessingLocking, GranularityType
+from idds.common.utils import get_process_thread_info
 from idds.orm.base.session import read_session, transactional_session, safe_bulk_update_mappings
 from idds.orm.base import models
 
@@ -30,6 +31,7 @@ def create_processing(request_id, workload_id, transform_id, status=ProcessingSt
                       granularity=None, granularity_type=GranularityType.File, expired_at=None, processing_metadata=None,
                       new_poll_period=1, update_poll_period=10, processing_type=ProcessingType.Workflow,
                       new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
+                      command=CommandType.NoneCommand,
                       substatus=ProcessingStatus.New, output_metadata=None):
     """
     Create a processing.
@@ -52,7 +54,7 @@ def create_processing(request_id, workload_id, transform_id, status=ProcessingSt
                                        submitter=submitter, granularity=granularity, granularity_type=granularity_type,
                                        expired_at=expired_at, processing_metadata=processing_metadata,
                                        new_retries=new_retries, update_retries=update_retries,
-                                       processing_type=processing_type,
+                                       processing_type=processing_type, command=command,
                                        max_new_retries=max_new_retries, max_update_retries=max_update_retries,
                                        output_metadata=output_metadata)
 
@@ -71,6 +73,7 @@ def add_processing(request_id, workload_id, transform_id, status=ProcessingStatu
                    granularity=None, granularity_type=GranularityType.File, expired_at=None,
                    processing_metadata=None, new_poll_period=1, update_poll_period=10,
                    processing_type=ProcessingType.Workflow,
+                   command=CommandType.NoneCommand,
                    new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
                    output_metadata=None, session=None):
     """
@@ -99,6 +102,7 @@ def add_processing(request_id, workload_id, transform_id, status=ProcessingStatu
                                            expired_at=expired_at, new_poll_period=new_poll_period,
                                            update_poll_period=update_poll_period, processing_type=processing_type,
                                            new_retries=new_retries, update_retries=update_retries,
+                                           command=command,
                                            max_new_retries=max_new_retries, max_update_retries=max_update_retries,
                                            processing_metadata=processing_metadata, output_metadata=output_metadata)
         new_processing.save(session=session)
@@ -149,7 +153,7 @@ def get_processing(processing_id, request_id=None, transform_id=None, to_json=Fa
 
 
 @read_session
-def get_processing_by_id_status(processing_id, status=None, exclude_status=None, locking=False, session=None):
+def get_processing_by_id_status(processing_id, status=None, exclude_status=None, locking=False, to_lock=False, session=None):
     """
     Get a processing or raise a NoObject exception.
 
@@ -189,6 +193,15 @@ def get_processing_by_id_status(processing_id, status=None, exclude_status=None,
         if not ret:
             return None
         else:
+            if locking:
+                ret[0].updated_at = datetime.datetime.utcnow()
+                ret[0].locking = ProcessingLocking.Locking
+                hostname, pid, thread_id, thread_name = get_process_thread_info()
+                ret[0].locking_hostname = hostname
+                ret[0].locking_pid = pid
+                ret[0].locking_thread_id = thread_id
+                ret[0].locking_thread_name = thread_name
+
             return ret[0].to_dict()
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('processing processing_id: %s cannot be found: %s' % (processing_id, error))
@@ -274,7 +287,7 @@ def get_processings_by_transform_id(transform_id=None, to_json=False, session=No
 @transactional_session
 def get_processings_by_status(status, period=None, processing_ids=[], locking=False, locking_for_update=False,
                               bulk_size=None, submitter=None, to_json=False, by_substatus=False, only_return_id=False,
-                              min_request_id=None, new_poll=False, update_poll=False, for_poller=False, session=None):
+                              not_lock=False, min_request_id=None, new_poll=False, update_poll=False, for_poller=False, session=None):
     """
     Get processing or raise a NoObject exception.
 
@@ -339,6 +352,16 @@ def get_processings_by_status(status, period=None, processing_ids=[], locking=Fa
         rets = []
         if tmp:
             for t in tmp:
+                if locking:
+                    t.updated_at = datetime.datetime.utcnow()
+                    t.locking = ProcessingLocking.Locking
+
+                    hostname, pid, thread_id, thread_name = get_process_thread_info()
+                    t.locking_hostname = hostname
+                    t.locking_pid = pid
+                    t.locking_thread_id = thread_id
+                    t.locking_thread_name = thread_name
+
                 if only_return_id:
                     rets.append(t[0])
                 else:
@@ -404,6 +427,49 @@ def update_processing(processing_id, parameters, locking=False, session=None):
         return 1
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('Processing %s cannot be found: %s' % (processing_id, error))
+    return 0
+
+
+@transactional_session
+def abort_resume_processings(transform_id=None, request_id=None, processing_id=None, abort=False, resume=False, session=None):
+    """
+    abort/resume processings.
+
+    :param request_id: The request id.
+    :param transform_id: The id of the transform.
+    :param session: The database session in use.
+
+    :raises NoObject: If no content is founded.
+    :raises DatabaseException: If there is a database error.
+    """
+    if not abort and not resume:
+        return
+    if not transform_id and not request_id and not processing_id:
+        return
+
+    try:
+        if abort:
+            # parameters = {'substatus': ProcessingStatus.ToCancel}
+            parameters = {'command': CommandType.AbortProcessing}
+            command = CommandType.AbortProcessing
+        if resume:
+            command = CommandType.ResumeProcessing
+            # parameters = {'status': ProcessingStatus.ToResume,
+            #               'substatus': ProcessingStatus.ToResume}
+            parameters = {'status': ProcessingStatus.ToResume, 'command': CommandType.ResumeProcessing}
+
+        query = session.query(models.Processing)
+        if processing_id:
+            query = query.filter_by(processing_id=processing_id)
+        if transform_id:
+            query = query.filter_by(transform_id=transform_id)
+        if request_id:
+            query = query.filter_by(request_id=request_id)
+        query = query.filter(models.Processing.command != command)
+        num_rows = query.update(parameters, synchronize_session=False)
+        return num_rows
+    except sqlalchemy.orm.exc.NoResultFound as error:
+        raise exceptions.NoObject('Transfrom %s cannot be found: %s' % (transform_id, error))
     return 0
 
 

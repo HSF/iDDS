@@ -23,9 +23,10 @@ from enum import Enum
 
 
 class DictClass(object):
-    def __init__(self):
+    def __init__(self, loading=False):
         self._zip_items = []
         self._not_auto_unzip_items = []
+        self._loading = loading
 
     def zip_data(self, data, name=None):
         try:
@@ -134,6 +135,7 @@ class DictClass(object):
 
     def to_dict(self):
         # print('to_dict')
+        self._loading = False
         ret = {'class': self.__class__.__name__,
                'module': self.__class__.__module__,
                'attributes': {}}
@@ -181,10 +183,15 @@ class DictClass(object):
             impl = cls(d['attributes']['_value_'])
         else:
             sig = inspect.signature(cls.__init__)
-            if 'json_load' in sig.parameters:
+            if 'json_load' in sig.parameters and 'loading' in sig.parameters:
+                impl = cls(json_load=True, loading=True)
+            elif 'json_load' in sig.parameters:
                 impl = cls(json_load=True)
+            elif 'loading' in sig.parameters:
+                impl = cls(loading=True)
             else:
                 impl = cls()
+            impl._loading = False
         return impl
 
     @staticmethod
@@ -209,6 +216,7 @@ class DictClass(object):
 
         if DictClass.is_class(d):
             impl = DictClass.load_instance(d)
+            impl._loading = True
             last_items = {}
             for key, value in d['attributes'].items():
                 # print(key)
@@ -233,6 +241,7 @@ class DictClass(object):
                 value = DictClass.from_dict(value)
                 setattr(impl, key, value)
 
+            impl._loading = False
             return impl
         elif DictClass.is_class_method(d):
             impl = DictClass.load_instance_method(d)
@@ -256,8 +265,8 @@ class DictClass(object):
 
 
 class DictMetadata(DictClass):
-    def __init__(self):
-        super(DictMetadata, self).__init__()
+    def __init__(self, loading=False):
+        super(DictMetadata, self).__init__(loading=loading)
         pass
 
     def add_item(self, key, value):
@@ -268,8 +277,8 @@ class DictMetadata(DictClass):
 
 
 class DictBase(DictClass):
-    def __init__(self):
-        super(DictBase, self).__init__()
+    def __init__(self, loading=False):
+        super(DictBase, self).__init__(loading=loading)
         self.metadata = DictMetadata()
         pass
 

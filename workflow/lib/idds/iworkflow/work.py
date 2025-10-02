@@ -63,6 +63,9 @@ class WorkContext(Context):
         self._other_attributes = {}
         self.logger = logging.getLogger(self.__class__.__name__)
 
+        self._start_time = None
+        self._end_time = None
+
     def get_service(self):
         return self._workflow_context.service
 
@@ -1278,6 +1281,8 @@ class Work(Base):
             self.logger.error(f"pre_run is_ok: {is_ok}, will exit.")
             raise Exception("work pre_run failed")
 
+        self._start_time = datetime.datetime.utcnow()
+
         func_name, pre_kwargs, args, kwargs = self._func_name_and_args
         multi_jobs_kwargs_list = self.multi_jobs_kwargs_list
         current_job_kwargs = self._current_job_kwargs
@@ -1319,12 +1324,20 @@ class Work(Base):
 
             ret_status, ret_output, ret_err = self.run_func(self._func, pre_kwargs_copy, args_copy, kwargs_copy)
 
+            self._end_time = datetime.datetime.utcnow()
+
             request_id = self._context.request_id
             transform_id = self._context.transform_id
             ret_log = f"(status: {ret_status}, return: {ret_output}, error: {ret_err})"
             self.logger.info(f"publishing AsyncResult to (request_id: {request_id}, transform_id: {transform_id}): {ret_log}")
             async_ret = AsyncResult(self._context, name=self.get_func_name(), internal_id=self.internal_id, current_job_kwargs=current_job_kwargs)
-            async_ret.publish(ret_output, ret_status=ret_status, ret_error=ret_err, key=self.job_key)
+            async_ret.publish(
+                ret_output,
+                ret_status=ret_status,
+                ret_error=ret_err,
+                key=self.job_key,
+                metrics={"start_time": self._start_time, "end_time": self._end_time}
+            )
 
             if not self.map_results:
                 self._results = ret_output
@@ -1335,6 +1348,7 @@ class Work(Base):
         else:
             if not multi_jobs_kwargs_list:
                 ret_status, rets, ret_err = self.run_func(self._func, pre_kwargs, args, kwargs)
+                self._end_time = datetime.datetime.utcnow()
                 if not self.map_results:
                     self._results = rets
                 else:
@@ -1354,6 +1368,7 @@ class Work(Base):
                             args_copy = copy.deepcopy(one_job_kwargs)
 
                         ret_status, rets, ret_error = self.run_func(self._func, pre_kwargs_copy, args_copy, kwargs_copy)
+                        self._end_time = datetime.datetime.utcnow()
                         self._results.append(rets)
                 else:
                     self._results = MapResult()
@@ -1367,6 +1382,7 @@ class Work(Base):
                             args_copy = copy.deepcopy(one_job_kwargs)
 
                         ret_status, rets, ret_error = self.run_func(self._func, pre_kwargs_copy, args_copy, kwargs_copy)
+                        self._end_time = datetime.datetime.utcnow()
                         self._results.add_result(name=self.get_func_name(), args=one_job_kwargs, result=rets, key=self.job_key)
                 return ret_status
 

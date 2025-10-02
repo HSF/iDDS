@@ -16,9 +16,7 @@ from idds.common.utils import setup_logging, truncate_string
 from idds.core import processings as core_processings
 from idds.agents.common.baseagent import BaseAgent
 from idds.agents.common.eventbus.event import (EventType,
-                                               NewProcessingEvent,
                                                PreparedProcessingEvent,
-                                               SyncProcessingEvent,
                                                UpdateTransformEvent)
 
 from .utils import handle_new_processing, handle_prepared_processing
@@ -62,21 +60,17 @@ class Submitter(Poller):
             processing_status = [ProcessingStatus.New]
             self._new_processing_status = processing_status
             processings = core_processings.get_processings_by_status(status=processing_status, locking=True,
-                                                                     not_lock=True,
-                                                                     new_poll=True, only_return_id=True,
+                                                                     new_poll=True,
                                                                      min_request_id=BaseAgent.min_request_id,
-                                                                     bulk_size=self.retrieve_bulk_size)
+                                                                     bulk_size=self.get_bulk_size())
 
             # self.logger.debug("Main thread get %s [new] processings to process" % len(processings))
             if processings:
-                self.logger.info("Main thread get [new] processings to process: %s" % str(processings))
+                processing_ids = [pr['processing_id'] for pr in processings]
+                self.logger.info("Main thread get [new] processings to process: %s" % str(processing_ids))
 
-            events = []
-            for pr_id in processings:
-                self.logger.info("NewProcessingEvent(processing_id: %s)" % pr_id)
-                event = NewProcessingEvent(publisher_id=self.id, processing_id=pr_id)
-                events.append(event)
-            self.event_bus.send_bulk(events)
+            for pr in processings:
+                self.submit(self.process_new_processing, **{"processing": pr})
 
             return processings
         except exceptions.DatabaseException as ex:
@@ -104,21 +98,17 @@ class Submitter(Poller):
             processing_status = [ProcessingStatus.Prepared]
             self._prepared_processing_status = processing_status
             processings = core_processings.get_processings_by_status(status=processing_status, locking=True,
-                                                                     not_lock=True,
-                                                                     new_poll=True, only_return_id=True,
+                                                                     new_poll=True,
                                                                      min_request_id=BaseAgent.min_request_id,
-                                                                     bulk_size=self.retrieve_bulk_size)
+                                                                     bulk_size=self.get_bulk_size())
 
             # self.logger.debug("Main thread get %s [new] processings to process" % len(processings))
             if processings:
-                self.logger.info("Main thread get [prepared] processings to process: %s" % str(processings))
+                processing_ids = [pr['processing_id'] for pr in processings]
+                self.logger.info("Main thread get [prepared] processings to process: %s" % str(processing_ids))
 
-            events = []
-            for pr_id in processings:
-                self.logger.info("PreparedProcessingEvent(processing_id: %s)" % pr_id)
-                event = PreparedProcessingEvent(publisher_id=self.id, processing_id=pr_id)
-                events.append(event)
-            self.event_bus.send_bulk(events)
+            for pr in processings:
+                self.submit(self.process_prepared_processing, **{"processing": pr})
 
             return processings
         except exceptions.DatabaseException as ex:
@@ -375,10 +365,10 @@ class Submitter(Poller):
                    'update_contents': []}
         return ret
 
-    def process_new_processing(self, event):
+    def process_new_processing(self, event=None, processing=None):
         self.number_workers += 1
         try:
-            if event:
+            if processing is None and event:
                 # pr_status = [ProcessingStatus.New]
                 self.logger.info("process_new_processing, event: %s" % str(event))
                 pr = self.get_processing(processing_id=event._processing_id, status=None, locking=True)
@@ -392,36 +382,33 @@ class Submitter(Poller):
                            'update_contents': []}
                     self.update_processing(ret, pr)
                 else:
-                    log_pre = self.get_log_prefix(pr)
-                    self.logger.info(log_pre + "process_new_processing")
-                    if pr['processing_type'] and pr['processing_type'] in [ProcessingType.iWorkflow, ProcessingType.iWork]:
-                        ret = self.handle_new_iprocessing(pr)
-                        # self.logger.info(log_pre + "process_new_processing result: %s" % str(ret))
+                    processing = pr
+            if processing:
+                pr = processing
+                log_pre = self.get_log_prefix(pr)
+                self.logger.info(log_pre + "process_new_processing")
+                if pr['processing_type'] and pr['processing_type'] in [ProcessingType.iWorkflow, ProcessingType.iWork]:
+                    ret = self.handle_new_iprocessing(pr)
+                    # self.logger.info(log_pre + "process_new_processing result: %s" % str(ret))
 
-                        self.update_processing(ret, pr)
+                    self.update_processing(ret, pr)
 
-                        self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
-                        submit_event_content = {'event': 'submitted'}
-                        event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'], content=submit_event_content)
-                        event.set_has_updates()
-                        self.event_bus.send(event)
-
-                        self.logger.info(log_pre + "SyncProcessingEvent(processing_id: %s)" % pr['processing_id'])
-                        event = SyncProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'])
-                        event.set_has_updates()
-                        self.event_bus.send(event)
-                    else:
-                        ret = self.handle_new_processing(pr)
-                        self.update_processing(ret, pr)
+                    self.logger.info(log_pre + "PreparedProcessingEvent(processing_id: %s)" % pr['processing_id'])
+                    event = PreparedProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'])
+                    event.set_has_updates()
+                    self.event_bus.send(event)
+                else:
+                    ret = self.handle_new_processing(pr)
+                    self.update_processing(ret, pr)
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
         self.number_workers -= 1
 
-    def process_prepared_processing(self, event):
+    def process_prepared_processing(self, event=None, processing=None):
         self.number_workers += 1
         try:
-            if event:
+            if processing is None and event:
                 # pr_status = [ProcessingStatus.New]
                 self.logger.info("process_prepared_processing, event: %s" % str(event))
                 pr = self.get_processing(processing_id=event._processing_id, status=None, locking=True)
@@ -435,33 +422,36 @@ class Submitter(Poller):
                            'update_contents': []}
                     self.update_processing(ret, pr)
                 else:
-                    log_pre = self.get_log_prefix(pr)
-                    self.logger.info(log_pre + "process_prepared_processing")
-                    if pr['processing_type'] and pr['processing_type'] in [ProcessingType.iWorkflow, ProcessingType.iWork]:
-                        # ret = self.handle_new_iprocessing(pr)
-                        self.logger.error(log_pre + "process_prepared_processing, iWorkflow/iWork should not have status prepared")
-                        parameters = {'locking': ProcessingLocking.Idle}
-                        update_processing = {'processing_id': pr['processing_id'],
-                                             'parameters': parameters}
-                        ret = {'update_processing': update_processing,
-                               'update_contents': []}
-                        self.update_processing(ret, pr)
-                    else:
-                        ret = self.handle_prepared_processing(pr)
-                        # self.logger.info(log_pre + "process_new_processing result: %s" % str(ret))
+                    processing = pr
+            if processing:
+                pr = processing
+                log_pre = self.get_log_prefix(pr)
+                self.logger.info(log_pre + "process_prepared_processing")
+                if pr['processing_type'] and pr['processing_type'] in [ProcessingType.iWorkflow, ProcessingType.iWork]:
+                    # ret = self.handle_new_iprocessing(pr)
+                    self.logger.error(log_pre + "process_prepared_processing, iWorkflow/iWork should not have status prepared")
+                    parameters = {'locking': ProcessingLocking.Idle}
+                    update_processing = {'processing_id': pr['processing_id'],
+                                         'parameters': parameters}
+                    ret = {'update_processing': update_processing,
+                           'update_contents': []}
+                    self.update_processing(ret, pr)
+                else:
+                    ret = self.handle_prepared_processing(pr)
+                    # self.logger.info(log_pre + "process_new_processing result: %s" % str(ret))
 
-                        self.update_processing(ret, pr)
+                    self.update_processing(ret, pr)
 
-                        self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
-                        submit_event_content = {'event': 'submitted'}
-                        event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'], content=submit_event_content)
-                        event.set_has_updates()
-                        self.event_bus.send(event)
+                    self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % pr['transform_id'])
+                    submit_event_content = {'event': 'submitted'}
+                    event = UpdateTransformEvent(publisher_id=self.id, transform_id=pr['transform_id'], content=submit_event_content)
+                    event.set_has_updates()
+                    self.event_bus.send(event)
 
-                        self.logger.info(log_pre + "SyncProcessingEvent(processing_id: %s)" % pr['processing_id'])
-                        event = SyncProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'])
-                        event.set_has_updates()
-                        self.event_bus.send(event)
+                    # self.logger.info(log_pre + "SyncProcessingEvent(processing_id: %s)" % pr['processing_id'])
+                    # event = SyncProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'])
+                    # event.set_has_updates()
+                    # self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())

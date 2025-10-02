@@ -2566,6 +2566,7 @@ class Workflow(Base):
 
         build_work = self.get_build_work()
         if build_work:
+            build_work.num_run = 0
             if not (build_work.is_started() or build_work.is_starting()):
                 return build_work
             elif not build_work.is_terminated():
@@ -2585,12 +2586,16 @@ class Workflow(Base):
             works = self.runs[str(self.num_run)].get_new_works(synchronize=True)
             self.logger.info("%s new workers: %s" % (self.get_internal_id(), str(works)))
             self.runs[str(self.num_run)].transforming = True
+            if works:
+                for work in works:
+                    work.num_run = int(self.num_run) if self.num_run is not None else 0
         self.logger.info("%s get_new_works done" % self.get_internal_id())
         return works
 
     def get_current_works(self):
         build_work = self.get_build_work()
         if build_work:
+            build_work.num_run = 0
             if (build_work.is_started() or build_work.is_starting()):
                 if (not build_work.is_terminated()):
                     return [build_work]
@@ -2601,7 +2606,9 @@ class Workflow(Base):
 
         self.sync_works(to_cancel=self.to_cancel)
         if self.runs:
-            return self.runs[str(self.num_run)].get_current_works()
+            works = self.runs[str(self.num_run)].get_current_works()
+            for work in works:
+                work.num_run = int(self.num_run) if self.num_run is not None else 0
         return []
 
     def get_all_works(self, synchronize=True):
@@ -2611,6 +2618,7 @@ class Workflow(Base):
         build_work = self.get_build_work()
         if build_work:
             if build_work.is_finished():
+                build_work.num_run = 0
                 works = [build_work]
             else:
                 return [build_work]
@@ -2619,7 +2627,12 @@ class Workflow(Base):
             self.sync_works(to_cancel=self.to_cancel)
         if self.runs:
             run_works = self.runs[str(self.num_run)].get_all_works(synchronize=False)
+            if run_works:
+                for work in run_works:
+                    work.num_run = int(self.num_run) if self.num_run is not None else 0
+
             works = works + run_works
+
         self.logger.info("%s get_all_works done" % self.get_internal_id())
         return works
 

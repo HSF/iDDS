@@ -22,7 +22,8 @@ from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.sql.expression import asc, desc
 
 from idds.common import exceptions
-from idds.common.constants import RequestType, RequestStatus, RequestLocking
+from idds.common.constants import RequestType, RequestStatus, RequestLocking, CommandType
+from idds.common.utils import get_process_thread_info
 from idds.orm.base.session import read_session, transactional_session, safe_bulk_update_mappings
 from idds.orm.base import models
 
@@ -32,7 +33,7 @@ def create_request(scope=None, name=None, requester=None, request_type=None,
                    status=RequestStatus.New, locking=RequestLocking.Idle, priority=0,
                    lifetime=None, workload_id=None, request_metadata=None,
                    new_poll_period=1, update_poll_period=10, site=None,
-                   cloud=None, queue=None,
+                   cloud=None, queue=None, command=CommandType.NoneCommand,
                    new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
                    group_id=None, campaign=None, campaign_scope=None, campaign_group=None,
                    campaign_tag=None, additional_data_storage=None,
@@ -84,7 +85,7 @@ def create_request(scope=None, name=None, requester=None, request_type=None,
                                  transform_tag=transform_tag, status=status, locking=locking,
                                  priority=priority, workload_id=workload_id,
                                  expired_at=expired_at, site=site, additional_data_storage=additional_data_storage,
-                                 cloud=cloud, queue=queue,
+                                 cloud=cloud, queue=queue, command=command,
                                  new_retries=new_retries, update_retries=update_retries,
                                  max_new_retries=max_new_retries, max_update_retries=max_update_retries,
                                  group_id=group_id, campaign=campaign, campaign_scope=campaign_scope,
@@ -105,7 +106,7 @@ def add_request(scope=None, name=None, requester=None, request_type=None,
                 status=RequestStatus.New, locking=RequestLocking.Idle, priority=0,
                 lifetime=None, workload_id=None, request_metadata=None,
                 new_poll_period=1, update_poll_period=10, site=None,
-                cloud=None, queue=None,
+                cloud=None, queue=None, command=CommandType.NoneCommand,
                 new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
                 group_id=None, campaign=None, campaign_scope=None, campaign_group=None,
                 campaign_tag=None, additional_data_storage=None,
@@ -139,6 +140,7 @@ def add_request(scope=None, name=None, requester=None, request_type=None,
                                      priority=priority, workload_id=workload_id, lifetime=lifetime,
                                      new_poll_period=new_poll_period, site=site,
                                      cloud=cloud, queue=queue,
+                                     command=command,
                                      update_poll_period=update_poll_period,
                                      additional_data_storage=additional_data_storage,
                                      new_retries=new_retries, update_retries=update_retries,
@@ -291,6 +293,15 @@ def get_request_by_id_status(request_id, status=None, locking=False, session=Non
         if not ret:
             return None
         else:
+            if locking:
+                ret[0].updated_at = datetime.datetime.utcnow()
+                ret[0].locking = RequestLocking.Locking
+                hostname, pid, thread_id, thread_name = get_process_thread_info()
+                ret[0].locking_hostname = hostname
+                ret[0].locking_pid = pid
+                ret[0].locking_thread_id = thread_id
+                ret[0].locking_thread_name = thread_name
+
             return ret[0].to_dict()
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('request request_id: %s cannot be found: %s' % (request_id, error))
@@ -1065,7 +1076,7 @@ def get_requests_by_requester(scope, name, requester, to_json=False, session=Non
 def get_requests_by_status_type(status, request_type=None, time_period=None, request_ids=[], locking=False,
                                 locking_for_update=False, bulk_size=None, to_json=False, by_substatus=False,
                                 min_request_id=None, new_poll=False, update_poll=False, only_return_id=False,
-                                session=None):
+                                not_lock=False, session=None):
     """
     Get requests.
 
@@ -1117,8 +1128,9 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, req
         else:
             # query = query.order_by(asc(models.Request.updated_at))\
             #              .order_by(desc(models.Request.priority))
-            query = query.order_by(desc(models.Request.priority))\
-                         .order_by(asc(models.Request.updated_at))
+            # query = query.order_by(desc(models.Request.priority))\
+            #              .order_by(asc(models.Request.updated_at))
+            query = query.order_by(asc(models.Request.updated_at))
 
         if bulk_size:
             query = query.limit(bulk_size)
@@ -1127,6 +1139,16 @@ def get_requests_by_status_type(status, request_type=None, time_period=None, req
         rets = []
         if tmp:
             for req in tmp:
+                if locking:
+                    req.updated_at = datetime.datetime.utcnow()
+                    req.locking = RequestLocking.Locking
+
+                    hostname, pid, thread_id, thread_name = get_process_thread_info()
+                    req.locking_hostname = hostname
+                    req.locking_pid = pid
+                    req.locking_thread_id = thread_id
+                    req.locking_thread_name = thread_name
+
                 if only_return_id:
                     rets.append(req[0])
                 else:

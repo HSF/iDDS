@@ -50,7 +50,7 @@ class Transformer(BaseAgent):
     Transformer works to process transforms.
     """
 
-    def __init__(self, num_threads=1, max_number_workers=8, poll_period=1800, retries=3, retrieve_bulk_size=10,
+    def __init__(self, num_threads=1, max_number_workers=8, poll_period=1800, retries=3, retrieve_bulk_size=3,
                  message_bulk_size=10000, **kwargs):
         self.max_number_workers = max_number_workers
         self.set_max_workers()
@@ -113,15 +113,18 @@ class Transformer(BaseAgent):
             self.clean_locks_time_period = 1800
 
     def is_ok_to_run_more_transforms(self):
-        if self.number_workers >= self.max_number_workers:
-            return False
-        return True
+        if self.get_num_free_workers() > 0:
+            return True
+        return False
 
     def show_queue_size(self):
         if self.show_queue_size_time is None or time.time() - self.show_queue_size_time >= 600:
             self.show_queue_size_time = time.time()
-            q_str = "number of transforms: %s, max number of transforms: %s" % (self.number_workers, self.max_number_workers)
+            q_str = "number of transforms: %s, max number of transforms: %s" % (self.get_num_workers(), self.get_max_workers())
             self.logger.debug(q_str)
+
+    def get_bulk_size(self):
+        return min(self.retrieve_bulk_size, self.get_num_free_workers())
 
     def get_throttlers(self):
         """
@@ -331,24 +334,15 @@ class Transformer(BaseAgent):
             transform_status = [TransformStatus.Queue, TransformStatus.Throttling]
             # next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_period)
             transforms_q = core_transforms.get_transforms_by_status(status=transform_status, locking=True,
-                                                                    not_lock=True, order_by_fifo=True,
+                                                                    not_lock=False, order_by_fifo=True,
                                                                     new_poll=True,
-                                                                    min_request_id=BaseAgent.min_request_id,
-                                                                    bulk_size=self.retrieve_bulk_size)
+                                                                    min_request_id=BaseAgent.min_request_id)
 
             # self.logger.debug("Main thread get %s New+Ready+Extend transforms to process" % len(transforms_new))
             if transforms_q:
                 self.logger.info("Main thread get queued transforms to process: %s" % str(transforms_q))
                 for tf in transforms_q:
-                    to_throttle = self.whether_to_throttle(tf)
-                    transform_parameters = {'locking': TransformLocking.Idle}
-                    parameters = self.load_poll_period(tf, transform_parameters)
-                    if to_throttle:
-                        parameters['status'] = TransformStatus.Throttling
-                    else:
-                        parameters['status'] = TransformStatus.New
-                    core_transforms.update_transform(transform_id=tf['transform_id'], parameters=parameters)
-
+                    self.process_queue_transform(transform=tf)
         except exceptions.DatabaseException as ex:
             if 'ORA-00060' in str(ex):
                 self.logger.warn("(cx_Oracle.DatabaseError) ORA-00060: deadlock detected while waiting for resource")
@@ -357,6 +351,41 @@ class Transformer(BaseAgent):
                 self.logger.error(ex)
                 self.logger.error(traceback.format_exc())
         return []
+
+    def process_queue_transform(self, event=None, transform=None):
+        self.number_workers += 1
+        try:
+            if transform is None and event:
+                tf_status = [TransformStatus.Queue, TransformStatus.Throttling]
+                tf = self.get_transform(transform_id=event._transform_id, status=tf_status, locking=True)
+                if not tf:
+                    self.logger.warn("Cannot find transform for event: %s" % str(event))
+                else:
+                    transform = tf
+            if transform:
+                tf = transform
+                log_pre = self.get_log_prefix(tf)
+                self.logger.info(log_pre + "process_queue_transform")
+                to_throttle = self.whether_to_throttle(tf)
+                transform_parameters = {'locking': TransformLocking.Idle}
+                parameters = self.load_poll_period(tf, transform_parameters)
+                if to_throttle:
+                    parameters['status'] = TransformStatus.Throttling
+                    core_transforms.update_transform(transform_id=tf['transform_id'], parameters=parameters)
+                else:
+                    # parameters['status'] = TransformStatus.New
+                    # self.submit(self.process_new_transform, transform=tf)
+                    # self.process_new_transform(transform=tf)
+                    parameters['status'] = TransformStatus.New
+                    core_transforms.update_transform(transform_id=tf['transform_id'], parameters=parameters)
+
+                    self.logger.info(log_pre + "NewTransformEvent(transform_id: %s)" % str(tf['transform_id']))
+                    event = NewTransformEvent(publisher_id=self.id, transform_id=tf['transform_id'])
+                    self.event_bus.send(event)
+        except Exception as ex:
+            self.logger.error(ex)
+            self.logger.error(traceback.format_exc())
+        self.number_workers -= 1
 
     def get_new_transforms(self):
         """
@@ -375,19 +404,17 @@ class Transformer(BaseAgent):
             # next_poll_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.poll_period)
             transforms_new = core_transforms.get_transforms_by_status(status=transform_status, locking=True,
                                                                       not_lock=True, order_by_fifo=True,
-                                                                      new_poll=True, only_return_id=True,
+                                                                      new_poll=True,
                                                                       min_request_id=BaseAgent.min_request_id,
-                                                                      bulk_size=self.retrieve_bulk_size)
+                                                                      bulk_size=self.get_bulk_size())
 
             # self.logger.debug("Main thread get %s New+Ready+Extend transforms to process" % len(transforms_new))
             if transforms_new:
-                self.logger.info("Main thread get New+Ready+Extend transforms to process: %s" % str(transforms_new))
+                tf_ids = [tf['transform_id'] for tf in transforms_new]
+                self.logger.info("Main thread get New+Ready+Extend transforms to process: %s" % str(tf_ids))
 
-            events = []
-            for tf_id in transforms_new:
-                event = NewTransformEvent(publisher_id=self.id, transform_id=tf_id)
-                events.append(event)
-            self.event_bus.send_bulk(events)
+            for tf in transforms_new:
+                self.submit(self.process_new_transform, transform=tf)
 
             return transforms_new
         except exceptions.DatabaseException as ex:
@@ -423,18 +450,16 @@ class Transformer(BaseAgent):
                                                                   locking=True,
                                                                   not_lock=True,
                                                                   min_request_id=BaseAgent.min_request_id,
-                                                                  update_poll=True, only_return_id=True,
-                                                                  bulk_size=self.retrieve_bulk_size)
+                                                                  update_poll=True,
+                                                                  bulk_size=self.get_bulk_size())
 
             # self.logger.debug("Main thread get %s transforming transforms to process" % len(transforms))
             if transforms:
-                self.logger.info("Main thread get transforming transforms to process: %s" % str(transforms))
+                tf_ids = [tf['transform_id'] for tf in transforms]
+                self.logger.info("Main thread get transforming transforms to process: %s" % str(tf_ids))
 
-            events = []
-            for tf_id in transforms:
-                event = UpdateTransformEvent(publisher_id=self.id, transform_id=tf_id)
-                events.append(event)
-            self.event_bus.send_bulk(events)
+            for tf in transforms:
+                self.submit(self.process_update_transform, transform=tf)
 
             return transforms
         except exceptions.DatabaseException as ex:
@@ -911,34 +936,37 @@ class Transformer(BaseAgent):
                 self.logger.error(traceback.format_exc())
         return new_pr_ids, update_pr_ids
 
-    def process_new_transform(self, event):
+    def process_new_transform(self, event=None, transform=None):
         self.number_workers += 1
         try:
-            if event:
+            if transform is None and event:
                 tf_status = [TransformStatus.New, TransformStatus.Ready, TransformStatus.Extend]
                 tf = self.get_transform(transform_id=event._transform_id, status=tf_status, locking=True)
                 if not tf:
                     self.logger.warn("Cannot find transform for event: %s" % str(event))
                 else:
-                    log_pre = self.get_log_prefix(tf)
-                    self.logger.info(log_pre + "process_new_transform")
-                    if tf['transform_type'] in [TransformType.iWorkflow, TransformType.iWork]:
-                        ret = self.handle_new_itransform(tf)
-                    elif tf['transform_type'] in [TransformType.GenericWorkflow, TransformType.GenericWork]:
-                        ret = self.handle_new_generic_transform(tf)
-                    else:
-                        ret = self.handle_new_transform(tf)
-                    self.logger.info(log_pre + "process_new_transform result: %s" % str(ret))
+                    transform = tf
+            if transform:
+                tf = transform
+                log_pre = self.get_log_prefix(tf)
+                self.logger.info(log_pre + "process_new_transform")
+                if tf['transform_type'] in [TransformType.iWorkflow, TransformType.iWork]:
+                    ret = self.handle_new_itransform(tf)
+                elif tf['transform_type'] in [TransformType.GenericWorkflow, TransformType.GenericWork]:
+                    ret = self.handle_new_generic_transform(tf)
+                else:
+                    ret = self.handle_new_transform(tf)
+                self.logger.info(log_pre + "process_new_transform result: %s" % str(ret))
 
-                    new_pr_ids, update_pr_ids = self.update_transform(ret)
-                    for pr_id in new_pr_ids:
-                        self.logger.info(log_pre + "NewProcessingEvent(processing_id: %s)" % pr_id)
-                        event = NewProcessingEvent(publisher_id=self.id, processing_id=pr_id, content=event._content)
-                        self.event_bus.send(event)
-                    for pr_id in update_pr_ids:
-                        self.logger.info(log_pre + "UpdateProcessingEvent(processing_id: %s)" % pr_id)
-                        event = UpdateProcessingEvent(publisher_id=self.id, processing_id=pr_id, content=event._content)
-                        self.event_bus.send(event)
+                new_pr_ids, update_pr_ids = self.update_transform(ret)
+                for pr_id in new_pr_ids:
+                    self.logger.info(log_pre + "NewProcessingEvent(processing_id: %s)" % pr_id)
+                    event = NewProcessingEvent(publisher_id=self.id, processing_id=pr_id)
+                    self.event_bus.send(event)
+                for pr_id in update_pr_ids:
+                    self.logger.info(log_pre + "UpdateProcessingEvent(processing_id: %s)" % pr_id)
+                    event = UpdateProcessingEvent(publisher_id=self.id, processing_id=pr_id)
+                    self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
@@ -1193,11 +1221,11 @@ class Transformer(BaseAgent):
             self.logger.warn(log_pre + "handle_update_generic_transform exception result: %s" % str(ret))
         return ret, False, None
 
-    def process_update_transform(self, event):
+    def process_update_transform(self, event=None, transform=None):
         self.number_workers += 1
         pro_ret = ReturnCode.Ok.value
         try:
-            if event:
+            if transform is None and event:
                 # tf_status = [TransformStatus.Transforming,
                 #              TransformStatus.ToCancel, TransformStatus.Cancelling,
                 #              TransformStatus.ToSuspend, TransformStatus.Suspending,
@@ -1210,36 +1238,39 @@ class Transformer(BaseAgent):
                     self.logger.error("Cannot find transform for event: %s" % str(event))
                     pro_ret = ReturnCode.Locked.value
                 else:
-                    log_pre = self.get_log_prefix(tf)
+                    transform = tf
+            if transform:
+                tf = transform
+                log_pre = self.get_log_prefix(tf)
 
-                    if tf['transform_type'] in [TransformType.iWorkflow, TransformType.iWork]:
-                        ret, is_terminated, ret_processing_id = self.handle_update_itransform(tf, event)
-                    elif tf['transform_type'] in [TransformType.GenericWorkflow, TransformType.GenericWork]:
-                        ret, is_terminated, ret_processing_id = self.handle_update_generic_transform(tf, event)
-                    else:
-                        ret, is_terminated, ret_processing_id = self.handle_update_transform(tf, event)
-                    new_pr_ids, update_pr_ids = self.update_transform(ret)
+                if tf['transform_type'] in [TransformType.iWorkflow, TransformType.iWork]:
+                    ret, is_terminated, ret_processing_id = self.handle_update_itransform(tf, event)
+                elif tf['transform_type'] in [TransformType.GenericWorkflow, TransformType.GenericWork]:
+                    ret, is_terminated, ret_processing_id = self.handle_update_generic_transform(tf, event)
+                else:
+                    ret, is_terminated, ret_processing_id = self.handle_update_transform(tf, event)
+                new_pr_ids, update_pr_ids = self.update_transform(ret)
 
-                    has_update_workload_id = False
-                    new_workload_id = ret.get('transform_parameters', {}).get('workload_id', None)
-                    if new_workload_id and tf['workload_id'] != new_workload_id:
-                        has_update_workload_id = True
-                    if has_update_workload_id or is_terminated or (event._content and 'event' in event._content and event._content['event'] == 'submitted'):
-                        self.logger.info(log_pre + "UpdateRequestEvent(request_id: %s)" % tf['request_id'])
-                        event = UpdateRequestEvent(publisher_id=self.id, request_id=tf['request_id'], content=event._content)
-                        self.event_bus.send(event)
-                    for pr_id in new_pr_ids:
-                        self.logger.info(log_pre + "NewProcessingEvent(processing_id: %s)" % pr_id)
-                        event = NewProcessingEvent(publisher_id=self.id, processing_id=pr_id, content=event._content)
-                        self.event_bus.send(event)
-                    for pr_id in update_pr_ids:
-                        self.logger.info(log_pre + "UpdateProcessingEvent(processing_id: %s)" % pr_id)
-                        event = UpdateProcessingEvent(publisher_id=self.id, processing_id=pr_id, content=event._content)
-                        self.event_bus.send(event)
-                    if ret_processing_id and (event._content and 'event' in event._content and event._content['event'] == 'Trigger'):
-                        self.logger.info(log_pre + "UpdateProcessingEvent(processing_id: %s)" % ret_processing_id)
-                        event = UpdateProcessingEvent(publisher_id=self.id, processing_id=ret_processing_id)
-                        self.event_bus.send(event)
+                has_update_workload_id = False
+                new_workload_id = ret.get('transform_parameters', {}).get('workload_id', None)
+                if new_workload_id and tf['workload_id'] != new_workload_id:
+                    has_update_workload_id = True
+                if has_update_workload_id or is_terminated:
+                    self.logger.info(log_pre + "UpdateRequestEvent(request_id: %s)" % tf['request_id'])
+                    event = UpdateRequestEvent(publisher_id=self.id, request_id=tf['request_id'])
+                    self.event_bus.send(event)
+                for pr_id in new_pr_ids:
+                    self.logger.info(log_pre + "NewProcessingEvent(processing_id: %s)" % pr_id)
+                    event = NewProcessingEvent(publisher_id=self.id, processing_id=pr_id)
+                    self.event_bus.send(event)
+                for pr_id in update_pr_ids:
+                    self.logger.info(log_pre + "UpdateProcessingEvent(processing_id: %s)" % pr_id)
+                    event = UpdateProcessingEvent(publisher_id=self.id, processing_id=pr_id)
+                    self.event_bus.send(event)
+                # if ret_processing_id:
+                #     self.logger.info(log_pre + "UpdateProcessingEvent(processing_id: %s)" % ret_processing_id)
+                #     event = UpdateProcessingEvent(publisher_id=self.id, processing_id=ret_processing_id)
+                #     self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
@@ -1300,7 +1331,7 @@ class Transformer(BaseAgent):
                 self.logger.info(log_pre + "AbortProcessingEvent(processing_id: %s)" % pr['processing_id'])
                 event = AbortProcessingEvent(publisher_id=self.id,
                                              processing_id=pr['processing_id'],
-                                             content=event._content)
+                                             content=event._content if event else None)
                 self.event_bus.send(event)
 
             transform_parameters = {'status': TransformStatus.Transforming,
@@ -1368,7 +1399,7 @@ class Transformer(BaseAgent):
                             processing = work.get_processing(input_output_maps=[], without_creating=True)
                             if processing and processing.processing_id:
                                 self.logger.info(log_pre + "AbortProcessingEvent(processing_id: %s)" % processing.processing_id)
-                                event = AbortProcessingEvent(publisher_id=self.id, processing_id=processing.processing_id, content=event._content)
+                                event = AbortProcessingEvent(publisher_id=self.id, processing_id=processing.processing_id, content=event._content if event else None)
                                 self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
@@ -1424,7 +1455,7 @@ class Transformer(BaseAgent):
                 self.logger.info(log_pre + "ResumeProcessingEvent(processing_id: %s)" % pr['processing_id'])
                 event = ResumeProcessingEvent(publisher_id=self.id,
                                               processing_id=pr['processing_id'],
-                                              content=event._content)
+                                              content=event._content if event else None)
                 self.event_bus.send(event)
 
             transform_parameters = {'status': TransformStatus.Transforming,
@@ -1489,13 +1520,13 @@ class Transformer(BaseAgent):
                                 self.logger.info(log_pre + "ResumeProcessingEvent(processing_id: %s)" % processing.processing_id)
                                 event = ResumeProcessingEvent(publisher_id=self.id,
                                                               processing_id=processing.processing_id,
-                                                              content=event._content)
+                                                              content=event._content if event else None)
                                 self.event_bus.send(event)
                             else:
                                 self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % tf['transform_id'])
                                 event = UpdateTransformEvent(publisher_id=self.id,
                                                              transform_id=tf['transform_id'],
-                                                             content=event._content)
+                                                             content=event._content if event else None)
                                 self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
@@ -1505,16 +1536,23 @@ class Transformer(BaseAgent):
         return pro_ret
 
     def clean_locks(self, force=False):
-        self.logger.info(f"clean locking: force: {force}")
-        health_items = self.get_health_items()
-        min_request_id = BaseAgent.min_request_id
-        hostname, pid, thread_id, thread_name = self.get_process_thread_info()
-        core_transforms.clean_locking(health_items=health_items, min_request_id=min_request_id,
-                                      time_period=self.clean_locks_time_period,
-                                      force=force, hostname=hostname, pid=pid)
+        try:
+            self.logger.info(f"clean locking: force: {force}")
+            health_items = self.get_health_items()
+            min_request_id = BaseAgent.min_request_id
+            hostname, pid, thread_id, thread_name = self.get_process_thread_info()
+            core_transforms.clean_locking(health_items=health_items, min_request_id=min_request_id,
+                                          time_period=self.clean_locks_time_period,
+                                          force=force, hostname=hostname, pid=pid)
+        except Exception as ex:
+            self.logger.info(f"Failed clean locking: {ex}")
 
     def init_event_function_map(self):
         self.event_func_map = {
+            EventType.QueueTransform: {
+                'pre_check': self.is_ok_to_run_more_transforms,
+                'exec_func': self.process_queue_transform
+            },
             EventType.NewTransform: {
                 'pre_check': self.is_ok_to_run_more_transforms,
                 'exec_func': self.process_new_transform

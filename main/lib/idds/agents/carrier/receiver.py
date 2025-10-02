@@ -174,6 +174,7 @@ class Receiver(BaseAgent):
             core_catalog.add_contents_update(update_contents)
             num_to_update_contents = len(update_contents)
 
+        pr_id_triggered = []
         for pr_id in update_processings_by_job:
             # self.logger.info(log_prefix + "TerminatedProcessingEvent(processing_id: %s)" % pr_id)
             # event = TerminatedProcessingEvent(publisher_id=self.id, processing_id=pr_id)
@@ -181,8 +182,11 @@ class Receiver(BaseAgent):
             self.logger.info(log_prefix + "TriggerProcessingEvent(processing_id: %s)" % pr_id)
             event = TriggerProcessingEvent(publisher_id=self.id, processing_id=pr_id)
             self.event_bus.send(event)
+            pr_id_triggered.append(pr_id)
 
         for pr_id in update_processings:
+            if pr_id in pr_id_triggered:
+                continue
             # self.logger.info(log_prefix + "TerminatedProcessingEvent(processing_id: %s)" % pr_id)
             # event = TerminatedProcessingEvent(publisher_id=self.id, processing_id=pr_id)
             self.logger.info(log_prefix + "TriggerProcessingEvent(processing_id: %s)" % pr_id)
@@ -190,14 +194,18 @@ class Receiver(BaseAgent):
                                            content={'num_to_update_contents': num_to_update_contents})
             event.set_has_updates()
             self.event_bus.send(event)
+            pr_id_triggered.append(pr_id)
 
         for pr_id in terminated_processings:
+            if pr_id in pr_id_triggered:
+                continue
             self.logger.info(log_prefix + "TriggerProcessingEvent(processing_id: %s)" % pr_id)
             event = TriggerProcessingEvent(publisher_id=self.id,
                                            processing_id=pr_id,
                                            content={'Terminated': True, 'source': 'Receiver'})
             event.set_terminating()
             self.event_bus.send(event)
+            pr_id_triggered.append(pr_id)
 
     def handle_messages_asyncresult(self, output_messages, log_prefix):
         handle_messages_asyncresult(output_messages,

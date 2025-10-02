@@ -443,7 +443,7 @@ class Work(Base):
                  primary_input_collection=None, other_input_collections=None, input_collections=None,
                  primary_output_collection=None, other_output_collections=None, output_collections=None,
                  log_collections=None, release_inputs_after_submitting=False, username=None,
-                 agent_attributes=None, is_template=False,
+                 agent_attributes=None, is_template=False, loading=False,
                  logger=None):
         """
         Init a work/task/transformation.
@@ -469,7 +469,7 @@ class Work(Base):
 
         self._processings = {}
 
-        super(Work, self).__init__()
+        super(Work, self).__init__(loading=loading)
 
         self.internal_id = str(uuid.uuid4())[:8]
         self.template_work_id = self.internal_id
@@ -698,6 +698,24 @@ class Work(Base):
     @sequence_id.setter
     def sequence_id(self, value):
         self.add_metadata_item('sequence_id', value)
+
+    @property
+    def num_inputs(self):
+        num = self.get_metadata_item('num_inputs', None)
+        return num
+
+    @num_inputs.setter
+    def num_inputs(self, value):
+        self.add_metadata_item('num_inputs', value)
+
+    @property
+    def has_unmapped_jobs(self):
+        value = self.get_metadata_item('has_unmapped_jobs', True)
+        return value
+
+    @has_unmapped_jobs.setter
+    def has_unmapped_jobs(self, value):
+        self.add_metadata_item('has_unmapped_jobs', value)
 
     @property
     def parameters(self):
@@ -1069,6 +1087,9 @@ class Work(Base):
                 if type(coll) in [Collection]:
                     if "___idds___" not in coll.name:
                         coll.name = coll.name + "." + str(value)
+
+    def get_loop_index(self):
+        return self.num_run
 
     @property
     def primary_input_collection(self):
