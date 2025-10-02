@@ -21,7 +21,7 @@ from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.sql.expression import asc
 
 from idds.common import exceptions
-from idds.common.constants import ProcessingType, ProcessingStatus, ProcessingLocking, GranularityType
+from idds.common.constants import CommandType, ProcessingType, ProcessingStatus, ProcessingLocking, GranularityType
 from idds.common.utils import get_process_thread_info
 from idds.orm.base.session import read_session, transactional_session, safe_bulk_update_mappings
 from idds.orm.base import models
@@ -446,10 +446,12 @@ def abort_resume_processings(transform_id=None, request_id=None, processing_id=N
 
     try:
         if abort:
-            parameters = {'substatus': ProcessingStatus.ToCancel}
+            # parameters = {'substatus': ProcessingStatus.ToCancel}
+            parameters = {'command': CommandType.AbortProcessing}
         if resume:
-            parameters = {'status': ProcessingStatus.ToResume,
-                          'substatus': ProcessingStatus.ToResume}
+            # parameters = {'status': ProcessingStatus.ToResume,
+            #               'substatus': ProcessingStatus.ToResume}
+            parameters = {'status': ProcessingStatus.ToResume, 'command': CommandType.ResumeProcessing}
 
         query = session.query(models.Processing)
         if processing_id:

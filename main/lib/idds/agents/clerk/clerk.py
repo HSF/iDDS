@@ -438,7 +438,9 @@ class Clerk(BaseAgent):
         transform_type = TransformType.Workflow
         try:
             work_type = work.get_work_type()
-            if work_type in [WorkflowType.iWorkflowLocal]:
+            if build:
+                transform_type = TransformType.BuildWork
+            elif work_type in [WorkflowType.iWorkflowLocal]:
                 # no need to generate transform
                 return None
             elif work_type in [WorkflowType.iWorkflow]:

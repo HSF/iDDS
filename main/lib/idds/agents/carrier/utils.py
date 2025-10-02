@@ -15,7 +15,8 @@ import time
 import threading
 import traceback
 
-from idds.common.constants import (ProcessingStatus,
+from idds.common.constants import (CommandType,
+                                   ProcessingStatus,
                                    CollectionStatus,
                                    ContentStatus, ContentType,
                                    ContentRelationType,
@@ -1202,9 +1203,9 @@ def handle_update_processing(processing, agent_attributes, max_updates_per_round
     work = proc.work
     work.set_agent_attributes(agent_attributes, processing)
 
-    if processing['substatus'] in [ProcessingStatus.ToCancel]:
+    if processing['command'] in [CommandType.AbortProcessing]:
         handle_abort_processing(processing, agent_attributes=agent_attributes, sync=False, logger=logger, log_prefix=log_prefix)
-    if processing['substatus'] in [ProcessingStatus.ToResume]:
+    if processing['command'] in [CommandType.ResumeProcessing]:
         handle_resume_processing(processing, agent_attributes=agent_attributes, logger=logger, log_prefix=log_prefix)
 
     input_output_maps = get_input_output_maps(transform_id, work, with_deps=False)

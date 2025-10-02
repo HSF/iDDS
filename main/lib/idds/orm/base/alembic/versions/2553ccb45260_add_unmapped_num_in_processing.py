@@ -19,6 +19,8 @@ from alembic import op
 from alembic import context
 import sqlalchemy as sa
 
+from idds.common.constants import CommandType
+from idds.orm.base.types import EnumWithValue
 
 # revision identifiers, used by Alembic.
 revision = '2553ccb45260'
@@ -31,6 +33,10 @@ def upgrade() -> None:
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
 
+        op.add_column('requests', sa.Column('command', EnumWithValue(CommandType), server_default=sa.text("0")), schema=schema)
+        op.add_column('transforms', sa.Column('command', EnumWithValue(CommandType), server_default=sa.text("0")), schema=schema)
+        op.add_column('processings', sa.Column('command', EnumWithValue(CommandType), server_default=sa.text("0")), schema=schema)
+
         op.add_column('processings', sa.Column('num_unmapped', sa.Integer(), server_default=sa.text("0")), schema=schema)
 
 
@@ -39,3 +45,7 @@ def downgrade() -> None:
         schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
 
         op.drop_column('processings', 'num_unmapped', schema=schema)
+
+        op.drop_column('processings', 'command', schema=schema)
+        op.drop_column('transforms', 'command', schema=schema)
+        op.drop_column('requests', 'command', schema=schema)

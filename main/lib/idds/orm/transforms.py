@@ -21,7 +21,7 @@ from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.sql.expression import asc
 
 from idds.common import exceptions
-from idds.common.constants import TransformStatus, TransformLocking, CollectionRelationType
+from idds.common.constants import CommandType, TransformStatus, TransformLocking, CollectionRelationType
 from idds.common.utils import get_process_thread_info
 from idds.orm.base.session import read_session, transactional_session, safe_bulk_update_mappings
 from idds.orm.base import models
@@ -579,9 +579,11 @@ def abort_resume_transforms(transform_id=None, request_id=None, abort=False, res
 
     try:
         if abort:
-            parameters = {'substatus': TransformStatus.ToCancel}
+            # parameters = {'substatus': TransformStatus.ToCancel}
+            parameters = {'command': CommandType.AbortTransform}
         if resume:
-            parameters = {'substatus': TransformStatus.ToResume}
+            # parameters = {'substatus': TransformStatus.ToResume}
+            parameters = {'command': CommandType.ResumeTransform}
         query = session.query(models.Transform)
         if transform_id:
             query = query.filter_by(transform_id=transform_id)
