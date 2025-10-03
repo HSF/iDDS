@@ -176,6 +176,7 @@ class Submitter(Poller):
                           'processing_metadata': processing['processing_metadata']}
             parameters = self.load_poll_period(processing, parameters, new=True)
 
+            processing['substatus'] = ProcessingStatus.Prepared
             update_processing = {'processing_id': processing['processing_id'],
                                  'parameters': parameters}
             ret = {'update_processing': update_processing,
@@ -400,6 +401,12 @@ class Submitter(Poller):
                 else:
                     ret = self.handle_new_processing(pr)
                     self.update_processing(ret, pr)
+                    if processing['substatus'] in [ProcessingStatus.Prepared]:
+                        self.logger.info(log_pre + "PreparedProcessingEvent(processing_id: %s)" % pr['processing_id'])
+                        event = PreparedProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'])
+                        event.set_has_updates()
+                        self.event_bus.send(event)
+
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
