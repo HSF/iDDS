@@ -187,8 +187,19 @@ class NATSCoordinator(BaseAgent):
         self.selected_nats_server = None
         self.idds_nats = None
 
-    def init_local_nats(self):
+    def get_hostname(self):
         hostname = socket.getfqdn()
+        if "." in hostname and not hostname.endswith("."):
+            return hostname
+        fqdn = os.environ.get("POD_FQDN", None)
+        if fqdn:
+            if fqdn.startswith(hostname):
+                return fqdn
+            return f"{hostname}.{fqdn}"
+        return hostname
+
+    def init_local_nats(self):
+        hostname = self.get_hostname()
         self.nats_url_local = f"nats://{hostname}:4222"
         self.nats_token_local = os.getenv("NATS_TOKEN", None) or "my_default_token"
         self.check_local_nats_status()
