@@ -163,6 +163,7 @@ else
 fi
 
 cp /opt/idds/config_default/httpd_daemon.sh /opt/idds/config/idds/httpd_daemon.sh
+chmod a+rx /opt/idds/config/idds/httpd_daemon.sh
 
 mkdir -p /opt/idds/config/.panda/
 
