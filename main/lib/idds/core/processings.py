@@ -30,6 +30,7 @@ def add_processing(request_id, workload_id, transform_id, status, submitter=None
                    processing_type=ProcessingType.Workflow,
                    command=CommandType.NoneCommand,
                    new_poll_period=1, update_poll_period=10,
+                   internal_id=None, parent_internal_id=None, loop_index=None,
                    new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
                    expired_at=None, processing_metadata=None, session=None):
     """
@@ -60,6 +61,8 @@ def add_processing(request_id, workload_id, transform_id, status, submitter=None
                                           max_update_retries=max_update_retries,
                                           processing_type=processing_type,
                                           command=command,
+                                          internal_id=internal_id, parent_internal_id=parent_internal_id,
+                                          loop_index=loop_index,
                                           expired_at=expired_at, processing_metadata=processing_metadata,
                                           session=session)
 
