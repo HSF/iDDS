@@ -39,6 +39,10 @@ def upgrade() -> None:
 
         op.add_column('processings', sa.Column('num_unmapped', sa.Integer(), server_default=sa.text("0")), schema=schema)
 
+        op.add_column('processings', sa.Column('loop_index', sa.Integer()), schema=schema)
+        op.add_column('processings', sa.Column('internal_id', sa.String(20)), schema=schema)
+        op.add_column('processings', sa.Column('parent_internal_id', sa.String(20)), schema=schema)
+
 
 def downgrade() -> None:
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
@@ -49,3 +53,7 @@ def downgrade() -> None:
         op.drop_column('processings', 'command', schema=schema)
         op.drop_column('transforms', 'command', schema=schema)
         op.drop_column('requests', 'command', schema=schema)
+
+        op.drop_column('processings', 'loop_index', schema=schema)
+        op.drop_column('processings', 'internal_id', schema=schema)
+        op.drop_column('processings', 'parent_internal_id', schema=schema)
