@@ -32,6 +32,7 @@ def create_processing(request_id, workload_id, transform_id, status=ProcessingSt
                       new_poll_period=1, update_poll_period=10, processing_type=ProcessingType.Workflow,
                       new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
                       command=CommandType.NoneCommand,
+                      internal_id=None, parent_internal_id=None, loop_index=None,
                       substatus=ProcessingStatus.New, output_metadata=None):
     """
     Create a processing.
@@ -55,6 +56,8 @@ def create_processing(request_id, workload_id, transform_id, status=ProcessingSt
                                        expired_at=expired_at, processing_metadata=processing_metadata,
                                        new_retries=new_retries, update_retries=update_retries,
                                        processing_type=processing_type, command=command,
+                                       internal_id=internal_id, parent_internal_id=parent_internal_id,
+                                       loop_index=loop_index,
                                        max_new_retries=max_new_retries, max_update_retries=max_update_retries,
                                        output_metadata=output_metadata)
 
@@ -74,6 +77,7 @@ def add_processing(request_id, workload_id, transform_id, status=ProcessingStatu
                    processing_metadata=None, new_poll_period=1, update_poll_period=10,
                    processing_type=ProcessingType.Workflow,
                    command=CommandType.NoneCommand,
+                   internal_id=None, parent_internal_id=None, loop_index=None,
                    new_retries=0, update_retries=0, max_new_retries=3, max_update_retries=0,
                    output_metadata=None, session=None):
     """
@@ -103,6 +107,8 @@ def add_processing(request_id, workload_id, transform_id, status=ProcessingStatu
                                            update_poll_period=update_poll_period, processing_type=processing_type,
                                            new_retries=new_retries, update_retries=update_retries,
                                            command=command,
+                                           internal_id=internal_id, parent_internal_id=parent_internal_id,
+                                           loop_index=loop_index,
                                            max_new_retries=max_new_retries, max_update_retries=max_update_retries,
                                            processing_metadata=processing_metadata, output_metadata=output_metadata)
         new_processing.save(session=session)
@@ -208,7 +214,8 @@ def get_processing_by_id_status(processing_id, status=None, exclude_status=None,
 
 
 @read_session
-def get_processings(request_id=None, workload_id=None, transform_id=None, to_json=False, session=None):
+def get_processings(request_id=None, workload_id=None, transform_id=None, loop_index=None, internal_ids=None,
+                    parent_internal_ids=None, to_json=False, session=None):
     """
     Get processing or raise a NoObject exception.
 
@@ -231,6 +238,20 @@ def get_processings(request_id=None, workload_id=None, transform_id=None, to_jso
             query = query.filter(models.Processing.workload_id == workload_id)
         if transform_id:
             query = query.filter(models.Processing.transform_id == transform_id)
+        if loop_index is not None:
+            query = query.filter(models.Processing.loop_index == loop_index)
+        if internal_ids:
+            if not isinstance(internal_ids, (list, tuple)):
+                internal_ids = [internal_ids]
+            if len(internal_ids) == 1:
+                internal_ids = [internal_ids[0], internal_ids[0]]
+            query = query.filter(models.Processing.internal_id.in_(internal_ids))
+        if parent_internal_ids:
+            if not isinstance(parent_internal_ids, (list, tuple)):
+                parent_internal_ids = [parent_internal_ids]
+            if len(parent_internal_ids) == 1:
+                parent_internal_ids = [parent_internal_ids[0], parent_internal_ids[0]]
+            query = query.filter(models.Processing.parent_internal_id.in_(parent_internal_ids))
 
         tmp = query.all()
         rets = []
