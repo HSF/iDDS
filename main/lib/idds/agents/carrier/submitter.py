@@ -147,7 +147,7 @@ class Submitter(Poller):
             self.logger.error(ex)
         return None
 
-    def handle_new_processing(self, processing):
+    def handle_new_processing(self, processing, check_previous=True):
         try:
             log_prefix = self.get_log_prefix(processing)
 
@@ -158,34 +158,79 @@ class Submitter(Poller):
             if self.enable_executors:
                 executors = self.get_extra_executors()
 
-            ret_new_processing = handle_new_processing(processing,
-                                                       self.agent_attributes,
-                                                       func_site_to_cloud=self.get_site_to_cloud,
-                                                       max_updates_per_round=self.max_updates_per_round,
-                                                       executors=executors,
-                                                       logger=self.logger,
-                                                       log_prefix=log_prefix)
-            status, processing, update_colls, new_contents, new_input_dependency_contents, msgs, errors = ret_new_processing
+            if check_previous:
+                pre_works_are_ok = True
+                if processing['parent_internal_id']:
+                    prs = core_processings.get_processings(
+                        request_id=processing['request_id'],
+                        internal_ids=[processing['parent_internal_id']],
+                        loop_index=processing['loop_index']
+                    )
+                    if not prs:
+                        pre_works_are_ok = False
+                    else:
+                        for pr in prs:
+                            if pr['status'] not in [
+                                ProcessingStatus.Submitting,
+                                ProcessingStatus.Submitted,
+                                ProcessingStatus.Running,
+                                ProcessingStatus.Finished,
+                                ProcessingStatus.Failed,
+                                ProcessingStatus.FinishedOnStep,
+                                ProcessingStatus.FinishedOnExec,
+                                ProcessingStatus.FinishedTerm,
+                                ProcessingStatus.SubFinished,
+                                ProcessingStatus.Broken,
+                                ProcessingStatus.Terminating,
+                                ProcessingStatus.ToTrigger,
+                                ProcessingStatus.Triggering,
+                                ProcessingStatus.Synchronizing,
+                                ProcessingStatus.Prepared
+                            ]:
+                                pre_works_are_ok = False
+            else:
+                pre_works_are_ok = True
 
-            if not status:
-                raise exceptions.ProcessSubmitFailed(str(errors))
+            if pre_works_are_ok:
+                ret_new_processing = handle_new_processing(processing,
+                                                           self.agent_attributes,
+                                                           func_site_to_cloud=self.get_site_to_cloud,
+                                                           max_updates_per_round=self.max_updates_per_round,
+                                                           executors=executors,
+                                                           logger=self.logger,
+                                                           log_prefix=log_prefix)
+                status, processing, update_colls, new_contents, new_input_dependency_contents, msgs, errors = ret_new_processing
 
-            parameters = {'status': ProcessingStatus.Prepared,
-                          'substatus': ProcessingStatus.Prepared,
-                          'locking': ProcessingLocking.Idle,
-                          'processing_metadata': processing['processing_metadata']}
-            parameters = self.load_poll_period(processing, parameters, new=True)
+                if not status:
+                    raise exceptions.ProcessSubmitFailed(str(errors))
 
-            processing['substatus'] = ProcessingStatus.Prepared
-            update_processing = {'processing_id': processing['processing_id'],
-                                 'parameters': parameters}
-            ret = {'update_processing': update_processing,
-                   'update_collections': update_colls,
-                   'update_contents': [],
-                   'new_contents': new_contents,
-                   'new_input_dependency_contents': new_input_dependency_contents,
-                   'messages': msgs,
-                   }
+                parameters = {'status': ProcessingStatus.Prepared,
+                              'substatus': ProcessingStatus.Prepared,
+                              'locking': ProcessingLocking.Idle,
+                              'processing_metadata': processing['processing_metadata']}
+                parameters = self.load_poll_period(processing, parameters, new=True)
+
+                processing['substatus'] = ProcessingStatus.Prepared
+                update_processing = {'processing_id': processing['processing_id'],
+                                     'parameters': parameters}
+                ret = {'update_processing': update_processing,
+                       'update_collections': update_colls,
+                       'update_contents': [],
+                       'new_contents': new_contents,
+                       'new_input_dependency_contents': new_input_dependency_contents,
+                       'messages': msgs,
+                       }
+            else:
+                parameters = {'locking': ProcessingLocking.Idle}
+                update_processing = {'processing_id': processing['processing_id'],
+                                     'parameters': parameters}
+                ret = {'update_processing': update_processing,
+                       'update_collections': [],
+                       'update_contents': [],
+                       'new_contents': [],
+                       'new_input_dependency_contents': [],
+                       'messages': [],
+                       }
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
@@ -289,7 +334,7 @@ class Submitter(Poller):
                    'update_contents': []}
         return ret
 
-    def handle_prepared_processing(self, processing, check_previous=True):
+    def handle_prepared_processing(self, processing, check_previous=False):
         try:
             log_prefix = self.get_log_prefix(processing)
 
