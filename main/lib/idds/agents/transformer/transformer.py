@@ -575,6 +575,10 @@ class Transformer(BaseAgent):
         # new_processing_model['expired_at'] = work.get_expired_at(None)
         new_processing_model['expired_at'] = transform['expired_at']
 
+        new_processing_model['loop_index'] = transform['loop_index']
+        new_processing_model['internal_id'] = transform['internal_id']
+        new_processing_model['parent_internal_id'] = transform['parent_internal_id']
+
         new_processing_model['processing_type'] = get_processing_type_from_transform_type(transform['transform_type'])
         new_processing_model['new_poll_period'] = transform['new_poll_period']
         new_processing_model['update_poll_period'] = transform['update_poll_period']
@@ -653,30 +657,33 @@ class Transformer(BaseAgent):
                }
         return ret
 
-    def handle_new_transform(self, transform):
+    def handle_new_transform(self, transform, check_previous=False):
         """
         Process new transform
         """
         try:
             log_pre = self.get_log_prefix(transform)
             work = transform['transform_metadata']['work']
-            pre_works_are_ok = True
-            if work.parent_internal_id is not None:
-                tfs = core_transforms.get_transforms(request_id=transform['request_id'], internal_ids=[work.parent_internal_id])
-                if not tfs:
-                    pre_works_are_ok = False
-                else:
-                    for tf in tfs:
-                        if not tf['workload_id']:
-                            pre_works_are_ok = False
-            if pre_works_are_ok:
+            if not check_previous:
                 ret = self.handle_new_transform_real(transform)
             else:
-                # not update the status
-                transform_parameters = {'locking': TransformLocking.Idle}
-                ret = {'transform': transform,
-                       'transform_parameters': transform_parameters,
-                       }
+                pre_works_are_ok = True
+                if work.parent_internal_id is not None:
+                    tfs = core_transforms.get_transforms(request_id=transform['request_id'], internal_ids=[work.parent_internal_id], loop_index=transform['loop_index'])
+                    if not tfs:
+                        pre_works_are_ok = False
+                    else:
+                        for tf in tfs:
+                            if not tf['workload_id']:
+                                pre_works_are_ok = False
+                if pre_works_are_ok:
+                    ret = self.handle_new_transform_real(transform)
+                else:
+                    # not update the status
+                    transform_parameters = {'locking': TransformLocking.Idle}
+                    ret = {'transform': transform,
+                           'transform_parameters': transform_parameters,
+                           }
             self.logger.info(log_pre + "handle_new_transform result: %s" % str(ret))
         except Exception as ex:
             self.logger.error(ex)

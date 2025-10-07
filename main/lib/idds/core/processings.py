@@ -82,7 +82,7 @@ def get_processing(processing_id=None, request_id=None, transform_id=None, to_js
 
 
 @read_session
-def get_processings(request_id=None, workload_id=None, transform_id=None, to_json=False, session=None):
+def get_processings(request_id=None, workload_id=None, transform_id=None, loop_index=None, internal_ids=None, to_json=False, session=None):
     """
     Get processing or raise a NoObject exception.
 
@@ -94,8 +94,12 @@ def get_processings(request_id=None, workload_id=None, transform_id=None, to_jso
 
     :returns: Processing.
     """
-    return orm_processings.get_processings(request_id=request_id, workload_id=workload_id,
-                                           transform_id=transform_id, to_json=to_json, session=session)
+    return orm_processings.get_processings(request_id=request_id,
+                                           workload_id=workload_id,
+                                           transform_id=transform_id,
+                                           loop_index=loop_index,
+                                           internal_ids=internal_ids,
+                                           to_json=to_json, session=session)
 
 
 @read_session

@@ -208,7 +208,8 @@ def get_processing_by_id_status(processing_id, status=None, exclude_status=None,
 
 
 @read_session
-def get_processings(request_id=None, workload_id=None, transform_id=None, to_json=False, session=None):
+def get_processings(request_id=None, workload_id=None, transform_id=None, loop_index=None, internal_ids=None,
+                    to_json=False, session=None):
     """
     Get processing or raise a NoObject exception.
 
@@ -231,6 +232,14 @@ def get_processings(request_id=None, workload_id=None, transform_id=None, to_jso
             query = query.filter(models.Processing.workload_id == workload_id)
         if transform_id:
             query = query.filter(models.Processing.transform_id == transform_id)
+        if loop_index is not None:
+            query = query.filter(models.Processing.loop_index == loop_index)
+        if internal_ids:
+            if not isinstance(internal_ids, (list, tuple)):
+                internal_ids = [internal_ids]
+            if len(internal_ids) == 1:
+                internal_ids = [internal_ids[0], internal_ids[0]]
+            query = query.filter(models.Processing.internal_id.in_(internal_ids))
 
         tmp = query.all()
         rets = []
