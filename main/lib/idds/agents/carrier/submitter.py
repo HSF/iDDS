@@ -481,17 +481,18 @@ class Submitter(Poller):
                         event = PreparedProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'])
                         event.set_has_updates()
                         self.event_bus.send(event)
-                    # get following processings
-                    following_prs = core_processings.get_processings(
-                        request_id=processing['request_id'],
-                        parent_internal_ids=[processing['internal_id']],
-                        loop_index=processing['loop_index']
-                    )
-                    if following_prs:
-                        for following_pr in following_prs:
-                            self.logger.info(log_pre + "NewProcessingEvent(processing_id: %s)" % following_pr['processing_id'])
-                            event = NewProcessingEvent(publisher_id=self.id, processing_id=following_pr['processing_id'])
-                            self.event_bus.send(event)
+
+                        # get following processings
+                        following_prs = core_processings.get_processings(
+                            request_id=processing['request_id'],
+                            parent_internal_ids=[processing['internal_id']],
+                            loop_index=processing['loop_index']
+                        )
+                        if following_prs:
+                            for following_pr in following_prs:
+                                self.logger.info(log_pre + "NewProcessingEvent(processing_id: %s)" % following_pr['processing_id'])
+                                event = NewProcessingEvent(publisher_id=self.id, processing_id=following_pr['processing_id'])
+                                self.event_bus.send(event)
 
         except Exception as ex:
             self.logger.error(ex)
