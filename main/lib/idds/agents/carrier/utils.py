@@ -2349,9 +2349,12 @@ def handle_abort_processing(processing, agent_attributes, logger=None, sync=True
     # for coll in input_collections + output_collections + log_collections:
     #     coll.status = CollectionStatus.Closed
     #     coll.substatus = CollectionStatus.Closed
+    update_contents = []
     if sync:
         processing, update_collections, messages = sync_processing(processing, agent_attributes, terminate=True, abort=True, logger=logger, log_prefix=log_prefix)
-    update_contents = []
+    else:
+        update_collections = []
+        messages = []
 
     # processing['status'] = ProcessingStatus.Cancelled
     return processing, update_collections, update_contents, messages
