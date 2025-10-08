@@ -98,13 +98,28 @@ def get_processings(request_id=None, workload_id=None, transform_id=None, loop_i
 
     :returns: Processing.
     """
-    return orm_processings.get_processings(request_id=request_id,
-                                           workload_id=workload_id,
-                                           transform_id=transform_id,
-                                           loop_index=loop_index,
-                                           internal_ids=internal_ids,
-                                           parent_internal_ids=parent_internal_ids,
-                                           to_json=to_json, session=session)
+    prs = orm_processings.get_processings(
+        request_id=request_id,
+        workload_id=workload_id,
+        transform_id=transform_id,
+        loop_index=loop_index,
+        internal_ids=internal_ids,
+        to_json=to_json, session=session
+    )
+    if not prs or not parent_internal_ids:
+        return prs
+
+    if not isinstance(parent_internal_ids, (list, tuple)):
+        parent_internal_ids = parent_internal_ids.split(",")
+
+    ret_prs = []
+    for pr in prs:
+        pr_parent_internal_id = pr['parent_internal_id']
+        if pr_parent_internal_id:
+            pr_parent_internal_id = pr_parent_internal_id.split(",")
+            if any(pid in parent_internal_ids for pid in pr_parent_internal_id):
+                ret_prs.append(pr)
+    return ret_prs
 
 
 @read_session

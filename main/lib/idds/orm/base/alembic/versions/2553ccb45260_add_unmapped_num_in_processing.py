@@ -37,11 +37,13 @@ def upgrade() -> None:
         op.add_column('transforms', sa.Column('command', EnumWithValue(CommandType), server_default=sa.text("0")), schema=schema)
         op.add_column('processings', sa.Column('command', EnumWithValue(CommandType), server_default=sa.text("0")), schema=schema)
 
+        op.alter_column('transforms', 'parent_internal_id', type_=sa.String(400), schema=schema)
+
         op.add_column('processings', sa.Column('num_unmapped', sa.Integer(), server_default=sa.text("0")), schema=schema)
 
         op.add_column('processings', sa.Column('loop_index', sa.Integer()), schema=schema)
         op.add_column('processings', sa.Column('internal_id', sa.String(20)), schema=schema)
-        op.add_column('processings', sa.Column('parent_internal_id', sa.String(20)), schema=schema)
+        op.add_column('processings', sa.Column('parent_internal_id', sa.String(400)), schema=schema)
 
 
 def downgrade() -> None:
