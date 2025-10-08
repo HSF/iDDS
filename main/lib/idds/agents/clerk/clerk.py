@@ -525,7 +525,7 @@ class Clerk(BaseAgent):
                          # 'expired_at': req['expired_at'],
                          'expired_at': None,
                          'internal_id': work.internal_id,
-                         'parent_internal_id': work.parent_internal_id,
+                         'parent_internal_id': None if not work.parent_internal_ids else ",".join(work.parent_internal_ids),
                          'has_previous_conditions': has_previous_conditions,
                          'triggered_conditions': triggered_conditions,
                          'untriggered_conditions': untriggered_conditions,

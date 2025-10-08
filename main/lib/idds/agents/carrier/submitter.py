@@ -349,9 +349,10 @@ class Submitter(Poller):
             if check_previous:
                 pre_works_are_ok = True
                 if processing['parent_internal_id']:
+                    parent_internal_ids = processing['parent_internal_id'].split(",")
                     prs = core_processings.get_processings(
                         request_id=processing['request_id'],
-                        internal_ids=[processing['parent_internal_id']],
+                        internal_ids=parent_internal_ids,
                         loop_index=processing['loop_index']
                     )
                     if not prs:

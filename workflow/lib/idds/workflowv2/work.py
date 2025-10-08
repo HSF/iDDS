@@ -657,6 +657,14 @@ class Work(Base):
         self.add_metadata_item('parent_internal_id', value)
 
     @property
+    def parent_internal_ids(self):
+        return self.get_metadata_item('parent_internal_ids', None)
+
+    @parent_internal_ids.setter
+    def parent_internal_ids(self, value):
+        self.add_metadata_item('parent_internal_ids', value)
+
+    @property
     def template_work_id(self):
         return self.get_metadata_item('template_work_id')
 
