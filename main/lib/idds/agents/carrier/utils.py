@@ -233,7 +233,7 @@ def get_ext_contents(transform_id, work):
 
 
 def get_output_content_name_to_content_id_map(request_id=None, coll_ids=[]):
-    contents = core_catalog.get_contents(coll_id=coll_ids, request_id=request_id, relation_type=ContentRelationType.Output)
+    contents = core_catalog.get_contents(coll_id=coll_ids, request_id=request_id, content_relation_type=ContentRelationType.Output)
     content_name_id_map = {}
     for content in contents:
         if content['coll_id'] not in content_name_id_map:
