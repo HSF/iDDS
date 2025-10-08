@@ -45,7 +45,7 @@ def get_logger(logger=None):
 
 
 def get_new_content(request_id, transform_id, workload_id, map_id, input_content, content_relation_type=ContentRelationType.Input,
-                    es_name=None, sub_map_id=None, order_id=None):
+                    content_name_id_map={}, es_name=None, sub_map_id=None, order_id=None):
     content = {'transform_id': transform_id,
                'coll_id': input_content['coll_id'],
                'request_id': request_id,
@@ -77,8 +77,22 @@ def get_new_content(request_id, transform_id, workload_id, map_id, input_content
         content['max_id'] = order_id
     if sub_map_id is not None:
         content['sub_map_id'] = sub_map_id
+    if 'sub_map_id' not in content or content['sub_map_id'] is None:
+        content['sub_map_id'] = 0
     if es_name is not None and content_relation_type == ContentRelationType.Output:
         content['path'] = es_name
+
+    # for input dependency, convert name to content_id
+    if content_relation_type == ContentRelationType.InputDependency:
+        if content_name_id_map is None:
+            content_name_id_map = {}
+        if input_content['coll_id'] not in content_name_id_map:
+            content_name_id_map_new = get_output_content_name_to_content_id_map(request_id=request_id, coll_ids=[input_content['coll_id']])
+            content_name_id_map.update(content_name_id_map_new)
+        content_dep_id = content_name_id_map[content['coll_id']][content['name']]
+        content['content_dep_id'] = content_dep_id
+        content['name'] = str(content_dep_id)
+
     return content
 
 
@@ -218,10 +232,31 @@ def get_ext_contents(transform_id, work):
     return contents_ids
 
 
-def get_new_contents(request_id, transform_id, workload_id, new_input_output_maps, max_updates_per_round=2000, logger=None, log_prefix=''):
+def get_output_content_name_to_content_id_map(request_id=None, coll_ids=[]):
+    contents = core_catalog.get_contents(coll_id=coll_ids, request_id=request_id, relation_type=ContentRelationType.Output)
+    content_name_id_map = {}
+    for content in contents:
+        if content['coll_id'] not in content_name_id_map:
+            content_name_id_map[content['coll_id']] = {}
+        if content['name'] not in content_name_id_map[content['coll_id']]:
+            content_name_id_map[content['coll_id']][content['name']] = {}
+        # if content['map_id'] not in content_name_id_map[content['coll_id']][content['name']]:
+        #     content_name_id_map[content['coll_id']][content['name']][content['map_id']] = {}
+        # content_name_id_map[content['coll_id']][content['name']][content['sub_map_id']] = content['content_id']
+        content_name_id_map[content['coll_id']][content['name']] = content['content_id']
+    return content_name_id_map
+
+
+def get_new_contents(request_id, transform_id, workload_id, new_input_output_maps, max_updates_per_round=2000,
+                     input_dependency_coll_ids=[], logger=None, log_prefix=''):
     logger = get_logger(logger)
 
     logger.debug(log_prefix + "get_new_contents")
+    if input_dependency_coll_ids:
+        content_name_id_map = get_output_content_name_to_content_id_map(request_id=request_id, coll_ids=input_dependency_coll_ids)
+    else:
+        content_name_id_map = {}
+
     new_input_contents, new_output_contents, new_log_contents = [], [], []
     new_input_dependency_contents = []
     new_input_dep_coll_ids = []
@@ -237,7 +272,9 @@ def get_new_contents(request_id, transform_id, workload_id, new_input_output_map
                 content = get_new_content(request_id, transform_id, workload_id, map_id, input_content, content_relation_type=ContentRelationType.Input)
                 new_input_contents.append(content)
             for input_content in inputs_dependency:
-                content = get_new_content(request_id, transform_id, workload_id, map_id, input_content, content_relation_type=ContentRelationType.InputDependency)
+                content = get_new_content(request_id, transform_id, workload_id, map_id, input_content,
+                                          content_relation_type=ContentRelationType.InputDependency,
+                                          content_name_id_map=content_name_id_map)
                 new_input_dependency_contents.append(content)
                 if content['coll_id'] not in new_input_dep_coll_ids:
                     new_input_dep_coll_ids.append(content['coll_id'])
@@ -273,7 +310,8 @@ def get_new_contents(request_id, transform_id, workload_id, new_input_output_map
                 for input_content in inputs_dependency:
                     content = get_new_content(request_id, transform_id, workload_id, map_id, input_content,
                                               content_relation_type=ContentRelationType.InputDependency,
-                                              sub_map_id=sub_map_id, order_id=order_id)
+                                              sub_map_id=sub_map_id, order_id=order_id,
+                                              content_name_id_map=content_name_id_map)
                     new_input_dependency_contents.append(content)
                     if content['coll_id'] not in new_input_dep_coll_ids:
                         new_input_dep_coll_ids.append(content['coll_id'])
@@ -598,19 +636,28 @@ def handle_new_processing(processing, agent_attributes, func_site_to_cloud=None,
 
     input_output_maps = get_input_output_maps(transform_id, work, with_deps=False)
     new_input_output_maps = work.get_new_input_output_maps(input_output_maps)
+    if hasattr(work, 'input_dependency_coll_ids'):
+        input_dependency_coll_ids = work.input_dependency_coll_ids
+    else:
+        input_dependency_coll_ids = []
+
     request_id = processing['request_id']
     transform_id = processing['transform_id']
     workload_id = processing['workload_id']
     ret_new_contents_chunks = get_new_contents(request_id, transform_id, workload_id, new_input_output_maps,
-                                               max_updates_per_round=max_updates_per_round, logger=logger, log_prefix=log_prefix)
+                                               max_updates_per_round=max_updates_per_round,
+                                               input_dependency_coll_ids=input_dependency_coll_ids,
+                                               logger=logger, log_prefix=log_prefix)
     if not ret_new_contents_chunks:
         logger.debug(log_prefix + "handle_new_processing: no new contnets")
 
     if executors is None:
         for ret_new_contents in ret_new_contents_chunks:
             new_input_contents, new_output_contents, new_log_contents, new_input_dependency_contents = ret_new_contents
-            # new_contents = new_input_contents + new_output_contents + new_log_contents + new_input_dependency_contents
-            new_contents = new_input_contents + new_output_contents + new_log_contents
+
+            # for new_input_dependency_contents, already converted name to content_dep_id, don't need to separate it
+            # new_contents = new_input_contents + new_output_contents + new_log_contents
+            new_contents = new_input_contents + new_output_contents + new_log_contents + new_input_dependency_contents
 
             # not generate new messages
             # if new_input_contents:
@@ -623,19 +670,20 @@ def handle_new_processing(processing, agent_attributes, func_site_to_cloud=None,
             core_processings.update_processing_contents(update_processing=None,
                                                         request_id=request_id,
                                                         new_contents=new_contents,
-                                                        new_input_dependency_contents=new_input_dependency_contents,
+                                                        # new_input_dependency_contents=new_input_dependency_contents,
                                                         messages=ret_msgs)
     else:
         if ret_new_contents_chunks:
             ret_futures = set()
             for ret_new_contents in ret_new_contents_chunks:
                 new_input_contents, new_output_contents, new_log_contents, new_input_dependency_contents = ret_new_contents
-                new_contents = new_input_contents + new_output_contents + new_log_contents
+                # new_contents = new_input_contents + new_output_contents + new_log_contents
+                new_contents = new_input_contents + new_output_contents + new_log_contents + new_input_dependency_contents
                 log_msg = "handle_new_processing thread: add %s new contents" % (len(new_contents))
                 kwargs = {'update_processing': None,
                           'request_id': request_id,
                           'new_contents': new_contents,
-                          'new_input_dependency_contents': new_input_dependency_contents,
+                          # 'new_input_dependency_contents': new_input_dependency_contents,
                           'messages': ret_msgs}
                 f = executors.submit(update_processing_contents_thread, logger, log_prefix, log_msg, kwargs)
                 ret_futures.add(f)
@@ -1249,28 +1297,37 @@ def handle_update_processing(processing, agent_attributes, max_updates_per_round
 
     ret_futures = set()
 
-    ret_new_contents_chunks = get_new_contents(request_id, transform_id, workload_id, new_input_output_maps, max_updates_per_round=max_updates_per_round)
+    if hasattr(work, 'input_dependency_coll_ids'):
+        input_dependency_coll_ids = work.input_dependency_coll_ids
+    else:
+        input_dependency_coll_ids = []
+
+    ret_new_contents_chunks = get_new_contents(request_id, transform_id, workload_id, new_input_output_maps,
+                                               input_dependency_coll_ids=input_dependency_coll_ids,
+                                               max_updates_per_round=max_updates_per_round)
     for ret_new_contents in ret_new_contents_chunks:
         new_input_contents, new_output_contents, new_log_contents, new_input_dependency_contents = ret_new_contents
 
         ret_msgs = []
-        if new_input_contents:
-            msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='file',
-                                     files=new_input_contents, relation_type='input')
-            ret_msgs = ret_msgs + msgs
-        if new_output_contents:
-            msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='file',
-                                     files=new_output_contents, relation_type='output')
-            ret_msgs = ret_msgs + msgs
+        # not generate messages for new contents
+        # if new_input_contents:
+        #     msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='file',
+        #                              files=new_input_contents, relation_type='input')
+        #     ret_msgs = ret_msgs + msgs
+        # if new_output_contents:
+        #     msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='file',
+        #                              files=new_output_contents, relation_type='output')
+        #     ret_msgs = ret_msgs + msgs
 
-        # new_contents = new_input_contents + new_output_contents + new_log_contents + new_input_dependency_contents
-        new_contents = new_input_contents + new_output_contents + new_log_contents
+        # for new_input_dependency_contents, already converted name to content_dep_id, don't need to separate it
+        # new_contents = new_input_contents + new_output_contents + new_log_contents
+        new_contents = new_input_contents + new_output_contents + new_log_contents + new_input_dependency_contents
 
         if executors is None:
             logger.debug(log_prefix + "handle_update_processing: add %s new contents" % (len(new_contents)))
             core_processings.update_processing_contents(update_processing=None,
                                                         new_contents=new_contents,
-                                                        new_input_dependency_contents=new_input_dependency_contents,
+                                                        # new_input_dependency_contents=new_input_dependency_contents,
                                                         request_id=request_id,
                                                         # transform_id=transform_id,
                                                         use_bulk_update_mappings=use_bulk_update_mappings,
@@ -1280,7 +1337,7 @@ def handle_update_processing(processing, agent_attributes, max_updates_per_round
             kwargs = {'update_processing': None,
                       'request_id': request_id,
                       'new_contents': new_contents,
-                      'new_input_dependency_contents': new_input_dependency_contents,
+                      # 'new_input_dependency_contents': new_input_dependency_contents,
                       'use_bulk_update_mappings': use_bulk_update_mappings,
                       'messages': ret_msgs}
             f = executors.submit(update_processing_contents_thread, logger, log_prefix, log_msg, kwargs)

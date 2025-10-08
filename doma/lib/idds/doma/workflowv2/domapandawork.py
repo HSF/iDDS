@@ -146,6 +146,8 @@ class DomaPanDAWork(Work):
             self.dependency_map = {}
         self.dependency_map_deleted = []
 
+        self.input_dependency_coll_ids = []
+
         self.additional_task_parameters = {}
         self.additional_task_parameters_per_site = {}
 
@@ -696,6 +698,7 @@ class DomaPanDAWork(Work):
         :param mapped_input_output_maps: Inputs that are already mapped.
         """
         new_input_output_maps = {}
+        input_dependency_coll_ids = []
 
         task_name_to_coll_map = self.get_work_name_to_coll_map()
         if self.dependency_tasks and not self.is_all_dependency_tasks_available([], task_name_to_coll_map):
@@ -744,6 +747,7 @@ class DomaPanDAWork(Work):
                                 input_d_coll = task_name_to_coll_map[task_name]['outputs'][0]
                                 input_d_content = self.map_file_to_content(input_d_coll['coll_id'], input_d_coll['scope'], input_name)
                                 new_input_output_maps[next_key]['inputs_dependency'].append(input_d_content)
+                                input_dependency_coll_ids.append(input_d_coll['coll_id'])
                             else:
                                 self.logger.debug("get_new_input_output_maps, duplicated input dependency for job %s: %s" % (job['name'], str(job["dependencies"])))
 
@@ -812,6 +816,7 @@ class DomaPanDAWork(Work):
                                     input_d_coll = task_name_to_coll_map[task_name]['outputs'][0]
                                     input_d_content = self.map_file_to_content(input_d_coll['coll_id'], input_d_coll['scope'], input_name)
                                     sub_map['inputs_dependency'].append(input_d_content)
+                                    input_dependency_coll_ids.append(input_d_coll['coll_id'])
                                 else:
                                     self.logger.debug("get_new_input_output_maps, duplicated input dependency for job %s: %s" % (job['name'], str(job["dependencies"])))
 
@@ -823,6 +828,7 @@ class DomaPanDAWork(Work):
         else:
             self.set_has_new_inputs(False)
 
+        self.input_dependency_coll_ids = input_dependency_coll_ids
         # self.logger.debug("get_new_input_output_maps, new_input_output_maps: %s" % str(new_input_output_maps))
         self.logger.debug("get_new_input_output_maps, new_input_output_maps len: %s" % len(new_input_output_maps))
         return new_input_output_maps
