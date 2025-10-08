@@ -777,7 +777,7 @@ class Transformer(BaseAgent):
                }
         return ret
 
-    def handle_new_itransform(self, transform):
+    def handle_new_itransform(self, transform, check_previous=False):
         """
         Process new transform
         """

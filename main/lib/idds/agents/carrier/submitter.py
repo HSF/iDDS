@@ -162,14 +162,16 @@ class Submitter(Poller):
             if check_previous:
                 pre_works_are_ok = True
                 if processing['parent_internal_id']:
+                    parent_internal_ids = processing['parent_internal_id'].split(",")
                     prs = core_processings.get_processings(
                         request_id=processing['request_id'],
-                        internal_ids=[processing['parent_internal_id']],
+                        internal_ids=parent_internal_ids,
                         loop_index=processing['loop_index']
                     )
                     if not prs:
                         pre_works_are_ok = False
                     else:
+                        all_pr_internal_ids = []
                         for pr in prs:
                             if pr['status'] not in [
                                 ProcessingStatus.Submitting,
@@ -189,6 +191,10 @@ class Submitter(Poller):
                                 ProcessingStatus.Prepared
                             ]:
                                 pre_works_are_ok = False
+                                break
+                            all_pr_internal_ids.append(pr['internal_id'])
+                        if set(parent_internal_ids) != set(all_pr_internal_ids):
+                            pre_works_are_ok = False
             else:
                 pre_works_are_ok = True
 
@@ -358,9 +364,14 @@ class Submitter(Poller):
                     if not prs:
                         pre_works_are_ok = False
                     else:
+                        all_pr_internal_ids = []
                         for pr in prs:
                             if not pr['workload_id']:
                                 pre_works_are_ok = False
+                                break
+                            all_pr_internal_ids.append(pr['internal_id'])
+                        if set(parent_internal_ids) != set(all_pr_internal_ids):
+                            pre_works_are_ok = False
             else:
                 pre_works_are_ok = True
 
