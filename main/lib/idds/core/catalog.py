@@ -293,8 +293,8 @@ def update_content(content_id, parameters, session=None):
 
 
 @read_session
-def get_contents(coll_scope=None, coll_name=None, request_id=None, workload_id=None, transform_id=None,
-                 relation_type=None, status=None, to_json=False, session=None):
+def get_contents(coll_scope=None, coll_name=None, coll_id=[], request_id=None, workload_id=None, transform_id=None,
+                 relation_type=None, content_relation_type=None, status=None, to_json=False, session=None):
     """
     Get contents with collection scope, collection name, request id, workload id and relation type.
 
@@ -309,21 +309,26 @@ def get_contents(coll_scope=None, coll_name=None, request_id=None, workload_id=N
 
     :returns: list of contents
     """
-    collections = get_collections(scope=coll_scope, name=coll_name, request_id=request_id,
-                                  workload_id=workload_id, transform_id=transform_id,
-                                  relation_type=relation_type, to_json=to_json, session=session)
+    if not coll_id:
+        collections = get_collections(scope=coll_scope, name=coll_name, request_id=request_id,
+                                      workload_id=workload_id, transform_id=transform_id,
+                                      relation_type=relation_type, to_json=to_json, session=session)
 
-    coll_ids = [coll['coll_id'] for coll in collections]
+        coll_ids = [coll['coll_id'] for coll in collections]
+    else:
+        coll_ids = coll_id
+
     if coll_ids:
-        if relation_type is None:
-            content_relation_type = None
-        else:
-            if relation_type == CollectionRelationType.Output:
-                content_relation_type = ContentRelationType.Output
-            elif relation_type == CollectionRelationType.Input:
-                content_relation_type = ContentRelationType.Input
-            elif relation_type == CollectionRelationType.Log:
-                content_relation_type = ContentRelationType.Log
+        if content_relation_type is None:
+            if relation_type is None:
+                content_relation_type = None
+            else:
+                if relation_type == CollectionRelationType.Output:
+                    content_relation_type = ContentRelationType.Output
+                elif relation_type == CollectionRelationType.Input:
+                    content_relation_type = ContentRelationType.Input
+                elif relation_type == CollectionRelationType.Log:
+                    content_relation_type = ContentRelationType.Log
         rets = orm_contents.get_contents(request_id=request_id, transform_id=transform_id, coll_id=coll_ids, status=status,
                                          to_json=to_json, relation_type=content_relation_type, session=session)
     else:
