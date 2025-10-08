@@ -1599,6 +1599,22 @@ class WorkflowBase(Base):
     def __str__(self):
         return str(json_dumps(self))
 
+    def format_works(self, works):
+        if not works:
+            return works
+        all_works = self.get_all_works(synchronize=False)
+        task_name_to_internal_id_map = {}
+        for work in all_works:
+            task_name_to_internal_id_map[work.task_name] = work.get_internal_id()
+
+        for work in works:
+            parent_task_names = work.get_ancestry_works()
+            parent_internal_ids = []
+            if parent_task_names:
+                parent_internal_ids = [task_name_to_internal_id_map[t_name] for t_name in parent_task_names]
+            work.parent_internal_ids = parent_internal_ids
+        return works
+
     def get_new_works(self, synchronize=True):
         """
         *** Function called by Marshaller agent.
@@ -1616,7 +1632,7 @@ class WorkflowBase(Base):
         self.logger.info(f"{self.get_internal_id()} submitting_works: {self.submitting_works}")
         if self.submitting_works:
             # wait the work to be submitted
-            return works
+            return self.format_works(works)
 
         if self.to_start_works:
             self.logger.info("%s to_start_works: %s" % (self.get_internal_id(), str(self.to_start_works)))
@@ -1667,7 +1683,7 @@ class WorkflowBase(Base):
                 if not works[i].parent_internal_id:
                     self.logger.debug(f"internal_id {works[i].internal_id} loads parent_internal_id {works[i].parent_internal_id}")
                     works[i].parent_internal_id = internal_id_relation_map.get(works[i].internal_id, None)
-        return works
+        return self.format_works(works)
 
     def get_current_works(self):
         """
@@ -1749,23 +1765,20 @@ class WorkflowBase(Base):
         self.log_debug("independent works: %s" % (str(ind_work_ids)))
         self.independent_works = []
         self.work_dependencies = {}
+
+        all_works = self.get_all_works(synchronize=False)
+        task_name_to_internal_id_map = {}
+        for work in all_works:
+            task_name_to_internal_id_map[work.task_name] = work.get_internal_id()
+
         for ind_work_id in ind_work_ids:
             work = self.works[ind_work_id]
+            parent_task_names = work.get_ancestry_works()
             self.work_dependencies[ind_work_id] = []
-            for ind_work_id1 in ind_work_ids:
-                if ind_work_id == ind_work_id1:
-                    continue
-                work1 = self.works[ind_work_id1]
-                if work.depend_on(work1):
-                    self.work_dependencies[ind_work_id].append(ind_work_id1)
-        self.log_debug('work dependencies 1: %s' % str(self.work_dependencies))
-
-        max_depth = len(ind_work_ids) + 1
-        work_dependencies = copy.deepcopy(self.work_dependencies)
-        for work_id in work_dependencies:
-            deps = self.get_dependency_works(work_id, 0, max_depth)
-            self.work_dependencies[work_id] = deps
-        self.log_debug('work dependencies 2: %s' % str(self.work_dependencies))
+            if parent_task_names:
+                parent_internal_ids = [task_name_to_internal_id_map[t_name] for t_name in parent_task_names]
+                self.work_dependencies[ind_work_id] = parent_internal_ids
+        self.log_debug('work dependencies: %s' % str(self.work_dependencies))
 
         while True:
             # self.log_debug('independent_works N: %s' % str(self.independent_works))
