@@ -67,6 +67,10 @@ RUN adduser atlpan
 RUN groupadd zp
 RUN usermod -a -G zp atlpan
 
+# rubin users
+RUN groupadd -g 4085 rubin_users
+RUN usermod -aG rubin_users atlpan
+
 RUN mkdir /opt/idds
 RUN mkdir /var/log/idds
 RUN mkdir /var/log/idds/wsgisocks/
