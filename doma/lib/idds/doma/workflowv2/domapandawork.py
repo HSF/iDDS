@@ -1993,7 +1993,7 @@ class DomaPanDAWork(Work):
                                                'status': ContentStatus.Missing}
                             new_contents_ext.append(new_content_ext)
 
-        self.logger.debug("get_update_contents, num_update_contents: %s" % (len(update_contents)))
+        self.logger.debug("get_update_contents, num_update_contents: %s, num_update_contents_ext: %s" % (len(update_contents), len(update_contents_ext)))
         self.logger.debug("get_update_contents, update_contents[:3]: %s" % (str(update_contents[:3])))
         self.logger.debug("get_update_contents, new_contents_ext[:1]: %s" % (str(new_contents_ext[:1])))
         self.logger.debug("get_update_contents, update_contents_ext[:1]: %s" % (str(update_contents_ext[:1])))

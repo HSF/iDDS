@@ -1189,7 +1189,7 @@ class Clerk(BaseAgent):
             wf.to_cancel = True
 
         # current works
-        works = wf.get_all_works()
+        works = wf.get_all_works(synchronize=False)
         # print(works)
         all_released_work_status = []
         for work in works:
@@ -1325,7 +1325,7 @@ class Clerk(BaseAgent):
             wf.to_cancel = True
 
         # current works
-        works = wf.get_all_works()
+        works = wf.get_all_works(synchronize=False)
         # print(works)
         finished_build_transforms = []
         for work in works:
@@ -1701,7 +1701,7 @@ class Clerk(BaseAgent):
                             wf = req['request_metadata']['workflow']
                         else:
                             wf = req['request_metadata']['build_workflow']
-                    works = wf.get_all_works()
+                    works = wf.get_all_works(synchronize=False)
                     if works:
                         has_abort_work = False
                         for work in works:
@@ -1851,7 +1851,7 @@ class Clerk(BaseAgent):
                                 wf = req['request_metadata']['workflow']
                             else:
                                 wf = req['request_metadata']['build_workflow']
-                        works = wf.get_all_works()
+                        works = wf.get_all_works(synchronize=False)
                         if works:
                             has_abort_work = False
                             for work in works:
@@ -2003,7 +2003,7 @@ class Clerk(BaseAgent):
                     self.update_request(ret, origin_req=req)
                     if 'workflow' in req['request_metadata']:
                         wf = req['request_metadata']['workflow']
-                        works = wf.get_all_works()
+                        works = wf.get_all_works(synchronize=False)
                         if works:
                             for work in works:
                                 # if not work.is_finished():
