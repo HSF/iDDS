@@ -642,7 +642,9 @@ class Poller(BaseAgent):
 
                 self.update_processing(ret, pr, renew_updated_at=True)
 
-                if 'processing_status' in ret and ret['processing_status'] == ProcessingStatus.Triggering:
+                # if 'processing_status' in ret and ret['processing_status'] == ProcessingStatus.Triggering:
+                if True:
+                    # always triggering
                     event_content = {}
                     if (('update_contents' in ret and ret['update_contents']) or ('new_contents' in ret and ret['new_contents'])):
                         event_content['has_updates'] = True
