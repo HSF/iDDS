@@ -314,7 +314,9 @@ class Receiver(BaseAgent):
                         msg = self.get_output_messages()
                         if msg:
                             event = MessageEvent(message=msg)
-                            self.event_bus.send(event)
+                            # self.event_bus.send(event)
+                            # self.process_messages_event(event)
+                            self.submit(self.process_messages_event, **{"event": event})
 
                     self.graceful_stop.wait(0.00001)
                 except IDDSException as error:
