@@ -223,15 +223,15 @@ class Trigger(Poller):
                     event.set_terminating()
                     self.event_bus.send(event)
                 else:
-                    if ((event and event._content and 'has_updates' in event._content and event._content['has_updates'])
-                        or ('update_contents' in ret and ret['update_contents'])    # noqa W503
-                        or ('new_contents' in ret and ret['new_contents'])          # noqa W503
-                        or ('messages' in ret and ret['messages'])                  # noqa W503
-                        or ('has_updates' in ret and ret['has_updates'])):                                            # noqa E129
-                        self.logger.info(log_pre + "SyncProcessingEvent(processing_id: %s)" % pr['processing_id'])
-                        event = SyncProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'],
-                                                    content=event._content if event else None)
-                        self.event_bus.send(event)
+                    # if ((event and event._content and 'has_updates' in event._content and event._content['has_updates'])
+                    #     or ('update_contents' in ret and ret['update_contents'])    # noqa W503
+                    #     or ('new_contents' in ret and ret['new_contents'])          # noqa W503
+                    #     or ('messages' in ret and ret['messages'])                  # noqa W503
+                    #     or ('has_updates' in ret and ret['has_updates'])):                                            # noqa E129
+                    self.logger.info(log_pre + "SyncProcessingEvent(processing_id: %s)" % pr['processing_id'])
+                    event = SyncProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'],
+                                                content=event._content if event else None)
+                    self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
