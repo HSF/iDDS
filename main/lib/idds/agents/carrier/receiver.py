@@ -41,8 +41,8 @@ class Receiver(BaseAgent):
     """
 
     def __init__(self, receiver_num_threads=8, num_threads=1, bulk_message_delay=30, bulk_message_size=2000,
-                 random_delay=None, update_processing_interval=300, mode='single', **kwargs):
-        super(Receiver, self).__init__(num_threads=receiver_num_threads, name='Receiver', **kwargs)
+                 random_delay=None, use_process_pool=False, update_processing_interval=300, mode='single', **kwargs):
+        super(Receiver, self).__init__(num_threads=receiver_num_threads, name='Receiver', use_process_pool=use_process_pool, **kwargs)
         self.config_section = Sections.Carrier
         self.bulk_message_delay = int(bulk_message_delay)
         self.bulk_message_size = int(bulk_message_size)
@@ -59,8 +59,6 @@ class Receiver(BaseAgent):
         self.selected_receiver = None
 
         self.log_prefix = ''
-
-        self._lock = threading.RLock()
 
     def __del__(self):
         self.stop_receiver()
@@ -100,7 +98,7 @@ class Receiver(BaseAgent):
         return self.message_queue.qsize()
 
     def get_output_messages(self):
-        with self._lock:
+        if True:
             msgs = {}
             try:
                 msg_size = 0

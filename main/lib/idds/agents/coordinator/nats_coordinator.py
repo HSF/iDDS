@@ -156,8 +156,9 @@ class NATSCoordinator(BaseAgent):
                  show_queued_events_time_interval=300,
                  show_get_events_time_interval=300,
                  debug_mode=False,
+                 use_process_pool=False,
                  **kwargs):
-        super(NATSCoordinator, self).__init__(num_threads=num_threads, name='Coordinator', **kwargs)
+        super(NATSCoordinator, self).__init__(num_threads=num_threads, name='Coordinator', use_process_pool=use_process_pool, **kwargs)
         self.config_section = Sections.Coordinator
 
         self.debug_mode = bool(debug_mode)
@@ -172,7 +173,6 @@ class NATSCoordinator(BaseAgent):
         self.interval_delay_for_big_task = int(interval_delay_for_big_task or 300)
         self.show_queued_events_time_interval = int(show_queued_events_time_interval or 300)
 
-        self._lock = threading.RLock()
         self.logger = get_logger(self.__class__.__name__)
 
         self.show_queued_events_time = None

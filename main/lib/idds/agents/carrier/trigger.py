@@ -33,7 +33,7 @@ class Trigger(Poller):
     """
 
     def __init__(self, num_threads=1, trigger_max_number_workers=None, max_number_workers=3, poll_period=10, retries=3, retrieve_bulk_size=2,
-                 name='Trigger', message_bulk_size=1000, max_updates_per_round=2000, **kwargs):
+                 name='Trigger', use_process_pool=False, message_bulk_size=1000, max_updates_per_round=2000, **kwargs):
         if trigger_max_number_workers:
             self.max_number_workers = int(trigger_max_number_workers)
         else:
@@ -43,7 +43,8 @@ class Trigger(Poller):
 
         num_threads = int(self.max_number_workers)
         super(Trigger, self).__init__(num_threads=num_threads, name=name, max_number_workers=self.max_number_workers,
-                                      max_updates_per_round=max_updates_per_round, retrieve_bulk_size=retrieve_bulk_size, **kwargs)
+                                      max_updates_per_round=max_updates_per_round, use_process_pool=use_process_pool,
+                                      retrieve_bulk_size=retrieve_bulk_size, **kwargs)
         self.logger.info("num_threads: %s" % num_threads)
 
         self.max_updates_per_round = int(max_updates_per_round)

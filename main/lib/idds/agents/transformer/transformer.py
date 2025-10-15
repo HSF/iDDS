@@ -51,11 +51,11 @@ class Transformer(BaseAgent):
     """
 
     def __init__(self, num_threads=1, max_number_workers=8, poll_period=1800, retries=3, retrieve_bulk_size=3,
-                 message_bulk_size=10000, **kwargs):
+                 use_process_pool=False, message_bulk_size=10000, **kwargs):
         self.max_number_workers = max_number_workers
         self.set_max_workers()
         num_threads = self.max_number_workers
-        super(Transformer, self).__init__(num_threads=num_threads, name='Transformer', **kwargs)
+        super(Transformer, self).__init__(num_threads=num_threads, name='Transformer', use_process_pool=use_process_pool, **kwargs)
         self.config_section = Sections.Transformer
         self.poll_period = int(poll_period)
         self.retries = int(retries)

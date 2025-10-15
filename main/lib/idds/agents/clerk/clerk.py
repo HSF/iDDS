@@ -52,11 +52,11 @@ class Clerk(BaseAgent):
     Clerk works to process requests and converts requests to transforms.
     """
 
-    def __init__(self, num_threads=1, max_number_workers=8, poll_period=10, retrieve_bulk_size=3, cache_expire_seconds=300, pending_time=None, **kwargs):
+    def __init__(self, num_threads=1, max_number_workers=8, poll_period=10, retrieve_bulk_size=3, cache_expire_seconds=300, use_process_pool=False, pending_time=None, **kwargs):
         self.max_number_workers = max_number_workers
         self.set_max_workers()
         num_threads = self.max_number_workers
-        super(Clerk, self).__init__(num_threads=num_threads, name='Clerk', **kwargs)
+        super(Clerk, self).__init__(num_threads=num_threads, name='Clerk', use_process_pool=use_process_pool, **kwargs)
         self.poll_period = int(poll_period)
         self.retrieve_bulk_size = int(retrieve_bulk_size)
         self.config_section = Sections.Clerk

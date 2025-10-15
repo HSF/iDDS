@@ -33,13 +33,14 @@ class Submitter(Poller):
     """
 
     def __init__(self, num_threads=1, max_number_workers=3, poll_period=10, retries=3, retrieve_bulk_size=2,
-                 name='Submitter', message_bulk_size=1000, **kwargs):
+                 name='Submitter', use_process_pool=False, message_bulk_size=1000, **kwargs):
         self.max_number_workers = max_number_workers
         self.set_max_workers()
         num_threads = self.max_number_workers
 
         super(Submitter, self).__init__(num_threads=num_threads, max_number_workers=self.max_number_workers,
-                                        name=name, retrieve_bulk_size=retrieve_bulk_size, **kwargs)
+                                        name=name, use_process_pool=use_process_pool,
+                                        retrieve_bulk_size=retrieve_bulk_size, **kwargs)
         self.site_to_cloud = None
 
         self._new_processing_status = None
