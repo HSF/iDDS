@@ -13,7 +13,6 @@ import os
 import socket
 import asyncio
 import time
-import threading
 import traceback
 from nats.aio.client import Client as NATS
 from nats.errors import TimeoutError as NATSTimeoutError

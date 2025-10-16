@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2023
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2025
 
 """
 Main start entry point for iDDS service
@@ -14,6 +14,7 @@ Main start entry point for iDDS service
 
 
 import logging
+import os
 import signal
 import time
 import traceback
