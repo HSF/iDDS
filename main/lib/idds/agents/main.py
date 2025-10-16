@@ -48,7 +48,12 @@ RUNNING_AGENTS = []
 
 
 def load_config_agents():
-    if config_has_section(Sections.Main) and config_has_option(Sections.Main, 'agents'):
+    idds_agents = os.environ.get("IDDS_AGENTS")
+    if idds_agents:
+        agents = idds_agents.split(',')
+        agents = [d.strip() for d in agents]
+        return agents
+    elif config_has_section(Sections.Main) and config_has_option(Sections.Main, 'agents'):
         agents = config_get(Sections.Main, 'agents')
         agents = agents.split(',')
         agents = [d.strip() for d in agents]
