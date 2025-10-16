@@ -8,7 +8,9 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2019 - 2025
 
+import logging
 import math
+import os
 import traceback
 import threading
 import uuid
@@ -28,6 +30,58 @@ from idds.agents.common.cache.redis import get_redis_cache
 
 
 setup_logging(__name__)
+
+
+class PrefixFilter(logging.Filter):
+    """
+    A logging filter that adds a prefix to every log record.
+    """
+    def __init__(self, prefix):
+        super().__init_()
+        self.prefix = prefix
+
+    def filter(self, record):
+        record.prefix = self.prefix
+        return True
+
+
+class BaseAgentWorker(object):
+    """
+    Agent Worker classes
+    """
+    def __init__(self, **kwargs):
+        super(BaseAgentWorker, self).__init__()
+
+    def get_class_name(self):
+        return self.__class__.__name__
+
+    def get_logger(self, log_prefix=None):
+        """
+        Set up and return a process-aware logger.
+        The logger name includes class name + process ID for uniqueness.
+        """
+        class_name = self.get_class_name()
+        pid = os.getpid()
+        logger_name = f"{class_name}-{pid}"
+
+        logger = logging.getLogger(logger_name)
+
+        if not log_prefix:
+            log_prefix = class_name
+
+        # Optional: configure if not already configured
+        if not logger.handlers:
+            handler = logging.StreamHandler()
+            formatter = logging.Formatter(
+                fmt="%(asctime)s [%(process)d] [%(levelname)s] %(prefix)s %(name)s: %(message)s",
+                datefmt="%Y-%m-%d %H:%M:%S",
+            )
+            handler.setFormatter(formatter)
+            handler.addFilter(PrefixFilter(log_prefix))
+            logger.addHandler(handler)
+            logger.setLevel(logging.INFO)
+
+        return logger
 
 
 class BaseAgent(TimerScheduler, PluginBase):

@@ -98,6 +98,10 @@ class TimerScheduler(threading.Thread):
     The base class to schedule Task which will be executed after some time
     """
 
+    _thread_executor = None
+    _process_executor = None
+    _singleton_lock = threading.Lock()
+
     def __init__(self, num_threads, name=None, logger=None, use_process_pool=False):
         super(TimerScheduler, self).__init__(name=name)
         self.num_threads = int(num_threads)
@@ -107,12 +111,7 @@ class TimerScheduler(threading.Thread):
         self.executor_name = name
         self.use_process_pool = use_process_pool
 
-        if self.use_process_pool:
-            self.executors = IDDSProcessPoolExecutor(max_workers=self.num_threads,
-                                                     thread_name_prefix=name)
-        else:
-            self.executors = IDDSThreadPoolExecutor(max_workers=self.num_threads,
-                                                    thread_name_prefix=name)
+        self.executors = self.get_executor_signleton()
 
         self.executors_timer = IDDSThreadPoolExecutor(max_workers=1,
                                                       thread_name_prefix=name + "_Timer")
@@ -122,6 +121,19 @@ class TimerScheduler(threading.Thread):
         self._lock = threading.RLock()
 
         self.logger = logger
+
+    def get_executor_signleton(self):
+        with TimerScheduler._singleton_lock:
+            if self.use_process_pool:
+                if TimerScheduler._process_executor is None:
+                    TimerScheduler._process_executor = IDDSProcessPoolExecutor(max_workers=self.num_threads,
+                                                                               thread_name_prefix=self.executor_name)
+                return TimerScheduler._process_executor
+            else:
+                if TimerScheduler._thread_executor is None:
+                    TimerScheduler._thread_executor = IDDSThreadPoolExecutor(max_workers=self.num_threads,
+                                                                             thread_name_prefix=self.executor_name)
+                return TimerScheduler._thread_executor
 
     def set_logger(self, logger):
         self.logger = logger
