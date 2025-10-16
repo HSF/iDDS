@@ -2137,27 +2137,27 @@ class Clerk(BaseAgent):
         self.event_func_map = {
             EventType.NewRequest: {
                 'pre_check': self.is_ok_to_run_more_requests,
-                'exec_func': self.process_new_request
+                'exec_func': self.worker.process_new_request
             },
             EventType.UpdateRequest: {
                 'pre_check': self.is_ok_to_run_more_requests,
-                'exec_func': self.process_update_request
+                'exec_func': self.worker.process_update_request
             },
             EventType.AbortRequest: {
                 'pre_check': self.is_ok_to_run_more_requests,
-                'exec_func': self.process_abort_request
+                'exec_func': self.worker.process_abort_request
             },
             EventType.ExpireRequest: {
                 'pre_check': self.is_ok_to_run_more_requests,
-                'exec_func': self.process_abort_request
+                'exec_func': self.worker.process_abort_request
             },
             EventType.ResumeRequest: {
                 'pre_check': self.is_ok_to_run_more_requests,
-                'exec_func': self.process_resume_request
+                'exec_func': self.worker.process_resume_request
             },
             EventType.CloseRequest: {
                 'pre_check': self.is_ok_to_run_more_requests,
-                'exec_func': self.process_close_request
+                'exec_func': self.worker.process_close_request
             }
         }
 
