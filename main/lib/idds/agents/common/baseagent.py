@@ -37,7 +37,7 @@ class PrefixFilter(logging.Filter):
     A logging filter that adds a prefix to every log record.
     """
     def __init__(self, prefix):
-        super().__init_()
+        super().__init__()
         self.prefix = prefix
 
     def filter(self, record):
