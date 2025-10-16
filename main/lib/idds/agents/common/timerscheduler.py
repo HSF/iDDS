@@ -119,6 +119,7 @@ class TimerScheduler(threading.Thread):
         self.timer_thread = None
 
         self._task_queue = []
+        self._lock = threading.RLock()
 
         self.logger = logger
 
@@ -148,22 +149,26 @@ class TimerScheduler(threading.Thread):
         return TimerTask(task_func, task_output_queue, task_args, task_kwargs, delay_time, priority, self.logger)
 
     def add_task(self, task):
-        heapq.heappush(self._task_queue, task)
+        with self._lock:
+            heapq.heappush(self._task_queue, task)
 
     def remove_task(self, task):
-        self._task_queue.remove(task)
-        heapq.heapify(self._task_queue)
+        with self._lock:
+            self._task_queue.remove(task)
+            heapq.heapify(self._task_queue)
 
     def remove_all(self):
-        self._task_queue = []
+        with self._lock:
+            self._task_queue = []
 
     def get_ready_task(self):
-        if not self._task_queue:
-            return None
-        task = self._task_queue[0]
-        if task.is_ready():
-            heapq.heappop(self._task_queue)
-            return task
+        with self._lock:
+            if not self._task_queue:
+                return None
+            task = self._task_queue[0]
+            if task.is_ready():
+                heapq.heappop(self._task_queue)
+                return task
         return None
 
     def submit(self, fn, *args, **kwargs):

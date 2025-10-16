@@ -60,6 +60,8 @@ class Receiver(BaseAgent):
 
         self.log_prefix = ''
 
+        self._lock = threading.RLock()
+
     def __del__(self):
         self.stop_receiver()
 
@@ -98,7 +100,7 @@ class Receiver(BaseAgent):
         return self.message_queue.qsize()
 
     def get_output_messages(self):
-        if True:
+        with self._lock:
             msgs = {}
             try:
                 msg_size = 0
