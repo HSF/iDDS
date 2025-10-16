@@ -39,7 +39,7 @@ class Finisher(Poller):
     """
 
     def __init__(self, num_threads=1, finisher_max_number_workers=None, max_number_workers=3, poll_time_period=10, retries=3, retrieve_bulk_size=2,
-                 message_bulk_size=1000, **kwargs):
+                 use_process_pool=False, message_bulk_size=1000, **kwargs):
         if finisher_max_number_workers:
             self.max_number_workers = int(finisher_max_number_workers)
         else:
@@ -49,7 +49,7 @@ class Finisher(Poller):
         num_threads = int(self.max_number_workers)
 
         super(Finisher, self).__init__(num_threads=num_threads, max_number_workers=self.max_number_workers,
-                                       name='Finisher',
+                                       name='Finisher', use_process_pool=use_process_pool,
                                        poll_time_period=poll_time_period, retries=retries,
                                        retrieve_bulk_size=retrieve_bulk_size,
                                        message_bulk_size=message_bulk_size, **kwargs)
@@ -601,6 +601,9 @@ class Finisher(Poller):
             self.init_event_function_map()
 
             task = self.create_task(task_func=self.get_finishing_processings, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=10, priority=1)
+            self.add_task(task)
+
+            task = self.create_task(task_func=self.load_min_request_id, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=600, priority=1)
             self.add_task(task)
 
             self.execute()

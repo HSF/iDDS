@@ -8,7 +8,9 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2019 - 2025
 
+import logging
 import math
+import os
 import traceback
 import threading
 import uuid
@@ -21,13 +23,65 @@ from idds.common.plugin.plugin_base import PluginBase
 from idds.common.plugin.plugin_utils import load_plugins, load_plugin_sequence
 from idds.common.utils import get_process_thread_info
 from idds.common.utils import setup_logging, pid_exists, json_dumps, json_loads
-from idds.core import health as core_health, messages as core_messages
+from idds.core import health as core_health, messages as core_messages, requests as core_requests
 from idds.agents.common.timerscheduler import TimerScheduler
 from idds.agents.common.eventbus.eventbus import EventBus
 from idds.agents.common.cache.redis import get_redis_cache
 
 
 setup_logging(__name__)
+
+
+class PrefixFilter(logging.Filter):
+    """
+    A logging filter that adds a prefix to every log record.
+    """
+    def __init__(self, prefix):
+        super().__init__()
+        self.prefix = prefix
+
+    def filter(self, record):
+        record.prefix = self.prefix
+        return True
+
+
+class BaseAgentWorker(object):
+    """
+    Agent Worker classes
+    """
+    def __init__(self, **kwargs):
+        super(BaseAgentWorker, self).__init__()
+
+    def get_class_name(self):
+        return self.__class__.__name__
+
+    def get_logger(self, log_prefix=None):
+        """
+        Set up and return a process-aware logger.
+        The logger name includes class name + process ID for uniqueness.
+        """
+        class_name = self.get_class_name()
+        pid = os.getpid()
+        logger_name = f"{class_name}-{pid}"
+
+        logger = logging.getLogger(logger_name)
+
+        if not log_prefix:
+            log_prefix = class_name
+
+        # Optional: configure if not already configured
+        if not logger.handlers:
+            handler = logging.StreamHandler()
+            formatter = logging.Formatter(
+                fmt="%(asctime)s [%(process)d] [%(levelname)s] %(prefix)s %(name)s: %(message)s",
+                datefmt="%Y-%m-%d %H:%M:%S",
+            )
+            handler.setFormatter(formatter)
+            handler.addFilter(PrefixFilter(log_prefix))
+            logger.addHandler(handler)
+            logger.setLevel(logging.INFO)
+
+        return logger
 
 
 class BaseAgent(TimerScheduler, PluginBase):
@@ -41,8 +95,8 @@ class BaseAgent(TimerScheduler, PluginBase):
     poll_new_min_request_id_times = 0
     poll_running_min_request_id_times = 0
 
-    def __init__(self, num_threads=1, name=None, logger=None, **kwargs):
-        super(BaseAgent, self).__init__(num_threads, name=name)
+    def __init__(self, num_threads=1, name="BaseAgent", logger=None, use_process_pool=False, **kwargs):
+        super(BaseAgent, self).__init__(num_threads, name=name, use_process_pool=use_process_pool)
         self.name = self.__class__.__name__
         self.id = str(uuid.uuid4())[:8]
         self.logger = logger
@@ -149,6 +203,16 @@ class BaseAgent(TimerScheduler, PluginBase):
         if plugin_name in self.plugins and self.plugins[plugin_name]:
             return self.plugins[plugin_name]
         raise exceptions.AgentPluginError("No corresponding plugin configured for %s" % plugin_name)
+
+    def load_min_request_id(self):
+        try:
+            min_request_id = core_requests.get_min_request_id()
+            self.logger.info(f"loaded min_request_id: {min_request_id}")
+        except Exception as ex:
+            self.logger.error(f"failed to load min_request_id: {ex}")
+            min_request_id = 1
+        self.logger.info(f"Set min_request_id to : {min_request_id}")
+        BaseAgent.min_request_id = min_request_id
 
     def get_num_hang_active_workers(self):
         return self.num_hang_workers, self.num_active_workers

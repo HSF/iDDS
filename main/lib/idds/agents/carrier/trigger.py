@@ -33,7 +33,7 @@ class Trigger(Poller):
     """
 
     def __init__(self, num_threads=1, trigger_max_number_workers=None, max_number_workers=3, poll_period=10, retries=3, retrieve_bulk_size=2,
-                 name='Trigger', message_bulk_size=1000, max_updates_per_round=2000, **kwargs):
+                 name='Trigger', use_process_pool=False, message_bulk_size=1000, max_updates_per_round=2000, **kwargs):
         if trigger_max_number_workers:
             self.max_number_workers = int(trigger_max_number_workers)
         else:
@@ -43,7 +43,8 @@ class Trigger(Poller):
 
         num_threads = int(self.max_number_workers)
         super(Trigger, self).__init__(num_threads=num_threads, name=name, max_number_workers=self.max_number_workers,
-                                      max_updates_per_round=max_updates_per_round, retrieve_bulk_size=retrieve_bulk_size, **kwargs)
+                                      max_updates_per_round=max_updates_per_round, use_process_pool=use_process_pool,
+                                      retrieve_bulk_size=retrieve_bulk_size, **kwargs)
         self.logger.info("num_threads: %s" % num_threads)
 
         self.max_updates_per_round = int(max_updates_per_round)
@@ -223,15 +224,15 @@ class Trigger(Poller):
                     event.set_terminating()
                     self.event_bus.send(event)
                 else:
-                    if ((event and event._content and 'has_updates' in event._content and event._content['has_updates'])
-                        or ('update_contents' in ret and ret['update_contents'])    # noqa W503
-                        or ('new_contents' in ret and ret['new_contents'])          # noqa W503
-                        or ('messages' in ret and ret['messages'])                  # noqa W503
-                        or ('has_updates' in ret and ret['has_updates'])):                                            # noqa E129
-                        self.logger.info(log_pre + "SyncProcessingEvent(processing_id: %s)" % pr['processing_id'])
-                        event = SyncProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'],
-                                                    content=event._content if event else None)
-                        self.event_bus.send(event)
+                    # if ((event and event._content and 'has_updates' in event._content and event._content['has_updates'])
+                    #     or ('update_contents' in ret and ret['update_contents'])    # noqa W503
+                    #     or ('new_contents' in ret and ret['new_contents'])          # noqa W503
+                    #     or ('messages' in ret and ret['messages'])                  # noqa W503
+                    #     or ('has_updates' in ret and ret['has_updates'])):                                            # noqa E129
+                    self.logger.info(log_pre + "SyncProcessingEvent(processing_id: %s)" % pr['processing_id'])
+                    event = SyncProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'],
+                                                content=event._content if event else None)
+                    self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())
@@ -278,6 +279,9 @@ class Trigger(Poller):
             self.init_event_function_map()
 
             task = self.create_task(task_func=self.get_trigger_processings, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=10, priority=1)
+            self.add_task(task)
+
+            task = self.create_task(task_func=self.load_min_request_id, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=600, priority=1)
             self.add_task(task)
 
             self.execute()

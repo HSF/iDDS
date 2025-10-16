@@ -51,11 +51,11 @@ class Transformer(BaseAgent):
     """
 
     def __init__(self, num_threads=1, max_number_workers=8, poll_period=1800, retries=3, retrieve_bulk_size=3,
-                 message_bulk_size=10000, **kwargs):
+                 use_process_pool=False, message_bulk_size=10000, **kwargs):
         self.max_number_workers = max_number_workers
         self.set_max_workers()
         num_threads = self.max_number_workers
-        super(Transformer, self).__init__(num_threads=num_threads, name='Transformer', **kwargs)
+        super(Transformer, self).__init__(num_threads=num_threads, name='Transformer', use_process_pool=use_process_pool, **kwargs)
         self.config_section = Sections.Transformer
         self.poll_period = int(poll_period)
         self.retries = int(retries)
@@ -1602,6 +1602,8 @@ class Transformer(BaseAgent):
             task = self.create_task(task_func=self.get_running_transforms, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=10, priority=1)
             self.add_task(task)
             task = self.create_task(task_func=self.clean_locks, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1800, priority=1)
+            self.add_task(task)
+            task = self.create_task(task_func=self.load_min_request_id, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=600, priority=1)
             self.add_task(task)
 
             self.execute()

@@ -39,7 +39,7 @@ class Poller(BaseAgent):
 
     def __init__(self, num_threads=1, max_number_workers=3, poll_period=10, retries=3, retrieve_bulk_size=2,
                  max_updates_per_round=2000, name='Poller', message_bulk_size=1000, locking_period=1800,
-                 poller_max_number_workers=None, **kwargs):
+                 use_process_pool=False, poller_max_number_workers=None, **kwargs):
         if poller_max_number_workers:
             self.max_number_workers = int(poller_max_number_workers)
         else:
@@ -49,7 +49,7 @@ class Poller(BaseAgent):
 
         self.set_max_workers()
 
-        super(Poller, self).__init__(num_threads=num_threads, name=name, **kwargs)
+        super(Poller, self).__init__(num_threads=num_threads, name=name, use_process_pool=False, **kwargs)
         self.config_section = Sections.Carrier
         self.poll_period = int(poll_period)
         self.locking_period = int(locking_period)
@@ -642,7 +642,9 @@ class Poller(BaseAgent):
 
                 self.update_processing(ret, pr, renew_updated_at=True)
 
-                if 'processing_status' in ret and ret['processing_status'] == ProcessingStatus.Triggering:
+                # if 'processing_status' in ret and ret['processing_status'] == ProcessingStatus.Triggering:
+                if True:
+                    # always triggering
                     event_content = {}
                     if (('update_contents' in ret and ret['update_contents']) or ('new_contents' in ret and ret['new_contents'])):
                         event_content['has_updates'] = True
@@ -713,6 +715,9 @@ class Poller(BaseAgent):
             self.add_task(task)
 
             task = self.create_task(task_func=self.clean_locks, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1800, priority=1)
+            self.add_task(task)
+
+            task = self.create_task(task_func=self.load_min_request_id, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=600, priority=1)
             self.add_task(task)
 
             self.execute()

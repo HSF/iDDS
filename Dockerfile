@@ -159,8 +159,16 @@ RUN sed -i 's/Listen\ 80/#\ Listen\ 80/g' /etc/httpd/conf/httpd.conf
 RUN sed -i "s/WSGISocketPrefix\ \/var\/log\/idds\/wsgisocks\/wsgi/WSGISocketPrefix\ \/var\/idds\/wsgisocks\/wsgi/g" /opt/idds/config_default/httpd-idds-443-py39-cc7.conf
 
 # for idds daemons
-RUN ln -fs /opt/idds/config/idds/supervisord_idds.ini /etc/supervisord.d/idds.ini
+# RUN ln -fs /opt/idds/config/idds/supervisord_idds.ini /etc/supervisord.d/idds.ini
 # RUN ln -fs /opt/idds/config/idds/supervisord_iddsfake.ini /etc/supervisord.d/iddsfake.ini
+RUN ln -fs /opt/idds/config/idds/supervisord_idds_clerk.ini /etc/supervisord.d/idds_clerk.ini
+RUN ln -fs /opt/idds/config/idds/supervisord_idds_transformer.ini /etc/supervisord.d/idds_transformer.ini
+RUN ln -fs /opt/idds/config/idds/supervisord_idds_submitter.ini /etc/supervisord.d/idds_submitter.ini
+RUN ln -fs /opt/idds/config/idds/supervisord_idds_poller.ini /etc/supervisord.d/idds_poller.ini
+RUN ln -fs /opt/idds/config/idds/supervisord_idds_trigger.ini /etc/supervisord.d/idds_trigger.ini
+RUN ln -fs /opt/idds/config/idds/supervisord_idds_finisher.ini /etc/supervisord.d/idds_finisher.ini
+RUN ln -fs /opt/idds/config/idds/supervisord_idds_receiver.ini /etc/supervisord.d/idds_receiver.ini
+
 RUN ln -fs /opt/idds/config/idds/supervisord_httpd.ini /etc/supervisord.d/httpd.ini
 # RUN ln -fs /opt/idds/config/idds/supervisord_syslog-ng.ini /etc/supervisord.d/syslog-ng.ini
 RUN ln -fs /opt/idds/config/idds/supervisord_logrotate.ini /etc/supervisord.d/logrotate.ini
