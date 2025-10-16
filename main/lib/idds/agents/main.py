@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2023
+# - Wen Guan, <wen.guan@cern.ch>, 2019 - 2025
 
 """
 Main start entry point for iDDS service
@@ -14,6 +14,7 @@ Main start entry point for iDDS service
 
 
 import logging
+import os
 import signal
 import time
 import traceback
@@ -48,7 +49,12 @@ RUNNING_AGENTS = []
 
 
 def load_config_agents():
-    if config_has_section(Sections.Main) and config_has_option(Sections.Main, 'agents'):
+    idds_agents = os.environ.get("IDDS_AGENTS")
+    if idds_agents:
+        agents = idds_agents.split(',')
+        agents = [d.strip() for d in agents]
+        return agents
+    elif config_has_section(Sections.Main) and config_has_option(Sections.Main, 'agents'):
         agents = config_get(Sections.Main, 'agents')
         agents = agents.split(',')
         agents = [d.strip() for d in agents]

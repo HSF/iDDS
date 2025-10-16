@@ -1553,7 +1553,7 @@ class WorkflowBase(Base):
         self.next_works = next_works
 
     def enable_next_works(self, work, cond):
-        self.log_debug("works: %s" % str(self.works))
+        # self.log_debug("works: %s" % str(self.works))
         # self.log_debug("Checking Work %s condition: %s" % (work.get_internal_id(),
         #                                                    json_dumps(cond, sort_keys=True, indent=4)))
         # self.log_debug("Checking Work %s condition: %s" % (work.get_internal_id(), cond.get_internal_id()))
@@ -1875,7 +1875,7 @@ class WorkflowBase(Base):
                 self.submitting_works.remove(work.get_internal_id())
 
         # for work in [self.works[k] for k in self.current_running_works]:
-        for k in self.works:
+        for k in self.current_running_works:
             work = self.works[k]
             if isinstance(work, Workflow):
                 work.sync_works(to_cancel=self.to_cancel)
@@ -1885,20 +1885,8 @@ class WorkflowBase(Base):
                 self.set_source_parameters(work.get_internal_id())
                 self.sync_global_parameters_from_work(work)
 
-            if work.get_internal_id() in self.work_conds:
-                self.log_debug("Work %s has condition dependencies %s" % (work.get_internal_id(),
-                                                                          json_dumps(self.work_conds[work.get_internal_id()], sort_keys=True, indent=4)))
-                for cond_id in self.work_conds[work.get_internal_id()]:
-                    cond = self.conditions[cond_id]
-                    # self.log_debug("Work %s has condition dependencie %s" % (work.get_internal_id(),
-                    #                                                          json_dumps(cond, sort_keys=True, indent=4)))
-                    self.log_debug("Work %s has condition dependencie %s" % (work.get_internal_id(), cond.get_internal_id()))
-
-                    self.enable_next_works(work, cond)
-
-            if work.is_terminated(synchronize=False):
                 self.log_info("Work %s num_run %s is terminated(%s)" % (work.get_internal_id(), self.num_run, work.get_status()))
-                self.log_debug("Work conditions: %s" % json_dumps(self.work_conds, sort_keys=True, indent=4))
+                # self.log_debug("Work conditions: %s" % json_dumps(self.work_conds, sort_keys=True, indent=4))
                 if work.get_internal_id() not in self.work_conds:
                     # has no next work
                     self.log_info("Work %s has no condition dependencies" % work.get_internal_id())
@@ -1915,6 +1903,19 @@ class WorkflowBase(Base):
                         self.terminated_works.append(work.get_internal_id())
                     if work.get_internal_id() in self.current_running_works:
                         self.current_running_works.remove(work.get_internal_id())
+
+        for k in self.work_conds:
+            work = self.works[k]
+            # self.log_debug("Work %s has condition dependencies %s" % (work.get_internal_id(),
+            #                                                           json_dumps(self.work_conds[work.get_internal_id()], sort_keys=True, indent=4)))
+            self.log_debug("Work %s has condition dependencies %s" % (work.get_internal_id(), self.work_conds[work.get_internal_id()]))
+            for cond_id in self.work_conds[work.get_internal_id()]:
+                cond = self.conditions[cond_id]
+                # self.log_debug("Work %s has condition dependencie %s" % (work.get_internal_id(),
+                #                                                          json_dumps(cond, sort_keys=True, indent=4)))
+                self.log_debug("Work %s has condition dependencie %s" % (work.get_internal_id(), cond.get_internal_id()))
+
+                self.enable_next_works(work, cond)
 
         self.num_finished_works = 0
         self.num_subfinished_works = 0

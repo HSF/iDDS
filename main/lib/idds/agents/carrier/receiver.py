@@ -41,8 +41,8 @@ class Receiver(BaseAgent):
     """
 
     def __init__(self, receiver_num_threads=8, num_threads=1, bulk_message_delay=30, bulk_message_size=2000,
-                 random_delay=None, update_processing_interval=300, mode='single', **kwargs):
-        super(Receiver, self).__init__(num_threads=receiver_num_threads, name='Receiver', **kwargs)
+                 random_delay=None, use_process_pool=False, update_processing_interval=300, mode='single', **kwargs):
+        super(Receiver, self).__init__(num_threads=receiver_num_threads, name='Receiver', use_process_pool=use_process_pool, **kwargs)
         self.config_section = Sections.Carrier
         self.bulk_message_delay = int(bulk_message_delay)
         self.bulk_message_size = int(bulk_message_size)
@@ -279,6 +279,9 @@ class Receiver(BaseAgent):
 
             self.add_default_tasks()
 
+            task = self.create_task(task_func=self.load_min_request_id, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=600, priority=1)
+            self.add_task(task)
+
             if self.mode == "single":
                 self.logger.debug("single mode")
                 self.add_receiver_monitor_task()
@@ -314,7 +317,9 @@ class Receiver(BaseAgent):
                         msg = self.get_output_messages()
                         if msg:
                             event = MessageEvent(message=msg)
-                            self.event_bus.send(event)
+                            # self.event_bus.send(event)
+                            # self.process_messages_event(event)
+                            self.submit(self.process_messages_event, **{"event": event})
 
                     self.graceful_stop.wait(0.00001)
                 except IDDSException as error:
