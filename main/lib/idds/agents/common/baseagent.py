@@ -95,7 +95,7 @@ class BaseAgent(TimerScheduler, PluginBase):
     poll_new_min_request_id_times = 0
     poll_running_min_request_id_times = 0
 
-    def __init__(self, num_threads=1, name=None, logger=None, use_process_pool=False, **kwargs):
+    def __init__(self, num_threads=1, name="BaseAgent", logger=None, use_process_pool=False, **kwargs):
         super(BaseAgent, self).__init__(num_threads, name=name, use_process_pool=use_process_pool)
         self.name = self.__class__.__name__
         self.id = str(uuid.uuid4())[:8]
