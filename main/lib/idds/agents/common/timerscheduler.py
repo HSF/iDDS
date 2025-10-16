@@ -111,7 +111,8 @@ class TimerScheduler(threading.Thread):
         self.executor_name = name
         self.use_process_pool = use_process_pool
 
-        self.executors = self.get_executor_signleton()
+        # self.executors = self.get_executor_signleton()
+        self.executors = self.get_executor()
 
         self.executors_timer = IDDSThreadPoolExecutor(max_workers=1,
                                                       thread_name_prefix=name + "_Timer")
@@ -121,6 +122,12 @@ class TimerScheduler(threading.Thread):
         self._lock = threading.RLock()
 
         self.logger = logger
+
+    def get_executor(self):
+        if self.use_process_pool:
+            return IDDSProcessPoolExecutor(max_workers=self.num_threads, thread_name_prefix=self.executor_name)
+        else:
+            return IDDSThreadPoolExecutor(max_workers=self.num_threads, thread_name_prefix=self.executor_name)
 
     def get_executor_signleton(self):
         with TimerScheduler._singleton_lock:
