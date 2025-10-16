@@ -812,6 +812,7 @@ class ClerkWorker(BaseAgentWorker):
         return new_tf_ids, update_tf_ids
 
     def process_new_request(self, event=None, request=None):
+        logger = None
         try:
             if request:
                 log_prefix = f"<request_id={request['request_id']}>"
@@ -853,6 +854,9 @@ class ClerkWorker(BaseAgentWorker):
                     event = UpdateTransformEvent(publisher_id=self.id, transform_id=tf_id)
                     self.event_bus.send(event)
         except Exception as ex:
+            if logger is None:
+                log_prefix = "ClerkWorker"
+                logger = self.get_logger(log_prefix)
             logger.error(ex)
             logger.error(traceback.format_exc())
 
@@ -1270,6 +1274,7 @@ class ClerkWorker(BaseAgentWorker):
         return ret_req
 
     def process_update_request(self, event=None, request=None):
+        logger = None
         try:
             if request:
                 log_prefix = f"<request_id={request['request_id']}>"
@@ -1316,6 +1321,9 @@ class ClerkWorker(BaseAgentWorker):
                     event = UpdateTransformEvent(publisher_id=self.id, transform_id=tf_id, content=event._content if event else None)
                     self.event_bus.send(event)
         except Exception as ex:
+            if logger is None:
+                log_prefix = "ClerkWorker"
+                logger = self.get_logger(log_prefix)
             logger.error(ex)
             logger.error(traceback.format_exc())
 
@@ -1389,6 +1397,7 @@ class ClerkWorker(BaseAgentWorker):
             core_commands.update_commands([u_command])
 
     def process_abort_request(self, event=None, request=None, command=None):
+        logger = None
         try:
             if request:
                 log_prefix = f"<request_id={request['request_id']}>"
@@ -1470,11 +1479,17 @@ class ClerkWorker(BaseAgentWorker):
 
                     self.handle_command(event, command=command, cmd_status=CommandStatus.Processed, errors=None)
         except AssertionError as ex:
+            if logger is None:
+                log_prefix = "ClerkWorker"
+                logger = self.get_logger(log_prefix)
             logger.error("process_abort_request, Failed to process event: %s" % str(event))
             logger.error(ex)
             logger.error(traceback.format_exc())
             self.handle_command(event, command=command, cmd_status=CommandStatus.Processed, errors=str(ex))
         except Exception as ex:
+            if logger is None:
+                log_prefix = "ClerkWorker"
+                logger = self.get_logger(log_prefix)
             logger.error(ex)
             logger.error(traceback.format_exc())
 
@@ -1545,6 +1560,7 @@ class ClerkWorker(BaseAgentWorker):
         return ret_req
 
     def process_close_request(self, event=None, request=None, command=None):
+        logger = None
         try:
             if request:
                 log_prefix = f"<request_id={request['request_id']}>"
@@ -1558,7 +1574,6 @@ class ClerkWorker(BaseAgentWorker):
                 req = self.get_request(request_id=event._request_id, locking=True)
                 if not req:
                     logger.warn("Cannot find request for event: %s" % str(event))
-                    pro_ret = ReturnCode.Locked.value
                 else:
                     request = req
             if request:
@@ -1622,16 +1637,19 @@ class ClerkWorker(BaseAgentWorker):
 
                     self.handle_command(event, command=command, cmd_status=CommandStatus.Processed, errors=None)
         except AssertionError as ex:
+            if logger is None:
+                log_prefix = "ClerkWorker"
+                logger = self.get_logger(log_prefix)
             logger.error("process_close_request, Failed to process event: %s" % str(event))
             logger.error(ex)
             logger.error(traceback.format_exc())
             self.handle_command(event, command=command, cmd_status=CommandStatus.Processed, errors=str(ex))
         except Exception as ex:
+            if logger is None:
+                log_prefix = "ClerkWorker"
+                logger = self.get_logger(log_prefix)
             logger.error(ex)
             logger.error(traceback.format_exc())
-            pro_ret = ReturnCode.Failed.value
-        self.number_workers -= 1
-        return pro_ret
 
     def handle_resume_irequest(self, req, event):
         """
@@ -1714,6 +1732,7 @@ class ClerkWorker(BaseAgentWorker):
         return ret_req
 
     def process_resume_request(self, event=None, request=None, command=None):
+        logger = None
         try:
             if request:
                 log_prefix = f"<request_id={request['request_id']}>"
@@ -1775,6 +1794,9 @@ class ClerkWorker(BaseAgentWorker):
 
                     self.handle_command(event, command=command, cmd_status=CommandStatus.Processed, errors=None)
         except Exception as ex:
+            if logger is None:
+                log_prefix = "ClerkWorker"
+                logger = self.get_logger(log_prefix)
             logger.error(ex)
             logger.error(traceback.format_exc())
 
