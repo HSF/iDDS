@@ -23,7 +23,7 @@ from idds.common.plugin.plugin_base import PluginBase
 from idds.common.plugin.plugin_utils import load_plugins, load_plugin_sequence
 from idds.common.utils import get_process_thread_info
 from idds.common.utils import setup_logging, pid_exists, json_dumps, json_loads
-from idds.core import health as core_health, messages as core_messages
+from idds.core import health as core_health, messages as core_messages, requests as core_requests
 from idds.agents.common.timerscheduler import TimerScheduler
 from idds.agents.common.eventbus.eventbus import EventBus
 from idds.agents.common.cache.redis import get_redis_cache
@@ -203,6 +203,16 @@ class BaseAgent(TimerScheduler, PluginBase):
         if plugin_name in self.plugins and self.plugins[plugin_name]:
             return self.plugins[plugin_name]
         raise exceptions.AgentPluginError("No corresponding plugin configured for %s" % plugin_name)
+
+    def load_min_request_id(self):
+        try:
+            min_request_id = core_requests.get_min_request_id()
+            self.logger.info(f"loaded min_request_id: {min_request_id}")
+        except Exception as ex:
+            self.logger.error(f"failed to load min_request_id: {ex}")
+            min_request_id = 1
+        self.logger.info(f"Set min_request_id to : {min_request_id}")
+        BaseAgent.min_request_id = min_request_id
 
     def get_num_hang_active_workers(self):
         return self.num_hang_workers, self.num_active_workers

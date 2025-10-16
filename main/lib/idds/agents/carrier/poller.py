@@ -717,6 +717,9 @@ class Poller(BaseAgent):
             task = self.create_task(task_func=self.clean_locks, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=1800, priority=1)
             self.add_task(task)
 
+            task = self.create_task(task_func=self.load_min_request_id, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=600, priority=1)
+            self.add_task(task)
+
             self.execute()
         except KeyboardInterrupt:
             self.stop()

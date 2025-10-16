@@ -301,6 +301,9 @@ class Conductor(BaseAgent):
 
             self.add_default_tasks()
 
+            task = self.create_task(task_func=self.load_min_request_id, task_output_queue=None, task_args=tuple(), task_kwargs={}, delay_time=600, priority=1)
+            self.add_task(task)
+
             if self.mode == "single":
                 self.logger.debug("single mode")
                 self.add_conductor_monitor_task()
