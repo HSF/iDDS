@@ -131,6 +131,14 @@ else
     echo "supervisord conf not found. will use the default one."
     cp /opt/idds/config_default/supervisord_idds.ini /opt/idds/config/idds/supervisord_idds.ini
     # cp /opt/idds/config_default/supervisord_iddsfake.ini /opt/idds/config/idds/supervisord_iddsfake.ini
+    cp /opt/idds/config_default/supervisord_idds_clerk.ini /opt/idds/config/idds/supervisord_idds_clerk.ini
+    cp /opt/idds/config_default/supervisord_idds_transformer.ini /opt/idds/config/idds/supervisord_idds_transformer.ini
+    cp /opt/idds/config_default/supervisord_idds_submitter.ini /opt/idds/config/idds/supervisord_idds_submitter.ini
+    cp /opt/idds/config_default/supervisord_idds_poller.ini /opt/idds/config/idds/supervisord_idds_poller.ini
+    cp /opt/idds/config_default/supervisord_idds_receiver.ini /opt/idds/config/idds/supervisord_idds_receiver.ini
+    cp /opt/idds/config_default/supervisord_idds_trigger.ini /opt/idds/config/idds/supervisord_idds_trigger.ini
+    cp /opt/idds/config_default/supervisord_idds_finisher.ini /opt/idds/config/idds/supervisord_idds_finisher.ini
+    
     cp /opt/idds/config_default/supervisord_httpd.ini /opt/idds/config/idds/supervisord_httpd.ini
     # cp /opt/idds/config_default/supervisord_syslog-ng.ini /opt/idds/config/idds/supervisord_syslog-ng.ini
 
