@@ -247,15 +247,33 @@ class DomaPanDAWork(Work):
         self.num_dependencies = num_dependencies
         return data
 
-    def convert_data_to_additional_data_storage(self, storage):
-        dependency_map_file = os.path.join(storage, self.get_work_name())
-        with open(dependency_map_file, 'w') as fd:
-            json.dump(self._dependency_map, fd)
-            new_dependency_map = {'idds_dependency_map_file': dependency_map_file}
-            self._dependency_map = new_dependency_map
+    def convert_data_to_additional_data_storage(self, storage, storage_name=None, replace_storage_name=False):
+        if not replace_storage_name:
+            dependency_map_file = os.path.join(storage, self.get_work_name())
+            if storage_name:
+                dependency_map_file_name = os.path.join(storage_name, self.get_work_name())
+            else:
+                dependency_map_file_name = dependency_map_file
 
-        if '_dependency_map' in self.zip_items:
-            self.zip_items.remove('_dependency_map')
+            data_size = len(json.dumps(self._dependency_map))
+            zip_size = len(self.zip_data(self._dependency_map))
+
+            with open(dependency_map_file, 'w') as fd:
+                json.dump(self._dependency_map, fd)
+                new_dependency_map = {'idds_dependency_map_file': dependency_map_file_name}
+                self._dependency_map = new_dependency_map
+
+            if '_dependency_map' in self.zip_items:
+                self.zip_items.remove('_dependency_map')
+            return self.get_work_name(), dependency_map_file, data_size, zip_size
+        else:
+            new_dependency_map = self._dependency_map
+            if 'idds_dependency_map_file' in new_dependency_map:
+                dependency_map_file_name = new_dependency_map['idds_dependency_map_file']
+                new_dependency_map_file_name = dependency_map_file_name.replace(storage_name, storage)
+                new_dependency_map['idds_dependency_map_file'] = new_dependency_map_file_name
+                self._dependency_map = new_dependency_map
+            return self.get_work_name(), new_dependency_map, None, None
 
     @dependency_map.setter
     def dependency_map(self, value):
