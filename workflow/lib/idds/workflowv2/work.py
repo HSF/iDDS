@@ -1444,7 +1444,7 @@ class Work(Base):
     def get_arguments(self):
         return self.arguments
 
-    def convert_data_to_additional_data_storage(self, storage):
+    def convert_data_to_additional_data_storage(self, storage, storage_name=None, replace_storage_name=False):
         pass
 
     def get_ancestry_works(self):

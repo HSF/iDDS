@@ -19,7 +19,8 @@ from idds.common.constants import HTTP_STATUS_CODE
 from idds.common.constants import RequestStatus
 from idds.common.constants import (MessageType, MessageStatus,
                                    MessageSource, MessageDestination,
-                                   CommandType)
+                                   CommandType, RequestType)
+from idds.common.dict_class import DictClass
 from idds.common.utils import json_loads
 from idds.core.requests import (add_request, get_requests,
                                 get_request, update_request,
@@ -31,7 +32,8 @@ from idds.rest.v1.controller import IDDSController
 from idds.rest.v1.utils import (convert_old_req_2_workflow_req,
                                 get_workflow_item,
                                 get_additional_request_data_storage,
-                                convert_data_to_use_additional_storage)
+                                convert_data_to_use_additional_storage,
+                                store_data_to_use_additional_storage)
 
 
 class Requests(IDDSController):
@@ -81,11 +83,23 @@ class Request(IDDSController):
         """
         try:
             logger = self.get_logger()
-            additional_data_storage = get_additional_request_data_storage(self.get_request().data, logger)
-            logger.info(f"additional_data_storage: {additional_data_storage}")
 
             parameters = self.get_request().data and json_loads(self.get_request().data)
             logger.debug(f"parameters: {parameters}")
+
+            with_add_storage, additional_data_storage = get_additional_request_data_storage(self.get_request().data, logger)
+            logger.info(f"additional_data_storage: {additional_data_storage}, with_add_storage: {with_add_storage}")
+
+            if parameters["request_type"] in [RequestType.WorkData]:
+                # upload work data
+                internal_id = parameters["internal_id"]
+                zip_data = parameters["data"]
+                dict_class = DictClass()
+                data = dict_class.unzip_data(zip_data)
+
+                logger.info(f"Received data for works: {data.keys()}")
+                store_data_to_use_additional_storage(internal_id, data, additional_data_storage, logger)
+                return self.generate_http_response(HTTP_STATUS_CODE.OK, data={'upload_status': 0})
 
             if 'status' not in parameters:
                 parameters['status'] = RequestStatus.New
@@ -112,8 +126,7 @@ class Request(IDDSController):
 
         try:
             parameters = convert_old_req_2_workflow_req(parameters)
-            if additional_data_storage:
-                parameters = convert_data_to_use_additional_storage(parameters, additional_data_storage, logger)
+            parameters = convert_data_to_use_additional_storage(parameters, additional_data_storage, with_add_storage, logger)
             request_id = add_request(**parameters)
         except exceptions.DuplicatedObject as error:
             logger.error(error)

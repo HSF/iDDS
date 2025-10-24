@@ -719,6 +719,8 @@ class WorkflowBase(Base):
         self.campaign_tag = None
         self.max_processing_requests = -1
 
+        self._request_cache = None
+
         """
         self._running_data_names = []
         for name in ['internal_id', 'template_work_id', 'workload_id', 'work_sequence', 'terminated_works',
@@ -769,6 +771,17 @@ class WorkflowBase(Base):
     @campaign_tag.setter
     def campaign_tag(self, value):
         self._campaign_tag = value
+
+    @property
+    def request_cache(self):
+        return self._request_cache
+
+    @request_cache.setter
+    def request_cache(self, value):
+        self._request_cache = value
+
+    def set_request_cache(self, value):
+        self.request_cache = value
 
     @property
     def max_processing_requests(self):
@@ -1210,6 +1223,9 @@ class WorkflowBase(Base):
     def set_additional_data_storage(self, storage):
         self.additional_data_storage = storage
 
+    def get_additional_data_storage(self):
+        return self.additional_data_storage
+
     def refresh(self):
         self.refresh_works()
 
@@ -1414,11 +1430,16 @@ class WorkflowBase(Base):
         self.build_work = work
         self.build_work.set_build_work()
 
-    def convert_data_to_additional_data_storage(self, storage):
+    def convert_data_to_additional_data_storage(self, storage, storage_name=None, replace_storage_name=False):
+        data_files = {}
         for work_id in self.works.keys():
             work = self.works[work_id]
-            work.convert_data_to_additional_data_storage(storage)
+            data_file = work.convert_data_to_additional_data_storage(storage, storage_name=storage_name, replace_storage_name=replace_storage_name)
+            if data_file:
+                work_name, filename, size, zip_size = data_file
+                data_files[work_name] = {'filename': filename, 'size': size, 'zip_size': zip_size}
             self.works[work_id] = work
+        return data_files
 
     def get_build_work(self):
         return self.build_work
@@ -2281,8 +2302,11 @@ class Workflow(Base):
     def set_additional_data_storage(self, storage):
         self.template.set_additional_data_storage(storage)
 
-    def convert_data_to_additional_data_storage(self, storage):
-        self.template.convert_data_to_additional_data_storage(storage)
+    def get_additional_data_storage(self, storage):
+        self.template.get_additional_data_storage(storage)
+
+    def convert_data_to_additional_data_storage(self, storage, storage_name=None):
+        return self.template.convert_data_to_additional_data_storage(storage, storage_name=storage_name)
 
     @property
     def metadata(self):

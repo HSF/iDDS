@@ -13,6 +13,7 @@
 Workflow manager.
 """
 import datetime
+import json
 import os
 import sys
 import logging
@@ -43,6 +44,7 @@ from idds.common.constants import (WorkflowType, RequestType, RequestStatus,
                                    TransformType, TransformStatus)
 # from idds.common.utils import get_rest_host, exception_handler
 from idds.common.utils import exception_handler
+from idds.common.utils import json_dumps
 
 # from idds.workflowv2.work import Work, Parameter, WorkStatus
 # from idds.workflowv2.workflow import Condition, Workflow
@@ -71,11 +73,16 @@ class ClientManager:
 
         self.enable_json_outputs = False
 
+        self.max_request_length = 400000000    # 400M
+        self.request_cache = "/tmp/idds"
+
         self.configuration = ConfigParser.ConfigParser()
 
         self.client = None
         # if setup_client:
         #     self.setup_client()
+
+        self.max_retries = 3
 
     def setup_client(self, auth_setup=False):
         self.get_local_configuration()
@@ -115,12 +122,15 @@ class ClientManager:
         name_envs = {'host': 'IDDS_HOST',
                      'local_config_root': 'IDDS_LOCAL_CONFIG_ROOT',
                      'config': 'IDDS_CONFIG',
+                     'max_request_length': 'IDDS_MAX_REQUEST_LENGTH',
+                     'request_cache': 'IDDS_REQUEST_CACHE',
                      'auth_type': 'IDDS_AUTH_TYPE',
                      'oidc_token_file': 'IDDS_OIDC_TOKEN_FILE',
                      'oidc_token': 'IDDS_OIDC_TOKEN',
                      'vo': 'IDDS_VO',
                      'auth_no_verify': 'IDDS_AUTH_NO_VERIFY',
-                     'enable_json_outputs': 'IDDS_ENABLE_JSON_OUTPUTS'}
+                     'enable_json_outputs': 'IDDS_ENABLE_JSON_OUTPUTS',
+                     'max_retries': 'IDDS_CLIENT_MAX_RETRIES'}
 
         additional_name_envs = {'oidc_token': 'OIDC_AUTH_ID_TOKEN',
                                 'oidc_token_file': 'OIDC_AUTH_TOKEN_FILE',
@@ -148,6 +158,9 @@ class ClientManager:
     def get_section(self, name):
         name_sections = {'config': 'common',
                          'auth_type': 'common',
+                         'max_request_length': 'common',      # 1000000
+                         'request_cache': 'common',
+                         'max_retries': 'common',
                          'host': 'rest',
                          'x509_proxy': 'x509_proxy',
                          'oidc_token_file': 'oidc',
@@ -205,6 +218,14 @@ class ClientManager:
         self.enable_json_outputs = self.get_config_value(config, None, 'enable_json_outputs',
                                                          current=self.enable_json_outputs, default=None)
         self.configuration = config
+
+        self.max_request_length = self.get_config_value(config, None, 'max_request_length',
+                                                        current=self.max_request_length, default=None)
+        self.request_cache = self.get_config_value(config, None, 'request_cache',
+                                                   current=self.request_cache, default=None)
+
+        self.max_retries = self.get_config_value(config, None, 'max_retries',
+                                                 current=self.max_retries, default=None)
 
     def set_local_configuration(self, name, value):
         if value:
@@ -423,6 +444,72 @@ class ClientManager:
         # logging.info("Ping idds server: %s" % str(status))
         return status
 
+    def submit_files(self, internal_id, batches):
+        retries = 0
+        batch_names = [b[0] for b in batches]
+        while retries < self.max_retries:
+            try:
+                logging.info(f"Retries {retries}: uploading data for {batch_names}")
+                request_type = RequestType.WorkData
+                data_batches = {}
+                for name, data_file in batches:
+                    filename = data_file['filename']
+                    with open(filename, 'r') as f:
+                        data = json.loads(f)
+                    data_batches[name] = data
+                zip_data = self.zip_data(data_batches)
+
+                props = {
+                    'requester': 'panda',
+                    'request_type': request_type,
+                    'internal_id': internal_id,
+                    'data': zip_data
+                }
+                ret = self.client.add_request(**props)
+                if ret and type(ret) in [dict] and 'upload_status' in ret and ret['upload_status'] == 0:
+                    logging.info(f"Retries {retries}: successfully uploaded data for {batch_names}")
+                    return True
+                logging.info(f"Retries {retries}: failed to upload data for {batch_names}, ret: {ret}")
+                retries += 1
+            except Exception as ex:
+                logging.error(f"Retries {retries}: failed to upload data for {batch_names}: {ex}")
+        return False
+
+    def submit_big_workflow(self, workflow):
+        data_length = len(json_dumps(workflow))
+        if self.max_request_length and data_length > self.max_request_length:
+            logging.info(f"Workflow size {data_length} > max request length {self.max_request_length}, will split it into steps")
+            internal_id = workflow.get_internal_id()
+            storage = os.path.join(self.request_cache, internal_id)
+            if not os.path.exists(storage):
+                os.makedirs(storage, exist_ok=True)
+            storage_name = "IDDS_WORKFLOW_ADDITIONAL_STORAGE"
+            # workflow.set_additional_data_storage(storage)
+            workflow.set_additional_data_storage(storage_name)
+            data_files = workflow.convert_data_to_additional_data_storage(storage, storage_name=storage_name)
+            current_size = 0
+            current_batch = []
+            for work_name, data_file in data_files.items():
+                # filename = data_file['filename']
+                # size = data_file['size']
+                zip_size = data_file['zip_size']
+                if current_size + zip_size <= self.max_request_length:
+                    current_batch.append((work_name, data_file))
+                    current_size += zip_size
+                else:
+                    ret = self.submit_files(self, workflow.get_internal_id(), current_batch)
+                    if not ret:
+                        msg = "Failed to submit workflow steps"
+                        raise Exception(msg)
+                    current_batch = [(work_name, data_file)]
+                    current_size = zip_size
+            if current_batch:
+                ret = self.submit_files(self, workflow.get_internal_id(), current_batch)
+                if not ret:
+                    msg = "Failed to submit workflow steps"
+                    raise Exception(msg)
+        return workflow
+
     @exception_handler
     def submit(self, workflow, username=None, userdn=None, use_dataset_name=False):
         """
@@ -453,6 +540,8 @@ class ClientManager:
                     priority = 0
         except Exception:
             pass
+
+        workflow = self.submit_big_workflow(workflow)
 
         props = {
             'campaign': workflow.campaign,

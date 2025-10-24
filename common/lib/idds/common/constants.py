@@ -244,6 +244,7 @@ class RequestType(IDDSEnum):
     iWorkflow = 6
     iWorkflowLocal = 7
     GenericWorkflow = 8
+    WorkData = 9
     Other = 99
 
 
