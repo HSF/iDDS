@@ -192,6 +192,8 @@ class AsyncResult(Base):
         self._map_results = map_results
         self.waiting_result_terminated = False
 
+        self._metrics = {}
+
         self._wait_num = wait_num
         if not self._wait_num:
             self._wait_num = 1
@@ -382,6 +384,8 @@ class AsyncResult(Base):
                 name_key = f"{name}:{key}"
                 ret = result['ret']
                 status, output, error, metrics = ret
+                self._metrics[name_key] = metrics
+
                 details = {"status": status, "error": error, "metrics": metrics}
 
                 ret_map.add_result(name=name, key=key, result=output, details=details)
@@ -400,6 +404,7 @@ class AsyncResult(Base):
                     if name_key in self.wait_keys:
                         ret = result['ret']
                         status, output, error, metrics = ret
+                        self._metrics[name_key] = metrics
                         rets.append(output)
 
                 self._results_percentage = len(rets) * 1.0 / len(self.wait_keys)
@@ -410,6 +415,7 @@ class AsyncResult(Base):
                     name_key = f"{name}:{key}"
                     ret = result['ret']
                     status, output, error, metrics = ret
+                    self._metrics[name_key] = metrics
 
                     rets.append(output)
                 self._results_percentage = len(rets) * 1.0 / self._wait_num
@@ -428,6 +434,14 @@ class AsyncResult(Base):
         if type(value) not in [list, tuple]:
             raise Exception(f"{self.internal_id} Results must be list or tuple, currently it is {value}")
         self._results = value
+
+    @property
+    def metrics(self):
+        return self._metrics
+
+    @metrics.setter
+    def metrics(self, value):
+        raise Exception(f"{self.internal_id} Not allowed to set metrics.")
 
     def disconnect(self):
         for con in self._connections:
@@ -847,6 +861,7 @@ class AsyncResult(Base):
             thread.start()
             time.sleep(1)
             self._subscribed = True
+            self._subscribe_thread = thread
             self._is_stop = False
 
     def stop(self):
@@ -854,6 +869,7 @@ class AsyncResult(Base):
             self._graceful_stop.set()
         self.disconnect()
         self._subscribed = False
+        self._subscribe_thread = None
         time_start = time.time()
         while not self._is_stop and time.time() - time_start < 60:
             time.sleep(1)
