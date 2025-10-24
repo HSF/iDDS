@@ -399,7 +399,7 @@ class AsyncResult(Base):
                     name_key = f"{name}:{key}"
                     if name_key in self.wait_keys:
                         ret = result['ret']
-                        status, output, error = ret
+                        status, output, error, metrics = ret
                         rets.append(output)
 
                 self._results_percentage = len(rets) * 1.0 / len(self.wait_keys)
@@ -409,7 +409,7 @@ class AsyncResult(Base):
                     key = result['key']
                     name_key = f"{name}:{key}"
                     ret = result['ret']
-                    status, output, error = ret
+                    status, output, error, metrics = ret
 
                     rets.append(output)
                 self._results_percentage = len(rets) * 1.0 / self._wait_num
