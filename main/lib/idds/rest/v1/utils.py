@@ -9,6 +9,7 @@
 # - Wen Guan, <wen.guan@cern.ch>, 2020 - 2025
 
 import copy
+import json
 import os
 import traceback
 
@@ -194,29 +195,47 @@ def get_additional_request_data_storage(data, logger):
         data_length = len(data)
         logger.info(f"max_request_data_length: {max_request_data_length}, len(data): {data_length}")
         if data_length > max_request_data_length:
-            return additional_storage
-        return None
+            return True, additional_storage
+        return False, additional_storage
     except Exception as ex:
         logger.warning(f"get_additional_request_data_storage raise exception: {ex}: {traceback.format_exc()}")
-    return None
+    return False, None
 
 
-def convert_data_to_use_additional_storage(data, additional_data_storage, logger):
+def convert_data_to_use_additional_storage(data, additional_data_storage, with_add_storage, logger):
     if not data:
         return data
 
     if ('request_metadata' in data and isinstance(data['request_metadata'], dict) and data['request_metadata'].get('workflow')):
         workflow = data['request_metadata']['workflow']
-        internal_id = workflow.get_internal_id()
-        storage = os.path.join(additional_data_storage, internal_id)
-        if not os.path.exists(storage):
-            os.makedirs(storage, exist_ok=True)
+        if with_add_storage:
+            internal_id = workflow.get_internal_id()
+            storage = os.path.join(additional_data_storage, internal_id)
+            if not os.path.exists(storage):
+                os.makedirs(storage, exist_ok=True)
 
-        data['additional_data_storage'] = storage
-        workflow.set_additional_data_storage(storage)
-        workflow.convert_data_to_additional_data_storage(storage)
-        data['request_metadata']['workflow'] = workflow
+            data['additional_data_storage'] = storage
+            workflow.set_additional_data_storage(storage)
+            workflow.convert_data_to_additional_data_storage(storage)
+            data['request_metadata']['workflow'] = workflow
+        else:
+            wf_storage = workflow.get_additional_data_storage()
+            if wf_storage == "IDDS_WORKFLOW_ADDITIONAL_STORAGE":
+                internal_id = workflow.get_internal_id()
+                storage = os.path.join(additional_data_storage, internal_id)
+
+                # convert IDDS_WORKFLOW_ADDITIONAL_STORAGE to additional_data_storage
+                workflow.convert_data_to_additional_data_storage(storage, storage_name=wf_storage, replace_storage_name=True)
     return data
+
+
+def store_data_to_use_additional_storage(internal_id, data, additional_data_storage, logger):
+    data_storage = os.path.join(additional_data_storage, internal_id)
+    for work_name, work_data in data:
+        data_file = os.path.join(data_storage, work_name)
+        with open(data_file, 'w') as fd:
+            json.dump(work_data, fd)
+        logger.info(f"store data of {work_name} to {data_file}")
 
 
 def get_workflow_item(data, item_name, logger):
