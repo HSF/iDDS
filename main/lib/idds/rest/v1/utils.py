@@ -192,7 +192,7 @@ def get_additional_request_data_storage(data, workflow, logger):
         else:
             additional_storage = '/tmp'
 
-        if workflow.is_with_steps() or workflow.is_workflow_step:
+        if workflow and (workflow.is_with_steps() or workflow.is_workflow_step):
             return False, additional_storage
 
         data_length = len(data)
