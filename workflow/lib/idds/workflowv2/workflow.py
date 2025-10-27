@@ -2302,8 +2302,8 @@ class Workflow(Base):
     def set_additional_data_storage(self, storage):
         self.template.set_additional_data_storage(storage)
 
-    def get_additional_data_storage(self, storage):
-        self.template.get_additional_data_storage(storage)
+    def get_additional_data_storage(self):
+        self.template.get_additional_data_storage()
 
     def convert_data_to_additional_data_storage(self, storage, storage_name=None):
         return self.template.convert_data_to_additional_data_storage(storage, storage_name=storage_name)
