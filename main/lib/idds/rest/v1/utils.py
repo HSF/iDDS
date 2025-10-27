@@ -218,7 +218,7 @@ def convert_data_to_use_additional_storage(data, additional_data_storage, with_a
             workflow.set_additional_data_storage(storage)
             workflow.convert_data_to_additional_data_storage(storage)
             data['request_metadata']['workflow'] = workflow
-        else:
+        elif workflow.is_with_steps():
             wf_storage = workflow.get_additional_data_storage()
             if wf_storage == "IDDS_WORKFLOW_ADDITIONAL_STORAGE":
                 internal_id = workflow.get_internal_id()
