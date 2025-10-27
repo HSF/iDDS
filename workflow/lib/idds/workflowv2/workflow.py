@@ -10,8 +10,10 @@
 
 import copy
 import datetime
+import json
 import logging
 import inspect
+import os
 import random
 import uuid
 
@@ -721,6 +723,12 @@ class WorkflowBase(Base):
 
         self._request_cache = None
 
+        self.with_steps = False
+
+        self.is_workflow_step = False
+        self.step_name = None
+        self.workflow_data = None
+
         """
         self._running_data_names = []
         for name in ['internal_id', 'template_work_id', 'workload_id', 'work_sequence', 'terminated_works',
@@ -739,6 +747,30 @@ class WorkflowBase(Base):
     @name.setter
     def name(self, value):
         self._name = value
+
+    @property
+    def is_workflow_step(self):
+        return self._is_workflow_step
+
+    @is_workflow_step.setter
+    def is_workflow_step(self, value):
+        self._is_workflow_step = value
+
+    @property
+    def step_name(self):
+        return self._step_name
+
+    @step_name.setter
+    def step_name(self, value):
+        self._step_name = value
+
+    @property
+    def workflow_data(self):
+        return self._workflow_data
+
+    @workflow_data.setter
+    def workflow_data(self, value):
+        self._workflow_data = value
 
     @property
     def campaign(self):
@@ -1220,11 +1252,83 @@ class WorkflowBase(Base):
     def to_cancel(self, value):
         self.add_metadata_item('to_cancel', value)
 
+    def is_with_steps(self):
+        return self.with_steps
+
     def set_additional_data_storage(self, storage):
         self.additional_data_storage = storage
 
     def get_additional_data_storage(self):
         return self.additional_data_storage
+
+    def create_workflow_step(self, batches):
+        workflow = Workflow()
+        workflow.internal_id = self.get_internal_id()
+        workflow.workflow_type = self.workflow_type
+        workflow.campaign = self.campaign
+        workflow.campaign_scope = self.campaign_scope
+        workflow.campaign_group = self.campaign_group
+        workflow.campaign_tag = self.campaign_tag
+        workflow.max_processing_requests = self.max_processing_requests
+        workflow.name = self.name
+        workflow.username = self.username
+        workflow.userdn = self.userdn
+        workflow.lifetime = self.lifetime
+        workflow.workload_id = self.get_workload_id()
+        workflow.is_workflow_step = True
+
+        data_batches = {}
+        step_names = []
+        for name, data_file in batches:
+            filename = data_file['filename']
+            with open(filename, 'r') as f:
+                data = json.loads(f)
+            data_batches[name] = data
+            step_names.append(name)
+        zip_data = self.zip_data(data_batches)
+        workflow.step_name = ",".join(step_names)
+        workflow.workflow_data = zip_data
+
+        return workflow
+
+    def split_workflow_to_steps(self, request_cache=None, max_request_length=None):
+        workflow = self
+        data_length = len(json_dumps(workflow))
+        if request_cache and max_request_length and data_length > max_request_length:
+            logging.info(f"Workflow size {data_length} > max request length {max_request_length}, will split it into steps")
+            storage = os.path.join(request_cache, self.get_internal_id())
+            if not os.path.exists(storage):
+                os.makedirs(storage, exist_ok=True)
+            storage_name = "IDDS_WORKFLOW_ADDITIONAL_STORAGE"
+            # workflow.set_additional_data_storage(storage)
+            workflow.set_additional_data_storage(storage_name)
+            data_files = workflow.convert_data_to_additional_data_storage(storage, storage_name=storage_name)
+            current_size = 0
+            current_batch = []
+            workflow_steps = []
+            for work_name, data_file in data_files.items():
+                # filename = data_file['filename']
+                # size = data_file['size']
+                zip_size = data_file['zip_size']
+                if current_size + zip_size <= max_request_length:
+                    current_batch.append((work_name, data_file))
+                    current_size += zip_size
+                else:
+                    if current_batch:
+                        workflow_step = self.create_workflow_step(current_batch)
+                        workflow_steps.append(workflow_step)
+                    current_batch = [(work_name, data_file)]
+                    current_size = zip_size
+            if current_batch:
+                workflow_step = self.create_workflow_step(current_batch)
+                workflow_steps.append(workflow_step)
+
+            self.with_steps = True
+
+            return workflow_steps
+        else:
+            logging.info(f"Workflow size {data_length} <= max request length {max_request_length} or max request length is not defined, will not split it into steps")
+        return []
 
     def refresh(self):
         self.refresh_works()
@@ -2299,14 +2403,53 @@ class Workflow(Base):
     def get_template_id(self):
         return self.template.get_template_id()
 
+    def is_with_steps(self):
+        return self.template.is_with_steps()
+
     def set_additional_data_storage(self, storage):
         self.template.set_additional_data_storage(storage)
 
-    def get_additional_data_storage(self, storage):
-        self.template.get_additional_data_storage(storage)
+    def get_additional_data_storage(self):
+        self.template.get_additional_data_storage()
 
     def convert_data_to_additional_data_storage(self, storage, storage_name=None):
         return self.template.convert_data_to_additional_data_storage(storage, storage_name=storage_name)
+
+    @property
+    def is_workflow_step(self):
+        if self.runs:
+            return self.runs[str(self.num_run)].is_workflow_step
+        return self.template.is_workflow_step
+
+    @is_workflow_step.setter
+    def is_workflow_step(self, value):
+        if self.runs:
+            self.runs[str(self.num_run)].is_workflow_step = value
+        self.template.is_workflow_step = value
+
+    @property
+    def step_name(self):
+        if self.runs:
+            return self.runs[str(self.num_run)].step_name
+        return self.template.step_name
+
+    @step_name.setter
+    def step_name(self, value):
+        if self.runs:
+            self.runs[str(self.num_run)].step_name = value
+        self.template.step_name = value
+
+    @property
+    def workflow_data(self):
+        if self.runs:
+            return self.runs[str(self.num_run)].workflow_data
+        return self.template.workflow_data
+
+    @workflow_data.setter
+    def workflow_data(self, value):
+        if self.runs:
+            self.runs[str(self.num_run)].workflow_data = value
+        self.template.workflow_data = value
 
     @property
     def metadata(self):

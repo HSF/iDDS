@@ -13,7 +13,6 @@
 Workflow manager.
 """
 import datetime
-import json
 import os
 import sys
 import logging
@@ -44,7 +43,6 @@ from idds.common.constants import (WorkflowType, RequestType, RequestStatus,
                                    TransformType, TransformStatus)
 # from idds.common.utils import get_rest_host, exception_handler
 from idds.common.utils import exception_handler
-from idds.common.utils import json_dumps
 
 # from idds.workflowv2.work import Work, Parameter, WorkStatus
 # from idds.workflowv2.workflow import Condition, Workflow
@@ -444,70 +442,18 @@ class ClientManager:
         # logging.info("Ping idds server: %s" % str(status))
         return status
 
-    def submit_files(self, internal_id, batches):
-        retries = 0
-        batch_names = [b[0] for b in batches]
-        while retries < self.max_retries:
-            try:
-                logging.info(f"Retries {retries}: uploading data for {batch_names}")
-                request_type = RequestType.WorkData
-                data_batches = {}
-                for name, data_file in batches:
-                    filename = data_file['filename']
-                    with open(filename, 'r') as f:
-                        data = json.loads(f)
-                    data_batches[name] = data
-                zip_data = self.zip_data(data_batches)
+    def submit_big_workflow(self, workflow, username=None, userdn=None, use_dataset_name=False):
+        if workflow.is_with_steps():
+            return workflow
 
-                props = {
-                    'requester': 'panda',
-                    'request_type': request_type,
-                    'internal_id': internal_id,
-                    'data': zip_data
-                }
-                ret = self.client.add_request(**props)
-                if ret and type(ret) in [dict] and 'upload_status' in ret and ret['upload_status'] == 0:
-                    logging.info(f"Retries {retries}: successfully uploaded data for {batch_names}")
-                    return True
-                logging.info(f"Retries {retries}: failed to upload data for {batch_names}, ret: {ret}")
-                retries += 1
-            except Exception as ex:
-                logging.error(f"Retries {retries}: failed to upload data for {batch_names}: {ex}")
-        return False
-
-    def submit_big_workflow(self, workflow):
-        data_length = len(json_dumps(workflow))
-        if self.max_request_length and data_length > self.max_request_length:
-            logging.info(f"Workflow size {data_length} > max request length {self.max_request_length}, will split it into steps")
-            internal_id = workflow.get_internal_id()
-            storage = os.path.join(self.request_cache, internal_id)
-            if not os.path.exists(storage):
-                os.makedirs(storage, exist_ok=True)
-            storage_name = "IDDS_WORKFLOW_ADDITIONAL_STORAGE"
-            # workflow.set_additional_data_storage(storage)
-            workflow.set_additional_data_storage(storage_name)
-            data_files = workflow.convert_data_to_additional_data_storage(storage, storage_name=storage_name)
-            current_size = 0
-            current_batch = []
-            for work_name, data_file in data_files.items():
-                # filename = data_file['filename']
-                # size = data_file['size']
-                zip_size = data_file['zip_size']
-                if current_size + zip_size <= self.max_request_length:
-                    current_batch.append((work_name, data_file))
-                    current_size += zip_size
-                else:
-                    ret = self.submit_files(self, workflow.get_internal_id(), current_batch)
-                    if not ret:
-                        msg = "Failed to submit workflow steps"
-                        raise Exception(msg)
-                    current_batch = [(work_name, data_file)]
-                    current_size = zip_size
-            if current_batch:
-                ret = self.submit_files(self, workflow.get_internal_id(), current_batch)
-                if not ret:
-                    msg = "Failed to submit workflow steps"
-                    raise Exception(msg)
+        wf_steps = workflow.split_workflow_to_steps(request_cache=self.request_cache, max_request_length=self.max_request_length)
+        for wf_step in wf_steps:
+            ret = self.submit(wf_step, username=username, userdn=userdn, use_dataset_name=use_dataset_name)
+            if ret and type(ret) in [dict] and 'submit_status' in ret and ret['submit_status'] == 0:
+                logging.info(f"Successfully upload workflow step: {wf_step.step_name}")
+            else:
+                msg = f"Failed to submit workflow step {wf_step.step_name}: {ret}"
+                raise Exception(msg)
         return workflow
 
     @exception_handler
@@ -541,7 +487,8 @@ class ClientManager:
         except Exception:
             pass
 
-        workflow = self.submit_big_workflow(workflow)
+        if hasattr(self, 'submit_big_workflow'):
+            workflow = self.submit_big_workflow(workflow, username=username, userdn=userdn, use_dataset_name=use_dataset_name)
 
         props = {
             'campaign': workflow.campaign,
