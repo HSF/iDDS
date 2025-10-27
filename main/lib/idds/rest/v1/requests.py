@@ -86,12 +86,14 @@ class Request(IDDSController):
             parameters = self.get_request().data and json_loads(self.get_request().data)
             logger.debug(f"parameters: {parameters}")
 
-            workflow = parameters['request_metadata']['workflow']
+            workflow = None
+            if ('request_metadata' in parameters and isinstance(parameters['request_metadata'], dict) and parameters['request_metadata'].get('workflow')):
+                workflow = parameters['request_metadata']['workflow']
 
             with_add_storage, additional_data_storage = get_additional_request_data_storage(self.get_request().data, workflow, logger)
             logger.info(f"additional_data_storage: {additional_data_storage}, with_add_storage: {with_add_storage}")
 
-            if workflow.is_workflow_step:
+            if workflow and workflow.is_workflow_step:
                 # upload work data
                 internal_id = workflow.get_internal_id()
                 zip_data = workflow.workflow_data
