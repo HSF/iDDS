@@ -1263,8 +1263,7 @@ class WorkflowBase(Base):
 
     def create_workflow_step(self, batches):
         workflow = Workflow()
-        workflow.internal_id = self.get_internal_id()
-        workflow.workflow_type = self.workflow_type
+        workflow.set_internal_id(self.get_internal_id())
         workflow.campaign = self.campaign
         workflow.campaign_scope = self.campaign_scope
         workflow.campaign_group = self.campaign_group
@@ -1282,7 +1281,7 @@ class WorkflowBase(Base):
         for name, data_file in batches:
             filename = data_file['filename']
             with open(filename, 'r') as f:
-                data = json.loads(f)
+                data = json.load(f)
             data_batches[name] = data
             step_names.append(name)
         zip_data = self.zip_data(data_batches)
@@ -1359,6 +1358,9 @@ class WorkflowBase(Base):
         if self.logger is None:
             self.setup_logger()
         self.logger.debug(info)
+
+    def set_internal_id(self, value):
+        self.internal_id = value
 
     def get_internal_id(self):
         return self.internal_id
@@ -2410,10 +2412,10 @@ class Workflow(Base):
         self.template.set_additional_data_storage(storage)
 
     def get_additional_data_storage(self):
-        self.template.get_additional_data_storage()
+        return self.template.get_additional_data_storage()
 
-    def convert_data_to_additional_data_storage(self, storage, storage_name=None):
-        return self.template.convert_data_to_additional_data_storage(storage, storage_name=storage_name)
+    def convert_data_to_additional_data_storage(self, storage, storage_name=None, replace_storage_name=False):
+        return self.template.convert_data_to_additional_data_storage(storage, storage_name=storage_name, replace_storage_name=replace_storage_name)
 
     @property
     def is_workflow_step(self):
@@ -2450,6 +2452,9 @@ class Workflow(Base):
         if self.runs:
             self.runs[str(self.num_run)].workflow_data = value
         self.template.workflow_data = value
+
+    def split_workflow_to_steps(self, request_cache=None, max_request_length=None):
+        return self.template.split_workflow_to_steps(request_cache=request_cache, max_request_length=max_request_length)
 
     @property
     def metadata(self):
@@ -2646,6 +2651,11 @@ class Workflow(Base):
         else:
             self.template.workload_id = workload_id
         # self.dynamic.workload_id = workload_id
+
+    def set_internal_id(self, value):
+        if self.runs:
+            return self.runs[str(self.num_run)].set_internal_id(value)
+        return self.template.set_internal_id(value)
 
     def get_internal_id(self):
         if self.runs:
