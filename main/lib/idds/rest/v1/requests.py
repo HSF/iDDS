@@ -19,8 +19,7 @@ from idds.common.constants import HTTP_STATUS_CODE
 from idds.common.constants import RequestStatus
 from idds.common.constants import (MessageType, MessageStatus,
                                    MessageSource, MessageDestination,
-                                   CommandType, RequestType)
-from idds.common.dict_class import DictClass
+                                   CommandType)
 from idds.common.utils import json_loads
 from idds.core.requests import (add_request, get_requests,
                                 get_request, update_request,
@@ -90,16 +89,16 @@ class Request(IDDSController):
             with_add_storage, additional_data_storage = get_additional_request_data_storage(self.get_request().data, logger)
             logger.info(f"additional_data_storage: {additional_data_storage}, with_add_storage: {with_add_storage}")
 
-            if parameters["request_type"] in [RequestType.WorkData]:
+            workflow = parameters['request_metadata']['workflow']
+            if workflow.is_workflow_step:
                 # upload work data
-                internal_id = parameters["internal_id"]
-                zip_data = parameters["data"]
-                dict_class = DictClass()
-                data = dict_class.unzip_data(zip_data)
+                internal_id = workflow.get_internal_id()
+                zip_data = workflow.workflow_data
+                data = workflow.unzip_data(zip_data)
 
                 logger.info(f"Received data for works: {data.keys()}")
                 store_data_to_use_additional_storage(internal_id, data, additional_data_storage, logger)
-                return self.generate_http_response(HTTP_STATUS_CODE.OK, data={'upload_status': 0})
+                return self.generate_http_response(HTTP_STATUS_CODE.OK, data={'submit_status': 0})
 
             if 'status' not in parameters:
                 parameters['status'] = RequestStatus.New
