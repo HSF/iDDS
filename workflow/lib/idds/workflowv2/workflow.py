@@ -1263,7 +1263,7 @@ class WorkflowBase(Base):
 
     def create_workflow_step(self, batches):
         workflow = Workflow()
-        workflow.internal_id = self.get_internal_id()
+        workflow.set_internal_id(self.get_internal_id())
         workflow.campaign = self.campaign
         workflow.campaign_scope = self.campaign_scope
         workflow.campaign_group = self.campaign_group
@@ -1358,6 +1358,9 @@ class WorkflowBase(Base):
         if self.logger is None:
             self.setup_logger()
         self.logger.debug(info)
+
+    def set_internal_id(self, value):
+        self.internal_id = value
 
     def get_internal_id(self):
         return self.internal_id
@@ -2648,6 +2651,11 @@ class Workflow(Base):
         else:
             self.template.workload_id = workload_id
         # self.dynamic.workload_id = workload_id
+
+    def set_internal_id(self, value):
+        if self.runs:
+            return self.runs[str(self.num_run)].set_internal_id(value)
+        return self.template.set_internal_id(value)
 
     def get_internal_id(self):
         if self.runs:
