@@ -86,10 +86,11 @@ class Request(IDDSController):
             parameters = self.get_request().data and json_loads(self.get_request().data)
             logger.debug(f"parameters: {parameters}")
 
-            with_add_storage, additional_data_storage = get_additional_request_data_storage(self.get_request().data, logger)
+            workflow = parameters['request_metadata']['workflow']
+
+            with_add_storage, additional_data_storage = get_additional_request_data_storage(self.get_request().data, workflow, logger)
             logger.info(f"additional_data_storage: {additional_data_storage}, with_add_storage: {with_add_storage}")
 
-            workflow = parameters['request_metadata']['workflow']
             if workflow.is_workflow_step:
                 # upload work data
                 internal_id = workflow.get_internal_id()
@@ -98,7 +99,7 @@ class Request(IDDSController):
 
                 logger.info(f"Received data for works: {data.keys()}")
                 store_data_to_use_additional_storage(internal_id, data, additional_data_storage, logger)
-                return self.generate_http_response(HTTP_STATUS_CODE.OK, data={'submit_status': 0})
+                return self.generate_http_response(HTTP_STATUS_CODE.OK, data={'request_id': 0})
 
             if 'status' not in parameters:
                 parameters['status'] = RequestStatus.New
@@ -120,7 +121,7 @@ class Request(IDDSController):
 
             if additional_data_storage:
                 parameters['additional_data_storage'] = additional_data_storage
-        except ValueError as error:
+        except Exception as error:
             logger.error(error)
             logger.error(format_exc())
             return self.generate_http_response(HTTP_STATUS_CODE.BadRequest, exc_cls=exceptions.BadRequest.__name__, exc_msg='Cannot decode json parameter dictionary')
