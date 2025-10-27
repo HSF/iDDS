@@ -443,13 +443,13 @@ class ClientManager:
         return status
 
     def submit_big_workflow(self, workflow, username=None, userdn=None, use_dataset_name=False):
-        if workflow.is_with_steps():
+        if workflow.is_with_steps() or workflow.is_workflow_step:
             return workflow
 
         wf_steps = workflow.split_workflow_to_steps(request_cache=self.request_cache, max_request_length=self.max_request_length)
         for wf_step in wf_steps:
             ret = self.submit(wf_step, username=username, userdn=userdn, use_dataset_name=use_dataset_name)
-            if ret and type(ret) in [dict] and 'submit_status' in ret and ret['submit_status'] == 0:
+            if ret is not None and ret == 0:
                 logging.info(f"Successfully upload workflow step: {wf_step.step_name}")
             else:
                 msg = f"Failed to submit workflow step {wf_step.step_name}: {ret}"
