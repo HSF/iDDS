@@ -31,3 +31,4 @@ dependencies:
   - deepdiff
   - pyzmq
   - oic
+  - cachetools

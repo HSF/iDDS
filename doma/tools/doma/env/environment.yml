@@ -3,6 +3,6 @@ dependencies:
 - python==3.6
 - pip
 - pip:
-  - panda-client-light     # panda client
+  - panda-client-light==1.5.91     # panda client
   - idds-common==2.2.21
   - idds-workflow==2.2.21

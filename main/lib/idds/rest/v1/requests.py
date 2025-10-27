@@ -120,7 +120,9 @@ class Request(IDDSController):
 
             if additional_data_storage:
                 parameters['additional_data_storage'] = additional_data_storage
-        except ValueError:
+        except ValueError as error:
+            logger.error(error)
+            logger.error(format_exc())
             return self.generate_http_response(HTTP_STATUS_CODE.BadRequest, exc_cls=exceptions.BadRequest.__name__, exc_msg='Cannot decode json parameter dictionary')
 
         try:
