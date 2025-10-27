@@ -41,13 +41,15 @@ class Receiver(BaseAgent):
     """
 
     def __init__(self, receiver_num_threads=8, num_threads=1, bulk_message_delay=30, bulk_message_size=2000,
-                 random_delay=None, use_process_pool=False, update_processing_interval=300, mode='single', **kwargs):
+                 random_delay=None, use_process_pool=False, update_processing_interval=300, mode='single',
+                 separate_logger=False, **kwargs):
         super(Receiver, self).__init__(num_threads=receiver_num_threads, name='Receiver', use_process_pool=use_process_pool, **kwargs)
         self.config_section = Sections.Carrier
         self.bulk_message_delay = int(bulk_message_delay)
         self.bulk_message_size = int(bulk_message_size)
         self.message_queue = Queue()
-        self.logger = get_logger(self.__class__.__name__)
+        if separate_logger:
+            self.logger = get_logger(self.__class__.__name__)
         self.update_processing_interval = update_processing_interval
         if self.update_processing_interval:
             self.update_processing_interval = int(self.update_processing_interval)
