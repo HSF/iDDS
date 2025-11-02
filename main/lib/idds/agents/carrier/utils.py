@@ -1147,7 +1147,7 @@ def trigger_release_inputs(request_id, transform_id, workload_id, work, updated_
     return update_contents, update_input_contents_full, update_contents_status_name, update_contents_status
 
 
-def poll_missing_outputs(input_output_maps, contents_ext=[], max_updates_per_round=2000):
+def poll_missing_outputs(input_output_maps, contents_ext=[], max_updates_per_round=2000, process_status=None):
     content_updates_missing, updated_contents_full_missing = [], []
 
     chunks = []
@@ -1164,7 +1164,7 @@ def poll_missing_outputs(input_output_maps, contents_ext=[], max_updates_per_rou
             # inputs_dependency_sub = input_output_sub_maps[sub_map_id]['inputs_dependency']
 
             content_update_status = None
-            if is_all_contents_terminated_but_not_available(inputs_sub):
+            if is_all_contents_terminated_but_not_available(inputs_sub) or process_status in [ProcessingStatus.Cancelled]:
                 content_update_status = ContentStatus.Missing
 
                 for content in outputs_sub:
@@ -1344,7 +1344,9 @@ def handle_update_processing(processing, agent_attributes, max_updates_per_round
             ret_futures.add(f)
 
     ret_msgs = []
-    content_updates_missing_chunks = poll_missing_outputs(input_output_maps, contents_ext=contents_ext, max_updates_per_round=max_updates_per_round)
+    content_updates_missing_chunks = poll_missing_outputs(input_output_maps, contents_ext=contents_ext,
+                                                          max_updates_per_round=max_updates_per_round,
+                                                          process_status=process_status)
     for content_updates_missing_chunk in content_updates_missing_chunks:
         content_updates_missing, updated_contents_full_missing = content_updates_missing_chunk
         msgs = []
