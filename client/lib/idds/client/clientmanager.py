@@ -971,9 +971,6 @@ class ClientManager:
         """
         self.setup_client()
 
-        if hasattr(self, 'submit_big_workflow'):
-            workflow = self.submit_big_workflow(workflow)
-
         ret = self.client.update_build_request(request_id=request_id, signature=signature, workflow=workflow)
         return ret
 
