@@ -327,6 +327,13 @@ class RequestBuild(IDDSController):
 
             req['request_metadata']['workflow'] = workflow
 
+            with_add_storage, additional_data_storage = get_additional_request_data_storage(self.get_request().data, workflow, logger)
+            logger.info(f"additional_data_storage: {additional_data_storage}, with_add_storage: {with_add_storage}")
+
+            parameters = convert_data_to_use_additional_storage(parameters, additional_data_storage, with_add_storage, logger)
+
+            req['request_metadata']['workflow'] = workflow
+
             parameters = {'status': RequestStatus.Built,
                           'request_metadata': req['request_metadata']}
             update_request(request_id=req['request_id'], parameters=parameters, update_request_metadata=True)
