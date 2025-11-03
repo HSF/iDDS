@@ -211,6 +211,7 @@ def convert_data_to_use_additional_storage(data, additional_data_storage, with_a
 
     if ('request_metadata' in data and isinstance(data['request_metadata'], dict) and data['request_metadata'].get('workflow')):
         workflow = data['request_metadata']['workflow']
+        logger.debug(f"convert_data_to_use_additional_storage get workflow: {workflow}")
         if with_add_storage:
             internal_id = workflow.get_internal_id()
             storage = os.path.join(additional_data_storage, internal_id)

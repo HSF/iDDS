@@ -325,10 +325,16 @@ class RequestBuild(IDDSController):
             if 'workflow' in req['request_metadata'] and req['request_metadata']['workflow'] is not None:
                 raise exceptions.IDDSException(f"Request(request_id: {request_id}, status: {req['status']}) already has defined workflow")
 
-            req['request_metadata']['workflow'] = workflow
+            # req['request_metadata']['workflow'] = workflow
+
+            with_add_storage, additional_data_storage = get_additional_request_data_storage(self.get_request().data, workflow, logger)
+            logger.info(f"additional_data_storage: {additional_data_storage}, with_add_storage: {with_add_storage}")
+
+            data = {"request_metadata": {"workflow": workflow}}
+            data = convert_data_to_use_additional_storage(data, additional_data_storage, with_add_storage, logger)
 
             parameters = {'status': RequestStatus.Built,
-                          'request_metadata': req['request_metadata']}
+                          'request_metadata': data['request_metadata']}
             update_request(request_id=req['request_id'], parameters=parameters, update_request_metadata=True)
         except exceptions.IDDSException as error:
             return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=error.__class__.__name__, exc_msg=error)
