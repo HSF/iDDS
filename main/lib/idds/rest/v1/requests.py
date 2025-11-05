@@ -93,7 +93,7 @@ class Request(IDDSController):
             with_add_storage, additional_data_storage = get_additional_request_data_storage(self.get_request().data, workflow, logger)
             logger.info(f"additional_data_storage: {additional_data_storage}, with_add_storage: {with_add_storage}")
 
-            if workflow and workflow.is_workflow_step:
+            if workflow and hasattr(workflow, "is_workflow_step") and workflow.is_workflow_step:
                 # upload work data
                 internal_id = workflow.get_internal_id()
                 zip_data = workflow.workflow_data
