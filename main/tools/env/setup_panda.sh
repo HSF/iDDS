@@ -114,7 +114,7 @@ elif [ "$instance" == "new" ]; then
     # export IDDS_HOST=https://aipanda015.cern.ch:443/idds
 
     # dev
-    # export IDDS_HOST=https://aipanda104.cern.ch:443/idds
+    export IDDS_HOST=https://aipanda104.cern.ch:443/idds
 
     # doma
     export IDDS_HOST=https://aipanda105.cern.ch:443/idds
