@@ -182,7 +182,7 @@ def get_request_ids_by_workload_id(workload_id, session=None):
 
 
 @read_session
-def get_request_ids_by_name(name, session=None):
+def get_request_ids_by_name(name, scope=None, session=None):
     """
     Get request ids or raise a NoObject exception.
 
@@ -193,7 +193,7 @@ def get_request_ids_by_name(name, session=None):
 
     :returns: Request {name:id} dict.
     """
-    return orm_requests.get_request_ids_by_name(name, session=session)
+    return orm_requests.get_request_ids_by_name(name, scope=scope, session=session)
 
 
 @transactional_session

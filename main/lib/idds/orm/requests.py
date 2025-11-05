@@ -187,7 +187,7 @@ def get_request_ids_by_workload_id(workload_id, session=None):
 
 
 @read_session
-def get_request_ids_by_name(name, session=None):
+def get_request_ids_by_name(name, scope=None, exact_match=False, session=None):
     """
     Get request ids or raise a NoObject exception.
 
@@ -199,8 +199,15 @@ def get_request_ids_by_name(name, session=None):
     :returns: Request {name:id} dict.
     """
     try:
-        query = session.query(models.Request.request_id, models.Request.name)\
-                       .filter(models.Request.name.like(name.replace('*', '%')))
+        if exact_match:
+            query = session.query(models.Request.request_id, models.Request.name)\
+                           .filter(models.Request.name.like(name.replace('*', '%')))
+        else:
+            query = session.query(models.Request.request_id, models.Request.name)\
+                           .filter(models.Request.name == name)
+        if scope:
+            query = query.filter(models.Request.scope == scope)
+
         tmp = query.all()
         ret_ids = {}
         if tmp:
@@ -781,6 +788,8 @@ def get_query_collection(request_id=None, workload_id=None):
                          models.Collection.total_files.label("input_total_files"),
                          models.Collection.processed_files.label("input_processed_files"),
                          models.Collection.new_files.label("input_new_files"),
+                         models.Collection.preprocessing_files.label("input_preprocessing_files"),
+                         models.Collection.activated_files.label("input_activated_files"),
                          models.Collection.failed_files.label("input_failed_files"),
                          models.Collection.missing_files.label("input_missing_files"),
                          models.Collection.processing_files.label("input_processing_files"))\
@@ -795,6 +804,8 @@ def get_query_collection(request_id=None, workload_id=None):
                           models.Collection.total_files.label("output_total_files"),
                           models.Collection.processed_files.label("output_processed_files"),
                           models.Collection.new_files.label("output_new_files"),
+                          models.Collection.preprocessing_files.label("output_preprocessing_files"),
+                          models.Collection.activated_files.label("output_activated_files"),
                           models.Collection.failed_files.label("output_failed_files"),
                           models.Collection.missing_files.label("output_missing_files"),
                           models.Collection.processing_files.label("output_processing_files"))\
