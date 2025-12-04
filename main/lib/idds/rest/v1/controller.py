@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -7,7 +8,7 @@
 #
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2019 - 2024
-# - Rudra Tiwari, <rudra.tiwari@student.unimelb.edu.au>, 2024
+# - Rudra Tiwari, <rudra.tiwari@student.unimelb.edu.au>, 2025
 
 
 import time
@@ -24,14 +25,12 @@ from idds.common.utils import json_dumps, get_logger
 def log_api_call(func):
     """
     Decorator to log REST API calls with timing and context information.
-
-    This decorator automatically logs:
+    The decorator logs:
     - Request method and endpoint
     - Username (if authenticated)
     - Request duration
     - Response status code
     - Any exceptions that occur
-
     Usage:
         @log_api_call
         def get(self, request_id):
