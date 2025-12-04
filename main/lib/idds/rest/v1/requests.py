@@ -45,6 +45,7 @@ class Requests(IDDSController):
         HTTP Success:
             200 OK
         HTTP Error:
+            400 Bad Request
             404 Not Found
             500 InternalError
         :returns: A list containing requests.
@@ -53,11 +54,15 @@ class Requests(IDDSController):
         try:
             request_id = self.get_request().args.get('request_id', None)
             workload_id = self.get_request().args.get('workload_id', None)
+
+            # Input validation: at least one identifier must be provided
             if request_id is None and workload_id is None:
-                self.generate_http_response(HTTP_STATUS_CODE.BadRequest,
-                                            exc_cls=exceptions.BadRequest.__name__,
-                                            exc_msg="request_id and workload_id are both None. One should not be None")
-            # reqs = get_requests(request_id=request_id, workload_id=workload_id, to_json=True)
+                return self.generate_http_response(
+                    HTTP_STATUS_CODE.BadRequest,
+                    exc_cls=exceptions.BadRequest.__name__,
+                    exc_msg="request_id and workload_id are both None. At least one must be provided."
+                )
+
             reqs = get_requests(request_id=request_id, workload_id=workload_id)
         except exceptions.NoObject as error:
             return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
@@ -256,12 +261,6 @@ class Request(IDDSController):
 
         return self.generate_http_response(HTTP_STATUS_CODE.OK, data=reqs)
 
-    def post_test(self):
-        import pprint
-        pprint.pprint(self.get_request())
-        pprint.pprint(self.get_request().endpoint)
-        pprint.pprint(self.get_request().url_rule)
-
 
 class RequestName(IDDSController):
     """ Get id from name. """
@@ -271,12 +270,22 @@ class RequestName(IDDSController):
         HTTP Success:
             200 OK
         HTTP Error:
+            400 Bad Request
             404 Not Found
             500 InternalError
         :returns: {name:id} dict.
         """
+        logger = self.get_logger()
+
+        # Input validation: name must be provided and non-empty
+        if not name or name.strip() == '':
+            return self.generate_http_response(
+                HTTP_STATUS_CODE.BadRequest,
+                exc_cls=exceptions.BadRequest.__name__,
+                exc_msg="Request name parameter is required and cannot be empty."
+            )
+
         try:
-            logger = self.get_logger()
             rets = get_request_ids_by_name(name)
         except exceptions.NoObject as error:
             return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
@@ -301,11 +310,33 @@ class RequestBuild(IDDSController):
             400 Bad request
             500 Internal Error
         """
+        logger = self.get_logger()
+
+        # Input validation: request_id must be valid
+        if request_id is None or request_id == 'null':
+            return self.generate_http_response(
+                HTTP_STATUS_CODE.BadRequest,
+                exc_cls=exceptions.BadRequest.__name__,
+                exc_msg="request_id is required and must be a valid identifier."
+            )
+
         try:
-            logger = self.get_logger()
             parameters = self.get_request().data and json_loads(self.get_request().data)
+
+            # Validate required parameters
+            if not parameters:
+                return self.generate_http_response(
+                    HTTP_STATUS_CODE.BadRequest,
+                    exc_cls=exceptions.BadRequest.__name__,
+                    exc_msg="Request body is required and must contain 'signature' and 'workflow'."
+                )
+
             if 'signature' not in parameters or 'workflow' not in parameters:
-                raise exceptions.IDDSException("signature and workflow are required")
+                return self.generate_http_response(
+                    HTTP_STATUS_CODE.BadRequest,
+                    exc_cls=exceptions.BadRequest.__name__,
+                    exc_msg="Both 'signature' and 'workflow' parameters are required."
+                )
 
             # request_id = parameters['request_id']
             signature = parameters['signature']
