@@ -174,7 +174,6 @@ class Marshaller(BaseAgent):
         if workprogress['status'] in [WorkprogressStatus.ToCancel]:
             # current works
             works = wf.get_current_works()
-            # print(works)
             for work in works:
                 if work.get_status() not in [WorkStatus.Finished, WorkStatus.SubFinished,
                                              WorkStatus.Failed, WorkStatus.Cancelling,
@@ -183,13 +182,12 @@ class Marshaller(BaseAgent):
 
         # current works
         works = wf.get_current_works()
-        # print(works)
         for work in works:
-            # print(work.get_work_id())
             tf = core_transforms.get_transform(transform_id=work.get_work_id())
             work_status = WorkStatus(tf['status'].value)
             work.set_status(work_status)
-            work.set_terminated_msg(msg=None)   # TODO
+            # Pass transform errors as the terminated message for proper error propagation
+            work.set_terminated_msg(msg=tf.get('errors'))
 
         if wf.is_terminated():
             if wf.is_finished():
