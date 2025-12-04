@@ -55,8 +55,8 @@ class Message(IDDSController):
             if request_id is None:
                 raise Exception("request_id should not be None")
         except Exception as error:
-            print(error)
-            print(format_exc())
+            self.logger.error("Failed to parse request parameters: %s", error)
+            self.logger.error(format_exc())
             return self.generate_http_response(HTTP_STATUS_CODE.BadRequest, exc_cls=exceptions.BadRequest.__name__, exc_msg=str(error))
 
         try:
@@ -68,8 +68,8 @@ class Message(IDDSController):
         except exceptions.AuthenticationNoPermission as error:
             return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=error.__class__.__name__, exc_msg=error)
         except Exception as error:
-            print(error)
-            print(format_exc())
+            self.logger.error("Failed to authenticate user for get messages: %s", error)
+            self.logger.error(format_exc())
             return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
 
         try:
@@ -87,8 +87,8 @@ class Message(IDDSController):
         except exceptions.IDDSException as error:
             return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=error.__class__.__name__, exc_msg=error)
         except Exception as error:
-            print(error)
-            print(format_exc())
+            self.logger.error("Failed to retrieve messages: %s", error)
+            self.logger.error(format_exc())
             return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
 
         return self.generate_http_response(HTTP_STATUS_CODE.OK, data=rets)
@@ -113,8 +113,8 @@ class Message(IDDSController):
             if request_id is None:
                 raise Exception("request_id should not be None")
         except Exception as error:
-            print(error)
-            print(format_exc())
+            self.logger.error("Failed to parse request parameters for post: %s", error)
+            self.logger.error(format_exc())
             return self.generate_http_response(HTTP_STATUS_CODE.BadRequest, exc_cls=exceptions.BadRequest.__name__, exc_msg=str(error))
 
         try:
@@ -126,8 +126,8 @@ class Message(IDDSController):
         except exceptions.AuthenticationNoPermission as error:
             return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=error.__class__.__name__, exc_msg=error)
         except Exception as error:
-            print(error)
-            print(format_exc())
+            self.logger.error("Failed to authenticate user for post messages: %s", error)
+            self.logger.error(format_exc())
             return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
 
         try:
@@ -168,17 +168,11 @@ class Message(IDDSController):
         except exceptions.IDDSException as error:
             return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=error.__class__.__name__, exc_msg=error)
         except Exception as error:
-            print(error)
-            print(format_exc())
+            self.logger.error("Failed to add message: %s", error)
+            self.logger.error(format_exc())
             return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
 
         return self.generate_http_response(HTTP_STATUS_CODE.OK, data={'request_id': request_id})
-
-    def post_test(self):
-        import pprint
-        pprint.pprint(self.get_request())
-        pprint.pprint(self.get_request().endpoint)
-        pprint.pprint(self.get_request().url_rule)
 
 
 """----------------------
