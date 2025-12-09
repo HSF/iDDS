@@ -443,6 +443,9 @@ class ClientManager:
         return status
 
     def submit_big_workflow(self, workflow, username=None, userdn=None, use_dataset_name=False):
+        if not hasattr(workflow, "is_with_steps") or not hasattr(workflow, "is_workflow_step") or not hasattr(workflow, "split_workflow_to_steps"):
+            return workflow
+
         if workflow.is_with_steps() or workflow.is_workflow_step:
             return workflow
 

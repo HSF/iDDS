@@ -16,7 +16,8 @@ operations related to Catalog(Collections and Contents).
 
 from idds.common import exceptions
 from idds.common.constants import (CollectionType, CollectionStatus, CollectionLocking,
-                                   CollectionRelationType, ContentStatus, ContentRelationType)
+                                   CollectionRelationType, ContentType, ContentStatus,
+                                   ContentLocking, ContentRelationType)
 from idds.orm.base.session import read_session, transactional_session
 from idds.orm import (transforms as orm_transforms,
                       collections as orm_collections,
@@ -172,6 +173,49 @@ def get_collection(coll_id=None, transform_id=None, relation_type=None, to_json=
     return orm_collections.get_collection(coll_id=coll_id, transform_id=transform_id,
                                           relation_type=relation_type, to_json=to_json,
                                           session=session)
+
+
+@transactional_session
+def add_content(request_id, workload_id, transform_id, coll_id, map_id, scope, name, min_id=0, max_id=0,
+                content_type=ContentType.File, status=ContentStatus.New, content_relation_type=ContentRelationType.Input,
+                bytes=0, md5=None, adler32=None, processing_id=None, storage_id=None, retries=0,
+                locking=ContentLocking.Idle, path=None, expired_at=None, content_metadata=None, session=None):
+    """
+    Add a content.
+
+    :param request_id: The request id.
+    :param workload_id: The workload id.
+    :param transform_id: transform id.
+    :param coll_id: collection id.
+    :param map_id: The id to map inputs to outputs.
+    :param scope: The scope of the request data.
+    :param name: The name of the request data.
+    :param min_id: The minimal id of the content.
+    :param max_id: The maximal id of the content.
+    :param content_type: The type of the content.
+    :param status: content status.
+    :param bytes: The size of the content.
+    :param md5: md5 checksum.
+    :param alder32: adler32 checksum.
+    :param processing_id: The processing id.
+    :param storage_id: The storage id.
+    :param retries: The number of retries.
+    :param path: The content path.
+    :param expired_at: The datetime when it expires.
+    :param content_metadata: The metadata as json.
+
+    :raises DuplicatedObject: If a collection with the same name exists.
+    :raises DatabaseException: If there is a database error.
+
+    :returns: content id.
+    """
+    return orm_contents.add_content(request_id=request_id, workload_id=workload_id, transform_id=transform_id,
+                                    coll_id=coll_id, map_id=map_id, scope=scope, name=name, min_id=min_id,
+                                    max_id=max_id, content_type=content_type, status=status,
+                                    content_relation_type=content_relation_type, bytes=bytes, md5=md5,
+                                    adler32=adler32, processing_id=processing_id, storage_id=storage_id,
+                                    retries=retries, locking=locking, path=path, expired_at=expired_at,
+                                    content_metadata=content_metadata, session=session)
 
 
 @transactional_session
