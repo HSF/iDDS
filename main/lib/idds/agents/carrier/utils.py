@@ -2208,7 +2208,7 @@ def sync_collection_status(request_id, transform_id, workload_id, work, input_ou
                 coll.substatus = CollectionStatus.Closed
             elif coll in output_collections:
                 if (not work.require_ext_contents() or (work.require_ext_contents()
-                    and coll.processed_files == coll.processed_ext_files and coll.failed_files <= coll.failed_ext_files)):     # noqa E129, W503
+                    and coll.processed_files <= coll.processed_ext_files and coll.failed_files <= coll.failed_ext_files)):     # noqa E129, W503
                     all_ext_updated = True
                 if (force_close_collection or (close_collection and all_updates_flushed and all_ext_updated and all_files_monitored)
                    or coll.status == CollectionStatus.Closed):        # noqa W503
