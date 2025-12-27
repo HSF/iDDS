@@ -25,11 +25,24 @@ from idds.orm.base.session import read_session, transactional_session
 
 @transactional_session
 def add_throttler(site, status=ThrottlerStatus.Active, num_requests=None, num_transforms=None, num_processings=None, new_contents=None,
-                  queue_contents=None, others=None, session=None):
+                  queue_contents=None, max_requests_per_minute=100, max_requests_per_hour=10000, max_burst=50,
+                  priority_level=5, vo_name=None, others=None, session=None):
     """
     Add a throttler item
 
     :param site: The site name.
+    :param status: The throttler status.
+    :param num_requests: Number of requests.
+    :param num_transforms: Number of transforms.
+    :param num_processings: Number of processings.
+    :param new_contents: New contents count.
+    :param queue_contents: Queue contents count.
+    :param max_requests_per_minute: Maximum requests per minute for rate limiting.
+    :param max_requests_per_hour: Maximum requests per hour for rate limiting.
+    :param max_burst: Maximum burst capacity.
+    :param priority_level: Priority level (1-10, higher = more priority).
+    :param vo_name: Virtual Organization name.
+    :param others: Other parameters.
     :param session: The database session.
     """
 
@@ -51,6 +64,16 @@ def add_throttler(site, status=ThrottlerStatus.Active, num_requests=None, num_tr
                 parameters['new_contents'] = new_contents
             if queue_contents is not None:
                 parameters['queue_contents'] = queue_contents
+            if max_requests_per_minute is not None:
+                parameters['max_requests_per_minute'] = max_requests_per_minute
+            if max_requests_per_hour is not None:
+                parameters['max_requests_per_hour'] = max_requests_per_hour
+            if max_burst is not None:
+                parameters['max_burst'] = max_burst
+            if priority_level is not None:
+                parameters['priority_level'] = priority_level
+            if vo_name is not None:
+                parameters['vo_name'] = vo_name
             if others is not None:
                 parameters['others'] = others
             update_throttler(throttler_id=old_throttler['throttler_id'], parameters=parameters, session=session)
@@ -63,6 +86,11 @@ def add_throttler(site, status=ThrottlerStatus.Active, num_requests=None, num_tr
                                          num_processings=num_processings,
                                          new_contents=new_contents,
                                          queue_contents=queue_contents,
+                                         max_requests_per_minute=max_requests_per_minute,
+                                         max_requests_per_hour=max_requests_per_hour,
+                                         max_burst=max_burst,
+                                         priority_level=priority_level,
+                                         vo_name=vo_name,
                                          others=others)
             throttler.save(session=session)
             return throttler.throttler_id

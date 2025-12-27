@@ -35,6 +35,8 @@ from idds.rest.v1 import messages
 from idds.rest.v1 import ping
 from idds.rest.v1 import auth
 from idds.rest.v1 import metainfo
+from idds.rest.v1.rate_limit_middleware import RateLimitMiddleware
+from idds.common.config import config_has_section, config_has_option, config_get_bool
 
 
 class LoggingMiddleware(object):
@@ -162,6 +164,16 @@ def create_app(auth_type=None):
     # url_prefix = get_rest_url_prefix()
     application = Flask(__name__)
 
+    # Register rate limit middleware if enabled in config
+    rate_limit_enabled = False
+    try:
+        if config_has_section('rest') and config_has_option('rest', 'rate_limit_enabled'):
+            rate_limit_enabled = config_get_bool('rest', 'rate_limit_enabled')
+    except Exception:
+        rate_limit_enabled = False
+
+    rl_middleware = RateLimitMiddleware(application, enabled=rate_limit_enabled)
+
     bps = get_auth_blueprints()
     for bp in bps:
         # application.register_blueprint(bp, url_prefix=url_prefix)
@@ -173,6 +185,10 @@ def create_app(auth_type=None):
         bp.after_request(after_request)
         # application.register_blueprint(bp, url_prefix=url_prefix)
         application.register_blueprint(bp)
+
+    # Add rate limit headers after request if middleware is enabled
+    if rate_limit_enabled:
+        application.after_request(rl_middleware.add_rate_limit_headers)
 
     # application.before_request(before_request)
     # application.after_request(after_request)

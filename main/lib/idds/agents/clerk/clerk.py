@@ -1104,26 +1104,42 @@ class Clerk(BaseAgent):
                 req = request
                 log_pre = self.get_log_prefix(req)
                 self.logger.info(f"{log_pre} process_new_request request: {req['request_id']} event: {event}")
-                if self.has_to_build_work(req):
-                    ret = self.handle_build_request(req)
-                elif req['request_type'] in [RequestType.iWorkflow, RequestType.iWorkflowLocal]:
-                    ret = self.handle_new_irequest(req)
-                elif req['request_type'] in [RequestType.GenericWorkflow]:
-                    ret = self.handle_new_generic_request(req)
+                
+                # Check rate limiting
+                allowed, headers, error = core_throttlers.check_rate_limit(
+                    site=req.get('site'), 
+                    user_id=req.get('username'),
+                    vo_id=None,
+                    tokens=1
+                )
+                if not allowed:
+                    self.logger.warn(f"{log_pre} Rate limit exceeded: {error}. Setting request to Throttling.")
+                    ret_req = {'request_id': req['request_id'],
+                               'parameters': {'status': RequestStatus.Throttling,
+                                              'locking': RequestLocking.Idle}}
+                    ret_req['parameters'] = self.load_poll_period(req, ret_req['parameters'], throttling=True)
+                    self.update_request(ret_req, origin_req=req)
                 else:
-                    ret = self.handle_new_request(req)
-                new_tf_ids, update_tf_ids = self.update_request(ret, origin_req=req)
-                for tf_id in new_tf_ids:
-                    # self.logger.info(log_pre + "NewTransformEvent(transform_id: %s)" % str(tf_id))
-                    # event = NewTransformEvent(publisher_id=self.id, transform_id=tf_id)
-                    self.logger.info(log_pre + "QueueTransformEvent(transform_id: %s)" % str(tf_id))
-                    event = QueueTransformEvent(publisher_id=self.id, transform_id=tf_id)
-                    self.event_bus.send(event)
-                    # time.sleep(1)
-                for tf_id in update_tf_ids:
-                    self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % str(tf_id))
-                    event = UpdateTransformEvent(publisher_id=self.id, transform_id=tf_id)
-                    self.event_bus.send(event)
+                    if self.has_to_build_work(req):
+                        ret = self.handle_build_request(req)
+                    elif req['request_type'] in [RequestType.iWorkflow, RequestType.iWorkflowLocal]:
+                        ret = self.handle_new_irequest(req)
+                    elif req['request_type'] in [RequestType.GenericWorkflow]:
+                        ret = self.handle_new_generic_request(req)
+                    else:
+                        ret = self.handle_new_request(req)
+                    new_tf_ids, update_tf_ids = self.update_request(ret, origin_req=req)
+                    for tf_id in new_tf_ids:
+                        # self.logger.info(log_pre + "NewTransformEvent(transform_id: %s)" % str(tf_id))
+                        # event = NewTransformEvent(publisher_id=self.id, transform_id=tf_id)
+                        self.logger.info(log_pre + "QueueTransformEvent(transform_id: %s)" % str(tf_id))
+                        event = QueueTransformEvent(publisher_id=self.id, transform_id=tf_id)
+                        self.event_bus.send(event)
+                        # time.sleep(1)
+                    for tf_id in update_tf_ids:
+                        self.logger.info(log_pre + "UpdateTransformEvent(transform_id: %s)" % str(tf_id))
+                        event = UpdateTransformEvent(publisher_id=self.id, transform_id=tf_id)
+                        self.event_bus.send(event)
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())

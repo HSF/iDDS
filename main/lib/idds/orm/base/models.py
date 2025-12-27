@@ -1020,6 +1020,12 @@ class Throttler(BASE, ModelBase):
     num_processings = Column(Integer())
     new_contents = Column(Integer())
     queue_contents = Column(Integer())
+    # Rate limiting fields
+    max_requests_per_minute = Column(Integer(), default=100, nullable=False)
+    max_requests_per_hour = Column(Integer(), default=10000, nullable=False)
+    max_burst = Column(Integer(), default=50, nullable=False)
+    priority_level = Column(Integer(), default=5, nullable=False)  # 1-10, higher = more priority
+    vo_name = Column(String(50))  # Virtual Organization name
     created_at = Column("created_at", DateTime, default=datetime.datetime.utcnow, nullable=False)
     updated_at = Column("updated_at", DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
     others = Column(JSON())
