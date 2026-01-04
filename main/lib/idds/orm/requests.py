@@ -199,7 +199,7 @@ def get_request_ids_by_name(name, scope=None, exact_match=False, session=None):
     :returns: Request {name:id} dict.
     """
     try:
-        if exact_match:
+        if not exact_match:
             query = session.query(models.Request.request_id, models.Request.name)\
                            .filter(models.Request.name.like(name.replace('*', '%')))
         else:
