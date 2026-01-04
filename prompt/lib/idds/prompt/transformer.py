@@ -1,0 +1,257 @@
+#!/usr/bin/env python
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0OA
+#
+# Authors:
+# - Wen Guan, <wen.guan@cern.ch>, 2023 - 2025
+
+
+import datetime
+import logging
+import os
+import time
+import traceback
+
+from idds.common.utils import setup_logging, json_loads, is_panda_client_verbose
+
+from .brokers.activemq import Subscriber, Publisher
+from .payload_process import process_payload
+
+
+setup_logging(__name__)
+
+
+class Transformer:
+    def __init__(self, run_id=None):
+        self._transformer_broker = None
+        self._transformer_broadcast_broker = None
+        self._result_broker = None
+        self._broker_initialized = False
+
+        self._run_id = run_id
+        self._to_stop = False
+
+        self.logger = logging.getLogger(self.__class__.__name__)
+
+    def init_brokers(self):
+        if not self._broker_initialized:
+            self.logger.info("To initialize broker")
+
+            self.logger.info("Getting brokers information from central service")
+            broker_info = self.get_broker_info()
+            if broker_info:
+                transformer_broker = broker_info.get("transformer_broker", None)
+                transformer_broadcast_broker = broker_info.get(
+                    "transformer_broadcast_broker", None
+                )
+                result_broker = broker_info.get("result_broker", None)
+
+                if (
+                    transformer_broker
+                    and transformer_broadcast_broker
+                    and result_broker
+                ):
+                    self._transformer_broker = transformer_broker
+                    self._transformer_broadcast_broker = transformer_broadcast_broker
+                    self._result_broker = result_broker
+                    self._broker_initialized = True
+                    self.logger.info("Initialized brokers from central service")
+                else:
+                    self.logger.warn(
+                        "Broker information from the central service is missing, will not initialize it"
+                    )
+        if not self._broker_initialized:
+            self.logger.warn("Broker is not initialized")
+        return self._broker_initialized
+
+    def get_idds_server(self):
+        if "IDDS_HOST" in self._idds_env:
+            return self._idds_env["IDDS_HOST"]
+        return os.environ.get("IDDS_HOST", None)
+
+    def get_broker_info_from_panda_server(self):
+        """
+        Get broker infomation from the iDDS server through PanDA service.
+        :returns broker_info: `dict` broker information.
+            {'transformer_broker': ,
+             'transformer_broadcast_broker': transformer_broadcast_broker,
+             'result_broker': result_broker}
+
+        :raise Exception when failing to get broker information.
+        """
+        self.logger.info("Get broker information through panda server.")
+
+        import idds.common.utils as idds_utils
+        import pandaclient.idds_api as idds_api
+
+        idds_server = self.get_idds_server()
+        client = idds_api.get_api(
+            idds_utils.json_dumps,
+            idds_host=idds_server,
+            compress=True,
+            verbose=is_panda_client_verbose(),
+            manager=True,
+        )
+        ret = client.get_metainfo(name="prompt_broker")
+        if ret[0] == 0 and ret[1][0]:
+            idds_ret = ret[1][1]
+            if type(idds_ret) in (list, tuple) and idds_ret[0] == (0, True):
+                meta_info = idds_ret[1]
+                if type(meta_info) in [dict]:
+                    pass
+                elif type(meta_info) in [str]:
+                    try:
+                        meta_info = json_loads(meta_info)
+                    except Exception as ex:
+                        self.logger.warn(
+                            "Failed to json loads meta info(%s): %s" % (meta_info, ex)
+                        )
+            else:
+                meta_info = None
+                self.logger.warn("Failed to get meta info: %s" % str(ret))
+        else:
+            meta_info = None
+            self.logger.warn("Failed to get meta info: %s" % str(ret))
+
+        return meta_info
+
+    def get_broker_info(self):
+        try:
+            return self.get_broker_info_from_panda_server()
+        except Exception as ex:
+            self.logger.error("Failed to get broker info: %s" % str(ex))
+
+    def transformer_broadcast_handler(self, header, msg, handler_kwargs={}):
+        """Handle broadcast messages.
+
+        Types:
+          - 'stop_transformer': update transformer configuration
+        """
+        msg_type = msg.get("msg_type")
+        run_id = msg.get("run_id")
+        self.logger.debug(
+            f"Received broadcast message: msg_type={msg_type}, run_id={run_id}"
+        )
+
+        try:
+            if msg_type == "stop_transformer":
+                if self._run_id == run_id:
+                    self.logger.info(
+                        f"Received stop_transformer broadcast for current run_id={run_id}, stopping transformer"
+                    )
+                    # Implement stopping logic if needed
+                    self._to_stop = True
+                else:
+                    self.logger.info(
+                        f"Ignoring stop_transformer broadcast for run_id={run_id}, current run_id={self._run_id}"
+                    )
+            else:
+                self.logger.warning(
+                    f"Unknown msg_type received in broadcast_handler: {msg_type}"
+                )
+        except Exception as error:
+            self.logger.critical(
+                f"broadcast_handler exception for msg_type={msg_type}: {error}\n{traceback.format_exc()}"
+            )
+
+    def transformer_handler(self, header, msg, handler_kwargs={}):
+        """Receive slice message and process the payload.
+
+        Types:
+          - 'slice': processed slice payload
+        """
+        msg_type = msg.get("msg_type")
+        run_id = msg.get("run_id")
+        self.logger.debug(
+            f"Received result message: msg_type={msg_type}, run_id={run_id}"
+        )
+
+        result_publisher = handler_kwargs.get("result_publisher")
+
+        try:
+            processing_start_at = datetime.datetime.utcnow()
+
+            if msg_type == "slice":
+                status, result, error = process_payload(msg["content"])
+                if status:
+                    self.logger.info(
+                        f"Processed slice message successfully: run_id={run_id}, result={result}, error={error}"
+                    )
+                else:
+                    self.logger.error(
+                        f"Failed to process slice message: run_id={run_id}, result={result}, error={error}"
+                    )
+            else:
+                self.logger.warning(
+                    f"Unknown msg_type received in result_handler: {msg_type}"
+                )
+
+            slice_result_msg = {
+                "msg_type": "slice_result",
+                "run_id": run_id,
+                "created_at": datetime.datetime.utcnow(),
+                "content": {
+                    "requested_at": msg.get("created_at"),
+                    "processing_start_at": processing_start_at,
+                    "processed_at": datetime.datetime.utcnow(),
+                    "result": {"state": status, "result": result, "error": error},
+                },
+            }
+            result_publisher.publish(slice_result_msg)
+        except Exception as error:
+            self.logger.critical(
+                f"result_handler exception for msg_type={msg_type}: {error}\n{traceback.format_exc()}"
+            )
+            # raise this exception to let the message listener know message processing failed
+            # then the message listener can decide whether to ack or not ack the message.
+            raise error
+
+    def run(self):
+        """
+        Run the transformer to process messages from transformer broker.
+        :returns ret: 0 if run successfully.
+        """
+        try:
+            if not self.init_brokers():
+                self.logger.error("Brokers are not initialized, cannot run transformer")
+                return False
+
+            self.logger.info("Starting to listen to transformer broker")
+
+            transformer_broadcast_subscriber = Subscriber(
+                broker=self._transformer_broadcast_broker,
+                handler=self.transformer_broadcast_handler,
+            )
+            result_publisher = Publisher(broker=self._result_broker)
+            transformer_subscriber = Subscriber(
+                broker=self._transformer_broker,
+                handler=self.transformer_handler,
+                selector=f"run_id = '{self._run_id}'",
+                handler_kwargs={"result_publisher": result_publisher},
+            )
+
+            while True:
+                if transformer_subscriber.is_idle(idle_seconds=5) and self._to_stop:
+                    self.logger.debug(
+                        "No message received from transformer broker for 5 seconds and stop requested, stopping transformer."
+                    )
+                    break
+                elif transformer_subscriber.is_idle(idle_seconds=120):
+                    self.logger.debug(
+                        "No message received from transformer broker for 120 seconds, stopping transformer."
+                    )
+                    break
+
+                transformer_broadcast_subscriber.monitor()
+                transformer_subscriber.monitor()
+                result_publisher.monitor()
+
+                time.sleep(1)
+
+            return 0
+        except Exception as ex:
+            self.logger.error("Error running transformer: %s" % str(ex), exc_info=True)
+            return -1

@@ -1,0 +1,7 @@
+name: iDDS
+dependencies:
+- python==3.9
+- pip
+- pip:
+  - stomp.py
+  - idds-common==2.3.5
