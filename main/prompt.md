@@ -228,3 +228,14 @@ transformer_heartbeat_msg = {
   'content': {'hostname': socket.getFQAN(), 'id': <pilot_id>, ...}
 }
 ```
+
+## 7. Transformer subscribe
+
+```
+ack='client-individual'
+headers={
+  'vo': 'eic',
+  'selector': "run_id='12345'",
+  'activemq.prefetchSize': '1'
+}
+```
