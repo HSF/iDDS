@@ -959,6 +959,7 @@ class DomaPanDAWork(Work):
         if self.task_rss_max:
             # todo: until PanDA supports it
             # taskParamMap['maxRamCount'] = self.task_rss_max
+            task_param_map['retryRamMax'] = self.task_rss_max
             pass
 
         # task_param_map['inputPreStaging'] = True

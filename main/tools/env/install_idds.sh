@@ -14,6 +14,12 @@
 # bash main/tools/env/install_idds.sh
 python setup.py install --old-and-unmanageable --force
 
+
+# ruff check .
+# ruff check . --fix
+# black --check .
+# auto-format black
+
 bash workflow/tools/workflow/make/make.sh
 
 echo cp workflow/bin/run_workflow_wrapper ~/www/wiscgroup/
@@ -25,3 +31,13 @@ cp workflow/bin/run_workflow_wrapper /eos/user/w/wguan/www/
 # scp workflow/bin/run_workflow_wrapper root@ai-idds-04:/data/iddssv1/srv/var/trf/user/
 
 rm -fr workflow/bin/run_workflow_wrapper
+
+# prompt wrapper
+bash prompt/tools/prompt/make/make.sh
+
+echo cp prompt/bin/run_prompt_wrapper ~/www/wiscgroup/
+cp prompt/bin/run_prompt_wrapper ~/www/wiscgroup/
+echo cp prompt/bin/run_prompt_wrapper /eos/user/w/wguan/www/
+cp prompt/bin/run_prompt_wrapper /eos/user/w/wguan/www/
+
+rm -fr prompt/bin/run_prompt_wrapper
