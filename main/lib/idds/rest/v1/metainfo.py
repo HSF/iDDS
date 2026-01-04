@@ -15,7 +15,7 @@ from flask import Blueprint
 
 from idds.common import exceptions
 from idds.common.constants import HTTP_STATUS_CODE
-from idds.common.utils import get_asyncresult_config
+from idds.common.utils import get_asyncresult_config, get_prompt_broker_config
 
 from idds.rest.v1.controller import IDDSController
 
@@ -29,6 +29,9 @@ class MetaInfo(IDDSController):
             if name == 'asyncresult_config':
                 asyncresult_config = get_asyncresult_config()
                 rets = asyncresult_config
+            elif name == 'prompt_broker':
+                prompt_broker_config = get_prompt_broker_config()
+                rets = prompt_broker_config
 
         except exceptions.NoObject as error:
             return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
