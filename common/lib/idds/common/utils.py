@@ -38,24 +38,38 @@ from operator import itemgetter
 from packaging import version as packaging_version
 from typing import Any, Callable
 
-from idds.common.config import (config_has_section, config_has_option,
-                                config_get, config_get_bool, config_get_int)
-from idds.common.constants import (IDDSEnum, RequestType, RequestStatus,
-                                   TransformType, TransformStatus,
-                                   CollectionType, CollectionRelationType, CollectionStatus,
-                                   ContentType, ContentStatus,
-                                   GranularityType, ProcessingStatus)
+from idds.common.config import (
+    config_has_section,
+    config_has_option,
+    config_get,
+    config_get_bool,
+    config_get_int,
+)
+from idds.common.constants import (
+    IDDSEnum,
+    RequestType,
+    RequestStatus,
+    TransformType,
+    TransformStatus,
+    CollectionType,
+    CollectionRelationType,
+    CollectionStatus,
+    ContentType,
+    ContentStatus,
+    GranularityType,
+    ProcessingStatus,
+)
 from idds.common.dict_class import DictClass
 from idds.common.exceptions import IDDSException
 
 
 # RFC 1123
-DATE_FORMAT = '%a, %d %b %Y %H:%M:%S UTC'
+DATE_FORMAT = "%a, %d %b %Y %H:%M:%S UTC"
 
 
 def get_log_dir():
-    if config_has_section('common') and config_has_option('common', 'logdir'):
-        return config_get('common', 'logdir')
+    if config_has_section("common") and config_has_option("common", "logdir"):
+        return config_get("common", "logdir")
     return "/var/log/idds"
 
 
@@ -64,13 +78,13 @@ def setup_logging(name, stream=None, log_file=None, loglevel=None):
     Setup logging
     """
     if loglevel is None:
-        if config_has_section('common') and config_has_option('common', 'loglevel'):
-            loglevel = getattr(logging, config_get('common', 'loglevel').upper())
+        if config_has_section("common") and config_has_option("common", "loglevel"):
+            loglevel = getattr(logging, config_get("common", "loglevel").upper())
         else:
             loglevel = logging.INFO
 
-        if os.environ.get('IDDS_LOG_LEVEL', None):
-            idds_log_level = os.environ.get('IDDS_LOG_LEVEL', None)
+        if os.environ.get("IDDS_LOG_LEVEL", None):
+            idds_log_level = os.environ.get("IDDS_LOG_LEVEL", None)
             idds_log_level = idds_log_level.upper()
             if idds_log_level in ["DEBUG", "CRITICAL", "ERROR", "WARNING", "INFO"]:
                 loglevel = getattr(logging, idds_log_level)
@@ -82,38 +96,56 @@ def setup_logging(name, stream=None, log_file=None, loglevel=None):
     if log_file is not None:
         if not log_file.startswith("/"):
             logdir = None
-            if config_has_section('common') and config_has_option('common', 'logdir'):
-                logdir = config_get('common', 'logdir')
+            if config_has_section("common") and config_has_option("common", "logdir"):
+                logdir = config_get("common", "logdir")
             if not logdir:
-                logdir = '/var/log/idds'
+                logdir = "/var/log/idds"
             log_file = os.path.join(logdir, log_file)
 
     if log_file:
-        logging.basicConfig(filename=log_file,
-                            level=loglevel,
-                            format='%(asctime)s\t%(threadName)s\t%(name)s\t%(levelname)s\t%(message)s')
+        logging.basicConfig(
+            filename=log_file,
+            level=loglevel,
+            format="%(asctime)s\t%(threadName)s\t%(name)s\t%(levelname)s\t%(message)s",
+        )
     elif stream is None:
-        if os.environ.get('IDDS_LOG_FILE', None):
-            idds_log_file = os.environ.get('IDDS_LOG_FILE', None)
-            logging.basicConfig(filename=idds_log_file,
-                                level=loglevel,
-                                format='%(asctime)s\t%(threadName)s\t%(name)s\t%(levelname)s\t%(message)s')
-        elif ((config_has_section('common') and config_has_option('common', 'logdir') and config_has_option('common', 'logfile')) or log_file):
+        if os.environ.get("IDDS_LOG_FILE", None):
+            idds_log_file = os.environ.get("IDDS_LOG_FILE", None)
+            logging.basicConfig(
+                filename=idds_log_file,
+                level=loglevel,
+                format="%(asctime)s\t%(threadName)s\t%(name)s\t%(levelname)s\t%(message)s",
+            )
+        elif (
+            config_has_section("common")
+            and config_has_option("common", "logdir")
+            and config_has_option("common", "logfile")
+        ) or log_file:
             if log_file:
                 log_filename = log_file
             else:
-                log_filename = config_get('common', 'logfile')
+                log_filename = config_get("common", "logfile")
                 if not log_filename.startswith("/"):
-                    log_filename = os.path.join(config_get('common', 'logdir'), log_filename)
-            logging.basicConfig(filename=log_filename,
-                                level=loglevel,
-                                format='%(asctime)s\t%(threadName)s\t%(name)s\t%(levelname)s\t%(message)s')
+                    log_filename = os.path.join(
+                        config_get("common", "logdir"), log_filename
+                    )
+            logging.basicConfig(
+                filename=log_filename,
+                level=loglevel,
+                format="%(asctime)s\t%(threadName)s\t%(name)s\t%(levelname)s\t%(message)s",
+            )
         else:
-            logging.basicConfig(stream=sys.stdout, level=loglevel,
-                                format='%(asctime)s\t%(threadName)s\t%(name)s\t%(levelname)s\t%(message)s')
+            logging.basicConfig(
+                stream=sys.stdout,
+                level=loglevel,
+                format="%(asctime)s\t%(threadName)s\t%(name)s\t%(levelname)s\t%(message)s",
+            )
     else:
-        logging.basicConfig(stream=stream, level=loglevel,
-                            format='%(asctime)s\t%(threadName)s\t%(name)s\t%(levelname)s\t%(message)s')
+        logging.basicConfig(
+            stream=stream,
+            level=loglevel,
+            format="%(asctime)s\t%(threadName)s\t%(name)s\t%(levelname)s\t%(message)s",
+        )
     logging.Formatter.converter = time.gmtime
 
 
@@ -122,8 +154,8 @@ def get_logger(name, filename=None, loglevel=None):
     Setup logging
     """
     if loglevel is None:
-        if config_has_section('common') and config_has_option('common', 'loglevel'):
-            loglevel = getattr(logging, config_get('common', 'loglevel').upper())
+        if config_has_section("common") and config_has_option("common", "loglevel"):
+            loglevel = getattr(logging, config_get("common", "loglevel").upper())
         else:
             loglevel = logging.INFO
 
@@ -131,15 +163,19 @@ def get_logger(name, filename=None, loglevel=None):
         filename = name + ".log"
     if not filename.startswith("/"):
         logdir = None
-        if config_has_section('common') and config_has_option('common', 'logdir'):
-            logdir = config_get('common', 'logdir')
+        if config_has_section("common") and config_has_option("common", "logdir"):
+            logdir = config_get("common", "logdir")
         if not logdir:
-            logdir = '/var/log/idds'
+            logdir = "/var/log/idds"
         filename = os.path.join(logdir, filename)
 
-    formatter = logging.Formatter('%(asctime)s\t%(threadName)s\t%(name)s\t%(levelname)s\t%(message)s')
+    formatter = logging.Formatter(
+        "%(asctime)s\t%(threadName)s\t%(name)s\t%(levelname)s\t%(message)s"
+    )
 
-    handler = RotatingFileHandler(filename, maxBytes=2 * 1024 * 1024 * 1024, backupCount=3)
+    handler = RotatingFileHandler(
+        filename, maxBytes=2 * 1024 * 1024 * 1024, backupCount=3
+    )
     handler.setFormatter(formatter)
     logger = logging.getLogger(name)
     logger.setLevel(loglevel)
@@ -149,29 +185,29 @@ def get_logger(name, filename=None, loglevel=None):
 
 
 def get_rest_url_prefix():
-    if config_has_section('rest') and config_has_option('rest', 'url_prefix'):
-        url_prefix = config_get('rest', 'url_prefix')
+    if config_has_section("rest") and config_has_option("rest", "url_prefix"):
+        url_prefix = config_get("rest", "url_prefix")
     else:
         url_prefix = None
     if url_prefix:
-        while url_prefix.startswith('/'):
+        while url_prefix.startswith("/"):
             url_prefix = url_prefix[1:]
-        while url_prefix.endswith('/'):
+        while url_prefix.endswith("/"):
             url_prefix = url_prefix[:-1]
-        url_prefix = '/' + url_prefix
+        url_prefix = "/" + url_prefix
     return url_prefix
 
 
 def get_rest_debug():
-    if config_has_section('rest') and config_has_option('rest', 'debug'):
-        return config_get_bool('rest', 'debug')
+    if config_has_section("rest") and config_has_option("rest", "debug"):
+        return config_get_bool("rest", "debug")
     return False
 
 
 def get_rest_cacher_dir():
     cacher_dir = None
-    if config_has_section('rest') and config_has_option('rest', 'cacher_dir'):
-        cacher_dir = config_get('rest', 'cacher_dir')
+    if config_has_section("rest") and config_has_option("rest", "cacher_dir"):
+        cacher_dir = config_get("rest", "cacher_dir")
     if cacher_dir and os.path.exists(cacher_dir):
         return cacher_dir
     raise Exception("cacher_dir is not defined or it doesn't exist")
@@ -186,25 +222,54 @@ def get_asyncresult_config():
     broker_password = None
     broker_x509 = None
 
-    if config_has_section('asyncresult'):
-        if config_has_option('asyncresult', 'broker_type'):
-            broker_type = config_get('asyncresult', 'broker_type')
-        if config_has_option('asyncresult', 'brokers'):
-            brokers = config_get('asyncresult', 'brokers')
-        if config_has_option('asyncresult', 'broker_destination'):
-            broker_destination = config_get('asyncresult', 'broker_destination')
-        if config_has_option('asyncresult', 'broker_timeout'):
-            broker_timeout = config_get_int('asyncresult', 'broker_timeout')
-        if config_has_option('asyncresult', 'broker_username'):
-            broker_username = config_get('asyncresult', 'broker_username')
-        if config_has_option('asyncresult', 'broker_password'):
-            broker_password = config_get('asyncresult', 'broker_password')
-        if config_has_option('asyncresult', 'broker_x509'):
-            broker_x509 = config_get('asyncresult', 'broker_x509')
+    if config_has_section("asyncresult"):
+        if config_has_option("asyncresult", "broker_type"):
+            broker_type = config_get("asyncresult", "broker_type")
+        if config_has_option("asyncresult", "brokers"):
+            brokers = config_get("asyncresult", "brokers")
+        if config_has_option("asyncresult", "broker_destination"):
+            broker_destination = config_get("asyncresult", "broker_destination")
+        if config_has_option("asyncresult", "broker_timeout"):
+            broker_timeout = config_get_int("asyncresult", "broker_timeout")
+        if config_has_option("asyncresult", "broker_username"):
+            broker_username = config_get("asyncresult", "broker_username")
+        if config_has_option("asyncresult", "broker_password"):
+            broker_password = config_get("asyncresult", "broker_password")
+        if config_has_option("asyncresult", "broker_x509"):
+            broker_x509 = config_get("asyncresult", "broker_x509")
 
-    ret = {'broker_type': broker_type, 'brokers': brokers, 'broker_destination': broker_destination,
-           'broker_timeout': broker_timeout, 'broker_username': broker_username, 'broker_password': broker_password,
-           'broker_x509': broker_x509}
+    ret = {
+        "broker_type": broker_type,
+        "brokers": brokers,
+        "broker_destination": broker_destination,
+        "broker_timeout": broker_timeout,
+        "broker_username": broker_username,
+        "broker_password": broker_password,
+        "broker_x509": broker_x509,
+    }
+    return ret
+
+
+def get_prompt_broker_config():
+    transformer_broker = None
+    transformer_broadcast_broker = None
+    result_broker = None
+
+    if config_has_section("prompt"):
+        if config_has_option("prompt", "transformer_broker"):
+            transformer_broker = config_get("prompt", "transformer_broker")
+        if config_has_option("prompt", "transformer_broadcast_broker"):
+            transformer_broadcast_broker = config_get_int(
+                "prompt", "transformer_broadcast_broker"
+            )
+        if config_has_option("prompt", "result_broker"):
+            result_broker = config_get("prompt", "result_broker")
+
+    ret = {
+        "transformer_broker": transformer_broker,
+        "transformer_broadcast_broker": transformer_broadcast_broker,
+        "result_broker": result_broker,
+    }
     return ret
 
 
@@ -230,14 +295,16 @@ def has_config():
     """
     check whether there is a config file
     """
-    if os.environ.get('IDDS_CONFIG', None):
-        configfile = os.environ.get('IDDS_CONFIG', None)
+    if os.environ.get("IDDS_CONFIG", None):
+        configfile = os.environ.get("IDDS_CONFIG", None)
         if configfile and os.path.exists(configfile):
             return True
     else:
-        configfiles = ['%s/etc/idds/idds.cfg' % os.environ.get('IDDS_HOME', ''),
-                       '/etc/idds/idds.cfg',
-                       '%s/etc/idds/idds.cfg' % os.environ.get('VIRTUAL_ENV', '')]
+        configfiles = [
+            "%s/etc/idds/idds.cfg" % os.environ.get("IDDS_HOME", ""),
+            "/etc/idds/idds.cfg",
+            "%s/etc/idds/idds.cfg" % os.environ.get("VIRTUAL_ENV", ""),
+        ]
 
         for configfile in configfiles:
             if configfile and os.path.exists(configfile):
@@ -252,8 +319,8 @@ def check_rest_host():
 
     :returns True: if rest host is available. Otherwise False.
     """
-    if config_has_option('rest', 'host'):
-        host = config_get('rest', 'host')
+    if config_has_option("rest", "host"):
+        host = config_get("rest", "host")
         if host:
             return True
     return False
@@ -265,12 +332,12 @@ def get_rest_host():
     """
     if "IDDS_HOST" in os.environ:
         return os.environ.get("IDDS_HOST")
-    host = config_get('rest', 'host')
+    host = config_get("rest", "host")
     url_prefix = get_rest_url_prefix()
     while host.endswith("/"):
         host = host[:-1]
     if url_prefix:
-        host = ''.join([host, url_prefix])
+        host = "".join([host, url_prefix])
     return host
 
 
@@ -278,10 +345,10 @@ def check_user_proxy():
     """
     Check whether there is a user proxy.
     """
-    if 'X509_USER_PROXY' in os.environ:
-        client_proxy = os.environ['X509_USER_PROXY']
+    if "X509_USER_PROXY" in os.environ:
+        client_proxy = os.environ["X509_USER_PROXY"]
     else:
-        client_proxy = '/tmp/x509up_u%d' % os.geteuid()
+        client_proxy = "/tmp/x509up_u%d" % os.geteuid()
 
     if not os.path.exists(client_proxy):
         return False
@@ -296,8 +363,8 @@ def check_database():
 
     :returns True: if database.default is available. Otherwise False.
     """
-    if config_has_option('database', 'default'):
-        database = config_get('database', 'default')
+    if config_has_option("database", "default"):
+        database = config_get("database", "default")
         if database:
             return True
     return False
@@ -320,7 +387,9 @@ def kill_process_group(pgrp, nap=10):
     try:
         os.killpg(pgrp, signal.SIGTERM)
     except Exception as error:
-        print(f"exception thrown when killing child group process under SIGTERM: {error}")
+        print(
+            f"exception thrown when killing child group process under SIGTERM: {error}"
+        )
         _sleep = False
     else:
         print(f"SIGTERM sent to process group {pgrp}")
@@ -332,7 +401,9 @@ def kill_process_group(pgrp, nap=10):
     try:
         os.killpg(pgrp, signal.SIGKILL)
     except Exception as error:
-        print(f"exception thrown when killing child group process with SIGKILL: {error}")
+        print(
+            f"exception thrown when killing child group process with SIGKILL: {error}"
+        )
     else:
         print(f"SIGKILL sent to process group {pgrp}")
         status = True
@@ -348,28 +419,28 @@ def kill_all(process: Any) -> str:
     :return: stderr (str).
     """
 
-    stderr = ''
+    stderr = ""
     try:
-        print('killing lingering subprocess and process group')
+        print("killing lingering subprocess and process group")
         time.sleep(1)
         # process.kill()
         kill_process_group(os.getpgid(process.pid))
     except ProcessLookupError as exc:
-        stderr += f'\n(kill process group) ProcessLookupError={exc}'
+        stderr += f"\n(kill process group) ProcessLookupError={exc}"
     except Exception as exc:
-        stderr += f'\n(kill_all 1) exception caught: {exc}'
+        stderr += f"\n(kill_all 1) exception caught: {exc}"
     try:
-        print('killing lingering process')
+        print("killing lingering process")
         time.sleep(1)
         os.kill(process.pid, signal.SIGTERM)
-        print('sleeping a bit before sending SIGKILL')
+        print("sleeping a bit before sending SIGKILL")
         time.sleep(10)
         os.kill(process.pid, signal.SIGKILL)
     except ProcessLookupError as exc:
-        stderr += f'\n(kill process) ProcessLookupError={exc}'
+        stderr += f"\n(kill process) ProcessLookupError={exc}"
     except Exception as exc:
-        stderr += f'\n(kill_all 2) exception caught: {exc}'
-    print(f'sent soft kill signals - final stderr: {stderr}')
+        stderr += f"\n(kill_all 2) exception caught: {exc}"
+    print(f"sent soft kill signals - final stderr: {stderr}")
     return stderr
 
 
@@ -379,26 +450,35 @@ def run_process(cmd, stdout=None, stderr=None, wait=False, timeout=7 * 24 * 3600
     """
     print(f"To run command: {cmd}")
     if stdout and stderr:
-        process = subprocess.Popen(cmd, shell=True, stdout=stdout, stderr=stderr, preexec_fn=os.setsid, encoding='utf-8')
+        process = subprocess.Popen(
+            cmd,
+            shell=True,
+            stdout=stdout,
+            stderr=stderr,
+            preexec_fn=os.setsid,
+            encoding="utf-8",
+        )
     else:
-        process = subprocess.Popen(cmd, shell=True, preexec_fn=os.setsid, encoding='utf-8')
+        process = subprocess.Popen(
+            cmd, shell=True, preexec_fn=os.setsid, encoding="utf-8"
+        )
     if not wait:
         return process
 
     try:
-        print(f'subprocess.communicate() will use timeout={timeout} s')
+        print(f"subprocess.communicate() will use timeout={timeout} s")
         process.communicate(timeout=timeout)
     except subprocess.TimeoutExpired as ex:
-        stderr = f'subprocess communicate sent TimeoutExpired: {ex}'
+        stderr = f"subprocess communicate sent TimeoutExpired: {ex}"
         print(stderr)
         stderr = kill_all(process)
-        print(f'Killing process: {stderr}')
+        print(f"Killing process: {stderr}")
         exit_code = -1
     except Exception as ex:
-        stderr = f'subprocess has an exception: {ex}'
+        stderr = f"subprocess has an exception: {ex}"
         print(stderr)
         stderr = kill_all(process)
-        print(f'Killing process: {stderr}')
+        print(f"Killing process: {stderr}")
         exit_code = -1
     else:
         exit_code = process.poll()
@@ -415,7 +495,13 @@ def run_command(cmd):
     """
     Runs a command in an out-of-procees shell.
     """
-    process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, preexec_fn=os.setsid)
+    process = subprocess.Popen(
+        cmd,
+        shell=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        preexec_fn=os.setsid,
+    )
     stdout, stderr = process.communicate()
     if stdout is not None and type(stdout) in [bytes]:
         stdout = stdout.decode()
@@ -434,14 +520,14 @@ def get_space_from_string(space_str):
     T = 1024 * G
     P = 1024 * T
 
-    if 'M' in space_str:
-        return int(float(space_str.split('M')[0]) * M)
-    elif 'G' in space_str:
-        return int(float(space_str.split('G')[0]) * G)
-    elif 'T' in space_str:
-        return int(float(space_str.split('T')[0]) * T)
-    elif 'P' in space_str:
-        return int(float(space_str.split('P')[0]) * P)
+    if "M" in space_str:
+        return int(float(space_str.split("M")[0]) * M)
+    elif "G" in space_str:
+        return int(float(space_str.split("G")[0]) * G)
+    elif "T" in space_str:
+        return int(float(space_str.split("T")[0]) * T)
+    elif "P" in space_str:
+        return int(float(space_str.split("P")[0]) * P)
     else:
         return int(space_str)
 
@@ -453,7 +539,7 @@ def urlretrieve(url, dest, timeout=300):
     :param url: The url of the source file.
     :param dest: destination file path.
     """
-    with open(dest, 'wb') as f:
+    with open(dest, "wb") as f:
         r = requests.get(url, allow_redirects=True, timeout=timeout)
         if r.status_code == 200:
             f.write(r.content)
@@ -502,21 +588,25 @@ def convert_value_to_nojsontype(params):
 
     :returns: dict of parameters.
     """
-    req_keys = {'request_type': RequestType, 'status': RequestStatus}
-    transform_keys = {'transform_type': TransformType, 'status': TransformStatus}
-    coll_keys = {'coll_type': CollectionType, 'relation_type': CollectionRelationType, 'coll_status': CollectionStatus}
-    content_keys = {'content_type': ContentType, 'status': ContentStatus}
-    process_keys = {'granularity_type': GranularityType, 'status': ProcessingStatus}
+    req_keys = {"request_type": RequestType, "status": RequestStatus}
+    transform_keys = {"transform_type": TransformType, "status": TransformStatus}
+    coll_keys = {
+        "coll_type": CollectionType,
+        "relation_type": CollectionRelationType,
+        "coll_status": CollectionStatus,
+    }
+    content_keys = {"content_type": ContentType, "status": ContentStatus}
+    process_keys = {"granularity_type": GranularityType, "status": ProcessingStatus}
 
-    if 'request_type' in params:
+    if "request_type" in params:
         keys = req_keys
-    elif 'transform_type' in params:
+    elif "transform_type" in params:
         keys = transform_keys
-    elif 'coll_type' in params:
+    elif "coll_type" in params:
         keys = coll_keys
-    elif 'content_type' in params:
+    elif "content_type" in params:
         keys = content_keys
-    elif 'granularity_type' in params:
+    elif "granularity_type" in params:
         keys = process_keys
 
     if isinstance(params, list):
@@ -528,19 +618,23 @@ def convert_value_to_nojsontype(params):
         params = new_params
     elif isinstance(params, dict):
         keys = []
-        if 'request_type' in params:
+        if "request_type" in params:
             keys = req_keys
-        elif 'transform_type' in params:
+        elif "transform_type" in params:
             keys = transform_keys
-        elif 'coll_type' in params:
+        elif "coll_type" in params:
             keys = coll_keys
-        elif 'content_type' in params:
+        elif "content_type" in params:
             keys = content_keys
-        elif 'granularity_type' in params:
+        elif "granularity_type" in params:
             keys = process_keys
 
         for key in keys.keys():
-            if key in params and params[key] is not None and isinstance(params[key], int):
+            if (
+                key in params
+                and params[key] is not None
+                and isinstance(params[key], int)
+            ):
                 params[key] = keys[key](params[key])
 
         for key in params:
@@ -595,7 +689,7 @@ def get_parameters_from_string(text):
     'run --rm -it -v "$(pwd)":/payload gitlab-registry.cern.ch/zhangruihpc/endpointcontainer:latest /bin/bash -c "echo "--num_points %NUM_POINTS"; /bin/cat /payload/%IN>/payload/%OUT"'
     """
     ret = re.findall(r"[%]\w+", text)
-    ret = [r.replace('%', '') for r in ret]
+    ret = [r.replace("%", "") for r in ret]
     # remove dumplications
     ret = list(set(ret))
     return ret
@@ -610,7 +704,7 @@ def replace_parameters_with_values(text, values):
     :param values: parameter values, for example {'NUM_POINTS': 5, 'IN': 'input.json', 'OUT': 'output.json'}
     """
     for key in values:
-        key1 = '%' + key
+        key1 = "%" + key
         text = re.sub(key1, str(values[key]), text)
     return text
 
@@ -635,6 +729,7 @@ def exception_handler(function):
             logging.error(ex)
             # print(traceback.format_exc())
             return False, str(ex)
+
     return new_funct
 
 
@@ -650,11 +745,11 @@ def is_sub(a, b):
 
 def get_proxy_path():
     try:
-        if 'X509_USER_PROXY' in os.environ:
-            proxy = os.environ['X509_USER_PROXY']
+        if "X509_USER_PROXY" in os.environ:
+            proxy = os.environ["X509_USER_PROXY"]
             if os.path.exists(proxy) and os.access(proxy, os.R_OK):
                 return proxy
-        proxy = '/tmp/x509up_u%s' % os.getuid()
+        proxy = "/tmp/x509up_u%s" % os.getuid()
         if os.path.exists(proxy) and os.access(proxy, os.R_OK):
             return proxy
     except Exception as ex:
@@ -667,7 +762,7 @@ def get_proxy():
         proxy = get_proxy_path()
         if not proxy:
             return proxy
-        with open(proxy, 'r') as fp:
+        with open(proxy, "r") as fp:
             data = fp.read()
         return data
     except Exception as ex:
@@ -681,24 +776,24 @@ def is_new_version(version1, version2):
 
 def extract_scope_atlas(did, scopes):
     # Try to extract the scope from the DSN
-    if did.find(':') > -1:
-        if len(did.split(':')) > 2:
-            raise IDDSException('Too many colons. Cannot extract scope and name')
-        scope, name = did.split(':')[0], did.split(':')[1]
-        if name.endswith('/'):
+    if did.find(":") > -1:
+        if len(did.split(":")) > 2:
+            raise IDDSException("Too many colons. Cannot extract scope and name")
+        scope, name = did.split(":")[0], did.split(":")[1]
+        if name.endswith("/"):
             name = name[:-1]
         return scope, name
     else:
-        scope = did.split('.')[0]
-        if did.startswith('user') or did.startswith('group'):
-            scope = ".".join(did.split('.')[0:2])
-        if did.endswith('/'):
+        scope = did.split(".")[0]
+        if did.startswith("user") or did.startswith("group"):
+            scope = ".".join(did.split(".")[0:2])
+        if did.endswith("/"):
             did = did[:-1]
         return scope, did
 
 
 def truncate_string(string, length=800):
-    string = (string[:length] + '...') if string and len(string) > length else string
+    string = (string[:length] + "...") if string and len(string) > length else string
     return string
 
 
@@ -715,7 +810,10 @@ def merge_dict(dict1, dict2):
                 if dict2[key] is None:
                     continue
                 elif not isinstance(dict1[key], type(dict2[key])):
-                    raise Exception("type of %s is different from %s, cannot merge" % (type(dict1[key]), type(dict2[key])))
+                    raise Exception(
+                        "type of %s is different from %s, cannot merge"
+                        % (type(dict1[key]), type(dict2[key]))
+                    )
                 elif dict1[key] == dict2[key]:
                     continue
                 elif type(dict1[key]) in (list, tuple, str):
@@ -741,7 +839,7 @@ def pid_exists(pid):
         # in the process group of the calling process.
         # On certain systems 0 is a valid PID but we have no way
         # to know that in a portable fashion.
-        raise ValueError('invalid PID 0')
+        raise ValueError("invalid PID 0")
     try:
         os.kill(pid, 0)
     except OSError as err:
@@ -768,8 +866,8 @@ def report_availability(availability):
     try:
         log_dir = get_log_dir()
         if log_dir:
-            filename = os.path.join(log_dir, 'idds_availability')
-            with open(filename, 'w') as f:
+            filename = os.path.join(log_dir, "idds_availability")
+            with open(filename, "w") as f:
                 json.dump(availability, f)
         else:
             print("availability: %s" % str(availability))
@@ -793,8 +891,8 @@ def group_list(input_list, key):
         del item[key]
         item_tuple = str(tuple(sorted(item.items())))
         if item_tuple not in update_groups:
-            update_groups[item_tuple] = {'keys': [], 'items': item}
-        update_groups[item_tuple]['keys'].append(item_key)
+            update_groups[item_tuple] = {"keys": [], "items": item}
+        update_groups[item_tuple]["keys"].append(item_key)
     return update_groups
 
 
@@ -817,14 +915,14 @@ def import_func(name: str) -> Callable[..., Any]:
     Returns:
         Any: An attribute (normally a Callable)
     """
-    name_bits = name.split(':')
+    name_bits = name.split(":")
     module_name_bits, attribute_bits = name_bits[:-1], [name_bits[-1]]
-    module_name_bits = module_name_bits.split('.')
-    attribute_bits = attribute_bits.split('.')
+    module_name_bits = module_name_bits.split(".")
+    attribute_bits = attribute_bits.split(".")
     module = None
     while len(module_name_bits):
         try:
-            module_name = '.'.join(module_name_bits)
+            module_name = ".".join(module_name_bits)
             module = importlib.import_module(module_name)
             break
         except ImportError:
@@ -835,21 +933,21 @@ def import_func(name: str) -> Callable[..., Any]:
         try:
             return __builtins__[name]
         except KeyError:
-            raise ValueError('Invalid attribute name: %s' % name)
+            raise ValueError("Invalid attribute name: %s" % name)
 
-    attribute_name = '.'.join(attribute_bits)
+    attribute_name = ".".join(attribute_bits)
     if hasattr(module, attribute_name):
         return getattr(module, attribute_name)
     # staticmethods
     attribute_name = attribute_bits.pop()
-    attribute_owner_name = '.'.join(attribute_bits)
+    attribute_owner_name = ".".join(attribute_bits)
     try:
         attribute_owner = getattr(module, attribute_owner_name)
     except:  # noqa
-        raise ValueError('Invalid attribute name: %s' % attribute_name)
+        raise ValueError("Invalid attribute name: %s" % attribute_name)
 
     if not hasattr(attribute_owner, attribute_name):
-        raise ValueError('Invalid attribute name: %s' % name)
+        raise ValueError("Invalid attribute name: %s" % name)
     return getattr(attribute_owner, attribute_name)
 
 
@@ -872,12 +970,12 @@ def import_attribute(name: str) -> Callable[..., Any]:
     Returns:
         Any: An attribute (normally a Callable)
     """
-    name_bits = name.split('.')
+    name_bits = name.split(".")
     module_name_bits, attribute_bits = name_bits[:-1], [name_bits[-1]]
     module = None
     while len(module_name_bits):
         try:
-            module_name = '.'.join(module_name_bits)
+            module_name = ".".join(module_name_bits)
             module = importlib.import_module(module_name)
             break
         except ImportError:
@@ -888,28 +986,28 @@ def import_attribute(name: str) -> Callable[..., Any]:
         try:
             return __builtins__[name]
         except KeyError:
-            raise ValueError('Invalid attribute name: %s' % name)
+            raise ValueError("Invalid attribute name: %s" % name)
 
-    attribute_name = '.'.join(attribute_bits)
+    attribute_name = ".".join(attribute_bits)
     if hasattr(module, attribute_name):
         return getattr(module, attribute_name)
     # staticmethods
     attribute_name = attribute_bits.pop()
-    attribute_owner_name = '.'.join(attribute_bits)
+    attribute_owner_name = ".".join(attribute_bits)
     try:
         attribute_owner = getattr(module, attribute_owner_name)
     except:  # noqa
-        raise ValueError('Invalid attribute name: %s' % attribute_name)
+        raise ValueError("Invalid attribute name: %s" % attribute_name)
 
     if not hasattr(attribute_owner, attribute_name):
-        raise ValueError('Invalid attribute name: %s' % name)
+        raise ValueError("Invalid attribute name: %s" % name)
     return getattr(attribute_owner, attribute_name)
 
 
 def decode_base64(sb, remove_quotes=False):
     try:
         if isinstance(sb, str):
-            sb_bytes = bytes(sb, 'ascii')
+            sb_bytes = bytes(sb, "ascii")
         elif isinstance(sb, bytes):
             sb_bytes = sb
         else:
@@ -927,7 +1025,7 @@ def decode_base64(sb, remove_quotes=False):
 def encode_base64(sb):
     try:
         if isinstance(sb, str):
-            sb_bytes = bytes(sb, 'ascii')
+            sb_bytes = bytes(sb, "ascii")
         elif isinstance(sb, bytes):
             sb_bytes = sb
         return base64.b64encode(sb_bytes).decode("utf-8")
@@ -962,13 +1060,18 @@ def create_archive_file(work_dir, archive_filename, files, exclude_files=[]):
                         continue
                     if os.path.isfile(filename):
                         file_path = os.path.join(local_file, filename)
-                        tar.add(file_path, arcname=os.path.relpath(file_path, local_file))
+                        tar.add(
+                            file_path, arcname=os.path.relpath(file_path, local_file)
+                        )
                     elif os.path.isdir(filename):
                         for root, dirs, fs in os.walk(filename):
                             for f in fs:
                                 if not is_execluded_file(f, exclude_files):
                                     file_path = os.path.join(root, f)
-                                    tar.add(file_path, arcname=os.path.relpath(file_path, local_file))
+                                    tar.add(
+                                        file_path,
+                                        arcname=os.path.relpath(file_path, local_file),
+                                    )
     return archive_filename
 
 
@@ -977,14 +1080,14 @@ class SecureString(object):
         self._value = value
 
     def __str__(self):
-        return '****'
+        return "****"
 
 
 def is_panda_client_verbose():
     verbose = os.environ.get("PANDA_CLIENT_VERBOSE", None)
     if verbose:
         verbose = verbose.lower()
-        if verbose == 'true':
+        if verbose == "true":
             return True
     return False
 
@@ -998,7 +1101,14 @@ def get_unique_id_for_dict(dict_):
 def idds_mask(dict_):
     ret = {}
     for k in dict_:
-        if 'pass' in k or 'password' in k or 'passwd' in k or 'token' in k or 'security' in k or 'secure' in k:
+        if (
+            "pass" in k
+            or "password" in k
+            or "passwd" in k
+            or "token" in k
+            or "security" in k
+            or "secure" in k
+        ):
             ret[k] = "***"
         else:
             ret[k] = dict_[k]
@@ -1057,8 +1167,12 @@ def run_with_timeout(func, args=(), kwargs={}, timeout=None, retries=1):
                 return future.result(timeout=timeout)
             except concurrent.futures.TimeoutError:
                 # raise TimeoutError(f"Function '{func.__name__}' timed out after {timeout} seconds.")
-                logging.error(f"Function '{func.__name__}' timed out after {timeout} seconds in retry {i}.")
-    return TimeoutError(f"Function '{func.__name__}' timed out after {timeout} seconds.")
+                logging.error(
+                    f"Function '{func.__name__}' timed out after {timeout} seconds in retry {i}."
+                )
+    return TimeoutError(
+        f"Function '{func.__name__}' timed out after {timeout} seconds."
+    )
 
 
 def timeout_wrapper(timeout, retries=1):
@@ -1071,6 +1185,7 @@ def timeout_wrapper(timeout, retries=1):
     Raises:
         TimeoutError: If the function execution exceeds the time limit.
     """
+
     def decorator(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
@@ -1084,9 +1199,15 @@ def timeout_wrapper(timeout, retries=1):
                         return future.result(timeout=timeout)
                     except concurrent.futures.TimeoutError:
                         # raise TimeoutError(f"Function '{func.__name__}' timed out after {seconds} seconds.")
-                        logging.error(f"Function '{func.__name__}' timed out after {timeout} seconds in retry {i}.")
-            return TimeoutError(f"Function '{func.__name__}' timed out after {timeout} seconds.")
+                        logging.error(
+                            f"Function '{func.__name__}' timed out after {timeout} seconds in retry {i}."
+                        )
+            return TimeoutError(
+                f"Function '{func.__name__}' timed out after {timeout} seconds."
+            )
+
         return wrapper
+
     return decorator
 
 
@@ -1095,7 +1216,7 @@ def get_process_thread_info():
     Returns: hostname, process id, thread id and thread name
     """
     hostname = socket.getfqdn()
-    hostname = hostname.split('.')[0]
+    hostname = hostname.split(".")[0]
     pid = os.getpid()
     hb_thread = threading.current_thread()
     thread_id = hb_thread.ident
@@ -1103,7 +1224,9 @@ def get_process_thread_info():
     return hostname, pid, thread_id, thread_name
 
 
-def run_command_with_timeout(command, timeout=600, stdout=sys.stdout, stderr=sys.stderr):
+def run_command_with_timeout(
+    command, timeout=600, stdout=sys.stdout, stderr=sys.stderr
+):
     """
     Run a command and monitor its output. Terminate if no output within timeout.
     """
@@ -1117,14 +1240,20 @@ def run_command_with_timeout(command, timeout=600, stdout=sys.stdout, stderr=sys
             last_output_time = time.time()  # Reset timer on new output
 
     # Start the process
-    process = subprocess.Popen(command,
-                               preexec_fn=os.setsid,    # setpgrp
-                               stdout=subprocess.PIPE,
-                               stderr=subprocess.PIPE)
+    process = subprocess.Popen(
+        command,
+        preexec_fn=os.setsid,  # setpgrp
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
 
     # Start the monitoring thread
-    stdout_thread = threading.Thread(target=monitor_output, args=(process.stdout, stdout, timeout))
-    stderr_thread = threading.Thread(target=monitor_output, args=(process.stderr, stderr, timeout))
+    stdout_thread = threading.Thread(
+        target=monitor_output, args=(process.stdout, stdout, timeout)
+    )
+    stderr_thread = threading.Thread(
+        target=monitor_output, args=(process.stderr, stderr, timeout)
+    )
     stdout_thread.start()
     stderr_thread.start()
 

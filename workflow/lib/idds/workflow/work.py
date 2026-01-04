@@ -32,7 +32,7 @@ setup_logging(__name__)
 
 class Parameter(object):
     def __init__(self, params):
-        assert(type(params) in [dict])
+        assert (type(params) in [dict])
         self.params = params
 
     def add(self, name, value):
@@ -1300,7 +1300,7 @@ class Work(Base):
         """
         *** Function called by Marshaller agent.
         """
-        assert(isinstance(status, WorkStatus))
+        assert (isinstance(status, WorkStatus))
         self.status = status
         # if self.workflow:
         #     self.workflow.work_status_update_trigger(self, status)
@@ -1543,9 +1543,9 @@ class Work(Base):
         self.polling_retries = 0
 
     def add_collection_to_collections(self, coll):
-        assert(isinstance(coll, dict))
-        assert('scope' in coll)
-        assert('name' in coll)
+        assert (isinstance(coll, dict))
+        assert ('scope' in coll)
+        assert ('name' in coll)
 
         coll_metadata = copy.copy(coll)
         del coll_metadata['scope']
