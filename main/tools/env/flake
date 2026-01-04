@@ -1,0 +1,8 @@
+# ruff check .
+# ruff check . --fix
+# black --check .
+# auto-format black
+# black 
+# example:
+# ruff check --fix main/lib/idds/tests/test_workflow_condition_v2.py
+# black main/lib/idds/tests/test_workflow_condition_v2.py
