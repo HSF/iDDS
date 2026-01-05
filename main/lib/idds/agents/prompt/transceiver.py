@@ -54,20 +54,40 @@ setup_logging(__name__)
 class Transceiver(BaseAgent):
     """
     Transceiver works to receive workflow management messages.
+
+    1. worker handler: receive messages from SWF Processing Agent
+        <!--
+                 a. EIC -> 'run imminent' -> idds.worker_handler
+                 b. idds.worker_handler -> 'adjust_worker' -> harvester.adjust_worker(start pilots)
+                 c. transformer -> 'heartbeat' -> idds.worker_handler
+                 d. EIC -> 'run end' -> idds.worker_handler
+                 e. idds.worker_handler -> broadcast 'run end' to /topic/panda.transformers
+         -->
+         <address name="/topic/panda.workers">
+           <multicast>
+                   <queue name="/queue/panda.idds.workers" />
+                   <queue name="/queue/panda.harvester.workers" />
+           </multicast>
+         </address>
+
+         <address name="/topic/panda.transformer">
+           <multicast/>
+         </address>
     """
 
     def __init__(
         self,
         receiver_num_threads=8,
         timetolive=12 * 3600 * 1000,
-        worker_broker=None,
-        result_broker=None,
+        worker_publisher_broker=None,
+        worker_subscriber_broker=None,
         transformer_broadcast_broker=None,
-        harvester_broker=None,
+        slice_idds_subscriber_broker=None,
+        result_idds_subscriber_broker=None,
         **kwargs,
     ):
         super(Transceiver, self).__init__(
-            num_threads=receiver_num_threads, name="PromptTransceiver", **kwargs
+            num_threads=receiver_num_threads, name="Transceiver", **kwargs
         )
         self.config_section = Sections.Prompt
         self.logger = get_logger(self.__class__.__name__)
@@ -77,13 +97,15 @@ class Transceiver(BaseAgent):
             timetolive  # default time to live for messages in milliseconds
         )
 
-        self.worker_broker = worker_broker
-        self.result_broker = result_broker
+        # worker related brokers
+        self.worker_publisher_broker = worker_publisher_broker
+        self.worker_subscriber_broker = worker_subscriber_broker
         # self.transformer_broker = transformer_broker  # queue for slice messages to transformers
-        self.transformer_broadcast_broker = (
-            transformer_broadcast_broker  # topic for broadcast (stop/heartbeat)
-        )
-        self.harvester_broker = harvester_broker  # queue for adjuster_worker messages
+        self.transformer_broadcast_broker = transformer_broadcast_broker  # topic for broadcast (stop/heartbeat)
+
+        # slice related brokers
+        self.slice_idds_subscriber_broker = slice_idds_subscriber_broker
+        self.result_idds_subscriber_broker = result_idds_subscriber_broker
 
         self.run_to_task_cache = TTLCache(
             maxsize=200, ttl=3600 * 24 * 3
@@ -97,10 +119,6 @@ class Transceiver(BaseAgent):
                 attr_name = key[6:]  # Remove 'panda.' prefix
                 self.panda_attributes[attr_name] = value
                 self.logger.debug(f"Added panda attribute: {attr_name}={value}")
-        for k, v in kwargs.items():
-            if k.startswith("panda."):
-                new_key = k.replace("panda.", "")
-                self.panda_attributes[new_key] = v
 
     def __del__(self):
         self.stop()
@@ -134,7 +152,7 @@ class Transceiver(BaseAgent):
         Based on prompt.md, supported message types:
         - 'run_imminent': Start workers and create workflow
         - 'run_end' or 'run_stop': Stop workers
-        - 'slice': Forward to transformer
+        - 'transformer_heartbeat': heartbeat from transformer
 
         All messages should contain 'run_id' in the message body.
         Headers should also contain 'run_id'.
@@ -155,21 +173,23 @@ class Transceiver(BaseAgent):
             elif msg_type in ("run_end", "run_stop"):
                 task_id = self.get_task_id_from_cache(msg)
                 worker_handler(header, msg, task_id, handler_kwargs)
+            elif msg_type == "transformer_heartbeat":
+                worker_handler(header, msg, None, handler_kwargs)
             else:
                 self.logger.warning(
-                    f"Unknown msg_type received in input_handler: {msg_type}"
+                    f"Unknown msg_type received in worker_handler: {msg_type}"
                 )
         except Exception as error:
             self.logger.critical(
                 f"input_handler exception for msg_type={msg_type}: {error}\n{traceback.format_exc()}"
             )
 
-    def result_handler(self, header, msg, handler_kwargs={}):
+    def slice_handler(self, header, msg, handler_kwargs={}):
         """Handle result / lifecycle messages.
 
         Types:
+          - 'slice': slice payload
           - 'slice_result': processed slice output
-          - 'transformer_start', 'transformer_heartbeat', 'transformer_end': lifecycle
         """
         msg_type = msg.get("msg_type")
         run_id = msg.get("run_id")
@@ -178,20 +198,15 @@ class Transceiver(BaseAgent):
         )
 
         try:
-            if msg_type == "slice_result":
+            if msg_type == "slice":
                 task_id = self.get_task_id_from_cache(msg)
                 slice_handler(header, msg, task_id, handler_kwargs)
-            elif msg_type in (
-                "transformer_start",
-                "transformer_heartbeat",
-                "transformer_end",
-            ):
+            elif msg_type == "slice_result":
                 task_id = self.get_task_id_from_cache(msg)
-                # reuse worker_handler for logging lifecycle (does not change state)
-                worker_handler(header, msg, task_id, handler_kwargs)
+                slice_handler(header, msg, task_id, handler_kwargs)
             else:
                 self.logger.warning(
-                    f"Unknown msg_type received in result_handler: {msg_type}"
+                    f"Unknown msg_type received in slice_handler: {msg_type}"
                 )
         except Exception as error:
             self.logger.critical(
@@ -205,11 +220,14 @@ class Transceiver(BaseAgent):
         # subscribe to worker messages from SWF Processing Agent
         worker_subscriber = None
 
-        # manage to tell harvester to adjust workers (worker will run transformer)
-        harvester_publisher = None
+        # manage to publish worker message to adjust workers (worker will run transformer)
+        worker_publisher = None
 
         # broadcast messages to transformers (e.g., stop/heartbeat)
         transformer_broadcaster = None
+
+        # subscribe to slice messages
+        slice_subscriber = None
 
         # subscribe to result messages from transformers
         result_subscriber = None
@@ -222,31 +240,42 @@ class Transceiver(BaseAgent):
                     broker=self.transformer_broadcast_broker,
                     broadcast=True,
                 )
-            if self.harvester_broker:
-                harvester_publisher = Publisher(
-                    name="HarvesterPublisher", broker=self.harvester_broker
+            if self.worker_publisher_broker:
+                worker_publisher = Publisher(
+                    name="WorkerPublisher", broker=self.worker_publisher_broker
                 )
 
-            handler_kwargs = {
+            worker_handler_kwargs = {
                 "transformer_broadcaster": transformer_broadcaster,
-                "harvester_publisher": harvester_publisher,
+                "worker_publisher": worker_publisher,
                 "panda_attributes": self.panda_attributes,
                 "timetolive": self.timetolive,  # 12 * 3600 * 1000
             }
 
-            if self.worker_broker:
+            if self.worker_subscriber_broker:
                 worker_subscriber = Subscriber(
                     name="WorkerSubscriber",
-                    broker=self.worker_broker,
+                    broker=self.worker_subscriber_broker,
                     handler=self.worker_handler,
-                    handler_kwargs=handler_kwargs,
+                    handler_kwargs=worker_handler_kwargs,
                 )
-            if self.result_broker:
+
+            slice_handler_kwargs = {
+                "timetolive": self.timetolive,  # 12 * 3600 * 1000
+            }
+            if self.slice_idds_subscriber_broker:
+                slice_subscriber = Subscriber(
+                    name="SliceSubscriber",
+                    broker=self.slice_idds_subscriber_broker,
+                    handler=self.slice_handler,
+                    handler_kwargs=slice_handler_kwargs,
+                )
+            if self.result_idds_subscriber_broker:
                 result_subscriber = Subscriber(
                     name="ResultSubscriber",
-                    broker=self.result_broker,
-                    handler=self.result_handler,
-                    handler_kwargs=handler_kwargs,
+                    broker=self.result_idds_subscriber_broker,
+                    handler=self.slice_handler,
+                    handler_kwargs=slice_handler_kwargs
                 )
 
             while not self.graceful_stop.is_set():
@@ -254,12 +283,14 @@ class Transceiver(BaseAgent):
                     # monitor publishers (re-connect if needed)
                     if transformer_broadcaster:
                         transformer_broadcaster.monitor()
-                    if harvester_publisher:
-                        harvester_publisher.monitor()
+                    if worker_publisher:
+                        worker_publisher.monitor()
 
                     # monitor subscribers (re-subscribe if needed)
                     if worker_subscriber:
                         worker_subscriber.monitor()
+                    if slice_subscriber:
+                        slice_subscriber.monitor()
                     if result_subscriber:
                         result_subscriber.monitor()
 
@@ -279,10 +310,12 @@ class Transceiver(BaseAgent):
             # orderly shutdown
             if transformer_broadcaster:
                 transformer_broadcaster.stop()
-            if harvester_publisher:
-                harvester_publisher.stop()
+            if worker_publisher:
+                worker_publisher.stop()
             if worker_subscriber:
                 worker_subscriber.stop()
+            if slice_subscriber:
+                slice_subscriber.stop()
             if result_subscriber:
                 result_subscriber.stop()
 

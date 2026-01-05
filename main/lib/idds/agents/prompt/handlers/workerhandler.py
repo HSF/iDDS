@@ -433,9 +433,7 @@ def worker_handler(header, msg, task_id=None, handler_kwargs={}):
     Supported message types:
     - run_imminent: Create workflow task and start workers
     - run_end/run_stop: Stop workers and transformers
-    - transformer_start: Track transformer lifecycle
     - transformer_heartbeat: Track transformer health
-    - transformer_end: Track transformer completion
 
     :param header: Message header (should contain 'run_id')
     :param msg: Message content with format:
@@ -457,7 +455,7 @@ def worker_handler(header, msg, task_id=None, handler_kwargs={}):
     panda_attributes = {}
 
     transformer_broadcaster = handler_kwargs.get("transformer_broadcaster", None)
-    harvester_publisher = handler_kwargs.get("harvester_publisher", None)
+    worker_publisher = handler_kwargs.get("worker_publisher", None)
     timetolive = handler_kwargs.get("timetolive", timetolive)
     panda_attributes = handler_kwargs.get("panda_attributes", panda_attributes)
 
@@ -472,7 +470,7 @@ def worker_handler(header, msg, task_id=None, handler_kwargs={}):
                 header,
                 msg,
                 task_id,
-                harvester_publisher,
+                worker_publisher,
                 timetolive=timetolive,
                 panda_attributes=panda_attributes,
             )
@@ -485,31 +483,18 @@ def worker_handler(header, msg, task_id=None, handler_kwargs={}):
                 header,
                 msg,
                 task_id,
-                harvester_publisher,
+                worker_publisher,
                 transformer_broadcaster,
                 timetolive=timetolive,
                 panda_attributes=panda_attributes,
             )
             logger.info(f"Handled {msg_type}: run_id={run_id}, task_id={task_id}")
 
-        elif msg_type == "transformer_start":
-            transformer_id = msg.get("content", {}).get("id")
-            hostname = msg.get("content", {}).get("hostname")
-            logger.info(
-                f"Transformer started: run_id={run_id}, transformer_id={transformer_id}, hostname={hostname}"
-            )
-
         elif msg_type == "transformer_heartbeat":
             transformer_id = msg.get("content", {}).get("id")
-            logger.debug(
-                f"Transformer heartbeat: run_id={run_id}, transformer_id={transformer_id}"
-            )
-
-        elif msg_type == "transformer_end":
-            transformer_id = msg.get("content", {}).get("id")
             hostname = msg.get("content", {}).get("hostname")
             logger.info(
-                f"Transformer ended: run_id={run_id}, transformer_id={transformer_id}, hostname={hostname}"
+                f"Transformer heartbeat: run_id={run_id}, transformer_id={transformer_id}, hostname={hostname}"
             )
 
         else:
