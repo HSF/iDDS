@@ -27,6 +27,7 @@ Headers should contain:
 - 'persistent': 'true'
 - 'ttl': Time to live in milliseconds (default: 12 * 3600 * 1000)
 - 'vo': 'eic'
+- 'instance': 'dev', 'prod', etc.
 - 'msg_type': Message type
 - 'run_id': Run identifier
 """
@@ -64,10 +65,7 @@ class Transceiver(BaseAgent):
                  e. idds.worker_handler -> broadcast 'run end' to /topic/panda.transformers
          -->
          <address name="/topic/panda.workers">
-           <multicast>
-                   <queue name="/queue/panda.idds.workers" />
-                   <queue name="/queue/panda.harvester.workers" />
-           </multicast>
+           <multicast/>
          </address>
 
          <address name="/topic/panda.transformer">
@@ -77,7 +75,8 @@ class Transceiver(BaseAgent):
 
     def __init__(
         self,
-        receiver_num_threads=8,
+        instance="dev",
+        num_threads=8,
         timetolive=12 * 3600 * 1000,
         worker_publisher_broker=None,
         worker_subscriber_broker=None,
@@ -87,11 +86,12 @@ class Transceiver(BaseAgent):
         **kwargs,
     ):
         super(Transceiver, self).__init__(
-            num_threads=receiver_num_threads, name="Transceiver", **kwargs
+            num_threads=num_threads, name="Transceiver", **kwargs
         )
         self.config_section = Sections.Prompt
         self.logger = get_logger(self.__class__.__name__)
         self._lock = threading.RLock()
+        self.instance = instance
 
         self.timetolive = (
             timetolive  # default time to live for messages in milliseconds
@@ -237,12 +237,13 @@ class Transceiver(BaseAgent):
             if self.transformer_broadcast_broker:
                 transformer_broadcaster = Publisher(
                     name="TransformerBroadcaster",
+                    instance=self.instance,
                     broker=self.transformer_broadcast_broker,
                     broadcast=True,
                 )
             if self.worker_publisher_broker:
                 worker_publisher = Publisher(
-                    name="WorkerPublisher", broker=self.worker_publisher_broker
+                    name="WorkerPublisher", instance=self.instance, broker=self.worker_publisher_broker
                 )
 
             worker_handler_kwargs = {
@@ -255,6 +256,7 @@ class Transceiver(BaseAgent):
             if self.worker_subscriber_broker:
                 worker_subscriber = Subscriber(
                     name="WorkerSubscriber",
+                    instance=self.instance,
                     broker=self.worker_subscriber_broker,
                     handler=self.worker_handler,
                     handler_kwargs=worker_handler_kwargs,
@@ -266,6 +268,7 @@ class Transceiver(BaseAgent):
             if self.slice_idds_subscriber_broker:
                 slice_subscriber = Subscriber(
                     name="SliceSubscriber",
+                    instance=self.instance,
                     broker=self.slice_idds_subscriber_broker,
                     handler=self.slice_handler,
                     handler_kwargs=slice_handler_kwargs,
@@ -273,6 +276,7 @@ class Transceiver(BaseAgent):
             if self.result_idds_subscriber_broker:
                 result_subscriber = Subscriber(
                     name="ResultSubscriber",
+                    instance=self.instance,
                     broker=self.result_idds_subscriber_broker,
                     handler=self.slice_handler,
                     handler_kwargs=slice_handler_kwargs

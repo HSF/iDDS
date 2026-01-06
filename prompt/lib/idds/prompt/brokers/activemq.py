@@ -3,7 +3,7 @@
 # Licensed under the Apache License, Version 2.0 (the "License");
 # You may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0OA
+# http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2025
@@ -34,7 +34,7 @@ class MessagingListener(stomp.ConnectionListener):
     """
 
     def __init__(
-        self, broker, handler, handler_kwargs, conn, logger=None, subscriber=None
+        self, broker, handler, handler_kwargs, conn, logger=None, subscriber=None, instance=None
     ):
         """
         __init__
@@ -47,6 +47,7 @@ class MessagingListener(stomp.ConnectionListener):
         self.conn = conn
         # optional reference to the Subscriber that created this listener
         self.subscriber = subscriber
+        self.instance = instance
 
         if logger:
             self.logger = logger
@@ -92,13 +93,14 @@ class MessagingListener(stomp.ConnectionListener):
 
 class BaseActiveMQ(PluginBase):
     def __init__(
-        self, name="BaseActiveMQ", logger=None, broker=None, lifetime=3600, **kwargs
+        self, name="BaseActiveMQ", instance=None, logger=None, broker=None, lifetime=3600, **kwargs
     ):
         super(BaseActiveMQ, self).__init__(
             name=name, logger=logger, broker=broker, **kwargs
         )
 
         self.logger = logger
+        self.instance = instance
 
         self.has_connection_failures = False
         self.start_at = None
@@ -156,7 +158,10 @@ class BaseActiveMQ(PluginBase):
                 )
                 for addrinfo in addrinfos:
                     b_addr = addrinfo[4][0]
-                    broker_addresses.append((b_addr, port))
+                    try:
+                        broker_addresses.append((b_addr, int(port)))
+                    except Exception:
+                        broker_addresses.append((b_addr, port))
             except socket.gaierror as error:
                 self.logger.error("Cannot resolve hostname %s: %s" % (b, str(error)))
 
@@ -245,6 +250,7 @@ class Publisher(BaseActiveMQ):
     def __init__(
         self,
         name="Publisher",
+        instance=None,
         logger=None,
         broker=None,
         lifetime=3600,
@@ -252,7 +258,7 @@ class Publisher(BaseActiveMQ):
         **kwargs,
     ):
         super(Publisher, self).__init__(
-            name=name, logger=logger, broker=broker, lifetime=lifetime, **kwargs
+            name=name, instance=instance, logger=logger, broker=broker, lifetime=lifetime, **kwargs
         )
         self.broadcast = broadcast
 
@@ -264,6 +270,7 @@ class Publisher(BaseActiveMQ):
         - 'persistent': 'true'
         - 'ttl': time to live in milliseconds
         - 'vo': 'eic'
+        - 'instance': instance name
         - 'msg_type': message type
         - 'run_id': run identifier
 
@@ -271,6 +278,7 @@ class Publisher(BaseActiveMQ):
         :param headers: Optional headers dictionary (can override defaults)
         """
         # msg_id = msg.get("msg_id", "unknown")
+        instance = getattr(self, "instance", "unknown")
         msg_type = msg.get("msg_type", "unknown")
         run_id = msg.get("run_id", "unknown")
 
@@ -288,6 +296,7 @@ class Publisher(BaseActiveMQ):
             "persistent": "true",
             "ttl": self.timetolive,
             "vo": "eic",
+            "instance": instance,
             "msg_type": str(msg_type).lower(),
             "run_id": run_id,
         }
@@ -297,6 +306,7 @@ class Publisher(BaseActiveMQ):
             send_headers.update(headers)
 
         try:
+            msg["instance"] = instance
             conn.send(
                 body=json_dumps(msg),
                 destination=self.broker["destination"],
@@ -318,6 +328,7 @@ class Subscriber(BaseActiveMQ):
     def __init__(
         self,
         name="Subscriber",
+        instance=None,
         logger=None,
         broker=None,
         lifetime=1800,
@@ -327,7 +338,7 @@ class Subscriber(BaseActiveMQ):
         **kwargs,
     ):
         super(Subscriber, self).__init__(
-            name=name, logger=logger, broker=broker, lifetime=lifetime, **kwargs
+            name=name, instance=instance, logger=logger, broker=broker, lifetime=lifetime, **kwargs
         )
         self.listener = None
         self.handler = handler
@@ -345,6 +356,7 @@ class Subscriber(BaseActiveMQ):
         if self.listener is None:
             self.listener = MessagingListener(
                 broker,
+                instance=self.instance,
                 handler=self.handler,
                 handler_kwargs=self.handler_kwargs,
                 conn=conn,
@@ -360,19 +372,25 @@ class Subscriber(BaseActiveMQ):
         conn.connect(self.broker["username"], self.broker["password"], wait=True)
         # conn.subscribe(destination=self.broker['destination'], id=f'{self.internal_id}',
         #                ack='client-individual', headers={'activemq.prefetchSize': '1'})
+        # Build a broker-side selector so filtering happens before delivery.
         if self.selector:
-            conn.subscribe(
-                destination=self.broker["destination"],
-                id=f"{self.internal_id}",
-                ack="client-individual",
-                headers={"selector": self.selector},
-            )
+            # Quote instance to handle string values in selectors
+            selector = f"instance='{self.instance}' AND ({self.selector})"
         else:
-            conn.subscribe(
-                destination=self.broker["destination"],
-                id=f"{self.internal_id}",
-                ack="client-individual",
-            )
+            selector = f"instance='{self.instance}'"
+
+        # update last_message_at when subscription is established
+        try:
+            self.last_message_at = time.time()
+        except Exception:
+            pass
+
+        conn.subscribe(
+            destination=self.broker["destination"],
+            id=f"{self.internal_id}",
+            ack="client-individual",
+            headers={"selector": selector, "activemq.prefetchSize": "1"},
+        )
 
     def subscribe(self):
         self.conns = self.connect_to_messaging_brokers()
@@ -389,6 +407,19 @@ class Subscriber(BaseActiveMQ):
             idle_seconds = self.idle_seconds
         last = getattr(self, "last_message_at", 0)
         return (time.time() - last) > float(idle_seconds)
+
+    def wait_for_idle(self, timeout=None, poll_interval=0.5):
+        """Block until the subscriber is idle or timeout (seconds) elapses.
+
+        Returns True if idle was reached, False if timeout occurred.
+        """
+        start = time.time()
+        while True:
+            if self.is_idle():
+                return True
+            if timeout is not None and (time.time() - start) >= timeout:
+                return False
+            time.sleep(poll_interval)
 
     def monitor(self):
         try:
