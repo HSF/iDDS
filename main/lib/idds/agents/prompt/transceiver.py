@@ -75,7 +75,7 @@ class Transceiver(BaseAgent):
 
     def __init__(
         self,
-        instance="dev",
+        namespace="dev",
         num_threads=8,
         timetolive=12 * 3600 * 1000,
         worker_publisher_broker=None,
@@ -91,7 +91,7 @@ class Transceiver(BaseAgent):
         self.config_section = Sections.Prompt
         self.logger = get_logger(self.__class__.__name__)
         self._lock = threading.RLock()
-        self.instance = instance
+        self.namespace = namespace
 
         self.timetolive = (
             timetolive  # default time to live for messages in milliseconds
@@ -237,13 +237,13 @@ class Transceiver(BaseAgent):
             if self.transformer_broadcast_broker:
                 transformer_broadcaster = Publisher(
                     name="TransformerBroadcaster",
-                    instance=self.instance,
+                    namespace=self.namespace,
                     broker=self.transformer_broadcast_broker,
                     broadcast=True,
                 )
             if self.worker_publisher_broker:
                 worker_publisher = Publisher(
-                    name="WorkerPublisher", instance=self.instance, broker=self.worker_publisher_broker
+                    name="WorkerPublisher", namespace=self.namespace, broker=self.worker_publisher_broker
                 )
 
             worker_handler_kwargs = {
@@ -256,7 +256,7 @@ class Transceiver(BaseAgent):
             if self.worker_subscriber_broker:
                 worker_subscriber = Subscriber(
                     name="WorkerSubscriber",
-                    instance=self.instance,
+                    namespace=self.namespace,
                     broker=self.worker_subscriber_broker,
                     handler=self.worker_handler,
                     handler_kwargs=worker_handler_kwargs,
@@ -268,7 +268,7 @@ class Transceiver(BaseAgent):
             if self.slice_idds_subscriber_broker:
                 slice_subscriber = Subscriber(
                     name="SliceSubscriber",
-                    instance=self.instance,
+                    namespace=self.namespace,
                     broker=self.slice_idds_subscriber_broker,
                     handler=self.slice_handler,
                     handler_kwargs=slice_handler_kwargs,
@@ -276,7 +276,7 @@ class Transceiver(BaseAgent):
             if self.result_idds_subscriber_broker:
                 result_subscriber = Subscriber(
                     name="ResultSubscriber",
-                    instance=self.instance,
+                    namespace=self.namespace,
                     broker=self.result_idds_subscriber_broker,
                     handler=self.slice_handler,
                     handler_kwargs=slice_handler_kwargs

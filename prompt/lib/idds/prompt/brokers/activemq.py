@@ -34,7 +34,7 @@ class MessagingListener(stomp.ConnectionListener):
     """
 
     def __init__(
-        self, broker, handler, handler_kwargs, conn, logger=None, subscriber=None, instance=None
+        self, broker, handler, handler_kwargs, conn, logger=None, subscriber=None, namespace=None
     ):
         """
         __init__
@@ -47,7 +47,7 @@ class MessagingListener(stomp.ConnectionListener):
         self.conn = conn
         # optional reference to the Subscriber that created this listener
         self.subscriber = subscriber
-        self.instance = instance
+        self.namespace = namespace
 
         if logger:
             self.logger = logger
@@ -93,14 +93,14 @@ class MessagingListener(stomp.ConnectionListener):
 
 class BaseActiveMQ(PluginBase):
     def __init__(
-        self, name="BaseActiveMQ", instance=None, logger=None, broker=None, lifetime=3600, **kwargs
+        self, name="BaseActiveMQ", namespace=None, logger=None, broker=None, lifetime=3600, **kwargs
     ):
         super(BaseActiveMQ, self).__init__(
             name=name, logger=logger, broker=broker, **kwargs
         )
 
         self.logger = logger
-        self.instance = instance
+        self.namespace = namespace
 
         self.has_connection_failures = False
         self.start_at = None
@@ -111,7 +111,7 @@ class BaseActiveMQ(PluginBase):
 
         internal_id = str(uuid.uuid4())[:8]
         self.hostname = socket.getfqdn().split(".")[0]
-        self.internal_id = f"{self.name}.{self.hostname}.{internal_id}"
+        self.internal_id = f"{self.namespace}.{self.name}.{self.hostname}.{internal_id}"
 
         if not hasattr(self, "timetolive"):
             self.timetolive = 12 * 3600 * 1000  # milliseconds
@@ -270,7 +270,7 @@ class Publisher(BaseActiveMQ):
         - 'persistent': 'true'
         - 'ttl': time to live in milliseconds
         - 'vo': 'eic'
-        - 'instance': instance name
+        - 'namespace': namespace
         - 'msg_type': message type
         - 'run_id': run identifier
 
@@ -278,7 +278,7 @@ class Publisher(BaseActiveMQ):
         :param headers: Optional headers dictionary (can override defaults)
         """
         # msg_id = msg.get("msg_id", "unknown")
-        instance = getattr(self, "instance", "unknown")
+        namespace = getattr(self, "namespace", "unknown")
         msg_type = msg.get("msg_type", "unknown")
         run_id = msg.get("run_id", "unknown")
 
@@ -296,7 +296,7 @@ class Publisher(BaseActiveMQ):
             "persistent": "true",
             "ttl": self.timetolive,
             "vo": "eic",
-            "instance": instance,
+            "namespace": namespace,
             "msg_type": str(msg_type).lower(),
             "run_id": run_id,
         }
@@ -306,7 +306,7 @@ class Publisher(BaseActiveMQ):
             send_headers.update(headers)
 
         try:
-            msg["instance"] = instance
+            msg["namespace"] = namespace
             conn.send(
                 body=json_dumps(msg),
                 destination=self.broker["destination"],
@@ -328,7 +328,7 @@ class Subscriber(BaseActiveMQ):
     def __init__(
         self,
         name="Subscriber",
-        instance=None,
+        namespace=None,
         logger=None,
         broker=None,
         lifetime=1800,
@@ -338,7 +338,7 @@ class Subscriber(BaseActiveMQ):
         **kwargs,
     ):
         super(Subscriber, self).__init__(
-            name=name, instance=instance, logger=logger, broker=broker, lifetime=lifetime, **kwargs
+            name=name, namespace=namespace, logger=logger, broker=broker, lifetime=lifetime, **kwargs
         )
         self.listener = None
         self.handler = handler
@@ -356,7 +356,7 @@ class Subscriber(BaseActiveMQ):
         if self.listener is None:
             self.listener = MessagingListener(
                 broker,
-                instance=self.instance,
+                namespace=self.namespace,
                 handler=self.handler,
                 handler_kwargs=self.handler_kwargs,
                 conn=conn,
@@ -374,10 +374,10 @@ class Subscriber(BaseActiveMQ):
         #                ack='client-individual', headers={'activemq.prefetchSize': '1'})
         # Build a broker-side selector so filtering happens before delivery.
         if self.selector:
-            # Quote instance to handle string values in selectors
-            selector = f"instance='{self.instance}' AND ({self.selector})"
+            # Quote namespace to handle string values in selectors
+            selector = f"namespace='{self.namespace}' AND ({self.selector})"
         else:
-            selector = f"instance='{self.instance}'"
+            selector = f"namespace='{self.namespace}'"
 
         # update last_message_at when subscription is established
         try:
