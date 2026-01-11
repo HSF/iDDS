@@ -46,7 +46,8 @@ def get_scope_name(run_id, site):
 
 def get_task_parameters(
     request_id,
-    name,
+    transform_id=None,
+    name=None,
     num_workers=None,
     core_count=None,
     ram_count=None,
@@ -140,7 +141,8 @@ def get_task_parameters(
 
 def submit_task_to_panda(
     request_id,
-    name,
+    transform_id=None,
+    name=None,
     num_workers=None,
     core_count=None,
     ram_count=None,
@@ -157,7 +159,8 @@ def submit_task_to_panda(
     panda_client = PandaClient()
     task_parameters = get_task_parameters(
         request_id,
-        name,
+        transform_id=transform_id,
+        name=name,
         num_workers=num_workers,
         core_count=core_count,
         ram_count=ram_count,
@@ -264,7 +267,7 @@ def create_workflow_task(message, panda_attributes={}, logger=None):
     # In production, this should call submit_task_to_panda()
     workload_id = submit_task_to_panda(
         request_id,
-        transform_id,
+        transform_id=transform_id,
         name=name,
         num_workers=num_workers,
         core_count=core_count,
