@@ -100,6 +100,7 @@ class BaseActiveMQ(PluginBase):
         )
 
         self.logger = logger
+        self.setup_logger(self.logger)
         self.namespace = namespace
 
         self.has_connection_failures = False

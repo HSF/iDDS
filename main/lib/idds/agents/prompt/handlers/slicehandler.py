@@ -11,14 +11,13 @@
 
 import datetime
 
-from idds.common.utils import setup_logging, get_logger
+from idds.common.utils import setup_logging
 
 
 setup_logging(__name__)
-logger = get_logger(__name__)
 
 
-def slice_handler(header, msg, task_id=None, handler_kwargs={}):
+def slice_handler(header, msg, task_id=None, logger=None, handler_kwargs={}):
     """
     Handle slice messages based on prompt.md specifications.
 
@@ -80,13 +79,15 @@ def slice_handler(header, msg, task_id=None, handler_kwargs={}):
             # Forward the entire message to transformer
             if transformer_publisher:
                 transformer_publisher.publish(msg, headers=tf_header)
-                logger.info(
-                    f"Forwarded slice to transformer: run_id={run_id}, filename={msg.get('content', {}).get('filename')}"
-                )
+                if logger:
+                    logger.info(
+                        f"Forwarded slice to transformer: run_id={run_id}, filename={msg.get('content', {}).get('filename')}"
+                    )
             else:
-                logger.warning(
-                    f"No transformer_publisher available to forward slice: run_id={run_id}"
-                )
+                if logger:
+                    logger.warning(
+                        f"No transformer_publisher available to forward slice: run_id={run_id}"
+                    )
 
         elif msg_type == "slice_result":
             # Log the slice result with timing information
@@ -96,12 +97,12 @@ def slice_handler(header, msg, task_id=None, handler_kwargs={}):
             processed_at = content.get("processed_at")
             result = content.get("result", {})
 
-            logger.info(
-                f"Slice result: run_id={run_id}, requested_at={requested_at}, "
-                f"processing_start_at={processing_start_at}, processed_at={processed_at}, "
-                f"result={result}"
-            )
-
+            if logger:
+                logger.info(
+                    f"Slice result: run_id={run_id}, requested_at={requested_at}, "
+                    f"processing_start_at={processing_start_at}, processed_at={processed_at}, "
+                    f"result={result}"
+                )
             # Calculate processing delays if timestamps are available
             if requested_at and processed_at:
                 try:
@@ -116,18 +117,21 @@ def slice_handler(header, msg, task_id=None, handler_kwargs={}):
                         processed_dt = processed_at
 
                     delay = (processed_dt - requested_dt).total_seconds()
-                    logger.info(
-                        f"Slice processing delay: run_id={run_id}, delay={delay:.2f}s"
-                    )
+                    if logger:
+                        logger.info(
+                            f"Slice processing delay: run_id={run_id}, delay={delay:.2f}s"
+                        )
                 except Exception as ex:
-                    logger.debug(f"Could not calculate delay: {ex}")
+                    if logger:
+                        logger.debug(f"Could not calculate delay: {ex}")
         else:
-            logger.warning(
-                f"Unknown message type in slice_handler: {msg_type}, run_id={run_id}"
-            )
-
+            if logger:
+                logger.warning(
+                    f"Unknown message type in slice_handler: {msg_type}, run_id={run_id}"
+                )
     except Exception as ex:
-        logger.error(
-            f"Error in slice_handler for msg_type={msg_type}, run_id={run_id}: {ex}",
-            exc_info=True,
-        )
+        if logger:
+            logger.error(
+                f"Error in slice_handler for msg_type={msg_type}, run_id={run_id}: {ex}",
+                exc_info=True,
+            )

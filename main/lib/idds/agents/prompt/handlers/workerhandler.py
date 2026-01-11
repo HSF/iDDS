@@ -11,7 +11,7 @@
 
 import datetime
 
-from idds.common.utils import setup_logging, get_logger
+from idds.common.utils import setup_logging
 from idds.common.constants import (
     RequestType,
     RequestStatus,
@@ -30,7 +30,6 @@ from .panda import PandaClient
 
 
 setup_logging(__name__)
-logger = get_logger(__name__)
 
 
 def get_scope_name(run_id, site):
@@ -148,6 +147,7 @@ def submit_task_to_panda(
     site=None,
     run_id=None,
     panda_attributes={},
+    logger=None,
 ):
     """
     Submit a task to Panda for processing.
@@ -168,19 +168,22 @@ def submit_task_to_panda(
     task_id = panda_client.submit(
         task_parameters, logger=logger, log_prefix=f"[run_id={run_id}] "
     )
+    if logger:
+        logger.info(f"Submitted PanDA task {task_id} for run_id={run_id}")
     return task_id
 
 
-def close_panda_task(task_id):
+def close_panda_task(task_id, logger=None):
     """
     Close a PanDA task to prevent further job retries.
     """
     panda_client = PandaClient()
     ret = panda_client.finishTask(task_id, soft=True)
-    logger.info(f"Finished PanDA task {task_id} with return code: {ret}")
+    if logger:
+        logger.info(f"Finished PanDA task {task_id} with return code: {ret}")
 
 
-def create_workflow_task(message, panda_attributes={}):
+def create_workflow_task(message, panda_attributes={}, logger=None):
     """
     Create a workflow task in iDDS when receiving 'run_imminent' message.
 
@@ -268,6 +271,7 @@ def create_workflow_task(message, panda_attributes={}):
         site=site,
         run_id=run_id,
         panda_attributes=panda_attributes,
+        logger=logger,
     )
 
     processing = {
@@ -281,10 +285,11 @@ def create_workflow_task(message, panda_attributes={}):
     }
     processing_id = core_processings.add_processing(**processing)
 
-    logger.info(
-        f"Created workflow task: request_id={request_id}, transform_id={transform_id}, "
-        f"processing_id={processing_id}, workload_id={workload_id}"
-    )
+    if logger:
+        logger.info(
+            f"Created workflow task: request_id={request_id}, transform_id={transform_id}, "
+            f"processing_id={processing_id}, workload_id={workload_id}"
+        )
 
     return request_id, transform_id, processing_id, coll_id, workload_id
 
@@ -296,6 +301,7 @@ def create_harvester_worker(
     harvester_publisher,
     timetolive=12 * 3600 * 1000,
     panda_attributes={},
+    logger=None,
 ):
     """
     Send message to harvester to create workers.
@@ -341,9 +347,11 @@ def create_harvester_worker(
 
     if harvester_publisher:
         harvester_publisher.publish(worker_msg, headers=msg_header)
-        logger.info(
-            f"Sent adjuster_worker message for run_id={run_id}, task_id={task_id}, num_workers={worker_msg['content']['num_workers']}"
-        )
+
+        if logger:
+            logger.info(
+                f"Sent adjuster_worker message for run_id={run_id}, task_id={task_id}, num_workers={worker_msg['content']['num_workers']}"
+            )
 
 
 def stop_harvester_worker(
@@ -354,6 +362,7 @@ def stop_harvester_worker(
     transformer_broadcaster,
     timetolive=12 * 3600 * 1000,
     panda_attributes={},
+    logger=None,
 ):
     """
     Stop harvester workers when receiving 'run_end' message.
@@ -393,9 +402,10 @@ def stop_harvester_worker(
 
     if transformer_broadcaster:
         transformer_broadcaster.publish(stop_transformer_msg, headers=stop_header)
-        logger.info(
-            f"Sent stop_transformer broadcast for run_id={run_id}, task_id={task_id}"
-        )
+        if logger:
+            logger.info(
+                f"Sent stop_transformer broadcast for run_id={run_id}, task_id={task_id}"
+            )
 
     # Send message to stop creating new workers
     stop_worker_msg = {
@@ -421,12 +431,13 @@ def stop_harvester_worker(
 
     if harvester_publisher:
         harvester_publisher.publish(stop_worker_msg, headers=worker_header)
-        logger.info(
-            f"Sent adjuster_worker (stop) message for run_id={run_id}, task_id={task_id}"
-        )
+        if logger:
+            logger.info(
+                f"Sent adjuster_worker (stop) message for run_id={run_id}, task_id={task_id}"
+            )
 
 
-def worker_handler(header, msg, task_id=None, handler_kwargs={}):
+def worker_handler(header, msg, task_id=None, handler_kwargs={}, logger=None):
     """
     Handle worker-related messages based on prompt.md specifications.
 
@@ -473,9 +484,11 @@ def worker_handler(header, msg, task_id=None, handler_kwargs={}):
                 worker_publisher,
                 timetolive=timetolive,
                 panda_attributes=panda_attributes,
+                logger=logger,
             )
             ret["task_id"] = task_id
-            logger.info(f"Handled run_imminent: run_id={run_id}, task_id={task_id}")
+            if logger:
+                logger.info(f"Handled run_imminent: run_id={run_id}, task_id={task_id}")
 
         elif msg_type in ["run_end", "run_stop"]:
             # Stop workers and transformers
@@ -487,25 +500,30 @@ def worker_handler(header, msg, task_id=None, handler_kwargs={}):
                 transformer_broadcaster,
                 timetolive=timetolive,
                 panda_attributes=panda_attributes,
+                logger=logger,
             )
-            logger.info(f"Handled {msg_type}: run_id={run_id}, task_id={task_id}")
+            if logger:
+                logger.info(f"Handled {msg_type}: run_id={run_id}, task_id={task_id}")
 
         elif msg_type == "transformer_heartbeat":
             transformer_id = msg.get("content", {}).get("id")
             hostname = msg.get("content", {}).get("hostname")
-            logger.info(
-                f"Transformer heartbeat: run_id={run_id}, transformer_id={transformer_id}, hostname={hostname}"
-            )
+            if logger:
+                logger.info(
+                    f"Transformer heartbeat: run_id={run_id}, transformer_id={transformer_id}, hostname={hostname}"
+                )
 
         else:
-            logger.warning(
-                f"Unknown message type in worker_handler: {msg_type}, run_id={run_id}"
-            )
+            if logger:
+                logger.warning(
+                    f"Unknown message type in worker_handler: {msg_type}, run_id={run_id}"
+                )
 
     except Exception as ex:
-        logger.error(
-            f"Error in worker_handler for msg_type={msg_type}, run_id={run_id}: {ex}",
-            exc_info=True,
-        )
+        if logger:
+            logger.error(
+                f"Error in worker_handler for msg_type={msg_type}, run_id={run_id}: {ex}",
+                exc_info=True,
+            )
 
     return ret

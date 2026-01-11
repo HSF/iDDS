@@ -40,7 +40,7 @@ from cachetools import TTLCache
 
 from idds.common.constants import Sections
 from idds.common.exceptions import IDDSException
-from idds.common.utils import setup_logging, get_logger
+from idds.common.utils import setup_logging
 from idds.agents.common.baseagent import BaseAgent
 
 # from idds.agents.common.eventbus.event import TerminatedProcessingEvent
@@ -89,7 +89,6 @@ class Transceiver(BaseAgent):
             num_threads=num_threads, name="Transceiver", **kwargs
         )
         self.config_section = Sections.Prompt
-        self.logger = get_logger(self.__class__.__name__)
         self._lock = threading.RLock()
         self.namespace = namespace
 
@@ -167,14 +166,14 @@ class Transceiver(BaseAgent):
         try:
             if msg_type == "run_imminent":
                 # create workflow task and start workers
-                ret = worker_handler(header, msg, None, handler_kwargs)
+                ret = worker_handler(header, msg, None, handler_kwargs, logger=self.logger)
                 if ret and "task_id" in ret:
                     self.cache_task_id(msg, ret["task_id"])
             elif msg_type in ("run_end", "run_stop"):
                 task_id = self.get_task_id_from_cache(msg)
-                worker_handler(header, msg, task_id, handler_kwargs)
+                worker_handler(header, msg, task_id, handler_kwargs, logger=self.logger)
             elif msg_type == "transformer_heartbeat":
-                worker_handler(header, msg, None, handler_kwargs)
+                worker_handler(header, msg, None, handler_kwargs, logger=self.logger)
             else:
                 self.logger.warning(
                     f"Unknown msg_type received in worker_handler: {msg_type}"
@@ -200,10 +199,10 @@ class Transceiver(BaseAgent):
         try:
             if msg_type == "slice":
                 task_id = self.get_task_id_from_cache(msg)
-                slice_handler(header, msg, task_id, handler_kwargs)
+                slice_handler(header, msg, task_id, handler_kwargs, logger=self.logger)
             elif msg_type == "slice_result":
                 task_id = self.get_task_id_from_cache(msg)
-                slice_handler(header, msg, task_id, handler_kwargs)
+                slice_handler(header, msg, task_id, handler_kwargs, logger=self.logger)
             else:
                 self.logger.warning(
                     f"Unknown msg_type received in slice_handler: {msg_type}"
@@ -240,10 +239,14 @@ class Transceiver(BaseAgent):
                     namespace=self.namespace,
                     broker=self.transformer_broadcast_broker,
                     broadcast=True,
+                    logger=self.logger,
                 )
             if self.worker_publisher_broker:
                 worker_publisher = Publisher(
-                    name="WorkerPublisher", namespace=self.namespace, broker=self.worker_publisher_broker
+                    name="WorkerPublisher",
+                    namespace=self.namespace,
+                    broker=self.worker_publisher_broker,
+                    logger=self.logger,
                 )
 
             worker_handler_kwargs = {
@@ -260,6 +263,7 @@ class Transceiver(BaseAgent):
                     broker=self.worker_subscriber_broker,
                     handler=self.worker_handler,
                     handler_kwargs=worker_handler_kwargs,
+                    logger=self.logger,
                 )
 
             slice_handler_kwargs = {
@@ -272,6 +276,7 @@ class Transceiver(BaseAgent):
                     broker=self.slice_idds_subscriber_broker,
                     handler=self.slice_handler,
                     handler_kwargs=slice_handler_kwargs,
+                    logger=self.logger,
                 )
             if self.result_idds_subscriber_broker:
                 result_subscriber = Subscriber(
@@ -279,7 +284,8 @@ class Transceiver(BaseAgent):
                     namespace=self.namespace,
                     broker=self.result_idds_subscriber_broker,
                     handler=self.slice_handler,
-                    handler_kwargs=slice_handler_kwargs
+                    handler_kwargs=slice_handler_kwargs,
+                    logger=self.logger,
                 )
 
             while not self.graceful_stop.is_set():
@@ -330,8 +336,6 @@ class Transceiver(BaseAgent):
         try:
             self.logger.info("Starting main thread")
             self.init_thread_info()
-
-            self.setup()
 
             time_check = time.time()
             while not self.graceful_stop.is_set():
