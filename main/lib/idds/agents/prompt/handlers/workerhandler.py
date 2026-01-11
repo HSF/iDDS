@@ -242,6 +242,7 @@ def create_workflow_task(message, panda_attributes={}, logger=None):
 
     transform = {
         "request_id": request_id,
+        "workflow_id": None,
         "transform_type": TransformType.Workflow,
         "transform_tag": "EIC",
         "name": name,
