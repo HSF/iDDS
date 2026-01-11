@@ -154,21 +154,32 @@ class BaseActiveMQ(PluginBase):
             try:
                 b, port = b.split(":")
 
+                # Ask for IPv4 stream (TCP) addresses to avoid duplicate
+                # entries for multiple socket types. Some platforms/DNS
+                # configurations return the same address more than once;
+                # we'll deduplicate below.
                 addrinfos = socket.getaddrinfo(
-                    b, 0, socket.AF_INET, 0, socket.IPPROTO_TCP
+                    b, 0, socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP
                 )
+
+                seen = set()
                 for addrinfo in addrinfos:
                     b_addr = addrinfo[4][0]
                     try:
-                        broker_addresses.append((b_addr, int(port)))
+                        p = int(port)
                     except Exception:
-                        broker_addresses.append((b_addr, port))
+                        p = port
+                    pair = (b_addr, p)
+                    if pair in seen:
+                        continue
+                    seen.add(pair)
+                    broker_addresses.append(pair)
             except socket.gaierror as error:
                 self.logger.error("Cannot resolve hostname %s: %s" % (b, str(error)))
 
         self.logger.info(
-            "Resolved broker addresses for channel %s: %s"
-            % (self.name, broker_addresses)
+            "Resolved broker addresses for channel %s with brokers %s: %s"
+            % (self.name, brokers, broker_addresses)
         )
 
         conns = []
