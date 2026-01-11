@@ -76,14 +76,14 @@ class MessagingListener(stomp.ConnectionListener):
             # Some stomp.py versions do not accept a `subscription=` keyword
             # argument for ack/nack. Use positional args: (message-id, subscription).
             try:
-                self.conn.ack(frame.headers["message-id"], headers.get("subscription"))
+                self.conn.ack(frame.headers["message-id"], transaction=headers.get("transaction"))
             except TypeError:
                 # Fallback: try older signature that accepts only message-id.
                 self.conn.ack(frame.headers["message-id"])
         except Exception as ex:
             self.logger.error(f"Failed to handle message: {ex}", exc_info=True)
             try:
-                self.conn.nack(frame.headers["message-id"], headers.get("subscription"))
+                self.conn.nack(frame.headers["message-id"], transaction=headers.get("transaction"))
             except TypeError:
                 # Fallback: try older signature that accepts only message-id.
                 try:
