@@ -116,7 +116,7 @@ class PandaClient(object):
             if return_code[0] == 0 and return_code[1][0] is True:
                 try:
                     task_id = int(return_code[1][1])
-                    return task_id, None
+                    return task_id
                 except Exception as ex:
                     if logger:
                         logger.warn(
