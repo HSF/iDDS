@@ -40,7 +40,7 @@ from cachetools import TTLCache
 
 from idds.common.constants import Sections
 from idds.common.exceptions import IDDSException
-from idds.common.utils import setup_logging
+from idds.common.utils import setup_logging, json_loads
 from idds.agents.common.baseagent import BaseAgent
 
 # from idds.agents.common.eventbus.event import TerminatedProcessingEvent
@@ -97,14 +97,36 @@ class Transceiver(BaseAgent):
         )
 
         # worker related brokers
-        self.worker_publisher_broker = worker_publisher_broker
-        self.worker_subscriber_broker = worker_subscriber_broker
+        try:
+            self.worker_publisher_broker = json_loads(worker_publisher_broker)
+        except Exception as e:
+            self.logger.error(f"Error loading worker_publisher_broker with json: {e}")
+            self.worker_publisher_broker = None
+        try:
+            self.worker_subscriber_broker = json_loads(worker_subscriber_broker)
+        except Exception as e:
+            self.logger.error(f"Error loading worker_subscriber_broker with json: {e}")
+            self.worker_subscriber_broker = None
         # self.transformer_broker = transformer_broker  # queue for slice messages to transformers
-        self.transformer_broadcast_broker = transformer_broadcast_broker  # topic for broadcast (stop/heartbeat)
+
+        try:
+            self.transformer_broadcast_broker = json_loads(transformer_broadcast_broker)
+        except Exception as e:
+            self.logger.error(f"Error loading transformer_broadcast_broker with json: {e}")
+            self.transformer_broadcast_broker = None
 
         # slice related brokers
-        self.slice_idds_subscriber_broker = slice_idds_subscriber_broker
-        self.result_idds_subscriber_broker = result_idds_subscriber_broker
+
+        try:
+            self.slice_idds_subscriber_broker = json_loads(slice_idds_subscriber_broker)
+        except Exception as e:
+            self.logger.error(f"Error loading slice_idds_subscriber_broker with json: {e}")
+            self.slice_idds_subscriber_broker = None
+        try:
+            self.result_idds_subscriber_broker = json_loads(result_idds_subscriber_broker)
+        except Exception as e:
+            self.logger.error(f"Error loading result_idds_subscriber_broker with json: {e}")
+            self.result_idds_subscriber_broker = None
 
         self.run_to_task_cache = TTLCache(
             maxsize=200, ttl=3600 * 24 * 3
