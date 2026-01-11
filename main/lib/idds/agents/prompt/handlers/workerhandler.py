@@ -32,13 +32,15 @@ from .panda import PandaClient
 setup_logging(__name__)
 
 
-def get_scope_name(run_id, site):
+def get_scope_name(run_id, site, panda_attributes={}):
     """Generate scope and name for a run."""
     utc_now = datetime.datetime.now(datetime.timezone.utc)
     year = utc_now.year
     month = utc_now.month
     day = utc_now.day
     scope = f"EIC_{year}"
+    if site is None:
+        site = panda_attributes.get("site", None)
     workflow_name = f"EIC_{site}_{month}_{day}"
     name = f"EIC_{site}_{month}_{day}_{run_id}"
     return scope, workflow_name, name
@@ -218,7 +220,7 @@ def create_workflow_task(message, panda_attributes={}, logger=None):
     year = utc_now.year
     month = utc_now.month
 
-    scope, workflow_name, name = get_scope_name(run_id, site)
+    scope, workflow_name, name = get_scope_name(run_id, site, panda_attributes)
     reqs = core_requests.get_request_ids_by_name(
         scope=scope, name=name, exact_match=True
     )
