@@ -25,7 +25,11 @@ from idds.common.utils import setup_logging, get_logger, json_dumps, json_loads
 
 
 setup_logging(__name__)
-logging.getLogger("stomp").setLevel(logging.CRITICAL)
+# Allow enabling stomp debug via environment variable for diagnostics
+if os.environ.get("STOMP_DEBUG") in ("1", "true", "True"):
+    logging.getLogger("stomp").setLevel(logging.DEBUG)
+else:
+    logging.getLogger("stomp").setLevel(logging.CRITICAL)
 
 
 class MessagingListener(stomp.ConnectionListener):
@@ -75,24 +79,17 @@ class MessagingListener(stomp.ConnectionListener):
             self.handler(headers, json_loads(frame.body), self.handler_kwargs)
             # Some stomp.py versions do not accept a `subscription=` keyword
             # argument for ack/nack. Use positional args: (message-id, subscription).
-            try:
-                self.conn.ack(frame.headers["message-id"], subscription=headers.get("subscription"))
-            except TypeError:
-                # Fallback: try older signature that accepts only message-id.
-                self.conn.ack(frame.headers["message-id"])
+            self.conn.ack(frame.headers["message-id"])
         except Exception as ex:
             self.logger.error(f"Failed to handle message: {ex}", exc_info=True)
             if self.subscriber is not None:
                 self.subscriber.fail()
+            
             try:
-                self.conn.nack(frame.headers["message-id"], subscription=headers.get("subscription"))
-            except TypeError:
-                # Fallback: try older signature that accepts only message-id.
-                try:
-                    self.conn.nack(frame.headers["message-id"])
-                except Exception:
-                    # If nack is unavailable or fails, log and move on.
-                    self.logger.exception("nack failed")
+                self.conn.nack(frame.headers["message-id"])
+            except Exception:
+                # If nack is unavailable or fails, log and move on.
+                self.logger.exception("nack failed")
 
         # update last seen timestamp on the subscriber (idle detection)
         if self.subscriber is not None:
