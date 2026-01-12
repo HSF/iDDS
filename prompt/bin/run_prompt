@@ -35,7 +35,7 @@ setup_logging(__name__, stream=sys.stdout)
 def run_prompt(args):
     logging.info(f"run_prompt called with args: {str(args)}")
 
-    transformer = Transformer(run_id=args.run_id)
+    transformer = Transformer(run_id=args.run_id, workdir=args.workdir)
     logging.info("Initializing transformer brokers")
     ret = transformer.run()
     logging.info("Transformer run returned: %s" % str(ret))
@@ -63,6 +63,9 @@ def get_parser():
     )
     oparser.add_argument(
         "--run_id", type=int, required=True, help="Run ID for the prompt run."
+    )
+    oparser.add_argument(
+        "--workdir", type=str, required=False, help="Working directory for the prompt run."
     )
 
     return oparser

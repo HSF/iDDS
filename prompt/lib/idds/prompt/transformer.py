@@ -3,7 +3,7 @@
 # Licensed under the Apache License, Version 2.0 (the "License");
 # You may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# http://www.apache.org/licenses/LICENSE-2.0OA
+# http://www.apache.org/licenses/LICENSE-2.0
 #
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2023 - 2025
@@ -17,21 +17,28 @@ import traceback
 
 from idds.common.utils import setup_logging, json_loads, is_panda_client_verbose
 
-from .brokers.activemq import Subscriber, Publisher
-from .payload_process import process_payload
+try:
+    # prefer local package layout
+    from .brokers.activemq import Subscriber, Publisher
+    from .payload_process import process_payload
+except Exception:
+    # fallback to installed package layout
+    from idds.prompt.brokers.activemq import Subscriber, Publisher
+    from idds.prompt.payload_process import process_payload
 
 
 setup_logging(__name__)
 
 
 class Transformer:
-    def __init__(self, run_id=None):
+    def __init__(self, run_id=None, workdir=None):
         self._transformer_broker = None
         self._transformer_broadcast_broker = None
         self._result_broker = None
         self._broker_initialized = False
 
         self._run_id = run_id
+        self._workdir = workdir
         self._to_stop = False
 
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -60,16 +67,14 @@ class Transformer:
                     self._broker_initialized = True
                     self.logger.info("Initialized brokers from central service")
                 else:
-                    self.logger.warn(
+                    self.logger.warning(
                         "Broker information from the central service is missing, will not initialize it"
                     )
         if not self._broker_initialized:
-            self.logger.warn("Broker is not initialized")
+            self.logger.warning("Broker is not initialized")
         return self._broker_initialized
 
     def get_idds_server(self):
-        if "IDDS_HOST" in self._idds_env:
-            return self._idds_env["IDDS_HOST"]
         return os.environ.get("IDDS_HOST", None)
 
     def get_broker_info_from_panda_server(self):
@@ -106,15 +111,15 @@ class Transformer:
                     try:
                         meta_info = json_loads(meta_info)
                     except Exception as ex:
-                        self.logger.warn(
+                        self.logger.warning(
                             "Failed to json loads meta info(%s): %s" % (meta_info, ex)
                         )
             else:
                 meta_info = None
-                self.logger.warn("Failed to get meta info: %s" % str(ret))
+                self.logger.warning("Failed to get meta info: %s" % str(ret))
         else:
             meta_info = None
-            self.logger.warn("Failed to get meta info: %s" % str(ret))
+            self.logger.warning("Failed to get meta info: %s" % str(ret))
 
         return meta_info
 
@@ -169,20 +174,32 @@ class Transformer:
             f"Received result message: msg_type={msg_type}, run_id={run_id}"
         )
 
-        result_publisher = handler_kwargs.get("result_publisher")
-
+        result_publisher = None
         try:
+            if isinstance(handler_kwargs, dict):
+                result_publisher = handler_kwargs.get("result_publisher")
+
             processing_start_at = datetime.datetime.utcnow()
+            status = False
+            result = None
+            error = None
 
             if msg_type == "slice":
-                status, result, error = process_payload(msg["content"])
-                if status:
-                    self.logger.info(
-                        f"Processed slice message successfully: run_id={run_id}, result={result}, error={error}"
-                    )
-                else:
-                    self.logger.error(
-                        f"Failed to process slice message: run_id={run_id}, result={result}, error={error}"
+                content = msg.get("content") or {}
+                try:
+                    status, result, error = process_payload(content)
+                    if status:
+                        self.logger.info(
+                            f"Processed slice message successfully: run_id={run_id}, result={result}, error={error}"
+                        )
+                    else:
+                        self.logger.error(
+                            f"Failed to process slice message: run_id={run_id}, result={result}, error={error}"
+                        )
+                except Exception as ex:
+                    error = str(ex)
+                    self.logger.exception(
+                        f"Exception while processing payload for run_id={run_id}: {ex}"
                     )
             else:
                 self.logger.warning(
@@ -200,14 +217,20 @@ class Transformer:
                     "result": {"state": status, "result": result, "error": error},
                 },
             }
-            result_publisher.publish(slice_result_msg)
+
+            if result_publisher is None:
+                self.logger.warning("No result_publisher provided in handler_kwargs; skipping publish")
+            else:
+                try:
+                    result_publisher.publish(slice_result_msg)
+                except Exception:
+                    self.logger.exception("Failed to publish slice_result_msg")
         except Exception as error:
             self.logger.critical(
                 f"result_handler exception for msg_type={msg_type}: {error}\n{traceback.format_exc()}"
             )
-            # raise this exception to let the message listener know message processing failed
-            # then the message listener can decide whether to ack or not ack the message.
-            raise error
+            # propagate to inform the message listener
+            raise
 
     def run(self):
         """
@@ -226,10 +249,15 @@ class Transformer:
                 handler=self.transformer_broadcast_handler,
             )
             result_publisher = Publisher(broker=self._result_broker)
+
+            selector = None
+            if self._run_id is not None:
+                selector = f"run_id = '{self._run_id}'"
+
             transformer_subscriber = Subscriber(
                 broker=self._transformer_broker,
                 handler=self.transformer_handler,
-                selector=f"run_id = '{self._run_id}'",
+                selector=selector,
                 handler_kwargs={"result_publisher": result_publisher},
             )
 
