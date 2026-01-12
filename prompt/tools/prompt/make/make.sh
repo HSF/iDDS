@@ -27,7 +27,7 @@ source $workdir/bin/activate
 echo "install panda client"
 pip install panda-client
 # pip install tabulate requests urllib3==1.26.18 argcomplete packaging anytree networkx stomp.py==8.0.1
-pip install tabulate requests urllib3 argcomplete packaging anytree networkx stomp.py wheel
+pip install tabulate requests urllib3 argcomplete packaging anytree networkx stomp.py wheel cachetools
 
 echo "install idds-common"
 python ${RootDir}/common/setup.py clean --all
@@ -62,7 +62,7 @@ cd $workdir
 mkdir lib_py
 # for libname in idds pandaclient pandatools tabulate pyjwt requests urllib3 argcomplete cryptography packaging anytree networkx; do
 # for libname in idds pandaclient pandatools tabulate jwt requests urllib3 argcomplete cryptography packaging stomp cffi charset_normalizer docopt.py idna pycparser six.py websocket _cffi_backend*; do
-for libname in idds pandaclient pandatools tabulate requests urllib3 argcomplete stomp websocket charset_normalizer idna certifi packaging; do
+for libname in idds pandaclient pandatools tabulate requests urllib3 argcomplete stomp websocket charset_normalizer idna certifi packaging cachetools; do
     echo cp -fr ${python_lib_path}/$libname lib_py
     cp -fr ${python_lib_path}/$libname lib_py
 done

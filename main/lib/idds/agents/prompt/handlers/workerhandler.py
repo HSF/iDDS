@@ -41,8 +41,8 @@ def get_scope_name(run_id, site, panda_attributes={}):
     scope = f"EIC_{year}"
     if site is None:
         site = panda_attributes.get("site", None)
-    workflow_name = f"EIC_{site}_{month}_{day}"
-    name = f"EIC_{site}_{month}_{day}_{run_id}"
+    workflow_name = f"EIC_{site}_{year}{month}{day}"
+    name = f"EIC_{site}_{year}{month}{day}_{run_id}"
     return scope, workflow_name, name
 
 
