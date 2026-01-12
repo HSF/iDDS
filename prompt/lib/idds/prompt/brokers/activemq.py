@@ -220,12 +220,13 @@ class BaseActiveMQ(PluginBase):
 
     def get_connection(self):
         try:
-            conn = random.sample(self.conns, 1)[0]
-            if not conn.is_connected():
-                conn.connect(
-                    self.broker["username"], self.broker["password"], wait=True
-                )
-            return conn
+            if self.conns:
+                conn = random.sample(self.conns, 1)[0]
+                if not conn.is_connected():
+                    conn.connect(
+                        self.broker["username"], self.broker["password"], wait=True
+                    )
+                return conn
         except Exception as error:
             self.logger.error(
                 "Failed to connect to message broker(will re-resolve brokers): %s"
