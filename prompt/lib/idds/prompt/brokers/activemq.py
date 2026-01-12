@@ -10,6 +10,7 @@
 
 
 import logging
+import os
 import random
 import socket
 import threading
@@ -64,6 +65,20 @@ class MessagingListener(stomp.ConnectionListener):
         """
         self.logger.error("[broker] [%s]: %s", self.__broker, frame.body)
 
+    def on_disconnected(self):
+        self.logger.warning("STOMP connection disconnected (server or transport).")
+        if self.subscriber is not None:
+            try:
+                self.subscriber.fail()
+                self.subscriber.monitor()
+            except Exception:
+                pass
+
+    def on_heartbeat_timeout(self):
+        self.logger.warning("STOMP heartbeat timeout.")
+        if self.subscriber is not None:
+            self.subscriber.fail()
+
     def on_message(self, frame):
         self.logger.debug(
             f"[broker] [{self.__broker}]: headers: {frame.headers}, body: {frame.body}"
@@ -84,7 +99,7 @@ class MessagingListener(stomp.ConnectionListener):
             self.logger.error(f"Failed to handle message: {ex}", exc_info=True)
             if self.subscriber is not None:
                 self.subscriber.fail()
-            
+
             try:
                 self.conn.nack(frame.headers["message-id"])
             except Exception:
