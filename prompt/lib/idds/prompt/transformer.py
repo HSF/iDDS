@@ -49,6 +49,7 @@ class Transformer:
 
             self.logger.info("Getting brokers information from central service")
             broker_info = self.get_broker_info()
+            self.logger.debug(f"Broker information received: {broker_info}")
             if broker_info:
                 transformer_broker = broker_info.get("transformer_broker", None)
                 transformer_broadcast_broker = broker_info.get(
