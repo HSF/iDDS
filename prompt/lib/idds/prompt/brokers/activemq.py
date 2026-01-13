@@ -238,7 +238,11 @@ class BaseActiveMQ(PluginBase):
                 conn = random.sample(self.conns, 1)[0]
                 if not conn.is_connected():
                     conn.connect(
-                        self.broker["username"], self.broker["password"], wait=True
+                        self.broker["username"],
+                        self.broker["password"],
+                        wait=True,
+                        headers={"client-id": self.internal_id,
+                                 "host": "localhost"}
                     )
                 return conn
         except Exception as error:
@@ -336,6 +340,8 @@ class Publisher(BaseActiveMQ):
             "namespace": namespace,
             "msg_type": str(msg_type).lower(),
             "run_id": run_id,
+            "client-id": self.internal_id,
+            "host": "localhost"
         }
 
         # Override with custom headers if provided
