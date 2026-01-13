@@ -50,8 +50,16 @@ if [ -f ${current_dir}/x509_proxy ]; then
 fi
 
 export PANDA_CLIENT_VERBOSE=true
-echo "Environment variables:"
-env
+# echo "Environment variables:"
+# env
+if [ -z "${PANDA_URL_SSL}" ]; then
+    export PANDA_URL_SSL=$PANDA_SERVER_URL
+fi
+if [ -z "${PANDACACHE_URL}" ]; then
+    export PANDACACHE_URL=$PANDA_SERVER_URL
+fi
+echo "panda server url: $PANDA_URL_SSL"
+echo "panda cache url: $PANDACACHE_URL"
 
 echo "which python:"
 which python
