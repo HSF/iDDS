@@ -261,7 +261,6 @@ class BaseActiveMQ(PluginBase):
                     self.broker["username"],
                     self.broker["password"],
                     wait=True,
-                    wait=True,
                     headers={"client-id": self.internal_id,
                              "host": "localhost"}
                 )
