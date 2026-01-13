@@ -258,7 +258,12 @@ class BaseActiveMQ(PluginBase):
             conn = random.sample(self.conns, 1)[0]
             if not conn.is_connected():
                 conn.connect(
-                    self.broker["username"], self.broker["password"], wait=True
+                    self.broker["username"],
+                    self.broker["password"],
+                    wait=True,
+                    wait=True,
+                    headers={"client-id": self.internal_id,
+                             "host": "localhost"}
                 )
             return conn
         except Exception as error:
@@ -412,7 +417,13 @@ class Subscriber(BaseActiveMQ):
         broker_info = conn.transport._Transport__host_and_ports[0][0]
         self.logger.info(f"connecting to: {broker_info}")
         conn.set_listener("message-receiver", self.get_listener(broker_info, conn=conn))
-        conn.connect(self.broker["username"], self.broker["password"], wait=True)
+        conn.connect(
+            self.broker["username"],
+            self.broker["password"],
+            wait=True,
+            headers={"client-id": self.internal_id,
+                     "host": "localhost"},
+        )
         # conn.subscribe(destination=self.broker['destination'], id=f'{self.internal_id}',
         #                ack='client-individual', headers={'activemq.prefetchSize': '1'})
         # Build a broker-side selector so filtering happens before delivery.
