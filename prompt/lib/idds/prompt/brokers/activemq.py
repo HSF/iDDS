@@ -241,8 +241,7 @@ class BaseActiveMQ(PluginBase):
                         self.broker["username"],
                         self.broker["password"],
                         wait=True,
-                        headers={"client-id": self.internal_id,
-                                 "host": "localhost"}
+                        headers={"host": "localhost"}
                     )
                 return conn
         except Exception as error:
@@ -261,8 +260,7 @@ class BaseActiveMQ(PluginBase):
                     self.broker["username"],
                     self.broker["password"],
                     wait=True,
-                    headers={"client-id": self.internal_id,
-                             "host": "localhost"}
+                    headers={"host": "localhost"}
                 )
             return conn
         except Exception as error:
@@ -362,11 +360,11 @@ class Publisher(BaseActiveMQ):
                 headers=send_headers,
             )
             self.logger.debug(
-                f"Message published successfully: msg_type={msg_type}, run_id={run_id}"
+                f"Message published successfully: msg_type={msg_type}, run_id={run_id}, destination={self.broker['destination']}"
             )
         except Exception as ex:
             self.logger.error(
-                f"Failed to publish message: msg_type={msg_type}, run_id={run_id}, error={ex}",
+                f"Failed to publish message: msg_type={msg_type}, run_id={run_id}, destination={self.broker['destination']}, error={ex}",
                 exc_info=True,
             )
 
@@ -420,8 +418,7 @@ class Subscriber(BaseActiveMQ):
             self.broker["username"],
             self.broker["password"],
             wait=True,
-            headers={"client-id": self.internal_id,
-                     "host": "localhost"},
+            headers={"host": "localhost"},
         )
         # conn.subscribe(destination=self.broker['destination'], id=f'{self.internal_id}',
         #                ack='client-individual', headers={'activemq.prefetchSize': '1'})
@@ -443,6 +440,9 @@ class Subscriber(BaseActiveMQ):
             id=f"{self.internal_id}",
             ack="client-individual",
             headers={"selector": selector, "activemq.prefetchSize": "1"},
+        )
+        self.logger.info(
+            f"Subscribed to {self.broker['destination']} with selector: {selector} on broker {broker_info}, ack mode: client-individual, headers: {{'selector': selector, 'activemq.prefetchSize': '1'}}"
         )
 
     def subscribe(self):
