@@ -49,6 +49,10 @@ if [ -f ${current_dir}/x509_proxy ]; then
     export X509_USER_PROXY=${current_dir}/x509_proxy
 fi
 
+export PANDA_CLIENT_VERBOSE=true
+echo "Environment variables:"
+env
+
 echo "which python:"
 which python
 echo "python --version:"
