@@ -244,7 +244,6 @@ def create_workflow_task(message, panda_attributes={}, logger=None, session=None
             "campaign_scope": f"EIC_{year}",
             "campaign_group": f"EIC_{year}_{month}",
             "campaign_tag": "reco",
-            "request_metadata": {"run_id": run_id, "workflow": None}
         }
         request_id = core_requests.add_request(**workflow, session=session)
 
