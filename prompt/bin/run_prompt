@@ -39,9 +39,7 @@ def run_prompt(args):
     logging.info("Initializing transformer brokers")
     ret = transformer.run()
     logging.info("Transformer run returned: %s" % str(ret))
-    if not ret:
-        return -1
-    return 0
+    return ret
 
 
 def get_parser():

@@ -22,7 +22,7 @@ import uuid
 from cachetools import TTLCache
 
 from idds.common.plugin.plugin_base import PluginBase
-from idds.common.utils import setup_logging, get_logger, json_dumps, json_loads
+from idds.common.utils import setup_logging, json_dumps, json_loads
 
 
 setup_logging(__name__)
@@ -57,7 +57,7 @@ class MessagingListener(stomp.ConnectionListener):
         if logger:
             self.logger = logger
         else:
-            self.logger = get_logger(self.__class__.__name__)
+            self.logger = logging.getLogger(self.__class__.__name__)
 
     def on_error(self, frame):
         """
@@ -152,7 +152,7 @@ class BaseActiveMQ(PluginBase):
             self.logger = logger
         else:
             logger_name = self.name if self.name else f"{self.__class__.__name__}"
-            self.logger = get_logger(logger_name)
+            self.logger = logging.getLogger(logger_name)
 
     def get_logger(self):
         return self.logger
