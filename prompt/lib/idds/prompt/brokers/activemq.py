@@ -225,7 +225,7 @@ class BaseActiveMQ(PluginBase):
             if use_ssl:
                 conn.transport.set_ssl(
                     for_hosts=[(broker, port)],
-                    ssl_ca_certs=ssl_ca_certs if use_ssl else None,
+                    ca_certs=ssl_ca_certs if use_ssl else None,
                     ssl_version=ssl_version,
                 )
             conns.append(conn)
