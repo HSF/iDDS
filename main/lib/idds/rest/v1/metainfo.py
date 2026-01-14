@@ -25,6 +25,9 @@ class MetaInfo(IDDSController):
 
     def get(self, name):
         try:
+            logger = self.get_logger()
+            logger.info(f"Getting meta info for {name}")
+
             rets = {}
             if name == 'asyncresult_config':
                 asyncresult_config = get_asyncresult_config()
@@ -32,6 +35,8 @@ class MetaInfo(IDDSController):
             elif name == 'prompt_broker':
                 prompt_broker_config = get_prompt_broker_config()
                 rets = prompt_broker_config
+
+            logger.info(f"Meta info for {name} retrieved successfully: {rets}")
 
         except exceptions.NoObject as error:
             return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
