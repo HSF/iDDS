@@ -104,7 +104,7 @@ class Transformer:
         ret = client.get_metainfo(name="prompt_broker")
         if ret[0] == 0 and ret[1][0]:
             idds_ret = ret[1][1]
-            if type(idds_ret) in (list, tuple) and idds_ret[0] == (0, True):
+            if type(idds_ret) in (list, tuple) and idds_ret[0] in (0, True):
                 meta_info = idds_ret[1]
                 if type(meta_info) in [dict]:
                     pass
