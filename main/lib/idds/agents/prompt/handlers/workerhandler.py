@@ -25,6 +25,7 @@ from idds.core import requests as core_requests
 from idds.core import transforms as core_transforms
 from idds.core import catalog as core_catalog
 from idds.core import processings as core_processings
+from idds.orm.base.session import transactional_session
 
 from .panda import PandaClient
 
@@ -188,7 +189,8 @@ def close_panda_task(task_id, logger=None):
         logger.info(f"Finished PanDA task {task_id} with return code: {ret}")
 
 
-def create_workflow_task(message, panda_attributes={}, logger=None):
+@transactional_session
+def create_workflow_task(message, panda_attributes={}, logger=None, session=None):
     """
     Create a workflow task in iDDS when receiving 'run_imminent' message.
 
@@ -222,7 +224,7 @@ def create_workflow_task(message, panda_attributes={}, logger=None):
 
     scope, workflow_name, name = get_scope_name(run_id, site, panda_attributes)
     reqs = core_requests.get_request_ids_by_name(
-        scope=scope, name=name, exact_match=True
+        scope=scope, name=name, exact_match=True, session=session
     )
 
     if reqs:
@@ -232,29 +234,30 @@ def create_workflow_task(message, panda_attributes={}, logger=None):
             "scope": scope,
             "name": workflow_name,
             "requester": "iDDS",
-            "request_type": RequestType.Workflow,
+            "request_type": RequestType.iWorkflow,
             "username": "EIC",
             "transform_tag": "EIC",
-            "status": RequestStatus.New,
+            "status": RequestStatus.Transforming,
             "locking": RequestLocking.Idle,
             "cloud": "US",
             "campaign": "EIC",
             "campaign_scope": f"EIC_{year}",
             "campaign_group": f"EIC_{year}_{month}",
             "campaign_tag": "reco",
+            "request_metadata": {"run_id": run_id, "workflow": None}
         }
-        request_id = core_requests.add_request(**workflow)
+        request_id = core_requests.add_request(**workflow, session=session)
 
     transform = {
         "request_id": request_id,
         "workload_id": None,
-        "transform_type": TransformType.Workflow,
+        "transform_type": TransformType.iWorkflow,
         "transform_tag": "EIC",
         "name": name,
         "status": TransformStatus.New,
         "substatus": TransformStatus.New,
     }
-    transform_id = core_transforms.add_transform(**transform)
+    transform_id = core_transforms.add_transform(**transform, session=session)
 
     coll = {
         "request_id": request_id,
@@ -263,7 +266,7 @@ def create_workflow_task(message, panda_attributes={}, logger=None):
         "scope": scope,
         "name": name,
     }
-    coll_id = core_catalog.add_collection(**coll)
+    coll_id = core_catalog.add_collection(**coll, session=session)
 
     # For now, return a placeholder workload_id
     # In production, this should call submit_task_to_panda()
@@ -289,7 +292,7 @@ def create_workflow_task(message, panda_attributes={}, logger=None):
         "site": site,
         "processing_type": ProcessingType.Workflow,
     }
-    processing_id = core_processings.add_processing(**processing)
+    processing_id = core_processings.add_processing(**processing, session=session)
 
     if logger:
         logger.info(
