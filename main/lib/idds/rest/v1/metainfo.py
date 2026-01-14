@@ -24,8 +24,8 @@ class MetaInfo(IDDSController):
     """ Get Meta info"""
 
     def get(self, name):
+        logger = self.get_logger()
         try:
-            logger = self.get_logger()
             logger.info(f"Getting meta info for {name}")
 
             rets = {}
@@ -45,6 +45,7 @@ class MetaInfo(IDDSController):
         except Exception as error:
             print(error)
             print(format_exc())
+            logger.error(f"Error getting meta info for {name}: {error}\n{format_exc()}")
             return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
 
         return self.generate_http_response(HTTP_STATUS_CODE.OK, data=rets)

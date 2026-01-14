@@ -172,6 +172,13 @@ class BaseActiveMQ(PluginBase):
             brokers = brokers.split(",")
 
         broker_timeout = self.broker.get("broker_timeout", 10)
+        use_ssl = self.broker.get("use_ssl", False)
+        ssl_ca_certs = self.broker.get("ssl_ca_certs", None)
+        if use_ssl:
+            import ssl
+            ssl_version = (ssl.PROTOCOL_TLS_CLIENT if ssl_ca_certs else ssl.PROTOCOL_TLS)
+        else:
+            ssl_version = None
 
         broker_addresses = []
         for b in brokers:
@@ -213,6 +220,9 @@ class BaseActiveMQ(PluginBase):
                 keepalive=True,
                 heartbeats=(30000, 30000),  # half minute = num / 1000
                 timeout=broker_timeout,
+                use_ssl=use_ssl,
+                ssl_ca_certs=ssl_ca_certs if use_ssl else None,
+                ssl_version=ssl_version,
             )
             conns.append(conn)
         self.conns = conns
