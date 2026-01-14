@@ -55,7 +55,7 @@ export PANDA_CLIENT_VERBOSE=true
 if [ -z "${PANDA_URL_SSL}" ]; then
     export PANDA_URL_SSL=$PANDA_SERVER_URL
     if [[ "$PANDA_URL_SSL" =~ :[0-9]+/?$ ]]; then
-        PANDA_URL_SSL="${PANDA_URL_SSL%/}/server/panda"
+        export PANDA_URL_SSL="${PANDA_URL_SSL%/}/server/panda"
     fi
 fi
 if [ -z "${PANDACACHE_URL}" ]; then
