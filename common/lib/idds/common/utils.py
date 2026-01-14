@@ -257,13 +257,11 @@ def get_prompt_broker_config():
 
     if config_has_section("prompt"):
         if config_has_option("prompt", "transformer_broker"):
-            transformer_broker = config_get("prompt", "transformer_broker")
+            transformer_broker = json_loads(config_get("prompt", "transformer_broker"))
         if config_has_option("prompt", "transformer_broadcast_broker"):
-            transformer_broadcast_broker = config_get_int(
-                "prompt", "transformer_broadcast_broker"
-            )
+            transformer_broadcast_broker = json_loads(config_get("prompt", "transformer_broadcast_broker"))
         if config_has_option("prompt", "result_broker"):
-            result_broker = config_get("prompt", "result_broker")
+            result_broker = json_loads(config_get("prompt", "result_broker"))
 
     ret = {
         "transformer_broker": transformer_broker,
