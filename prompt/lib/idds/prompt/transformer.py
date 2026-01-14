@@ -102,6 +102,7 @@ class Transformer:
             manager=True,
         )
         ret = client.get_metainfo(name="prompt_broker")
+        self.logger.debug(f"get_metainfo returned: {type(ret)} {ret}")
         if ret[0] == 0 and ret[1][0]:
             idds_ret = ret[1][1]
             if type(idds_ret) in (list, tuple) and idds_ret[0] in (0, True):
@@ -117,10 +118,10 @@ class Transformer:
                         )
             else:
                 meta_info = None
-                self.logger.warning("Failed to get meta info: %s" % str(ret))
+                self.logger.warning("Failed to get meta info from iDDS: %s" % str(ret))
         else:
             meta_info = None
-            self.logger.warning("Failed to get meta info: %s" % str(ret))
+            self.logger.warning("Failed to get meta info from Panda server: %s" % str(ret))
 
         return meta_info
 

@@ -74,6 +74,23 @@ class MessagingListener(stomp.ConnectionListener):
             except Exception:
                 pass
 
+    def on_connected(self, headers, body=None):
+        """Log CONNECTED headers negotiated with the broker (if available).
+
+        Different stomp.py versions may call this with a frame-like object or
+        (headers, body). Be flexible when extracting headers.
+        """
+        try:
+            hdrs = None
+            if hasattr(headers, "headers"):
+                # a frame-like object
+                hdrs = headers.headers
+            else:
+                hdrs = headers
+            self.logger.info("STOMP CONNECTED from broker %s: %s", self.__broker, hdrs)
+        except Exception:
+            self.logger.info("STOMP CONNECTED from broker %s (failed to extract headers)", self.__broker)
+
     def on_heartbeat_timeout(self):
         self.logger.warning("STOMP heartbeat timeout.")
         if self.subscriber is not None:
@@ -100,6 +117,8 @@ class MessagingListener(stomp.ConnectionListener):
             if self.subscriber is not None:
                 self.subscriber.fail()
 
+            # Attempt to nack using flexible signatures; if transport is gone,
+            # trigger reconnect via subscriber.monitor().
             try:
                 self.conn.nack(frame.headers["message-id"])
             except Exception:
@@ -219,7 +238,8 @@ class BaseActiveMQ(PluginBase):
             conn = stomp.Connection12(
                 host_and_ports=[(broker, port)],
                 keepalive=True,
-                heartbeats=(30000, 30000),  # half minute = num / 1000
+                # Shorter heartbeats (ms) so client/broker detect dead peers faster
+                heartbeats=(10000, 10000),
                 timeout=broker_timeout,
             )
             if use_ssl:
