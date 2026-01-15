@@ -31,7 +31,7 @@ setup_logging(__name__)
 
 
 class Transformer:
-    def __init__(self, run_id=None, workdir=None):
+    def __init__(self, run_id=None, workdir=None, idle_timeout=1800):
         self._transformer_broker = None
         self._transformer_broadcast_broker = None
         self._result_broker = None
@@ -40,7 +40,9 @@ class Transformer:
         self._run_id = run_id
         self._workdir = workdir
         self._to_stop = False
+        self.idle_timeout = idle_timeout
 
+        self.last_message_time = time.time()
         self.logger = logging.getLogger(self.__class__.__name__)
 
     def init_brokers(self):
@@ -269,9 +271,9 @@ class Transformer:
                         "No message received from transformer broker for 5 seconds and stop requested, stopping transformer."
                     )
                     break
-                elif transformer_subscriber.is_idle(idle_seconds=120):
+                elif transformer_subscriber.is_idle(idle_seconds=self.idle_timeout):
                     self.logger.debug(
-                        "No message received from transformer broker for 120 seconds, stopping transformer."
+                        f"No message received from transformer broker for {self.idle_timeout} seconds, stopping transformer."
                     )
                     break
 

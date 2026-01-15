@@ -478,7 +478,7 @@ class Subscriber(BaseActiveMQ):
                 "durable": False,
                 "selector": selector,
                 "activemq.prefetchSize": "1"
-                },
+            },
         )
         self.logger.info(
             f"Subscribed to {self.broker['destination']} with selector: {selector} on broker {broker_info}, ack mode: client-individual, headers: {{'selector': selector, 'activemq.prefetchSize': '1'}}"
