@@ -275,7 +275,7 @@ class BaseActiveMQ(PluginBase):
                         self.broker["username"],
                         self.broker["password"],
                         wait=True,
-                        headers={"host": "localhost"}
+                        headers={"client-id": self.internal_id}
                     )
                 return conn
         except Exception as error:
@@ -294,7 +294,7 @@ class BaseActiveMQ(PluginBase):
                     self.broker["username"],
                     self.broker["password"],
                     wait=True,
-                    headers={"host": "localhost"}
+                    headers={"client-id": self.internal_id}
                 )
             return conn
         except Exception as error:
@@ -452,7 +452,7 @@ class Subscriber(BaseActiveMQ):
             self.broker["username"],
             self.broker["password"],
             wait=True,
-            headers={"host": "localhost"},
+            headers={"client-id": self.internal_id},
         )
         # conn.subscribe(destination=self.broker['destination'], id=f'{self.internal_id}',
         #                ack='client-individual', headers={'activemq.prefetchSize': '1'})
@@ -473,7 +473,12 @@ class Subscriber(BaseActiveMQ):
             destination=self.broker["destination"],
             id=f"{self.internal_id}",
             ack="client-individual",
-            headers={"selector": selector, "activemq.prefetchSize": "1"},
+            headers={
+                "subscription-name": self.internal_id,
+                "durable": False,
+                "selector": selector,
+                "activemq.prefetchSize": "1"
+                },
         )
         self.logger.info(
             f"Subscribed to {self.broker['destination']} with selector: {selector} on broker {broker_info}, ack mode: client-individual, headers: {{'selector': selector, 'activemq.prefetchSize': '1'}}"
