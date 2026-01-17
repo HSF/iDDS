@@ -215,7 +215,7 @@ class Transceiver(BaseAgent):
         msg_type = msg.get("msg_type")
         run_id = msg.get("run_id")
         self.logger.debug(
-            f"Received result message: msg_type={msg_type}, run_id={run_id}"
+            f"Received slice message: msg_type={msg_type}, run_id={run_id}"
         )
 
         try:
@@ -231,7 +231,7 @@ class Transceiver(BaseAgent):
                 )
         except Exception as error:
             self.logger.critical(
-                f"result_handler exception for msg_type={msg_type}: {error}\n{traceback.format_exc()}"
+                f"slice_handler exception for msg_type={msg_type}: {error}\n{traceback.format_exc()}"
             )
 
     def run_worker(self):

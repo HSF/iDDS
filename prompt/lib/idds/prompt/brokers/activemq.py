@@ -240,7 +240,7 @@ class BaseActiveMQ(PluginBase):
                 keepalive=True,
                 # Shorter heartbeats (ms) so client/broker detect dead peers faster
                 heartbeats=(10000, 10000),
-                timeout=broker_timeout,
+                # timeout=broker_timeout,
             )
             if use_ssl:
                 conn.transport.set_ssl(
