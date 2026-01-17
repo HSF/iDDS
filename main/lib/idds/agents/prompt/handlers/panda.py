@@ -207,7 +207,7 @@ class PandaClient(object):
         try:
             if logger:
                 logger.info(log_prefix + f"aborting task {workload_id}")
-            Client.killTask(workload_id, soft=soft)
+            Client.finishTask(workload_id, soft=soft)
             status, task_status = Client.getTaskStatus(workload_id)
             if status == 0:
                 return self.get_processing_status(task_status)
