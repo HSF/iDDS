@@ -169,6 +169,25 @@ class Transformer:
     def transformer_handler(self, header, msg, handler_kwargs={}):
         """Receive slice message and process the payload.
 
+        message = {
+            'msg_type': 'slice',
+            'run_id': self.current_run_id,
+            'created_at': datetime.utcnow().isoformat(),
+            'content': {
+                'run_id': self.current_run_id,
+                'execution_id': self.current_execution_id,
+                'req_id': str(uuid.uuid4()),
+                'filename': slice_data['stf_filename'],
+                'tf_filename': slice_data['tf_filename'],
+                'slice_id': slice_data['slice_id'],
+                'start': slice_data['tf_first'],
+                'end': slice_data['tf_last'],
+                'tf_count': slice_data['tf_count'],
+                'state': 'queued',
+                'substate': 'new'
+            }
+        }
+
         Types:
           - 'slice': processed slice payload
         """

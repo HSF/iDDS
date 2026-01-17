@@ -75,7 +75,7 @@ class Transceiver(BaseAgent):
 
     def __init__(
         self,
-        namespace="dev",
+        namespace=None,
         num_threads=8,
         timetolive=12 * 3600 * 1000,
         worker_publisher_broker=None,
@@ -191,7 +191,7 @@ class Transceiver(BaseAgent):
                 ret = worker_handler(header, msg, None, handler_kwargs, logger=self.logger)
                 if ret and "task_id" in ret:
                     self.cache_task_id(msg, ret["task_id"])
-            elif msg_type in ("run_end", "run_stop"):
+            elif msg_type in ("run_end", "end_run", "run_stop"):
                 task_id = self.get_task_id_from_cache(msg)
                 worker_handler(header, msg, task_id, handler_kwargs, logger=self.logger)
             elif msg_type == "transformer_heartbeat":

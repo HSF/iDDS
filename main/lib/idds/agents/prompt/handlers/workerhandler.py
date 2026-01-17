@@ -213,7 +213,7 @@ def create_workflow_task(message, panda_attributes={}, logger=None, session=None
     content = message.get("content", {})
 
     # Extract resource requirements from message
-    num_workers = content.get("num_workers", 1)
+    num_workers = content.get("target_worker_count", 1)
     core_count = content.get("num_cores_per_worker", None)
     ram_count = content.get("num_ram_per_core", None)
     site = content.get("site", None)
@@ -498,7 +498,9 @@ def worker_handler(header, msg, task_id=None, handler_kwargs={}, logger=None):
             if logger:
                 logger.info(f"Handled run_imminent: run_id={run_id}, task_id={task_id}")
 
-        elif msg_type in ["run_end", "run_stop"]:
+        elif msg_type in ["run_end", "run_stop", "end_run"]:
+            # Close PanDA task
+            close_panda_task(task_id, logger=logger)
             # Stop workers and transformers
             stop_harvester_worker(
                 header,
