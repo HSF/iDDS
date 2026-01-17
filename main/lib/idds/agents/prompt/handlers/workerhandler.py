@@ -184,7 +184,7 @@ def close_panda_task(task_id, logger=None):
     Close a PanDA task to prevent further job retries.
     """
     panda_client = PandaClient()
-    ret = panda_client.finishTask(task_id, soft=True)
+    ret = panda_client.close(task_id, soft=True)
     if logger:
         logger.info(f"Finished PanDA task {task_id} with return code: {ret}")
 

@@ -201,13 +201,13 @@ class PandaClient(object):
                 logger.error(traceback.format_exc())
             raise ex
 
-    def close(self, workload_id, logger=None, log_prefix=""):
+    def close(self, workload_id, soft=False, logger=None, log_prefix=""):
         from pandaclient import Client
 
         try:
             if logger:
                 logger.info(log_prefix + f"aborting task {workload_id}")
-            Client.killTask(workload_id, soft=True)
+            Client.killTask(workload_id, soft=soft)
             status, task_status = Client.getTaskStatus(workload_id)
             if status == 0:
                 return self.get_processing_status(task_status)
