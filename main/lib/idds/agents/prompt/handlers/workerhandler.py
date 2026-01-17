@@ -45,8 +45,8 @@ def get_scope_name(run_id, site, panda_attributes={}):
     scope = f"EIC_{year}"
     if site is None:
         site = panda_attributes.get("site", None)
-    workflow_name = f"EIC_{site}_{year}{month}{day}"
-    name = f"EIC_{site}_{year}{month}{day}_{run_id}"
+    workflow_name = f"EIC_fastprocessing_{site}_{year}{month}{day}"
+    name = f"EIC_fastprocessing_{site}_{year}{month}{day}_{run_id}"
     return scope, workflow_name, name
 
 
@@ -227,11 +227,11 @@ def create_workflow_task(message, panda_attributes={}, logger=None, session=None
 
     scope, workflow_name, name = get_scope_name(run_id, site, panda_attributes)
     reqs = core_requests.get_request_ids_by_name(
-        scope=scope, name=name, exact_match=True, session=session
+        scope=scope, name=workflow_name, exact_match=True, session=session
     )
 
     if reqs:
-        request_id = reqs[name]
+        request_id = reqs[workflow_name]
     else:
         workflow = {
             "scope": scope,
@@ -293,7 +293,8 @@ def create_workflow_task(message, panda_attributes={}, logger=None, session=None
         'coll_metadata': None,
         'status': CollectionStatus.Closed,
     }
-    coll_id = core_catalog.add_collection(**output_coll, session=session)
+    input_coll_id = core_catalog.add_collection(**input_coll, session=session)
+    output_coll_id = core_catalog.add_collection(**output_coll, session=session)
 
     # For now, return a placeholder workload_id
     # In production, this should call submit_task_to_panda()
@@ -327,7 +328,7 @@ def create_workflow_task(message, panda_attributes={}, logger=None, session=None
             f"processing_id={processing_id}, workload_id={workload_id}"
         )
 
-    return request_id, transform_id, processing_id, coll_id, workload_id
+    return request_id, transform_id, processing_id, input_coll_id, output_coll_id, workload_id
 
 
 def create_harvester_worker(
@@ -509,7 +510,7 @@ def worker_handler(header, msg, task_id=None, handler_kwargs={}, logger=None):
     try:
         if msg_type == "run_imminent":
             # Create workflow task and workers
-            request_id, transform_id, processing_id, coll_id, workload_id = (
+            request_id, transform_id, processing_id, input_coll_id, output_coll_id, workload_id = (
                 create_workflow_task(msg, panda_attributes=panda_attributes)
             )
             task_id = workload_id

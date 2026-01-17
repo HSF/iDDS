@@ -383,7 +383,6 @@ class Publisher(BaseActiveMQ):
             send_headers.update(headers)
 
         try:
-            
             if namespace is not None:
                 send_headers["namespace"] = namespace
             conn.send(
