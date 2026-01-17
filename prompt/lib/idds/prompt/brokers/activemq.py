@@ -355,7 +355,7 @@ class Publisher(BaseActiveMQ):
         :param headers: Optional headers dictionary (can override defaults)
         """
         # msg_id = msg.get("msg_id", "unknown")
-        namespace = getattr(self, "namespace", "unknown")
+        namespace = getattr(self, "namespace", None)
         msg_type = msg.get("msg_type", "unknown")
         run_id = msg.get("run_id", "unknown")
 
@@ -385,7 +385,9 @@ class Publisher(BaseActiveMQ):
             send_headers.update(headers)
 
         try:
-            msg["namespace"] = namespace
+            
+            if namespace is not None:
+                send_headers["namespace"] = namespace
             conn.send(
                 body=json_dumps(msg),
                 destination=self.broker["destination"],
@@ -457,11 +459,17 @@ class Subscriber(BaseActiveMQ):
         # conn.subscribe(destination=self.broker['destination'], id=f'{self.internal_id}',
         #                ack='client-individual', headers={'activemq.prefetchSize': '1'})
         # Build a broker-side selector so filtering happens before delivery.
-        if self.selector:
-            # Quote namespace to handle string values in selectors
-            selector = f"namespace='{self.namespace}' AND ({self.selector})"
+        if self.namespace is not None:
+            if self.selector:
+                # Quote namespace to handle string values in selectors
+                selector = f"namespace='{self.namespace}' AND ({self.selector})"
+            else:
+                selector = f"namespace='{self.namespace}'"
         else:
-            selector = f"namespace='{self.namespace}'"
+            if self.selector:
+                selector = f"{self.selector}"
+            else:
+                selector = None
 
         # update last_message_at when subscription is established
         try:
@@ -469,16 +477,20 @@ class Subscriber(BaseActiveMQ):
         except Exception:
             pass
 
+        headers = {
+            "subscription-name": self.internal_id,
+            "durable": False,
+            "activemq.prefetchSize": "1",
+        }
+
+        if selector:
+            headers["selector"] = selector
+
         conn.subscribe(
             destination=self.broker["destination"],
             id=f"{self.internal_id}",
             ack="client-individual",
-            headers={
-                "subscription-name": self.internal_id,
-                "durable": False,
-                "selector": selector,
-                "activemq.prefetchSize": "1"
-            },
+            headers=headers,
         )
         self.logger.info(
             f"Subscribed to {self.broker['destination']} with selector: {selector} on broker {broker_info}, ack mode: client-individual, headers: {{'selector': selector, 'activemq.prefetchSize': '1'}}"
