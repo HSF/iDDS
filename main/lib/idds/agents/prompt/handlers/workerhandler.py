@@ -20,6 +20,9 @@ from idds.common.constants import (
     TransformStatus,
     ProcessingType,
     ProcessingStatus,
+    CollectionType,
+    CollectionStatus,
+    CollectionRelationType,
 )
 from idds.core import requests as core_requests
 from idds.core import transforms as core_transforms
@@ -250,7 +253,7 @@ def create_workflow_task(message, panda_attributes={}, logger=None, session=None
     transform = {
         "request_id": request_id,
         "workload_id": None,
-        "transform_type": TransformType.iWorkflow,
+        "transform_type": TransformType.iWork,
         "transform_tag": "EIC",
         "name": name,
         "status": TransformStatus.New,
@@ -258,14 +261,39 @@ def create_workflow_task(message, panda_attributes={}, logger=None, session=None
     }
     transform_id = core_transforms.add_transform(**transform, session=session)
 
-    coll = {
+    input_coll = {
         "request_id": request_id,
         "transform_id": transform_id,
         "workload_id": None,
         "scope": scope,
         "name": name,
+        'coll_type': CollectionType.Dataset,
+        'relation_type': CollectionRelationType.Input,
+        'bytes': 0,
+        'total_files': 0,
+        'new_files': 0,
+        'processed_files': 0,
+        'processing_files': 0,
+        'coll_metadata': None,
+        'status': CollectionStatus.Closed,
     }
-    coll_id = core_catalog.add_collection(**coll, session=session)
+    output_coll = {
+        "request_id": request_id,
+        "transform_id": transform_id,
+        "workload_id": None,
+        "scope": scope,
+        "name": name,
+        'coll_type': CollectionType.Dataset,
+        'relation_type': CollectionRelationType.Output,
+        'bytes': 0,
+        'total_files': 0,
+        'new_files': 0,
+        'processed_files': 0,
+        'processing_files': 0,
+        'coll_metadata': None,
+        'status': CollectionStatus.Closed,
+    }
+    coll_id = core_catalog.add_collection(**output_coll, session=session)
 
     # For now, return a placeholder workload_id
     # In production, this should call submit_task_to_panda()
@@ -289,7 +317,7 @@ def create_workflow_task(message, panda_attributes={}, logger=None, session=None
         "status": ProcessingStatus.Submitting,
         "submitter": "panda",
         "site": site,
-        "processing_type": ProcessingType.Workflow,
+        "processing_type": ProcessingType.iWork,
     }
     processing_id = core_processings.add_processing(**processing, session=session)
 
