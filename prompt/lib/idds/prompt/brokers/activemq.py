@@ -494,10 +494,12 @@ class Subscriber(BaseActiveMQ):
         )
 
     def subscribe(self):
-        self.conns = self.connect_to_messaging_brokers()
+        if not self.conns:
+            self.conns = self.connect_to_messaging_brokers()
 
         for conn in self.conns:
-            self.subscribe_conn(conn)
+            if not conn.is_connected():
+                self.subscribe_conn(conn)
 
     def is_idle(self, idle_seconds=None):
         """Return True if no message has been received for at least idle_seconds."""
