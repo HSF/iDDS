@@ -31,7 +31,7 @@ setup_logging(__name__)
 
 
 class Transformer:
-    def __init__(self, run_id=None, workdir=None, idle_timeout=1800):
+    def __init__(self, run_id=None, workdir=None, namespace=None, idle_timeout=1800):
         self._transformer_broker = None
         self._transformer_broadcast_broker = None
         self._result_broker = None
@@ -39,6 +39,7 @@ class Transformer:
 
         self._run_id = run_id
         self._workdir = workdir
+        self._namespace = namespace
         self._to_stop = False
         self.idle_timeout = idle_timeout
 
@@ -270,8 +271,9 @@ class Transformer:
             transformer_broadcast_subscriber = Subscriber(
                 broker=self._transformer_broadcast_broker,
                 handler=self.transformer_broadcast_handler,
+                namespace=self._namespace
             )
-            result_publisher = Publisher(broker=self._result_broker)
+            result_publisher = Publisher(broker=self._result_broker, namespace=self._namespace)
 
             selector = None
             if self._run_id is not None:
@@ -281,6 +283,7 @@ class Transformer:
                 broker=self._transformer_broker,
                 handler=self.transformer_handler,
                 selector=selector,
+                namespace=self._namespace,
                 handler_kwargs={"result_publisher": result_publisher},
             )
 

@@ -35,7 +35,7 @@ setup_logging(__name__, stream=sys.stdout)
 def run_prompt(args):
     logging.info(f"run_prompt called with args: {str(args)}")
 
-    transformer = Transformer(run_id=args.run_id, workdir=args.workdir, idle_timeout=args.idle_timeout)
+    transformer = Transformer(run_id=args.run_id, workdir=args.workdir, namespace=args.namespace, idle_timeout=args.idle_timeout)
     logging.info("Initializing transformer brokers")
     ret = transformer.run()
     logging.info("Transformer run returned: %s" % str(ret))
@@ -63,13 +63,16 @@ def get_parser():
         "--run_id", type=int, required=True, help="Run ID for the prompt run."
     )
     oparser.add_argument(
-        "--workdir", type=str, required=False, help="Working directory for the prompt run."
+        "--workdir", type=str, required=False, default=None, help="Working directory for the prompt run."
+    )
+    oparser.add_argument(
+        "--namespace", type=str, required=False, default=None, help="Namespace for the prompt run."
     )
 
     oparser.add_argument(
         "--idle_timeout",
         type=int,
-        default=1900,
+        default=600,
         help="Idle timeout in seconds to stop the transformer if no messages are received.",
     )
 

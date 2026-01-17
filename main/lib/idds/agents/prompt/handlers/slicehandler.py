@@ -17,7 +17,7 @@ from idds.common.utils import setup_logging
 setup_logging(__name__)
 
 
-def slice_handler(header, msg, task_id=None, logger=None, handler_kwargs={}):
+def slice_handler(header, msg, task_id=None, handler_kwargs={}, logger=None):
     """
     Handle slice messages based on prompt.md specifications.
 

@@ -373,11 +373,9 @@ class Publisher(BaseActiveMQ):
             "persistent": "true",
             "ttl": self.timetolive,
             "vo": "eic",
-            "namespace": namespace,
             "msg_type": str(msg_type).lower(),
             "run_id": run_id,
             "client-id": self.internal_id,
-            "host": "localhost"
         }
 
         # Override with custom headers if provided
