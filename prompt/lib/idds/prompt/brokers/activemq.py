@@ -277,7 +277,7 @@ class BaseActiveMQ(PluginBase):
                         wait=True,
                         headers={"client-id": self.internal_id}
                     )
-                conn.start()
+                # conn.start()
                 return conn
         except Exception as error:
             self.logger.error(
@@ -297,7 +297,7 @@ class BaseActiveMQ(PluginBase):
                     wait=True,
                     headers={"client-id": self.internal_id}
                 )
-                conn.start()
+                # conn.start()
             return conn
         except Exception as error:
             self.logger.error(
@@ -455,7 +455,8 @@ class Subscriber(BaseActiveMQ):
             wait=True,
             headers={"client-id": self.internal_id},
         )
-        conn.start()
+        # conn.start()
+
         # conn.subscribe(destination=self.broker['destination'], id=f'{self.internal_id}',
         #                ack='client-individual', headers={'activemq.prefetchSize': '1'})
         # Build a broker-side selector so filtering happens before delivery.
