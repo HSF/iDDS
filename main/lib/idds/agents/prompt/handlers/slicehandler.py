@@ -10,11 +10,63 @@
 
 
 import datetime
+import email.utils
 
 from idds.common.utils import setup_logging
 
 
 setup_logging(__name__)
+
+
+def _parse_datetime(value):
+    """Parse a datetime-like value robustly.
+
+    Accepts datetime objects or strings in multiple common formats:
+    - ISO 8601 (handled by datetime.fromisoformat)
+    - RFC 2822 / HTTP-date (handled by email.utils.parsedate_to_datetime)
+    - Falls back to trying a few common strptime patterns.
+
+    Returns a datetime.datetime or raises ValueError on failure.
+    """
+    if value is None:
+        raise ValueError("None value")
+    if isinstance(value, datetime.datetime):
+        return value
+    if not isinstance(value, str):
+        raise ValueError(f"Unsupported datetime value type: {type(value)}")
+
+    # Try ISO format first
+    try:
+        return datetime.datetime.fromisoformat(value)
+    except Exception:
+        pass
+
+    # Try RFC 2822 / HTTP-date formats
+    try:
+        dt = email.utils.parsedate_to_datetime(value)
+        if dt is not None:
+            # Normalize to UTC naive datetime for consistent subtraction
+            if dt.tzinfo is not None:
+                dt = dt.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+            return dt
+    except Exception:
+        pass
+
+    # Common fallbacks
+    patterns = [
+        "%a, %d %b %Y %H:%M:%S %Z",
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%dT%H:%M:%S",
+        "%Y-%m-%dT%H:%M:%S.%f",
+    ]
+    for p in patterns:
+        try:
+            dt = datetime.datetime.strptime(value, p)
+            return dt
+        except Exception:
+            continue
+
+    raise ValueError(f"Could not parse datetime: {value}")
 
 
 def slice_handler(header, msg, task_id=None, handler_kwargs={}, logger=None):
@@ -106,15 +158,8 @@ def slice_handler(header, msg, task_id=None, handler_kwargs={}, logger=None):
             # Calculate processing delays if timestamps are available
             if requested_at and processed_at:
                 try:
-                    if isinstance(requested_at, str):
-                        requested_dt = datetime.datetime.fromisoformat(requested_at)
-                    else:
-                        requested_dt = requested_at
-
-                    if isinstance(processed_at, str):
-                        processed_dt = datetime.datetime.fromisoformat(processed_at)
-                    else:
-                        processed_dt = processed_at
+                    requested_dt = _parse_datetime(requested_at)
+                    processed_dt = _parse_datetime(processed_at)
 
                     delay = (processed_dt - requested_dt).total_seconds()
                     if logger:

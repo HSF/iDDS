@@ -13,7 +13,7 @@ import sys
 import time
 
 from idds.common.version import release_version
-from idds.common.utils import setup_logging, json_loads
+from idds.common.utils import setup_logging
 
 from idds.common.utils import get_prompt_broker_config
 from idds.prompt.transformer import Transformer
