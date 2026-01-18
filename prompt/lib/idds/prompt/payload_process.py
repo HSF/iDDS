@@ -29,4 +29,5 @@ def process_payload(payload):
     # Example processing: add a new key-value pair
     processed_payload = payload.copy()
     processed_payload["processed"] = True
-    return 0, processed_payload, None
+    # Return True as status to indicate success (Transformer expects a truthy status)
+    return True, processed_payload, None
