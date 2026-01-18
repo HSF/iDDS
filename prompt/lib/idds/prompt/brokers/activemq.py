@@ -63,7 +63,7 @@ class MessagingListener(stomp.ConnectionListener):
         """
         Error handler
         """
-        self.logger.error("[broker] [%s]: %s", self.__broker, frame.body)
+        self.logger.error("[broker] [%s]: headers:%s, body: %s", self.__broker, frame.headers, frame.body)
 
     def on_disconnected(self):
         self.logger.warning("STOMP connection disconnected (server or transport).")

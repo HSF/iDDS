@@ -241,7 +241,9 @@ class Transformer:
                     "processed_at": datetime.datetime.utcnow(),
                     "state": "done" if status else "failed",
                     "hostname": socket.getfqdn(),
-                    "panda_id": content.get("panda_id"),
+                    "panda_task_id": os.environ.get("PanDA_TaskID"),
+                    "panda_id": os.environ.get("PANDAID"),
+                    "harvester_id": os.environ.get("HARVESTER_WORKER_ID"),
                     "result": {"state": status, "result": result, "error": error},
                 },
             }
