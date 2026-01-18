@@ -79,6 +79,7 @@ def get_task_parameters(
         num_workers = panda_attributes.get("num_workers", 1)
     max_walltime = panda_attributes.get("max_walltime", 3600)
     max_attempt = panda_attributes.get("max_attempt", 3)
+    idle_timeout = panda_attributes.get("idle_timeout", 120)
 
     task_param_map = {}
     task_param_map["vo"] = vo
@@ -100,7 +101,7 @@ def get_task_parameters(
     task_param_map["transUses"] = ""
     task_param_map["transHome"] = None
 
-    executable = f"--run_id {run_id}"
+    executable = f"--run_id {run_id} --idle_timeout {idle_timeout}"
     task_param_map["transPath"] = (
         "https://storage.googleapis.com/drp-us-central1-containers/run_prompt_wrapper"
     )
