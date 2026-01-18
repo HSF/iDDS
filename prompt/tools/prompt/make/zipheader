@@ -50,8 +50,10 @@ if [ -f ${current_dir}/x509_proxy ]; then
 fi
 
 export PANDA_CLIENT_VERBOSE=true
-# echo "Environment variables:"
-# env
+echo "Environment variables:"
+env
+
+# Set PANDA_URL_SSL and PANDACACHE_URL if not already set
 if [ -z "${PANDA_URL_SSL}" ]; then
     export PANDA_URL_SSL=$PANDA_SERVER_URL
     if [[ "$PANDA_URL_SSL" =~ :[0-9]+/?$ ]]; then

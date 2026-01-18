@@ -12,6 +12,7 @@
 import datetime
 import logging
 import os
+import socket
 import time
 import traceback
 
@@ -238,6 +239,9 @@ class Transformer:
                     "requested_at": msg.get("created_at"),
                     "processing_start_at": processing_start_at,
                     "processed_at": datetime.datetime.utcnow(),
+                    "state": "done" if status else "failed",
+                    "hostname": socket.getfqdn(),
+                    "panda_id": content.get("panda_id"),
                     "result": {"state": status, "result": result, "error": error},
                 },
             }
