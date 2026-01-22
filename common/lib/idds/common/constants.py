@@ -34,6 +34,7 @@ class Sections:
     Cache = 'cache'
     Archiver = 'archiver'
     Coordinator = 'coordinator'
+    Prompt = 'prompt'
     Rest = 'rest'
 
 

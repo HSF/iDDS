@@ -17,14 +17,16 @@ Test workflow condtions.
 import logging
 
 # from nose.tools import assert_equal
-from idds.common.utils import setup_logging, get_logger                  # noqa F401
+from idds.common.utils import setup_logging, get_logger  # noqa F401
 
-from idds.common.utils import json_dumps, json_loads                     # noqa F401
+from idds.common.utils import json_dumps, json_loads  # noqa F401
 
-from idds.common.dict_class import DictClass                             # noqa F401
+from idds.common.dict_class import DictClass  # noqa F401
 from idds.workflowv2.work import Work, WorkStatus
-from idds.workflowv2.workflow import (CompositeCondition, AndCondition, OrCondition,                # noqa F401
-                                      Condition, ConditionTrigger, Workflow, ParameterLink)         # noqa F401
+from idds.workflowv2.workflow import (
+    Condition,
+    Workflow,
+)  # noqa F401
 
 
 setup_logging(__name__)
@@ -33,8 +35,8 @@ logger = logging.getLogger("main")
 
 
 def test_workflow_condition():
-    work1 = Work(executable='/bin/hostname1', arguments=None, sandbox=None, work_id=1)
-    work2 = Work(executable='/bin/hostname2', arguments=None, sandbox=None, work_id=2)
+    work1 = Work(executable="/bin/hostname1", arguments=None, sandbox=None, work_id=1)
+    work2 = Work(executable="/bin/hostname2", arguments=None, sandbox=None, work_id=2)
 
     workflow1 = Workflow()
     workflow1.add_work(work1, initial=False)
@@ -48,15 +50,15 @@ def test_workflow_condition():
     # print(workflow_str)
     workflow1 = json_loads(workflow_str)
 
-    workflow_str1 = json_dumps(workflow1, sort_keys=True, indent=4)     # noqa F841
+    workflow_str1 = json_dumps(workflow1, sort_keys=True, indent=4)  # noqa F841
     # print(workflow_str1)
 
     # assert(sorted(json.loads(workflow_str).items()) == sorted(json.loads(workflow_str1).items()))
 
 
 def test_workflow_subloopworkflow_reload():
-    work1 = Work(executable='/bin/hostname1', arguments=None, sandbox=None, work_id=1)
-    work2 = Work(executable='/bin/hostname2', arguments=None, sandbox=None, work_id=2)
+    work1 = Work(executable="/bin/hostname1", arguments=None, sandbox=None, work_id=1)
+    work2 = Work(executable="/bin/hostname2", arguments=None, sandbox=None, work_id=2)
 
     workflow1 = Workflow()
     workflow1.add_work(work1, initial=False)
@@ -65,7 +67,7 @@ def test_workflow_subloopworkflow_reload():
     cond = Condition(cond=work2.is_finished)
     workflow1.add_loop_condition(cond)
 
-    work3 = Work(executable='/bin/hostname3', arguments=None, sandbox=None, work_id=3)
+    work3 = Work(executable="/bin/hostname3", arguments=None, sandbox=None, work_id=3)
     cond1 = Condition(cond=work3.is_finished, true_work=workflow1)
 
     workflow = Workflow()
@@ -84,7 +86,7 @@ def test_workflow_subloopworkflow_reload():
     logger.info("1")
     works = workflow.get_new_works()
     works.sort(key=lambda x: x.work_id)
-    assert(works == [work3])
+    assert works == [work3]
     # assert(workflow.num_run == 1)
 
     for work in works:
@@ -104,8 +106,8 @@ def test_workflow_subloopworkflow_reload():
     works = workflow.get_new_works()
     works.sort(key=lambda x: x.work_id)
     print(works)
-    assert(works == [work1, work2])
-    assert(workflow.is_terminated() is False)
+    assert works == [work1, work2]
+    assert workflow.is_terminated() is False
 
     for work in works:
         work.transforming = True
@@ -123,8 +125,8 @@ def test_workflow_subloopworkflow_reload():
     # workflow_str = json_dumps(workflow, sort_keys=True, indent=4)
     # print(workflow_str)
     print(works)
-    assert(works == [work1, work2])
-    assert(workflow.is_terminated() is False)
+    assert works == [work1, work2]
+    assert workflow.is_terminated() is False
 
     for work in works:
         work.transforming = True
@@ -139,13 +141,13 @@ def test_workflow_subloopworkflow_reload():
     logger.info("4")
     works = workflow.get_new_works()
     works.sort(key=lambda x: x.work_id)
-    assert(works == [])
-    assert(workflow.is_terminated() is True)
+    assert works == []
+    assert workflow.is_terminated() is True
 
 
 def test_workflow_subloopworkflow_reload1():
-    work1 = Work(executable='/bin/hostname1', arguments=None, sandbox=None, work_id=1)
-    work2 = Work(executable='/bin/hostname2', arguments=None, sandbox=None, work_id=2)
+    work1 = Work(executable="/bin/hostname1", arguments=None, sandbox=None, work_id=1)
+    work2 = Work(executable="/bin/hostname2", arguments=None, sandbox=None, work_id=2)
 
     workflow1 = Workflow()
     workflow1.add_work(work1, initial=False)
@@ -154,7 +156,7 @@ def test_workflow_subloopworkflow_reload1():
     cond = Condition(cond=work2.is_finished)
     workflow1.add_loop_condition(cond)
 
-    work3 = Work(executable='/bin/hostname3', arguments=None, sandbox=None, work_id=3)
+    work3 = Work(executable="/bin/hostname3", arguments=None, sandbox=None, work_id=3)
     cond1 = Condition(cond=workflow1.is_terminated, true_work=work3)
 
     workflow = Workflow()
@@ -173,7 +175,7 @@ def test_workflow_subloopworkflow_reload1():
     logger.info("1")
     works = workflow.get_new_works()
     works.sort(key=lambda x: x.work_id)
-    assert(works == [work1, work2])
+    assert works == [work1, work2]
     # assert(workflow.num_run == 1)
 
     for work in works:
@@ -193,8 +195,8 @@ def test_workflow_subloopworkflow_reload1():
     works = workflow.get_new_works()
     works.sort(key=lambda x: x.work_id)
     print(works)
-    assert(works == [work1, work2])
-    assert(workflow.is_terminated() is False)
+    assert works == [work1, work2]
+    assert workflow.is_terminated() is False
 
     for work in works:
         work.transforming = True
@@ -212,8 +214,8 @@ def test_workflow_subloopworkflow_reload1():
     # workflow_str = json_dumps(workflow, sort_keys=True, indent=4)
     # print(workflow_str)
     print(works)
-    assert(works == [work3])
-    assert(workflow.is_terminated() is False)
+    assert works == [work3]
+    assert workflow.is_terminated() is False
 
     for work in works:
         work.transforming = True
@@ -228,8 +230,8 @@ def test_workflow_subloopworkflow_reload1():
     logger.info("4")
     works = workflow.get_new_works()
     works.sort(key=lambda x: x.work_id)
-    assert(works == [])
-    assert(workflow.is_terminated() is True)
+    assert works == []
+    assert workflow.is_terminated() is True
 
 
 if __name__ == "__main__":

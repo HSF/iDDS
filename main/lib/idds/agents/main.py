@@ -42,7 +42,8 @@ AGENTS = {
     'consumer': ['idds.agents.conductor.consumer.Consumer', Sections.Consumer],
     'archiver': ['idds.agents.archive.archiver.Archiver', Sections.Archiver],
     'coordinator': ['idds.agents.coordinator.coordinator.Coordinator', Sections.Coordinator],
-    'natscoordinator': ['idds.agents.coordinator.nats_coordinator.NATSCoordinator', Sections.Coordinator]
+    'natscoordinator': ['idds.agents.coordinator.nats_coordinator.NATSCoordinator', Sections.Coordinator],
+    'transceiver': ['idds.agents.prompt.transceiver.Transceiver', Sections.Prompt],
 }
 
 RUNNING_AGENTS = []

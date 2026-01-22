@@ -1,0 +1,100 @@
+#!/bin/bash
+
+which unzip > /dev/null
+if [ $? -ne 0 ]; then
+echo "ERROR:  unzip is missing"
+exit 111
+fi
+
+unzip -o $0 > /dev/null 2>&1
+# PYNAME=`echo $0 | sed -e "s/\(-.*$\)/.py/"`
+
+current_dir=$PWD
+export PATH=${current_dir}:${current_dir}/bin:$PATH
+export PYTHONPATH=${current_dir}:${current_dir}/lib_py:$PYTHONPATH
+
+chmod +x ${current_dir}/bin/*
+ln -fs ${current_dir}/bin/* ${current_dir}/
+
+if ! command -v python &> /dev/null
+then
+    echo "no python, link python3 to python"
+    # alias python=python3
+    ln -fs $(which python3) ./python
+fi
+
+export IDDS_CONFIG=${current_dir}/etc/idds/idds.cfg.client.template
+
+if [[ ! -z "${PANDA_AUTH_DIR}" ]] && [[ ! -z "${PANDA_AUTH_ORIGIN}" ]]; then
+    export PANDA_AUTH_ID_TOKEN=$(cat $PANDA_AUTH_DIR);
+    export PANDA_AUTH_VO=$PANDA_AUTH_ORIGIN;
+    export IDDS_OIDC_TOKEN=$(cat $PANDA_AUTH_DIR);
+    export IDDS_VO=$PANDA_AUTH_ORIGIN;
+    export PANDA_AUTH=oidc;
+else
+    unset PANDA_AUTH;
+    export IDDS_AUTH_TYPE=x509_proxy;
+    if [[ -f $X509_USER_PROXY ]]; then
+	cp $X509_USER_PROXY ${current_dir}/x509_proxy
+    fi
+fi;
+
+export IDDS_LOG_LEVEL=debug
+
+export PANDA_CONFIG_ROOT=$(pwd);
+export PANDA_VERIFY_HOST=off;
+export PANDA_BEHIND_REAL_LB=true;
+
+if [ -f ${current_dir}/x509_proxy ]; then
+    export X509_USER_PROXY=${current_dir}/x509_proxy
+fi
+
+export PANDA_CLIENT_VERBOSE=true
+echo "Environment variables:"
+env
+
+# Set PANDA_URL_SSL and PANDACACHE_URL if not already set
+if [ -z "${PANDA_URL_SSL}" ]; then
+    export PANDA_URL_SSL=$PANDA_SERVER_URL
+    if [[ "$PANDA_URL_SSL" =~ :[0-9]+/?$ ]]; then
+        export PANDA_URL_SSL="${PANDA_URL_SSL%/}/server/panda"
+    fi
+fi
+if [ -z "${PANDACACHE_URL}" ]; then
+    export PANDACACHE_URL=$PANDA_SERVER_URL
+    if [[ $PANDACACHE_URL =~ :[0-9]+/?$ ]]; then
+        export PANDACACHE_URL="${PANDACACHE_URL%/}/server/panda"
+    fi 
+fi
+echo "panda server url: $PANDA_URL_SSL"
+echo "panda cache url: $PANDACACHE_URL"
+
+echo "which python:"
+which python
+echo "python --version:"
+python --version
+echo "PYTHONPATH: $PYTHONPATH"
+echo "list current dir/lib_py:"
+ls ${current_dir}/lib_py
+
+new_command="python ${current_dir}/bin/run_prompt --workdir ${current_dir} $@"
+
+echo "new command: "
+echo $new_command
+
+echo "running new command, outputs:"
+# eval $cmd
+eval $new_command
+ret=$?
+
+echo pwd
+pwd; ls
+
+echo unlink run_prompt
+unlink run_prompt
+
+echo rm -fr ${current_dir}/lib_py ${current_dir}/etc ${current_dir}/bin ${current_dir}/tmp_bin ${current_dir}/run_prompt_wrapper ${current_dir}/__pycache__  ${current_dir}/run_workflow.sh ${current_dir}/x509_proxy
+rm -fr ${current_dir}/lib_py ${current_dir}/etc ${current_dir}/bin ${current_dir}/tmp_bin ${current_dir}/run_prompt_wrapper ${current_dir}/__pycache__ ${current_dir}/run_workflow.sh ${current_dir}/x509_proxy
+
+echo "return code: " $ret
+exit $ret

@@ -36,6 +36,9 @@ def upgrade() -> None:
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
 
+        # explicitly create the sequence
+        op.execute(sa.schema.CreateSequence(sa.Sequence('REQUEST_GROUP_ID_SEQ', schema=schema)))
+
         # requests_group table
         op.create_table('requests_group',
                         sa.Column('group_id', sa.BigInteger(), sa.Sequence('REQUEST_GROUP_ID_SEQ', schema=schema)),
