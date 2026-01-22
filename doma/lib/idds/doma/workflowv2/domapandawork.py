@@ -1110,6 +1110,8 @@ class DomaPanDAWork(Work):
                 try:
                     ret_string = str(return_code[1][1])
                     ret_string = ret_string.replace("succeeded. new jediTaskID=", "")
+                    if "=" in ret_string:
+                        ret_string = ret_string.split("=")[1]
                     task_id = int(ret_string)
                     return task_id, None
                 except Exception as ex:
