@@ -28,7 +28,7 @@ RUN yum-config-manager --enable crb
 # RUN yum install -y httpd.x86_64 conda gridsite mod_ssl.x86_64 httpd-devel.x86_64 gcc.x86_64 supervisor.noarch fetch-crl.noarch lcg-CA postgresql postgresql-contrib postgresql-static postgresql-libs postgresql-devel && \
 #     yum clean all && \
 #     rm -rf /var/cache/yum
-RUN yum install -y httpd.x86_64 which conda gridsite mod_ssl.x86_64 httpd-devel.x86_64 gcc.x86_64 supervisor.noarch fetch-crl.noarch redis syslog-ng procps passwd which  systemd-udev wget voms-clients-java voms-clients-cpp cachetools && \
+RUN yum install -y httpd.x86_64 which conda gridsite mod_ssl.x86_64 httpd-devel.x86_64 gcc.x86_64 supervisor.noarch fetch-crl.noarch redis syslog-ng procps passwd which  systemd-udev wget voms-clients-java voms-clients-cpp && \
 yum clean all && \
 rm -rf /var/cache/yum
 
@@ -108,7 +108,7 @@ RUN source /etc/profile.d/conda.sh; conda activate /opt/idds; python3 -m pip ins
 
 RUN source /etc/profile.d/conda.sh; conda activate /opt/idds; python3 -m pip install --no-cache-dir --upgrade requests SQLAlchemy urllib3 retrying mod_wsgi flask futures stomp.py cx-Oracle oracledb unittest2 pep8 flake8 pytest nose sphinx recommonmark sphinx-rtd-theme nevergrad
 RUN source /etc/profile.d/conda.sh; conda activate /opt/idds; python3 -m pip install --no-cache-dir --upgrade psycopg2-binary nats-py asyncio
-RUN source /etc/profile.d/conda.sh; conda activate /opt/idds; python3 -m pip install --no-cache-dir --upgrade rucio-clients-atlas rucio-clients panda-client-light
+RUN source /etc/profile.d/conda.sh; conda activate /opt/idds; python3 -m pip install --no-cache-dir --upgrade rucio-clients-atlas rucio-clients panda-client-light cachetools
 
 
 WORKDIR /tmp/src
