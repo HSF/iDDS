@@ -191,7 +191,7 @@ def get_maker():
         Return a SQLAlchemy sessionmaker.
         May assign __MAKER if not already assigned.
     """
-    global _MAKER, _ENGINE
+    global _MAKER, _ENGINE   # noqa: F824
     assert _ENGINE
     if not _MAKER:
         _MAKER = sessionmaker(bind=_ENGINE, autocommit=False, autoflush=False, expire_on_commit=True)
@@ -202,7 +202,7 @@ def get_session():
     """ Creates a session to a specific database, assumes that schema already in place.
         :returns: session
     """
-    global _MAKER, _LOCK
+    global _MAKER, _LOCK  # noqa: F824
     if not _MAKER:
         _LOCK.acquire()
         try:

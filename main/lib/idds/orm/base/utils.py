@@ -16,14 +16,14 @@ Utils to create the database or destroy the database
 import io
 import os
 import traceback
-from typing import Union
+# from typing import Union
 
 from alembic.config import Config
 from alembic import command
 
 import sqlalchemy
 # from sqlalchemy.engine import reflection
-from sqlalchemy.engine import Inspector
+# from sqlalchemy.engine import Inspector
 from sqlalchemy import inspect
 from sqlalchemy.dialects.postgresql.base import PGInspector
 from sqlalchemy.schema import CreateSchema, MetaData, Table, DropTable, ForeignKeyConstraint, DropConstraint

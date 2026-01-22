@@ -15,7 +15,7 @@ from flask import Blueprint
 
 from idds.common import exceptions
 from idds.common.constants import HTTP_STATUS_CODE
-from idds.common.utils import get_asyncresult_config
+from idds.common.utils import get_asyncresult_config, get_prompt_broker_config
 
 from idds.rest.v1.controller import IDDSController
 
@@ -24,11 +24,19 @@ class MetaInfo(IDDSController):
     """ Get Meta info"""
 
     def get(self, name):
+        logger = self.get_logger()
         try:
+            logger.info(f"Getting meta info for {name}")
+
             rets = {}
             if name == 'asyncresult_config':
                 asyncresult_config = get_asyncresult_config()
                 rets = asyncresult_config
+            elif name == 'prompt_broker':
+                prompt_broker_config = get_prompt_broker_config()
+                rets = prompt_broker_config
+
+            logger.info(f"Meta info for {name} retrieved successfully: {rets}")
 
         except exceptions.NoObject as error:
             return self.generate_http_response(HTTP_STATUS_CODE.NotFound, exc_cls=error.__class__.__name__, exc_msg=error)
@@ -37,6 +45,7 @@ class MetaInfo(IDDSController):
         except Exception as error:
             print(error)
             print(format_exc())
+            logger.error(f"Error getting meta info for {name}: {error}\n{format_exc()}")
             return self.generate_http_response(HTTP_STATUS_CODE.InternalError, exc_cls=exceptions.CoreException.__name__, exc_msg=error)
 
         return self.generate_http_response(HTTP_STATUS_CODE.OK, data=rets)
