@@ -530,7 +530,7 @@ def worker_handler(header, msg, task_id=None, handler_kwargs={}, logger=None):
 
         elif msg_type in ["run_end", "run_stop", "end_run"]:
             # Close PanDA task
-            ## close_panda_task(task_id, logger=logger)
+            # close_panda_task(task_id, logger=logger)
             # Stop workers and transformers
             stop_harvester_worker(
                 header,

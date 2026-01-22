@@ -115,7 +115,12 @@ class PandaClient(object):
             )
             if return_code[0] == 0 and return_code[1][0] is True:
                 try:
-                    task_id = int(return_code[1][1])
+                    ret_string = str(return_code[1][1])
+                    ret_string = ret_string.replace("succeeded. new jediTaskID=", "")
+                    if 'jediTaskID=' in ret_string:
+                        task_id = int(ret_string.split("=")[1])
+                    elif "=" in ret_string:
+                        task_id = int(ret_string.split("=")[1])
                     return task_id
                 except Exception as ex:
                     if logger:

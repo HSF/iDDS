@@ -190,7 +190,7 @@ class BaseActiveMQ(PluginBase):
         else:
             brokers = brokers.split(",")
 
-        broker_timeout = self.broker.get("broker_timeout", 10)
+        broker_timeout = self.broker.get("broker_timeout", 10)   # noqa F841
 
         broker_addresses = []
         for b in brokers:
