@@ -1,0 +1,127 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "idds-server"
+version = "2.2.21"
+description = "intelligent Distributed Dispatch and Scheduling Service (iDDS) - Server Package"
+readme = "README.md"
+license = {text = "Apache-2.0"}
+authors = [
+    {name = "PanDA Team", email = "atlas-adc-panda@cern.ch"},
+]
+requires-python = ">=3.9"
+dependencies = [
+    "idds-common",
+    "argcomplete",
+    "requests",
+    "SQLAlchemy",
+    "urllib3",
+    "retrying",
+    "mod_wsgi",
+    "flask",
+    "stomp.py",
+    "cx-Oracle",
+    "oracledb",
+    "psycopg2-binary",
+    "pyjwt",
+    "cryptography",
+    "redis",
+    "alembic",
+    "deepdiff",
+    "pyzmq",
+    "oic",
+    "cachetools",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "License :: OSI Approved :: Apache Software License",
+]
+
+[project.optional-dependencies]
+mysql = ["mysqlclient"]
+dev = [
+    "unittest2",
+    "pep8",
+    "flake8",
+    "pytest",
+    "nose",
+    "sphinx",
+    "recommonmark",
+    "sphinx-rtd-theme",
+]
+optimization = ["nevergrad"]
+
+[project.urls]
+Documentation = "https://github.com/HSF/iDDS/wiki"
+Source = "https://github.com/HSF/iDDS"
+
+[tool.setuptools]
+package-dir = {"" = "lib"}
+
+[tool.setuptools.packages.find]
+where = ["lib"]
+exclude = ["idds"]  # Exclude top-level idds package
+namespaces = true
+
+[tool.setuptools.package-data]
+"*" = ["*.template", "*.cfg", "*.conf", "*.ini", "*.sql"]
+
+[[tool.setuptools.data-files]]
+directory = "etc/idds"
+files = ["etc/idds/*.template"]
+
+[[tool.setuptools.data-files]]
+directory = "etc/idds/rest"
+files = ["etc/idds/rest/*"]
+
+[[tool.setuptools.data-files]]
+directory = "etc/idds/auth"
+files = ["etc/idds/auth/*template"]
+
+[[tool.setuptools.data-files]]
+directory = "etc/idds/website"
+files = ["etc/idds/website/*"]
+
+[[tool.setuptools.data-files]]
+directory = "etc/idds/supervisord.d"
+files = ["etc/idds/supervisord.d/*"]
+
+[[tool.setuptools.data-files]]
+directory = "etc/idds/condor/client"
+files = ["etc/idds/condor/client/*"]
+
+[[tool.setuptools.data-files]]
+directory = "etc/idds/condor/server"
+files = ["etc/idds/condor/server/*"]
+
+[[tool.setuptools.data-files]]
+directory = "etc/condor/client"
+files = ["etc/condor/client/*"]
+
+[[tool.setuptools.data-files]]
+directory = "etc/condor/server"
+files = ["etc/condor/server/*"]
+
+[[tool.setuptools.data-files]]
+directory = "etc/sql"
+files = ["etc/sql/*"]
+
+[[tool.setuptools.data-files]]
+directory = "config_default"
+files = ["config_default/*"]
+
+[[tool.setuptools.data-files]]
+directory = "tools/env"
+files = ["tools/env/*"]
+
+[project.scripts]
+idds-daemon = "idds.daemon.main:main"
+# Add other scripts from bin/ directory as needed

@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "idds-common"
+version = "2.2.21"
+description = "intelligent Distributed Dispatch and Scheduling Service (iDDS) - Common Package"
+readme = "README.md"
+license = {text = "Apache-2.0"}
+authors = [
+    {name = "PanDA Team", email = "atlas-adc-panda@cern.ch"},
+]
+requires-python = ">=3.9"
+dependencies = [
+    "packaging",
+    "requests",
+    "dogpile.cache",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: Apache Software License",
+]
+
+[project.urls]
+Documentation = "https://github.com/HSF/iDDS/wiki"
+Source = "https://github.com/HSF/iDDS"
+
+[tool.setuptools]
+packages = ["idds.common", "idds.common.utils", "idds.common.plugin"]
+package-dir = {"" = "lib"}
+
+[tool.setuptools.package-data]
+"idds.common" = ["*.template"]
+
+[[tool.setuptools.data-files]]
+directory = "etc/idds"
+files = ["etc/idds/*.template"]
+
+[[tool.setuptools.data-files]]
+directory = "etc/idds/rest"
+files = ["etc/idds/rest/*template"]
+
+[[tool.setuptools.data-files]]
+directory = "tools/common/env"
+files = ["tools/common/env/*.yml"]
+
+[project.scripts]
+# Add any command-line scripts from bin/ if present

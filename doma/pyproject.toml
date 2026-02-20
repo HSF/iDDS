@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "idds-doma"
+version = "2.2.21"
+description = "intelligent Distributed Dispatch and Scheduling Service (iDDS) - DOMA Extension"
+readme = "README.md"
+license = {text = "Apache-2.0"}
+authors = [
+    {name = "PanDA Team", email = "atlas-adc-panda@cern.ch"},
+]
+requires-python = ">=3.9"
+dependencies = [
+    "panda-client-light",
+    "idds-common>=2.2.0",
+    "idds-workflow>=2.2.0",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "License :: OSI Approved :: Apache Software License",
+]
+
+[project.urls]
+Documentation = "https://github.com/HSF/iDDS/wiki"
+Source = "https://github.com/HSF/iDDS"
+
+[tool.setuptools]
+package-dir = {"" = "lib"}
+
+[tool.setuptools.packages.find]
+where = ["lib"]
+exclude = ["idds"]
+namespaces = true
+
+[[tool.setuptools.data-files]]
+directory = "etc/idds"
+files = ["etc/idds/*.template"]
+
+[[tool.setuptools.data-files]]
+directory = "etc/panda"
+files = ["etc/panda/*"]
+
+[[tool.setuptools.data-files]]
+directory = "tools/doma/env"
+files = ["tools/doma/env/*.yml"]
+
+[project.scripts]
+setup_panda_token = "idds.doma.tools.setup_panda_token:main"
