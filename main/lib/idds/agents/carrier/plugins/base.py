@@ -83,7 +83,7 @@ class BaseSubmitter(object):
         task_param_map['prodSourceLabel'] = 'managed'   # managed, test, ptest
 
         # task_param_map['noWaitParent'] = True
-        task_param_map['taskType'] = 'iDDS'
+        task_param_map['taskType'] = work.task_type if work.task_type else 'iDDS'
         task_param_map['coreCount'] = work.core_count
         task_param_map['skipScout'] = True
         task_param_map['ramCount'] = work.total_memory / work.core_count if work.core_count else work.total_memory

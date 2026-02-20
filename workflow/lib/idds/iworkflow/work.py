@@ -130,6 +130,14 @@ class WorkContext(Context):
         self._workflow_context.working_group = value
 
     @property
+    def task_type(self):
+        return self._workflow_context.task_type
+
+    @task_type.setter
+    def task_type(self, value):
+        self._workflow_context.task_type = value
+
+    @property
     def priority(self):
         if self._priority:
             return self._priority
