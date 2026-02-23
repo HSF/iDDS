@@ -79,7 +79,7 @@ def process_packages(command):
     
     # Map user commands to pip/build commands
     command_map = {
-        'install': 'pip install -e .',
+        'install': 'pip install .',
         'develop': 'pip install -e .',
         'build': 'python -m build',
         'wheel': 'python -m build --wheel',
