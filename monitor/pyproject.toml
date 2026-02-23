@@ -32,11 +32,7 @@ Source = "https://github.com/HSF/iDDS"
 
 [tool.setuptools]
 package-dir = {"" = "lib"}
-
-[tool.setuptools.packages.find]
-where = ["lib"]
-exclude = ["idds"]
-namespaces = true
+packages = ["idds.monitor"]
 
 [tool.setuptools.package-data]
 "idds.monitor" = ["data/**/*"]
