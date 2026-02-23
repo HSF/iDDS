@@ -34,8 +34,9 @@ Source = "https://github.com/HSF/iDDS"
 [tool.setuptools]
 package-dir = {"" = "lib"}
 
-[tool.setuptools.packages.find-namespace]
+[tool.setuptools.packages.find]
 where = ["lib"]
+namespaces = true
 
 [tool.setuptools.package-data]
 "idds.common" = ["*.template"]

@@ -46,8 +46,9 @@ Source = "https://github.com/HSF/iDDS"
 [tool.setuptools]
 package-dir = {"" = "lib"}
 
-[tool.setuptools.packages.find-namespace]
+[tool.setuptools.packages.find]
 where = ["lib"]
+namespaces = true
 
 # Data files are now handled via MANIFEST.in
 # - etc/idds/*.template
