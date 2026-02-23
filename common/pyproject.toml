@@ -36,8 +36,10 @@ package-dir = {"" = "lib"}
 
 [tool.setuptools.packages.find]
 where = ["lib"]
-exclude = ["idds"]
-namespaces = true
+namespaces = false
+
+[tool.setuptools.packages.find-namespace]
+where = ["lib"]
 
 [tool.setuptools.package-data]
 "idds.common" = ["*.template"]
