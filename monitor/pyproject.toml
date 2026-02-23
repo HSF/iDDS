@@ -41,14 +41,6 @@ namespaces = true
 [tool.setuptools.package-data]
 "idds.monitor" = ["data/**/*"]
 
-[[tool.setuptools.data-files]]
-directory = "etc/idds"
-files = ["etc/idds/*.template"]
-
-[[tool.setuptools.data-files]]
-directory = "etc/idds/rest"
-files = ["etc/idds/rest/*template"]
-
-[[tool.setuptools.data-files]]
-directory = "monitor"
-files = ["data/**/*"]
+# Data files are now handled via MANIFEST.in
+# - etc/idds/*.template, etc/idds/rest/*template
+# - data/**/*

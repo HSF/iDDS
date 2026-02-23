@@ -41,6 +41,5 @@ namespaces = true
 [tool.setuptools.package-data]
 "idds.website" = ["data/**/*"]
 
-[[tool.setuptools.data-files]]
-directory = "etc/idds"
-files = ["etc/idds/*.template"]
+# Data files are now handled via MANIFEST.in
+# - etc/idds/*.template
