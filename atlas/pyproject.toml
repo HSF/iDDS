@@ -48,6 +48,7 @@ package-dir = {"" = "lib"}
 
 [tool.setuptools.packages.find]
 where = ["lib"]
+exclude = ["idds"]
 namespaces = true
 
 # Data files are now handled via MANIFEST.in

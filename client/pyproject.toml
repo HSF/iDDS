@@ -39,6 +39,7 @@ package-dir = {"" = "lib"}
 
 [tool.setuptools.packages.find]
 where = ["lib"]
+exclude = ["idds"]
 namespaces = true
 
 [tool.setuptools.package-data]
