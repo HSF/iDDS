@@ -19,7 +19,6 @@ dependencies = [
     "SQLAlchemy",
     "urllib3",
     "retrying",
-    "mod_wsgi",
     "flask",
     "stomp.py",
     "cx-Oracle",
@@ -46,6 +45,7 @@ classifiers = [
 
 [project.optional-dependencies]
 mysql = ["mysqlclient"]
+apache = ["mod_wsgi"]
 dev = [
     "unittest2",
     "pep8",
