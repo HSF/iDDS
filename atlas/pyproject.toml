@@ -52,10 +52,6 @@ where = ["lib"]
 exclude = ["idds"]
 namespaces = true
 
-[[tool.setuptools.data-files]]
-directory = "etc/idds"
-files = ["etc/idds/*.template"]
-
-[[tool.setuptools.data-files]]
-directory = "tools/atlas/env"
-files = ["tools/atlas/env/*.yml"]
+# Data files are now handled via MANIFEST.in
+# - etc/idds/*.template
+# - tools/atlas/env/*.yml

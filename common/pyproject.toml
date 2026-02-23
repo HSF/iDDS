@@ -39,17 +39,10 @@ package-dir = {"" = "lib"}
 [tool.setuptools.package-data]
 "idds.common" = ["*.template"]
 
-[[tool.setuptools.data-files]]
-directory = "etc/idds"
-files = ["etc/idds/*.template"]
-
-[[tool.setuptools.data-files]]
-directory = "etc/idds/rest"
-files = ["etc/idds/rest/*template"]
-
-[[tool.setuptools.data-files]]
-directory = "tools/common/env"
-files = ["tools/common/env/*.yml"]
+# Data files are now handled via MANIFEST.in
+# - etc/idds/*.template
+# - etc/idds/rest/*template
+# - tools/common/env/*.yml
 
 [project.scripts]
 # Add any command-line scripts from bin/ if present

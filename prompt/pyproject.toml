@@ -42,17 +42,9 @@ namespaces = true
 [tool.setuptools.package-data]
 "*" = ["*.template"]
 
-[[tool.setuptools.data-files]]
-directory = "etc/idds"
-files = ["etc/idds/*.template"]
-
-[[tool.setuptools.data-files]]
-directory = "etc/idds/rest"
-files = ["etc/idds/rest/*template"]
-
-[[tool.setuptools.data-files]]
-directory = "tools/prompt/env"
-files = ["tools/prompt/env/*.yml"]
+# Data files are now handled via MANIFEST.in
+# - etc/idds/*.template, etc/idds/rest/*template
+# - tools/prompt/env/*.yml
 
 [project.scripts]
 # Add command-line scripts from bin/ if present

@@ -40,17 +40,10 @@ where = ["lib"]
 exclude = ["idds"]
 namespaces = true
 
-[[tool.setuptools.data-files]]
-directory = "etc/idds"
-files = ["etc/idds/*.template"]
-
-[[tool.setuptools.data-files]]
-directory = "etc/panda"
-files = ["etc/panda/*"]
-
-[[tool.setuptools.data-files]]
-directory = "tools/doma/env"
-files = ["tools/doma/env/*.yml"]
+# Data files are now handled via MANIFEST.in
+# - etc/idds/*.template
+# - etc/panda/*
+# - tools/doma/env/*.yml
 
 [project.scripts]
 setup_panda_token = "idds.doma.tools.setup_panda_token:main"

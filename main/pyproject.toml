@@ -74,53 +74,11 @@ namespaces = true
 [tool.setuptools.package-data]
 "*" = ["*.template", "*.cfg", "*.conf", "*.ini", "*.sql"]
 
-[[tool.setuptools.data-files]]
-directory = "etc/idds"
-files = ["etc/idds/*.template"]
-
-[[tool.setuptools.data-files]]
-directory = "etc/idds/rest"
-files = ["etc/idds/rest/*"]
-
-[[tool.setuptools.data-files]]
-directory = "etc/idds/auth"
-files = ["etc/idds/auth/*template"]
-
-[[tool.setuptools.data-files]]
-directory = "etc/idds/website"
-files = ["etc/idds/website/*"]
-
-[[tool.setuptools.data-files]]
-directory = "etc/idds/supervisord.d"
-files = ["etc/idds/supervisord.d/*"]
-
-[[tool.setuptools.data-files]]
-directory = "etc/idds/condor/client"
-files = ["etc/idds/condor/client/*"]
-
-[[tool.setuptools.data-files]]
-directory = "etc/idds/condor/server"
-files = ["etc/idds/condor/server/*"]
-
-[[tool.setuptools.data-files]]
-directory = "etc/condor/client"
-files = ["etc/condor/client/*"]
-
-[[tool.setuptools.data-files]]
-directory = "etc/condor/server"
-files = ["etc/condor/server/*"]
-
-[[tool.setuptools.data-files]]
-directory = "etc/sql"
-files = ["etc/sql/*"]
-
-[[tool.setuptools.data-files]]
-directory = "config_default"
-files = ["config_default/*"]
-
-[[tool.setuptools.data-files]]
-directory = "tools/env"
-files = ["tools/env/*"]
+# Data files are now handled via MANIFEST.in or installed separately
+# - etc/idds/*, etc/idds/rest/*, etc/idds/auth/*template
+# - etc/idds/website/*, etc/idds/supervisord.d/*
+# - etc/idds/condor/*, etc/condor/*, etc/sql/*
+# - config_default/*, tools/env/*
 
 [project.scripts]
 idds-daemon = "idds.daemon.main:main"
