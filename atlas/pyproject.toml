@@ -7,7 +7,7 @@ name = "idds-atlas"
 version = "2.2.21"
 description = "intelligent Distributed Dispatch and Scheduling Service (iDDS) - ATLAS Extension"
 readme = "README.md"
-license = {text = "Apache-2.0"}
+license = "Apache-2.0"
 authors = [
     {name = "PanDA Team", email = "atlas-adc-panda@cern.ch"},
 ]
@@ -28,7 +28,6 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    "License :: OSI Approved :: Apache Software License",
 ]
 
 [project.optional-dependencies]
