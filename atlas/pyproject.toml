@@ -46,7 +46,6 @@ Source = "https://github.com/HSF/iDDS"
 [tool.setuptools]
 package-dir = {"" = "lib"}
 packages = ["idds.atlas"]
-namespace-packages = ["idds"]
 
 # Data files are now handled via MANIFEST.in
 # - etc/idds/*.template

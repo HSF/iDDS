@@ -37,7 +37,6 @@ Source = "https://github.com/HSF/iDDS"
 [tool.setuptools]
 package-dir = {"" = "lib"}
 packages = ["idds.client"]
-namespace-packages = ["idds"]
 
 [tool.setuptools.package-data]
 "*" = ["*.template"]
