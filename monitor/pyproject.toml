@@ -36,7 +36,3 @@ packages = ["idds.monitor"]
 
 [tool.setuptools.package-data]
 "idds.monitor" = ["data/**/*"]
-
-# Data files are now handled via MANIFEST.in
-# - etc/idds/*.template, etc/idds/rest/*template
-# - data/**/*

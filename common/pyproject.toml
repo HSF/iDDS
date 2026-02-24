@@ -37,11 +37,3 @@ packages = ["idds.common"]
 
 [tool.setuptools.package-data]
 "idds.common" = ["*.template"]
-
-# Data files are now handled via MANIFEST.in
-# - etc/idds/*.template
-# - etc/idds/rest/*template
-# - tools/common/env/*.yml
-
-[project.scripts]
-# Add any command-line scripts from bin/ if present

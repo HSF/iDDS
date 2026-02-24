@@ -8,10 +8,29 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2019 - 2025
 
-# This setup.py is kept for backward compatibility but all configuration
-# is now in pyproject.toml. This file simply invokes setuptools.
+# Metadata is in pyproject.toml. This file handles data_files and scripts
+# which require glob patterns not supported in pyproject.toml.
 
+import os
 from setuptools import setup
 
-if __name__ == "__main__":
-    setup()
+
+def get_data_files(dest, src):
+    """Walk a source directory and produce data_files entries."""
+    data = []
+    for root, dirs, files in os.walk(src):
+        if root.endswith('/dist') or root.endswith('/build') or 'egg-info' in root:
+            continue
+        dest_dir = os.path.join(dest, root)
+        src_files = [os.path.join(root, f) for f in files]
+        if src_files:
+            data.append((dest_dir, src_files))
+    return data
+
+
+data_files = []
+data_files += get_data_files('monitor/', './data')
+
+setup(
+    data_files=data_files,
+)

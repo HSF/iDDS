@@ -36,6 +36,3 @@ packages = ["idds.website"]
 
 [tool.setuptools.package-data]
 "idds.website" = ["data/**/*"]
-
-# Data files are now handled via MANIFEST.in
-# - etc/idds/*.template

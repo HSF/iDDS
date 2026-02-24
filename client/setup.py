@@ -8,10 +8,20 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2019 - 2025
 
-# This setup.py is kept for backward compatibility but all configuration
-# is now in pyproject.toml. This file simply invokes setuptools.
+# Metadata is in pyproject.toml. This file handles data_files and scripts
+# which require glob patterns not supported in pyproject.toml.
 
+import glob
 from setuptools import setup
 
-if __name__ == "__main__":
-    setup()
+data_files = [
+    ('etc/idds/', glob.glob('etc/idds/*.template')),
+    ('tools/client/env/', glob.glob('tools/client/env/*.yml')),
+]
+
+scripts = glob.glob('bin/*')
+
+setup(
+    data_files=data_files,
+    scripts=scripts,
+)

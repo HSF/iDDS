@@ -33,13 +33,3 @@ Source = "https://github.com/HSF/iDDS"
 [tool.setuptools]
 package-dir = {"" = "lib"}
 packages = ["idds.prompt"]
-
-[tool.setuptools.package-data]
-"*" = ["*.template"]
-
-# Data files are now handled via MANIFEST.in
-# - etc/idds/*.template, etc/idds/rest/*template
-# - tools/prompt/env/*.yml
-
-[project.scripts]
-# Add command-line scripts from bin/ if present

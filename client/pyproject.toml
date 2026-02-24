@@ -40,10 +40,3 @@ packages = ["idds.client"]
 
 [tool.setuptools.package-data]
 "*" = ["*.template"]
-
-# Data files are now handled via MANIFEST.in
-# - etc/idds/*.template, etc/idds/rest/*template
-# - tools/client/env/*.yml
-
-[project.scripts]
-idds = "idds.client.cli:main"

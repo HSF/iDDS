@@ -34,11 +34,3 @@ Source = "https://github.com/HSF/iDDS"
 [tool.setuptools]
 package-dir = {"" = "lib"}
 packages = ["idds.doma"]
-
-# Data files are now handled via MANIFEST.in
-# - etc/idds/*.template
-# - etc/panda/*
-# - tools/doma/env/*.yml
-
-[project.scripts]
-setup_panda_token = "idds.doma.tools.setup_panda_token:main"

@@ -68,13 +68,3 @@ packages = ["idds.agents", "idds.api", "idds.core", "idds.orm", "idds.rest", "id
 
 [tool.setuptools.package-data]
 "*" = ["*.template", "*.cfg", "*.conf", "*.ini", "*.sql"]
-
-# Data files are now handled via MANIFEST.in or installed separately
-# - etc/idds/*, etc/idds/rest/*, etc/idds/auth/*template
-# - etc/idds/website/*, etc/idds/supervisord.d/*
-# - etc/idds/condor/*, etc/condor/*, etc/sql/*
-# - config_default/*, tools/env/*
-
-[project.scripts]
-idds-daemon = "idds.daemon.main:main"
-# Add other scripts from bin/ directory as needed

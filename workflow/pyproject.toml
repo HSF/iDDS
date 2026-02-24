@@ -35,7 +35,3 @@ Source = "https://github.com/HSF/iDDS"
 [tool.setuptools]
 package-dir = {"" = "lib"}
 packages = ["idds.iworkflow", "idds.workflow", "idds.workflowv2"]
-
-# Data files are now handled via MANIFEST.in
-# - etc/idds/*.template
-# - tools/workflow/env/*.yml
