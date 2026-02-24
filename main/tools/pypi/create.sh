@@ -1,13 +1,16 @@
 #!/bin/bash
 
+CurrentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+RootDir="$( dirname "$( dirname "$( dirname "$CurrentDir" )" )" )"
+
 version=$1
 
 # create packages
-echo python setup.py sdist bdist_wheel
-python setup.py sdist bdist_wheel
+echo python ${RootDir}/build_all.py wheel
+python ${RootDir}/build_all.py wheel
 
-echo python3 -m twine upload  */dist/idds*-${version}.tar.gz
-python3 -m twine upload  */dist/idds*-${version}.tar.gz
+echo python3 -m twine upload  ${RootDir}/*/dist/idds*-${version}.tar.gz
+python3 -m twine upload  ${RootDir}/*/dist/idds*-${version}.tar.gz
 
 # python3 -m twine upload atlas/dist/idds-atlas-0.2.0.tar.gz
 # python3 -m twine upload common/dist/idds-common-0.2.0.tar.gz

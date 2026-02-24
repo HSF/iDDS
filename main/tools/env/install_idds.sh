@@ -12,7 +12,11 @@
 # git clone -b dev https://github.com/wguanicedew/iDDS.git
 # cd iDDS
 # bash main/tools/env/install_idds.sh
-python setup.py install --old-and-unmanageable --force
+
+CurrentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+RootDir="$( dirname "$( dirname "$( dirname "$CurrentDir" )" )" )"
+
+python ${RootDir}/build_all.py install
 
 
 # ruff check .
@@ -20,24 +24,24 @@ python setup.py install --old-and-unmanageable --force
 # black --check .
 # auto-format black
 
-bash workflow/tools/workflow/make/make.sh
+bash ${RootDir}/workflow/tools/workflow/make/make.sh
 
-echo cp workflow/bin/run_workflow_wrapper ~/www/wiscgroup/
-cp workflow/bin/run_workflow_wrapper ~/www/wiscgroup/
-echo cp workflow/bin/run_workflow_wrapper /eos/user/w/wguan/www/
-cp workflow/bin/run_workflow_wrapper /eos/user/w/wguan/www/
+echo cp ${RootDir}/workflow/bin/run_workflow_wrapper ~/www/wiscgroup/
+cp ${RootDir}/workflow/bin/run_workflow_wrapper ~/www/wiscgroup/
+echo cp ${RootDir}/workflow/bin/run_workflow_wrapper /eos/user/w/wguan/www/
+cp ${RootDir}/workflow/bin/run_workflow_wrapper /eos/user/w/wguan/www/
 
 # echo scp workflow/bin/run_workflow_wrapper root@ai-idds-04:/data/iddssv1/srv/var/trf/user/
 # scp workflow/bin/run_workflow_wrapper root@ai-idds-04:/data/iddssv1/srv/var/trf/user/
 
-rm -fr workflow/bin/run_workflow_wrapper
+rm -fr ${RootDir}/workflow/bin/run_workflow_wrapper
 
 # prompt wrapper
-bash prompt/tools/prompt/make/make.sh
+bash ${RootDir}/prompt/tools/prompt/make/make.sh
 
-echo cp prompt/bin/run_prompt_wrapper ~/www/wiscgroup/
-cp prompt/bin/run_prompt_wrapper ~/www/wiscgroup/
-echo cp prompt/bin/run_prompt_wrapper /eos/user/w/wguan/www/
-cp prompt/bin/run_prompt_wrapper /eos/user/w/wguan/www/
+echo cp ${RootDir}/prompt/bin/run_prompt_wrapper ~/www/wiscgroup/
+cp ${RootDir}/prompt/bin/run_prompt_wrapper ~/www/wiscgroup/
+echo cp ${RootDir}/prompt/bin/run_prompt_wrapper /eos/user/w/wguan/www/
+cp ${RootDir}/prompt/bin/run_prompt_wrapper /eos/user/w/wguan/www/
 
-rm -fr prompt/bin/run_prompt_wrapper
+rm -fr ${RootDir}/prompt/bin/run_prompt_wrapper
