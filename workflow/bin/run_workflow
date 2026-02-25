@@ -95,6 +95,31 @@ def map_output_files(output_map):
             logging.warning(f"cannot link {org_file} to {mapped_file}, because it doesn't exist")
 
 
+def _run_workflow_in_subprocess(name, context, original_args, current_job_kwargs, output_map, inputs, input_map):
+    ctx, func_name, pre_kwargs, args, kwargs, multi_jobs_kwargs_list, cur_job_kwargs = get_context_args(context, original_args, current_job_kwargs)
+
+    logging.info("context: %s" % ctx)
+    logging.info("func_name: %s" % func_name)
+    logging.info("pre_kwargs: %s" % pre_kwargs)
+    logging.info("args: %s" % str(args))
+    logging.info("kwargs: %s" % kwargs)
+    logging.info("multi_jobs_kwargs_list: %s" % str(multi_jobs_kwargs_list))
+    logging.info("current_job_kwargs: %s" % str(cur_job_kwargs))
+    logging.info(f"output_map: {output_map}")
+    logging.info(f"inputs: {inputs}")
+    logging.info(f"input_map: {input_map}")
+
+    workflow = Workflow(func=func_name, pre_kwargs=pre_kwargs, args=args, kwargs=kwargs, multi_jobs_kwargs_list=multi_jobs_kwargs_list, current_job_kwargs=cur_job_kwargs, context=ctx, name=name)
+    workflow.load()
+    logging.info("workflow: %s" % workflow)
+    with workflow:
+        ret = workflow.run()
+    logging.info("run workflow result: %s" % str(ret))
+    if not ret:
+        return -1
+    return 0
+
+
 def run_workflow(name, key, context, original_args, current_job_kwargs, output_map, inputs, input_map):
     logging.info(f"name: {name}, key: {key}")
     logging.info("Initializing context and setting up source files...")
@@ -103,36 +128,37 @@ def run_workflow(name, key, context, original_args, current_job_kwargs, output_m
     context.setup_source_files()
 
     # Start a new process to run the workflow after setup_source_files
-    def _run_workflow_in_subprocess():
-        context_args = get_context_args(context, original_args, current_job_kwargs)
-        context, func_name, pre_kwargs, args, kwargs, multi_jobs_kwargs_list, current_job_kwargs = context_args
-        
-        logging.info("context: %s" % context)
-        logging.info("func_name: %s" % func_name)
-        logging.info("pre_kwargs: %s" % pre_kwargs)
-        logging.info("args: %s" % str(args))
-        logging.info("kwargs: %s" % kwargs)
-        logging.info("multi_jobs_kwargs_list: %s" % str(multi_jobs_kwargs_list))
-        logging.info("current_job_kwargs: %s" % str(current_job_kwargs))
-        logging.info(f"output_map: {output_map}")
-        logging.info(f"inputs: {inputs}")
-        logging.info(f"input_map: {input_map}")
-
-        workflow = Workflow(func=func_name, pre_kwargs=pre_kwargs, args=args, kwargs=kwargs, multi_jobs_kwargs_list=multi_jobs_kwargs_list, current_job_kwargs=current_job_kwargs, context=context, name=name)
-        workflow.load()
-        logging.info("workflow: %s" % workflow)
-        with workflow:
-            ret = workflow.run()
-        logging.info("run workflow result: %s" % str(ret))
-        if not ret:
-            return -1
-        return 0
-
-    p = multiprocessing.Process(target=_run_workflow_in_subprocess)
+    p = multiprocessing.Process(target=_run_workflow_in_subprocess,
+                                args=(name, context, original_args, current_job_kwargs, output_map, inputs, input_map))
     p.start()
     p.join()
-    
+
     return p.exitcode if p.exitcode is not None else 0
+
+
+def _run_work_in_subprocess(name, key, context, original_args, current_job_kwargs, output_map, inputs, input_map, inputs_group):
+    ctx, func_name, pre_kwargs, args, kwargs, multi_jobs_kwargs_list, cur_job_kwargs = get_context_args(context, original_args, current_job_kwargs)
+
+    logging.info("context: %s" % ctx)
+    logging.info("func_name: %s" % func_name)
+    logging.info("pre_kwargs: %s" % pre_kwargs)
+    logging.info("args: %s" % str(args))
+    logging.info("kwargs: %s" % kwargs)
+    logging.info("multi_jobs_kwargs_list: %s" % str(multi_jobs_kwargs_list))
+    logging.info("current_job_kwargs: %s" % str(cur_job_kwargs))
+    logging.info(f"output_map: {output_map}")
+    logging.info(f"inputs: {inputs}")
+
+    work = Work(func=func_name, pre_kwargs=pre_kwargs, args=args, kwargs=kwargs, multi_jobs_kwargs_list=multi_jobs_kwargs_list, job_key=key,
+                current_job_kwargs=cur_job_kwargs, context=ctx, name=name, inputs=inputs, input_map=input_map, inputs_group=inputs_group)
+    work.load()
+    logging.info("work: %s" % work)
+    ret = work.run()
+    logging.info("run work result: %s" % str(ret))
+    map_output_files(output_map)
+    if not ret:
+        return -1
+    return 0
 
 
 def run_work(name, key, context, original_args, current_job_kwargs, output_map, inputs, input_map, inputs_group):
@@ -143,35 +169,11 @@ def run_work(name, key, context, original_args, current_job_kwargs, output_map, 
     context.setup_source_files()
 
     # Start a new process to run the work after setup_source_files
-    def _run_work_in_subprocess():
-        context_args = get_context_args(context, original_args, current_job_kwargs)
-        context, func_name, pre_kwargs, args, kwargs, multi_jobs_kwargs_list, current_job_kwargs = context_args
-        
-        logging.info("context: %s" % context)
-        logging.info("func_name: %s" % func_name)
-        logging.info("pre_kwargs: %s" % pre_kwargs)
-        logging.info("args: %s" % str(args))
-        logging.info("kwargs: %s" % kwargs)
-        logging.info("multi_jobs_kwargs_list: %s" % str(multi_jobs_kwargs_list))
-        logging.info("current_job_kwargs: %s" % str(current_job_kwargs))
-        logging.info(f"output_map: {output_map}")
-        logging.info(f"inputs: {inputs}")
-
-        work = Work(func=func_name, pre_kwargs=pre_kwargs, args=args, kwargs=kwargs, multi_jobs_kwargs_list=multi_jobs_kwargs_list, job_key=key,
-                    current_job_kwargs=current_job_kwargs, context=context, name=name, inputs=inputs, input_map=input_map, inputs_group=inputs_group)
-        work.load()
-        logging.info("work: %s" % work)
-        ret = work.run()
-        logging.info("run work result: %s" % str(ret))
-        map_output_files(output_map)
-        if not ret:
-            return -1
-        return 0
-
-    p = multiprocessing.Process(target=_run_work_in_subprocess)
+    p = multiprocessing.Process(target=_run_work_in_subprocess,
+                                args=(name, key, context, original_args, current_job_kwargs, output_map, inputs, input_map, inputs_group))
     p.start()
     p.join()
-    
+
     return p.exitcode if p.exitcode is not None else 0
 
 
