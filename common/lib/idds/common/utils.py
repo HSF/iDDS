@@ -1034,10 +1034,16 @@ def encode_base64(sb):
 
 def is_execluded_file(file, exclude_files=[]):
     if exclude_files:
-        for f in exclude_files:
-            reg = re.compile(f)
-            if re.match(reg, file):
-                return True
+        for pattern in exclude_files:
+            # If pattern contains '*' or regex special chars, use regex
+            if any(c in pattern for c in '*?[]^$.()|+{}'):
+                reg = re.compile(pattern)
+                if re.match(reg, file):
+                    return True
+            else:
+                # Exact match: only exclude file/dir named exactly 'pattern'
+                if file == pattern:
+                    return True
     return False
 
 
