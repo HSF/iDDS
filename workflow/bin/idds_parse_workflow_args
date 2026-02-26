@@ -24,6 +24,8 @@ import sys
 import time
 import traceback
 
+from idds.common.utils import json_loads, decode_base64 as idds_decode_base64
+
 
 logging.basicConfig(stream=sys.stderr,
                     level=logging.DEBUG,
@@ -117,6 +119,41 @@ def create_run_workflow_cmd(run_args):
     return run_script
 
 
+def extract_context_from_run_args(run_args):
+    """Extract --context value from run_args and initialize/setup source files."""
+    context = None
+    args_file = None
+    for i, arg in enumerate(run_args):
+        if arg == '--context' and i + 1 < len(run_args):
+            context_str = run_args[i + 1]
+            context_str = idds_decode_base64(context_str)
+            context = json_loads(context_str)
+        elif arg == '--args_file' and i + 1 < len(run_args):
+            args_file = run_args[i + 1]
+
+    if args_file and os.path.exists(args_file):
+        try:
+            with open(args_file, 'r') as f:
+                data = f.read()
+            args_content = idds_decode_base64(data)
+            args_content = json_loads(args_content)
+            if 'context' in args_content and args_content['context']:
+                context_str = idds_decode_base64(args_content['context'])
+                context = json_loads(context_str)
+        except Exception as ex:
+            logging.warning("Failed to load context from args_file: %s" % ex)
+
+    if context is not None:
+        try:
+            logging.info("Initializing context and setting up source files...")
+            context.initialize()
+            context.setup_source_files()
+        except Exception as ex:
+            logging.warning("Failed to setup source files: %s" % ex)
+
+    return context
+
+
 def process_args(args):
     logging.debug("pre_setup:")
     logging.debug(args.pre_setup)
@@ -138,6 +175,9 @@ def process_args(args):
         setup = json.loads(decode_base64(args.setup, remove_quotes=False))
         if setup:
             cmd = cmd + " " + setup
+
+    # Initialize context and setup source files before running the workflow
+    extract_context_from_run_args(args.run_args)
 
     run_script = create_run_workflow_cmd(args.run_args)
 
