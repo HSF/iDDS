@@ -75,10 +75,15 @@ fi
 if [ -f ${current_dir}/x509_proxy ]; then
     export X509_USER_PROXY=${current_dir}/x509_proxy
 fi
+
 """
     if extra_env:
+        script += "\n# Set extra environment variables from context\n"
+        script += "echo 'Setup PanDA environments'\n"
         for k, v in extra_env.items():
             script += f"export {k}='{v}'\n"
+
+    script += "env\n"
     return script
 
 
@@ -152,7 +157,10 @@ def extract_context_from_run_args(run_args):
             logging.info("Initializing context and setting up source files...")
             context.initialize()
             context.setup_source_files()
+
+            logging.info("loading panda envs...")
             extra_env = context._panda_env()
+            logging.info(f"Panda envs loaded: {extra_env}")
         except Exception as ex:
             logging.warning("Failed to setup source files: %s" % ex)
 
