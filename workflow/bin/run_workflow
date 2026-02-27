@@ -97,6 +97,10 @@ def map_output_files(output_map):
 def run_workflow(name, key, context, original_args, current_job_kwargs, output_map, inputs, input_map):
     logging.info(f"name: {name}, key: {key}")
 
+    # it will setup some PanDA environment variables, so put it before get_context_args
+    logging.info("Initializing context...") 
+    context.initialize()
+
     ctx, func_name, pre_kwargs, args, kwargs, multi_jobs_kwargs_list, cur_job_kwargs = get_context_args(context, original_args, current_job_kwargs)
 
     logging.info("context: %s" % ctx)
@@ -123,6 +127,10 @@ def run_workflow(name, key, context, original_args, current_job_kwargs, output_m
 
 def run_work(name, key, context, original_args, current_job_kwargs, output_map, inputs, input_map, inputs_group):
     logging.info(f"name: {name}, key: {key}")
+
+    # it will setup some PanDA environment variables, so put it before get_context_args
+    logging.info("Initializing context...") 
+    context.initialize()
 
     ctx, func_name, pre_kwargs, args, kwargs, multi_jobs_kwargs_list, cur_job_kwargs = get_context_args(context, original_args, current_job_kwargs)
 
