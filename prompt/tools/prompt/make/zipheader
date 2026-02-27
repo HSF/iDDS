@@ -31,12 +31,10 @@ if [[ ! -z "${PANDA_AUTH_DIR}" ]] && [[ ! -z "${PANDA_AUTH_ORIGIN}" ]]; then
     export IDDS_OIDC_TOKEN=$(cat $PANDA_AUTH_DIR);
     export IDDS_VO=$PANDA_AUTH_ORIGIN;
     export PANDA_AUTH=oidc;
-else
+elif [[ -f $X509_USER_PROXY ]]; then
     unset PANDA_AUTH;
     export IDDS_AUTH_TYPE=x509_proxy;
-    if [[ -f $X509_USER_PROXY ]]; then
-	cp $X509_USER_PROXY ${current_dir}/x509_proxy
-    fi
+    cp $X509_USER_PROXY ${current_dir}/x509_proxy
 fi;
 
 export IDDS_LOG_LEVEL=debug
