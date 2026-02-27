@@ -49,7 +49,8 @@ def get_parser(program):
     return oparser
 
 
-def get_workflow_setup_script():
+def get_workflow_setup_script(extra_env=None):
+
     script = """#!/bin/bash
 
 echo "current dir: " $PWD
@@ -75,6 +76,9 @@ if [ -f ${current_dir}/x509_proxy ]; then
     export X509_USER_PROXY=${current_dir}/x509_proxy
 fi
 """
+    if extra_env:
+        for k, v in extra_env.items():
+            script += f"export {k}='{v}'\n"
     return script
 
 
@@ -101,12 +105,11 @@ def decode_base64(sb, remove_quotes=False):
         return sb
 
 
-def create_run_workflow_cmd(run_args):
+def create_run_workflow_cmd(run_args, extra_env=None):
     # current_dir = os.getcwd()
+
     run_script = "./run_workflow.sh"
-    # cmd = os.path.join(current_dir, run_script)
-    setup_script = get_workflow_setup_script()
-    # script = setup_script + "\n" + " ".join(run_args)
+    setup_script = get_workflow_setup_script(extra_env)
     script = setup_script + "\n"
     script += " ".join(f'"{str(arg)}"' for arg in run_args)
 
@@ -122,6 +125,7 @@ def create_run_workflow_cmd(run_args):
 def extract_context_from_run_args(run_args):
     """Extract --context value from run_args and initialize/setup source files."""
     context = None
+    extra_env = None
     args_file = None
     for i, arg in enumerate(run_args):
         if arg == '--context' and i + 1 < len(run_args):
@@ -148,10 +152,11 @@ def extract_context_from_run_args(run_args):
             logging.info("Initializing context and setting up source files...")
             context.initialize()
             context.setup_source_files()
+            extra_env = context._panda_env()
         except Exception as ex:
             logging.warning("Failed to setup source files: %s" % ex)
 
-    return context
+    return context, extra_env
 
 
 def process_args(args):
@@ -177,9 +182,9 @@ def process_args(args):
             cmd = cmd + " " + setup
 
     # Initialize context and setup source files before running the workflow
-    extract_context_from_run_args(args.run_args)
+    _, extra_env = extract_context_from_run_args(args.run_args)
 
-    run_script = create_run_workflow_cmd(args.run_args)
+    run_script = create_run_workflow_cmd(args.run_args, extra_env=extra_env)
 
     cmd = cmd + " " + run_script
     return cmd
