@@ -34,7 +34,7 @@ setup_logging(__name__)
 
 class WorkContext(Context):
 
-    def __init__(self, name=None, workflow_context=None, source_dir=None, init_env=None, container_options=None):
+    def __init__(self, name=None, workflow_context=None, source_dir=None, init_env=None, container_options=None, post_script=None):
         super(WorkContext, self).__init__()
         self._workflow_context = workflow_context
         self._transform_id = None
@@ -55,7 +55,7 @@ class WorkContext(Context):
 
         self.init_env = init_env
         self.container_options = container_options
-        self._post_script = None
+        self._post_script = post_script
 
         self._workload_id = None
         self._parent_workload_id = None
