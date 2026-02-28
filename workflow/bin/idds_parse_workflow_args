@@ -125,7 +125,8 @@ def create_run_workflow_cmd(run_args, extra_env=None, post_script=None):
         script += "\n\n# Post script section\n"
         script += post_script
 
-    script += "\nexit $ret\n"
+    script += "\n\n# Exit with the return code of the workflow command\n"
+    script += "exit $ret\n"
 
     logging.debug("script: ")
     logging.debug(script)
@@ -208,7 +209,7 @@ def process_args(args):
     # Initialize context and setup source files before running the workflow
     _, extra_env = extract_context_from_run_args(args.run_args)
 
-    run_script = create_run_workflow_cmd(args.run_args, extra_env=extra_env, post_script_content=post_script)
+    run_script = create_run_workflow_cmd(args.run_args, extra_env=extra_env, post_script=post_script)
     cmd = cmd + f" {run_script}"
     return cmd
 
