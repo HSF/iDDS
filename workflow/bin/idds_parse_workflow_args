@@ -158,9 +158,9 @@ def extract_context_from_run_args(run_args):
             context.initialize()
             context.setup_source_files()
 
-            logging.info("loading panda envs...")
-            extra_env = context._panda_env()
-            logging.info(f"Panda envs loaded: {extra_env}")
+            logging.info("loading panda idds envs...")
+            extra_env = context.get_panda_idds_env()
+            logging.info(f"Panda idds envs loaded: {extra_env}")
         except Exception as ex:
             logging.warning("Failed to setup source files: %s" % ex)
 

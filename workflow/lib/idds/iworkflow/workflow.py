@@ -416,6 +416,22 @@ class WorkflowContext(Context):
     def max_processing_requests(self, value):
         self._max_processing_requests = value
 
+    @property
+    def panda_env(self):
+        return self._panda_env
+
+    @panda_env.setter
+    def panda_env(self, value):
+        self._panda_env = value
+
+    @property
+    def idds_env(self):
+        return self._idds_env
+
+    @idds_env.setter
+    def idds_env(self, value):
+        self._idds_env = value
+
     def init_brokers(self):
         if not self._broker_initialized:
             self.logger.info("To initialize broker")

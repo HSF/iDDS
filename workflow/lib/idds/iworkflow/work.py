@@ -366,6 +366,42 @@ class WorkContext(Context):
     def container_options(self, value):
         self._container_options = value
 
+    @property
+    def panda_env(self):
+        return self._workflow_context.panda_env
+
+    @panda_env.setter
+    def panda_env(self, value):
+        self._workflow_context.panda_env = value
+
+    @property
+    def idds_env(self):
+        return self._workflow_context.idds_env
+
+    @idds_env.setter
+    def idds_env(self, value):
+        self._workflow_context.idds_env = value
+
+    def get_panda_idds_env(self):
+        idds_env = self.idds_env
+        panda_env = self.panda_env
+
+        ret_env = {}
+        env_list = ['IDDS_HOST', 'IDDS_AUTH_NO_VERIFY']
+        for env in env_list:
+            if env in idds_env and idds_env[env] is not None:
+                ret_env[env] = idds_env[env]
+
+        # env_list = ['PANDA_CONFIG_ROOT', 'PANDA_URL_SSL', 'PANDA_URL', 'PANDACACHE_URL', 'PANDAMON_URL',
+        #             'PANDA_AUTH', 'PANDA_VERIFY_HOST', 'PANDA_AUTH_VO', 'PANDA_BEHIND_REAL_LB']
+        env_list = ['PANDA_URL_SSL', 'PANDA_URL', 'PANDACACHE_URL', 'PANDAMON_URL',
+                    'PANDA_VERIFY_HOST', 'PANDA_BEHIND_REAL_LB']
+        for env in env_list:
+            if env in panda_env and panda_env[env] is not None:
+                ret_env[env] = panda_env[env]
+                
+        return ret_env
+
     def get_idds_server(self):
         return self._workflow_context.get_idds_server()
 
