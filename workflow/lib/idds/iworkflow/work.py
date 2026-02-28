@@ -463,7 +463,7 @@ class Work(Base):
                  parent_workload_id=None, no_wait_parent=False, container_options=None, input_datasets=None, output_file_name=None,
                  output_dataset_name=None, num_events=None, num_events_per_job=None, parent_transform_id=None, parent_internal_id=None,
                  log_dataset_name=None, inputs=None, input_map=None, inputs_group=None, enable_separate_log=False, job_key=None,
-                 json_load=False):
+                 json_load=False, post_script=None):
         """
         Init a workflow.
         """
@@ -489,7 +489,7 @@ class Work(Base):
         if context:
             self._context = context
         else:
-            self._context = WorkContext(name=self._name, workflow_context=workflow_context, init_env=init_env, container_options=container_options)
+            self._context = WorkContext(name=self._name, workflow_context=workflow_context, init_env=init_env, container_options=container_options, post_script=post_script)
 
         # self._func = func
         self._func, self._func_name_and_args, self._multi_jobs_kwargs_list = self.get_func_name_and_args(
@@ -1526,7 +1526,7 @@ def run_work_distributed(w):
 def work(func=None, *, workflow=None, pre_kwargs={}, name=None, return_work=False, map_results=False, lazy=False, init_env=None, no_wraps=False,
          container_options=None, parent_workload_id=None, no_wait_parent=False, input_datasets=None, output_file_name=None,
          enable_separate_log=False, output_dataset_name=None, log_dataset_name=None, num_events=None, num_events_per_job=None,
-         parent_transform_id=None, parent_internal_id=None, job_key=None):
+         parent_transform_id=None, parent_internal_id=None, job_key=None, post_script=None):
     if func is None:
         return functools.partial(work, workflow=workflow, pre_kwargs=pre_kwargs, return_work=return_work, no_wraps=no_wraps,
                                  name=name, map_results=map_results, lazy=lazy, init_env=init_env, container_options=container_options,
@@ -1534,7 +1534,7 @@ def work(func=None, *, workflow=None, pre_kwargs={}, name=None, return_work=Fals
                                  input_datasets=input_datasets, output_file_name=output_file_name, output_dataset_name=output_dataset_name,
                                  log_dataset_name=log_dataset_name, job_key=job_key,
                                  enable_separate_log=enable_separate_log, num_events=num_events, num_events_per_job=num_events_per_job,
-                                 parent_internal_id=parent_internal_id)
+                                 parent_internal_id=parent_internal_id, post_script=post_script)
 
     if 'IDDS_IGNORE_WORK_DECORATOR' in os.environ:
         return func
@@ -1557,7 +1557,7 @@ def work(func=None, *, workflow=None, pre_kwargs={}, name=None, return_work=Fals
                          parent_transform_id=parent_transform_id, input_datasets=input_datasets, output_file_name=output_file_name,
                          output_dataset_name=output_dataset_name, num_events=num_events, num_events_per_job=num_events_per_job,
                          parent_internal_id=parent_internal_id, enable_separate_log=enable_separate_log, log_dataset_name=log_dataset_name,
-                         job_key=job_key)
+                         job_key=job_key, post_script=post_script)
                 # if distributed:
 
                 if return_work:
