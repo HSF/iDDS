@@ -42,6 +42,7 @@ def get_parser(program):
     # common items
     oparser.add_argument('--pre_setup', dest='pre_setup', help="The pre_setup.")
     oparser.add_argument('--setup', dest='setup', help="The setup.")
+    oparser.add_argument('--post_script', dest='post_script', help="Post script to run after workflow (bash code)")
     # oparser.add_argument('--output_map', dest='output_map', help="The output map.")
     # oparser.add_argument('--inputs', dest='inputs', help="The input list.")
     # oparser.add_argument('--input_map', dest='input_map', help="The input map.")
@@ -110,13 +111,21 @@ def decode_base64(sb, remove_quotes=False):
         return sb
 
 
-def create_run_workflow_cmd(run_args, extra_env=None):
+def create_run_workflow_cmd(run_args, extra_env=None, post_script=None):
     # current_dir = os.getcwd()
 
     run_script = "./run_workflow.sh"
     setup_script = get_workflow_setup_script(extra_env)
     script = setup_script + "\n"
     script += " ".join(f'"{str(arg)}"' for arg in run_args)
+    script += "ret=$?\n"
+
+    # Append post_script directly
+    if post_script:
+        script += "\n\n# Post script section\n"
+        script += post_script
+
+    script += "\nexit $ret\n"
 
     logging.debug("script: ")
     logging.debug(script)
@@ -124,6 +133,7 @@ def create_run_workflow_cmd(run_args, extra_env=None):
     with open(run_script, 'w') as f:
         f.write(script)
     os.chmod(run_script, 0o755)
+
     return run_script
 
 
@@ -172,6 +182,8 @@ def process_args(args):
     logging.debug(args.pre_setup)
     logging.debug("setup: ")
     logging.debug(args.setup)
+    logging.debug("post_script: ")
+    logging.debug(args.post_script)
     # logging.debug("output_map: ")
     # logging.debug(args.output_map)
     # logging.debug("inputs: ")
@@ -188,13 +200,16 @@ def process_args(args):
         setup = json.loads(decode_base64(args.setup, remove_quotes=False))
         if setup:
             cmd = cmd + " " + setup
+    if args.post_script:
+        post_script = json.loads(decode_base64(args.post_script, remove_quotes=False))
+    else:
+        post_script = None
 
     # Initialize context and setup source files before running the workflow
     _, extra_env = extract_context_from_run_args(args.run_args)
 
-    run_script = create_run_workflow_cmd(args.run_args, extra_env=extra_env)
-
-    cmd = cmd + " " + run_script
+    run_script = create_run_workflow_cmd(args.run_args, extra_env=extra_env, post_script_content=post_script)
+    cmd = cmd + f" {run_script}"
     return cmd
 
 

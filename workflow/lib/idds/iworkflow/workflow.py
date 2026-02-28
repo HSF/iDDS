@@ -115,6 +115,7 @@ class WorkflowContext(Context):
 
         self.init_env = init_env
         self._clean_env = clean_env
+        self._post_script = None
 
         self._exclude_source_files = []
         if exclude_source_files:
@@ -170,6 +171,14 @@ class WorkflowContext(Context):
         self._clean_env = value
         if self._clean_env:
             self._clean_env = self._clean_env + " "
+
+    @property
+    def post_script(self):
+        return self._post_script
+
+    @post_script.setter
+    def post_script(self, value):
+        self._post_script = value
 
     @property
     def vo(self):

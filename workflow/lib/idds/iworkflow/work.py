@@ -55,6 +55,7 @@ class WorkContext(Context):
 
         self.init_env = init_env
         self.container_options = container_options
+        self._post_script = None
 
         self._workload_id = None
         self._parent_workload_id = None
@@ -435,6 +436,21 @@ class WorkContext(Context):
             else:
                 ret = init_env
         return ret
+    
+    @property
+    def post_script(self):
+        """
+        Return the post script bash code to be appended after workflow execution.
+        Override or set self._post_script in subclasses or instances as needed.
+        """
+        post_script = self._post_script
+        if post_script:
+            return post_script
+        return self._workflow_context.post_script
+    
+    @post_script.setter
+    def post_script(self, value):
+        self._post_script = value
 
     def get_clean_env(self):
         return self._workflow_context.get_clean_env()
@@ -1264,6 +1280,13 @@ class Work(Base):
         :returns command: `str` to setup the workflow.
         """
         return self._context.setup()
+    
+    def post_script(self):
+        """
+        Return the post script bash code to be appended after workflow execution.
+        Override or set self._post_script in subclasses or instances as needed.
+        """
+        return self._context.post_script()
 
     def get_clean_env(self):
         """
@@ -1464,6 +1487,10 @@ class Work(Base):
             if pre_setup:
                 cmd = " --pre_setup " + pre_setup + " "
             cmd = cmd + " --setup " + main_setup + " "
+        post_script = self.post_script()
+        if post_script:
+            post_script = encode_base64(json_dumps(post_script))
+            cmd = cmd + " --post_script " + post_script + " "
         if cmd:
             cmd = cmd + " " + run_command
         else:

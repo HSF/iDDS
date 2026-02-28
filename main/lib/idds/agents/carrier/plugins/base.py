@@ -119,6 +119,7 @@ class BaseSubmitter(object):
         elif work.input_datasets:
             for i, (input_file_name, input_dataset_name) in enumerate(work.input_datasets.items()):
                 input_dataset_name = input_dataset_name.replace("$WORKFLOWID", str(work.request_id))
+                input_dataset_name = input_dataset_name.replace("${WORKFLOWID}", str(work.request_id))
                 tmp_dict = {
                     "type": "template",
                     "param_type": "input",
