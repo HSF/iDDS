@@ -43,7 +43,7 @@ export PANDA_CONFIG_ROOT=$(pwd);
 export PANDA_VERIFY_HOST=off;
 export PANDA_BEHIND_REAL_LB=true;
 
-export PANDA_CLIENT_VERBOSE=true
+# export PANDA_CLIENT_VERBOSE=true
 echo "Environment variables:"
 env
 
