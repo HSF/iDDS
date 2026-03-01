@@ -580,7 +580,7 @@ class WorkflowContext(Context):
         # env_list = ['PANDA_CONFIG_ROOT', 'PANDA_URL_SSL', 'PANDA_URL', 'PANDACACHE_URL', 'PANDAMON_URL',
         #             'PANDA_AUTH', 'PANDA_VERIFY_HOST', 'PANDA_AUTH_VO', 'PANDA_BEHIND_REAL_LB']
         env_list = ['PANDA_URL_SSL', 'PANDA_URL', 'PANDACACHE_URL', 'PANDAMON_URL',
-                    'PANDA_VERIFY_HOST', 'PANDA_BEHIND_REAL_LB']
+                    'PANDA_VERIFY_HOST', 'PANDA_BEHIND_REAL_LB', 'PANDA_CLIENT_VERBOSE']
         for env in env_list:
             if env not in os.environ and env in self._panda_env:
                 os.environ[env] = self._panda_env[env]

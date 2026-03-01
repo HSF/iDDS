@@ -394,7 +394,7 @@ class WorkContext(Context):
                 ret_env[env] = idds_env[env]
 
         # env_list = ['PANDA_CONFIG_ROOT', 'PANDA_URL_SSL', 'PANDA_URL', 'PANDACACHE_URL', 'PANDAMON_URL',
-        #             'PANDA_AUTH', 'PANDA_VERIFY_HOST', 'PANDA_AUTH_VO', 'PANDA_BEHIND_REAL_LB']
+        #             'PANDA_AUTH', 'PANDA_VERIFY_HOST', 'PANDA_AUTH_VO', 'PANDA_BEHIND_REAL_LB', 'PANDA_CLIENT_VERBOSE']
         env_list = ['PANDA_URL_SSL', 'PANDA_URL', 'PANDACACHE_URL', 'PANDAMON_URL',
                     'PANDA_VERIFY_HOST', 'PANDA_BEHIND_REAL_LB']
         for env in env_list:
