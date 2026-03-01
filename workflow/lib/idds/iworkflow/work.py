@@ -1487,7 +1487,7 @@ class Work(Base):
             if pre_setup:
                 cmd = " --pre_setup " + pre_setup + " "
             cmd = cmd + " --setup " + main_setup + " "
-        post_script = self.post_script()
+        post_script = self.post_script
         if post_script:
             post_script = encode_base64(json_dumps(post_script))
             cmd = cmd + " --post_script " + post_script + " "

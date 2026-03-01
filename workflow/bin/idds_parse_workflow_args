@@ -142,6 +142,7 @@ def extract_context_from_run_args(run_args):
     """Extract --context value from run_args and initialize/setup source files."""
     context = None
     extra_env = None
+    post_script = None
     args_file = None
     for i, arg in enumerate(run_args):
         if arg == '--context' and i + 1 < len(run_args):
@@ -172,10 +173,13 @@ def extract_context_from_run_args(run_args):
             logging.info("loading panda idds envs...")
             extra_env = context.get_panda_idds_env()
             logging.info(f"Panda idds envs loaded: {extra_env}")
+
+            post_script = context.post_script
+            logging.info(f"Post script from context: {post_script}")
         except Exception as ex:
             logging.warning("Failed to setup source files: %s" % ex)
 
-    return context, extra_env
+    return context, extra_env, post_script
 
 
 def process_args(args):
@@ -207,9 +211,18 @@ def process_args(args):
         post_script = None
 
     # Initialize context and setup source files before running the workflow
-    _, extra_env = extract_context_from_run_args(args.run_args)
+    _, extra_env, post_script_1 = extract_context_from_run_args(args.run_args)
 
-    run_script = create_run_workflow_cmd(args.run_args, extra_env=extra_env, post_script=post_script)
+    # Merge post_script and post_script_1
+    merged_post_script = None
+    if post_script and post_script_1:
+        merged_post_script = f"{post_script}\n{post_script_1}"
+    elif post_script:
+        merged_post_script = post_script
+    elif post_script_1:
+        merged_post_script = post_script_1
+
+    run_script = create_run_workflow_cmd(args.run_args, extra_env=extra_env, post_script=merged_post_script)
     cmd = cmd + f" {run_script}"
     return cmd
 
