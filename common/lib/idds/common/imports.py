@@ -65,7 +65,15 @@ def get_func_name(func: Callable, base_dir=None) -> str:
     if base_dir is None:
         filename = os.path.basename(filename)
     else:
-        filename = os.path.relpath(filename, base_dir)
+        # Resolve symlinks to get real paths before computing relative path
+        real_filename = os.path.realpath(filename)
+        real_base_dir = os.path.realpath(base_dir)
+        rel_path = os.path.relpath(real_filename, real_base_dir)
+        if rel_path.startswith('..'):
+            # Paths don't share a common prefix even after resolving symlinks.
+            # Fall back to basename.
+            rel_path = os.path.basename(filename)
+        filename = rel_path
     if 'site-packages' in filename:
         filename = filename.split('site-packages')[-1]
     if filename.startswith('/'):

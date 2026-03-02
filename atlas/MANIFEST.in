@@ -1,0 +1,7 @@
+include README.md
+include LICENSE.rst
+recursive-include etc/idds *.template
+recursive-include tools/atlas/env *.yml
+graft bin
+prune build
+prune dist

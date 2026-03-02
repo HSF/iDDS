@@ -34,7 +34,7 @@ setup_logging(__name__)
 
 class WorkContext(Context):
 
-    def __init__(self, name=None, workflow_context=None, source_dir=None, init_env=None, container_options=None):
+    def __init__(self, name=None, workflow_context=None, source_dir=None, init_env=None, container_options=None, post_script=None):
         super(WorkContext, self).__init__()
         self._workflow_context = workflow_context
         self._transform_id = None
@@ -55,6 +55,7 @@ class WorkContext(Context):
 
         self.init_env = init_env
         self.container_options = container_options
+        self._post_script = post_script
 
         self._workload_id = None
         self._parent_workload_id = None
@@ -128,6 +129,22 @@ class WorkContext(Context):
     @working_group.setter
     def working_group(self, value):
         self._workflow_context.working_group = value
+
+    @property
+    def task_type(self):
+        return self._workflow_context.task_type
+
+    @task_type.setter
+    def task_type(self, value):
+        self._workflow_context.task_type = value
+
+    @property
+    def processing_type(self):
+        return self._workflow_context.processing_type
+
+    @processing_type.setter
+    def processing_type(self, value):
+        self._workflow_context.processing_type = value
 
     @property
     def priority(self):
@@ -358,6 +375,42 @@ class WorkContext(Context):
     def container_options(self, value):
         self._container_options = value
 
+    @property
+    def panda_env(self):
+        return self._workflow_context.panda_env
+
+    @panda_env.setter
+    def panda_env(self, value):
+        self._workflow_context.panda_env = value
+
+    @property
+    def idds_env(self):
+        return self._workflow_context.idds_env
+
+    @idds_env.setter
+    def idds_env(self, value):
+        self._workflow_context.idds_env = value
+
+    def get_panda_idds_env(self):
+        idds_env = self.idds_env
+        panda_env = self.panda_env
+
+        ret_env = {}
+        env_list = ['IDDS_HOST', 'IDDS_AUTH_NO_VERIFY']
+        for env in env_list:
+            if env in idds_env and idds_env[env] is not None:
+                ret_env[env] = idds_env[env]
+
+        # env_list = ['PANDA_CONFIG_ROOT', 'PANDA_URL_SSL', 'PANDA_URL', 'PANDACACHE_URL', 'PANDAMON_URL',
+        #             'PANDA_AUTH', 'PANDA_VERIFY_HOST', 'PANDA_AUTH_VO', 'PANDA_BEHIND_REAL_LB', 'PANDA_CLIENT_VERBOSE']
+        env_list = ['PANDA_URL_SSL', 'PANDA_URL', 'PANDACACHE_URL', 'PANDAMON_URL',
+                    'PANDA_VERIFY_HOST', 'PANDA_BEHIND_REAL_LB']
+        for env in env_list:
+            if env in panda_env and panda_env[env] is not None:
+                ret_env[env] = panda_env[env]
+                
+        return ret_env
+
     def get_idds_server(self):
         return self._workflow_context.get_idds_server()
 
@@ -391,6 +444,21 @@ class WorkContext(Context):
             else:
                 ret = init_env
         return ret
+    
+    @property
+    def post_script(self):
+        """
+        Return the post script bash code to be appended after workflow execution.
+        Override or set self._post_script in subclasses or instances as needed.
+        """
+        post_script = self._post_script
+        if post_script:
+            return post_script
+        return self._workflow_context.post_script
+    
+    @post_script.setter
+    def post_script(self, value):
+        self._post_script = value
 
     def get_clean_env(self):
         return self._workflow_context.get_clean_env()
@@ -403,7 +471,7 @@ class Work(Base):
                  parent_workload_id=None, no_wait_parent=False, container_options=None, input_datasets=None, output_file_name=None,
                  output_dataset_name=None, num_events=None, num_events_per_job=None, parent_transform_id=None, parent_internal_id=None,
                  log_dataset_name=None, inputs=None, input_map=None, inputs_group=None, enable_separate_log=False, job_key=None,
-                 json_load=False):
+                 json_load=False, post_script=None):
         """
         Init a workflow.
         """
@@ -429,7 +497,7 @@ class Work(Base):
         if context:
             self._context = context
         else:
-            self._context = WorkContext(name=self._name, workflow_context=workflow_context, init_env=init_env, container_options=container_options)
+            self._context = WorkContext(name=self._name, workflow_context=workflow_context, init_env=init_env, container_options=container_options, post_script=post_script)
 
         # self._func = func
         self._func, self._func_name_and_args, self._multi_jobs_kwargs_list = self.get_func_name_and_args(
@@ -624,6 +692,22 @@ class Work(Base):
     @workflow_type.setter
     def workflow_type(self, value):
         self._context.workflow_type = value
+
+    @property
+    def task_type(self):
+        return self._context.task_type
+
+    @task_type.setter
+    def task_type(self, value):
+        self._context.task_type = value
+
+    @property
+    def processing_type(self):
+        return self._context.processing_type
+
+    @processing_type.setter
+    def processing_type(self, value):
+        self._context.processing_type = value
 
     @property
     def map_results(self):
@@ -1220,6 +1304,13 @@ class Work(Base):
         :returns command: `str` to setup the workflow.
         """
         return self._context.setup()
+    
+    def post_script(self):
+        """
+        Return the post script bash code to be appended after workflow execution.
+        Override or set self._post_script in subclasses or instances as needed.
+        """
+        return self._context.post_script()
 
     def get_clean_env(self):
         """
@@ -1420,6 +1511,10 @@ class Work(Base):
             if pre_setup:
                 cmd = " --pre_setup " + pre_setup + " "
             cmd = cmd + " --setup " + main_setup + " "
+        post_script = self.post_script
+        if post_script:
+            post_script = encode_base64(json_dumps(post_script))
+            cmd = cmd + " --post_script " + post_script + " "
         if cmd:
             cmd = cmd + " " + run_command
         else:
@@ -1455,7 +1550,7 @@ def run_work_distributed(w):
 def work(func=None, *, workflow=None, pre_kwargs={}, name=None, return_work=False, map_results=False, lazy=False, init_env=None, no_wraps=False,
          container_options=None, parent_workload_id=None, no_wait_parent=False, input_datasets=None, output_file_name=None,
          enable_separate_log=False, output_dataset_name=None, log_dataset_name=None, num_events=None, num_events_per_job=None,
-         parent_transform_id=None, parent_internal_id=None, job_key=None):
+         parent_transform_id=None, parent_internal_id=None, job_key=None, post_script=None):
     if func is None:
         return functools.partial(work, workflow=workflow, pre_kwargs=pre_kwargs, return_work=return_work, no_wraps=no_wraps,
                                  name=name, map_results=map_results, lazy=lazy, init_env=init_env, container_options=container_options,
@@ -1463,7 +1558,7 @@ def work(func=None, *, workflow=None, pre_kwargs={}, name=None, return_work=Fals
                                  input_datasets=input_datasets, output_file_name=output_file_name, output_dataset_name=output_dataset_name,
                                  log_dataset_name=log_dataset_name, job_key=job_key,
                                  enable_separate_log=enable_separate_log, num_events=num_events, num_events_per_job=num_events_per_job,
-                                 parent_internal_id=parent_internal_id)
+                                 parent_internal_id=parent_internal_id, post_script=post_script)
 
     if 'IDDS_IGNORE_WORK_DECORATOR' in os.environ:
         return func
@@ -1486,7 +1581,7 @@ def work(func=None, *, workflow=None, pre_kwargs={}, name=None, return_work=Fals
                          parent_transform_id=parent_transform_id, input_datasets=input_datasets, output_file_name=output_file_name,
                          output_dataset_name=output_dataset_name, num_events=num_events, num_events_per_job=num_events_per_job,
                          parent_internal_id=parent_internal_id, enable_separate_log=enable_separate_log, log_dataset_name=log_dataset_name,
-                         job_key=job_key)
+                         job_key=job_key, post_script=post_script)
                 # if distributed:
 
                 if return_work:

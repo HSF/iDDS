@@ -1,0 +1,70 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "idds-server"
+version = "2.2.21"
+description = "intelligent Distributed Dispatch and Scheduling Service (iDDS) - Server Package"
+readme = "README.md"
+license = "Apache-2.0"
+authors = [
+    {name = "PanDA Team", email = "atlas-adc-panda@cern.ch"},
+]
+requires-python = ">=3.9"
+dependencies = [
+    "idds-common",
+    "argcomplete",
+    "requests",
+    "SQLAlchemy",
+    "urllib3",
+    "retrying",
+    "flask",
+    "stomp.py",
+    "cx-Oracle",
+    "oracledb",
+    "psycopg2-binary",
+    "pyjwt",
+    "cryptography",
+    "redis",
+    "alembic",
+    "deepdiff",
+    "pyzmq",
+    "oic",
+    "cachetools",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+[project.optional-dependencies]
+mysql = ["mysqlclient"]
+apache = ["mod_wsgi"]
+dev = [
+    "unittest2",
+    "pep8",
+    "flake8",
+    "pytest",
+    "nose",
+    "sphinx",
+    "recommonmark",
+    "sphinx-rtd-theme",
+]
+optimization = ["nevergrad"]
+
+[project.urls]
+Documentation = "https://github.com/HSF/iDDS/wiki"
+Source = "https://github.com/HSF/iDDS"
+
+[tool.setuptools]
+package-dir = {"" = "lib"}
+packages = ["idds.agents", "idds.api", "idds.core", "idds.orm", "idds.rest", "idds.tests"]
+
+[tool.setuptools.package-data]
+"*" = ["*.template", "*.cfg", "*.conf", "*.ini", "*.sql"]

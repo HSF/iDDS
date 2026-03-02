@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0OA
 #
 # Authors:
-# - Wen Guan, <wen.guan@cern.ch>, 2024 - 2025
+# - Wen Guan, <wen.guan@cern.ch>, 2024 - 2026
 
 
 """
@@ -95,23 +95,26 @@ def map_output_files(output_map):
 
 
 def run_workflow(name, key, context, original_args, current_job_kwargs, output_map, inputs, input_map):
-    context, func_name, pre_kwargs, args, kwargs, multi_jobs_kwargs_list, current_job_kwargs = get_context_args(context, original_args, current_job_kwargs)
     logging.info(f"name: {name}, key: {key}")
-    logging.info("context: %s" % context)
+
+    # it will setup some PanDA environment variables, so put it before get_context_args
+    logging.info("Initializing context...") 
+    context.initialize()
+
+    ctx, func_name, pre_kwargs, args, kwargs, multi_jobs_kwargs_list, cur_job_kwargs = get_context_args(context, original_args, current_job_kwargs)
+
+    logging.info("context: %s" % ctx)
     logging.info("func_name: %s" % func_name)
     logging.info("pre_kwargs: %s" % pre_kwargs)
     logging.info("args: %s" % str(args))
     logging.info("kwargs: %s" % kwargs)
     logging.info("multi_jobs_kwargs_list: %s" % str(multi_jobs_kwargs_list))
-    logging.info("current_job_kwargs: %s" % str(current_job_kwargs))
+    logging.info("current_job_kwargs: %s" % str(cur_job_kwargs))
     logging.info(f"output_map: {output_map}")
     logging.info(f"inputs: {inputs}")
     logging.info(f"input_map: {input_map}")
 
-    context.initialize()
-    context.setup_source_files()
-
-    workflow = Workflow(func=func_name, pre_kwargs=pre_kwargs, args=args, kwargs=kwargs, multi_jobs_kwargs_list=multi_jobs_kwargs_list, current_job_kwargs=current_job_kwargs, context=context, name=name)
+    workflow = Workflow(func=func_name, pre_kwargs=pre_kwargs, args=args, kwargs=kwargs, multi_jobs_kwargs_list=multi_jobs_kwargs_list, current_job_kwargs=cur_job_kwargs, context=ctx, name=name)
     workflow.load()
     logging.info("workflow: %s" % workflow)
     with workflow:
@@ -123,23 +126,26 @@ def run_workflow(name, key, context, original_args, current_job_kwargs, output_m
 
 
 def run_work(name, key, context, original_args, current_job_kwargs, output_map, inputs, input_map, inputs_group):
-    context, func_name, pre_kwargs, args, kwargs, multi_jobs_kwargs_list, current_job_kwargs = get_context_args(context, original_args, current_job_kwargs)
     logging.info(f"name: {name}, key: {key}")
-    logging.info("context: %s" % context)
+
+    # it will setup some PanDA environment variables, so put it before get_context_args
+    logging.info("Initializing context...") 
+    context.initialize()
+
+    ctx, func_name, pre_kwargs, args, kwargs, multi_jobs_kwargs_list, cur_job_kwargs = get_context_args(context, original_args, current_job_kwargs)
+
+    logging.info("context: %s" % ctx)
     logging.info("func_name: %s" % func_name)
     logging.info("pre_kwargs: %s" % pre_kwargs)
     logging.info("args: %s" % str(args))
     logging.info("kwargs: %s" % kwargs)
     logging.info("multi_jobs_kwargs_list: %s" % str(multi_jobs_kwargs_list))
-    logging.info("current_job_kwargs: %s" % str(current_job_kwargs))
+    logging.info("current_job_kwargs: %s" % str(cur_job_kwargs))
     logging.info(f"output_map: {output_map}")
     logging.info(f"inputs: {inputs}")
 
-    context.initialize()
-    context.setup_source_files()
-
     work = Work(func=func_name, pre_kwargs=pre_kwargs, args=args, kwargs=kwargs, multi_jobs_kwargs_list=multi_jobs_kwargs_list, job_key=key,
-                current_job_kwargs=current_job_kwargs, context=context, name=name, inputs=inputs, input_map=input_map, inputs_group=inputs_group)
+                current_job_kwargs=cur_job_kwargs, context=ctx, name=name, inputs=inputs, input_map=input_map, inputs_group=inputs_group)
     work.load()
     logging.info("work: %s" % work)
     ret = work.run()
@@ -230,7 +236,7 @@ def run_iworkflow(args, inputs_group):
         logging.info(f"inputs: {args.inputs}")
         logging.info(f"input_map: {args.input_map}")
         logging.info(f"inputs_group: {inputs_group}")
-        exit_code = run_workflow(args.name, args.key, context, original_args, current_job_kwargs, args.output_map, args.inputs, args.input_map, inputs_group)
+        exit_code = run_workflow(args.name, args.key, context, original_args, current_job_kwargs, args.output_map, args.inputs, args.input_map)
         logging.info("exit code: %s" % exit_code)
     else:
         logging.info("run work")
