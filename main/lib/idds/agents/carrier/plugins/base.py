@@ -79,7 +79,7 @@ class BaseSubmitter(object):
         # task_param_map['transPath'] = 'https://pandaserver-doma.cern.ch/trf/user/run_workflow_wrapper'
         task_param_map['transPath'] = 'https://storage.googleapis.com/drp-us-central1-containers/run_workflow_wrapper'
 
-        task_param_map['processingType'] = None
+        task_param_map['processingType'] = work.processing_type
         task_param_map['prodSourceLabel'] = 'managed'   # managed, test, ptest
 
         # task_param_map['noWaitParent'] = True

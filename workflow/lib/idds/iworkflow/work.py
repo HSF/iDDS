@@ -139,6 +139,14 @@ class WorkContext(Context):
         self._workflow_context.task_type = value
 
     @property
+    def processing_type(self):
+        return self._workflow_context.processing_type
+
+    @processing_type.setter
+    def processing_type(self, value):
+        self._workflow_context.processing_type = value
+
+    @property
     def priority(self):
         if self._priority:
             return self._priority
@@ -684,6 +692,22 @@ class Work(Base):
     @workflow_type.setter
     def workflow_type(self, value):
         self._context.workflow_type = value
+
+    @property
+    def task_type(self):
+        return self._context.task_type
+
+    @task_type.setter
+    def task_type(self, value):
+        self._context.task_type = value
+
+    @property
+    def processing_type(self):
+        return self._context.processing_type
+
+    @processing_type.setter
+    def processing_type(self, value):
+        self._context.processing_type = value
 
     @property
     def map_results(self):

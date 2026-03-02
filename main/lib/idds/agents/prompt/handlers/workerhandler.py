@@ -82,6 +82,7 @@ def get_task_parameters(
     idle_timeout = panda_attributes.get("idle_timeout", 120)
     user_name = panda_attributes.get("user_name", "iDDS")
     task_type = panda_attributes.get("task_type", "iDDS")
+    processing_type = panda_attributes.get("processing_type", None)
 
     task_param_map = {}
     task_param_map["vo"] = vo
@@ -108,7 +109,7 @@ def get_task_parameters(
         "https://storage.googleapis.com/drp-us-central1-containers/run_prompt_wrapper"
     )
 
-    task_param_map["processingType"] = None
+    task_param_map["processingType"] = processing_type
     task_param_map["prodSourceLabel"] = "managed"  # managed, test, ptest
 
     # task_param_map['noWaitParent'] = True
