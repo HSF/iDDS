@@ -80,6 +80,9 @@ def get_task_parameters(
     max_walltime = panda_attributes.get("max_walltime", 3600)
     max_attempt = panda_attributes.get("max_attempt", 3)
     idle_timeout = panda_attributes.get("idle_timeout", 120)
+    user_name = panda_attributes.get("user_name", "iDDS")
+    task_type = panda_attributes.get("task_type", "iDDS")
+    processing_type = panda_attributes.get("processing_type", None)
 
     task_param_map = {}
     task_param_map["vo"] = vo
@@ -94,7 +97,7 @@ def get_task_parameters(
         task_param_map["workingGroup"] = working_group
 
     task_param_map["taskName"] = name
-    task_param_map["userName"] = "iDDS"
+    task_param_map["userName"] = user_name
     task_param_map["taskPriority"] = priority
     task_param_map["architecture"] = ""
     # task_param_map['architecture'] = '@el9'
@@ -106,11 +109,11 @@ def get_task_parameters(
         "https://storage.googleapis.com/drp-us-central1-containers/run_prompt_wrapper"
     )
 
-    task_param_map["processingType"] = None
+    task_param_map["processingType"] = processing_type
     task_param_map["prodSourceLabel"] = "managed"  # managed, test, ptest
 
     # task_param_map['noWaitParent'] = True
-    task_param_map["taskType"] = "iDDS"
+    task_param_map["taskType"] = task_type
     task_param_map["coreCount"] = core_count
     task_param_map["skipScout"] = True
     task_param_map["ramCount"] = ram_count

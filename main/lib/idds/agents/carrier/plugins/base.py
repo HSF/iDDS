@@ -79,11 +79,11 @@ class BaseSubmitter(object):
         # task_param_map['transPath'] = 'https://pandaserver-doma.cern.ch/trf/user/run_workflow_wrapper'
         task_param_map['transPath'] = 'https://storage.googleapis.com/drp-us-central1-containers/run_workflow_wrapper'
 
-        task_param_map['processingType'] = None
+        task_param_map['processingType'] = work.processing_type
         task_param_map['prodSourceLabel'] = 'managed'   # managed, test, ptest
 
         # task_param_map['noWaitParent'] = True
-        task_param_map['taskType'] = 'iDDS'
+        task_param_map['taskType'] = work.task_type if work.task_type else 'iDDS'
         task_param_map['coreCount'] = work.core_count
         task_param_map['skipScout'] = True
         task_param_map['ramCount'] = work.total_memory / work.core_count if work.core_count else work.total_memory
@@ -119,6 +119,7 @@ class BaseSubmitter(object):
         elif work.input_datasets:
             for i, (input_file_name, input_dataset_name) in enumerate(work.input_datasets.items()):
                 input_dataset_name = input_dataset_name.replace("$WORKFLOWID", str(work.request_id))
+                input_dataset_name = input_dataset_name.replace("${WORKFLOWID}", str(work.request_id))
                 tmp_dict = {
                     "type": "template",
                     "param_type": "input",

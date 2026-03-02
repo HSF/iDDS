@@ -10,20 +10,19 @@ echo "PATH: $PATH"
 
 # install iDDS client
 cd client
-# python setup.py install --force --prefix $CurrentDir
-python setup.py install --old-and-unmanageable --force --prefix $CurrentDir
+pip install --no-deps . --prefix $CurrentDir
 cd ..
 
 cd common
-python setup.py install --old-and-unmanageable --force --prefix $CurrentDir
+pip install --no-deps . --prefix $CurrentDir
 cd ..
 
 cd workflow
-python setup.py install --old-and-unmanageable --force --prefix $CurrentDir
+pip install --no-deps . --prefix $CurrentDir
 cd ..
 
 cd doma
-python setup.py install --old-and-unmanageable --force --prefix $CurrentDir
+pip install --no-deps . --prefix $CurrentDir
 cd ..
 
 echo "Current dir: `pwd`"

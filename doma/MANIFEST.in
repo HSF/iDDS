@@ -1,0 +1,8 @@
+include README.md
+include LICENSE.rst
+recursive-include etc/idds *.template
+recursive-include etc/panda *
+recursive-include tools/doma/env *.yml
+graft bin
+prune build
+prune dist

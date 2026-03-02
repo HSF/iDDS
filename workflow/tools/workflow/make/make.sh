@@ -30,16 +30,13 @@ pip install panda-client
 pip install tabulate requests urllib3 argcomplete packaging anytree networkx stomp.py wheel
 
 echo "install idds-common"
-python ${RootDir}/common/setup.py clean --all
-python ${RootDir}/common/setup.py install --old-and-unmanageable --force
+pip install ${RootDir}/common
 
 echo "install idds-client"
-python ${RootDir}/client/setup.py clean --all
-python ${RootDir}/client/setup.py install --old-and-unmanageable --force
+pip install --no-deps ${RootDir}/client
 
 echo "install idds-workflow"
-python ${RootDir}/workflow/setup.py clean --all
-python ${RootDir}/workflow/setup.py install --old-and-unmanageable --force
+pip install --no-deps ${RootDir}/workflow
 
 python_lib_path=`python -c 'from sysconfig import get_path; print(get_path("purelib"))'`
 echo $python_lib_path

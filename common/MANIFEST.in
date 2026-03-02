@@ -1,0 +1,5 @@
+include README.md
+include LICENSE.rst
+recursive-include etc/idds *.template
+recursive-include etc/idds/rest *template
+recursive-include tools/common/env *.yml

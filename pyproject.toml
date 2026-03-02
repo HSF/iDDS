@@ -1,0 +1,142 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "idds"
+dynamic = ["version"]
+description = "intelligent Distributed Dispatch and Scheduling Service (iDDS) - Meta Package"
+readme = "README.md"
+license = "Apache-2.0"
+authors = [
+    {name = "PanDA Team", email = "atlas-adc-panda@cern.ch"},
+]
+requires-python = ">=3.9"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+[project.urls]
+Documentation = "https://github.com/HSF/iDDS/wiki"
+Source = "https://github.com/HSF/iDDS"
+Homepage = "https://github.com/HSF/iDDS"
+
+[project.optional-dependencies]
+# Core components
+common = ["idds-common"]
+server = ["idds-server"]
+client = ["idds-client"]
+
+# Domain-specific components
+atlas = ["idds-atlas"]
+doma = ["idds-doma"]
+workflow = ["idds-workflow"]
+prompt = ["idds-prompt"]
+website = ["idds-website"]
+monitor = ["idds-monitor"]
+
+# Install all components
+all = [
+    "idds-common",
+    "idds-server",
+    "idds-client",
+    "idds-atlas",
+    "idds-doma",
+    "idds-workflow",
+    "idds-prompt",
+    "idds-website",
+    "idds-monitor",
+]
+
+# Development dependencies
+dev = [
+    "pytest>=6.0",
+    "pytest-cov",
+    "flake8",
+    "black",
+    "mypy",
+]
+
+[tool.setuptools]
+packages = []  # Meta-package with no code
+
+[tool.setuptools.dynamic]
+version = {attr = "idds.__version__"}
+
+[tool.black]
+line-length = 100
+target-version = ['py36', 'py37', 'py38', 'py39', 'py310', 'py311']
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.venv
+  | \.tox
+  | build
+  | dist
+  | __pycache__
+)/
+'''
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+testpaths = [
+    "common/lib/idds/tests",
+    "main/lib/idds/tests",
+    "client/lib/idds/tests",
+    "atlas/lib/idds/tests",
+    "doma/lib/idds/tests",
+    "workflow/lib/idds/tests",
+    "prompt/lib/idds/tests",
+]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--verbose",
+    "--strict-markers",
+    "--tb=short",
+]
+
+[tool.coverage.run]
+source = ["idds"]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "*/__pycache__/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
+
+[tool.mypy]
+python_version = "3.6"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
+
+[tool.flake8]
+max-line-length = 100
+extend-ignore = ["E203", "W503"]
+exclude = [
+    ".git",
+    "__pycache__",
+    "build",
+    "dist",
+    ".venv",
+    ".tox",
+]

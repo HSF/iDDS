@@ -108,6 +108,7 @@ task_ids = [51086]
 task_ids = [50090, 49086, 46992, 46525, 46523, 46521, 46511, 46479, 46477, 46475, 46445, 46442, 46438, 46439, 45992, 45988, 44568, 44195, 44183, 44186, 44179, 44069, 44029, 43914, 43913, 43912]
 task_ids = [8776, 8745, 8716, 8710, 8705, 8353]
 task_ids = [44182]
+task_ids = [i for i in range(58496, 58538)]
 for task_id in task_ids:
     print("Killing %s" % task_id)
     ret = Client.killTask(task_id, verbose=True)
@@ -119,7 +120,15 @@ for task_id in task_ids:
     ret = Client.finishTask(task_id, soft=True, verbose=True)
     print(ret)
 
-# sys.exit(0)
+newOpts = {}
+taskIDs = [58496]
+for taskID in taskIDs:
+    status, out = Client.retryTask(taskID, verbose=True, properErrorCode=True, newParams=newOpts)
+    print(f"retry task {taskID}")
+    print(status)
+    print(out)
+
+sys.exit(0)
 
 jediTaskID = 166303
 ret = Client.getJediTaskDetails({'jediTaskID': jediTaskID}, True, True, verbose=False)
@@ -294,6 +303,15 @@ for task_id in task_ids:
     print("Killing %s" % task_id)
     Client.killTask(task_id)
 
+
+
+taskIDs = [58496]
+for taskID in taskIDs:
+    status, out = Client.retryTask(taskID, verbose=True, properErrorCode=True, newParams=newOpts)
+    print(f"retry task {taskID}")
+    print(status)
+    print(out)
+
 """
 jobids = []
 Client.getJobStatus(ids=jobids, verbose=False)
@@ -326,6 +344,7 @@ newOpts = {}
 # excludedSite = newOpts.get('excludedSite', None)
 # for JEDI
 taskIDs = [5050]
+taskIDs = [58496]
 for taskID in taskIDs:
     status, out = Client.retryTask(taskID, verbose=True, properErrorCode=True, newParams=newOpts)
     print(status)

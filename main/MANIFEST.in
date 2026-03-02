@@ -1,0 +1,15 @@
+include README.md
+include LICENSE.rst
+recursive-include etc/idds *.template *
+recursive-include etc/idds/rest *
+recursive-include etc/idds/auth *template
+recursive-include etc/idds/website *
+recursive-include etc/idds/supervisord.d *
+recursive-include etc/idds/condor *
+recursive-include etc/condor *
+recursive-include etc/sql *
+recursive-include config_default *
+recursive-include tools/env *
+graft bin
+prune build
+prune dist

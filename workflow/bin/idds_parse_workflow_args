@@ -24,6 +24,8 @@ import sys
 import time
 import traceback
 
+from idds.common.utils import json_loads, decode_base64 as idds_decode_base64
+
 
 logging.basicConfig(stream=sys.stderr,
                     level=logging.DEBUG,
@@ -40,6 +42,7 @@ def get_parser(program):
     # common items
     oparser.add_argument('--pre_setup', dest='pre_setup', help="The pre_setup.")
     oparser.add_argument('--setup', dest='setup', help="The setup.")
+    oparser.add_argument('--post_script', dest='post_script', help="Post script to run after workflow (bash code)")
     # oparser.add_argument('--output_map', dest='output_map', help="The output map.")
     # oparser.add_argument('--inputs', dest='inputs', help="The input list.")
     # oparser.add_argument('--input_map', dest='input_map', help="The input map.")
@@ -47,7 +50,8 @@ def get_parser(program):
     return oparser
 
 
-def get_workflow_setup_script():
+def get_workflow_setup_script(extra_env=None):
+
     script = """#!/bin/bash
 
 echo "current dir: " $PWD
@@ -72,7 +76,15 @@ fi
 if [ -f ${current_dir}/x509_proxy ]; then
     export X509_USER_PROXY=${current_dir}/x509_proxy
 fi
+
 """
+    if extra_env:
+        script += "\n# Set extra environment variables from context\n"
+        script += "echo 'Setup PanDA environments'\n"
+        for k, v in extra_env.items():
+            script += f"export {k}='{v}'\n"
+
+    script += "env\n"
     return script
 
 
@@ -99,14 +111,22 @@ def decode_base64(sb, remove_quotes=False):
         return sb
 
 
-def create_run_workflow_cmd(run_args):
+def create_run_workflow_cmd(run_args, extra_env=None, post_script=None):
     # current_dir = os.getcwd()
+
     run_script = "./run_workflow.sh"
-    # cmd = os.path.join(current_dir, run_script)
-    setup_script = get_workflow_setup_script()
-    # script = setup_script + "\n" + " ".join(run_args)
+    setup_script = get_workflow_setup_script(extra_env)
     script = setup_script + "\n"
     script += " ".join(f'"{str(arg)}"' for arg in run_args)
+    script += "ret=$?\n"
+
+    # Append post_script directly
+    if post_script:
+        script += "\n\n# Post script section\n"
+        script += post_script
+
+    script += "\n\n# Exit with the return code of the workflow command\n"
+    script += "exit $ret\n"
 
     logging.debug("script: ")
     logging.debug(script)
@@ -114,7 +134,52 @@ def create_run_workflow_cmd(run_args):
     with open(run_script, 'w') as f:
         f.write(script)
     os.chmod(run_script, 0o755)
+
     return run_script
+
+
+def extract_context_from_run_args(run_args):
+    """Extract --context value from run_args and initialize/setup source files."""
+    context = None
+    extra_env = None
+    post_script = None
+    args_file = None
+    for i, arg in enumerate(run_args):
+        if arg == '--context' and i + 1 < len(run_args):
+            context_str = run_args[i + 1]
+            context_str = idds_decode_base64(context_str)
+            context = json_loads(context_str)
+        elif arg == '--args_file' and i + 1 < len(run_args):
+            args_file = run_args[i + 1]
+
+    if args_file and os.path.exists(args_file):
+        try:
+            with open(args_file, 'r') as f:
+                data = f.read()
+            args_content = idds_decode_base64(data)
+            args_content = json_loads(args_content)
+            if 'context' in args_content and args_content['context']:
+                context_str = idds_decode_base64(args_content['context'])
+                context = json_loads(context_str)
+        except Exception as ex:
+            logging.warning("Failed to load context from args_file: %s" % ex)
+
+    if context is not None:
+        try:
+            logging.info("Initializing context and setting up source files...")
+            context.initialize()
+            context.setup_source_files()
+
+            logging.info("loading panda idds envs...")
+            extra_env = context.get_panda_idds_env()
+            logging.info(f"Panda idds envs loaded: {extra_env}")
+
+            post_script = context.post_script
+            logging.info(f"Post script from context: {post_script}")
+        except Exception as ex:
+            logging.warning("Failed to setup source files: %s" % ex)
+
+    return context, extra_env, post_script
 
 
 def process_args(args):
@@ -122,6 +187,8 @@ def process_args(args):
     logging.debug(args.pre_setup)
     logging.debug("setup: ")
     logging.debug(args.setup)
+    logging.debug("post_script: ")
+    logging.debug(args.post_script)
     # logging.debug("output_map: ")
     # logging.debug(args.output_map)
     # logging.debug("inputs: ")
@@ -138,10 +205,25 @@ def process_args(args):
         setup = json.loads(decode_base64(args.setup, remove_quotes=False))
         if setup:
             cmd = cmd + " " + setup
+    if args.post_script:
+        post_script = json.loads(decode_base64(args.post_script, remove_quotes=False))
+    else:
+        post_script = None
 
-    run_script = create_run_workflow_cmd(args.run_args)
+    # Initialize context and setup source files before running the workflow
+    _, extra_env, post_script_1 = extract_context_from_run_args(args.run_args)
 
-    cmd = cmd + " " + run_script
+    # Merge post_script and post_script_1
+    merged_post_script = None
+    if post_script and post_script_1:
+        merged_post_script = f"{post_script}\n{post_script_1}"
+    elif post_script:
+        merged_post_script = post_script
+    elif post_script_1:
+        merged_post_script = post_script_1
+
+    run_script = create_run_workflow_cmd(args.run_args, extra_env=extra_env, post_script=merged_post_script)
+    cmd = cmd + f" {run_script}"
     return cmd
 
 

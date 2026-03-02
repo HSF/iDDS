@@ -1034,16 +1034,30 @@ def encode_base64(sb):
 
 def is_execluded_file(file, exclude_files=[]):
     if exclude_files:
-        for f in exclude_files:
-            reg = re.compile(f)
-            if re.match(reg, file):
-                return True
+        for pattern in exclude_files:
+            # If pattern contains '*' or regex special chars, use regex
+            if any(c in pattern for c in '*?[]^$.()|+{}'):
+                reg = re.compile(pattern)
+                if re.match(reg, file):
+                    return True
+            else:
+                # Exact match: only exclude file/dir named exactly 'pattern'
+                if file == pattern:
+                    return True
     return False
 
 
 def create_archive_file(work_dir, archive_filename, files, exclude_files=[]):
     if not archive_filename.startswith("/"):
         archive_filename = os.path.join(work_dir, archive_filename)
+
+    def safe_relpath(path, base):
+        """Compute relative path, resolving symlinks to avoid '../' chains."""
+        rel = os.path.relpath(os.path.realpath(path), os.path.realpath(base))
+        if rel.startswith('..'):
+            # Fallback to basename if paths don't share a common prefix
+            rel = os.path.basename(path)
+        return rel
 
     with tarfile.open(archive_filename, "w:gz", dereference=True) as tar:
         for local_file in files:
@@ -1059,7 +1073,7 @@ def create_archive_file(work_dir, archive_filename, files, exclude_files=[]):
                     if os.path.isfile(filename):
                         file_path = os.path.join(local_file, filename)
                         tar.add(
-                            file_path, arcname=os.path.relpath(file_path, local_file)
+                            file_path, arcname=safe_relpath(file_path, local_file)
                         )
                     elif os.path.isdir(filename):
                         for root, dirs, fs in os.walk(filename):
@@ -1068,7 +1082,7 @@ def create_archive_file(work_dir, archive_filename, files, exclude_files=[]):
                                     file_path = os.path.join(root, f)
                                     tar.add(
                                         file_path,
-                                        arcname=os.path.relpath(file_path, local_file),
+                                        arcname=safe_relpath(file_path, local_file),
                                     )
     return archive_filename
 
