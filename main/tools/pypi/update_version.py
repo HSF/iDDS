@@ -23,7 +23,8 @@ ver_files = ['main/lib/idds/core/version.py',
              'client/lib/idds/client/version.py',
              'doma/lib/idds/doma/version.py',
              'website/lib/idds/website/version.py',
-             'monitor/lib/idds/monitor/version.py']
+             'monitor/lib/idds/monitor/version.py',
+             'prompt/lib/idds/prompt/version.py']
 
 
 env_files = ['atlas/tools/atlas/env/environment.yml',
@@ -31,7 +32,21 @@ env_files = ['atlas/tools/atlas/env/environment.yml',
              'main/tools/env/environment.yml',
              'client/tools/client/env/environment.yml',
              'doma/tools/doma/env/environment.yml',
-             'workflow/tools/workflow/env/environment.yml']
+             'workflow/tools/workflow/env/environment.yml',
+             'prompt/tools/prompt/env/environment.yml']
+
+
+pyproject_files = [
+    'main/pyproject.toml',
+    'atlas/pyproject.toml',
+    'common/pyproject.toml',
+    'workflow/pyproject.toml',
+    'client/pyproject.toml',
+    'doma/pyproject.toml',
+    'website/pyproject.toml',
+    'monitor/pyproject.toml',
+    'prompt/pyproject.toml',
+]
 
 
 for ver_file in ver_files:
@@ -65,4 +80,13 @@ for env_file in env_files:
         data = data[:-1]
 
     with io.open(env_file, "wt", encoding="utf8") as f:
+        f.write(data)
+
+for pyproject_file in pyproject_files:
+    print(pyproject_file)
+    with io.open(pyproject_file, "rt", encoding="utf8") as f:
+        data = f.read()
+    # Replace version in [project] section
+    data = re.sub(r'(version\s*=\s*")([^"]+)(")', r'\1' + new_version + r'\3', data)
+    with io.open(pyproject_file, "wt", encoding="utf8") as f:
         f.write(data)
