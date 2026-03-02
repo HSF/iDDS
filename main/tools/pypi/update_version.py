@@ -86,7 +86,11 @@ for pyproject_file in pyproject_files:
     print(pyproject_file)
     with io.open(pyproject_file, "rt", encoding="utf8") as f:
         data = f.read()
-    # Replace version in [project] section
-    data = re.sub(r'(version\s*=\s*")([^"]+)(")', r'\1' + new_version + r'\3', data)
+
+    # Replace version in [project] section using a function to avoid backref issues
+    def _repl(m):
+        return f"{m.group(1)}{new_version}{m.group(3)}"
+
+    data = re.sub(r'(version\s*=\s*")([^"]+)(")', _repl, data)
     with io.open(pyproject_file, "wt", encoding="utf8") as f:
         f.write(data)
