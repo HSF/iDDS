@@ -64,7 +64,17 @@ Source = "https://github.com/HSF/iDDS"
 
 [tool.setuptools]
 package-dir = {"" = "lib"}
-packages = ["idds.agents", "idds.api", "idds.core", "idds.orm", "idds.rest", "idds.tests"]
+
+[tool.setuptools.packages.find]
+where = ["lib"]
+include = [
+    "idds.agents*",
+    "idds.api*",
+    "idds.core*",
+    "idds.orm*",
+    "idds.rest*",
+    "idds.tests*",
+]
 
 [tool.setuptools.package-data]
 "*" = ["*.template", "*.cfg", "*.conf", "*.ini", "*.sql"]

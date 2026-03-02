@@ -45,4 +45,7 @@ Source = "https://github.com/HSF/iDDS"
 
 [tool.setuptools]
 package-dir = {"" = "lib"}
-packages = ["idds.atlas"]
+
+[tool.setuptools.packages.find]
+where = ["lib"]
+include = ["idds.atlas*"]

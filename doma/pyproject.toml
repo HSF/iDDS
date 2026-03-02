@@ -33,4 +33,7 @@ Source = "https://github.com/HSF/iDDS"
 
 [tool.setuptools]
 package-dir = {"" = "lib"}
-packages = ["idds.doma"]
+
+[tool.setuptools.packages.find]
+where = ["lib"]
+include = ["idds.doma*"]
