@@ -34,4 +34,7 @@ Source = "https://github.com/HSF/iDDS"
 
 [tool.setuptools]
 package-dir = {"" = "lib"}
-packages = ["idds.iworkflow", "idds.workflow", "idds.workflowv2"]
+
+[tool.setuptools.packages.find]
+where = ["lib"]
+include = ["idds.iworkflow*", "idds.workflow*", "idds.workflowv2*"]

@@ -32,4 +32,7 @@ Source = "https://github.com/HSF/iDDS"
 
 [tool.setuptools]
 package-dir = {"" = "lib"}
-packages = ["idds.prompt"]
+
+[tool.setuptools.packages.find]
+where = ["lib"]
+include = ["idds.prompt*"]
