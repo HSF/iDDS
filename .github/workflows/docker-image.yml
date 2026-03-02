@@ -29,6 +29,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
+      - name: Install build package
+        run: pip install build
+
       - name: Setup iDDS version
         run: |
           version_tag=${GITHUB_REF/refs\/tags\//}
