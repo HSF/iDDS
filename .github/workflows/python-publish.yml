@@ -46,6 +46,6 @@ jobs:
         version_tag=${version_tag/refs\/heads\//}
         # echo ${GITHUB_REF}
         # echo ${version_tag}
-  python main/tools/pypi/update_version.py ${version_tag}
-  python build_all.py wheel
-  twine upload  */dist/idds*-${version_tag}-*.whl
+        python main/tools/pypi/update_version.py ${version_tag}
+        python build_all.py wheel
+        twine upload  */dist/idds*-${version_tag}-*.whl
