@@ -135,6 +135,7 @@ else
             cp /opt/idds/etc/idds/rest/httpd-idds-443-py39-cc7.conf.install_template \
                /opt/idds/config/idds/httpd-idds-443-py39-cc7.conf
         fi
+    fi
 fi
 
 if [ -f /opt/idds/config/idds/supervisord_idds.ini ]; then
