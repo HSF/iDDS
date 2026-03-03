@@ -13,7 +13,11 @@
 ----------------------"""
 
 import os
-os.environ['IDDS_CONFIG'] = '{idds_config_path}'
+import sys
+
+# If IDDS_CONFIG is not already set, default to <prefix>/etc/idds/idds.cfg
+if "IDDS_CONFIG" not in os.environ:
+    os.environ["IDDS_CONFIG"] = os.path.join(sys.prefix, "etc", "idds", "idds.cfg")
 
 from idds.rest.v1.app import create_app  # noqa: E402
 

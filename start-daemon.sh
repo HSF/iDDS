@@ -15,6 +15,7 @@ conda activate /opt/idds;
 
 export IDDS_HOME=/opt/idds
 export ALEMBIC_CONFIG=/opt/idds/config/idds/alembic.ini
+export IDDS_CONFIG=/opt/idds/etc/idds/idds.cfg
 
 if [ -f /etc/grid-security/hostkey.pem ]; then
     echo "host certificate is already created."
@@ -122,7 +123,18 @@ if [ -f /opt/idds/config/idds/httpd-idds-443-py39-cc7.conf ]; then
     echo "httpd conf already mounted."
 else
     echo "httpd conf not found. will use the default one."
-    cp /opt/idds/config_default/httpd-idds-443-py39-cc7.conf /opt/idds/config/idds/httpd-idds-443-py39-cc7.conf
+    if [ -f /opt/idds/config_default/httpd-idds-443-py39-cc7.conf ]; then
+        cp /opt/idds/config_default/httpd-idds-443-py39-cc7.conf /opt/idds/config/idds/httpd-idds-443-py39-cc7.conf
+    else
+        echo "httpd default conf not found. will generate from template and use the default one."
+        # Generate *.install_template files (Apache conf + idds.wsgi) with paths
+        # resolved from the running /opt/idds Python env, not from the build env.
+        python3 /opt/idds/tools/env/setup_idds_path.py
+        # Use the freshly generated install_template as the default httpd conf.
+        if [ -f /opt/idds/etc/idds/rest/httpd-idds-443-py39-cc7.conf.install_template ]; then
+            cp /opt/idds/etc/idds/rest/httpd-idds-443-py39-cc7.conf.install_template \
+               /opt/idds/config/idds/httpd-idds-443-py39-cc7.conf
+        fi
 fi
 
 if [ -f /opt/idds/config/idds/supervisord_idds.ini ]; then
