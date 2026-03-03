@@ -1737,7 +1737,10 @@ class WorkflowBase(Base):
             parent_task_names = work.get_ancestry_works()
             parent_internal_ids = []
             if parent_task_names:
-                parent_internal_ids = [task_name_to_internal_id_map[t_name] for t_name in parent_task_names]
+                own_internal_id = work.get_internal_id()
+                parent_internal_ids = [task_name_to_internal_id_map[t_name]
+                                       for t_name in parent_task_names
+                                       if task_name_to_internal_id_map.get(t_name) != own_internal_id]
             work.parent_internal_ids = parent_internal_ids
         return works
 
