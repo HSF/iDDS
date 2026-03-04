@@ -89,9 +89,10 @@ def get_new_content(request_id, transform_id, workload_id, map_id, input_content
         if input_content['coll_id'] not in content_name_id_map:
             content_name_id_map_new = get_output_content_name_to_content_id_map(request_id=request_id, coll_ids=[input_content['coll_id']])
             content_name_id_map.update(content_name_id_map_new)
-        content_dep_id = content_name_id_map[content['coll_id']][content['name']]
-        content['content_dep_id'] = content_dep_id
-        content['name'] = str(content_dep_id)
+        if content['coll_id'] in content_name_id_map and content['name'] in content_name_id_map[content['coll_id']]:
+            content_dep_id = content_name_id_map[content['coll_id']][content['name']]
+            content['content_dep_id'] = content_dep_id
+            content['name'] = str(content_dep_id)
 
     return content
 
