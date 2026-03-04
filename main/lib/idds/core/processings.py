@@ -325,7 +325,7 @@ def fix_input_dependency_contents(request_id=None, transform_id=None, session=No
             content_name_id_map[content['coll_id']] = {}
         if content['name'] not in content_name_id_map[content['coll_id']]:
             content_name_id_map[content['coll_id']][content['name']] = {}
-        content_name_id_map[content['coll_id']][content['name']] = content['content_id']    
+        content_name_id_map[content['coll_id']][content['name']] = content['content_id']
 
     to_update_input_dependency_contents = []
     for content in input_dependency_contents:
@@ -387,14 +387,14 @@ def update_processing_contents(update_processing, update_contents=None, update_m
         for chunk in chunks:
             orm_contents.update_contents(chunk, request_id=request_id, transform_id=transform_id,
                                          use_bulk_update_mappings=False, grouping=False, session=session)
-            
+
     # update contents, keep the order
     if update_contents_ext:
         chunks = get_list_chunks(update_contents_ext)
         for chunk in chunks:
             orm_contents.update_contents_ext(chunk, request_id=request_id, transform_id=transform_id,
                                              use_bulk_update_mappings=use_bulk_update_mappings, session=session)
-            
+
     if update_dep_contents:
         request_id, update_dep_contents_status_name, update_dep_contents_status = update_dep_contents
         for status_name in update_dep_contents_status_name:

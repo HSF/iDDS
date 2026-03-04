@@ -336,7 +336,7 @@ def get_contents(scope=None, name=None, request_id=None, transform_id=None, work
         if relation_type:
             query = query.filter(models.Content.content_relation_type == relation_type)
         if without_content_dep_id:
-            query = query.filter(or_(models.Content.content_dep_id == None, models.Content.content_dep_id == 0))
+            query = query.filter(or_(models.Content.content_dep_id == None, models.Content.content_dep_id == 0))  # noqa: E711
 
         query = query.order_by(asc(models.Content.map_id))
 
