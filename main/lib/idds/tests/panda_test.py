@@ -303,8 +303,6 @@ for task_id in task_ids:
     print("Killing %s" % task_id)
     Client.killTask(task_id)
 
-
-
 taskIDs = [58496]
 for taskID in taskIDs:
     status, out = Client.retryTask(taskID, verbose=True, properErrorCode=True, newParams=newOpts)

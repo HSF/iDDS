@@ -408,7 +408,7 @@ class WorkContext(Context):
         for env in env_list:
             if env in panda_env and panda_env[env] is not None:
                 ret_env[env] = panda_env[env]
-                
+
         return ret_env
 
     def get_idds_server(self):
@@ -444,7 +444,7 @@ class WorkContext(Context):
             else:
                 ret = init_env
         return ret
-    
+
     @property
     def post_script(self):
         """
@@ -455,7 +455,7 @@ class WorkContext(Context):
         if post_script:
             return post_script
         return self._workflow_context.post_script
-    
+
     @post_script.setter
     def post_script(self, value):
         self._post_script = value
@@ -1304,7 +1304,7 @@ class Work(Base):
         :returns command: `str` to setup the workflow.
         """
         return self._context.setup()
-    
+
     def post_script(self):
         """
         Return the post script bash code to be appended after workflow execution.

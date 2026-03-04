@@ -164,38 +164,44 @@ class Submitter(Poller):
                 pre_works_are_ok = True
                 if processing['parent_internal_id']:
                     parent_internal_ids = processing['parent_internal_id'].split(",")
-                    prs = core_processings.get_processings(
-                        request_id=processing['request_id'],
-                        internal_ids=parent_internal_ids,
-                        loop_index=processing['loop_index']
-                    )
-                    if not prs:
-                        pre_works_are_ok = False
+                    # remove processing['internal_id'] from parent_internal_ids if exists, for the case of retrying a failed processing, which will be updated with a new internal_id, but the parent_internal_id is not updated.
+                    if processing['internal_id'] in parent_internal_ids:
+                        parent_internal_ids.remove(processing['internal_id'])
+                    if not parent_internal_ids:
+                        pre_works_are_ok = True
                     else:
-                        all_pr_internal_ids = []
-                        for pr in prs:
-                            if pr['status'] not in [
-                                ProcessingStatus.Submitting,
-                                ProcessingStatus.Submitted,
-                                ProcessingStatus.Running,
-                                ProcessingStatus.Finished,
-                                ProcessingStatus.Failed,
-                                ProcessingStatus.FinishedOnStep,
-                                ProcessingStatus.FinishedOnExec,
-                                ProcessingStatus.FinishedTerm,
-                                ProcessingStatus.SubFinished,
-                                ProcessingStatus.Broken,
-                                ProcessingStatus.Terminating,
-                                ProcessingStatus.ToTrigger,
-                                ProcessingStatus.Triggering,
-                                ProcessingStatus.Synchronizing,
-                                ProcessingStatus.Prepared
-                            ]:
-                                pre_works_are_ok = False
-                                break
-                            all_pr_internal_ids.append(pr['internal_id'])
-                        if set(parent_internal_ids) != set(all_pr_internal_ids):
+                        prs = core_processings.get_processings(
+                            request_id=processing['request_id'],
+                            internal_ids=parent_internal_ids,
+                            loop_index=processing['loop_index']
+                        )
+                        if not prs:
                             pre_works_are_ok = False
+                        else:
+                            all_pr_internal_ids = []
+                            for pr in prs:
+                                if pr['status'] not in [
+                                    ProcessingStatus.Submitting,
+                                    ProcessingStatus.Submitted,
+                                    ProcessingStatus.Running,
+                                    ProcessingStatus.Finished,
+                                    ProcessingStatus.Failed,
+                                    ProcessingStatus.FinishedOnStep,
+                                    ProcessingStatus.FinishedOnExec,
+                                    ProcessingStatus.FinishedTerm,
+                                    ProcessingStatus.SubFinished,
+                                    ProcessingStatus.Broken,
+                                    ProcessingStatus.Terminating,
+                                    ProcessingStatus.ToTrigger,
+                                    ProcessingStatus.Triggering,
+                                    ProcessingStatus.Synchronizing,
+                                    ProcessingStatus.Prepared
+                                ]:
+                                    pre_works_are_ok = False
+                                    break
+                                all_pr_internal_ids.append(pr['internal_id'])
+                            if set(parent_internal_ids) != set(all_pr_internal_ids):
+                                pre_works_are_ok = False
             else:
                 pre_works_are_ok = True
 

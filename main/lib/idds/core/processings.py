@@ -303,10 +303,38 @@ def resolve_input_dependency_id(new_input_dependency_contents, request_id=None, 
         # if dep_sub_map_id is None:
         #     dep_sub_map_id = 0
         # content_dep_id = content_name_id_map[content['coll_id']][content['name']][dep_sub_map_id]
-        content_dep_id = content_name_id_map[content['coll_id']][content['name']]
-        content['content_dep_id'] = content_dep_id
-        content['name'] = str(content_dep_id)
+        if content['coll_id'] in content_name_id_map and content['name'] in content_name_id_map[content['coll_id']]:
+            content_dep_id = content_name_id_map[content['coll_id']][content['name']]
+            content['content_dep_id'] = content_dep_id
+            content['name'] = str(content_dep_id)
     return new_input_dependency_contents
+
+
+def fix_input_dependency_contents(request_id=None, transform_id=None, session=None):
+    input_dependency_contents = orm_contents.get_contents(request_id=request_id, transform_id=transform_id,
+                                                          relation_type=ContentRelationType.InputDependency,
+                                                          without_content_dep_id=True, session=session)
+    coll_ids = []
+    for content in input_dependency_contents:
+        if content['coll_id'] not in coll_ids:
+            coll_ids.append(content['coll_id'])
+    contents = orm_contents.get_contents(coll_id=coll_ids, request_id=request_id, relation_type=ContentRelationType.Output, session=session)
+    content_name_id_map = {}
+    for content in contents:
+        if content['coll_id'] not in content_name_id_map:
+            content_name_id_map[content['coll_id']] = {}
+        if content['name'] not in content_name_id_map[content['coll_id']]:
+            content_name_id_map[content['coll_id']][content['name']] = {}
+        content_name_id_map[content['coll_id']][content['name']] = content['content_id']
+
+    to_update_input_dependency_contents = []
+    for content in input_dependency_contents:
+        if 'content_dep_id' not in content or content['content_dep_id'] is None or content['content_dep_id'] == 0:
+            if content['coll_id'] in content_name_id_map and content['name'] in content_name_id_map[content['coll_id']]:
+                content_dep_id = content_name_id_map[content['coll_id']][content['name']]
+                to_update = {'content_id': content['content_id'], 'content_dep_id': content_dep_id}
+                to_update_input_dependency_contents.append(to_update)
+    return to_update_input_dependency_contents
 
 
 @transactional_session
@@ -350,6 +378,15 @@ def update_processing_contents(update_processing, update_contents=None, update_m
         chunks = get_list_chunks(new_contents)
         for chunk in chunks:
             orm_contents.add_contents(chunk, session=session)
+    # fix input_dependency_contents without content_dep_id.
+    # It happens when dependency content is added after the input_dependency_contents are added,
+    # when there are dependencies inside one task between different jobs.
+    to_update_input_dependency_contents = fix_input_dependency_contents(request_id=request_id, transform_id=transform_id, session=session)
+    if to_update_input_dependency_contents:
+        chunks = get_list_chunks(to_update_input_dependency_contents)
+        for chunk in chunks:
+            orm_contents.update_contents(chunk, request_id=request_id, transform_id=transform_id,
+                                         use_bulk_update_mappings=False, grouping=False, session=session)
 
     # update contents, keep the order
     if update_contents_ext:
@@ -357,6 +394,7 @@ def update_processing_contents(update_processing, update_contents=None, update_m
         for chunk in chunks:
             orm_contents.update_contents_ext(chunk, request_id=request_id, transform_id=transform_id,
                                              use_bulk_update_mappings=use_bulk_update_mappings, session=session)
+
     if update_dep_contents:
         request_id, update_dep_contents_status_name, update_dep_contents_status = update_dep_contents
         for status_name in update_dep_contents_status_name:

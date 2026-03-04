@@ -22,7 +22,7 @@ from enum import Enum
 from collections import defaultdict
 
 import sqlalchemy
-from sqlalchemy import and_
+from sqlalchemy import and_, or_
 from sqlalchemy import func
 from sqlalchemy.exc import DatabaseError, IntegrityError
 # from sqlalchemy.orm import aliased
@@ -289,7 +289,7 @@ def get_match_contents(coll_id, scope, name, content_type=None, min_id=None, max
 
 @read_session
 def get_contents(scope=None, name=None, request_id=None, transform_id=None, workload_id=None, coll_id=None, status=None,
-                 relation_type=None, to_json=False, session=None):
+                 relation_type=None, without_content_dep_id=False, to_json=False, session=None):
     """
     Get content or raise a NoObject exception.
 
@@ -335,6 +335,8 @@ def get_contents(scope=None, name=None, request_id=None, transform_id=None, work
             query = query.filter(models.Content.status.in_(status))
         if relation_type:
             query = query.filter(models.Content.content_relation_type == relation_type)
+        if without_content_dep_id:
+            query = query.filter(or_(models.Content.content_dep_id == None, models.Content.content_dep_id == 0))  # noqa: E711
 
         query = query.order_by(asc(models.Content.map_id))
 
@@ -654,7 +656,7 @@ def custom_bulk_update_mappings(model, parameters, batch_size=1000, session=None
 
 
 @transactional_session
-def update_contents(parameters, use_bulk_update_mappings=True, request_id=None, transform_id=None, session=None):
+def update_contents(parameters, use_bulk_update_mappings=True, grouping=True, request_id=None, transform_id=None, session=None):
     """
     update contents.
 
@@ -672,7 +674,7 @@ def update_contents(parameters, use_bulk_update_mappings=True, request_id=None, 
 
             # session.bulk_update_mappings(models.Content, parameters)
             custom_bulk_update_mappings(models.Content, parameters, session=session)
-        else:
+        elif grouping:
             groups = group_list(parameters, key='content_id')
             for group_key in groups:
                 group = groups[group_key]
@@ -686,6 +688,8 @@ def update_contents(parameters, use_bulk_update_mappings=True, request_id=None, 
                     query = query.filter(models.Content.transform_id == transform_id)
                 query = query.filter(models.Content.content_id.in_(keys))\
                              .update(items, synchronize_session=False)
+        else:
+            session.bulk_update_mappings(models.Content, parameters)
     except sqlalchemy.orm.exc.NoResultFound as error:
         raise exceptions.NoObject('Content cannot be found: %s' % (error))
 
