@@ -93,7 +93,7 @@ def destroy_everything(echo=True):
         # transactional DDL, i.e. Postgresql, MS SQL Server
         with engine.begin() as conn:
 
-            inspector = inspect(conn)  # type: Union[Inspector, PGInspector]
+            inspector = inspect(conn)
 
             for tname, fkcs in reversed(
                     inspector.get_sorted_table_and_fkc_names(schema='*')):
