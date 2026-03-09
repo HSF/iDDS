@@ -280,6 +280,7 @@ def update_processing_with_collection_contents(updated_processing, new_processin
 
 
 def resolve_input_dependency_id(new_input_dependency_contents, request_id=None, session=None):
+    has_missing_dep = False
     coll_ids = []
     for content in new_input_dependency_contents:
         if content['coll_id'] not in coll_ids:
@@ -307,7 +308,9 @@ def resolve_input_dependency_id(new_input_dependency_contents, request_id=None, 
             content_dep_id = content_name_id_map[content['coll_id']][content['name']]
             content['content_dep_id'] = content_dep_id
             content['name'] = str(content_dep_id)
-    return new_input_dependency_contents
+        else:
+            has_missing_dep = True
+    return new_input_dependency_contents, has_missing_dep
 
 
 def fix_input_dependency_contents(request_id=None, transform_id=None, session=None):
@@ -357,8 +360,9 @@ def update_processing_contents(update_processing, update_contents=None, update_m
         chunks = get_list_chunks(new_contents_ext)
         for chunk in chunks:
             orm_contents.add_contents_ext(chunk, session=session)
+    has_missing_dep = False
     if new_input_dependency_contents:
-        new_input_dependency_contents = resolve_input_dependency_id(new_input_dependency_contents, request_id=request_id, session=session)
+        new_input_dependency_contents, has_missing_dep = resolve_input_dependency_id(new_input_dependency_contents, request_id=request_id, session=session)
         chunks = get_list_chunks(new_input_dependency_contents)
         for chunk in chunks:
             orm_contents.add_contents(chunk, session=session)
@@ -381,12 +385,13 @@ def update_processing_contents(update_processing, update_contents=None, update_m
     # fix input_dependency_contents without content_dep_id.
     # It happens when dependency content is added after the input_dependency_contents are added,
     # when there are dependencies inside one task between different jobs.
-    to_update_input_dependency_contents = fix_input_dependency_contents(request_id=request_id, transform_id=transform_id, session=session)
-    if to_update_input_dependency_contents:
-        chunks = get_list_chunks(to_update_input_dependency_contents)
-        for chunk in chunks:
-            orm_contents.update_contents(chunk, request_id=request_id, transform_id=transform_id,
-                                         use_bulk_update_mappings=False, grouping=False, session=session)
+    if has_missing_dep:
+        to_update_input_dependency_contents = fix_input_dependency_contents(request_id=request_id, transform_id=transform_id, session=session)
+        if to_update_input_dependency_contents:
+            chunks = get_list_chunks(to_update_input_dependency_contents)
+            for chunk in chunks:
+                orm_contents.update_contents(chunk, request_id=request_id, transform_id=transform_id,
+                                             use_bulk_update_mappings=False, grouping=False, session=session)
 
     # update contents, keep the order
     if update_contents_ext:
