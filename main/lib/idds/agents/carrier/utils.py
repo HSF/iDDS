@@ -670,6 +670,7 @@ def handle_new_processing(processing, agent_attributes, func_site_to_cloud=None,
             logger.debug(log_prefix + "handle_new_processing: add %s new contents" % (len(new_contents)))
             core_processings.update_processing_contents(update_processing=None,
                                                         request_id=request_id,
+                                                        transform_id=transform_id,
                                                         new_contents=new_contents,
                                                         # new_input_dependency_contents=new_input_dependency_contents,
                                                         messages=ret_msgs)
@@ -683,6 +684,7 @@ def handle_new_processing(processing, agent_attributes, func_site_to_cloud=None,
                 log_msg = "handle_new_processing thread: add %s new contents" % (len(new_contents))
                 kwargs = {'update_processing': None,
                           'request_id': request_id,
+                          'transform_id': transform_id,
                           'new_contents': new_contents,
                           # 'new_input_dependency_contents': new_input_dependency_contents,
                           'messages': ret_msgs}
