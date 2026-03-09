@@ -321,6 +321,8 @@ def fix_input_dependency_contents(request_id=None, transform_id=None, session=No
     for content in input_dependency_contents:
         if content['coll_id'] not in coll_ids:
             coll_ids.append(content['coll_id'])
+    if not coll_ids:
+        return []
     contents = orm_contents.get_contents(coll_id=coll_ids, request_id=request_id, relation_type=ContentRelationType.Output, session=session)
     content_name_id_map = {}
     for content in contents:
