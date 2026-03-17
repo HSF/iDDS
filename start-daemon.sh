@@ -119,12 +119,12 @@ fi
 echo "generate oidc token from environment PANDA_AUTH_ID_TOKEN if it exists."
 python3 /opt/idds/tools/env/merge_configmap.py --create_oidc_token
 
-if [ -f /opt/idds/config/idds/httpd-idds-443-py39-cc7.conf ]; then
+if [ -f /opt/idds/config/idds/httpd-idds-443-py311-al9.conf ]; then
     echo "httpd conf already mounted."
 else
     echo "httpd conf not found. will use the default one."
-    if [ -f /opt/idds/config_default/httpd-idds-443-py39-cc7.conf ]; then
-        cp /opt/idds/config_default/httpd-idds-443-py39-cc7.conf /opt/idds/config/idds/httpd-idds-443-py39-cc7.conf
+    if [ -f /opt/idds/config_default/httpd-idds-443-py311-al9.conf ]; then
+        cp /opt/idds/config_default/httpd-idds-443-py311-al9.conf /opt/idds/config/idds/httpd-idds-443-py311-al9.conf
     else
         echo "httpd default conf not found. will generate from template and use the default one."
         # Generate *.install_template files (Apache conf + idds.wsgi) with paths
@@ -198,8 +198,8 @@ if [ ! -z "$IDDS_PRINT_CFG" ]; then
     echo "=================== /opt/idds/etc/idds/rest/gacl ============================"
     cat /opt/idds/etc/idds/rest/gacl
     echo ""
-    echo "=================== /etc/httpd/conf.d/httpd-idds-443-py39-cc7.conf ============================"
-    cat /etc/httpd/conf.d/httpd-idds-443-py39-cc7.conf
+    echo "=================== /etc/httpd/conf.d/httpd-idds-443-py311-al9.conf ============================"
+    cat /etc/httpd/conf.d/httpd-idds-443-py311-al9.conf
     echo ""
     echo "=================== /opt/idds/config/idds/supervisord_idds.ini ============================"
     cat /opt/idds/config/idds/supervisord_idds.ini
