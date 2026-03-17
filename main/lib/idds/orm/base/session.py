@@ -15,6 +15,7 @@ Borrowed from:
 https://github.com/rucio/rucio/blob/master/lib/rucio/db/sqla/session.py
 """
 
+import logging
 import sys
 
 from functools import wraps
@@ -31,6 +32,8 @@ from sqlalchemy.orm import sessionmaker, scoped_session
 from idds.common.config import config_get, config_has_option
 from idds.common.exceptions import IDDSException, DatabaseException
 
+
+LOG = logging.getLogger(__name__)
 
 DATABASE_SECTION = 'database'
 
@@ -144,7 +147,13 @@ def get_engine(echo=True):
                 pass
         params['execution_options'] = {'schema_translate_map': {None: DEFAULT_SCHEMA_NAME}}
         if 'oracledb' in sql_connection:
-            params['thick_mode'] = True
+            try:
+                import oracledb  # pylint: disable=import-error
+                oracledb.init_oracle_client()
+                params['thick_mode'] = True
+            except Exception as err:
+                LOG.warning('Could not start Oracle thick mode; falling back to thin: %s', err)
+
         _ENGINE = create_engine(sql_connection, **params)
 
         if 'mysql' in sql_connection:
