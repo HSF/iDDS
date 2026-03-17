@@ -692,6 +692,12 @@ def handle_new_processing(processing, agent_attributes, func_site_to_cloud=None,
                 ret_futures.add(f)
             wait_futures_finish(ret_futures, "handle_new_processing", logger, log_prefix)
 
+    # fix missing content_dep_id for input_dependency contents
+    core_processings.update_processing_contents(update_processing=None,
+                                                request_id=request_id,
+                                                transform_id=transform_id,
+                                                fix_missing_content_dep_id=True)
+
     logger.debug(log_prefix + "handle_new_processing: finish")
 
     # return True, processing, update_collections, new_contents, new_input_dependency_contents, ret_msgs, errors
