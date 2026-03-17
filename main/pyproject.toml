@@ -21,7 +21,6 @@ dependencies = [
     "retrying",
     "flask",
     "stomp.py",
-    "cx-Oracle",
     "oracledb",
     "psycopg2-binary",
     "pyjwt",
