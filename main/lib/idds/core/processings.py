@@ -348,7 +348,7 @@ def update_processing_contents(update_processing, update_contents=None, update_m
                                new_update_contents=None, new_input_dependency_contents=None,
                                new_contents_ext=None, update_contents_ext=None,
                                request_id=None, transform_id=None, use_bulk_update_mappings=True,
-                               message_bulk_size=2000, session=None):
+                               fix_missing_content_dep_id=False, message_bulk_size=2000, session=None):
     """
     Update processing with contents.
 
@@ -387,7 +387,7 @@ def update_processing_contents(update_processing, update_contents=None, update_m
     # fix input_dependency_contents without content_dep_id.
     # It happens when dependency content is added after the input_dependency_contents are added,
     # when there are dependencies inside one task between different jobs.
-    if has_missing_dep:
+    if has_missing_dep or fix_missing_content_dep_id:
         to_update_input_dependency_contents = fix_input_dependency_contents(request_id=request_id, transform_id=transform_id, session=session)
         if to_update_input_dependency_contents:
             chunks = get_list_chunks(to_update_input_dependency_contents)
