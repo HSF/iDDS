@@ -1493,7 +1493,7 @@ class DomaPanDAWork(Work):
             jobs_event_status.update(job_event_status)
         return jobs_event_status
 
-    def poll_panda_jobs(self, job_ids, executors=None, log_prefix=''):
+    def poll_panda_jobs(self, job_ids, executors=None, update_panda_id=True, log_prefix=''):
         job_status_info = {}
         self.logger.debug(log_prefix + "poll_panda_jobs, poll_panda_jobs_chunk_size: %s, job_ids[:10]: %s" % (self.poll_panda_jobs_chunk_size, str(job_ids[:10])))
         chunksize = self.poll_panda_jobs_chunk_size
@@ -1574,7 +1574,8 @@ class DomaPanDAWork(Work):
                 if status:
                     job_status_info[filename]['status'] = status
                     job_status_info[filename]['job_info'] = job_info
-                    job_status_info[filename]['panda_id'] = panda_ids
+                    if update_panda_id:
+                        job_status_info[filename]['panda_id'] = panda_ids
         else:
             es_job_ids = []
             self.logger.debug("job_status_info: %s" % (job_status_info))
@@ -1585,7 +1586,8 @@ class DomaPanDAWork(Work):
                 if status:
                     job_status_info[filename]['status'] = status
                     job_status_info[filename]['job_info'] = job_info
-                    job_status_info[filename]['panda_id'] = panda_ids
+                    if update_panda_id:
+                        job_status_info[filename]['panda_id'] = panda_ids
                 if status in [ContentStatus.FinalSubAvailable, ContentStatus.FinalFailed]:
                     task_id = job_info.jediTaskID
                     es_job_id = {'task_id': task_id, 'panda_id': job_set_id}
@@ -1667,7 +1669,7 @@ class DomaPanDAWork(Work):
             ret_job = item.get('job', None)
         return ret_event, ret_job
 
-    def get_update_contents(self, unterminated_jobs_status, input_output_maps, contents_ext, job_info_maps, abort=False, terminated_status=False, log_prefix=''):
+    def get_update_contents(self, unterminated_jobs_status, input_output_maps, contents_ext, job_info_maps, abort=False, terminated_status=False, update_panda_id=True, log_prefix=''):
         inputname_to_map_id_outputs = {}
         for map_id in input_output_maps:
             inputs = input_output_maps[map_id]['inputs']
@@ -1700,8 +1702,8 @@ class DomaPanDAWork(Work):
                 if 'status' not in unterminated_jobs_status[input_file]:
                     continue
                 panda_status = unterminated_jobs_status[input_file]['status']
-                panda_ids = unterminated_jobs_status[input_file]['panda_id']
-                panda_id = ",".join([str(i) for i in panda_ids])
+                panda_ids = unterminated_jobs_status[input_file].get('panda_id')
+                panda_id = ",".join([str(i) for i in panda_ids]) if panda_ids else None
                 job_info = unterminated_jobs_status[input_file]['job_info']
 
                 if input_file not in inputname_to_map_id_outputs:
@@ -1722,28 +1724,27 @@ class DomaPanDAWork(Work):
                                           'status': panda_status,
                                           'substatus': panda_status}
 
-                        if 'panda_id' in content['content_metadata'] and content['content_metadata']['panda_id']:
-                            if str(content['content_metadata']['panda_id']) < str(panda_id):
-                                # new panda id is the bigger one.
-                                if 'old_panda_id' not in content['content_metadata']:
-                                    content['content_metadata']['old_panda_id'] = []
-                                if content['content_metadata']['panda_id'] not in content['content_metadata']['old_panda_id']:
-                                    content['content_metadata']['old_panda_id'].append(content['content_metadata']['panda_id'])
+                        if panda_id is not None and update_panda_id:
+                            if 'panda_id' in content['content_metadata'] and content['content_metadata']['panda_id']:
+                                if str(content['content_metadata']['panda_id']) < str(panda_id):
+                                    # new panda id is the bigger one.
+                                    if 'old_panda_id' not in content['content_metadata']:
+                                        content['content_metadata']['old_panda_id'] = []
+                                    if content['content_metadata']['panda_id'] not in content['content_metadata']['old_panda_id']:
+                                        content['content_metadata']['old_panda_id'].append(content['content_metadata']['panda_id'])
+                                    content['content_metadata']['panda_id'] = str(panda_id)
+                                    update_content['content_metadata'] = content['content_metadata']
+                                elif str(content['content_metadata']['panda_id']) > str(panda_id):
+                                    if 'old_panda_id' not in content['content_metadata']:
+                                        content['content_metadata']['old_panda_id'] = []
+                                    if panda_id not in content['content_metadata']['old_panda_id']:
+                                        content['content_metadata']['old_panda_id'].append(panda_id)
+                                    update_content['content_metadata'] = content['content_metadata']
+                                else:
+                                    pass
+                            else:
                                 content['content_metadata']['panda_id'] = str(panda_id)
                                 update_content['content_metadata'] = content['content_metadata']
-                            elif str(content['content_metadata']['panda_id']) > str(panda_id):
-                                if 'old_panda_id' not in content['content_metadata']:
-                                    content['content_metadata']['old_panda_id'] = []
-                                if panda_id not in content['content_metadata']['old_panda_id']:
-                                    content['content_metadata']['old_panda_id'].append(panda_id)
-                                # content['content_metadata']['panda_id'] = content['content_metadata']['panda_id']
-                                # content['substatus'] = panda_status
-                                update_content['content_metadata'] = content['content_metadata']
-                            else:
-                                pass
-                        else:
-                            content['content_metadata']['panda_id'] = str(panda_id)
-                            update_content['content_metadata'] = content['content_metadata']
 
                         update_contents.append(update_content)
                         update_contents_dict[update_content['content_id']] = update_content
@@ -1787,8 +1788,8 @@ class DomaPanDAWork(Work):
                     continue
 
                 panda_status = unterminated_jobs_status[input_file]['status']
-                panda_ids = unterminated_jobs_status[input_file]['panda_id']
-                panda_id = ",".join([str(i) for i in panda_ids])
+                panda_ids = unterminated_jobs_status[input_file].get('panda_id')
+                panda_id = ",".join([str(i) for i in panda_ids]) if panda_ids else None
                 job_info = unterminated_jobs_status[input_file]['job_info']
 
                 if input_file not in inputname_to_map_id_outputs:
@@ -1810,28 +1811,29 @@ class DomaPanDAWork(Work):
                                               'status': panda_status,
                                               'substatus': panda_status}
 
-                            if 'panda_id' in content['content_metadata'] and content['content_metadata']['panda_id']:
-                                if str(content['content_metadata']['panda_id']) < str(panda_id):
-                                    # new panda id is the bigger one.
-                                    if 'old_panda_id' not in content['content_metadata']:
-                                        content['content_metadata']['old_panda_id'] = []
-                                    if content['content_metadata']['panda_id'] not in content['content_metadata']['old_panda_id']:
-                                        content['content_metadata']['old_panda_id'].append(content['content_metadata']['panda_id'])
+                            if panda_id is not None and update_panda_id:
+                                if 'panda_id' in content['content_metadata'] and content['content_metadata']['panda_id']:
+                                    if str(content['content_metadata']['panda_id']) < str(panda_id):
+                                        # new panda id is the bigger one.
+                                        if 'old_panda_id' not in content['content_metadata']:
+                                            content['content_metadata']['old_panda_id'] = []
+                                        if content['content_metadata']['panda_id'] not in content['content_metadata']['old_panda_id']:
+                                            content['content_metadata']['old_panda_id'].append(content['content_metadata']['panda_id'])
+                                        content['content_metadata']['panda_id'] = str(panda_id)
+                                        update_content['content_metadata'] = content['content_metadata']
+                                    elif str(content['content_metadata']['panda_id']) > str(panda_id):
+                                        if 'old_panda_id' not in content['content_metadata']:
+                                            content['content_metadata']['old_panda_id'] = []
+                                        if panda_id not in content['content_metadata']['old_panda_id']:
+                                            content['content_metadata']['old_panda_id'].append(panda_id)
+                                        # content['content_metadata']['panda_id'] = content['content_metadata']['panda_id']
+                                        # content['substatus'] = panda_status
+                                        update_content['content_metadata'] = content['content_metadata']
+                                    else:
+                                        pass
+                                else:
                                     content['content_metadata']['panda_id'] = str(panda_id)
                                     update_content['content_metadata'] = content['content_metadata']
-                                elif str(content['content_metadata']['panda_id']) > str(panda_id):
-                                    if 'old_panda_id' not in content['content_metadata']:
-                                        content['content_metadata']['old_panda_id'] = []
-                                    if panda_id not in content['content_metadata']['old_panda_id']:
-                                        content['content_metadata']['old_panda_id'].append(panda_id)
-                                    # content['content_metadata']['panda_id'] = content['content_metadata']['panda_id']
-                                    # content['substatus'] = panda_status
-                                    update_content['content_metadata'] = content['content_metadata']
-                                else:
-                                    pass
-                            else:
-                                content['content_metadata']['panda_id'] = str(panda_id)
-                                update_content['content_metadata'] = content['content_metadata']
 
                             update_contents.append(update_content)
                             update_contents_dict[update_content['content_id']] = update_content
@@ -1888,8 +1890,8 @@ class DomaPanDAWork(Work):
                                         panda_id = event_panda_job['panda_id']
                                         job_info = event_panda_job['job_info']
                                     else:
-                                        panda_ids = unterminated_jobs_status[input_file]['panda_id']
-                                        panda_id = ",".join([str(i) for i in panda_ids])
+                                        panda_ids = unterminated_jobs_status[input_file].get('panda_id')
+                                        panda_id = ",".join([str(i) for i in panda_ids]) if panda_ids else None
                                         job_info = unterminated_jobs_status[input_file]['job_info']
                                 elif event_status in ['failed', 'fatal', 'cancelled', 'discarded', 'corrupted']:
                                     event_status = ContentStatus.FinalFailed
@@ -1899,8 +1901,8 @@ class DomaPanDAWork(Work):
                                         panda_id = event_panda_job['panda_id']
                                         job_info = event_panda_job['job_info']
                                     else:
-                                        panda_ids = unterminated_jobs_status[input_file]['panda_id']
-                                        panda_id = ",".join([str(i) for i in panda_ids])
+                                        panda_ids = unterminated_jobs_status[input_file].get('panda_id')
+                                        panda_id = ",".join([str(i) for i in panda_ids]) if panda_ids else None
                                         job_info = unterminated_jobs_status[input_file]['job_info']
                                 else:
                                     if panda_status in [ContentStatus.FinalSubAvailable]:
@@ -1909,8 +1911,8 @@ class DomaPanDAWork(Work):
                                         event_status = panda_status
                                     event_error_code = None
                                     event_error_diag = None
-                                    panda_ids = unterminated_jobs_status[input_file]['panda_id']
-                                    panda_id = ",".join([str(i) for i in panda_ids])
+                                    panda_ids = unterminated_jobs_status[input_file].get('panda_id')
+                                    panda_id = ",".join([str(i) for i in panda_ids]) if panda_ids else None
                                     job_info = unterminated_jobs_status[input_file]['job_info']
                             else:
                                 if panda_status in [ContentStatus.FinalSubAvailable]:
@@ -1920,8 +1922,8 @@ class DomaPanDAWork(Work):
                                 event_error_code = None
                                 event_error_diag = None
 
-                                panda_ids = unterminated_jobs_status[input_file]['panda_id']
-                                panda_id = ",".join([str(i) for i in panda_ids])
+                                panda_ids = unterminated_jobs_status[input_file].get('panda_id')
+                                panda_id = ",".join([str(i) for i in panda_ids]) if panda_ids else None
                                 job_info = unterminated_jobs_status[input_file]['job_info']
 
                             content['status'] = event_status
@@ -1932,28 +1934,29 @@ class DomaPanDAWork(Work):
                                               'status': panda_status,
                                               'substatus': event_status}
 
-                            if 'panda_id' in content['content_metadata'] and content['content_metadata']['panda_id']:
-                                if str(content['content_metadata']['panda_id']) < str(panda_id):
-                                    # new panda id is the bigger one.
-                                    if 'old_panda_id' not in content['content_metadata']:
-                                        content['content_metadata']['old_panda_id'] = []
-                                    if content['content_metadata']['panda_id'] not in content['content_metadata']['old_panda_id']:
-                                        content['content_metadata']['old_panda_id'].append(content['content_metadata']['panda_id'])
+                            if panda_id is not None and update_panda_id:
+                                if 'panda_id' in content['content_metadata'] and content['content_metadata']['panda_id']:
+                                    if str(content['content_metadata']['panda_id']) < str(panda_id):
+                                        # new panda id is the bigger one.
+                                        if 'old_panda_id' not in content['content_metadata']:
+                                            content['content_metadata']['old_panda_id'] = []
+                                        if content['content_metadata']['panda_id'] not in content['content_metadata']['old_panda_id']:
+                                            content['content_metadata']['old_panda_id'].append(content['content_metadata']['panda_id'])
+                                        content['content_metadata']['panda_id'] = str(panda_id)
+                                        update_content['content_metadata'] = content['content_metadata']
+                                    elif str(content['content_metadata']['panda_id']) > str(panda_id):
+                                        if 'old_panda_id' not in content['content_metadata']:
+                                            content['content_metadata']['old_panda_id'] = []
+                                        if panda_id not in content['content_metadata']['old_panda_id']:
+                                            content['content_metadata']['old_panda_id'].append(panda_id)
+                                        # content['content_metadata']['panda_id'] = content['content_metadata']['panda_id']
+                                        # content['substatus'] = panda_status
+                                        update_content['content_metadata'] = content['content_metadata']
+                                    else:
+                                        pass
+                                else:
                                     content['content_metadata']['panda_id'] = str(panda_id)
                                     update_content['content_metadata'] = content['content_metadata']
-                                elif str(content['content_metadata']['panda_id']) > str(panda_id):
-                                    if 'old_panda_id' not in content['content_metadata']:
-                                        content['content_metadata']['old_panda_id'] = []
-                                    if panda_id not in content['content_metadata']['old_panda_id']:
-                                        content['content_metadata']['old_panda_id'].append(panda_id)
-                                    # content['content_metadata']['panda_id'] = content['content_metadata']['panda_id']
-                                    # content['substatus'] = panda_status
-                                    update_content['content_metadata'] = content['content_metadata']
-                                else:
-                                    pass
-                            else:
-                                content['content_metadata']['panda_id'] = str(panda_id)
-                                update_content['content_metadata'] = content['content_metadata']
 
                             update_contents.append(update_content)
                             update_contents_dict[update_content['content_id']] = update_content
@@ -2092,6 +2095,91 @@ class DomaPanDAWork(Work):
             # raise exceptions.IDDSException(msg)
         return ProcessingStatus.Running, [], [], [], []
 
+    def poll_panda_task_new(self, processing=None, input_output_maps=None, contents_ext=None, job_info_maps={}, executors=None, log_prefix=''):
+        task_id = None
+        try:
+            from pandaclient import Client
+
+            if processing:
+                # proc = processing['processing_metadata']['processing']
+                # task_id = proc.workload_id
+                task_id = processing['workload_id']
+                if task_id is None:
+                    proc = processing['processing_metadata']['processing']
+                    task_param = proc.processing_metadata['task_param']
+                    task_name = task_param['taskName']
+                    if 'new_retries' in processing and processing['new_retries']:
+                        new_retries = int(processing['new_retries'])
+                        task_name = task_param['taskName'] + "_" + str(new_retries)
+
+                    # task_id = self.get_panda_task_id(processing)
+                    task_id = self.get_panda_task_id_from_name(processing['request_id'], task_name)
+                    self.logger.debug(f"task_id not found. Get task id from name {task_name}: {task_id}")
+
+                if task_id:
+                    # ret_ids = Client.getPandaIDsWithTaskID(task_id, verbose=False)
+                    self.logger.debug(log_prefix + "poll_panda_task, task_id: %s" % str(task_id))
+                    # task_info = Client.getJediTaskDetails({'jediTaskID': task_id}, True, True, verbose=True)
+                    task_info = Client.getJediTaskDetails({'jediTaskID': task_id}, True, True, verbose=False)
+                    self.logger.debug(log_prefix + "poll_panda_task, task_info[0]: %s" % str(task_info[0]))
+                    if task_info[0] != 0:
+                        self.logger.warn(log_prefix + "poll_panda_task %s, error getting task status, task_info: %s" % (task_id, str(task_info)))
+                        return ProcessingStatus.Running, [], [], [], []
+
+                    task_info = task_info[1]
+
+                    processing_status = self.get_processing_status_from_panda_status(task_info["status"])
+                    self.logger.info(log_prefix + "poll_panda_task processing_status: %s" % processing_status)
+
+                    # Prefer panda_ids already recorded in content_metadata;
+                    # fall back to task_info['PandaID'] if none are stored yet.
+                    all_jobs_ids_from_maps = []
+                    for map_id in input_output_maps:
+                        for content in input_output_maps[map_id].get('outputs', []):
+                            meta = content.get('content_metadata') or {}
+                            ids = meta.get('panda_ids') or meta.get('panda_id')
+                            if ids is None:
+                                continue
+                            if isinstance(ids, list):
+                                all_jobs_ids_from_maps.append(ids[-1])
+                            elif isinstance(ids, str):
+                                parsed = [int(v.strip()) for v in ids.split(',') if v.strip()]
+                                if parsed:
+                                    all_jobs_ids_from_maps.append(parsed[-1])
+                            else:
+                                all_jobs_ids_from_maps.append(ids)
+                    all_jobs_ids = list(set(all_jobs_ids_from_maps))
+
+                    unterminated_jobs = self.get_unterminated_jobs(all_jobs_ids, input_output_maps, contents_ext)
+                    self.logger.debug(log_prefix + "poll_panda_task, task_id: %s, all jobs: %s, unterminated_jobs: %s" % (str(task_id), len(all_jobs_ids), len(unterminated_jobs)))
+
+                    unterminated_jobs_status = self.poll_panda_jobs(unterminated_jobs, executors=executors, log_prefix=log_prefix)
+                    # self.logger.debug(log_prefix + "unterminated_jobs_status: %s" % str(unterminated_jobs_status))
+                    self.logger.debug(log_prefix + f"unterminated_jobs_status[:3]: {dict(list(unterminated_jobs_status.items())[:3])}")
+
+                    abort_status = False
+                    if processing_status in [ProcessingStatus.Cancelled]:
+                        abort_status = True
+                    terminated_status = False
+                    if processing_status in [ProcessingStatus.Cancelled, ProcessingStatus.Failed, ProcessingStatus.Broken]:
+                        terminated_status = True
+                    ret_contents = self.get_update_contents(unterminated_jobs_status, input_output_maps, contents_ext, job_info_maps,
+                                                            abort=abort_status, terminated_status=terminated_status,
+                                                            update_panda_id=False, log_prefix=log_prefix)
+                    updated_contents, update_contents_full, new_contents_ext, update_contents_ext = ret_contents
+
+                    return processing_status, updated_contents, update_contents_full, new_contents_ext, update_contents_ext
+                else:
+                    self.logger.error("poll_panda_task, task_id (%s) cannot be found" % task_id)
+                    return ProcessingStatus.Failed, [], [], [], []
+        except Exception as ex:
+            msg = "Failed to check the processing (%s) status: %s" % (str(processing['processing_id']), str(ex))
+            self.logger.error(log_prefix + msg)
+            self.logger.error(log_prefix + str(ex))
+            self.logger.error(traceback.format_exc())
+            # raise exceptions.IDDSException(msg)
+        return ProcessingStatus.Running, [], [], [], []
+
     def kill_processing(self, processing, log_prefix=''):
         try:
             if processing:
@@ -2180,6 +2268,69 @@ class DomaPanDAWork(Work):
             if status == 0:
                 return output
         return []
+
+    def get_processing_job_ids(self, processing, log_prefix=''):
+        try:
+            from pandaclient import Client
+
+            if processing:
+                proc = processing['processing_metadata']['processing']
+                task_id = proc.workload_id
+                if task_id is None:
+                    task_id = self.get_panda_task_id(processing)
+
+                if task_id:
+                    task_info = Client.getJediTaskDetails({'jediTaskID': task_id}, True, True, verbose=True)
+                    self.logger.debug(log_prefix + "get_processing_job_ids, task_info[0]: %s" % str(task_info[0]))
+                    if task_info[0] != 0:
+                        self.logger.warn(log_prefix + "get_processing_job_ids %s, error getting task info: %s" % (task_id, str(task_info)))
+                        return []
+                    return task_info[1]['PandaID']
+        except Exception as ex:
+            self.logger.error(log_prefix + "get_processing_job_ids failed: %s" % str(ex))
+            self.logger.error(traceback.format_exc())
+        return []
+
+    def get_processing_job_name_to_ids(self, processing, job_ids, log_prefix=''):
+        """
+        Poll panda jobs based on job_ids to get job input file names (pseudo_input file),
+        and return a dict of {job_name: [panda_id, ...]} mapping each input file name to all
+        panda job IDs that processed it (including retries).  The returned map can be used to
+        match against content_metadata input file names to obtain content updates based on job status.
+
+        :param processing: processing dict
+        :param job_ids: list of panda job IDs to query
+        :param log_prefix: log prefix string
+        :returns: dict {job_name: [panda_id, ...]}
+        """
+        job_name_to_ids = {}
+        self.logger.debug(log_prefix + "get_processing_job_name_to_ids, job_ids[:10]: %s" % str(job_ids[:10]))
+        chunksize = self.poll_panda_jobs_chunk_size
+        chunks = [job_ids[i:i + chunksize] for i in range(0, len(job_ids), chunksize)]
+        try:
+            for chunk in chunks:
+                jobs_list = self.get_panda_job_status(chunk, log_prefix=log_prefix)
+                if not jobs_list:
+                    continue
+                for job_info in jobs_list:
+                    if not (job_info and job_info.Files):
+                        continue
+                    for job_file in job_info.Files:
+                        if job_file.type != 'pseudo_input':
+                            continue
+                        if ':' in job_file.lfn:
+                            pos = job_file.lfn.find(':')
+                            job_name = job_file.lfn[pos + 1:]
+                        else:
+                            job_name = job_file.lfn
+                        if job_name not in job_name_to_ids:
+                            job_name_to_ids[job_name] = []
+                        if job_info.PandaID not in job_name_to_ids[job_name]:
+                            job_name_to_ids[job_name].append(job_info.PandaID)
+        except Exception as ex:
+            self.logger.error(log_prefix + "get_processing_job_name_to_ids failed: %s" % str(ex))
+            self.logger.error(traceback.format_exc())
+        return job_name_to_ids
 
     def poll_processing_updates(self, processing, input_output_maps, contents_ext=None, job_info_maps={}, executors=None, log_prefix=''):
         """

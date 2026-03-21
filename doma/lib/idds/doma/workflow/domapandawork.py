@@ -979,6 +979,28 @@ class DomaPanDAWork(Work):
             # raise exceptions.IDDSException(msg)
         return ProcessingStatus.Running, [], []
 
+    def get_processing_job_ids(self, processing, log_prefix=''):
+        try:
+            from pandaclient import Client
+
+            if processing:
+                proc = processing['processing_metadata']['processing']
+                task_id = proc.workload_id
+                if task_id is None:
+                    task_id = self.get_panda_task_id(processing)
+
+                if task_id:
+                    task_info = Client.getJediTaskDetails({'jediTaskID': task_id}, True, True, verbose=True)
+                    self.logger.debug(log_prefix + "get_processing_job_ids, task_info[0]: %s" % str(task_info[0]))
+                    if task_info[0] != 0:
+                        self.logger.warn(log_prefix + "get_processing_job_ids %s, error getting task info: %s" % (task_id, str(task_info)))
+                        return []
+                    return task_info[1]['PandaID']
+        except Exception as ex:
+            self.logger.error(log_prefix + "get_processing_job_ids failed: %s" % str(ex))
+            self.logger.error(traceback.format_exc())
+        return []
+
     def kill_processing(self, processing, log_prefix=''):
         try:
             if processing:
