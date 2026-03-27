@@ -1406,8 +1406,9 @@ class DomaPanDAWork(Work):
         unterminated_jobs = all_jobs_ids - terminated_jobs_final
         return list(unterminated_jobs)
 
-    def get_panda_job_status(self, jobids, log_prefix=''):
-        self.logger.debug(log_prefix + "get_panda_job_status, jobids[:10]: %s" % str(jobids[:10]))
+    def get_panda_job_status(self, jobids, log_prefix='', debug=False):
+        if debug:
+            self.logger.debug(log_prefix + "get_panda_job_status, jobids[:10]: %s" % str(jobids[:10]))
         try:
             from pandaclient import Client
             ret = Client.getJobStatus(jobids, verbose=0)
@@ -2150,8 +2151,8 @@ class DomaPanDAWork(Work):
                                 all_jobs_ids_from_maps.append(ids)
                     all_jobs_ids = list(set(all_jobs_ids_from_maps))
 
-                    unterminated_jobs = self.get_unterminated_jobs(all_jobs_ids, input_output_maps, contents_ext)
-                    self.logger.debug(log_prefix + "poll_panda_task, task_id: %s, all jobs: %s, unterminated_jobs: %s" % (str(task_id), len(all_jobs_ids), len(unterminated_jobs)))
+                    # unterminated_jobs = self.get_unterminated_jobs(all_jobs_ids, input_output_maps, contents_ext)
+                    # self.logger.debug(log_prefix + "poll_panda_task, task_id: %s, all jobs: %s, unterminated_jobs: %s" % (str(task_id), len(all_jobs_ids), len(unterminated_jobs)))
 
                     unterminated_jobs_status = self.poll_panda_jobs(unterminated_jobs, executors=executors, log_prefix=log_prefix)
                     # self.logger.debug(log_prefix + "unterminated_jobs_status: %s" % str(unterminated_jobs_status))
@@ -2304,12 +2305,14 @@ class DomaPanDAWork(Work):
         :returns: dict {job_name: [panda_id, ...]}
         """
         job_name_to_ids = {}
-        self.logger.debug(log_prefix + "get_processing_job_name_to_ids, job_ids[:10]: %s" % str(job_ids[:10]))
+        self.logger.debug(log_prefix + "get_processing_job_name_to_ids, num_job_ids: %d, job_ids[:10]: %s" % (len(job_ids), str(job_ids[:10])))
         chunksize = self.poll_panda_jobs_chunk_size
         chunks = [job_ids[i:i + chunksize] for i in range(0, len(job_ids), chunksize)]
+        self.logger.debug(log_prefix + "get_processing_job_name_to_ids, num_chunks: %d, chunk_size: %d" % (len(chunks), chunksize))
         try:
-            for chunk in chunks:
-                jobs_list = self.get_panda_job_status(chunk, log_prefix=log_prefix)
+            for i, chunk in enumerate(chunks):
+                self.logger.debug(log_prefix + "get_processing_job_name_to_ids, chunk %d: chunk_size=%d" % (i, len(chunk)))
+                jobs_list = self.get_panda_job_status(chunk, log_prefix=log_prefix, debug=False)
                 if not jobs_list:
                     continue
                 for job_info in jobs_list:
@@ -2343,12 +2346,12 @@ class DomaPanDAWork(Work):
         if processing:
             proc = processing['processing_metadata']['processing']
 
-            ret_poll_panda_task = self.poll_panda_task(processing=processing,
-                                                       input_output_maps=input_output_maps,
-                                                       contents_ext=contents_ext,
-                                                       job_info_maps=job_info_maps,
-                                                       executors=executors,
-                                                       log_prefix=log_prefix)
+            ret_poll_panda_task = self.poll_panda_task_new(processing=processing,
+                                                           input_output_maps=input_output_maps,
+                                                           contents_ext=contents_ext,
+                                                           job_info_maps=job_info_maps,
+                                                           executors=executors,
+                                                           log_prefix=log_prefix)
 
             processing_status, update_contents, update_contents_full, new_contents_ext, update_contents_ext = ret_poll_panda_task
             self.logger.debug(log_prefix + "poll_processing_updates, processing_status: %s" % str(processing_status))

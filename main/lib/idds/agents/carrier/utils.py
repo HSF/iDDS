@@ -200,7 +200,7 @@ def get_collection_ids(collections):
     return coll_ids
 
 
-def get_input_output_maps(request_id, transform_id, work, with_deps=True, page_num=None, page_size=None, with_panda_id=None):
+def get_input_output_maps(request_id, transform_id, work, with_deps=True, page_num=None, page_size=None, with_panda_id=None, status=None):
     """
     :param with_panda_id: When True, return only map_ids where at least one output content
         has a panda_id in content_metadata. When False, return only map_ids where no output
@@ -227,7 +227,8 @@ def get_input_output_maps(request_id, transform_id, work, with_deps=True, page_n
                                                                                with_sub_map_id=work.with_sub_map_id(),
                                                                                with_deps=with_deps,
                                                                                page_num=page_num,
-                                                                               page_size=page_size)
+                                                                               page_size=page_size,
+                                                                               status=status)
 
     if with_panda_id is not None:
         filtered = {}
@@ -1627,6 +1628,8 @@ def handle_update_processing_new(processing, agent_attributes, max_updates_per_r
         core_catalog.update_contents(update_external_content_ids)
 
     if processing["num_unmapped"] > 0 or work.has_new_inputs or (num_inputs is not None and num_inputs > num_input_output_maps):
+        logger.debug(log_prefix + f"handle_update_processing_new: checking for new input_output_maps with num_inputs: {num_inputs}, num_input_output_maps: {num_input_output_maps},"
+                     f"processing['num_unmapped']: {processing['num_unmapped']}, work.has_new_inputs: {work.has_new_inputs}")
         input_output_maps = get_input_output_maps(request_id, transform_id, work, with_deps=False)
         logger.debug(log_prefix + "get_input_output_maps: len: %s" % len(input_output_maps))
         new_input_output_maps = work.get_new_input_output_maps(input_output_maps)
@@ -1678,11 +1681,15 @@ def handle_update_processing_new(processing, agent_attributes, max_updates_per_r
     new_input_output_maps_from_poll = {}
     page_num = 0
 
+    final_terminated_status = [ContentStatus.Available, ContentStatus.FakeAvailable,
+                               ContentStatus.FinalFailed, ContentStatus.Missing,
+                               ContentStatus.FinalSubAvailable]
+    status_filter = [s for s in ContentStatus if s not in final_terminated_status]
     while True:
         if max_jobs_per_round:
             maps_page = get_input_output_maps(request_id, transform_id, work, with_deps=False,
                                               page_num=page_num, page_size=max_jobs_per_round,
-                                              with_panda_id=True)
+                                              with_panda_id=True, status=status_filter)
             logger.debug(log_prefix + "handle_update_processing_new: polling page %d with %d maps"
                          % (page_num, len(maps_page)))
             if not maps_page:
