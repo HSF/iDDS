@@ -35,6 +35,7 @@ from idds.rest.v1 import messages
 from idds.rest.v1 import ping
 from idds.rest.v1 import auth
 from idds.rest.v1 import metainfo
+from idds.rest.v1 import workflowtask
 
 
 class LoggingMiddleware(object):
@@ -71,6 +72,7 @@ def get_normal_blueprints():
     bps.append(messages.get_blueprint())
     bps.append(ping.get_blueprint())
     bps.append(metainfo.get_blueprint())
+    bps.append(workflowtask.get_blueprint())
 
     return bps
 

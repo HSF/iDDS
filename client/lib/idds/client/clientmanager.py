@@ -990,3 +990,55 @@ class ClientManager:
         ret = self.client.get_metainfo(name=name)
         logging.info("Retrieved meta info for %s: %s" % (name, idds_mask(ret)))
         return True, ret
+
+    @exception_handler
+    def create_workflow_task(self, workflow):
+        """
+        Create a workflow task.
+
+        :param workflow: the workflow dict.
+
+        :returns: dict with request_id, transform_id, processing_id,
+                  input_coll_id, output_coll_id, workload_id.
+        """
+        self.setup_client()
+
+        ret = self.client.create_workflow_task(workflow=workflow)
+        return ret
+
+    @exception_handler
+    def adjust_worker(self, request_id, transform_id, workload_id, parameters):
+        """
+        Adjust worker resource parameters for a running workflow task.
+
+        :param request_id: iDDS request id.
+        :param transform_id: iDDS transform id.
+        :param workload_id: PanDA workload/task id.
+        :param parameters: dict with core_count, memory_per_core, site, content.
+        """
+        self.setup_client()
+
+        if request_id is None and workload_id is None:
+            logging.error("Both request_id and workload_id are None. One of them should not be None")
+            return (-1, "Both request_id and workload_id are None. One of them should not be None")
+
+        ret = self.client.adjust_worker(request_id=request_id, transform_id=transform_id,
+                                        workload_id=workload_id, parameters=parameters)
+        return ret
+
+    @exception_handler
+    def close_workflow_task(self, request_id, parameters):
+        """
+        Close a workflow task.
+
+        :param request_id: iDDS request id.
+        :param parameters: dict that must include workload_id; may include transform_id, run_id.
+        """
+        self.setup_client()
+
+        if request_id is None:
+            logging.error("request_id is None")
+            return (-1, "request_id is None")
+
+        ret = self.client.close_workflow_task(request_id=request_id, parameters=parameters)
+        return ret
