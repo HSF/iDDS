@@ -713,9 +713,9 @@ def handle_new_processing(processing, agent_attributes, func_site_to_cloud=None,
 
     # fix missing content_dep_id for input_dependency contents
     ret_fix = core_processings.update_processing_contents(update_processing=None,
-                                                         request_id=request_id,
-                                                         transform_id=transform_id,
-                                                         fix_missing_content_dep_id=True)
+                                                          request_id=request_id,
+                                                          transform_id=transform_id,
+                                                          fix_missing_content_dep_id=True)
     num_added_contents, num_updated_contents, num_added_messages, num_updated_messages = ret_fix
     logger.debug(log_prefix + "handle_new_processing: fix missing content_dep_id for input_dependency contents, num_fixed: %s" % num_updated_contents)
 

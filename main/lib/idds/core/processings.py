@@ -289,7 +289,7 @@ def resolve_input_dependency_id(new_input_dependency_contents, request_id=None, 
             coll_ids.append(content['coll_id'])
     if not coll_ids:
         return new_input_dependency_contents, has_missing_dep
-    
+
     contents = orm_contents.get_contents(coll_id=coll_ids, request_id=request_id, relation_type=ContentRelationType.Output, session=session)
     content_name_id_map = {}
     for content in contents:
