@@ -1406,7 +1406,7 @@ class DomaPanDAWork(Work):
         unterminated_jobs = all_jobs_ids - terminated_jobs_final
         return list(unterminated_jobs)
 
-    def get_panda_job_status(self, jobids, log_prefix='', debug=False):
+    def get_panda_job_status(self, jobids, log_prefix='', debug=True):
         if debug:
             self.logger.debug(log_prefix + "get_panda_job_status, jobids[:10]: %s" % str(jobids[:10]))
         try:
