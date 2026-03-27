@@ -1496,7 +1496,7 @@ class DomaPanDAWork(Work):
 
     def poll_panda_jobs(self, job_ids, executors=None, update_panda_id=True, log_prefix=''):
         job_status_info = {}
-        self.logger.debug(log_prefix + "poll_panda_jobs, poll_panda_jobs_chunk_size: %s, job_ids[:10]: %s" % (self.poll_panda_jobs_chunk_size, str(job_ids[:10])))
+        self.logger.debug(log_prefix + "poll_panda_jobs, num job_ids: %s, poll_panda_jobs_chunk_size: %s, job_ids[:10]: %s" % (len(job_ids), self.poll_panda_jobs_chunk_size, str(job_ids[:10])))
         chunksize = self.poll_panda_jobs_chunk_size
         chunks = [job_ids[i:i + chunksize] for i in range(0, len(job_ids), chunksize)]
         if executors is None:
@@ -1527,7 +1527,7 @@ class DomaPanDAWork(Work):
                     self.logger.warn(log_prefix + "poll_panda_jobs, input jobs: %s, output_jobs: %s" % (len(chunk), jobs_list))
         else:
             future_to_chunk = {}
-            for chunk in chunks:
+            for i, chunk in enumerate(chunks):
                 f = executors.submit(self.get_panda_job_status, chunk, log_prefix)
                 future_to_chunk[f] = chunk
             ret_futures = set(future_to_chunk.keys())
