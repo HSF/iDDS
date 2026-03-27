@@ -2150,6 +2150,7 @@ class DomaPanDAWork(Work):
                             else:
                                 all_jobs_ids_from_maps.append(ids)
                     all_jobs_ids = list(set(all_jobs_ids_from_maps))
+                    unterminated_jobs = all_jobs_ids
 
                     # unterminated_jobs = self.get_unterminated_jobs(all_jobs_ids, input_output_maps, contents_ext)
                     # self.logger.debug(log_prefix + "poll_panda_task, task_id: %s, all jobs: %s, unterminated_jobs: %s" % (str(task_id), len(all_jobs_ids), len(unterminated_jobs)))
