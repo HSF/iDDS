@@ -720,6 +720,17 @@ def handle_new_processing(processing, agent_attributes, func_site_to_cloud=None,
     num_added_contents, num_updated_contents, num_added_messages, num_updated_messages = ret_fix
     logger.debug(log_prefix + "handle_new_processing: fix missing content_dep_id for input_dependency contents, num_fixed: %s" % num_updated_contents)
 
+    num_inputs = None
+    if hasattr(work, "num_inputs"):
+        num_inputs = work.num_inputs
+    if num_inputs is not None:
+        num_input_output_maps = core_catalog.get_input_output_map_count(request_id, transform_id)
+        processing["num_unmapped"] = num_inputs - num_input_output_maps
+        core_processings.update_processing(processing['processing_id'],
+                                           parameters={'num_unmapped': processing["num_unmapped"]})
+        logger.debug(log_prefix + "handle_new_processing: num_unmapped=%s (num_inputs=%s, num_mapped=%s)"
+                     % (processing["num_unmapped"], num_inputs, num_input_output_maps))
+
     logger.debug(log_prefix + "handle_new_processing: finish")
 
     # return True, processing, update_collections, new_contents, new_input_dependency_contents, ret_msgs, errors
@@ -1627,7 +1638,8 @@ def handle_update_processing_new(processing, agent_attributes, max_updates_per_r
             name_to_id_map, external_content_ids, request_id)
         core_catalog.update_contents(update_external_content_ids)
 
-    if processing["num_unmapped"] > 0 or work.has_new_inputs or (num_inputs is not None and num_inputs > num_input_output_maps):
+    has_new_inputs = work.has_new_inputs if (processing["num_unmapped"] is None) else False
+    if processing["num_unmapped"] > 0 or has_new_inputs or (num_inputs is not None and num_inputs > num_input_output_maps):
         logger.debug(log_prefix + f"handle_update_processing_new: checking for new input_output_maps with num_inputs: {num_inputs}, num_input_output_maps: {num_input_output_maps},"
                      f"processing['num_unmapped']: {processing['num_unmapped']}, work.has_new_inputs: {work.has_new_inputs}")
         input_output_maps = get_input_output_maps(request_id, transform_id, work, with_deps=False)
