@@ -720,16 +720,19 @@ def handle_new_processing(processing, agent_attributes, func_site_to_cloud=None,
     num_added_contents, num_updated_contents, num_added_messages, num_updated_messages = ret_fix
     logger.debug(log_prefix + "handle_new_processing: fix missing content_dep_id for input_dependency contents, num_fixed: %s" % num_updated_contents)
 
-    num_inputs = None
-    if hasattr(work, "num_inputs"):
-        num_inputs = work.num_inputs
-    if num_inputs is not None:
-        num_input_output_maps = core_catalog.get_input_output_map_count(request_id, transform_id)
-        processing["num_unmapped"] = num_inputs - num_input_output_maps
-        core_processings.update_processing(processing['processing_id'],
-                                           parameters={'num_unmapped': processing["num_unmapped"]})
-        logger.debug(log_prefix + "handle_new_processing: num_unmapped=%s (num_inputs=%s, num_mapped=%s)"
-                     % (processing["num_unmapped"], num_inputs, num_input_output_maps))
+    # reload updated input_output_maps.
+    # if all inputs are filled correctly, it will automatically set has_new_input to False, and won't come to this step anymore, which can avoid too many database query in the future.
+    input_output_maps = get_input_output_maps(request_id, transform_id, work, with_deps=False)
+    new_input_output_maps = work.get_new_input_output_maps(input_output_maps)
+    if not work.has_new_inputs:
+        logger.debug(log_prefix + "handle_new_processing: no new input_output_maps after reload")
+        processing["num_unmapped"] = 0
+    else:
+        num_unmapped = len(new_input_output_maps) if new_input_output_maps else 1
+        processing["num_unmapped"] = num_unmapped
+    core_processings.update_processing(processing['processing_id'],
+                                       parameters={'num_unmapped': processing["num_unmapped"]})
+    logger.debug(log_prefix + f"handle_new_processing: num_unmapped={processing["num_unmapped"]}")
 
     logger.debug(log_prefix + "handle_new_processing: finish")
 
