@@ -1526,10 +1526,11 @@ class DomaPanDAWork(Work):
                 else:
                     self.logger.warn(log_prefix + "poll_panda_jobs, input jobs: %s, output_jobs: %s" % (len(chunk), jobs_list))
         else:
-            ret_futures = set()
+            future_to_chunk = {}
             for chunk in chunks:
                 f = executors.submit(self.get_panda_job_status, chunk, log_prefix)
-                ret_futures.add(f)
+                future_to_chunk[f] = chunk
+            ret_futures = set(future_to_chunk.keys())
             # Wait for all subprocess to complete
             steps = 0
             while True:
@@ -1538,8 +1539,9 @@ class DomaPanDAWork(Work):
                 completed, _ = concurrent.futures.wait(ret_futures, timeout=180, return_when=concurrent.futures.ALL_COMPLETED)
                 for f in completed:
                     jobs_list = f.result()
+                    input_chunk = future_to_chunk[f]
                     if jobs_list:
-                        self.logger.debug(log_prefix + "poll_panda_jobs thread, input jobs: %s, output_jobs: %s" % (len(chunk), len(jobs_list)))
+                        self.logger.debug(log_prefix + "poll_panda_jobs thread, input jobs: %s, output_jobs: %s" % (len(input_chunk), len(jobs_list)))
                         for job_info in jobs_list:
                             job_set_id = job_info.jobsetID
                             job_status = self.get_content_status_from_panda_status(job_info)
@@ -1559,7 +1561,7 @@ class DomaPanDAWork(Work):
                                         job_status_info[input_file] = {'job_set_id': job_set_id, 'jobs': []}
                                     job_status_info[input_file]['jobs'].append({'panda_id': job_info.PandaID, 'status': job_status, 'job_info': job_info})
                     else:
-                        self.logger.warn(log_prefix + "poll_panda_jobs thread, input jobs: %s, output_jobs: %s" % (len(chunk), jobs_list))
+                        self.logger.warn(log_prefix + "poll_panda_jobs thread, input jobs: %s, output_jobs: %s" % (len(input_chunk), jobs_list))
 
                 ret_futures = ret_futures - completed
                 if len(ret_futures) > 0:
