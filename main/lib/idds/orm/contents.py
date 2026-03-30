@@ -357,7 +357,7 @@ def get_contents(scope=None, name=None, request_id=None, transform_id=None, work
 
 
 @read_session
-def get_contents_by_request_transform(request_id=None, transform_id=None, workload_id=None, status=None, map_id=None, status_updated=False, with_deps=True, page_num=None, page_size=None, session=None):
+def get_contents_by_request_transform(request_id=None, transform_id=None, workload_id=None, status=None, map_id=None, status_updated=False, with_deps=True, page_num=None, page_size=None, by_map=False, session=None):
     """
     Get content or raise a NoObject exception.
 
@@ -386,7 +386,7 @@ def get_contents_by_request_transform(request_id=None, transform_id=None, worklo
             query = query.filter(models.Content.transform_id == transform_id)
         if workload_id:
             query = query.filter(models.Content.workload_id == workload_id)
-        if status is not None:
+        if status is not None and not by_map:
             query = query.filter(models.Content.substatus.in_(status))
         if map_id:
             query = query.filter(models.Content.map_id == map_id)
@@ -394,6 +394,17 @@ def get_contents_by_request_transform(request_id=None, transform_id=None, worklo
             query = query.filter(models.Content.status != models.Content.substatus)
         if not with_deps:
             query = query.filter(models.Content.content_relation_type != 3)
+
+        if status is not None and by_map:
+            # Find map_ids where at least one content matches the status filter,
+            # then return ALL contents for those map_ids via a JOIN (avoids large IN lists).
+            qualifying_maps = session.query(models.Content.map_id.label('map_id')).distinct()
+            if request_id:
+                qualifying_maps = qualifying_maps.filter(models.Content.request_id == request_id)
+            if transform_id:
+                qualifying_maps = qualifying_maps.filter(models.Content.transform_id == transform_id)
+            qualifying_maps = qualifying_maps.filter(models.Content.substatus.in_(status)).subquery('qualifying_maps')
+            query = query.join(qualifying_maps, models.Content.map_id == qualifying_maps.c.map_id)
 
         query = query.order_by(asc(models.Content.request_id), asc(models.Content.transform_id), asc(models.Content.map_id))
 

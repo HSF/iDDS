@@ -1679,6 +1679,7 @@ def handle_update_processing_new(processing, agent_attributes, max_updates_per_r
         input_output_maps = None  # free full map if we loaded it above, to save memory for polling loop
     else:
         # reload ones filtered with panda_id to avoid keeping two full maps in memory at once
+        logger.debug(log_prefix + "Reloading input_output_maps with panda_id filter for polling loop")
         input_output_maps = get_input_output_maps(request_id, transform_id, work, with_deps=False, with_panda_id=True, status=status_filter)
 
     if hasattr(work, 'input_dependency_coll_ids'):

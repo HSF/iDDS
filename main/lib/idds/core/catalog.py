@@ -404,7 +404,7 @@ def get_contents(coll_scope=None, coll_name=None, coll_id=[], request_id=None, w
 
 
 @read_session
-def get_contents_by_request_transform(request_id=None, workload_id=None, transform_id=None, status=None, map_id=None, status_updated=False, session=None):
+def get_contents_by_request_transform(request_id=None, workload_id=None, transform_id=None, status=None, map_id=None, status_updated=False, by_map=False, session=None):
     """
     Get contents with request id, workload id and transform id.
 
@@ -417,7 +417,7 @@ def get_contents_by_request_transform(request_id=None, workload_id=None, transfo
     """
     ret = orm_contents.get_contents_by_request_transform(request_id=request_id, transform_id=transform_id,
                                                          workload_id=workload_id, status=status, map_id=map_id,
-                                                         status_updated=status_updated, session=session)
+                                                         status_updated=status_updated, by_map=by_map, session=session)
     return ret
 
 

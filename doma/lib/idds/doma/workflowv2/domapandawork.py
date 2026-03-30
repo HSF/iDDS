@@ -1678,7 +1678,8 @@ class DomaPanDAWork(Work):
             inputs = input_output_maps[map_id]['inputs']
             outputs = input_output_maps[map_id]['outputs']
             if not self.es:
-                for content in inputs:
+                name_contents = inputs if inputs else outputs
+                for content in name_contents:
                     if content['name'] not in inputname_to_map_id_outputs:
                         inputname_to_map_id_outputs[content['name']] = []
                     inputname_to_map_id_outputs[content['name']].append({'map_id': map_id, 'outputs': outputs})
