@@ -477,9 +477,9 @@ def generate_content_ext_messages(request_id, transform_id, workload_id, work, f
     output_contents = []
     for map_id in input_output_maps:
         outputs = input_output_maps[map_id]['outputs'] if 'outputs' in input_output_maps[map_id] else []
-        for content in outputs:
-            # content_map[content['content_id']] = content
-            output_contents += outputs
+        # for content in outputs:
+        #    # content_map[content['content_id']] = content
+        output_contents += outputs
 
     files_message = core_catalog.combine_contents_ext(output_contents, files, with_status_name=True)
     msg_content = {'msg_type': i_msg_type_str.value,
@@ -2948,18 +2948,18 @@ def sync_processing(processing, agent_attributes, terminate=False, abort=False, 
     work.set_agent_attributes(agent_attributes, processing)
 
     messages = []
-    input_output_maps = get_input_output_maps(request_id, transform_id, work, with_deps=False)
+    # input_output_maps = get_input_output_maps(request_id, transform_id, work, with_deps=False)
     if processing['substatus'] in terminated_status or processing['substatus'] in terminated_status:
         terminate = True
     update_collections, all_updates_flushed, msgs = sync_collection_status_new(request_id, transform_id, workload_id, work,
-                                                                               input_output_maps=input_output_maps, log_prefix=log_prefix,
+                                                                               log_prefix=log_prefix,
                                                                                close_collection=True, abort=abort, terminate=terminate)
 
     messages += msgs
 
     sync_work_status(request_id, transform_id, workload_id, work, processing['substatus'], log_prefix)
     logger.info(log_prefix + "sync_processing: work status: %s" % work.get_status())
-    if terminate and work.is_terminated():
+    if terminate and work.is_terminated() and all_updates_flushed:
         msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='work')
         messages += msgs
         if work.is_finished():
@@ -2974,6 +2974,7 @@ def sync_processing(processing, agent_attributes, terminate=False, abort=False, 
 
         # if work.require_ext_contents():
         if work.dispatch_ext_content:
+            input_output_maps = get_input_output_maps(request_id, transform_id, work, with_deps=False)
             logger.info(f"{log_prefix} generating messages for ext contents")
             contents_ext = core_catalog.get_contents_ext(request_id=request_id, transform_id=transform_id)
             msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='content_ext', files=contents_ext,
