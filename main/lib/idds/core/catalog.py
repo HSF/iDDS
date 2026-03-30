@@ -612,7 +612,7 @@ def get_content_status_statistics_by_relation_type(transform_ids, bulk_size=500,
 
 
 @read_session
-def get_content_status_statistics_by_coll(request_id=None, transform_id=None, session=None):
+def get_content_status_statistics_by_coll(request_id=None, transform_id=None, with_deps=True, session=None):
     """
     Get content statistics grouped by (coll_id, status) with sum of bytes.
 
@@ -622,7 +622,7 @@ def get_content_status_statistics_by_coll(request_id=None, transform_id=None, se
 
     :returns: dict {coll_id: {status: {'count': N, 'bytes': B}, 'has_unsynced': bool}}
     """
-    return orm_contents.get_content_status_statistics_by_coll(request_id=request_id, transform_id=transform_id, session=session)
+    return orm_contents.get_content_status_statistics_by_coll(request_id=request_id, transform_id=transform_id, with_deps=with_deps, session=session)
 
 
 @read_session

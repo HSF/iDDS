@@ -2678,7 +2678,7 @@ def sync_collection_status_new(request_id, transform_id, workload_id, work, log_
     # 1.  Aggregate contents by (coll_id, status) via SQL
     # ------------------------------------------------------------------
     coll_stats_raw = core_catalog.get_content_status_statistics_by_coll(
-        request_id=request_id, transform_id=transform_id
+        request_id=request_id, transform_id=transform_id, with_deps=False
     )
     # coll_stats_raw: {coll_id: {status_enum: {'count': N, 'bytes': B}, 'has_unsynced': bool}}
 

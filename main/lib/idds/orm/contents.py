@@ -579,7 +579,7 @@ def get_content_status_statistics_by_relation_type(transform_ids=None, session=N
 
 
 @read_session
-def get_content_status_statistics_by_coll(request_id=None, transform_id=None, session=None):
+def get_content_status_statistics_by_coll(request_id=None, transform_id=None, with_deps=True, session=None):
     """
     Get content statistics grouped by (coll_id, status), with total bytes summed.
 
@@ -612,6 +612,8 @@ def get_content_status_statistics_by_coll(request_id=None, transform_id=None, se
             query = query.filter(models.Content.request_id == request_id)
         if transform_id is not None:
             query = query.filter(models.Content.transform_id == transform_id)
+        if not with_deps:
+            query = query.filter(models.Content.content_relation_type != ContentRelationType.InputDependency)
         query = query.group_by(models.Content.coll_id, models.Content.status)
 
         rets = {}
