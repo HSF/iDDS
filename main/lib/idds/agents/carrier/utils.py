@@ -732,7 +732,7 @@ def handle_new_processing(processing, agent_attributes, func_site_to_cloud=None,
         processing["num_unmapped"] = num_unmapped
     core_processings.update_processing(processing['processing_id'],
                                        parameters={'num_unmapped': processing["num_unmapped"]})
-    logger.debug(log_prefix + f"handle_new_processing: num_unmapped={processing["num_unmapped"]}")
+    logger.debug(log_prefix + f"handle_new_processing: num_unmapped={processing['num_unmapped']}")
 
     logger.debug(log_prefix + "handle_new_processing: finish")
 
