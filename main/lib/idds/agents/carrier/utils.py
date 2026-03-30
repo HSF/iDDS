@@ -1668,12 +1668,18 @@ def handle_update_processing_new(processing, agent_attributes, max_updates_per_r
     if unmatched_updates:
         logger.debug(log_prefix + "get_unmatched_panda_id_updates: updating %s contents" % len(unmatched_updates))
         core_catalog.update_contents(unmatched_updates)
+
+    final_terminated_status = [ContentStatus.Available, ContentStatus.FakeAvailable,
+                               ContentStatus.FinalFailed, ContentStatus.Missing,
+                               ContentStatus.FinalSubAvailable]
+    status_filter = [s for s in ContentStatus if s not in final_terminated_status]
+
     if max_jobs_per_round:
         maps_for_unmatch = None  # free if we loaded it above
         input_output_maps = None  # free full map if we loaded it above, to save memory for polling loop
     else:
         # reload ones filtered with panda_id to avoid keeping two full maps in memory at once
-        input_output_maps = get_input_output_maps(request_id, transform_id, work, with_deps=False, with_panda_id=True)
+        input_output_maps = get_input_output_maps(request_id, transform_id, work, with_deps=False, with_panda_id=True, status=status_filter)
 
     if hasattr(work, 'input_dependency_coll_ids'):
         input_dependency_coll_ids = work.input_dependency_coll_ids
@@ -1696,10 +1702,6 @@ def handle_update_processing_new(processing, agent_attributes, max_updates_per_r
     new_input_output_maps_from_poll = {}
     page_num = 0
 
-    final_terminated_status = [ContentStatus.Available, ContentStatus.FakeAvailable,
-                               ContentStatus.FinalFailed, ContentStatus.Missing,
-                               ContentStatus.FinalSubAvailable]
-    status_filter = [s for s in ContentStatus if s not in final_terminated_status]
     while True:
         if max_jobs_per_round:
             maps_page = get_input_output_maps(request_id, transform_id, work, with_deps=False,
