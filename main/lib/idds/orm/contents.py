@@ -357,7 +357,7 @@ def get_contents(scope=None, name=None, request_id=None, transform_id=None, work
 
 
 @read_session
-def get_contents_by_request_transform(request_id=None, transform_id=None, workload_id=None, status=None, map_id=None, status_updated=False, with_deps=True, page_num=None, page_size=None, by_map=False, session=None):
+def get_contents_by_request_transform(request_id=None, transform_id=None, workload_id=None, status=None, map_id=None, status_updated=False, with_deps=True, page_num=None, page_size=None, by_map=False, match_content_ext=False, session=None):
     """
     Get content or raise a NoObject exception.
 
@@ -366,7 +366,7 @@ def get_contents_by_request_transform(request_id=None, transform_id=None, worklo
     :param workload_id: workload id.
     :param page_num: page number (0-based) for paginated retrieval.
     :param page_size: number of distinct map_ids per page.
-
+    :param match_content_ext: Whether to match content extensions.
     :param session: The database session in use.
 
     :raises NoObject: If no content is founded.
@@ -405,6 +405,16 @@ def get_contents_by_request_transform(request_id=None, transform_id=None, worklo
                 qualifying_maps = qualifying_maps.filter(models.Content.transform_id == transform_id)
             qualifying_maps = qualifying_maps.filter(models.Content.substatus.in_(status)).subquery('qualifying_maps')
             query = query.join(qualifying_maps, models.Content.map_id == qualifying_maps.c.map_id)
+
+        if match_content_ext:
+            # Return rows where contents_ext has no matching entry OR its status differs from contents.substatus.
+            query = query.outerjoin(models.Content_ext, models.Content.content_id == models.Content_ext.content_id)
+            query = query.filter(
+                or_(
+                    models.Content_ext.content_id == None,   # noqa E711
+                    models.Content_ext.status != models.Content.substatus
+                )
+            )
 
         query = query.order_by(asc(models.Content.request_id), asc(models.Content.transform_id), asc(models.Content.map_id))
 

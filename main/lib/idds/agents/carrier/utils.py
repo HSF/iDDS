@@ -200,7 +200,7 @@ def get_collection_ids(collections):
     return coll_ids
 
 
-def get_input_output_maps(request_id, transform_id, work, with_deps=True, page_num=None, page_size=None, with_panda_id=None, status=None):
+def get_input_output_maps(request_id, transform_id, work, with_deps=True, page_num=None, page_size=None, with_panda_id=None, status=None, match_content_ext=False):
     """
     :param with_panda_id: When True, return only map_ids where at least one output content
         has a panda_id in content_metadata. When False, return only map_ids where no output
@@ -228,6 +228,7 @@ def get_input_output_maps(request_id, transform_id, work, with_deps=True, page_n
                                                                                with_deps=with_deps,
                                                                                page_num=page_num,
                                                                                page_size=page_size,
+                                                                               match_content_ext=match_content_ext,
                                                                                status=status)
 
     if with_panda_id is not None:
@@ -1680,7 +1681,7 @@ def handle_update_processing_new(processing, agent_attributes, max_updates_per_r
     else:
         # reload ones filtered with panda_id to avoid keeping two full maps in memory at once
         logger.debug(log_prefix + "Reloading input_output_maps with panda_id filter for polling loop")
-        input_output_maps = get_input_output_maps(request_id, transform_id, work, with_deps=False, with_panda_id=True, status=status_filter)
+        input_output_maps = get_input_output_maps(request_id, transform_id, work, with_deps=False, with_panda_id=True, status=status_filter, match_content_ext=True)
 
     if hasattr(work, 'input_dependency_coll_ids'):
         input_dependency_coll_ids = work.input_dependency_coll_ids
@@ -1707,7 +1708,7 @@ def handle_update_processing_new(processing, agent_attributes, max_updates_per_r
         if max_jobs_per_round:
             maps_page = get_input_output_maps(request_id, transform_id, work, with_deps=False,
                                               page_num=page_num, page_size=max_jobs_per_round,
-                                              with_panda_id=True, status=status_filter)
+                                              with_panda_id=True, status=status_filter, match_content_ext=True)
             logger.debug(log_prefix + "handle_update_processing_new: polling page %d with %d maps"
                          % (page_num, len(maps_page)))
             if not maps_page:
