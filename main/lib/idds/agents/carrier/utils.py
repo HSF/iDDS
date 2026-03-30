@@ -1714,6 +1714,8 @@ def handle_update_processing_new(processing, agent_attributes, max_updates_per_r
                 break
         else:
             maps_page = input_output_maps  # full map, single iteration
+            if not maps_page:
+                break
 
         # Poll job status for this page/batch
         if work.require_ext_contents():
