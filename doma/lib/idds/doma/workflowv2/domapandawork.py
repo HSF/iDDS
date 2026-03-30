@@ -2158,7 +2158,10 @@ class DomaPanDAWork(Work):
                     # unterminated_jobs = self.get_unterminated_jobs(all_jobs_ids, input_output_maps, contents_ext)
                     # self.logger.debug(log_prefix + "poll_panda_task, task_id: %s, all jobs: %s, unterminated_jobs: %s" % (str(task_id), len(all_jobs_ids), len(unterminated_jobs)))
 
-                    unterminated_jobs_status = self.poll_panda_jobs(unterminated_jobs, executors=executors, log_prefix=log_prefix)
+                    if unterminated_jobs:
+                        unterminated_jobs_status = self.poll_panda_jobs(unterminated_jobs, executors=executors, log_prefix=log_prefix)
+                    else:
+                        unterminated_jobs_status = {}
                     # self.logger.debug(log_prefix + "unterminated_jobs_status: %s" % str(unterminated_jobs_status))
                     self.logger.debug(log_prefix + f"unterminated_jobs_status[:3]: {dict(list(unterminated_jobs_status.items())[:3])}")
 
