@@ -386,8 +386,6 @@ def get_contents_by_request_transform(request_id=None, transform_id=None, worklo
             query = query.filter(models.Content.transform_id == transform_id)
         if workload_id:
             query = query.filter(models.Content.workload_id == workload_id)
-        if status is not None and not by_map:
-            query = query.filter(models.Content.substatus.in_(status))
         if map_id:
             query = query.filter(models.Content.map_id == map_id)
         if status_updated:
@@ -395,26 +393,34 @@ def get_contents_by_request_transform(request_id=None, transform_id=None, worklo
         if not with_deps:
             query = query.filter(models.Content.content_relation_type != 3)
 
-        if status is not None and by_map:
-            # Find map_ids where at least one content matches the status filter,
-            # then return ALL contents for those map_ids via a JOIN (avoids large IN lists).
-            qualifying_maps = session.query(models.Content.map_id.label('map_id')).distinct()
-            if request_id:
-                qualifying_maps = qualifying_maps.filter(models.Content.request_id == request_id)
-            if transform_id:
-                qualifying_maps = qualifying_maps.filter(models.Content.transform_id == transform_id)
-            qualifying_maps = qualifying_maps.filter(models.Content.substatus.in_(status)).subquery('qualifying_maps')
-            query = query.join(qualifying_maps, models.Content.map_id == qualifying_maps.c.map_id)
-
-        if match_content_ext:
-            # Return rows where contents_ext has no matching entry OR its status differs from contents.substatus.
-            query = query.outerjoin(models.Content_ext, models.Content.content_id == models.Content_ext.content_id)
-            query = query.filter(
-                or_(
+        if (status is not None) or (match_content_ext):
+            # Build OR conditions: status match OR ext mismatch
+            conditions = []
+            if status is not None:
+                conditions.append(models.Content.substatus.in_(status))
+            if match_content_ext:
+                conditions.append(or_(
                     models.Content_ext.content_id == None,   # noqa E711
                     models.Content_ext.status != models.Content.substatus
-                )
-            )
+                ))
+            combined = or_(*conditions) if len(conditions) > 1 else conditions[0]
+
+            if not by_map:
+                if match_content_ext:
+                    query = query.outerjoin(models.Content_ext, models.Content.content_id == models.Content_ext.content_id)
+                query = query.filter(combined)
+            else:
+                # Find map_ids where at least one content satisfies combined condition,
+                # then return ALL contents for those map_ids via a JOIN.
+                qualifying_maps = session.query(models.Content.map_id.label('map_id')).distinct()
+                if request_id:
+                    qualifying_maps = qualifying_maps.filter(models.Content.request_id == request_id)
+                if transform_id:
+                    qualifying_maps = qualifying_maps.filter(models.Content.transform_id == transform_id)
+                if match_content_ext:
+                    qualifying_maps = qualifying_maps.outerjoin(models.Content_ext, models.Content.content_id == models.Content_ext.content_id)
+                qualifying_maps = qualifying_maps.filter(combined).subquery('qualifying_maps')
+                query = query.join(qualifying_maps, models.Content.map_id == qualifying_maps.c.map_id)
 
         query = query.order_by(asc(models.Content.request_id), asc(models.Content.transform_id), asc(models.Content.map_id))
 
