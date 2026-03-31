@@ -1710,6 +1710,8 @@ def handle_update_processing_new(processing, agent_attributes, max_updates_per_r
     new_input_output_maps_from_poll = {}
     page_num = 0
 
+    logger.debug(log_prefix + f"Starting polling loop with max_jobs_per_round={max_jobs_per_round}")
+
     while True:
         if max_jobs_per_round:
             maps_page = get_input_output_maps(request_id, transform_id, work, with_deps=False,
@@ -1717,8 +1719,6 @@ def handle_update_processing_new(processing, agent_attributes, max_updates_per_r
                                               with_panda_id=True, status=status_filter, match_content_ext=True)
             logger.debug(log_prefix + "handle_update_processing_new: polling page %d with %d maps"
                          % (page_num, len(maps_page)))
-            if not maps_page:
-                break
         else:
             maps_page = input_output_maps  # full map, single iteration
 
