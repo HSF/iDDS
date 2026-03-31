@@ -29,12 +29,13 @@ from idds.client.messageclient import MessageClient
 from idds.client.pingclient import PingClient
 from idds.client.authclient import AuthClient
 from idds.client.metainfoclient import MetaInfoClient
+from idds.client.workflowtaskclient import WorkflowTaskClient
 
 
 warnings.filterwarnings("ignore")
 
 
-class Client(RequestClient, TransformClient, CatalogClient, CacherClient, HPOClient, LogsClient, MessageClient, PingClient, AuthClient, MetaInfoClient):
+class Client(RequestClient, TransformClient, CatalogClient, CacherClient, HPOClient, LogsClient, MessageClient, PingClient, AuthClient, MetaInfoClient, WorkflowTaskClient):
 
     """Main client class for IDDS rest callings."""
 
