@@ -372,13 +372,16 @@ def clean_next_poll_at(status, session=None):
 
 
 @read_session
-def get_transform_input_output_maps(transform_id, input_coll_ids, output_coll_ids, log_coll_ids=[], with_sub_map_id=False, is_es=False, with_deps=True, session=None):
+def get_transform_input_output_maps(request_id, transform_id, input_coll_ids, output_coll_ids, log_coll_ids=[], with_sub_map_id=False, is_es=False, with_deps=True, page_num=None, page_size=None, status=None, match_content_ext=False, session=None):
     """
     Get transform input output maps.
 
+    :param request_id: request id (used for virtual table partitioning).
     :param transform_id: transform id.
+    :param page_num: page number (0-based) for paginated retrieval.
+    :param page_size: number of distinct map_ids per page.
     """
-    contents = orm_contents.get_contents_by_request_transform(transform_id=transform_id, with_deps=with_deps, session=session)
+    contents = orm_contents.get_contents_by_request_transform(request_id=request_id, transform_id=transform_id, with_deps=with_deps, page_num=page_num, page_size=page_size, status=status, by_map=True, match_content_ext=match_content_ext, session=session)
     ret = {}
     for content in contents:
         map_id = content['map_id']

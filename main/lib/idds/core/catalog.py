@@ -304,6 +304,29 @@ def update_input_collection_with_contents(coll, parameters, contents, bulk_size=
     return to_addes
 
 
+@read_session
+def get_input_output_map_count(request_id, transform_id, session=None):
+    """Return the number of distinct map_ids (jobs) for the given transform."""
+    return orm_contents.get_input_output_map_count(request_id=request_id, transform_id=transform_id, session=session)
+
+
+@read_session
+def get_content_name_to_id_map(request_id, transform_id, es=False, session=None):
+    """Return a lightweight {name: [content_id, ...]} map for Input and Output contents."""
+    return orm_contents.get_content_name_to_id_map(request_id=request_id, transform_id=transform_id, es=es, session=session)
+
+
+@read_session
+def has_input_contents_without_external_id(request_id, transform_id, session=None):
+    """
+    Check whether any Input content for the given transform is missing an external_content_id.
+
+    Returns True if all Input contents have external_content_id set, False otherwise.
+    request_id is included because the database uses it for virtual table partitioning.
+    """
+    return orm_contents.has_input_contents_without_external_id(request_id=request_id, transform_id=transform_id, session=session)
+
+
 @transactional_session
 def update_contents(parameters, request_id=None, transform_id=None, use_bulk_update_mappings=True, session=None):
     """
@@ -381,7 +404,7 @@ def get_contents(coll_scope=None, coll_name=None, coll_id=[], request_id=None, w
 
 
 @read_session
-def get_contents_by_request_transform(request_id=None, workload_id=None, transform_id=None, status=None, map_id=None, status_updated=False, session=None):
+def get_contents_by_request_transform(request_id=None, workload_id=None, transform_id=None, status=None, map_id=None, status_updated=False, by_map=False, match_content_ext=False, session=None):
     """
     Get contents with request id, workload id and transform id.
 
@@ -394,7 +417,8 @@ def get_contents_by_request_transform(request_id=None, workload_id=None, transfo
     """
     ret = orm_contents.get_contents_by_request_transform(request_id=request_id, transform_id=transform_id,
                                                          workload_id=workload_id, status=status, map_id=map_id,
-                                                         status_updated=status_updated, session=session)
+                                                         status_updated=status_updated, by_map=by_map,
+                                                         match_content_ext=match_content_ext, session=session)
     return ret
 
 
@@ -585,6 +609,34 @@ def get_content_status_statistics_by_relation_type(transform_ids, bulk_size=500,
         return ret
     else:
         return orm_contents.get_content_status_statistics_by_relation_type(transform_ids, session=session)
+
+
+@read_session
+def get_content_status_statistics_by_coll(request_id=None, transform_id=None, with_deps=True, session=None):
+    """
+    Get content statistics grouped by (coll_id, status) with sum of bytes.
+
+    :param request_id: request id.
+    :param transform_id: transform id.
+    :param session: The database session in use.
+
+    :returns: dict {coll_id: {status: {'count': N, 'bytes': B}, 'has_unsynced': bool}}
+    """
+    return orm_contents.get_content_status_statistics_by_coll(request_id=request_id, transform_id=transform_id, with_deps=with_deps, session=session)
+
+
+@read_session
+def get_content_ext_status_statistics_by_coll(request_id=None, transform_id=None, session=None):
+    """
+    Get contents_ext statistics grouped by (coll_id, status).
+
+    :param request_id: request id.
+    :param transform_id: transform id.
+    :param session: The database session in use.
+
+    :returns: dict {coll_id: {status: count}}
+    """
+    return orm_contents.get_content_ext_status_statistics_by_coll(request_id=request_id, transform_id=transform_id, session=session)
 
 
 @transactional_session

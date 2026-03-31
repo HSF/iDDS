@@ -1373,6 +1373,12 @@ class Work(Base):
     def get_ancestry_works(self):
         return []
 
+    def get_processing_job_ids(self, processing, log_prefix=''):
+        return []
+
+    def get_processing_job_name_to_ids(self, processing, job_ids, log_prefix=''):
+        return {}
+
     def has_to_release_inputs(self):
         if self.backup_to_release_inputs['0'] or self.backup_to_release_inputs['1'] or self.backup_to_release_inputs['2']:
             return True
