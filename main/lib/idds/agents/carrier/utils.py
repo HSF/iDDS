@@ -1631,6 +1631,10 @@ def handle_update_processing_new(processing, agent_attributes, max_updates_per_r
     if hasattr(work, "num_inputs"):
         num_inputs = work.num_inputs
 
+    if hasattr(work, 'es') and work.es:
+        max_jobs_per_round = None   # disable paging for ES jobs
+        logger.debug(log_prefix + "handle_update_processing_new: ES job detected, paging disabled")
+
     input_output_maps = None
 
     num_input_output_maps = core_catalog.get_input_output_map_count(request_id, transform_id)
@@ -1680,8 +1684,10 @@ def handle_update_processing_new(processing, agent_attributes, max_updates_per_r
         input_output_maps = None  # free full map if we loaded it above, to save memory for polling loop
     else:
         # reload ones filtered with panda_id to avoid keeping two full maps in memory at once
+        # ES jobs track panda IDs in contents_ext, not content_metadata, so use with_panda_id=False
+        panda_id_filter = False if (hasattr(work, 'es') and work.es) else True
         logger.debug(log_prefix + "Reloading input_output_maps with panda_id filter for polling loop")
-        input_output_maps = get_input_output_maps(request_id, transform_id, work, with_deps=False, with_panda_id=True, status=status_filter, match_content_ext=True)
+        input_output_maps = get_input_output_maps(request_id, transform_id, work, with_deps=False, with_panda_id=panda_id_filter, status=status_filter, match_content_ext=True)
 
     if hasattr(work, 'input_dependency_coll_ids'):
         input_dependency_coll_ids = work.input_dependency_coll_ids

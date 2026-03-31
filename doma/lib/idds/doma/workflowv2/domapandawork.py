@@ -2353,12 +2353,20 @@ class DomaPanDAWork(Work):
         if processing:
             proc = processing['processing_metadata']['processing']
 
-            ret_poll_panda_task = self.poll_panda_task_new(processing=processing,
+            if self.es:
+                ret_poll_panda_task = self.poll_panda_task(processing=processing,
                                                            input_output_maps=input_output_maps,
                                                            contents_ext=contents_ext,
                                                            job_info_maps=job_info_maps,
                                                            executors=executors,
                                                            log_prefix=log_prefix)
+            else:
+                ret_poll_panda_task = self.poll_panda_task_new(processing=processing,
+                                                               input_output_maps=input_output_maps,
+                                                               contents_ext=contents_ext,
+                                                               job_info_maps=job_info_maps,
+                                                               executors=executors,
+                                                               log_prefix=log_prefix)
 
             processing_status, update_contents, update_contents_full, new_contents_ext, update_contents_ext = ret_poll_panda_task
             self.logger.debug(log_prefix + "poll_processing_updates, processing_status: %s" % str(processing_status))

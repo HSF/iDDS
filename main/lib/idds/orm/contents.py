@@ -456,16 +456,18 @@ def get_contents_by_request_transform(request_id=None, transform_id=None, worklo
 @read_session
 def get_input_output_map_count(request_id, transform_id, session=None):
     """
-    Return the number of distinct map_ids (jobs) for the given transform.
-    Uses a COUNT(DISTINCT map_id) query to avoid loading all content rows.
+    Return the number of distinct (map_id, sub_map_id) pairs for the given transform.
+    Uses a subquery to count distinct pairs without loading all content rows.
     request_id is included because the database uses it for virtual table partitioning.
     """
     try:
-        count = session.query(func.count(models.Content.map_id.distinct()))\
-                       .filter(models.Content.request_id == request_id)\
-                       .filter(models.Content.transform_id == transform_id)\
-                       .filter(models.Content.content_relation_type == ContentRelationType.Input)\
-                       .scalar()
+        subq = session.query(models.Content.map_id, models.Content.sub_map_id)\
+                      .filter(models.Content.request_id == request_id)\
+                      .filter(models.Content.transform_id == transform_id)\
+                      .filter(models.Content.content_relation_type == ContentRelationType.Input)\
+                      .distinct()\
+                      .subquery()
+        count = session.query(func.count()).select_from(subq).scalar()
         return count or 0
     except Exception as error:
         raise error
