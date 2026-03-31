@@ -345,6 +345,7 @@ class Poller(BaseAgent):
             ret_handle_update_processing = handle_update_processing_new(processing,
                                                                         self.agent_attributes,
                                                                         max_updates_per_round=self.max_updates_per_round,
+                                                                        max_jobs_per_round=self.max_updates_per_round,
                                                                         executors=executors,
                                                                         logger=self.logger,
                                                                         log_prefix=log_prefix)
