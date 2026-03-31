@@ -21,6 +21,9 @@
 # git token
 .githubtoken
 
+#
+.DS_Store
+
 # config files
 etc/*.cfg
 etc/*.conf
