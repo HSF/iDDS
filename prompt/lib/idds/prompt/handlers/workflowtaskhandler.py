@@ -36,21 +36,15 @@ from idds.core import catalog as core_catalog
 from idds.core import processings as core_processings
 from idds.orm.base.session import transactional_session
 
+from idds.prompt.handlers.panda import PandaClient
+
 
 setup_logging(__name__)
 
 
 @transactional_session
-def create_workflow_task(workflow, logger=None, session=None):
-    """
-    Create a workflow task from a *create_workflow_task* message.
-
-    :param workflow: The ``content.workflow`` dict from the STOMP/REST message.
-                     Expected keys: scope, name, requester, username, transform_tag,
-                     cloud, campaign, campaign_scope, campaign_group, campaign_tag,
-                     content.{run_id, core_count, memory_per_core, site, panda_attributes, ...}
-    :returns: (request_id, transform_id, processing_id, input_coll_id, output_coll_id, workload_id)
-    """
+def _create_workflow_task_records(workflow, session=None):
+    """Create all iDDS DB records for a workflow task. Returns a context dict."""
     scope = workflow.get('scope')
     name = workflow.get('name')
     requester = workflow.get('requester', 'iDDS')
@@ -158,16 +152,111 @@ def create_workflow_task(workflow, logger=None, session=None):
     }
     processing_id = core_processings.add_processing(**processing, session=session)
 
+    return {
+        'run_id': run_id,
+        'scope': scope,
+        'name': name,
+        'username': username,
+        'cloud': cloud,
+        'core_count': core_count,
+        'memory_per_core': memory_per_core,
+        'site': site,
+        'panda_attributes': panda_attributes,
+        'request_id': request_id,
+        'transform_id': transform_id,
+        'processing_id': processing_id,
+        'input_coll_id': input_coll_id,
+        'output_coll_id': output_coll_id,
+    }
+
+
+def _build_task_params(ctx):
+    """Build a PanDA task_params dict from the workflow context."""
+    panda_attrs = ctx.get('panda_attributes', {})
+    task_params = {
+        'taskName': ctx.get('name'),
+        'vo': panda_attrs.get('vo', 'wlcg'),
+        'site': panda_attrs.get('queue') or ctx.get('site'),
+        'physicalSite': panda_attrs.get('phys_site') or panda_attrs.get('physical_site'),
+        'cloud': panda_attrs.get('cloud') or ctx.get('cloud'),
+        'workingGroup': panda_attrs.get('working_group', ''),
+        'priority': panda_attrs.get('priority', 900),
+        'coreCount': panda_attrs.get('core_count') or ctx.get('core_count'),
+        'ramCount': panda_attrs.get('memory_per_core') or ctx.get('memory_per_core'),
+        'nWorkers': panda_attrs.get('num_workers') or panda_attrs.get('worker_count'),
+        'walltime': panda_attrs.get('walltime') or panda_attrs.get('timeout'),
+        'taskType': panda_attrs.get('task_type', 'prod'),
+        'processingType': panda_attrs.get('processing_type', 'merge'),
+        'prodSourceLabel': 'managed',
+        'userName': panda_attrs.get('username') or ctx.get('username', 'iDDS'),
+    }
+    # remove None values
+    return {k: v for k, v in task_params.items() if v is not None}
+
+
+@transactional_session
+def _update_workload_id(transform_id, processing_id, workload_id, session=None):
+    core_transforms.update_transform(
+        transform_id,
+        parameters={'workload_id': workload_id},
+        session=session,
+    )
+    core_processings.update_processing(
+        processing_id,
+        parameters={'workload_id': workload_id, 'status': ProcessingStatus.Submitted},
+        session=session,
+    )
+
+
+def create_workflow_task(workflow, logger=None):
+    """
+    Create a workflow task from a *create_workflow_task* message.
+
+    :param workflow: The ``content.workflow`` dict from the STOMP/REST message.
+                     Expected keys: scope, name, requester, username, transform_tag,
+                     cloud, campaign, campaign_scope, campaign_group, campaign_tag,
+                     content.{run_id, core_count, memory_per_core, site, panda_attributes, ...}
+    :returns: dict with run_id, request_id, transform_id, processing_id,
+              input_coll_id, output_coll_id, workload_id
+    """
+    ctx = _create_workflow_task_records(workflow)
+
+    request_id = ctx['request_id']
+    transform_id = ctx['transform_id']
+    processing_id = ctx['processing_id']
+    run_id = ctx['run_id']
+
+    task_params = _build_task_params(ctx)
+    workload_id = None
+    try:
+        workload_id = PandaClient().submit(task_params, logger=logger)
+        if workload_id:
+            _update_workload_id(transform_id, processing_id, workload_id)
+    except Exception as ex:
+        if logger:
+            logger.error(
+                f"create_workflow_task: PanDA submission failed for run_id={run_id}, "
+                f"request_id={request_id}, transform_id={transform_id}: {ex}"
+            )
+
     if logger:
         logger.info(
             f"create_workflow_task: request_id={request_id}, transform_id={transform_id}, "
-            f"processing_id={processing_id}, workload_id=None (pending submission)"
+            f"processing_id={processing_id}, workload_id={workload_id}"
         )
 
-    return request_id, transform_id, processing_id, input_coll_id, output_coll_id, None
+    return {
+        'run_id': run_id,
+        'request_id': request_id,
+        'transform_id': transform_id,
+        'processing_id': processing_id,
+        'input_coll_id': ctx['input_coll_id'],
+        'output_coll_id': ctx['output_coll_id'],
+        'workload_id': workload_id,
+    }
 
 
-def adjust_worker(request_id, transform_id, workload_id, parameters, logger=None):
+def adjust_worker(request_id, transform_id, workload_id, parameters, run_id=None, logger=None):
     """
     Adjust worker resource parameters for an existing workflow task.
 
@@ -192,12 +281,22 @@ def adjust_worker(request_id, transform_id, workload_id, parameters, logger=None
 
     if logger:
         logger.info(
-            f"adjust_worker: request_id={request_id}, transform_id={transform_id}, "
+            f"adjust_worker: run_id={run_id}, request_id={request_id}, transform_id={transform_id}, "
             f"workload_id={workload_id}, params={adjust_params}"
         )
 
+    return {
+        'run_id': run_id,
+        'request_id': request_id,
+        'transform_id': transform_id,
+        'workload_id': workload_id,
+        'core_count': adjust_params.get('core_count'),
+        'memory_per_core': adjust_params.get('memory_per_core'),
+        'site': adjust_params.get('site'),
+    }
 
-def close_workflow_task(request_id, parameters, logger=None):
+
+def close_workflow_task(request_id, parameters, run_id=None, logger=None):
     """
     Close a workflow task by moving its processing(s) to ToCancel status.
 
@@ -225,9 +324,17 @@ def close_workflow_task(request_id, parameters, logger=None):
 
     if logger:
         logger.info(
-            f"close_workflow_task: request_id={request_id}, transform_id={transform_id}, "
+            f"close_workflow_task: run_id={run_id}, request_id={request_id}, transform_id={transform_id}, "
             f"workload_id={workload_id}, marked {len(processings or [])} processing(s) ToCancel"
         )
+
+    return {
+        'run_id': run_id,
+        'request_id': request_id,
+        'transform_id': transform_id,
+        'workload_id': workload_id,
+        'status': 'ToCancel',
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -239,7 +346,7 @@ def handle_create_workflow_task(msg, logger=None):
     Dispatch handler for msg_type='create_workflow_task'.
 
     :param msg: Full STOMP message dict.
-    :returns: (request_id, transform_id, processing_id, input_coll_id, output_coll_id, workload_id)
+    :returns: dict with run_id, request_id, transform_id, processing_id, input_coll_id, output_coll_id
     """
     content = msg.get('content', {})
     workflow = content.get('workflow', content)
@@ -251,8 +358,10 @@ def handle_adjust_worker(msg, logger=None):
     Dispatch handler for msg_type='adjust_worker'.
 
     :param msg: Full STOMP message dict.
+    :returns: dict with run_id, request_id, transform_id, workload_id, core_count, memory_per_core, site
     """
     content = msg.get('content', {})
+    run_id = content.get('run_id')
     request_id = content.get('request_id')
     transform_id = content.get('transform_id')
     workload_id = content.get('workload_id')
@@ -262,7 +371,7 @@ def handle_adjust_worker(msg, logger=None):
         'site': content.get('site'),
         'content': content,
     }
-    adjust_worker(request_id, transform_id, workload_id, parameters, logger=logger)
+    return adjust_worker(request_id, transform_id, workload_id, parameters, run_id=run_id, logger=logger)
 
 
 def handle_close_workflow_task(msg, logger=None):
@@ -270,7 +379,9 @@ def handle_close_workflow_task(msg, logger=None):
     Dispatch handler for msg_type='close_workflow_task'.
 
     :param msg: Full STOMP message dict.
+    :returns: dict with run_id, request_id, transform_id, workload_id, status
     """
     content = msg.get('content', {})
+    run_id = content.get('run_id')
     request_id = content.get('request_id')
-    close_workflow_task(request_id, parameters=content, logger=logger)
+    return close_workflow_task(request_id, parameters=content, run_id=run_id, logger=logger)
