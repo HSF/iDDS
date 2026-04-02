@@ -119,13 +119,13 @@ def add_collection(request_id, workload_id, scope, name, coll_type=CollectionTyp
 
     :returns: collection id.
     """
-    orm_collections.add_collection(request_id=request_id, workload_id=workload_id,
-                                   scope=scope, name=name, coll_type=coll_type,
-                                   transform_id=transform_id, relation_type=relation_type,
-                                   bytes=bytes, status=status, total_files=total_files,
-                                   new_files=new_files, processing_files=processing_files,
-                                   processed_files=processed_files, retries=retries, expired_at=expired_at,
-                                   coll_metadata=coll_metadata, session=session)
+    return orm_collections.add_collection(request_id=request_id, workload_id=workload_id,
+                                          scope=scope, name=name, coll_type=coll_type,
+                                          transform_id=transform_id, relation_type=relation_type,
+                                          bytes=bytes, status=status, total_files=total_files,
+                                          new_files=new_files, processing_files=processing_files,
+                                          processed_files=processed_files, retries=retries, expired_at=expired_at,
+                                          coll_metadata=coll_metadata, session=session)
 
 
 @transactional_session
