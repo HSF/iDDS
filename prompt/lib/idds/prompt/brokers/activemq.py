@@ -418,6 +418,7 @@ class Subscriber(BaseActiveMQ):
         handler=None,
         handler_kwargs=None,
         selector=None,
+        ack="auto",
         **kwargs,
     ):
         super(Subscriber, self).__init__(
@@ -427,6 +428,7 @@ class Subscriber(BaseActiveMQ):
         self.handler = handler
         self.handler_kwargs = handler_kwargs if handler_kwargs else {}
         self.selector = selector
+        self.ack = ack
         # idle detection: timestamp of last message received
         self.last_message_at = time.time()
 
@@ -493,11 +495,11 @@ class Subscriber(BaseActiveMQ):
         conn.subscribe(
             destination=self.broker["destination"],
             id=f"{self.internal_id}",
-            ack="client-individual",
+            ack=self.ack,
             headers=headers,
         )
         self.logger.info(
-            f"Subscribed to {self.broker['destination']} with selector: {selector} on broker {broker_info}, ack mode: client-individual, headers: {headers}"
+            f"Subscribed to {self.broker['destination']} with selector: {selector} on broker {broker_info}, ack mode: {self.ack}, headers: {headers}"
         )
 
     def subscribe(self):
