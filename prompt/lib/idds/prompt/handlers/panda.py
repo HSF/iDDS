@@ -8,12 +8,17 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2025
 
+import logging
 import os
 import traceback
 
 import configparser as ConfigParser
 
 from idds.common.constants import ProcessingStatus
+from idds.common.utils import setup_logging
+
+setup_logging(__name__)
+logger = logging.getLogger(__name__)
 
 
 class PandaClient(object):
@@ -42,7 +47,7 @@ class PandaClient(object):
 
     def load_panda_urls(self):
         panda_config = self.load_panda_config()
-        self.logger.debug("panda config: %s" % panda_config)
+        logger.debug("panda config: %s" % panda_config)
         self.panda_url = None
         self.panda_url_ssl = None
         self.panda_monitor = None
