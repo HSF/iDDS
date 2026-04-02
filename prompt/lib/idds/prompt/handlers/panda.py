@@ -126,16 +126,19 @@ class PandaClient(object):
                         task_id = int(ret_string.split("=")[1])
                     elif "=" in ret_string:
                         task_id = int(ret_string.split("=")[1])
+                    else:
+                        task_id = int(ret_string)
                     return task_id
                 except Exception as ex:
                     if logger:
                         logger.warn(
                             log_prefix
-                            + "task id is not retruned: (%s) is not task id: %s"  # noqa W503
+                            + "task id is not returned: (%s) is not task id: %s"  # noqa W503
                             % (return_code[1][1], str(ex))
                         )
-                    if return_code[1][1] and "jediTaskID=" in return_code[1][1]:
-                        parts = return_code[1][1].split(" ")
+                    ret_string = str(return_code[1][1])
+                    if ret_string and "jediTaskID=" in ret_string:
+                        parts = ret_string.split(" ")
                         for part in parts:
                             if "jediTaskID=" in part:
                                 task_id = int(part.split("=")[1])
