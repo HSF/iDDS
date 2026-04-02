@@ -681,6 +681,48 @@ def json_loads(obj):
     return json.loads(obj, object_hook=as_has_dict)
 
 
+def mask_passwords(obj, password_keys=None, mask='****'):
+    """
+    Return a copy of the given mapping with values masked for keys that
+    indicate passwords. The function is recursive for nested dicts and will
+    also handle lists containing dicts.
+
+    :param obj: mapping (dict-like) or list to mask
+    :param password_keys: iterable of substrings to consider as password keys
+                          (case-insensitive). Defaults to ('password', 'passwd', 'pass').
+    :param mask: replacement string for masked values
+    :returns: masked copy of obj
+    """
+    if password_keys is None:
+        password_keys = ('password', 'passwd', 'pass')
+
+    def _is_password_key(k):
+        if not isinstance(k, str):
+            return False
+        lk = k.lower()
+        for sub in password_keys:
+            if sub in lk:
+                return True
+        return False
+
+    if isinstance(obj, dict):
+        new = {}
+        for k, v in obj.items():
+            if _is_password_key(k):
+                # mask any scalar or complex value
+                new[k] = mask
+            else:
+                if isinstance(v, dict) or isinstance(v, list):
+                    new[k] = mask_passwords(v, password_keys=password_keys, mask=mask)
+                else:
+                    new[k] = v
+        return new
+    elif isinstance(obj, list):
+        return [mask_passwords(i, password_keys=password_keys, mask=mask) if isinstance(i, (dict, list)) else i for i in obj]
+    else:
+        return obj
+
+
 def get_parameters_from_string(text):
     """
     Find all strings starting with '%'. For example, for this string below, it should return ['NUM_POINTS', 'IN', 'OUT']
