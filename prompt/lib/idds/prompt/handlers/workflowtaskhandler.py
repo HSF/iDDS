@@ -176,22 +176,55 @@ def _build_task_params(ctx):
     task_params = {
         'taskName': ctx.get('name'),
         'vo': panda_attrs.get('vo', 'wlcg'),
-        'site': panda_attrs.get('queue') or ctx.get('site'),
-        'physicalSite': panda_attrs.get('phys_site') or panda_attrs.get('physical_site'),
-        'cloud': panda_attrs.get('cloud') or ctx.get('cloud'),
-        'workingGroup': panda_attrs.get('working_group', ''),
-        'priority': panda_attrs.get('priority', 900),
-        'coreCount': panda_attrs.get('core_count') or ctx.get('core_count'),
-        'ramCount': panda_attrs.get('memory_per_core') or ctx.get('memory_per_core'),
-        'nWorkers': panda_attrs.get('num_workers') or panda_attrs.get('worker_count'),
-        'walltime': panda_attrs.get('walltime') or panda_attrs.get('timeout'),
-        'taskType': panda_attrs.get('task_type', 'prod'),
-        'processingType': panda_attrs.get('processing_type', 'merge'),
+        'site': ctx.get('queue') or panda_attrs.get('queue'),
+        'PandaSite': ctx.get('site') or panda_attrs.get('site'),
+        'cloud': ctx.get('cloud') or panda_attrs.get('cloud'),
+        'workingGroup': panda_attrs.get('working_group', None),
+        'taskPriority': panda_attrs.get('priority', 900),
+        'architecture': panda_attrs.get('architecture', None),
+        'transUses': panda_attrs.get('trans_uses', ''),
+        'transHome': panda_attrs.get('trans_home', None),
+        'transPath': panda_attrs.get('trans_path', 'https://storage.googleapis.com/drp-us-central1-containers/run_prompt_wrapper'),
+        'processingType': panda_attrs.get('processing_type', 'EIC'),
         'prodSourceLabel': 'managed',
-        'userName': panda_attrs.get('username') or ctx.get('username', 'iDDS'),
+        'taskType': panda_attrs.get('task_type', 'iDDS'),
+        'coreCount': ctx.get('core_count') or panda_attrs.get('core_count'),
+        'skipScout': True,
+        'ramCount': ctx.get('memory_per_core') or panda_attrs.get('memory_per_core'),
+        'ramUnit': "MBPerCoreFixed",
+        'prestagingRuleID': 123,
+        'nChunksToWait': 1,
+        'maxCpuCount': ctx.get('core_count') or panda_attrs.get('core_count') or 1,
+        'maxWalltime': panda_attrs.get('walltime') or 12 * 3600,   # default to 12 hours
+        'maxFailure': panda_attrs.get('max_failure') or 3,
+        'maxAttempt': panda_attrs.get('max_attempt') or 3,
     }
+
+    idle_timeout = panda_attrs.get("idle_timeout", 120)
+    run_id = ctx.get('run_id')
+    executable = f"--run_id {run_id} --idle_timeout {idle_timeout}"
+    task_params["jobParameters"] = [
+        {
+            "type": "constant",
+            "value": executable,  # noqa: E501
+        },
+    ]
+
+    in_files = [f"{run_id}"]
+    task_params["nFiles"] = len(in_files)
+    task_params["noInput"] = True
+    task_params["pfnList"] = in_files
+    task_params["nFilesPerJob"] = 1
+
+    num_workers = ctx.get('num_workers') or panda_attrs.get('num_workers', 1)
+    task_params["nEvents"] = num_workers
+    task_params["nEventsPerJob"] = 1
+
+    task_params["reqID"] = ctx.get('request_id')
+
     # remove None values
-    return {k: v for k, v in task_params.items() if v is not None}
+    # return {k: v for k, v in task_params.items() if v is not None}
+    return task_params
 
 
 @transactional_session
