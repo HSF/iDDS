@@ -111,7 +111,8 @@ class MessagingListener(stomp.ConnectionListener):
             self.handler(headers, json_loads(frame.body), self.handler_kwargs)
             # Some stomp.py versions do not accept a `subscription=` keyword
             # argument for ack/nack. Use positional args: (message-id, subscription).
-            self.conn.ack(frame.headers["message-id"])
+            if self.subscriber is None or self.subscriber.ack != "auto":
+                self.conn.ack(frame.headers["message-id"])
         except Exception as ex:
             self.logger.error(f"Failed to handle message: {ex}", exc_info=True)
             if self.subscriber is not None:
@@ -119,11 +120,12 @@ class MessagingListener(stomp.ConnectionListener):
 
             # Attempt to nack using flexible signatures; if transport is gone,
             # trigger reconnect via subscriber.monitor().
-            try:
-                self.conn.nack(frame.headers["message-id"])
-            except Exception:
-                # If nack is unavailable or fails, log and move on.
-                self.logger.exception("nack failed")
+            if self.subscriber is None or self.subscriber.ack != "auto":
+                try:
+                    self.conn.nack(frame.headers["message-id"])
+                except Exception:
+                    # If nack is unavailable or fails, log and move on.
+                    self.logger.exception("nack failed")
 
         # update last seen timestamp on the subscriber (idle detection)
         if self.subscriber is not None:
