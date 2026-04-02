@@ -238,10 +238,13 @@ class BaseActiveMQ(PluginBase):
             conn = stomp.Connection12(
                 host_and_ports=[(broker, port)],
                 keepalive=True,
+                try_loopback_connect=False,
+                auto_content_length=False,
                 # Shorter heartbeats (ms) so client/broker detect dead peers faster
-                heartbeats=(10000, 10000),
+                heartbeats=(50000, 50000),
                 # timeout=broker_timeout,
             )
+            
             if use_ssl:
                 conn.transport.set_ssl(
                     for_hosts=[(broker, port)],
