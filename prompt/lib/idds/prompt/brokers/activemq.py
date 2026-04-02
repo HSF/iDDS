@@ -485,11 +485,7 @@ class Subscriber(BaseActiveMQ):
         except Exception:
             pass
 
-        headers = {
-            "subscription-name": self.internal_id,
-            "durable": False,
-            "activemq.prefetchSize": "1",
-        }
+        headers = {}
 
         if selector:
             headers["selector"] = selector
