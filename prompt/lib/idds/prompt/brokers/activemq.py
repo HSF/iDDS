@@ -280,6 +280,7 @@ class BaseActiveMQ(PluginBase):
                         self.broker["username"],
                         self.broker["password"],
                         wait=True,
+                        heartbeats=(30000, 30000),
                         headers={"client-id": self.internal_id, "heart-beat": "30000,30000"}
                     )
                 # conn.start()
@@ -300,6 +301,7 @@ class BaseActiveMQ(PluginBase):
                     self.broker["username"],
                     self.broker["password"],
                     wait=True,
+                    heartbeats=(30000, 30000),
                     headers={"client-id": self.internal_id, "heart-beat": "30000,30000"}
                 )
                 # conn.start()
@@ -460,6 +462,7 @@ class Subscriber(BaseActiveMQ):
             self.broker["username"],
             self.broker["password"],
             wait=True,
+            heartbeats=(30000, 30000),
             headers={"client-id": self.internal_id, "heart-beat": "30000,30000"},
         )
         # conn.start()
