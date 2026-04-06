@@ -231,7 +231,7 @@ def add_transform_outputs(transform, transform_parameters, input_collections=Non
 
     :raises DatabaseException: If there is a database error.
     """
-    work = transform['transform_metadata']['work'] if transform.get('transform_metadata') else None
+    work = transform['transform_metadata']['work'] if transform.get('transform_metadata') and 'work' in transform.get('transform_metadata') else None
 
     new_pr_ids, update_pr_ids = [], []
 
@@ -314,9 +314,9 @@ def add_transform_outputs(transform, transform_parameters, input_collections=Non
     if transform:
         if processing_id:
             # work.set_processing_id(new_processing, processing_id)
-            if hasattr(work, 'set_processing_id'):
+            if work and hasattr(work, 'set_processing_id'):
                 work.set_processing_id(new_processing['processing_metadata']['processing'], processing_id)
-        if hasattr(work, 'refresh_work'):
+        if work and hasattr(work, 'refresh_work'):
             work.refresh_work()
         orm_transforms.update_transform(transform_id=transform['transform_id'],
                                         parameters=transform_parameters,
