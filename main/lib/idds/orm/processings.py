@@ -425,7 +425,7 @@ def update_processing(processing_id, parameters, locking=False, session=None):
                                                                ProcessingStatus.Lost]:
             parameters['finished_at'] = datetime.datetime.utcnow()
 
-        if parameters and 'processing_metadata' in parameters and 'processing' in parameters['processing_metadata']:
+        if parameters and 'processing_metadata' in parameters and parameters['processing_metadata'] and 'processing' in parameters['processing_metadata']:
             proc = parameters['processing_metadata']['processing']
             if proc is not None:
                 if 'running_metadata' not in parameters:
