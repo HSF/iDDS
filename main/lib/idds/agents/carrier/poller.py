@@ -223,11 +223,13 @@ class Poller(BaseAgent):
         return work_tag_attribute_value
 
     def load_poll_period(self, processing, parameters, new=False):
-        if 'processing' in processing['processing_metadata']:
+        if processing.get('processing_metadata') and 'processing' in processing['processing_metadata']:
             proc = processing['processing_metadata']['processing']
             work = proc.work
-        else:
+        elif processing.get('processing_metadata') and 'work' in processing['processing_metadata']:
             work = processing['processing_metadata']['work']
+        else:
+            return parameters
 
         work_tag = work.get_work_tag()
 
