@@ -101,6 +101,7 @@ def _create_workflow_task_records(workflow, session=None):
         'transform_type': TransformType.iWork,
         'transform_tag': transform_tag,
         'name': name,
+        'run_id': str(run_id) if run_id is not None else None,
         'status': TransformStatus.New,
         'substatus': TransformStatus.New,
         'transform_metadata': {
@@ -141,6 +142,7 @@ def _create_workflow_task_records(workflow, session=None):
         'status': ProcessingStatus.New,
         'submitter': 'panda',
         'site': site,
+        'run_id': str(run_id) if run_id is not None else None,
         'processing_type': ProcessingType.iWork,
         'processing_metadata': {
             'core_count': core_count,
@@ -335,11 +337,31 @@ def close_workflow_task(request_id, parameters, run_id=None, logger=None):
 
     The carrier agent will detect ToCancel and close the PanDA task.
 
-    :param request_id:  iDDS request id.
+    :param request_id:  iDDS request id (may be None; run_id is used as fallback).
     :param parameters:  Dict that may include transform_id, workload_id, run_id.
     """
     transform_id = parameters.get('transform_id') if parameters else None
     workload_id = parameters.get('workload_id') if parameters else None
+
+    # If request_id is not provided, resolve it via run_id
+    if not request_id and run_id is not None:
+        transforms = core_transforms.get_transforms(run_id=run_id)
+        if transforms:
+            request_id = transforms[0].get('request_id')
+            if not transform_id:
+                transform_id = transforms[0].get('transform_id')
+        if not request_id:
+            if logger:
+                logger.warning(
+                    f"close_workflow_task: no transform found for run_id={run_id}; nothing to close"
+                )
+            return {
+                'run_id': run_id,
+                'request_id': None,
+                'transform_id': None,
+                'workload_id': None,
+                'status': 'NotFound',
+            }
 
     processings = core_processings.get_processings(
         request_id=request_id,

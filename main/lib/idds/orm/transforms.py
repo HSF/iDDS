@@ -374,13 +374,14 @@ def get_transform_ids(workprogress_id=None, request_id=None, workload_id=None, t
 
 @read_session
 def get_transforms(request_id=None, workload_id=None, transform_id=None, loop_index=None, internal_ids=None,
-                   to_json=False, session=None):
+                   run_id=None, to_json=False, session=None):
     """
     Get transforms or raise a NoObject exception.
 
     :param request_id: Request id.
     :param workload_id: Workload id.
     :param transform_id: Transform id.
+    :param run_id: Run id.
     :param session: The database session in use.
 
     :raises NoObject: If no transform is founded.
@@ -397,6 +398,8 @@ def get_transforms(request_id=None, workload_id=None, transform_id=None, loop_in
             query = query.filter(models.Transform.transform_id == transform_id)
         if loop_index is not None:
             query = query.filter(models.Transform.loop_index == loop_index)
+        if run_id is not None:
+            query = query.filter(models.Transform.run_id == str(run_id))
         if internal_ids:
             if not isinstance(internal_ids, (list, tuple)):
                 internal_ids = [internal_ids]

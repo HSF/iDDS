@@ -141,11 +141,13 @@ def get_transform_ids(workprogress_id, request_id=None, workload_id=None, transf
 
 
 @read_session
-def get_transforms(request_id=None, workload_id=None, transform_id=None, loop_index=None, internal_ids=None, to_json=False, session=None):
+def get_transforms(request_id=None, workload_id=None, transform_id=None, loop_index=None, internal_ids=None,
+                   run_id=None, to_json=False, session=None):
     """
     Get transforms or raise a NoObject exception.
 
     :param workprogress_id: Workprogress id.
+    :param run_id: Run id.
     :param to_json: return json format.
     :param session: The database session in use.
 
@@ -158,6 +160,7 @@ def get_transforms(request_id=None, workload_id=None, transform_id=None, loop_in
                                          transform_id=transform_id,
                                          loop_index=loop_index,
                                          internal_ids=internal_ids,
+                                         run_id=run_id,
                                          to_json=to_json, session=session)
 
 

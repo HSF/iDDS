@@ -88,7 +88,7 @@ def get_processing(processing_id=None, request_id=None, transform_id=None, to_js
 
 @read_session
 def get_processings(request_id=None, workload_id=None, transform_id=None, loop_index=None, internal_ids=None,
-                    site=None, parent_internal_ids=None, to_json=False, session=None):
+                    site=None, parent_internal_ids=None, run_id=None, to_json=False, session=None):
     """
     Get processing or raise a NoObject exception.
 
@@ -107,6 +107,7 @@ def get_processings(request_id=None, workload_id=None, transform_id=None, loop_i
         loop_index=loop_index,
         internal_ids=internal_ids,
         site=site,
+        run_id=run_id,
         to_json=to_json, session=session
     )
     if not prs or not parent_internal_ids:
