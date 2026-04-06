@@ -539,11 +539,11 @@ class Poller(BaseAgent):
 
             update_processing['parameters'] = self.load_poll_period(processing, update_processing['parameters'])
 
-            if 'submitted_at' in processing['processing_metadata']:
+            if processing.get('processing_metadata') and 'submitted_at' in processing['processing_metadata']:
                 if not processing['submitted_at'] or processing['submitted_at'] < processing['processing_metadata']['submitted_at']:
                     parameters['submitted_at'] = processing['processing_metadata']['submitted_at']
 
-            if 'workload_id' in processing['processing_metadata']:
+            if processing.get('processing_metadata') and 'workload_id' in processing['processing_metadata']:
                 parameters['workload_id'] = processing['processing_metadata']['workload_id']
 
             # update_processing['parameters']['expired_at'] = work.get_expired_at(processing)
