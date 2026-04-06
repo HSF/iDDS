@@ -36,7 +36,7 @@ def add_transform(request_id, workload_id, transform_type, transform_tag=None, p
                   internal_id=None, has_previous_conditions=None, loop_index=None,
                   parent_internal_id=None, command=CommandType.NoneCommand,
                   cloned_from=None, triggered_conditions=None, untriggered_conditions=None,
-                  site=None, workprogress_id=None, session=None):
+                  site=None, workprogress_id=None, run_id=None, session=None):
     """
     Add a transform.
 
@@ -78,7 +78,7 @@ def add_transform(request_id, workload_id, transform_type, transform_tag=None, p
                                                 loop_index=loop_index, cloned_from=cloned_from,
                                                 triggered_conditions=triggered_conditions,
                                                 untriggered_conditions=untriggered_conditions,
-                                                workprogress_id=workprogress_id, session=session)
+                                                workprogress_id=workprogress_id, run_id=run_id, session=session)
     return transform_id
 
 

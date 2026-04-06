@@ -36,7 +36,7 @@ def create_transform(request_id, workload_id, transform_type, transform_tag=None
                      internal_id=None, has_previous_conditions=None, loop_index=None,
                      parent_internal_id=None, command=CommandType.NoneCommand,
                      cloned_from=None, triggered_conditions=None, untriggered_conditions=None,
-                     site=None, retries=0, expired_at=None, transform_metadata=None):
+                     site=None, retries=0, expired_at=None, run_id=None, transform_metadata=None):
     """
     Create a transform.
 
@@ -69,6 +69,7 @@ def create_transform(request_id, workload_id, transform_type, transform_tag=None
                                      loop_index=loop_index, cloned_from=cloned_from,
                                      triggered_conditions=triggered_conditions,
                                      untriggered_conditions=untriggered_conditions,
+                                     run_id=run_id,
                                      transform_metadata=transform_metadata)
     if new_poll_period:
         new_poll_period = datetime.timedelta(seconds=new_poll_period)
@@ -88,7 +89,7 @@ def add_transform(request_id, workload_id, transform_type, transform_tag=None, p
                   internal_id=None, has_previous_conditions=None, loop_index=None,
                   parent_internal_id=None, command=CommandType.NoneCommand,
                   cloned_from=None, triggered_conditions=None, untriggered_conditions=None,
-                  transform_metadata=None, workprogress_id=None, site=None, session=None):
+                  transform_metadata=None, workprogress_id=None, site=None, run_id=None, session=None):
     """
     Add a transform.
 
@@ -127,6 +128,7 @@ def add_transform(request_id, workload_id, transform_type, transform_tag=None, p
                                          loop_index=loop_index, cloned_from=cloned_from,
                                          triggered_conditions=triggered_conditions,
                                          untriggered_conditions=untriggered_conditions,
+                                         run_id=run_id,
                                          transform_metadata=transform_metadata)
         new_transform.save(session=session)
         transform_id = new_transform.transform_id
