@@ -231,7 +231,7 @@ def add_transform_outputs(transform, transform_parameters, input_collections=Non
 
     :raises DatabaseException: If there is a database error.
     """
-    work = transform['transform_metadata']['work']
+    work = transform['transform_metadata']['work'] if transform.get('transform_metadata') else None
 
     new_pr_ids, update_pr_ids = [], []
 
