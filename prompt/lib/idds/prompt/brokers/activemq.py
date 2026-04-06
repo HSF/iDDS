@@ -19,8 +19,6 @@ import traceback
 import stomp
 import uuid
 
-from cachetools import TTLCache
-
 from idds.common.plugin.plugin_base import PluginBase
 from idds.common.utils import setup_logging, json_dumps, json_loads
 
@@ -41,16 +39,11 @@ class MessagingListener(stomp.ConnectionListener):
     def __init__(
         self, broker, handler, handler_kwargs, conn, logger=None, subscriber=None, namespace=None
     ):
-        """
-        __init__
-        """
         super(MessagingListener, self).__init__()
-        # self.name = "MessagingListener"
         self.__broker = broker
         self.handler = handler
         self.handler_kwargs = handler_kwargs
         self.conn = conn
-        # optional reference to the Subscriber that created this listener
         self.subscriber = subscriber
         self.namespace = namespace
 
@@ -60,9 +53,6 @@ class MessagingListener(stomp.ConnectionListener):
             self.logger = logging.getLogger(self.__class__.__name__)
 
     def on_error(self, frame):
-        """
-        Error handler
-        """
         self.logger.error("[broker] [%s]: headers:%s, body: %s", self.__broker, frame.headers, frame.body)
 
     def on_disconnected(self):
@@ -75,18 +65,8 @@ class MessagingListener(stomp.ConnectionListener):
                 pass
 
     def on_connected(self, headers, body=None):
-        """Log CONNECTED headers negotiated with the broker (if available).
-
-        Different stomp.py versions may call this with a frame-like object or
-        (headers, body). Be flexible when extracting headers.
-        """
         try:
-            hdrs = None
-            if hasattr(headers, "headers"):
-                # a frame-like object
-                hdrs = headers.headers
-            else:
-                hdrs = headers
+            hdrs = headers.headers if hasattr(headers, "headers") else headers
             self.logger.info("STOMP CONNECTED from broker %s: %s", self.__broker, hdrs)
         except Exception:
             self.logger.info("STOMP CONNECTED from broker %s (failed to extract headers)", self.__broker)
@@ -109,8 +89,6 @@ class MessagingListener(stomp.ConnectionListener):
                     pass
 
             self.handler(headers, json_loads(frame.body), self.handler_kwargs)
-            # Some stomp.py versions do not accept a `subscription=` keyword
-            # argument for ack/nack. Use positional args: (message-id, subscription).
             if self.subscriber is None or self.subscriber.ack != "auto":
                 self.conn.ack(frame.headers["message-id"])
         except Exception as ex:
@@ -118,16 +96,12 @@ class MessagingListener(stomp.ConnectionListener):
             if self.subscriber is not None:
                 self.subscriber.fail()
 
-            # Attempt to nack using flexible signatures; if transport is gone,
-            # trigger reconnect via subscriber.monitor().
             if self.subscriber is None or self.subscriber.ack != "auto":
                 try:
                     self.conn.nack(frame.headers["message-id"])
                 except Exception:
-                    # If nack is unavailable or fails, log and move on.
                     self.logger.exception("nack failed")
 
-        # update last seen timestamp on the subscriber (idle detection)
         if self.subscriber is not None:
             try:
                 self.subscriber.last_message_at = time.time()
@@ -165,7 +139,6 @@ class BaseActiveMQ(PluginBase):
             self.timetolive = int(self.timetolive)
 
         self.conns = []
-        self.cache = TTLCache(maxsize=200, ttl=86400)  # cache expiration 86400 seconds
         self.graceful_stop = threading.Event()
 
     def setup_logger(self, logger):
@@ -182,76 +155,61 @@ class BaseActiveMQ(PluginBase):
         self.graceful_stop.set()
         self.disconnect(self.conns)
 
-    def connect_to_messaging_brokers(self, sender=True):
+    def connect_to_messaging_brokers(self, sender=True, resolve_addresses=False):
         if self.conns:
             self.disconnect(self.conns)
 
-        brokers = self.broker["brokers"]
-        if type(brokers) in [list, tuple]:
-            pass
-        else:
-            brokers = brokers.split(",")
-
-        broker_timeout = self.broker.get("broker_timeout", 10)   # noqa F841
+        # Support both "broker" (singular, idds.cfg format) and "brokers" keys
+        brokers = self.broker.get("brokers") or self.broker.get("broker")
+        if brokers is None:
+            raise KeyError("broker config must contain 'broker' or 'brokers' key")
+        if not isinstance(brokers, (list, tuple)):
+            brokers = [b.strip() for b in brokers.split(",")]
 
         broker_addresses = []
         for b in brokers:
             try:
-                b, port = b.split(":")
+                host, port_str = b.strip().rsplit(":", 1)
+                port = int(port_str)
 
-                # Ask for IPv4 stream (TCP) addresses to avoid duplicate
-                # entries for multiple socket types. Some platforms/DNS
-                # configurations return the same address more than once;
-                # we'll deduplicate below.
+                if not resolve_addresses:
+                    broker_addresses.append((host, port))
+                    continue
+
                 addrinfos = socket.getaddrinfo(
-                    b, 0, socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP
+                    host, 0, socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP
                 )
-
                 seen = set()
                 for addrinfo in addrinfos:
-                    b_addr = addrinfo[4][0]
-                    try:
-                        p = int(port)
-                    except Exception:
-                        p = port
-                    pair = (b_addr, p)
-                    if pair in seen:
-                        continue
-                    seen.add(pair)
-                    broker_addresses.append(pair)
+                    pair = (addrinfo[4][0], port)
+                    if pair not in seen:
+                        seen.add(pair)
+                        broker_addresses.append(pair)
             except socket.gaierror as error:
                 self.logger.error("Cannot resolve hostname %s: %s" % (b, str(error)))
 
         self.logger.info(
-            "Resolved broker addresses for channel %s with brokers %s: %s"
+            "Broker addresses for channel %s with brokers %s: %s"
             % (self.name, brokers, broker_addresses)
         )
 
         use_ssl = self.broker.get("use_ssl", False)
-        ssl_ca_certs = self.broker.get("ssl_ca_certs", None)
-        if use_ssl:
-            import ssl
-            ssl_version = (ssl.PROTOCOL_TLS_CLIENT if ssl_ca_certs else ssl.PROTOCOL_TLS)
-        else:
-            ssl_version = None
 
         conns = []
-        for broker, port in broker_addresses:
+        for broker_host, broker_port in broker_addresses:
             conn = stomp.Connection12(
-                host_and_ports=[(broker, port)],
+                host_and_ports=[(broker_host, broker_port)],
                 keepalive=True,
                 try_loopback_connect=False,
                 auto_content_length=False,
-                # Shorter heartbeats (ms) so client/broker detect dead peers faster
                 heartbeats=(50000, 50000),
-                # timeout=broker_timeout,
             )
-            
             if use_ssl:
-                conn.transport.set_ssl(
-                    for_hosts=[(broker, port)],
-                    ca_certs=ssl_ca_certs if use_ssl else None,
-                    ssl_version=ssl_version,
+                conn.set_ssl(
+                    for_hosts=[(broker_host, broker_port)],
+                    key_file=self.broker.get("ssl_key_file"),
+                    cert_file=self.broker.get("ssl_cert_file"),
+                    ca_certs=self.broker.get("ssl_ca_certs"),
                 )
             conns.append(conn)
         self.conns = conns
@@ -281,14 +239,12 @@ class BaseActiveMQ(PluginBase):
                         self.broker["password"],
                         wait=True,
                         heartbeats=(30000, 30000),
-                        headers={"client-id": self.internal_id, "heart-beat": "30000,30000"}
+                        headers={"client-id": self.internal_id, "heart-beat": "30000,30000"},
                     )
-                # conn.start()
                 return conn
         except Exception as error:
             self.logger.error(
-                "Failed to connect to message broker(will re-resolve brokers): %s"
-                % str(error)
+                "Failed to connect to message broker (will re-resolve brokers): %s" % str(error)
             )
 
         self.disconnect(self.conns)
@@ -302,14 +258,12 @@ class BaseActiveMQ(PluginBase):
                     self.broker["password"],
                     wait=True,
                     heartbeats=(30000, 30000),
-                    headers={"client-id": self.internal_id, "heart-beat": "30000,30000"}
+                    headers={"client-id": self.internal_id, "heart-beat": "30000,30000"},
                 )
-                # conn.start()
             return conn
         except Exception as error:
             self.logger.error(
-                "Failed to connect to message broker(will re-resolve brokers): %s"
-                % str(error)
+                "Failed to connect to message broker (will re-resolve brokers): %s" % str(error)
             )
 
         self.fail()
@@ -352,18 +306,9 @@ class Publisher(BaseActiveMQ):
         """
         Publish a message to the broker.
 
-        Based on prompt.md, all message headers should contain:
-        - 'persistent': 'true'
-        - 'ttl': time to live in milliseconds
-        - 'vo': 'eic'
-        - 'namespace': namespace
-        - 'msg_type': message type
-        - 'run_id': run identifier
-
         :param msg: Message dictionary to publish (should contain 'msg_type' and 'run_id')
-        :param headers: Optional headers dictionary (can override defaults)
+        :param headers: Optional headers dictionary (overrides defaults)
         """
-        # msg_id = msg.get("msg_id", "unknown")
         namespace = getattr(self, "namespace", None)
         msg_type = msg.get("msg_type", "unknown")
         run_id = msg.get("run_id", "unknown")
@@ -377,7 +322,6 @@ class Publisher(BaseActiveMQ):
             )
             return
 
-        # Prepare headers according to prompt.md specifications
         send_headers = {
             "persistent": "true",
             "ttl": self.timetolive,
@@ -386,14 +330,14 @@ class Publisher(BaseActiveMQ):
             "run_id": run_id,
             "client-id": self.internal_id,
         }
+        if namespace is not None:
+            send_headers["namespace"] = namespace
 
-        # Override with custom headers if provided
+        # Caller-provided headers take precedence
         if headers:
             send_headers.update(headers)
 
         try:
-            if namespace is not None:
-                send_headers["namespace"] = namespace
             conn.send(
                 body=json_dumps(msg),
                 destination=self.broker["destination"],
@@ -433,12 +377,8 @@ class Subscriber(BaseActiveMQ):
         self.handler_kwargs = handler_kwargs if handler_kwargs else {}
         self.selector = selector
         self.ack = ack
-        # idle detection: timestamp of last message received
         self.last_message_at = time.time()
-
-        # default idle threshold in seconds (can be overridden by passing 'idle_seconds' in kwargs)
         self.idle_seconds = int(kwargs.get("idle_seconds", 5))
-
         self.is_processing_message = False
 
     def get_listener(self, broker, conn):
@@ -452,10 +392,16 @@ class Subscriber(BaseActiveMQ):
                 logger=self.logger,
                 subscriber=self,
             )
+        else:
+            # Update conn reference so ack/nack uses the live connection
+            self.listener.conn = conn
         return self.listener
 
     def subscribe_conn(self, conn):
-        broker_info = conn.transport._Transport__host_and_ports[0][0]
+        try:
+            broker_info = conn.transport._Transport__host_and_ports[0][0]
+        except Exception:
+            broker_info = str(conn)
         self.logger.info(f"connecting to: {broker_info}")
         conn.set_listener("message-receiver", self.get_listener(broker_info, conn=conn))
         conn.connect(
@@ -465,42 +411,29 @@ class Subscriber(BaseActiveMQ):
             heartbeats=(30000, 30000),
             headers={"client-id": self.internal_id, "heart-beat": "30000,30000"},
         )
-        # conn.start()
 
-        # conn.subscribe(destination=self.broker['destination'], id=f'{self.internal_id}',
-        #                ack='client-individual', headers={'activemq.prefetchSize': '1'})
-        # Build a broker-side selector so filtering happens before delivery.
         if self.namespace is not None:
             if self.selector:
-                # Quote namespace to handle string values in selectors
                 selector = f"namespace='{self.namespace}' AND ({self.selector})"
             else:
                 selector = f"namespace='{self.namespace}'"
         else:
-            if self.selector:
-                selector = f"{self.selector}"
-            else:
-                selector = None
+            selector = self.selector or None
 
-        # update last_message_at when subscription is established
-        try:
-            self.last_message_at = time.time()
-        except Exception:
-            pass
+        self.last_message_at = time.time()
 
-        headers = {}
-
+        sub_headers = {}
         if selector:
-            headers["selector"] = selector
+            sub_headers["selector"] = selector
 
         conn.subscribe(
             destination=self.broker["destination"],
             id=f"{self.internal_id}",
             ack=self.ack,
-            headers=headers,
+            headers=sub_headers,
         )
         self.logger.info(
-            f"Subscribed to {self.broker['destination']} with selector: {selector} on broker {broker_info}, ack mode: {self.ack}, headers: {headers}"
+            f"Subscribed to {self.broker['destination']} with selector: {selector} on broker {broker_info}, ack mode: {self.ack}, headers: {sub_headers}"
         )
 
     def subscribe(self):
@@ -515,11 +448,9 @@ class Subscriber(BaseActiveMQ):
         """Return True if no message has been received for at least idle_seconds."""
         if self.is_processing_message:
             return False
-
         if idle_seconds is None:
             idle_seconds = self.idle_seconds
-        last = getattr(self, "last_message_at", 0)
-        return (time.time() - last) > float(idle_seconds)
+        return (time.time() - getattr(self, "last_message_at", 0)) > float(idle_seconds)
 
     def wait_for_idle(self, timeout=None, poll_interval=0.5):
         """Block until the subscriber is idle or timeout (seconds) elapses.
