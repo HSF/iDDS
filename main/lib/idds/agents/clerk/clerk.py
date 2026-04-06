@@ -1465,7 +1465,14 @@ class Clerk(BaseAgent):
         if req['request_type'] in [RequestType.iWorkflowLocal]:
             workflow = req['request_metadata'].get('workflow', None)
             if workflow and req['created_at'] + datetime.timedelta(seconds=workflow.max_walltime) < datetime.datetime.utcnow():
-                req_status = RequestStatus.Finished
+                # req_status = RequestStatus.Finished
+                if total_tfs == finished_tfs:
+                    req_status = RequestStatus.Finished
+                elif total_tfs == finished_tfs + subfinished_tfs + failed_tfs:
+                    if finished_tfs + subfinished_tfs > 0:
+                        req_status = RequestStatus.SubFinished
+                    else:
+                        req_status = RequestStatus.Failed
         else:
             if total_tfs == finished_tfs:
                 req_status = RequestStatus.Finished
