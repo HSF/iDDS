@@ -8,12 +8,17 @@
 # Authors:
 # - Wen Guan, <wen.guan@cern.ch>, 2025
 
+import logging
 import os
 import traceback
 
 import configparser as ConfigParser
 
 from idds.common.constants import ProcessingStatus
+from idds.common.utils import setup_logging
+
+setup_logging(__name__)
+logger = logging.getLogger(__name__)
 
 
 class PandaClient(object):
@@ -27,7 +32,7 @@ class PandaClient(object):
         if os.environ.get("IDDS_PANDA_CONFIG", None):
             configfile = os.environ["IDDS_PANDA_CONFIG"]
             if panda_config.read(configfile) == [configfile]:
-                return panda_config
+                return panda_config, configfile
 
         configfiles = [
             "%s/etc/panda/panda.cfg" % os.environ.get("IDDS_HOME", ""),
@@ -37,12 +42,12 @@ class PandaClient(object):
         ]
         for configfile in configfiles:
             if panda_config.read(configfile) == [configfile]:
-                return panda_config
-        return panda_config
+                return panda_config, configfile
+        return panda_config, None
 
     def load_panda_urls(self):
-        panda_config = self.load_panda_config()
-        # self.logger.debug("panda config: %s" % panda_config)
+        panda_config, panda_configfile = self.load_panda_config()
+        logger.debug("panda config file: %s" % panda_configfile)
         self.panda_url = None
         self.panda_url_ssl = None
         self.panda_monitor = None
@@ -121,16 +126,19 @@ class PandaClient(object):
                         task_id = int(ret_string.split("=")[1])
                     elif "=" in ret_string:
                         task_id = int(ret_string.split("=")[1])
+                    else:
+                        task_id = int(ret_string)
                     return task_id
                 except Exception as ex:
                     if logger:
                         logger.warn(
                             log_prefix
-                            + "task id is not retruned: (%s) is not task id: %s"  # noqa W503
+                            + "task id is not returned: (%s) is not task id: %s"  # noqa W503
                             % (return_code[1][1], str(ex))
                         )
-                    if return_code[1][1] and "jediTaskID=" in return_code[1][1]:
-                        parts = return_code[1][1].split(" ")
+                    ret_string = str(return_code[1][1])
+                    if ret_string and "jediTaskID=" in ret_string:
+                        parts = ret_string.split(" ")
                         for part in parts:
                             if "jediTaskID=" in part:
                                 task_id = int(part.split("=")[1])

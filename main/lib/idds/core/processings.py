@@ -28,7 +28,7 @@ def add_processing(request_id, workload_id, transform_id, status, submitter=None
                    substatus=ProcessingStatus.New, granularity=None,
                    granularity_type=GranularityType.File,
                    processing_type=ProcessingType.Workflow,
-                   site=None,
+                   site=None, run_id=None,
                    command=CommandType.NoneCommand,
                    new_poll_period=1, update_poll_period=10,
                    internal_id=None, parent_internal_id=None, loop_index=None,
@@ -55,7 +55,7 @@ def add_processing(request_id, workload_id, transform_id, status, submitter=None
     return orm_processings.add_processing(request_id=request_id, workload_id=workload_id, transform_id=transform_id,
                                           status=status, substatus=substatus, submitter=submitter,
                                           granularity=granularity, granularity_type=granularity_type,
-                                          site=site,
+                                          site=site, run_id=run_id,
                                           new_poll_period=new_poll_period,
                                           update_poll_period=update_poll_period,
                                           new_retries=new_retries, update_retries=update_retries,
@@ -88,7 +88,7 @@ def get_processing(processing_id=None, request_id=None, transform_id=None, to_js
 
 @read_session
 def get_processings(request_id=None, workload_id=None, transform_id=None, loop_index=None, internal_ids=None,
-                    site=None, parent_internal_ids=None, to_json=False, session=None):
+                    site=None, parent_internal_ids=None, run_id=None, to_json=False, session=None):
     """
     Get processing or raise a NoObject exception.
 
@@ -107,6 +107,7 @@ def get_processings(request_id=None, workload_id=None, transform_id=None, loop_i
         loop_index=loop_index,
         internal_ids=internal_ids,
         site=site,
+        run_id=run_id,
         to_json=to_json, session=session
     )
     if not prs or not parent_internal_ids:

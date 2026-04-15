@@ -290,7 +290,7 @@ def generate_collection(transform, collection, relation_type=CollectionRelationT
 
 
 def generate_collections(transform):
-    work = transform['transform_metadata']['work']
+    work = transform['transform_metadata']['work'] if transform.get('transform_metadata') and 'work' in transform.get('transform_metadata') else None
 
     if not hasattr(work, 'get_input_collections'):
         return []

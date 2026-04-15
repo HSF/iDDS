@@ -55,7 +55,9 @@ class Logs(IDDSController):
             transforms = core_transforms.get_transforms(request_id=request_id, workload_id=workload_id)
             workdirs = []
             for transform in transforms:
-                work = transform['transform_metadata']['work']
+                work = transform['transform_metadata']['work'] if transform.get('transform_metadata') and 'work' in transform.get('transform_metadata') else None
+                if work is None:
+                    continue
                 workdir = work.get_workdir()
                 if workdir:
                     workdirs.append(workdir)

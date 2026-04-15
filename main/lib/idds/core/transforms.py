@@ -36,7 +36,7 @@ def add_transform(request_id, workload_id, transform_type, transform_tag=None, p
                   internal_id=None, has_previous_conditions=None, loop_index=None,
                   parent_internal_id=None, command=CommandType.NoneCommand,
                   cloned_from=None, triggered_conditions=None, untriggered_conditions=None,
-                  site=None, workprogress_id=None, session=None):
+                  site=None, workprogress_id=None, run_id=None, session=None):
     """
     Add a transform.
 
@@ -78,7 +78,7 @@ def add_transform(request_id, workload_id, transform_type, transform_tag=None, p
                                                 loop_index=loop_index, cloned_from=cloned_from,
                                                 triggered_conditions=triggered_conditions,
                                                 untriggered_conditions=untriggered_conditions,
-                                                workprogress_id=workprogress_id, session=session)
+                                                workprogress_id=workprogress_id, run_id=run_id, session=session)
     return transform_id
 
 
@@ -141,11 +141,13 @@ def get_transform_ids(workprogress_id, request_id=None, workload_id=None, transf
 
 
 @read_session
-def get_transforms(request_id=None, workload_id=None, transform_id=None, loop_index=None, internal_ids=None, to_json=False, session=None):
+def get_transforms(request_id=None, workload_id=None, transform_id=None, loop_index=None, internal_ids=None,
+                   run_id=None, to_json=False, session=None):
     """
     Get transforms or raise a NoObject exception.
 
     :param workprogress_id: Workprogress id.
+    :param run_id: Run id.
     :param to_json: return json format.
     :param session: The database session in use.
 
@@ -158,6 +160,7 @@ def get_transforms(request_id=None, workload_id=None, transform_id=None, loop_in
                                          transform_id=transform_id,
                                          loop_index=loop_index,
                                          internal_ids=internal_ids,
+                                         run_id=run_id,
                                          to_json=to_json, session=session)
 
 
@@ -228,7 +231,7 @@ def add_transform_outputs(transform, transform_parameters, input_collections=Non
 
     :raises DatabaseException: If there is a database error.
     """
-    work = transform['transform_metadata']['work']
+    work = transform['transform_metadata']['work'] if transform.get('transform_metadata') and 'work' in transform.get('transform_metadata') else None
 
     new_pr_ids, update_pr_ids = [], []
 
@@ -311,9 +314,9 @@ def add_transform_outputs(transform, transform_parameters, input_collections=Non
     if transform:
         if processing_id:
             # work.set_processing_id(new_processing, processing_id)
-            if hasattr(work, 'set_processing_id'):
+            if work and hasattr(work, 'set_processing_id'):
                 work.set_processing_id(new_processing['processing_metadata']['processing'], processing_id)
-        if hasattr(work, 'refresh_work'):
+        if work and hasattr(work, 'refresh_work'):
             work.refresh_work()
         orm_transforms.update_transform(transform_id=transform['transform_id'],
                                         parameters=transform_parameters,

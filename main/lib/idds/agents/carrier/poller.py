@@ -223,11 +223,13 @@ class Poller(BaseAgent):
         return work_tag_attribute_value
 
     def load_poll_period(self, processing, parameters, new=False):
-        if 'processing' in processing['processing_metadata']:
+        if processing.get('processing_metadata') and 'processing' in processing['processing_metadata']:
             proc = processing['processing_metadata']['processing']
             work = proc.work
-        else:
+        elif processing.get('processing_metadata') and 'work' in processing['processing_metadata']:
             work = processing['processing_metadata']['work']
+        else:
+            return parameters
 
         work_tag = work.get_work_tag()
 
@@ -354,11 +356,11 @@ class Poller(BaseAgent):
 
             coll_metadata = parameters.pop("coll_metadata", None)
 
-            proc = processing['processing_metadata']['processing']
-            work = proc.work
+            proc = processing['processing_metadata']['processing'] if processing.get('processing_metadata') and 'processing' in processing['processing_metadata'] else None
+            work = proc.work if proc else None
 
             update_collections = []
-            if work.is_data_work():
+            if work and work.is_data_work():
                 input_collections = work.get_input_collections(poll_externel=True)
                 output_collections = work.get_output_collections()
                 for output_coll in output_collections:
@@ -401,7 +403,7 @@ class Poller(BaseAgent):
                     }
                     update_collections.append(u_coll)
 
-            if work.use_dependency_to_release_jobs():
+            if work and work.use_dependency_to_release_jobs():
                 new_process_status = ProcessingStatus.Triggering
             else:
                 new_process_status = process_status
@@ -412,7 +414,8 @@ class Poller(BaseAgent):
                     else:
                         retries = processing['update_retries'] + 1
                         if processing['max_update_retries'] and retries < processing['max_update_retries']:
-                            work.reactivate_processing(processing, log_prefix=log_prefix)
+                            if work:
+                                work.reactivate_processing(processing, log_prefix=log_prefix)
                             process_status = ProcessingStatus.Running
                             new_process_status = ProcessingStatus.Running
                 else:
@@ -429,11 +432,11 @@ class Poller(BaseAgent):
 
             update_processing['parameters'] = self.load_poll_period(processing, update_processing['parameters'])
 
-            if proc.submitted_at:
+            if proc and proc.submitted_at:
                 if not processing['submitted_at'] or processing['submitted_at'] < proc.submitted_at:
                     update_processing['parameters']['submitted_at'] = proc.submitted_at
 
-            if proc.workload_id and not processing['workload_id']:
+            if proc and proc.workload_id and not processing['workload_id']:
                 update_processing['parameters']['workload_id'] = proc.workload_id
 
             # update_processing['parameters']['expired_at'] = work.get_expired_at(processing)
@@ -537,11 +540,11 @@ class Poller(BaseAgent):
 
             update_processing['parameters'] = self.load_poll_period(processing, update_processing['parameters'])
 
-            if 'submitted_at' in processing['processing_metadata']:
+            if processing.get('processing_metadata') and 'submitted_at' in processing['processing_metadata']:
                 if not processing['submitted_at'] or processing['submitted_at'] < processing['processing_metadata']['submitted_at']:
                     parameters['submitted_at'] = processing['processing_metadata']['submitted_at']
 
-            if 'workload_id' in processing['processing_metadata']:
+            if processing.get('processing_metadata') and 'workload_id' in processing['processing_metadata']:
                 parameters['workload_id'] = processing['processing_metadata']['workload_id']
 
             # update_processing['parameters']['expired_at'] = work.get_expired_at(processing)
@@ -644,7 +647,21 @@ class Poller(BaseAgent):
                 self.update_processing(ret, pr, renew_updated_at=True)
 
                 # if 'processing_status' in ret and ret['processing_status'] == ProcessingStatus.Triggering:
-                if True:
+                to_trigger_event = False
+                try:
+                    if pr['processing_type'] and pr['processing_type'] in [ProcessingType.iWorkflow, ProcessingType.iWork]:
+                        to_trigger_event = False
+                    elif 'processing_metadata' in pr and pr['processing_metadata'] and 'processing' in pr['processing_metadata']:
+                        proc = pr['processing_metadata']['processing']
+                        work = proc.work
+                        if work.use_dependency_to_release_jobs():
+                            to_trigger_event = True
+                except Exception as ex:
+                    self.logger.error(ex)
+                    self.logger.error(traceback.format_exc())
+                    to_trigger_event = False
+
+                if to_trigger_event:
                     # always triggering
                     event_content = {}
                     if (('update_contents' in ret and ret['update_contents']) or ('new_contents' in ret and ret['new_contents'])):

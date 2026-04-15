@@ -599,7 +599,12 @@ class Transformer(BaseAgent):
         log_pre = self.get_log_prefix(transform)
         self.logger.info(log_pre + "handle_new_transform: transform_id: %s" % transform['transform_id'])
 
-        work = transform['transform_metadata']['work']
+        work = transform['transform_metadata']['work'] if transform.get('transform_metadata') and 'work' in transform.get('transform_metadata') else None
+        if work is None:
+            self.logger.error(log_pre + "transform_metadata or work is None for transform_id %s, cannot process" % transform['transform_id'])
+            transform_parameters = {'status': TransformStatus.Failed,
+                                    'locking': TransformLocking.Idle}
+            return {'transform': transform, 'transform_parameters': transform_parameters}
         work.set_work_id(transform['transform_id'])
         work.set_agent_attributes(self.agent_attributes, transform)
 
@@ -663,12 +668,12 @@ class Transformer(BaseAgent):
         """
         try:
             log_pre = self.get_log_prefix(transform)
-            work = transform['transform_metadata']['work']
+            work = transform['transform_metadata']['work'] if transform.get('transform_metadata') and 'work' in transform.get('transform_metadata') else None
             if not check_previous:
                 ret = self.handle_new_transform_real(transform)
             else:
                 pre_works_are_ok = True
-                if work.parent_internal_id is not None:
+                if work and work.parent_internal_id is not None:
                     parent_internal_ids = work.parent_internal_id.split(",")
                     tfs = core_transforms.get_transforms(request_id=transform['request_id'], internal_ids=parent_internal_ids, loop_index=transform['loop_index'])
                     if not tfs:
@@ -737,7 +742,12 @@ class Transformer(BaseAgent):
         log_pre = self.get_log_prefix(transform)
         self.logger.info(log_pre + "handle_new_itransform: transform_id: %s" % transform['transform_id'])
 
-        work = transform['transform_metadata']['work']
+        work = transform['transform_metadata']['work'] if transform.get('transform_metadata') and 'work' in transform.get('transform_metadata') else None
+        if work is None:
+            self.logger.error(log_pre + "transform_metadata or work is None for transform_id %s, cannot process" % transform['transform_id'])
+            transform_parameters = {'status': TransformStatus.Failed,
+                                    'locking': TransformLocking.Idle}
+            return {'transform': transform, 'transform_parameters': transform_parameters}
         if work.workflow_type in [WorkflowType.iWork]:
             work.transform_id = transform['transform_id']
 
@@ -783,10 +793,10 @@ class Transformer(BaseAgent):
         """
         try:
             log_pre = self.get_log_prefix(transform)
-            work = transform['transform_metadata']['work']
+            work = transform['transform_metadata']['work'] if transform.get('transform_metadata') and 'work' in transform.get('transform_metadata') else None
             pre_works_are_ok = True
             pre_workload_id = None
-            if work.parent_internal_id is not None:
+            if work and work.parent_internal_id is not None:
                 parent_internal_ids = work.parent_internal_id.split(",")
                 tfs = core_transforms.get_transforms(request_id=transform['request_id'], internal_ids=parent_internal_ids, loop_index=transform['loop_index'])
                 self.logger.info(log_pre + f"handle_new_itransform parent_internal_id {work.parent_internal_id}, parent_transforms: {tfs}")
@@ -797,8 +807,8 @@ class Transformer(BaseAgent):
                         if not tf['workload_id']:
                             pre_works_are_ok = False
                         pre_workload_id = tf['workload_id']
-            if pre_workload_id:
-                transform['transform_metadata']['work'].parent_workload_id = pre_workload_id
+            if pre_workload_id and work:
+                work.parent_workload_id = pre_workload_id
             if pre_works_are_ok:
                 ret = self.handle_new_itransform_real(transform)
             else:
@@ -996,7 +1006,12 @@ class Transformer(BaseAgent):
             to_abort = True
             self.logger.info(log_pre + "to_abort %s" % to_abort)
 
-        work = transform['transform_metadata']['work']
+        work = transform['transform_metadata']['work'] if transform.get('transform_metadata') and 'work' in transform.get('transform_metadata') else None
+        if work is None:
+            self.logger.error(log_pre + "No work found for transform_id %s" % transform['transform_id'])
+            transform_parameters = {'status': TransformStatus.Failed,
+                                    'locking': TransformLocking.Idle}
+            return {'transform': transform, 'transform_parameters': transform_parameters}
         work.set_work_id(transform['transform_id'])
         work.set_agent_attributes(self.agent_attributes, transform)
 
@@ -1011,7 +1026,7 @@ class Transformer(BaseAgent):
         self.logger.debug(log_pre + "work get_processing: %s" % processing)
         if processing and processing.processing_id:
             ret_processing_id = processing.processing_id
-            processing_model = core_processings.get_processing(processing_id=processing.processing_id)
+            processing_model = core_processings.get_processing(request_id=transform['request_id'], processing_id=processing.processing_id)
             work.sync_processing(processing, processing_model)
             proc = processing_model['processing_metadata']['processing']
             work.sync_work_data(status=processing_model['status'], substatus=processing_model['substatus'],
@@ -1119,24 +1134,43 @@ class Transformer(BaseAgent):
         # work = transform['transform_metadata']['work']
 
         prs = core_processings.get_processings(transform_id=transform['transform_id'])
-        pr = None
+
+        # track workload_id from current processing
         for pr in prs:
             if pr['processing_id'] == transform['current_processing_id']:
                 transform['workload_id'] = pr['workload_id']
                 break
 
         errors = None
-        if pr:
-            transform['status'] = get_transform_status_from_processing_status(pr['status'])
-            log_msg = log_pre + "transform id: %s, transform status: %s" % (transform['transform_id'], transform['status'])
-            log_msg = log_msg + ", processing id: %s, processing status: %s" % (pr['processing_id'], pr['status'])
-            self.logger.info(log_msg)
-        else:
+        if not prs:
             transform['status'] = TransformStatus.Failed
             log_msg = log_pre + "transform id: %s, transform status: %s" % (transform['transform_id'], transform['status'])
             log_msg = log_msg + ", no attached processings."
             self.logger.error(log_msg)
             errors = {'submit_err': 'no attached processings'}
+        else:
+            finished_statuses = {ProcessingStatus.Finished, ProcessingStatus.FinishedOnStep,
+                                 ProcessingStatus.FinishedOnExec, ProcessingStatus.FinishedTerm}
+            failed_statuses = {ProcessingStatus.Failed, ProcessingStatus.Lost,
+                               ProcessingStatus.Broken, ProcessingStatus.TimeOut}
+
+            total = len(prs)
+            num_finished = sum(1 for pr in prs if pr['status'] in finished_statuses)
+            num_subfinished = sum(1 for pr in prs if pr['status'] == ProcessingStatus.SubFinished)
+            num_failed = sum(1 for pr in prs if pr['status'] in failed_statuses)
+
+            log_msg = log_pre + "transform id: %s, total processings: %s, finished: %s, subfinished: %s, failed: %s" % (
+                transform['transform_id'], total, num_finished, num_subfinished, num_failed)
+            self.logger.info(log_msg)
+
+            if num_finished == total:
+                transform['status'] = TransformStatus.Finished
+            elif num_finished + num_subfinished > 0:
+                transform['status'] = TransformStatus.SubFinished
+            elif num_failed > 0:
+                transform['status'] = TransformStatus.Failed
+            else:
+                transform['status'] = TransformStatus.Transforming
 
         is_terminated = False
         if transform['status'] in [TransformStatus.Finished, TransformStatus.Failed, TransformStatus.Cancelled,
@@ -1292,15 +1326,19 @@ class Transformer(BaseAgent):
         process abort transform
         """
         try:
-            work = transform['transform_metadata']['work']
-            work.set_agent_attributes(self.agent_attributes, transform)
+            work = transform['transform_metadata']['work'] if transform.get('transform_metadata') and 'work' in transform.get('transform_metadata') else None
+            if work:
+                work.set_agent_attributes(self.agent_attributes, transform)
 
             # save old status for retry
             oldstatus = transform['status']
 
-            processing = work.get_processing(input_output_maps=[], without_creating=True)
-            if processing and processing.processing_id:
-                tf_status = TransformStatus.Cancelling
+            if work:
+                processing = work.get_processing(input_output_maps=[], without_creating=True)
+                if processing and processing.processing_id:
+                    tf_status = TransformStatus.Cancelling
+                else:
+                    tf_status = TransformStatus.Cancelled
             else:
                 tf_status = TransformStatus.Cancelled
 
@@ -1422,8 +1460,9 @@ class Transformer(BaseAgent):
         process resume transform
         """
         try:
-            work = transform['transform_metadata']['work']
-            work.set_agent_attributes(self.agent_attributes, transform)
+            work = transform['transform_metadata']['work'] if transform.get('transform_metadata') and 'work' in transform.get('transform_metadata') else None
+            if work:
+                work.set_agent_attributes(self.agent_attributes, transform)
 
             tf_status = transform['oldstatus']
 

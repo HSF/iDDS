@@ -648,6 +648,10 @@ def wait_futures_finish(ret_futures, func_name, logger, log_prefix, timeout=180)
 def handle_new_processing(processing, agent_attributes, func_site_to_cloud=None, max_updates_per_round=2000, executors=None, logger=None, log_prefix=''):
     logger = get_logger(logger)
 
+    if not (processing.get('processing_metadata') and 'processing' in processing['processing_metadata']):
+        logger.error(log_prefix + "processing_metadata or processing is None for processing_id %s, cannot process" % processing['processing_id'])
+        return False, processing, [], [], [], [], None
+
     proc = processing['processing_metadata']['processing']
     work = proc.work
     work.set_agent_attributes(agent_attributes, processing)
@@ -743,6 +747,10 @@ def handle_new_processing(processing, agent_attributes, func_site_to_cloud=None,
 
 def handle_prepared_processing(processing, agent_attributes, func_site_to_cloud=None, max_updates_per_round=2000, executors=None, logger=None, log_prefix=''):
     logger = get_logger(logger)
+
+    if not (processing.get('processing_metadata') and 'processing' in processing['processing_metadata']):
+        logger.error(log_prefix + "processing_metadata or processing is None for processing_id %s, cannot process" % processing['processing_id'])
+        return False, processing, [], [], [], [], None
 
     proc = processing['processing_metadata']['processing']
     work = proc.work
@@ -1320,6 +1328,10 @@ def handle_update_processing(processing, agent_attributes, max_updates_per_round
     transform_id = processing['transform_id']
     workload_id = processing['workload_id']
 
+    if not (processing.get('processing_metadata') and 'processing' in processing['processing_metadata']):
+        logger.error(log_prefix + "processing_metadata or processing is None for processing_id %s, cannot process" % processing['processing_id'])
+        return ProcessingStatus.Failed, [], [], ret_msgs, [], {}, [], []
+
     proc = processing['processing_metadata']['processing']
     work = proc.work
     work.set_agent_attributes(agent_attributes, processing)
@@ -1617,6 +1629,10 @@ def handle_update_processing_new(processing, agent_attributes, max_updates_per_r
     request_id = processing['request_id']
     transform_id = processing['transform_id']
     workload_id = processing['workload_id']
+
+    if not (processing.get('processing_metadata') and 'processing' in processing['processing_metadata']):
+        logger.error(log_prefix + "processing_metadata or processing is None for processing_id %s, cannot process" % processing['processing_id'])
+        return ProcessingStatus.Failed, [], [], [], [], {}, [], []
 
     proc = processing['processing_metadata']['processing']
     work = proc.work
@@ -1941,6 +1957,10 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
     transform_id = processing['transform_id']
     workload_id = processing['workload_id']
     processing_id = processing['processing_id']
+
+    if not (processing.get('processing_metadata') and 'processing' in processing['processing_metadata']):
+        logger.error(log_prefix + "processing_metadata or processing is None for processing_id %s, cannot trigger" % processing_id)
+        return ProcessingStatus.Failed, [], [], {}, {}, {}, [], [], False
 
     proc = processing['processing_metadata']['processing']
     work = proc.work
@@ -2953,6 +2973,10 @@ def sync_processing(processing, agent_attributes, terminate=False, abort=False, 
     transform_id = processing['transform_id']
     workload_id = processing['workload_id']
 
+    if not (processing.get('processing_metadata') and 'processing' in processing['processing_metadata']):
+        logger.error(log_prefix + "processing_metadata or processing is None for processing_id %s, cannot sync" % processing['processing_id'])
+        return processing, [], []
+
     proc = processing['processing_metadata']['processing']
     work = proc.work
     work.set_agent_attributes(agent_attributes, processing)
@@ -3004,6 +3028,10 @@ def handle_abort_processing(processing, agent_attributes, logger=None, sync=True
     # transform_id = processing['transform_id']
     # workload_id = processing['workload_id']
 
+    if not (processing.get('processing_metadata') and 'processing' in processing['processing_metadata']):
+        logger.error(log_prefix + "processing_metadata or processing is None for processing_id %s, cannot abort" % processing['processing_id'])
+        return processing, [], [], []
+
     proc = processing['processing_metadata']['processing']
     work = proc.work
     work.set_agent_attributes(agent_attributes, processing)
@@ -3054,6 +3082,10 @@ def handle_resume_processing(processing, agent_attributes, logger=None, log_pref
     request_id = processing['request_id']
     transform_id = processing['transform_id']
     workload_id = processing['workload_id']
+
+    if not (processing.get('processing_metadata') and 'processing' in processing['processing_metadata']):
+        logger.error(log_prefix + "processing_metadata or processing is None for processing_id %s, cannot resume" % processing['processing_id'])
+        return processing, [], []
 
     proc = processing['processing_metadata']['processing']
     work = proc.work
