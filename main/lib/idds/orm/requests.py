@@ -1193,7 +1193,7 @@ def update_request(request_id, parameters, update_request_metadata=False, lockin
         if 'update_poll_period' in parameters and type(parameters['update_poll_period']) not in [datetime.timedelta]:
             parameters['update_poll_period'] = datetime.timedelta(seconds=parameters['update_poll_period'])
 
-        if 'request_metadata' in parameters:
+        if 'request_metadata' in parameters and parameters['request_metadata']:
             if 'workflow' in parameters['request_metadata']:
                 workflow = parameters['request_metadata']['workflow']
 

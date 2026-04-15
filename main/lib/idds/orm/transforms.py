@@ -36,7 +36,7 @@ def create_transform(request_id, workload_id, transform_type, transform_tag=None
                      internal_id=None, has_previous_conditions=None, loop_index=None,
                      parent_internal_id=None, command=CommandType.NoneCommand,
                      cloned_from=None, triggered_conditions=None, untriggered_conditions=None,
-                     site=None, retries=0, expired_at=None, transform_metadata=None):
+                     site=None, retries=0, expired_at=None, run_id=None, transform_metadata=None):
     """
     Create a transform.
 
@@ -69,6 +69,7 @@ def create_transform(request_id, workload_id, transform_type, transform_tag=None
                                      loop_index=loop_index, cloned_from=cloned_from,
                                      triggered_conditions=triggered_conditions,
                                      untriggered_conditions=untriggered_conditions,
+                                     run_id=run_id,
                                      transform_metadata=transform_metadata)
     if new_poll_period:
         new_poll_period = datetime.timedelta(seconds=new_poll_period)
@@ -88,7 +89,7 @@ def add_transform(request_id, workload_id, transform_type, transform_tag=None, p
                   internal_id=None, has_previous_conditions=None, loop_index=None,
                   parent_internal_id=None, command=CommandType.NoneCommand,
                   cloned_from=None, triggered_conditions=None, untriggered_conditions=None,
-                  transform_metadata=None, workprogress_id=None, site=None, session=None):
+                  transform_metadata=None, workprogress_id=None, site=None, run_id=None, session=None):
     """
     Add a transform.
 
@@ -127,6 +128,7 @@ def add_transform(request_id, workload_id, transform_type, transform_tag=None, p
                                          loop_index=loop_index, cloned_from=cloned_from,
                                          triggered_conditions=triggered_conditions,
                                          untriggered_conditions=untriggered_conditions,
+                                         run_id=run_id,
                                          transform_metadata=transform_metadata)
         new_transform.save(session=session)
         transform_id = new_transform.transform_id
@@ -374,13 +376,14 @@ def get_transform_ids(workprogress_id=None, request_id=None, workload_id=None, t
 
 @read_session
 def get_transforms(request_id=None, workload_id=None, transform_id=None, loop_index=None, internal_ids=None,
-                   to_json=False, session=None):
+                   run_id=None, to_json=False, session=None):
     """
     Get transforms or raise a NoObject exception.
 
     :param request_id: Request id.
     :param workload_id: Workload id.
     :param transform_id: Transform id.
+    :param run_id: Run id.
     :param session: The database session in use.
 
     :raises NoObject: If no transform is founded.
@@ -397,6 +400,8 @@ def get_transforms(request_id=None, workload_id=None, transform_id=None, loop_in
             query = query.filter(models.Transform.transform_id == transform_id)
         if loop_index is not None:
             query = query.filter(models.Transform.loop_index == loop_index)
+        if run_id is not None:
+            query = query.filter(models.Transform.run_id == str(run_id))
         if internal_ids:
             if not isinstance(internal_ids, (list, tuple)):
                 internal_ids = [internal_ids]

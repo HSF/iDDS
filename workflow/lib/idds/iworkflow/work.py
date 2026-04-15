@@ -1305,12 +1305,13 @@ class Work(Base):
         """
         return self._context.setup()
 
+    @property
     def post_script(self):
         """
         Return the post script bash code to be appended after workflow execution.
         Override or set self._post_script in subclasses or instances as needed.
         """
-        return self._context.post_script()
+        return self._context.post_script
 
     def get_clean_env(self):
         """

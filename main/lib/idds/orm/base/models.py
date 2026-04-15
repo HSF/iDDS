@@ -402,6 +402,7 @@ class Transform(BASE, ModelBase):
     triggered_conditions = Column('triggered_conditions', JSON())
     untriggered_conditions = Column('untriggered_conditions', JSON())
     errors = Column(JSONString(1024))
+    run_id = Column(String(64))
     _transform_metadata = Column('transform_metadata', JSON())
     _running_metadata = Column('running_metadata', JSON())
 
@@ -519,6 +520,7 @@ class Processing(BASE, ModelBase):
     locking_thread_id = Column(BigInteger, autoincrement=False)
     locking_thread_name = Column(String(100))
     errors = Column(JSONString(1024))
+    run_id = Column(String(64))
     _processing_metadata = Column('processing_metadata', JSON())
     _running_metadata = Column('running_metadata', JSON())
     output_metadata = Column(JSON())

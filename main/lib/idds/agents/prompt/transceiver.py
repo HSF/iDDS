@@ -11,14 +11,19 @@
 """
 Prompt Transceiver Agent
 
-Subscribes to /topic/panda.workflow and dispatches incoming workflow-task
-messages to the appropriate handler:
+Subscribes to worker_subscriber_broker (/topic/panda.workers, messages from
+swf-panda-workers) and dispatches incoming workflow-task messages to the
+appropriate handler:
 
   msg_type                handler
   ----------------------  --------------------------------
   create_workflow_task    handle_create_workflow_task
   adjust_worker           handle_adjust_worker
   close_workflow_task     handle_close_workflow_task
+
+Outbound messages are published to worker_publisher_broker.
+
+Config is loaded from config_default/idds.cfg, section [prompt].
 
 Message format (all types):
 {
@@ -38,7 +43,7 @@ from idds.common.exceptions import IDDSException
 from idds.common.utils import setup_logging, json_loads
 from idds.agents.common.baseagent import BaseAgent
 
-from idds.prompt.brokers.activemq import Subscriber
+from idds.prompt.brokers.activemq import Subscriber, Publisher
 from idds.prompt.handlers.workflowtaskhandler import (  # type: ignore[import-untyped]
     handle_create_workflow_task,
     handle_adjust_worker,
@@ -50,15 +55,18 @@ setup_logging(__name__)
 
 class Transceiver(BaseAgent):
     """
-    Transceiver subscribes to /topic/panda.workflow and processes
+    Transceiver subscribes to worker_subscriber_broker (/topic/panda.workers,
+    messages originating from swf-panda-workers) and processes
     create_workflow_task, adjust_worker, and close_workflow_task messages.
+    Outbound messages are sent to worker_publisher_broker.
     """
 
     def __init__(
         self,
         namespace=None,
         num_threads=8,
-        panda_workflow_subscriber_broker=None,
+        worker_subscriber_broker=None,
+        worker_publisher_broker=None,
         **kwargs,
     ):
         super(Transceiver, self).__init__(
@@ -69,17 +77,52 @@ class Transceiver(BaseAgent):
         self.namespace = namespace
 
         try:
-            self.panda_workflow_subscriber_broker = json_loads(panda_workflow_subscriber_broker)
+            self.worker_subscriber_broker = json_loads(worker_subscriber_broker)
         except Exception as e:
-            self.logger.error(f"Error loading panda_workflow_subscriber_broker: {e}")
-            self.panda_workflow_subscriber_broker = None
+            self.logger.error(f"Error loading worker_subscriber_broker: {e}")
+            self.worker_subscriber_broker = None
+
+        try:
+            self.worker_publisher_broker = json_loads(worker_publisher_broker)
+        except Exception as e:
+            self.logger.error(f"Error loading worker_publisher_broker: {e}")
+            self.worker_publisher_broker = None
+
+        self._worker_publisher = None
 
     def __del__(self):
         self.stop()
 
-    def panda_workflow_handler(self, _header, msg, _handler_kwargs={}):
+    def _publish_result(self, result_type, run_id, result):
+        """Publish a result message to worker_publisher_broker."""
+        import datetime
+        with self._lock:
+            publisher = self._worker_publisher
+        if publisher is None:
+            self.logger.warning(
+                f"No worker_publisher available; dropping result msg_type={result_type}, run_id={run_id}"
+            )
+            return
+        if isinstance(result, list) or isinstance(result, tuple):
+            result = {"results": result}
+        msg = {
+            "msg_type": result_type,
+            "run_id": run_id,
+            "created_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z",
+            "content": result,
+        }
+        try:
+            publisher.publish(msg)
+        except Exception as ex:
+            self.logger.error(
+                f"Failed to publish result msg_type={result_type}, run_id={run_id}: {ex}",
+                exc_info=True,
+            )
+
+    def worker_message_handler(self, _header, msg, _handler_kwargs={}):
         """
-        Dispatch handler for messages received on /topic/panda.workflow.
+        Dispatch handler for messages received on worker_subscriber_broker
+        (/topic/panda.workers).
 
         Supported msg_type values:
           - create_workflow_task
@@ -90,47 +133,70 @@ class Transceiver(BaseAgent):
         run_id = msg.get("run_id")
 
         self.logger.debug(
-            f"Received panda.workflow message: msg_type={msg_type}, run_id={run_id}"
+            f"Received worker message: msg_type={msg_type}, run_id={run_id}"
         )
 
         try:
             if msg_type == "create_workflow_task":
-                handle_create_workflow_task(msg, logger=self.logger)
+                result = handle_create_workflow_task(msg, logger=self.logger)
+                result_type = "created_workflow_task"
             elif msg_type == "adjust_worker":
-                handle_adjust_worker(msg, logger=self.logger)
+                result = handle_adjust_worker(msg, logger=self.logger)
+                result_type = "adjusted_worker"
             elif msg_type == "close_workflow_task":
-                handle_close_workflow_task(msg, logger=self.logger)
+                result = handle_close_workflow_task(msg, logger=self.logger)
+                result_type = "closed_workflow_task"
             else:
                 self.logger.warning(
-                    f"Unknown msg_type on /topic/panda.workflow: {msg_type}, run_id={run_id}"
+                    f"Unknown msg_type from worker: {msg_type}, run_id={run_id}"
                 )
+                return
+
+            self._publish_result(result_type, run_id, result)
         except Exception as error:
             self.logger.critical(
-                f"panda_workflow_handler exception for msg_type={msg_type}, "
+                f"worker_message_handler exception for msg_type={msg_type}, "
                 f"run_id={run_id}: {error}\n{traceback.format_exc()}"
             )
 
     def run_worker(self):
-        """Spawn one worker thread hosting the panda.workflow subscriber."""
+        """Subscribe to worker_subscriber_broker, publish to worker_publisher_broker."""
         self.logger.info("Starting worker thread")
 
-        panda_workflow_subscriber = None
+        worker_subscriber = None
+        worker_publisher = None
 
         try:
-            if self.panda_workflow_subscriber_broker:
-                panda_workflow_subscriber = Subscriber(
-                    name="PandaWorkflowSubscriber",
+            if self.worker_publisher_broker:
+                try:
+                    worker_publisher = Publisher(
+                        name="WorkerPublisher",
+                        namespace=self.namespace,
+                        broker=self.worker_publisher_broker,
+                        logger=self.logger,
+                    )
+                    with self._lock:
+                        self._worker_publisher = worker_publisher
+                except Exception as ex:
+                    self.logger.error(f"Failed to create worker publisher: {ex}")
+                    worker_publisher = None
+
+            if self.worker_subscriber_broker:
+                worker_subscriber = Subscriber(
+                    name="WorkerSubscriber",
                     namespace=self.namespace,
-                    broker=self.panda_workflow_subscriber_broker,
-                    handler=self.panda_workflow_handler,
+                    broker=self.worker_subscriber_broker,
+                    handler=self.worker_message_handler,
                     handler_kwargs={},
                     logger=self.logger,
                 )
 
             while not self.graceful_stop.is_set():
                 try:
-                    if panda_workflow_subscriber:
-                        panda_workflow_subscriber.monitor()
+                    if worker_subscriber:
+                        worker_subscriber.monitor()
+                    if worker_publisher:
+                        worker_publisher.monitor()
                     self.graceful_stop.wait(1)
                 except IDDSException as error:
                     self.logger.error("Worker loop IDDSException: %s" % str(error))
@@ -144,8 +210,16 @@ class Transceiver(BaseAgent):
                 "Worker setup exception: %s\n%s" % (str(error), traceback.format_exc())
             )
         finally:
-            if panda_workflow_subscriber:
-                panda_workflow_subscriber.stop()
+            try:
+                if worker_subscriber:
+                    worker_subscriber.stop()
+            except Exception:
+                pass
+            try:
+                if worker_publisher:
+                    worker_publisher.stop()
+            except Exception:
+                pass
 
     def run(self):
         """Main run function."""
