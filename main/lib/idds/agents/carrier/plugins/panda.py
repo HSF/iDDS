@@ -103,11 +103,15 @@ class PandaSubmitterPoller(BaseSubmitterPoller):
                         task_id = int(ret_string.split("=")[1])
                     elif "=" in ret_string:
                         task_id = int(ret_string.split("=")[1])
+                    else:
+                        task_id = int(ret_string)
                     return task_id, None
                 except Exception as ex:
                     if logger:
                         logger.warn(log_prefix + "task id is not retruned: (%s) is not task id: %s" % (return_code[1][1], str(ex)))
-                    if return_code[1][1] and 'jediTaskID=' in return_code[1][1]:
+                    if isinstance(return_code[1][1], int):
+                        return return_code[1][1], None
+                    elif return_code[1][1] and 'jediTaskID=' in return_code[1][1]:
                         parts = return_code[1][1].split(" ")
                         for part in parts:
                             if 'jediTaskID=' in part:
