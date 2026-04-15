@@ -647,7 +647,21 @@ class Poller(BaseAgent):
                 self.update_processing(ret, pr, renew_updated_at=True)
 
                 # if 'processing_status' in ret and ret['processing_status'] == ProcessingStatus.Triggering:
-                if True:
+                to_trigger_event = False
+                try:
+                    if pr['processing_type'] and pr['processing_type'] in [ProcessingType.iWorkflow, ProcessingType.iWork]:
+                        to_trigger_event = False
+                    elif 'processing_metadata' in pr and pr['processing_metadata'] and 'processing' in pr['processing_metadata']:
+                        proc = pr['processing_metadata']['processing']
+                        work = proc.work
+                        if work.use_dependency_to_release_jobs():
+                            to_trigger_event = True
+                except Exception as ex:
+                    self.logger.error(ex)
+                    self.logger.error(traceback.format_exc())
+                    to_trigger_event = False
+
+                if to_trigger_event:
                     # always triggering
                     event_content = {}
                     if (('update_contents' in ret and ret['update_contents']) or ('new_contents' in ret and ret['new_contents'])):
