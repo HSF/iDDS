@@ -512,12 +512,19 @@ class DomaPanDAWork(Work):
                 return_code = Client.insertTaskParams(task_param, verbose=True)
             if return_code[0] == 0 and return_code[1][0] is True:
                 try:
-                    task_id = int(return_code[1][1])
+                    ret_string = str(return_code[1][1])
+                    ret_string = ret_string.replace("succeeded. new jediTaskID=", "")
+                    if 'jediTaskID=' in ret_string:
+                        task_id = int(ret_string.split("=")[1])
+                    elif "=" in ret_string:
+                        task_id = int(ret_string.split("=")[1])
+                    else:
+                        task_id = int(ret_string)
                     return task_id, None
                 except Exception as ex:
                     self.logger.warn("task id is not retruned: (%s) is not task id: %s" % (return_code[1][1], str(ex)))
                     # jediTaskID=26468582
-                    if return_code[1][1] and 'jediTaskID=' in return_code[1][1]:
+                    if return_code[1][1] and isinstance(return_code[1][1], str) and 'jediTaskID=' in return_code[1][1]:
                         parts = return_code[1][1].split(" ")
                         for part in parts:
                             if 'jediTaskID=' in part:
