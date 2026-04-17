@@ -200,11 +200,13 @@ def get_collection_ids(collections):
     return coll_ids
 
 
-def get_input_output_maps(request_id, transform_id, work, with_deps=True, page_num=None, page_size=None, with_panda_id=None, status=None, match_content_ext=False):
+def get_input_output_maps(request_id, transform_id, work, with_deps=True, page_num=None, page_size=None, with_panda_id=None, status=None, match_content_ext=False, only_outputs=False):
     """
     :param with_panda_id: When True, return only map_ids where at least one output content
         has a panda_id in content_metadata. When False, return only map_ids where no output
         content has a panda_id. When None (default), return all map_ids.
+    :param only_outputs: When True, fetch only output contents (content_relation_type=Output).
+        Use when only output contents are needed, e.g. for match_content_ext matching.
     """
     # link collections
     input_collections = work.get_input_collections()
@@ -229,6 +231,7 @@ def get_input_output_maps(request_id, transform_id, work, with_deps=True, page_n
                                                                                page_num=page_num,
                                                                                page_size=page_size,
                                                                                match_content_ext=match_content_ext,
+                                                                               only_outputs=only_outputs,
                                                                                status=status)
 
     if with_panda_id is not None:
@@ -1602,8 +1605,10 @@ def get_unmatched_panda_id_updates(processing, request_id, transform_id, work, i
         for output_content in name_to_outputs[job_name]:
             content_metadata = dict(output_content.get('content_metadata') or {})
             registered_panda_ids = _to_id_list(content_metadata.get('panda_ids') or content_metadata.get('panda_id'))
-            merged = sorted(set(registered_panda_ids) | set(panda_ids))
-            content_metadata['panda_ids'] = merged
+            if registered_panda_ids:
+                old_panda_ids = content_metadata.get('old_panda_ids') or []
+                content_metadata['old_panda_ids'] = sorted(set(old_panda_ids) | set(registered_panda_ids))
+            content_metadata['panda_ids'] = list(panda_ids)
             update_contents.append({'content_id': output_content['content_id'],
                                     'request_id': request_id,
                                     'content_metadata': content_metadata})
@@ -1703,7 +1708,7 @@ def handle_update_processing_new(processing, agent_attributes, max_updates_per_r
         # ES jobs track panda IDs in contents_ext, not content_metadata, so use with_panda_id=False
         panda_id_filter = False if (hasattr(work, 'es') and work.es) else True
         logger.debug(log_prefix + "Reloading input_output_maps with panda_id filter for polling loop")
-        input_output_maps = get_input_output_maps(request_id, transform_id, work, with_deps=False, with_panda_id=panda_id_filter, status=status_filter, match_content_ext=True)
+        input_output_maps = get_input_output_maps(request_id, transform_id, work, with_deps=False, with_panda_id=panda_id_filter, status=status_filter, match_content_ext=True, only_outputs=True)
 
     if hasattr(work, 'input_dependency_coll_ids'):
         input_dependency_coll_ids = work.input_dependency_coll_ids
@@ -1732,7 +1737,7 @@ def handle_update_processing_new(processing, agent_attributes, max_updates_per_r
         if max_jobs_per_round:
             maps_page = get_input_output_maps(request_id, transform_id, work, with_deps=False,
                                               page_num=page_num, page_size=max_jobs_per_round,
-                                              with_panda_id=True, status=status_filter, match_content_ext=True)
+                                              with_panda_id=True, status=status_filter, match_content_ext=True, only_outputs=True)
             logger.debug(log_prefix + "handle_update_processing_new: polling page %d with %d maps"
                          % (page_num, len(maps_page)))
         else:
