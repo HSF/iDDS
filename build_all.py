@@ -73,17 +73,16 @@ def clean_package(package_path):
 
 
 def fix_alembic_ini_python_version(current_dir):
-    """Replace the hardcoded python3.x version in config_default/alembic.ini with the running version."""
-    import re
+    """Replace {python_version} placeholder in config_default/alembic.ini with the running Python version."""
     alembic_ini = current_dir / 'main' / 'config_default' / 'alembic.ini'
     if not alembic_ini.exists():
         return
     python_ver = 'python%d.%d' % sys.version_info[:2]
     content = alembic_ini.read_text()
-    new_content = re.sub(r'python3\.\d+', python_ver, content)
+    new_content = content.replace('{python_version}', python_ver)
     if new_content != content:
         alembic_ini.write_text(new_content)
-        print(f"Updated {alembic_ini}: python version set to {python_ver}")
+        print(f"Updated {alembic_ini}: {{python_version}} replaced with {python_ver}")
 
 
 def process_packages(command):
