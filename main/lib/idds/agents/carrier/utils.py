@@ -200,7 +200,9 @@ def get_collection_ids(collections):
     return coll_ids
 
 
-def get_input_output_maps(request_id, transform_id, work, with_deps=True, page_num=None, page_size=None, with_panda_id=None, status=None, match_content_ext=False, only_outputs=False):
+def get_input_output_maps(request_id, transform_id, work, with_deps=True, page_num=None, page_size=None,
+                          with_panda_id=None, status=None, match_content_ext=False, only_outputs=False,
+                          for_missing=False):
     """
     :param with_panda_id: When True, return only map_ids where at least one output content
         has a panda_id in content_metadata. When False, return only map_ids where no output
@@ -232,7 +234,8 @@ def get_input_output_maps(request_id, transform_id, work, with_deps=True, page_n
                                                                                page_size=page_size,
                                                                                match_content_ext=match_content_ext,
                                                                                only_outputs=only_outputs,
-                                                                               status=status)
+                                                                               status=status,
+                                                                               for_missing=for_missing)
 
     if with_panda_id is not None:
         filtered = {}
@@ -1904,6 +1907,37 @@ def handle_update_processing_new(processing, agent_attributes, max_updates_per_r
     if not parameters:
         parameters = {}
     parameters["num_unmapped"] = processing["num_unmapped"]
+
+    # poll_missing_outputs needs to load the input contents which are in ContentStatus.Missing.
+    # but the processing above calls get_intput_output_maps with only_outputs=True, so the inputs are not loaded.
+    # Her we need to call get_input_output_maps again with input status equal to Missing to get the missing input contents for polling.
+    input_output_maps = get_input_output_maps(request_id, transform_id, work, with_deps=False, with_panda_id=False,
+                                              status=ContentStatus.Missing, match_content_ext=False, only_outputs=False, for_missing=True)
+    content_updates_missing_chunks = poll_missing_outputs(input_output_maps, contents_ext=[],
+                                                          max_updates_per_round=max_updates_per_round,
+                                                          process_status=process_status)
+    for content_updates_missing_chunk in content_updates_missing_chunks:
+        content_updates_missing, updated_contents_full_missing = content_updates_missing_chunk
+        msgs = []
+        if updated_contents_full_missing:
+            msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='file',
+                                     files=updated_contents_full_missing, relation_type='output')
+        if executors is None:
+            logger.debug(log_prefix + "handle_update_processing_new: update %s missing contents" % (len(content_updates_missing)))
+            core_processings.update_processing_contents(update_processing=None,
+                                                        update_contents=content_updates_missing,
+                                                        request_id=request_id,
+                                                        use_bulk_update_mappings=False,
+                                                        messages=msgs)
+        else:
+            log_msg = "handle_update_processing_new thread: update %s missing contents" % (len(content_updates_missing))
+            kwargs = {'update_processing': None,
+                      'request_id': request_id,
+                      'update_contents': content_updates_missing,
+                      'use_bulk_update_mappings': False,
+                      'messages': msgs}
+            f = executors.submit(update_processing_contents_thread, logger, log_prefix, log_msg, kwargs)
+            ret_futures.add(f)
 
     # return process_status, new_contents, new_input_dependency_contents, ret_msgs, content_updates + content_updates_missing, parameters, new_contents_ext, update_contents_ext
     return process_status, [], [], ret_msgs, [], parameters, [], []

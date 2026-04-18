@@ -454,6 +454,69 @@ def get_contents_by_request_transform(request_id=None, transform_id=None, worklo
 
 
 @read_session
+def get_contents_by_request_transform_for_missing(request_id=None, transform_id=None, status=None, with_deps=True, only_outputs=False, session=None):
+    """
+    Get all contents belonging to map_ids that have at least one content with status or substatus matching the given status.
+
+    Differs from get_contents_by_request_transform in that it checks both the status and substatus columns,
+    ensuring maps with any Missing content (even if substatus diverged) are included.
+
+    :param request_id: request id.
+    :param transform_id: transform id.
+    :param status: ContentStatus value(s) to match against status or substatus.
+    :param with_deps: if False, exclude InputDependency contents.
+    :param only_outputs: if True, restrict to Output contents.
+    :param session: The database session in use.
+
+    :returns: list of content dicts.
+    """
+    try:
+        if status is not None:
+            if not isinstance(status, (tuple, list)):
+                status = [status]
+
+        qualifying_maps = session.query(models.Content.map_id.label('map_id')).distinct()
+        if request_id:
+            qualifying_maps = qualifying_maps.filter(models.Content.request_id == request_id)
+        if transform_id:
+            qualifying_maps = qualifying_maps.filter(models.Content.transform_id == transform_id)
+        if not with_deps:
+            qualifying_maps = qualifying_maps.filter(models.Content.content_relation_type != ContentRelationType.InputDependency)
+        if only_outputs:
+            qualifying_maps = qualifying_maps.filter(models.Content.content_relation_type == ContentRelationType.Output)
+        if status is not None:
+            qualifying_maps = qualifying_maps.filter(
+                or_(models.Content.status.in_(status), models.Content.substatus.in_(status))
+            )
+        qualifying_maps = qualifying_maps.order_by(asc(models.Content.map_id))
+        qualifying_map_ids = [row[0] for row in qualifying_maps.all()]
+        if not qualifying_map_ids:
+            return []
+
+        query = session.query(models.Content)
+        if request_id:
+            query = query.filter(models.Content.request_id == request_id)
+        if transform_id:
+            query = query.filter(models.Content.transform_id == transform_id)
+        if not with_deps:
+            query = query.filter(models.Content.content_relation_type != ContentRelationType.InputDependency)
+        query = query.filter(models.Content.map_id.in_(qualifying_map_ids))
+        query = query.order_by(asc(models.Content.request_id), asc(models.Content.transform_id), asc(models.Content.map_id))
+
+        tmp = query.all()
+        rets = []
+        if tmp:
+            for t in tmp:
+                rets.append(t.to_dict())
+        return rets
+    except sqlalchemy.orm.exc.NoResultFound as error:
+        raise exceptions.NoObject('No record can be found with (transform_id=%s): %s' %
+                                  (transform_id, error))
+    except Exception as error:
+        raise error
+
+
+@read_session
 def get_input_output_map_count(request_id, transform_id, session=None):
     """
     Return the number of distinct (map_id, sub_map_id) pairs for the given transform.
