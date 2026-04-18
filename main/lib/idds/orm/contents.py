@@ -454,7 +454,7 @@ def get_contents_by_request_transform(request_id=None, transform_id=None, worklo
 
 
 @read_session
-def get_contents_by_request_transform_for_missing(request_id=None, transform_id=None, status=None, with_deps=True, only_outputs=False, session=None):
+def get_contents_by_request_transform_for_missing(request_id=None, transform_id=None, status=None, with_deps=True, by_map=True, only_outputs=False, session=None):
     """
     Get all contents belonging to map_ids that have at least one content with status or substatus matching the given status.
 
