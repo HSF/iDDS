@@ -2117,8 +2117,10 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
             terminated_processing = True
 
         logger.debug(log_prefix + "update_input_contents_by_dependency_pages")
+        # status_not_to_check = [ContentStatus.Available, ContentStatus.FakeAvailable,
+        #                        ContentStatus.FinalFailed, ContentStatus.Missing]
         status_not_to_check = [ContentStatus.Available, ContentStatus.FakeAvailable,
-                               ContentStatus.FinalFailed, ContentStatus.Missing]
+                               ContentStatus.FinalFailed]
         core_catalog.update_input_contents_by_dependency_pages(request_id=request_id, transform_id=transform_id,
                                                                page_size=default_input_dep_page_size,
                                                                terminated=terminated_processing,
