@@ -72,11 +72,25 @@ def clean_package(package_path):
                 shutil.rmtree(path, ignore_errors=True)
 
 
+def fix_alembic_ini_python_version(current_dir):
+    """Replace the hardcoded python3.x version in config_default/alembic.ini with the running version."""
+    import re
+    alembic_ini = current_dir / 'main' / 'config_default' / 'alembic.ini'
+    if not alembic_ini.exists():
+        return
+    python_ver = 'python%d.%d' % sys.version_info[:2]
+    content = alembic_ini.read_text()
+    new_content = re.sub(r'python3\.\d+', python_ver, content)
+    if new_content != content:
+        alembic_ini.write_text(new_content)
+        print(f"Updated {alembic_ini}: python version set to {python_ver}")
+
+
 def process_packages(command):
     """Process all packages with the given command."""
     current_dir = Path(__file__).parent.resolve()
     success_count = 0
-    
+
     # Map user commands to pip/build commands
     command_map = {
         'install': 'pip install .',
@@ -122,6 +136,9 @@ def process_packages(command):
             if input(f"\nContinue with remaining packages? (y/n): ").lower() != 'y':
                 break
     
+    if command in ('install', 'develop'):
+        fix_alembic_ini_python_version(current_dir)
+
     print(f"\n{'='*60}")
     print(f"Completed: {success_count}/{len(PACKAGES)} packages")
     print(f"{'='*60}")
