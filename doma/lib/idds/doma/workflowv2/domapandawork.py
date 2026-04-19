@@ -1119,7 +1119,7 @@ class DomaPanDAWork(Work):
                 except Exception as ex:
                     self.logger.warn("task id is not retruned: (%s) is not task id: %s" % (return_code[1][1], str(ex)))
                     # jediTaskID=26468582
-                    if return_code[1][1] and 'jediTaskID=' in return_code[1][1]:
+                    if return_code[1][1] and isinstance(return_code[1][1], str) and 'jediTaskID=' in return_code[1][1]:
                         parts = return_code[1][1].split(" ")
                         for part in parts:
                             if 'jediTaskID=' in part:

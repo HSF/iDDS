@@ -357,7 +357,7 @@ def get_contents(scope=None, name=None, request_id=None, transform_id=None, work
 
 
 @read_session
-def get_contents_by_request_transform(request_id=None, transform_id=None, workload_id=None, status=None, map_id=None, status_updated=False, with_deps=True, page_num=None, page_size=None, by_map=False, match_content_ext=False, session=None):
+def get_contents_by_request_transform(request_id=None, transform_id=None, workload_id=None, status=None, map_id=None, status_updated=False, with_deps=True, page_num=None, page_size=None, by_map=False, match_content_ext=False, only_outputs=False, session=None):
     """
     Get content or raise a NoObject exception.
 
@@ -391,54 +391,117 @@ def get_contents_by_request_transform(request_id=None, transform_id=None, worklo
         if status_updated:
             query = query.filter(models.Content.status != models.Content.substatus)
         if not with_deps:
-            query = query.filter(models.Content.content_relation_type != 3)
+            query = query.filter(models.Content.content_relation_type != ContentRelationType.InputDependency)
+        if only_outputs:
+            query = query.filter(models.Content.content_relation_type == ContentRelationType.Output)
 
-        if (status is not None) or (match_content_ext):
-            # Build OR conditions: status match OR ext mismatch
-            conditions = []
-            if status is not None:
-                conditions.append(models.Content.substatus.in_(status))
+        # Build qualifying condition: status match OR content_ext mismatch
+        conditions = []
+        if status is not None:
+            conditions.append(models.Content.substatus.in_(status))
+        if match_content_ext:
+            conditions.append(or_(
+                models.Content_ext.content_id == None,   # noqa E711
+                models.Content_ext.status != models.Content.substatus
+            ))
+
+        if not by_map:
             if match_content_ext:
-                conditions.append(or_(
-                    models.Content_ext.content_id == None,   # noqa E711
-                    models.Content_ext.status != models.Content.substatus
-                ))
-            combined = or_(*conditions) if len(conditions) > 1 else conditions[0]
-
-            if not by_map:
-                if match_content_ext:
-                    query = query.outerjoin(models.Content_ext, models.Content.content_id == models.Content_ext.content_id)
+                query = query.outerjoin(models.Content_ext, models.Content.content_id == models.Content_ext.content_id)
+            if conditions:
+                combined = or_(*conditions) if len(conditions) > 1 else conditions[0]
                 query = query.filter(combined)
-            else:
-                # Find map_ids where at least one content satisfies combined condition,
-                # then return ALL contents for those map_ids via a JOIN.
-                qualifying_maps = session.query(models.Content.map_id.label('map_id')).distinct()
-                if request_id:
-                    qualifying_maps = qualifying_maps.filter(models.Content.request_id == request_id)
-                if transform_id:
-                    qualifying_maps = qualifying_maps.filter(models.Content.transform_id == transform_id)
-                if match_content_ext:
-                    qualifying_maps = qualifying_maps.outerjoin(models.Content_ext, models.Content.content_id == models.Content_ext.content_id)
-                qualifying_maps = qualifying_maps.filter(combined).subquery('qualifying_maps')
-                query = query.join(qualifying_maps, models.Content.map_id == qualifying_maps.c.map_id)
-
-        query = query.order_by(asc(models.Content.request_id), asc(models.Content.transform_id), asc(models.Content.map_id))
-
-        if page_num is not None and page_size is not None:
-            # Paginate by collecting page_size distinct map_ids then filtering
-            map_id_query = session.query(models.Content.map_id).distinct()
+            query = query.order_by(asc(models.Content.request_id), asc(models.Content.transform_id), asc(models.Content.map_id))
+            if page_num is not None and page_size is not None:
+                query = query.offset(page_num * page_size).limit(page_size)
+        else:
+            # by_map: find qualifying map_ids, then return all contents for those maps
+            qualifying_maps = session.query(models.Content.map_id.label('map_id')).distinct()
             if request_id:
-                map_id_query = map_id_query.filter(models.Content.request_id == request_id)
+                qualifying_maps = qualifying_maps.filter(models.Content.request_id == request_id)
             if transform_id:
-                map_id_query = map_id_query.filter(models.Content.transform_id == transform_id)
+                qualifying_maps = qualifying_maps.filter(models.Content.transform_id == transform_id)
             if not with_deps:
-                map_id_query = map_id_query.filter(models.Content.content_relation_type != 3)
-            map_id_query = map_id_query.order_by(asc(models.Content.map_id))
-            map_id_query = map_id_query.offset(page_num * page_size).limit(page_size)
-            page_map_ids = [row[0] for row in map_id_query.all()]
-            if not page_map_ids:
+                qualifying_maps = qualifying_maps.filter(models.Content.content_relation_type != ContentRelationType.InputDependency)
+            if only_outputs:
+                qualifying_maps = qualifying_maps.filter(models.Content.content_relation_type == ContentRelationType.Output)
+            if match_content_ext:
+                qualifying_maps = qualifying_maps.outerjoin(models.Content_ext, models.Content.content_id == models.Content_ext.content_id)
+                qualifying_maps = qualifying_maps.filter(models.Content.content_relation_type == ContentRelationType.Output)
+            if conditions:
+                combined = or_(*conditions) if len(conditions) > 1 else conditions[0]
+                qualifying_maps = qualifying_maps.filter(combined)
+            qualifying_maps = qualifying_maps.order_by(asc(models.Content.map_id))
+            if page_num is not None and page_size is not None:
+                qualifying_maps = qualifying_maps.offset(page_num * page_size).limit(page_size)
+            qualifying_map_ids = [row[0] for row in qualifying_maps.all()]
+            if not qualifying_map_ids:
                 return []
-            query = query.filter(models.Content.map_id.in_(page_map_ids))
+            query = query.filter(models.Content.map_id.in_(qualifying_map_ids))
+            query = query.order_by(asc(models.Content.request_id), asc(models.Content.transform_id), asc(models.Content.map_id))
+
+        tmp = query.all()
+        rets = []
+        if tmp:
+            for t in tmp:
+                rets.append(t.to_dict())
+        return rets
+    except sqlalchemy.orm.exc.NoResultFound as error:
+        raise exceptions.NoObject('No record can be found with (transform_id=%s): %s' %
+                                  (transform_id, error))
+    except Exception as error:
+        raise error
+
+
+@read_session
+def get_contents_by_request_transform_for_missing(request_id=None, transform_id=None, status=None, with_deps=True, by_map=True, only_outputs=False, session=None):
+    """
+    Get all contents belonging to map_ids that have at least one content with status or substatus matching the given status.
+
+    Differs from get_contents_by_request_transform in that it checks both the status and substatus columns,
+    ensuring maps with any Missing content (even if substatus diverged) are included.
+
+    :param request_id: request id.
+    :param transform_id: transform id.
+    :param status: ContentStatus value(s) to match against status or substatus.
+    :param with_deps: if False, exclude InputDependency contents.
+    :param only_outputs: if True, restrict to Output contents.
+    :param session: The database session in use.
+
+    :returns: list of content dicts.
+    """
+    try:
+        if status is not None:
+            if not isinstance(status, (tuple, list)):
+                status = [status]
+
+        qualifying_maps = session.query(models.Content.map_id.label('map_id')).distinct()
+        if request_id:
+            qualifying_maps = qualifying_maps.filter(models.Content.request_id == request_id)
+        if transform_id:
+            qualifying_maps = qualifying_maps.filter(models.Content.transform_id == transform_id)
+        if not with_deps:
+            qualifying_maps = qualifying_maps.filter(models.Content.content_relation_type != ContentRelationType.InputDependency)
+        if only_outputs:
+            qualifying_maps = qualifying_maps.filter(models.Content.content_relation_type == ContentRelationType.Output)
+        if status is not None:
+            qualifying_maps = qualifying_maps.filter(
+                or_(models.Content.status.in_(status), models.Content.substatus.in_(status))
+            )
+        qualifying_maps = qualifying_maps.order_by(asc(models.Content.map_id))
+        qualifying_map_ids = [row[0] for row in qualifying_maps.all()]
+        if not qualifying_map_ids:
+            return []
+
+        query = session.query(models.Content)
+        if request_id:
+            query = query.filter(models.Content.request_id == request_id)
+        if transform_id:
+            query = query.filter(models.Content.transform_id == transform_id)
+        if not with_deps:
+            query = query.filter(models.Content.content_relation_type != ContentRelationType.InputDependency)
+        query = query.filter(models.Content.map_id.in_(qualifying_map_ids))
+        query = query.order_by(asc(models.Content.request_id), asc(models.Content.transform_id), asc(models.Content.map_id))
 
         tmp = query.all()
         rets = []

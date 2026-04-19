@@ -1129,7 +1129,7 @@ class Clerk(BaseAgent):
             self.logger.error(traceback.format_exc())
         self.number_workers -= 1
 
-    def get_workflow_status(self, wf, tf_statuses, has_new_transforms, to_abort):
+    def get_workflow_status(self, wf, tf_statuses, has_new_transforms, to_abort, not_released_works=[]):
         if has_new_transforms:
             return RequestStatus.Transforming
         terminated_status = [
@@ -1153,14 +1153,24 @@ class Clerk(BaseAgent):
         all_finished = all(status in finished_status for status in tf_statuses)
         all_failed = all(status in failed_status for status in tf_statuses)
 
-        if all_finished:
-            return RequestStatus.Finished
-        elif all_failed:
-            return RequestStatus.Failed
-        elif all_terminated:
-            if to_abort:
-                return RequestStatus.Cancelled
-            return RequestStatus.SubFinished
+        if not_released_works:
+            if all_finished:
+                return RequestStatus.SubFinished
+            elif all_failed:
+                return RequestStatus.Failed
+            elif all_terminated:
+                if to_abort:
+                    return RequestStatus.Cancelled
+                return RequestStatus.SubFinished
+        else:
+            if all_finished:
+                return RequestStatus.Finished
+            elif all_failed:
+                return RequestStatus.Failed
+            elif all_terminated:
+                if to_abort:
+                    return RequestStatus.Cancelled
+                return RequestStatus.SubFinished
         return RequestStatus.Transforming
 
     def handle_update_request_real(self, req, event):
@@ -1192,6 +1202,7 @@ class Clerk(BaseAgent):
         works = wf.get_all_works()
         # print(works)
         all_released_work_status = []
+        not_released_works = []
         for work in works:
             # print(work.get_work_id())
             found_match_works = False
@@ -1222,9 +1233,11 @@ class Clerk(BaseAgent):
                         work.sync_work_data(status=tf['status'], substatus=tf['substatus'], work=transform_work, workload_id=tf['workload_id'])
                         self.logger.info(log_pre + "transform status: %s, work status: %s" % (tf['status'], work.status))
                     else:
-                        all_released_work_status.append(None)
+                        # all_released_work_status.append(None)
+                        not_released_works.append(work)
                 else:
-                    all_released_work_status.append(None)
+                    # all_released_work_status.append(None)
+                    not_released_works.append(work)
 
         wf.refresh_works(clean=True)
 
@@ -1261,7 +1274,7 @@ class Clerk(BaseAgent):
                     new_transforms.append(new_transform)
             self.logger.debug(log_pre + " Processing request(%s): new transforms: %s" % (req['request_id'], str(new_transforms)))
 
-        req_status = self.get_workflow_status(wf, all_released_work_status, has_new_transforms, to_abort)
+        req_status = self.get_workflow_status(wf, all_released_work_status, has_new_transforms, to_abort, not_released_works)
         """
         if wf.is_terminated():
             if wf.is_finished(synchronize=False):

@@ -200,11 +200,15 @@ def get_collection_ids(collections):
     return coll_ids
 
 
-def get_input_output_maps(request_id, transform_id, work, with_deps=True, page_num=None, page_size=None, with_panda_id=None, status=None, match_content_ext=False):
+def get_input_output_maps(request_id, transform_id, work, with_deps=True, page_num=None, page_size=None,
+                          with_panda_id=None, status=None, match_content_ext=False, only_outputs=False,
+                          for_missing=False):
     """
     :param with_panda_id: When True, return only map_ids where at least one output content
         has a panda_id in content_metadata. When False, return only map_ids where no output
         content has a panda_id. When None (default), return all map_ids.
+    :param only_outputs: When True, fetch only output contents (content_relation_type=Output).
+        Use when only output contents are needed, e.g. for match_content_ext matching.
     """
     # link collections
     input_collections = work.get_input_collections()
@@ -229,7 +233,9 @@ def get_input_output_maps(request_id, transform_id, work, with_deps=True, page_n
                                                                                page_num=page_num,
                                                                                page_size=page_size,
                                                                                match_content_ext=match_content_ext,
-                                                                               status=status)
+                                                                               only_outputs=only_outputs,
+                                                                               status=status,
+                                                                               for_missing=for_missing)
 
     if with_panda_id is not None:
         filtered = {}
@@ -1602,8 +1608,10 @@ def get_unmatched_panda_id_updates(processing, request_id, transform_id, work, i
         for output_content in name_to_outputs[job_name]:
             content_metadata = dict(output_content.get('content_metadata') or {})
             registered_panda_ids = _to_id_list(content_metadata.get('panda_ids') or content_metadata.get('panda_id'))
-            merged = sorted(set(registered_panda_ids) | set(panda_ids))
-            content_metadata['panda_ids'] = merged
+            if registered_panda_ids:
+                old_panda_ids = content_metadata.get('old_panda_ids') or []
+                content_metadata['old_panda_ids'] = sorted(set(old_panda_ids) | set(registered_panda_ids))
+            content_metadata['panda_ids'] = list(panda_ids)
             update_contents.append({'content_id': output_content['content_id'],
                                     'request_id': request_id,
                                     'content_metadata': content_metadata})
@@ -1703,7 +1711,7 @@ def handle_update_processing_new(processing, agent_attributes, max_updates_per_r
         # ES jobs track panda IDs in contents_ext, not content_metadata, so use with_panda_id=False
         panda_id_filter = False if (hasattr(work, 'es') and work.es) else True
         logger.debug(log_prefix + "Reloading input_output_maps with panda_id filter for polling loop")
-        input_output_maps = get_input_output_maps(request_id, transform_id, work, with_deps=False, with_panda_id=panda_id_filter, status=status_filter, match_content_ext=True)
+        input_output_maps = get_input_output_maps(request_id, transform_id, work, with_deps=False, with_panda_id=panda_id_filter, status=status_filter, match_content_ext=True, only_outputs=True)
 
     if hasattr(work, 'input_dependency_coll_ids'):
         input_dependency_coll_ids = work.input_dependency_coll_ids
@@ -1732,7 +1740,7 @@ def handle_update_processing_new(processing, agent_attributes, max_updates_per_r
         if max_jobs_per_round:
             maps_page = get_input_output_maps(request_id, transform_id, work, with_deps=False,
                                               page_num=page_num, page_size=max_jobs_per_round,
-                                              with_panda_id=True, status=status_filter, match_content_ext=True)
+                                              with_panda_id=True, status=status_filter, match_content_ext=True, only_outputs=True)
             logger.debug(log_prefix + "handle_update_processing_new: polling page %d with %d maps"
                          % (page_num, len(maps_page)))
         else:
@@ -1899,6 +1907,37 @@ def handle_update_processing_new(processing, agent_attributes, max_updates_per_r
     if not parameters:
         parameters = {}
     parameters["num_unmapped"] = processing["num_unmapped"]
+
+    # poll_missing_outputs needs to load the input contents which are in ContentStatus.Missing.
+    # but the processing above calls get_intput_output_maps with only_outputs=True, so the inputs are not loaded.
+    # Her we need to call get_input_output_maps again with input status equal to Missing to get the missing input contents for polling.
+    input_output_maps = get_input_output_maps(request_id, transform_id, work, with_deps=False, with_panda_id=False,
+                                              status=ContentStatus.Missing, match_content_ext=False, only_outputs=False, for_missing=True)
+    content_updates_missing_chunks = poll_missing_outputs(input_output_maps, contents_ext=[],
+                                                          max_updates_per_round=max_updates_per_round,
+                                                          process_status=process_status)
+    for content_updates_missing_chunk in content_updates_missing_chunks:
+        content_updates_missing, updated_contents_full_missing = content_updates_missing_chunk
+        msgs = []
+        if updated_contents_full_missing:
+            msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='file',
+                                     files=updated_contents_full_missing, relation_type='output')
+        if executors is None:
+            logger.debug(log_prefix + "handle_update_processing_new: update %s missing contents" % (len(content_updates_missing)))
+            core_processings.update_processing_contents(update_processing=None,
+                                                        update_contents=content_updates_missing,
+                                                        request_id=request_id,
+                                                        use_bulk_update_mappings=False,
+                                                        messages=msgs)
+        else:
+            log_msg = "handle_update_processing_new thread: update %s missing contents" % (len(content_updates_missing))
+            kwargs = {'update_processing': None,
+                      'request_id': request_id,
+                      'update_contents': content_updates_missing,
+                      'use_bulk_update_mappings': False,
+                      'messages': msgs}
+            f = executors.submit(update_processing_contents_thread, logger, log_prefix, log_msg, kwargs)
+            ret_futures.add(f)
 
     # return process_status, new_contents, new_input_dependency_contents, ret_msgs, content_updates + content_updates_missing, parameters, new_contents_ext, update_contents_ext
     return process_status, [], [], ret_msgs, [], parameters, [], []
@@ -2078,8 +2117,10 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
             terminated_processing = True
 
         logger.debug(log_prefix + "update_input_contents_by_dependency_pages")
+        # status_not_to_check = [ContentStatus.Available, ContentStatus.FakeAvailable,
+        #                        ContentStatus.FinalFailed, ContentStatus.Missing]
         status_not_to_check = [ContentStatus.Available, ContentStatus.FakeAvailable,
-                               ContentStatus.FinalFailed, ContentStatus.Missing]
+                               ContentStatus.FinalFailed]
         core_catalog.update_input_contents_by_dependency_pages(request_id=request_id, transform_id=transform_id,
                                                                page_size=default_input_dep_page_size,
                                                                terminated=terminated_processing,

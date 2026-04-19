@@ -319,6 +319,7 @@ class Finisher(Poller):
                         # some files are missing, poll it.
                         self.logger.info(log_pre + "UpdateProcessingEvent(processing_id: %s)" % pr['processing_id'])
                         event = UpdateProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'],
+                                                      content=event._content if event else None,
                                                       counter=event._counter + 1 if event else 0)
                         event.set_terminating()
                         self.event_bus.send(event)
