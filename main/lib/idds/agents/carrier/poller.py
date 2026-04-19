@@ -664,14 +664,28 @@ class Poller(BaseAgent):
                 if to_trigger_event:
                     # always triggering
                     event_content = {}
-                    if (('update_contents' in ret and ret['update_contents']) or ('new_contents' in ret and ret['new_contents'])):
+                    has_updates = (('update_contents' in ret and ret['update_contents']) or ('new_contents' in ret and ret['new_contents']))
+                    if has_updates:
                         event_content['has_updates'] = True
                     if is_process_terminated(pr['substatus']):
-                        event_content['Terminated'] = True
-                        event_content['is_terminating'] = True
-                    self.logger.info(log_pre + "TriggerProcessingEvent(processing_id: %s)" % pr['processing_id'])
-                    event = TriggerProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'], content=event_content)
-                    self.event_bus.send(event)
+                        retry_count = (event._content or {}).get('trigger_terminate_retry_count', 0) if event else 0
+                        if has_updates:
+                            retry_count = 0
+                        else:
+                            retry_count += 1
+                        if retry_count >= 3:
+                            self.logger.warn(log_pre + "trigger_terminate_retry_count (%s) >= 3, stop sending TriggerProcessingEvent for terminated processing" % retry_count)
+                        else:
+                            event_content['Terminated'] = True
+                            event_content['is_terminating'] = True
+                            event_content['trigger_terminate_retry_count'] = retry_count
+                            self.logger.info(log_pre + "TriggerProcessingEvent(processing_id: %s)" % pr['processing_id'])
+                            event = TriggerProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'], content=event_content)
+                            self.event_bus.send(event)
+                    else:
+                        self.logger.info(log_pre + "TriggerProcessingEvent(processing_id: %s)" % pr['processing_id'])
+                        event = TriggerProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'], content=event_content)
+                        self.event_bus.send(event)
                 elif 'processing_status' in ret and ret['processing_status'] == ProcessingStatus.Terminating:
                     self.logger.info(log_pre + "TerminatedProcessingEvent(processing_id: %s)" % pr['processing_id'])
                     event = TerminatedProcessingEvent(publisher_id=self.id, processing_id=pr['processing_id'])
