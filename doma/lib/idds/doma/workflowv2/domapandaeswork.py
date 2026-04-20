@@ -574,7 +574,7 @@ class DomaPanDAESWork(DomaPanDAWork):
                 events_status = panda_job_status['events_status']
 
             if job_status not in [ContentStatus.Available, ContentStatus.Failed, ContentStatus.FinalFailed,
-                                   ContentStatus.Lost, ContentStatus.Deleted, ContentStatus.Missing]:
+                                  ContentStatus.Lost, ContentStatus.Deleted, ContentStatus.Missing]:
                 continue
 
             output_contents = inputname_to_map_id_outputs[input_file]['outputs']

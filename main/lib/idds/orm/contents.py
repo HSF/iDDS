@@ -357,7 +357,8 @@ def get_contents(scope=None, name=None, request_id=None, transform_id=None, work
 
 
 @read_session
-def get_contents_by_request_transform(request_id=None, transform_id=None, workload_id=None, status=None, map_id=None, status_updated=False, with_deps=True, page_num=None, page_size=None, by_map=False, match_content_ext=False, only_outputs=False, session=None):
+def get_contents_by_request_transform(request_id=None, transform_id=None, workload_id=None, status=None, map_id=None,
+                                      status_updated=False, with_deps=True, page_num=None, page_size=None, by_map=False, match_content_ext=False, only_outputs=False, session=None):
     """
     Get content or raise a NoObject exception.
 
