@@ -22,8 +22,7 @@ from idds.common.constants import (Sections, ReturnCode, TransformType,
                                    ContentStatus, ContentRelationType,
                                    CommandType, ProcessingStatus, WorkflowType,
                                    ConditionStatus,
-                                   get_processing_type_from_transform_type,
-                                   get_transform_status_from_processing_status)
+                                   get_processing_type_from_transform_type)
 from idds.common.utils import setup_logging, truncate_string
 from idds.core import (transforms as core_transforms,
                        processings as core_processings,
