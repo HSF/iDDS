@@ -26,7 +26,7 @@ from idds.agents.common.eventbus.event import (EventType,
                                                SyncProcessingEvent,
                                                TerminatedProcessingEvent)
 
-from .utils import handle_update_processing_new, is_process_terminated, is_process_finished
+from .utils import handle_update_processing, handle_update_processing_new, is_process_terminated, is_process_finished
 from .iutils import handle_update_iprocessing
 
 setup_logging(__name__)
@@ -344,13 +344,24 @@ class Poller(BaseAgent):
             if self.enable_executors:
                 executors = self.get_extra_executors()
 
-            ret_handle_update_processing = handle_update_processing_new(processing,
+            proc = processing['processing_metadata']['processing'] if processing.get('processing_metadata') and 'processing' in processing['processing_metadata'] else None
+            work = proc.work if proc else None
+
+            if work and work.es:
+                ret_handle_update_processing = handle_update_processing(processing,
                                                                         self.agent_attributes,
                                                                         max_updates_per_round=self.max_updates_per_round,
-                                                                        max_jobs_per_round=self.max_updates_per_round,
                                                                         executors=executors,
                                                                         logger=self.logger,
                                                                         log_prefix=log_prefix)
+            else:
+                ret_handle_update_processing = handle_update_processing_new(processing,
+                                                                            self.agent_attributes,
+                                                                            max_updates_per_round=self.max_updates_per_round,
+                                                                            max_jobs_per_round=self.max_updates_per_round,
+                                                                            executors=executors,
+                                                                            logger=self.logger,
+                                                                            log_prefix=log_prefix)
 
             process_status, new_contents, new_input_dependency_contents, ret_msgs, update_contents, parameters, new_contents_ext, update_contents_ext = ret_handle_update_processing
 

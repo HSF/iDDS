@@ -138,7 +138,7 @@ def process_packages(command):
             if input(f"\nContinue with remaining packages? (y/n): ").lower() != 'y':
                 break
     
-    if command in ('install', 'develop'):
+    if command in ('install', 'develop', 'build', 'wheel'):
         fix_alembic_ini_python_version()
 
     print(f"\n{'='*60}")

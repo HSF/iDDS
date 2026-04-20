@@ -573,8 +573,8 @@ class DomaPanDAESWork(DomaPanDAWork):
             if 'events_status' in panda_job_status:
                 events_status = panda_job_status['events_status']
 
-            if events_status is None or job_status not in [ContentStatus.Failed, ContentStatus.FinalFailed,
-                                                           ContentStatus.Lost, ContentStatus.Deleted, ContentStatus.Missing]:
+            if job_status not in [ContentStatus.Available, ContentStatus.Failed, ContentStatus.FinalFailed,
+                                  ContentStatus.Lost, ContentStatus.Deleted, ContentStatus.Missing]:
                 continue
 
             output_contents = inputname_to_map_id_outputs[input_file]['outputs']
@@ -586,10 +586,10 @@ class DomaPanDAESWork(DomaPanDAWork):
 
             for sub_map_id in output_contents_sub_map:
                 for content in output_contents_sub_map[sub_map_id]:
-                    event_status = events_status.get(str(sub_map_id), None)
+                    event_status = events_status.get(str(sub_map_id), None) if events_status else None
                     update_content = None
                     if not event_status:
-                        if job_status in [ContentStatus.Failed, ContentStatus.FinalFailed,
+                        if job_status in [ContentStatus.Available, ContentStatus.Failed, ContentStatus.FinalFailed,
                                           ContentStatus.Lost, ContentStatus.Deleted, ContentStatus.Missing]:
                             event_status = job_status
                     if event_status:
