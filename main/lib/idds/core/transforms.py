@@ -387,7 +387,7 @@ def get_transform_input_output_maps(request_id, transform_id, input_coll_ids, ou
     :param page_size: number of distinct map_ids per page.
     """
     if not for_missing:
-        if only_outputs:
+        if only_outputs or (status is None and (page_num is None or page_size is None)):
             by_map = False
         else:
             by_map = True
