@@ -387,8 +387,12 @@ def get_transform_input_output_maps(request_id, transform_id, input_coll_ids, ou
     :param page_size: number of distinct map_ids per page.
     """
     if not for_missing:
+        if only_outputs or (status is None and (page_num is None or page_size is None)):
+            by_map = False
+        else:
+            by_map = True
         contents = orm_contents.get_contents_by_request_transform(request_id=request_id, transform_id=transform_id, with_deps=with_deps,
-                                                                  page_num=page_num, page_size=page_size, status=status, by_map=True,
+                                                                  page_num=page_num, page_size=page_size, status=status, by_map=by_map,
                                                                   match_content_ext=match_content_ext, only_outputs=only_outputs, session=session)
     else:
         contents = orm_contents.get_contents_by_request_transform_for_missing(request_id=request_id, transform_id=transform_id, with_deps=with_deps,

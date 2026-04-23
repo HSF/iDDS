@@ -237,6 +237,7 @@ def get_input_output_maps(request_id, transform_id, work, with_deps=True, page_n
                                                                                status=status,
                                                                                for_missing=for_missing)
 
+    unfiltered_num = len(mapped_input_output_maps)
     if with_panda_id is not None:
         filtered = {}
         for map_id, map_contents in mapped_input_output_maps.items():
@@ -248,13 +249,13 @@ def get_input_output_maps(request_id, transform_id, work, with_deps=True, page_n
             )
             if with_panda_id == has_panda_id:
                 filtered[map_id] = map_contents
-        return filtered
+        return unfiltered_num, filtered
 
     # work_name_to_coll_map = core_transforms.get_work_name_to_coll_map(request_id=transform['request_id'])
     # work.set_work_name_to_coll_map(work_name_to_coll_map)
 
     # new_input_output_maps = work.get_new_input_output_maps(mapped_input_output_maps)
-    return mapped_input_output_maps
+    return unfiltered_num, mapped_input_output_maps
 
 
 def get_ext_content_ids(request_id, transform_id, work):
@@ -670,7 +671,7 @@ def handle_new_processing(processing, agent_attributes, func_site_to_cloud=None,
     new_input_dependency_contents = []
     update_collections = []
 
-    input_output_maps = get_input_output_maps(request_id, transform_id, work, with_deps=False)
+    _, input_output_maps = get_input_output_maps(request_id, transform_id, work, with_deps=False)
     new_input_output_maps = work.get_new_input_output_maps(input_output_maps)
     if hasattr(work, 'input_dependency_coll_ids'):
         input_dependency_coll_ids = work.input_dependency_coll_ids
@@ -733,7 +734,7 @@ def handle_new_processing(processing, agent_attributes, func_site_to_cloud=None,
 
     # reload updated input_output_maps.
     # if all inputs are filled correctly, it will automatically set has_new_input to False, and won't come to this step anymore, which can avoid too many database query in the future.
-    input_output_maps = get_input_output_maps(request_id, transform_id, work, with_deps=False)
+    _, input_output_maps = get_input_output_maps(request_id, transform_id, work, with_deps=False)
     new_input_output_maps = work.get_new_input_output_maps(input_output_maps)
     if not work.has_new_inputs:
         logger.debug(log_prefix + "handle_new_processing: no new input_output_maps after reload")
@@ -1347,7 +1348,7 @@ def handle_update_processing(processing, agent_attributes, max_updates_per_round
     if processing['command'] in [CommandType.ResumeProcessing]:
         handle_resume_processing(processing, agent_attributes=agent_attributes, logger=logger, log_prefix=log_prefix)
 
-    input_output_maps = get_input_output_maps(request_id, transform_id, work, with_deps=False)
+    _, input_output_maps = get_input_output_maps(request_id, transform_id, work, with_deps=False)
     logger.debug(log_prefix + "get_input_output_maps: len: %s" % len(input_output_maps))
     logger.debug(log_prefix + "get_input_output_maps.keys[:3]: %s" % str(list(input_output_maps.keys())[:3]))
 
@@ -1674,7 +1675,7 @@ def handle_update_processing_new(processing, agent_attributes, max_updates_per_r
     if processing["num_unmapped"] > 0 or has_new_inputs or (num_inputs is not None and num_inputs > num_input_output_maps):
         logger.debug(log_prefix + f"handle_update_processing_new: checking for new input_output_maps with num_inputs: {num_inputs}, num_input_output_maps: {num_input_output_maps},"
                      f"processing['num_unmapped']: {processing['num_unmapped']}, work.has_new_inputs: {work.has_new_inputs}")
-        input_output_maps = get_input_output_maps(request_id, transform_id, work, with_deps=False)
+        _, input_output_maps = get_input_output_maps(request_id, transform_id, work, with_deps=False)
         logger.debug(log_prefix + "get_input_output_maps: len: %s" % len(input_output_maps))
         new_input_output_maps = work.get_new_input_output_maps(input_output_maps)
         logger.debug(log_prefix + "get_new_input_output_maps: len: %s" % len(new_input_output_maps))
@@ -1685,13 +1686,13 @@ def handle_update_processing_new(processing, agent_attributes, max_updates_per_r
 
     # For full-map mode: ensure input_output_maps is loaded for the polling loop.
     if not max_jobs_per_round and input_output_maps is None:
-        input_output_maps = get_input_output_maps(request_id, transform_id, work, with_deps=False)
+        _, input_output_maps = get_input_output_maps(request_id, transform_id, work, with_deps=False)
         logger.debug(log_prefix + "get_input_output_maps: len: %s" % len(input_output_maps))
 
     # Map any newly submitted panda jobs not yet recorded in content_metadata.
     maps_for_unmatch = input_output_maps
     if maps_for_unmatch is None:
-        maps_for_unmatch = get_input_output_maps(request_id, transform_id, work, with_deps=False)
+        _, maps_for_unmatch = get_input_output_maps(request_id, transform_id, work, with_deps=False)
     unmatched_updates = get_unmatched_panda_id_updates(processing, request_id, transform_id, work,
                                                        maps_for_unmatch, logger=logger, log_prefix=log_prefix)
     if unmatched_updates:
@@ -1711,7 +1712,7 @@ def handle_update_processing_new(processing, agent_attributes, max_updates_per_r
         # ES jobs track panda IDs in contents_ext, not content_metadata, so use with_panda_id=False
         panda_id_filter = False if (hasattr(work, 'es') and work.es) else True
         logger.debug(log_prefix + "Reloading input_output_maps with panda_id filter for polling loop")
-        input_output_maps = get_input_output_maps(request_id, transform_id, work, with_deps=False, with_panda_id=panda_id_filter, status=status_filter, match_content_ext=True, only_outputs=True)
+        _, input_output_maps = get_input_output_maps(request_id, transform_id, work, with_deps=False, with_panda_id=panda_id_filter, status=status_filter, match_content_ext=True, only_outputs=True)
 
     if hasattr(work, 'input_dependency_coll_ids'):
         input_dependency_coll_ids = work.input_dependency_coll_ids
@@ -1733,16 +1734,17 @@ def handle_update_processing_new(processing, agent_attributes, max_updates_per_r
     parameters = {}
     new_input_output_maps_from_poll = {}
     page_num = 0
+    unfiltered_num = 0
 
     logger.debug(log_prefix + f"Starting polling loop with max_jobs_per_round={max_jobs_per_round}")
 
     while True:
         if max_jobs_per_round:
-            maps_page = get_input_output_maps(request_id, transform_id, work, with_deps=False,
-                                              page_num=page_num, page_size=max_jobs_per_round,
-                                              with_panda_id=True, status=status_filter, match_content_ext=True, only_outputs=True)
-            logger.debug(log_prefix + "handle_update_processing_new: polling page %d with %d maps"
-                         % (page_num, len(maps_page)))
+            unfiltered_num, maps_page = get_input_output_maps(request_id, transform_id, work, with_deps=False,
+                                                              page_num=page_num, page_size=max_jobs_per_round,
+                                                              with_panda_id=True, status=status_filter, match_content_ext=True, only_outputs=True)
+            logger.debug(log_prefix + "handle_update_processing_new: polling page %d with %d maps (unfiltered: %d)"
+                         % (page_num, len(maps_page), unfiltered_num))
         else:
             maps_page = input_output_maps  # full map, single iteration
 
@@ -1867,7 +1869,7 @@ def handle_update_processing_new(processing, agent_attributes, max_updates_per_r
                     ret_futures.add(f)
 
         # Stop after first iteration for full-map mode, or when last page is reached
-        if not max_jobs_per_round or len(maps_page) < max_jobs_per_round:
+        if not max_jobs_per_round or unfiltered_num < max_jobs_per_round:
             break
         page_num += 1
 
@@ -1911,8 +1913,8 @@ def handle_update_processing_new(processing, agent_attributes, max_updates_per_r
     # poll_missing_outputs needs to load the input contents which are in ContentStatus.Missing.
     # but the processing above calls get_intput_output_maps with only_outputs=True, so the inputs are not loaded.
     # Her we need to call get_input_output_maps again with input status equal to Missing to get the missing input contents for polling.
-    input_output_maps = get_input_output_maps(request_id, transform_id, work, with_deps=False, with_panda_id=False,
-                                              status=ContentStatus.Missing, match_content_ext=False, only_outputs=False, for_missing=True)
+    _, input_output_maps = get_input_output_maps(request_id, transform_id, work, with_deps=False, with_panda_id=False,
+                                               status=ContentStatus.Missing, match_content_ext=False, only_outputs=False, for_missing=True)
     content_updates_missing_chunks = poll_missing_outputs(input_output_maps, contents_ext=[],
                                                           max_updates_per_round=max_updates_per_round,
                                                           process_status=process_status)
@@ -2129,7 +2131,7 @@ def handle_trigger_processing(processing, agent_attributes, trigger_new_updates=
         logger.debug(log_prefix + "update_input_contents_by_dependency_pages done")
 
         with_deps = False
-        input_output_maps = get_input_output_maps(request_id, transform_id, work, with_deps=with_deps)
+        _, input_output_maps = get_input_output_maps(request_id, transform_id, work, with_deps=with_deps)
         logger.debug(log_prefix + "input_output_maps.keys[:2]: %s" % str(list(input_output_maps.keys())[:2]))
 
         updated_contents_ret_chunks = get_updated_contents_by_input_output_maps(input_output_maps=input_output_maps,
@@ -2551,7 +2553,7 @@ def sync_collection_status(request_id, transform_id, workload_id, work, input_ou
     logger.info(log_prefix + "sync_collection_status")
 
     if input_output_maps is None:
-        input_output_maps = get_input_output_maps(request_id, transform_id, work, with_deps=False)
+        _, input_output_maps = get_input_output_maps(request_id, transform_id, work, with_deps=False)
 
     all_updates_flushed = True
     coll_status = {}
@@ -3049,7 +3051,7 @@ def sync_processing(processing, agent_attributes, terminate=False, abort=False, 
 
         # if work.require_ext_contents():
         if work.dispatch_ext_content:
-            input_output_maps = get_input_output_maps(request_id, transform_id, work, with_deps=False)
+            _, input_output_maps = get_input_output_maps(request_id, transform_id, work, with_deps=False)
             logger.info(f"{log_prefix} generating messages for ext contents")
             contents_ext = core_catalog.get_contents_ext(request_id=request_id, transform_id=transform_id)
             msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='content_ext', files=contents_ext,
@@ -3147,7 +3149,7 @@ def handle_resume_processing(processing, agent_attributes, logger=None, log_pref
                         'substatus': CollectionStatus.Open}
         update_collections.append(u_collection)
 
-    input_output_maps = get_input_output_maps(request_id, transform_id, work, with_deps=False)
+    _, input_output_maps = get_input_output_maps(request_id, transform_id, work, with_deps=False)
     update_contents = reactive_contents(request_id, transform_id, workload_id, work, input_output_maps)
 
     processing['status'] = ProcessingStatus.Running
