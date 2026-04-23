@@ -387,7 +387,7 @@ def get_contents_by_request_transform(request_id=None, transform_id=None, worklo
             query = query.filter(models.Content.transform_id == transform_id)
         if workload_id:
             query = query.filter(models.Content.workload_id == workload_id)
-        if map_id:
+        if map_id is not None:
             query = query.filter(models.Content.map_id == map_id)
         if status_updated:
             query = query.filter(models.Content.status != models.Content.substatus)
