@@ -38,6 +38,10 @@ pip install --no-deps ${RootDir}/client
 echo "install idds-workflow"
 pip install --no-deps ${RootDir}/workflow
 
+# charset-normalizer ships mypyc-compiled .so files that are platform-specific;
+# reinstall without binary to get the pure-Python version that works on the target server
+pip install --force-reinstall --no-binary charset-normalizer charset-normalizer
+
 python_lib_path=`python -c 'from sysconfig import get_path; print(get_path("purelib"))'`
 echo $python_lib_path
 
