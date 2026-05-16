@@ -44,8 +44,8 @@ export PANDA_VERIFY_HOST=off;
 export PANDA_BEHIND_REAL_LB=true;
 
 # export PANDA_CLIENT_VERBOSE=true
-echo "Environment variables:"
-env
+# echo "Environment variables:"
+# env
 
 # Set PANDA_URL_SSL and PANDACACHE_URL if not already set
 if [ -z "${PANDA_URL_SSL}" ]; then

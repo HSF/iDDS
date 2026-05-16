@@ -84,7 +84,7 @@ fi
         for k, v in extra_env.items():
             script += f"export {k}='{v}'\n"
 
-    script += "env\n"
+    # script += "env\n"
     return script
 
 
@@ -118,6 +118,7 @@ def create_run_workflow_cmd(run_args, extra_env=None, post_script=None):
     setup_script = get_workflow_setup_script(extra_env)
     script = setup_script + "\n"
     script += " ".join(f'"{str(arg)}"' for arg in run_args)
+    script += "\n"
     script += "ret=$?\n"
 
     # Append post_script directly
@@ -128,7 +129,7 @@ def create_run_workflow_cmd(run_args, extra_env=None, post_script=None):
     script += "\n\n# Exit with the return code of the workflow command\n"
     script += "exit $ret\n"
 
-    logging.debug("script: ")
+    logging.debug(f"{run_script} script: ")
     logging.debug(script)
 
     with open(run_script, 'w') as f:
