@@ -36,7 +36,7 @@ package-dir = {"" = "lib"}
 
 [tool.setuptools.packages.find]
 where = ["lib"]
-include = ["idds.common*"]
+include = ["idds", "idds.common*"]
 
 [tool.setuptools.package-data]
 "idds.common" = ["*.template"]

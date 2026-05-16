@@ -63,10 +63,6 @@ for libname in idds pandaclient pandatools tabulate requests urllib3 argcomplete
     echo cp -fr ${python_lib_path}/$libname lib_py
     cp -fr ${python_lib_path}/$libname lib_py
 done
-# idds is a namespace package (no top-level __init__.py), so Python skips lib_py and
-# falls through to any system/conda idds installation even when lib_py is first in PYTHONPATH.
-# Adding __init__.py makes it a regular package so Python stops here.
-touch lib_py/idds/__init__.py
 echo zip -r $tmpzip lib_py
 zip -r $tmpzip lib_py
 cd -
