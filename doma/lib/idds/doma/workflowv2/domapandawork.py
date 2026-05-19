@@ -1097,6 +1097,7 @@ class DomaPanDAWork(Work):
                 # task is already submitted
                 return task_id, None
 
+            self.logger.info(f"Submitting task with parameters: {task_param}")  
             if self.has_dependency():
                 parent_tid = None
                 self.logger.info("parent_workload_id: %s" % self.parent_workload_id)
