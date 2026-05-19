@@ -59,6 +59,7 @@ def _create_workflow_task_records(workflow, session=None):
     content = workflow.get('content', {})
     run_id = content.get('run_id')
     core_count = content.get('core_count')
+    worker_count = content.get('target_worker_count')
     memory_per_core = content.get('memory_per_core')
     site = content.get('site')
     panda_attributes = content.get('panda_attributes', {})
@@ -106,6 +107,7 @@ def _create_workflow_task_records(workflow, session=None):
         'substatus': TransformStatus.New,
         'transform_metadata': {
             'core_count': core_count,
+            'worker_count': worker_count,
             'memory_per_core': memory_per_core,
             'site': site,
             'panda_attributes': panda_attributes,
@@ -161,6 +163,7 @@ def _create_workflow_task_records(workflow, session=None):
         'username': username,
         'cloud': cloud,
         'core_count': core_count,
+        'worker_count': worker_count,
         'memory_per_core': memory_per_core,
         'site': site,
         'panda_attributes': panda_attributes,
@@ -190,7 +193,8 @@ def _build_task_params(ctx):
         'processingType': panda_attrs.get('processing_type', 'EIC'),
         'prodSourceLabel': 'managed',
         'taskType': panda_attrs.get('task_type', 'iDDS'),
-        'coreCount': ctx.get('core_count') or panda_attrs.get('core_count'),
+        # 'coreCount': ctx.get('core_count') or panda_attrs.get('core_count'),
+        'coreCount': panda_attrs.get('core_count') or 1,
         'skipScout': True,
         'ramCount': ctx.get('memory_per_core') or panda_attrs.get('memory_per_core'),
         'ramUnit': "MBPerCoreFixed",
@@ -218,7 +222,7 @@ def _build_task_params(ctx):
     task_params["pfnList"] = in_files
     task_params["nFilesPerJob"] = 1
 
-    num_workers = ctx.get('num_workers') or panda_attrs.get('num_workers', 1)
+    num_workers = ctx.get('worker_count') or panda_attrs.get('num_workers', 1)
     task_params["nEvents"] = num_workers
     task_params["nEventsPerJob"] = 1
 
