@@ -3003,6 +3003,10 @@ def sync_work_status(request_id, transform_id, workload_id, work, substatus=None
                 work.status = WorkStatus.Failed
     elif substatus and substatus in [ProcessingStatus.Broken]:
         work.status = get_work_status_from_transform_processing_status(substatus)
+
+    if substatus and substatus in [ProcessingStatus.Cancelled, ProcessingStatus.Suspended]:
+        work.status = get_work_status_from_transform_processing_status(substatus)
+        
     logger.debug(log_prefix + "work status: %s, substatus: %s" % (str(work.status), substatus))
 
 
