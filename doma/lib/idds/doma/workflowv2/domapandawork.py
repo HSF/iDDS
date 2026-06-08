@@ -1107,7 +1107,7 @@ class DomaPanDAWork(Work):
                 return_code = Client.insertTaskParams(task_param, verbose=False, parent_tid=parent_tid)
             else:
                 return_code = Client.insertTaskParams(task_param, verbose=False)
-            if return_code[0] == 0 and return_code[1][0] in (0, True):
+            if return_code[0] == 0 and return_code[1] and return_code[1][0] in (0, True):
                 try:
                     ret_string = str(return_code[1][1])
                     ret_string = ret_string.replace("succeeded. new jediTaskID=", "")

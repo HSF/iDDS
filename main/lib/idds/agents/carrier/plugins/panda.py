@@ -95,7 +95,7 @@ class PandaSubmitterPoller(BaseSubmitterPoller):
             if work.parent_workload_id:
                 parent_tid = work.parent_workload_id
             return_code = Client.insertTaskParams(task_params, verbose=True, parent_tid=parent_tid)
-            if return_code[0] == 0 and return_code[1][0] in [True, 0]:
+            if return_code[0] == 0 and return_code[1] and return_code[1][0] in [True, 0]:
                 try:
                     ret_string = str(return_code[1][1])
                     ret_string = ret_string.replace("succeeded. new jediTaskID=", "")
