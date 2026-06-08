@@ -2642,8 +2642,8 @@ def sync_collection_status(request_id, transform_id, workload_id, work, input_ou
                 coll.total_files = coll.coll_metadata['total_files']
             else:
                 coll.total_files = 0
-            if 'availability' in coll.coll_metadata and coll.coll_metadata['availability']:
-                coll.processed_files = coll.coll_metadata['availability']
+            if 'availability' in coll.coll_metadata and coll.coll_metadata['availability'] and type(coll.coll_metadata['availability']) in [int, float]:
+                coll.processed_files = int(coll.coll_metadata['availability'])
             else:
                 coll.processed_files = 0
             if 'stuck' in coll.coll_metadata and coll.coll_metadata['stuck']:
