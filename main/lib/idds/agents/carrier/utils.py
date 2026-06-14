@@ -3032,6 +3032,9 @@ def sync_processing(processing, agent_attributes, terminate=False, abort=False, 
     # input_output_maps = get_input_output_maps(request_id, transform_id, work, with_deps=False)
     if processing['substatus'] in terminated_status or processing['substatus'] in terminated_status:
         terminate = True
+    is_cancelled = processing.get('substatus') in [ProcessingStatus.Cancelled, ProcessingStatus.Suspended]
+    if is_cancelled:
+        abort = True
     update_collections, all_updates_flushed, msgs = sync_collection_status_new(request_id, transform_id, workload_id, work,
                                                                                log_prefix=log_prefix,
                                                                                close_collection=True, abort=abort, terminate=terminate)
@@ -3040,7 +3043,7 @@ def sync_processing(processing, agent_attributes, terminate=False, abort=False, 
 
     sync_work_status(request_id, transform_id, workload_id, work, processing['substatus'], log_prefix)
     logger.info(log_prefix + "sync_processing: work status: %s" % work.get_status())
-    if terminate and work.is_terminated() and all_updates_flushed:
+    if terminate and (work.is_terminated() or is_cancelled) and (all_updates_flushed or is_cancelled):
         msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='work')
         messages += msgs
         if work.is_finished():
@@ -3050,6 +3053,10 @@ def sync_processing(processing, agent_attributes, terminate=False, abort=False, 
             processing['status'] = ProcessingStatus.SubFinished
         elif work.is_failed():
             processing['status'] = ProcessingStatus.Failed
+        elif work.is_cancelled() or (is_cancelled and processing.get('substatus') == ProcessingStatus.Cancelled):
+            processing['status'] = ProcessingStatus.Cancelled
+        elif work.is_suspended() or (is_cancelled and processing.get('substatus') == ProcessingStatus.Suspended):
+            processing['status'] = ProcessingStatus.Suspended
         else:
             processing['status'] = ProcessingStatus.SubFinished
 
