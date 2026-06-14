@@ -21,13 +21,13 @@ echo "setup virtualenv $workdir"
 # conda env create --prefix=$workdir -f ${WorkflowDir}/tools/workflow/make/environment.yaml
 # conda activate $workdir
 
-python3 -m venv $workdir
+python3.9 -m venv $workdir
 source $workdir/bin/activate
 
 echo "install panda client"
 pip install panda-client
 # pip install tabulate requests urllib3==1.26.18 argcomplete packaging anytree networkx stomp.py==8.0.1
-pip install tabulate requests urllib3 argcomplete packaging anytree networkx stomp.py wheel
+pip install tabulate "requests<2.29" "urllib3<2" argcomplete packaging anytree networkx stomp.py wheel
 
 echo "install idds-common"
 pip install ${RootDir}/common
@@ -37,6 +37,10 @@ pip install --no-deps ${RootDir}/client
 
 echo "install idds-workflow"
 pip install --no-deps ${RootDir}/workflow
+
+# charset-normalizer ships mypyc-compiled .so files that are platform-specific;
+# reinstall without binary to get the pure-Python version that works on the target server
+pip install --force-reinstall --no-binary charset-normalizer charset-normalizer
 
 python_lib_path=`python -c 'from sysconfig import get_path; print(get_path("purelib"))'`
 echo $python_lib_path

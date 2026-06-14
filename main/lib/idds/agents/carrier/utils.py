@@ -2642,8 +2642,8 @@ def sync_collection_status(request_id, transform_id, workload_id, work, input_ou
                 coll.total_files = coll.coll_metadata['total_files']
             else:
                 coll.total_files = 0
-            if 'availability' in coll.coll_metadata and coll.coll_metadata['availability']:
-                coll.processed_files = coll.coll_metadata['availability']
+            if 'availability' in coll.coll_metadata and coll.coll_metadata['availability'] and type(coll.coll_metadata['availability']) in [int, float]:
+                coll.processed_files = int(coll.coll_metadata['availability'])
             else:
                 coll.processed_files = 0
             if 'stuck' in coll.coll_metadata and coll.coll_metadata['stuck']:
@@ -3003,6 +3003,10 @@ def sync_work_status(request_id, transform_id, workload_id, work, substatus=None
                 work.status = WorkStatus.Failed
     elif substatus and substatus in [ProcessingStatus.Broken]:
         work.status = get_work_status_from_transform_processing_status(substatus)
+
+    if substatus and substatus in [ProcessingStatus.Cancelled, ProcessingStatus.Suspended]:
+        work.status = get_work_status_from_transform_processing_status(substatus)
+        
     logger.debug(log_prefix + "work status: %s, substatus: %s" % (str(work.status), substatus))
 
 
@@ -3028,6 +3032,9 @@ def sync_processing(processing, agent_attributes, terminate=False, abort=False, 
     # input_output_maps = get_input_output_maps(request_id, transform_id, work, with_deps=False)
     if processing['substatus'] in terminated_status or processing['substatus'] in terminated_status:
         terminate = True
+    is_cancelled = processing.get('substatus') in [ProcessingStatus.Cancelled, ProcessingStatus.Suspended]
+    if is_cancelled:
+        abort = True
     update_collections, all_updates_flushed, msgs = sync_collection_status_new(request_id, transform_id, workload_id, work,
                                                                                log_prefix=log_prefix,
                                                                                close_collection=True, abort=abort, terminate=terminate)
@@ -3036,7 +3043,7 @@ def sync_processing(processing, agent_attributes, terminate=False, abort=False, 
 
     sync_work_status(request_id, transform_id, workload_id, work, processing['substatus'], log_prefix)
     logger.info(log_prefix + "sync_processing: work status: %s" % work.get_status())
-    if terminate and work.is_terminated() and all_updates_flushed:
+    if terminate and (work.is_terminated() or is_cancelled) and (all_updates_flushed or is_cancelled):
         msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='work')
         messages += msgs
         if work.is_finished():
@@ -3046,6 +3053,10 @@ def sync_processing(processing, agent_attributes, terminate=False, abort=False, 
             processing['status'] = ProcessingStatus.SubFinished
         elif work.is_failed():
             processing['status'] = ProcessingStatus.Failed
+        elif work.is_cancelled() or (is_cancelled and processing.get('substatus') == ProcessingStatus.Cancelled):
+            processing['status'] = ProcessingStatus.Cancelled
+        elif work.is_suspended() or (is_cancelled and processing.get('substatus') == ProcessingStatus.Suspended):
+            processing['status'] = ProcessingStatus.Suspended
         else:
             processing['status'] = ProcessingStatus.SubFinished
 
