@@ -513,7 +513,7 @@ class ATLASPandaWork(Work):
             proc = processing['processing_metadata']['processing']
             task_param = proc.processing_metadata['task_param']
             return_code = Client.insertTaskParams(task_param, verbose=True)
-            if return_code[0] == 0 and return_code[1][0] is True:
+            if return_code[0] == 0 and return_code[1] and return_code[1][0] in [True, 0]:
                 try:
                     ret_string = str(return_code[1][1])
                     ret_string = ret_string.replace("succeeded. new jediTaskID=", "")

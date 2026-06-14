@@ -351,8 +351,31 @@ class DomaLSSTWork(Work):
 
             task_param = processing['processing_metadata']['task_param']
             return_code = Client.insertTaskParams(task_param, verbose=True)
-            if return_code[0] == 0:
-                return return_code[1][1]
+            if return_code[0] == 0 and return_code[1] and return_code[1][0] in [True, 0]:
+                try:
+                    ret_string = str(return_code[1][1])
+                    ret_string = ret_string.replace("succeeded. new jediTaskID=", "")
+                    if 'jediTaskID=' in ret_string:
+                        task_id = int(ret_string.split("=")[1])
+                    elif "=" in ret_string:
+                        task_id = int(ret_string.split("=")[1])
+                    else:
+                        task_id = int(ret_string)
+                    return task_id, None
+                except Exception as ex:
+                    self.logger.warn("task id is not retruned: (%s) is not task id: %s" % (return_code[1][1], str(ex)))
+                    # jediTaskID=26468582
+                    if return_code[1][1] and isinstance(return_code[1][1], str) and 'jediTaskID=' in return_code[1][1]:
+                        parts = return_code[1][1].split(" ")
+                        for part in parts:
+                            if 'jediTaskID=' in part:
+                                task_id = int(part.split("=")[1])
+                                return task_id, None
+                    else:
+                        return None, return_code
+            else:
+                self.logger.warn("submit_panda_task, return_code: %s" % str(return_code))
+                return None, return_code
         except Exception as ex:
             self.logger.error(ex)
             self.logger.error(traceback.format_exc())

@@ -743,6 +743,18 @@ class Transformer(BaseAgent):
 
         work = transform['transform_metadata']['work'] if transform.get('transform_metadata') and 'work' in transform.get('transform_metadata') else None
         if work is None:
+            # No work object — check if processings were already created (e.g. by an external handler).
+            # If so, just advance to Transforming so the Processor can take over.
+            prs = core_processings.get_processings(transform_id=transform['transform_id'])
+            if prs:
+                self.logger.info(log_pre + "transform_metadata has no work but existing processings were found "
+                                 "for transform_id %s, advancing to Transforming" % transform['transform_id'])
+                workload_id = prs[0].get('workload_id') or transform['workload_id']
+                transform_parameters = {'status': TransformStatus.Transforming,
+                                        'locking': TransformLocking.Idle,
+                                        'workload_id': workload_id}
+                transform_parameters = self.load_poll_period(transform, transform_parameters)
+                return {'transform': transform, 'transform_parameters': transform_parameters}
             self.logger.error(log_pre + "transform_metadata or work is None for transform_id %s, cannot process" % transform['transform_id'])
             transform_parameters = {'status': TransformStatus.Failed,
                                     'locking': TransformLocking.Idle}

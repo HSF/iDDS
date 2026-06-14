@@ -347,7 +347,7 @@ class Poller(BaseAgent):
             proc = processing['processing_metadata']['processing'] if processing.get('processing_metadata') and 'processing' in processing['processing_metadata'] else None
             work = proc.work if proc else None
 
-            if work and work.es:
+            if work and getattr(work, 'es', False):
                 ret_handle_update_processing = handle_update_processing(processing,
                                                                         self.agent_attributes,
                                                                         max_updates_per_round=self.max_updates_per_round,

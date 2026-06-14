@@ -967,12 +967,12 @@ class DomaPanDAWork(Work):
         task_param_map['nChunksToWait'] = 1
         task_param_map['maxCpuCount'] = self.core_count
         task_param_map['maxWalltime'] = self.maxWalltime
-        task_param_map['maxFailure'] = self.maxAttempt if self.maxAttempt else 5
-        task_param_map['maxAttempt'] = self.maxAttempt if self.maxAttempt else 5
-        if task_param_map['maxAttempt'] < self.num_retries:
-            task_param_map['maxAttempt'] = self.num_retries
-        if task_param_map['maxFailure'] < self.num_retries:
-            task_param_map['maxFailure'] = self.num_retries
+        task_param_map['maxFailure'] = self.maxAttempt if self.maxAttempt else self.num_retries if self.num_retries else 5
+        task_param_map['maxAttempt'] = self.maxAttempt if self.maxAttempt else self.num_retries if self.num_retries else 5
+        # if task_param_map['maxAttempt'] < self.num_retries:
+        #     task_param_map['maxAttempt'] = self.num_retries
+        # if task_param_map['maxFailure'] < self.num_retries:
+        #     task_param_map['maxFailure'] = self.num_retries
         task_param_map['log'] = self.task_log
         task_param_map['jobParameters'] = [
             {'type': 'constant',
@@ -1097,6 +1097,7 @@ class DomaPanDAWork(Work):
                 # task is already submitted
                 return task_id, None
 
+            self.logger.info(f"Submitting task with parameters: {task_param}")  
             if self.has_dependency():
                 parent_tid = None
                 self.logger.info("parent_workload_id: %s" % self.parent_workload_id)
@@ -1106,7 +1107,7 @@ class DomaPanDAWork(Work):
                 return_code = Client.insertTaskParams(task_param, verbose=False, parent_tid=parent_tid)
             else:
                 return_code = Client.insertTaskParams(task_param, verbose=False)
-            if return_code[0] == 0 and return_code[1][0] in (0, True):
+            if return_code[0] == 0 and return_code[1] and return_code[1][0] in (0, True):
                 try:
                     ret_string = str(return_code[1][1])
                     ret_string = ret_string.replace("succeeded. new jediTaskID=", "")
