@@ -57,6 +57,8 @@ else
     python3 /opt/idds/tools/env/merge_configmap.py \
         -s /opt/idds/configmap/idds_configmap.json \
         -d /opt/idds/config/idds/alembic.ini
+    PY_VER=$(python3 -c "import sys; print('python{}.{}'.format(sys.version_info.major, sys.version_info.minor))")
+    sed -i "s|{python_version}|${PY_VER}|g" /opt/idds/config/idds/alembic.ini
 fi
 
 if [ -f /opt/idds/config/idds/auth.cfg ]; then

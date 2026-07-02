@@ -118,7 +118,8 @@ RUN source /etc/profile.d/conda.sh; conda activate /opt/idds; \
   if [[ -z "$TAG" ]] ; then \
   python3 build_all.py wheel && main/tools/env/install_packages.sh ; \
   else \
-  python3 -m pip install --no-cache-dir --upgrade idds-common==$TAG idds-workflow==$TAG idds-server==$TAG idds-client==$TAG idds-doma==$TAG idds-atlas==$TAG idds-website==$TAG idds-monitor==$TAG ; \
+  python3 -m pip install --no-cache-dir --upgrade idds-common==$TAG idds-workflow==$TAG idds-server==$TAG idds-client==$TAG idds-doma==$TAG idds-atlas==$TAG idds-website==$TAG idds-monitor==$TAG && \
+  python3 build_all.py fix_python_version; \
   fi
 
 WORKDIR /tmp
