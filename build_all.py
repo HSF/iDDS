@@ -152,7 +152,11 @@ def main():
         sys.exit(1)
     
     command = sys.argv[1]
-    
+
+    if command == 'fix_python_version':
+        fix_alembic_ini_python_version()
+        return
+
     # Check if pip and build are available
     if command in ['build', 'wheel']:
         try:
@@ -161,7 +165,7 @@ def main():
             print("ERROR: 'build' package not found. Install it with:")
             print("    pip install build")
             sys.exit(1)
-    
+
     process_packages(command)
 
 
