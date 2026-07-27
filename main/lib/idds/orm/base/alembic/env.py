@@ -9,6 +9,7 @@
 # - Wen Guan, <wen.guan@cern.ch>, 2023
 
 
+import logging
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config
@@ -18,6 +19,8 @@ from alembic import context
 
 # from idds.orm.base.models import Base
 from idds.orm.base.session import BASE
+
+LOG = logging.getLogger(__name__)
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -77,8 +80,20 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
+    section = config.get_section(config.config_ini_section)
+    sql_connection = section.get("sqlalchemy.url", "")
+    if 'oracledb' in sql_connection:
+        # mirrors idds.orm.base.session's engine creation: without this, oracledb defaults
+        # to thin mode, which does not support Oracle Native Network Encryption and fails
+        # to connect against database servers that require it.
+        try:
+            import oracledb  # pylint: disable=import-error
+            oracledb.init_oracle_client()
+        except Exception as err:
+            LOG.warning('Could not start Oracle thick mode; falling back to thin: %s', err)
+
     connectable = engine_from_config(
-        config.get_section(config.config_ini_section),
+        section,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
