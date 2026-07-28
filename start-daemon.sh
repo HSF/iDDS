@@ -26,14 +26,6 @@ elif [ -f /opt/idds/certs/hostkey.pem ]; then
     ln -fs /opt/idds/certs/hostcert.pem /etc/grid-security/hostcert.pem
     chmod 600 /etc/grid-security/hostkey.pem
 fi
-# setup intermediate certificate
-if [ ! -f /etc/grid-security/chain.pem ]; then
-  if [ -f /opt/idds/certs/chain.pem ]; then
-    ln -fs /opt/idds/certs/chain.pem /etc/grid-security/chain.pem
-  elif [ -f /etc/grid-security/hostcert.pem ]; then
-    ln -fs /etc/grid-security/hostcert.pem /etc/grid-security/chain.pem
-  fi
-fi
 
 if [ -f /opt/idds/config/idds/idds.cfg ]; then
     echo "idds.cfg already mounted."
@@ -183,6 +175,18 @@ else
     ln -fs /opt/idds/config/hostcert.pem /etc/grid-security/hostcert.pem
     ln -fs /opt/idds/config/hostkey.pem /etc/grid-security/hostkey.pem
     chmod 600 /etc/grid-security/hostkey.pem
+fi
+
+# setup intermediate certificate - this must run after the host certificate is in
+# place (either mounted or self-signed above), otherwise the self-signed case never
+# has a hostcert.pem to fall back to and chain.pem is left missing, which makes
+# httpd refuse to start (SSLCertificateChainFile: file does not exist or is empty).
+if [ ! -f /etc/grid-security/chain.pem ]; then
+  if [ -f /opt/idds/certs/chain.pem ]; then
+    ln -fs /opt/idds/certs/chain.pem /etc/grid-security/chain.pem
+  elif [ -f /etc/grid-security/hostcert.pem ]; then
+    ln -fs /etc/grid-security/hostcert.pem /etc/grid-security/chain.pem
+  fi
 fi
 
 cp /opt/idds/config_default/httpd_daemon.sh /opt/idds/config/idds/httpd_daemon.sh
