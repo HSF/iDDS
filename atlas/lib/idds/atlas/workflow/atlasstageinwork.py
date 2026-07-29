@@ -380,7 +380,7 @@ class ATLASStageinWork(DataWork):
             return processing_status, updated_contents, {}, updated_contents_full, {}
         except exceptions.ProcessNotFound as ex:
             self.logger.warn("processing_id %s not not found: %s" % (processing['processing_id'], str(ex)))
-            processing_status = ProcessingStatus.Failed
+            processing_status = ProcessingStatus.Lost
             return processing_status, [], {}, [], {}
         except Exception as ex:
             self.logger.error(ex)
