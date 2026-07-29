@@ -102,7 +102,8 @@ def is_process_terminated(processing_status):
                              ProcessingStatus.SubFinished, ProcessingStatus.Cancelled,
                              ProcessingStatus.Suspended, ProcessingStatus.Expired,
                              ProcessingStatus.Broken, ProcessingStatus.FinishedOnStep,
-                             ProcessingStatus.FinishedOnExec, ProcessingStatus.FinishedTerm]:
+                             ProcessingStatus.FinishedOnExec, ProcessingStatus.FinishedTerm,
+                             ProcessingStatus.Lost]:
         return True
     return False
 
@@ -3014,7 +3015,7 @@ def sync_processing(processing, agent_attributes, terminate=False, abort=False, 
     logger = get_logger()
 
     terminated_status = [ProcessingStatus.Finished, ProcessingStatus.Failed, ProcessingStatus.SubFinished,
-                         ProcessingStatus.Terminating, ProcessingStatus.Cancelled]
+                         ProcessingStatus.Terminating, ProcessingStatus.Cancelled, ProcessingStatus.Lost]
 
     request_id = processing['request_id']
     transform_id = processing['transform_id']
@@ -3034,6 +3035,9 @@ def sync_processing(processing, agent_attributes, terminate=False, abort=False, 
         terminate = True
     is_cancelled = processing.get('substatus') in [ProcessingStatus.Cancelled, ProcessingStatus.Suspended]
     if is_cancelled:
+        abort = True
+    is_lost = processing.get('substatus') in [ProcessingStatus.Lost]
+    if is_lost:
         abort = True
     update_collections, all_updates_flushed, msgs = sync_collection_status_new(request_id, transform_id, workload_id, work,
                                                                                log_prefix=log_prefix,
