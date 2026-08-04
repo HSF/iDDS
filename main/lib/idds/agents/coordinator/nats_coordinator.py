@@ -86,7 +86,12 @@ class IDDSNATS(Singleton):
                 data_all.append(data)
             if self.logger:
                 self.logger.debug(f"Fetched events from {event_type_name} using durable {durable}: {data_all}")
-        except NATSTimeoutError:
+        except (NATSTimeoutError, asyncio.TimeoutError):
+            # a normal "no messages available within the wait window" result,
+            # not an error - nats-py's pull_subscribe().fetch() can raise
+            # either its own TimeoutError or the plain asyncio one depending
+            # on the code path, so both need to be caught here to avoid
+            # logging this at ERROR level on every idle poll
             pass
         except NATSNotFoundError:
             if self.logger:
@@ -136,10 +141,13 @@ class IDDSNATS(Singleton):
                 await nc.close()
                 if self.debug_mode and self.logger:
                     self.logger.debug("NATS connection drained and closed")
+        except (NATSTimeoutError, asyncio.TimeoutError):
+            # must come before the generic Exception handler below, otherwise
+            # this is unreachable dead code since NATSTimeoutError is itself
+            # an Exception subclass
+            pass
         except Exception as ex:
             self.logger.error(f"Failed to close connection: {ex}")
-        except NATSTimeoutError:
-            pass
 
 
 class NATSCoordinator(BaseAgent):
