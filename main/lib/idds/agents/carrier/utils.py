@@ -2697,26 +2697,33 @@ def sync_collection_status(request_id, transform_id, workload_id, work, input_ou
             if coll.total_files == coll.processed_files + coll.failed_files + coll.missing_files:
                 all_files_monitored = True
 
+            should_close = False
             if abort:
-                u_coll['status'] = CollectionStatus.Closed
-                u_coll['substatus'] = CollectionStatus.Closed
-                coll.status = CollectionStatus.Closed
-                coll.substatus = CollectionStatus.Closed
+                should_close = True
             elif coll in output_collections:
                 if (not work.require_ext_contents() or (work.require_ext_contents()
                     and coll.processed_files <= coll.processed_ext_files and coll.failed_files <= coll.failed_ext_files)):     # noqa E129, W503
                     all_ext_updated = True
                 if (force_close_collection or (close_collection and all_updates_flushed and all_ext_updated and all_files_monitored)
                    or coll.status == CollectionStatus.Closed):        # noqa W503
-                    u_coll['status'] = CollectionStatus.Closed
-                    u_coll['substatus'] = CollectionStatus.Closed
-                    coll.status = CollectionStatus.Closed
-                    coll.substatus = CollectionStatus.Closed
+                    should_close = True
             elif force_close_collection or (close_collection and all_updates_flushed and all_files_monitored) or coll.status == CollectionStatus.Closed:
-                u_coll['status'] = CollectionStatus.Closed
-                u_coll['substatus'] = CollectionStatus.Closed
-                coll.status = CollectionStatus.Closed
-                coll.substatus = CollectionStatus.Closed
+                should_close = True
+
+            if should_close:
+                if coll.total_files == coll.processed_files:
+                    new_status = CollectionStatus.Closed
+                elif abort:
+                    new_status = CollectionStatus.Cancelled
+                elif coll.processed_files == 0:
+                    new_status = CollectionStatus.Failed
+                else:
+                    new_status = CollectionStatus.SubClosed
+
+                u_coll['status'] = new_status
+                u_coll['substatus'] = new_status
+                coll.status = new_status
+                coll.substatus = new_status
 
         update_collections.append(u_coll)
 
@@ -2918,7 +2925,7 @@ def sync_collection_status_new(request_id, transform_id, workload_id, work, log_
         }
 
         if (not work.generating_new_inputs()) and (coll in input_collections and (workload_id is not None)):
-            if coll.total_files == coll.processed_files + coll.failed_files + coll.missing_files:
+            if coll.total_files == coll.processed_files:
                 coll_db = core_catalog.get_collection(coll_id=coll.coll_id)
                 coll.status = coll_db['status']
                 if coll.status is not None and coll.status != CollectionStatus.Closed:
@@ -2929,32 +2936,43 @@ def sync_collection_status_new(request_id, transform_id, workload_id, work, log_
 
                     msgs = generate_messages(request_id, transform_id, workload_id, work, msg_type='collection', files=[coll], relation_type='input')
                     messages += msgs
+            else:
+                if coll.total_files == coll.processed_files + coll.failed_files + coll.missing_files:
+                    terminate = True
+                    should_close = True
 
         if terminate:
             all_files_monitored = False
             if coll.total_files == coll.processed_files + coll.failed_files + coll.missing_files:
                 all_files_monitored = True
 
+            should_close = False
             if abort:
-                u_coll['status'] = CollectionStatus.Closed
-                u_coll['substatus'] = CollectionStatus.Closed
-                coll.status = CollectionStatus.Closed
-                coll.substatus = CollectionStatus.Closed
+                should_close = True
             elif coll in output_collections:
                 if (not work.require_ext_contents() or (work.require_ext_contents()
                     and coll.processed_files <= coll.processed_ext_files and coll.failed_files <= coll.failed_ext_files)):     # noqa E129, W503
                     all_ext_updated = True
                 if (force_close_collection or (close_collection and all_updates_flushed and all_ext_updated and all_files_monitored)
                    or coll.status == CollectionStatus.Closed):        # noqa W503
-                    u_coll['status'] = CollectionStatus.Closed
-                    u_coll['substatus'] = CollectionStatus.Closed
-                    coll.status = CollectionStatus.Closed
-                    coll.substatus = CollectionStatus.Closed
+                    should_close = True
             elif force_close_collection or (close_collection and all_updates_flushed and all_files_monitored) or coll.status == CollectionStatus.Closed:
-                u_coll['status'] = CollectionStatus.Closed
-                u_coll['substatus'] = CollectionStatus.Closed
-                coll.status = CollectionStatus.Closed
-                coll.substatus = CollectionStatus.Closed
+                should_close = True
+
+            if should_close:
+                if coll.total_files == coll.processed_files:
+                    new_status = CollectionStatus.Closed
+                elif abort:
+                    new_status = CollectionStatus.Cancelled
+                elif coll.processed_files == 0:
+                    new_status = CollectionStatus.Failed
+                else:
+                    new_status = CollectionStatus.SubClosed
+
+                u_coll['status'] = new_status
+                u_coll['substatus'] = new_status
+                coll.status = new_status
+                coll.substatus = new_status
 
         update_collections.append(u_coll)
 
@@ -2975,7 +2993,7 @@ def sync_work_status(request_id, transform_id, workload_id, work, substatus=None
     is_all_files_failed = True
     has_files = False
     for coll in input_collections + output_collections + log_collections:
-        if coll.status != CollectionStatus.Closed:
+        if coll.status not in [CollectionStatus.Closed, CollectionStatus.Cancelled, CollectionStatus.Failed, CollectionStatus.SubClosed]:
             is_all_collections_closed = False
     for coll in output_collections:
         if coll.total_files > 0:
