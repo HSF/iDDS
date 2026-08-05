@@ -2993,7 +2993,7 @@ def sync_work_status(request_id, transform_id, workload_id, work, substatus=None
     is_all_files_failed = True
     has_files = False
     for coll in input_collections + output_collections + log_collections:
-        if coll.status != CollectionStatus.Closed:
+        if coll.status not in [CollectionStatus.Closed, CollectionStatus.Cancelled, CollectionStatus.Failed, CollectionStatus.SubClosed]:
             is_all_collections_closed = False
     for coll in output_collections:
         if coll.total_files > 0:
