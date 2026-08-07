@@ -10,7 +10,7 @@
 
 
 """
-Test workflow condtions.
+Test workflow conditions.
 """
 
 import unittest2 as unittest
