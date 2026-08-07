@@ -10,7 +10,7 @@
 
 
 """
-Test workflow condtions.
+Test workflow conditions.
 """
 
 # import json

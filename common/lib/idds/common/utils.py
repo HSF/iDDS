@@ -730,7 +730,7 @@ def get_parameters_from_string(text):
     """
     ret = re.findall(r"[%]\w+", text)
     ret = [r.replace("%", "") for r in ret]
-    # remove dumplications
+    # remove duplications
     ret = list(set(ret))
     return ret
 
@@ -1053,7 +1053,7 @@ def decode_base64(sb, remove_quotes=False):
         else:
             return sb
         decode_str = base64.b64decode(sb_bytes).decode("utf-8")
-        # remove the single quotes afeter decoding
+        # remove the single quotes after decoding
         if remove_quotes:
             return decode_str[1:-1]
         return decode_str
