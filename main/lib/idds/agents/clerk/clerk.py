@@ -2014,7 +2014,7 @@ class Clerk(BaseAgent):
                 elif req['request_type'] in [RequestType.iWorkflow, RequestType.iWorkflowLocal]:
                     ret = self.handle_resume_irequest(req)
                     self.update_request(ret, origin_req=req)
-                    # self.handle_command(event, cmd_status=CommandStatus.Failed, errors="Not support to reusme for iWorkflow")
+                    # self.handle_command(event, cmd_status=CommandStatus.Failed, errors="Not support to resume for iWorkflow")
                     self.handle_command(event, command=command, cmd_status=CommandStatus.Processed, errors=None)
                 else:
                     ret = self.handle_resume_request(req)

@@ -336,7 +336,7 @@ class CompositeCondition(Base):
         new_false_works = []
         for w in self.false_works:
             if isinstance(w, CompositeCondition):
-                # work = w.load_condtions(works, works_template)
+                # work = w.load_conditions(works, works_template)
                 w.load_conditions(works)
                 work = w
             elif isinstance(w, Workflow):

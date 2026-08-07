@@ -181,7 +181,7 @@ class Transporter(BaseAgent):
     def finish_processing_input_collections(self):
         while not self.processed_input_queue.empty():
             coll = self.processed_input_queue.get()
-            self.logger.info("Main thread finished processing intput collection(%s) with number of contents: %s" % (coll['coll']['coll_id'], len(coll['contents'])))
+            self.logger.info("Main thread finished processing input collection(%s) with number of contents: %s" % (coll['coll']['coll_id'], len(coll['contents'])))
             parameters = copy.deepcopy(coll)
             if parameters['coll']['coll_type'] in [CollectionType.PseudoDataset, CollectionType.PseudoDataset.value]:
                 pass
