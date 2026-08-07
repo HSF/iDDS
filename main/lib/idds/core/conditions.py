@@ -101,4 +101,4 @@ def delete_conditions(request_id=None, internal_id=None, session=None):
     :param intenal_id: The internal id.
     :param session: The database session.
     """
-    orm_conditions.delete_condtions(request_id=request_id, internal_id=internal_id, session=session)
+    orm_conditions.delete_conditions(request_id=request_id, internal_id=internal_id, session=session)
