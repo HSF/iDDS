@@ -12,6 +12,7 @@ import logging
 import os
 import socket
 import asyncio
+import threading
 import time
 import traceback
 from nats.aio.client import Client as NATS
@@ -188,6 +189,12 @@ class NATSCoordinator(BaseAgent):
         self.show_get_events_time = None
         self.show_get_events_time_interval = int(show_get_events_time_interval or 300)
 
+        # one event loop per calling thread, reused across calls instead of asyncio.run()
+        # creating (and tearing down) a brand-new loop, default executor and worker thread
+        # on every single get()/send()/etc. call - those never got fully released, showing
+        # up as a steadily growing number of live threads and steady RSS growth over days
+        self._thread_local = threading.local()
+
         self.is_local_nats_ok = False
         self.nats_url_local = None
         self.nats_token_local = None
@@ -195,6 +202,13 @@ class NATSCoordinator(BaseAgent):
 
         self.selected_nats_server = None
         self.idds_nats = None
+
+    def _run(self, coro):
+        loop = getattr(self._thread_local, "loop", None)
+        if loop is None or loop.is_closed():
+            loop = asyncio.new_event_loop()
+            self._thread_local.loop = loop
+        return loop.run_until_complete(coro)
 
     def get_hostname(self):
         hostname = socket.getfqdn()
@@ -225,10 +239,7 @@ class NATSCoordinator(BaseAgent):
                 self.logger.error(f"Failed to connect to local NATS: {e}")
                 return False
 
-        try:
-            success = asyncio.run(check_nats())
-        except RuntimeError:
-            success = asyncio.get_event_loop().run_until_complete(check_nats())
+        success = self._run(check_nats())
         self.is_local_nats_ok = success
         return success
 
@@ -256,7 +267,7 @@ class NATSCoordinator(BaseAgent):
             self.logger.debug(f"Set NATS server: {nats_server}")
             if not nats_server:
                 if self.idds_nats:
-                    asyncio.run(self.idds_nats.close())
+                    self._run(self.idds_nats.close())
                 self.idds_nats = None
                 self.selected_nats_server = None
                 return None
@@ -265,7 +276,7 @@ class NATSCoordinator(BaseAgent):
                 return self.idds_nats
 
             if self.idds_nats:
-                asyncio.run(self.idds_nats.close())
+                self._run(self.idds_nats.close())
 
             self.idds_nats = IDDSNATS(nats_server, logger=self.logger, debug_mode=self.debug_mode)
             self.selected_nats_server = nats_server
@@ -298,7 +309,7 @@ class NATSCoordinator(BaseAgent):
     def send(self, event):
         try:
             if self.idds_nats:
-                asyncio.run(self.idds_nats.publish_event(event))
+                self._run(self.idds_nats.publish_event(event))
             else:
                 self.logger.error(f"idds nats({self.idds_nats}) is not set, failed to send event {event}")
         except RuntimeError as ex:
@@ -313,7 +324,7 @@ class NATSCoordinator(BaseAgent):
     def get(self, event_type, num_events=1, wait=5, callback=None):
         try:
             if self.idds_nats:
-                return asyncio.run(self.idds_nats.fetch_events(event_type_name=event_type.name, num_events=num_events, wait=wait, callback=callback))
+                return self._run(self.idds_nats.fetch_events(event_type_name=event_type.name, num_events=num_events, wait=wait, callback=callback))
             else:
                 self.logger.error(f"idds nats({self.idds_nats}) is not set, failed to fetch events for {event_type.name}")
                 return []
@@ -336,7 +347,7 @@ class NATSCoordinator(BaseAgent):
         try:
             if self.show_queued_events_time is None or self.show_queued_events_time + self.show_queued_events_time_interval > time.time():
                 if self.idds_nats:
-                    asyncio.run(self.idds_nats.show())
+                    self._run(self.idds_nats.show())
                 self.show_queued_events_time = time.time()
         except RuntimeError as ex:
             self.logger.error(f"Failed to show stream info: {ex}")
@@ -376,7 +387,7 @@ class NATSCoordinator(BaseAgent):
 
     def stop(self):
         if self.idds_nats:
-            asyncio.run(self.idds_nats.close())
+            self._run(self.idds_nats.close())
         super(NATSCoordinator, self).stop()
 
 
