@@ -150,7 +150,7 @@ class ConflictRequestException(CoreException):
     """
     def __init__(self, *args, **kwargs):
         super(ConflictRequestException, self).__init__(*args, **kwargs)
-        self._message = "Conflict Reqeust exception."
+        self._message = "Conflict Request exception."
         self.error_code = 301
 
 
