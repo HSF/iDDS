@@ -1495,7 +1495,7 @@ class Clerk(BaseAgent):
                 else:
                     req_status = RequestStatus.Failed
 
-        log_msg = log_pre + "ireqeust %s status: %s" % (req['request_id'], req_status)
+        log_msg = log_pre + "request %s status: %s" % (req['request_id'], req_status)
         log_msg = log_msg + "(transforms: total %s, finished: %s, subfinished: %s, failed %s)" % (total_tfs, finished_tfs, subfinished_tfs, failed_tfs)
         self.logger.debug(log_msg)
 
@@ -1795,7 +1795,7 @@ class Clerk(BaseAgent):
                     else:
                         req_status = RequestStatus.Failed
 
-            log_msg = log_pre + "ireqeust %s status: %s" % (req['request_id'], req_status)
+            log_msg = log_pre + "request %s status: %s" % (req['request_id'], req_status)
             log_msg = log_msg + "(transforms: total %s, finished: %s, subfinished: %s, failed %s)" % (total_tfs, finished_tfs, subfinished_tfs, failed_tfs)
             self.logger.debug(log_msg)
 
