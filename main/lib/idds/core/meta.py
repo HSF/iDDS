@@ -33,6 +33,21 @@ def add_meta_item(name, status=MetaStatus.Active, description=None, meta_info=No
                                   meta_info=meta_info, session=session)
 
 
+@transactional_session
+def update_meta_item(name, status=None, description=None, meta_info=None, session=None):
+    """
+    Update an existing meta item.
+
+    :param name: The meta name.
+    :param status: The meta status.
+    :param description: The meta description.
+    :param meta_info: The metadata.
+    :param session: The database session.
+    """
+    return orm_meta.update_meta_item(name=name, status=status, description=description,
+                                     meta_info=meta_info, session=session)
+
+
 @read_session
 def get_meta_item(name, session=None):
     """
@@ -43,16 +58,18 @@ def get_meta_item(name, session=None):
 
     :returns metainfo: dictionary of meta info
     """
-    orm_meta.get_meta_item(name=name, session=session)
+    return orm_meta.get_meta_item(name=name, session=session)
 
 
 @read_session
-def get_meta_items(session=None):
+def get_meta_items(name_prefix=None, status=None, session=None):
     """
     Retrieve meta items.
 
+    :param name_prefix: Optional prefix to filter meta item names.
+    :param status: Optional status to filter meta items.
     :param session: The database session.
 
     :returns metainfo: List of dictionaries
     """
-    orm_meta.get_meta_items(session=session)
+    return orm_meta.get_meta_items(name_prefix=name_prefix, status=status, session=session)

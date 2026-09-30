@@ -32,7 +32,7 @@ pip install rucio-clients-atlas rucio-clients panda-client-light panda-client
 # root ca.crt to  /opt/idds/etc/ca.crt
 
 pip install requests SQLAlchemy urllib3 retrying mod_wsgi flask futures stomp.py cx-Oracle  unittest2 pep8 flake8 pytest nose sphinx recommonmark sphinx-rtd-theme nevergrad
- pip install psycopg2-binary
+ pip install psycopg2-binary "psycopg[binary]"
 
 # add "auth_type = x509_proxy" to /opt/idds/etc/rucio.cfg
 
