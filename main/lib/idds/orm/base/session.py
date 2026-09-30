@@ -141,6 +141,11 @@ def get_engine(echo=True):
     global _ENGINE
     if not _ENGINE:
         sql_connection = config_get(DATABASE_SECTION, 'default')
+        # SQLAlchemy 2.1 switched the default PostgreSQL driver to psycopg (v3), which uses
+        # server-side typed binds and fails on implicit casts (e.g. bigint = '123').
+        # Keep psycopg2 unless a driver is given explicitly (e.g. postgresql+psycopg://).
+        if sql_connection.startswith('postgresql://'):
+            sql_connection = 'postgresql+psycopg2://' + sql_connection[len('postgresql://'):]
         config_params = [('pool_size', int), ('max_overflow', int), ('pool_timeout', int),
                          ('pool_recycle', int), ('echo', int), ('echo_pool', str),
                          ('pool_reset_on_return', str), ('use_threadlocal', int)]
