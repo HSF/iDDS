@@ -29,11 +29,13 @@ from idds.common.constants import (
     CollectionType,
     CollectionStatus,
     CollectionRelationType,
+    MetaStatus,
 )
 from idds.core import requests as core_requests
 from idds.core import transforms as core_transforms
 from idds.core import catalog as core_catalog
 from idds.core import processings as core_processings
+from idds.core import meta as core_meta
 from idds.orm.base.session import transactional_session
 
 from idds.prompt.handlers.panda import PandaClient
@@ -43,10 +45,11 @@ setup_logging(__name__)
 
 
 @transactional_session
-def _create_workflow_task_records(workflow, session=None):
+def _create_workflow_task_records(workflow, session=None, logger=None):
     """Create all iDDS DB records for a workflow task. Returns a context dict."""
     scope = workflow.get('scope')
     name = workflow.get('name')
+    task_name = workflow.get('task_name', name)
     requester = workflow.get('requester', 'iDDS')
     username = workflow.get('username', 'iDDS')
     transform_tag = workflow.get('transform_tag', 'EIC')
@@ -63,12 +66,16 @@ def _create_workflow_task_records(workflow, session=None):
     memory_per_core = content.get('memory_per_core')
     site = content.get('site')
     panda_attributes = content.get('panda_attributes', {})
+    streaming_mode = content.get('streaming_mode', 'activemq')
+    ejfat_instance_uri = content.get('ejfat_instance_uri')
+    ejfat_lifetime = content.get('ejfat_lifetime')
 
     # workflow_name is the per-scope/campaign name (name without per-run suffix)
     # name format: "<scope>_<transform_tag>_fastprocessing_<site>_<YYYYMMDD>_<run_id>"
     # workflow_name: "<scope>_<transform_tag>_fastprocessing_<site>_<YYYYMMDD>"
     if run_id and name and str(run_id) in name:
-        workflow_name = name[: name.rfind('_' + str(run_id))]
+        # workflow_name = name[: name.rfind('_' + str(run_id))]
+        workflow_name = name
     else:
         workflow_name = name
 
@@ -152,14 +159,29 @@ def _create_workflow_task_records(workflow, session=None):
             'site': site,
             'panda_attributes': panda_attributes,
             'run_id': run_id,
+            'streaming_mode': streaming_mode,
         },
     }
     processing_id = core_processings.add_processing(**processing, session=session)
+
+    if ejfat_instance_uri and run_id is not None:
+        core_meta.add_meta_item(
+            name=f'ejfat_{run_id}',
+            status=MetaStatus.Active,
+            meta_info={'instance_uri': ejfat_instance_uri, 'lifetime': ejfat_lifetime},
+            session=session,
+        )
+        if logger:
+            logger.info(
+                f"_create_workflow_task_records: added meta item ejfat_{run_id} "
+                f"with instance_uri={ejfat_instance_uri}, lifetime={ejfat_lifetime}"
+            )
 
     return {
         'run_id': run_id,
         'scope': scope,
         'name': name,
+        'task_name': task_name,
         'username': username,
         'cloud': cloud,
         'core_count': core_count,
@@ -167,6 +189,7 @@ def _create_workflow_task_records(workflow, session=None):
         'memory_per_core': memory_per_core,
         'site': site,
         'panda_attributes': panda_attributes,
+        'streaming_mode': streaming_mode,
         'request_id': request_id,
         'transform_id': transform_id,
         'processing_id': processing_id,
@@ -179,7 +202,7 @@ def _build_task_params(ctx):
     """Build a PanDA task_params dict from the workflow context."""
     panda_attrs = ctx.get('panda_attributes', {})
     task_params = {
-        'taskName': ctx.get('name'),
+        'taskName': ctx.get('task_name') or ctx.get('name'),
         'vo': panda_attrs.get('vo', 'wlcg'),
         'site': ctx.get('queue') or panda_attrs.get('queue'),
         'PandaSite': ctx.get('site') or panda_attrs.get('site'),
@@ -208,8 +231,10 @@ def _build_task_params(ctx):
 
     idle_timeout = panda_attrs.get("idle_timeout", 120)
     run_id = ctx.get('run_id')
+    streaming_mode = ctx.get('streaming_mode', 'activemq')
     verbose_flag = " --verbose" if panda_attrs.get('verbose') else ""
-    executable = f"--run_id {run_id} --idle_timeout {idle_timeout}{verbose_flag}"
+    streaming_mode_flag = f" --streaming_mode {streaming_mode}" if streaming_mode and streaming_mode != 'activemq' else ""
+    executable = f"--run_id {run_id} --idle_timeout {idle_timeout}{verbose_flag}{streaming_mode_flag}"
     task_params["jobParameters"] = [
         {
             "type": "constant",
@@ -259,7 +284,7 @@ def create_workflow_task(workflow, logger=None):
     :returns: dict with run_id, request_id, transform_id, processing_id,
               input_coll_id, output_coll_id, workload_id
     """
-    ctx = _create_workflow_task_records(workflow)
+    ctx = _create_workflow_task_records(workflow, logger=logger)
 
     request_id = ctx['request_id']
     transform_id = ctx['transform_id']

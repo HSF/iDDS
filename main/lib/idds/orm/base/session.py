@@ -100,11 +100,17 @@ def mysql_convert_decimal_to_float(dbapi_conn, connection_rec):
 
 def psql_convert_decimal_to_float(dbapi_conn, connection_rec):
     """
-    The default datatype returned by psycopg2 for numerics is decimal.Decimal.
+    The default datatype returned by psycopg2/psycopg for numerics is decimal.Decimal.
     This type cannot be serialised to JSON, therefore we need to autoconvert to floats.
     :param dbapi_conn: DBAPI connection
     :param connection_rec: connection record
     """
+
+    # psycopg (v3), the default PostgreSQL driver since SQLAlchemy 2.1
+    if type(dbapi_conn).__module__.startswith('psycopg.'):
+        from psycopg.types.numeric import FloatLoader  # pylint: disable=import-error
+        dbapi_conn.adapters.register_loader("numeric", FloatLoader)
+        return
 
     try:
         import psycopg2.extensions  # pylint: disable=import-error

@@ -254,6 +254,7 @@ def get_prompt_broker_config():
     transformer_broker = None
     transformer_broadcast_broker = None
     result_broker = None
+    ejfat = None
 
     if config_has_section("prompt"):
         if config_has_option("prompt", "transformer_broker"):
@@ -262,11 +263,14 @@ def get_prompt_broker_config():
             transformer_broadcast_broker = json_loads(config_get("prompt", "transformer_broadcast_broker"))
         if config_has_option("prompt", "result_broker"):
             result_broker = json_loads(config_get("prompt", "result_broker"))
+        if config_has_option("prompt", "ejfat"):
+            ejfat = json_loads(config_get("prompt", "ejfat"))
 
     ret = {
         "transformer_broker": transformer_broker,
         "transformer_broadcast_broker": transformer_broadcast_broker,
         "result_broker": result_broker,
+        "ejfat": ejfat,
     }
     return ret
 

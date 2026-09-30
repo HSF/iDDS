@@ -57,6 +57,34 @@ def add_meta_item(name, status=MetaStatus.Active, description=None, meta_info=No
         raise exceptions.DatabaseException('Could not persist meta info: %s' % str(e))
 
 
+@transactional_session
+def update_meta_item(name, status=None, description=None, meta_info=None, session=None):
+    """
+    Update an existing meta item.
+
+    :param name: The meta name.
+    :param status: The meta status.
+    :param description: The meta description.
+    :param meta_info: The metadata.
+    :param session: The database session.
+    """
+    try:
+        to_update = {'updated_at': datetime.datetime.utcnow()}
+        if status is not None:
+            to_update['status'] = status
+        if description is not None:
+            to_update['description'] = description
+        if meta_info is not None:
+            to_update['meta_info'] = meta_info
+        session.query(models.MetaInfo)\
+               .filter(models.MetaInfo.name == name)\
+               .update(to_update)
+    except IntegrityError as e:
+        raise exceptions.DatabaseException(e.args)
+    except DatabaseError as e:
+        raise exceptions.DatabaseException('Could not update meta info: %s' % str(e))
+
+
 @read_session
 def get_meta_item(name, session=None):
     """
@@ -81,10 +109,12 @@ def get_meta_item(name, session=None):
 
 
 @read_session
-def get_meta_items(session=None):
+def get_meta_items(name_prefix=None, status=None, session=None):
     """
     Retrieve meta items.
 
+    :param name_prefix: Optional prefix to filter meta item names.
+    :param status: Optional status to filter meta items.
     :param session: The database session.
 
     :returns metainfo: List of dictionaries
@@ -92,6 +122,10 @@ def get_meta_items(session=None):
     items = []
     try:
         query = session.query(models.MetaInfo)
+        if name_prefix:
+            query = query.filter(models.MetaInfo.name.like(name_prefix + '%'))
+        if status is not None:
+            query = query.filter(models.MetaInfo.status == status)
 
         tmp = query.all()
         if tmp:

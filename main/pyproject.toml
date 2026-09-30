@@ -23,6 +23,7 @@ dependencies = [
     "stomp.py",
     "oracledb",
     "psycopg2-binary",
+    "psycopg[binary]",
     "pyjwt",
     "cryptography",
     "redis",
@@ -76,4 +77,4 @@ include = [
 ]
 
 [tool.setuptools.package-data]
-"*" = ["*.template", "*.cfg", "*.conf", "*.ini", "*.sql"]
+"*" = ["*.template", "*.cfg", "*.conf", "*.ini", "*.sql", "*.mako"]
