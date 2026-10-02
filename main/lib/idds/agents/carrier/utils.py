@@ -821,7 +821,7 @@ def get_input_output_sub_maps(inputs, outputs, inputs_dependency, logs=[]):
         sub_map_id = content['sub_map_id']
         if sub_map_id not in input_output_sub_maps:
             input_output_sub_maps[sub_map_id] = {'inputs': [], 'outputs': [], 'logs': [], 'inputs_dependency': []}
-            input_output_sub_maps[sub_map_id]['inputs'].append(content)
+        input_output_sub_maps[sub_map_id]['inputs'].append(content)
     for content in inputs_dependency:
         sub_map_id = content['sub_map_id']
         if sub_map_id not in input_output_sub_maps:
