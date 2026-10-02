@@ -1116,13 +1116,13 @@ def create_archive_file(work_dir, archive_filename, files, exclude_files=[]):
                 for filename in os.listdir(local_file):
                     if is_execluded_file(filename, exclude_files):
                         continue
-                    if os.path.isfile(filename):
-                        file_path = os.path.join(local_file, filename)
+                    entry_path = os.path.join(local_file, filename)
+                    if os.path.isfile(entry_path):
                         tar.add(
-                            file_path, arcname=safe_relpath(file_path, local_file)
+                            entry_path, arcname=safe_relpath(entry_path, local_file)
                         )
-                    elif os.path.isdir(filename):
-                        for root, dirs, fs in os.walk(filename):
+                    elif os.path.isdir(entry_path):
+                        for root, dirs, fs in os.walk(entry_path):
                             for f in fs:
                                 if not is_execluded_file(f, exclude_files):
                                     file_path = os.path.join(root, f)
