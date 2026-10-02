@@ -1202,6 +1202,48 @@ def modified_environ(*remove, **update):
         [env.pop(k) for k in remove_after]
 
 
+def _call_with_timeout(func, args, kwargs, timeout):
+    """
+    Call func and stop waiting for it after timeout seconds.
+
+    The call runs in a daemon thread, so when it does not finish in time we
+    return to the caller instead of waiting for it. A ThreadPoolExecutor
+    cannot be used here: shutting it down waits for the running call, which
+    would make the timeout have no effect at all.
+
+    Parameters:
+        func (callable): The function to run.
+        args (tuple): The positional arguments to pass to the function.
+        kwargs (dict): The keyword arguments to pass to the function.
+        timeout (float or int): The time limit in seconds.
+
+    Returns:
+        The function's return value.
+
+    Raises:
+        concurrent.futures.TimeoutError: If the call is still running after
+            timeout seconds.
+        Exception: Whatever the called function raised.
+    """
+    result = {}
+
+    def target():
+        try:
+            result["value"] = func(*args, **kwargs)
+        except BaseException as ex:    # noqa
+            result["error"] = ex
+
+    thread = threading.Thread(target=target, daemon=True)
+    thread.start()
+    thread.join(timeout)
+
+    if thread.is_alive():
+        raise concurrent.futures.TimeoutError()
+    if "error" in result:
+        raise result["error"]
+    return result.get("value")
+
+
 def run_with_timeout(func, args=(), kwargs={}, timeout=None, retries=1):
     """
     Run a function with a timeout.
@@ -1217,17 +1259,15 @@ def run_with_timeout(func, args=(), kwargs={}, timeout=None, retries=1):
         Raises TimeoutError if the function takes longer than the specified timeout.
     """
     for i in range(retries):
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future = executor.submit(func, *args, **kwargs)
-            try:
-                if i > 0:
-                    logging.info(f"retry {i} to execute function.")
-                return future.result(timeout=timeout)
-            except concurrent.futures.TimeoutError:
-                # raise TimeoutError(f"Function '{func.__name__}' timed out after {timeout} seconds.")
-                logging.error(
-                    f"Function '{func.__name__}' timed out after {timeout} seconds in retry {i}."
-                )
+        try:
+            if i > 0:
+                logging.info(f"retry {i} to execute function.")
+            return _call_with_timeout(func, args, kwargs, timeout)
+        except concurrent.futures.TimeoutError:
+            # raise TimeoutError(f"Function '{func.__name__}' timed out after {timeout} seconds.")
+            logging.error(
+                f"Function '{func.__name__}' timed out after {timeout} seconds in retry {i}."
+            )
     return TimeoutError(
         f"Function '{func.__name__}' timed out after {timeout} seconds."
     )
@@ -1248,18 +1288,16 @@ def timeout_wrapper(timeout, retries=1):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             for i in range(retries):
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    future = executor.submit(func, *args, **kwargs)
-                    try:
-                        if i > 0:
-                            logging.info(f"retry {i} to execute function.")
+                try:
+                    if i > 0:
+                        logging.info(f"retry {i} to execute function.")
 
-                        return future.result(timeout=timeout)
-                    except concurrent.futures.TimeoutError:
-                        # raise TimeoutError(f"Function '{func.__name__}' timed out after {seconds} seconds.")
-                        logging.error(
-                            f"Function '{func.__name__}' timed out after {timeout} seconds in retry {i}."
-                        )
+                    return _call_with_timeout(func, args, kwargs, timeout)
+                except concurrent.futures.TimeoutError:
+                    # raise TimeoutError(f"Function '{func.__name__}' timed out after {seconds} seconds.")
+                    logging.error(
+                        f"Function '{func.__name__}' timed out after {timeout} seconds in retry {i}."
+                    )
             return TimeoutError(
                 f"Function '{func.__name__}' timed out after {timeout} seconds."
             )
