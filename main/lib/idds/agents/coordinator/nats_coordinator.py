@@ -34,14 +34,18 @@ setup_logging(__name__)
 
 class IDDSNATS(Singleton):
     def __init__(self, nats_server: dict, logger=None, debug_mode=False):
+        # this class is a singleton, so __init__ runs again on every call with
+        # the same instance. The selected coordinator can change, so always
+        # take the settings from the current call instead of keeping the ones
+        # from the first one.
+        self.nats_server = nats_server
+        self.logger = logger
+        self.debug_mode = debug_mode
         if getattr(self, "_initialized", False):
             return
-        self.nats_server = nats_server
         self.nc = None
         self.js = None
-        self.logger = logger
         self._initialized = True
-        self.debug_mode = debug_mode
 
     async def connect(self):
         nc = NATS()
