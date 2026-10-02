@@ -108,7 +108,7 @@ class PandaSubmitterPoller(BaseSubmitterPoller):
                     return task_id, None
                 except Exception as ex:
                     if logger:
-                        logger.warn(log_prefix + "task id is not retruned: (%s) is not task id: %s" % (return_code[1][1], str(ex)))
+                        logger.warn(log_prefix + "task id is not returned: (%s) is not task id: %s" % (return_code[1][1], str(ex)))
                     if isinstance(return_code[1][1], int):
                         return return_code[1][1], None
                     elif return_code[1][1] and 'jediTaskID=' in return_code[1][1]:
