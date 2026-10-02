@@ -119,7 +119,8 @@ class BaseAuthentication(Singleton):
                 allow_vos_temp = allow_vos_temp.split(',')
                 for t in allow_vos_temp:
                     t = t.strip()
-                    allow_vos.append(t)
+                    if t:
+                        allow_vos.append(t)
         return allow_vos
 
     def get_ssl_verify(self):
@@ -384,35 +385,29 @@ class X509Authentication(BaseAuthentication):
     def __init__(self, timeout=None):
         super(X509Authentication, self).__init__(timeout=timeout)
 
-    def get_ban_user_list(self):
+    def get_user_list(self, option):
+        """
+        Read a comma separated user list from the "Users" section.
+
+        Surrounding spaces are removed and blank entries are dropped, so a
+        trailing comma or a stray space in auth.cfg cannot turn into an empty
+        entry. An empty entry would match every DN in the callers below.
+        """
         section = "Users"
-        option = "ban_users"
         if self.config and self.config.has_section(section):
             if self.config.has_option(section, option):
                 users = self.config.get(section, option)
-                users = users.split(",")
-                return users
+                return [user.strip() for user in users.split(",") if user.strip()]
         return []
+
+    def get_ban_user_list(self):
+        return self.get_user_list("ban_users")
 
     def get_allow_user_list(self):
-        section = "Users"
-        option = "allow_users"
-        if self.config and self.config.has_section(section):
-            if self.config.has_option(section, option):
-                users = self.config.get(section, option)
-                users = users.split(",")
-                return users
-        return []
+        return self.get_user_list("allow_users")
 
     def get_super_user_list(self):
-        section = "Users"
-        option = "super_users"
-        if self.config and self.config.has_section(section):
-            if self.config.has_option(section, option):
-                users = self.config.get(section, option)
-                users = users.split(",")
-                return users
-        return []
+        return self.get_user_list("super_users")
 
 
 # "/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=wguan/CN=667815/CN=Wen Guan/CN=1883443395"
