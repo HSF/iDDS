@@ -21,7 +21,7 @@ def get_collections(scope, name, request_id=None, workload_id=None):
     Get collections by scope, name, request_id and workload id.
 
     :param scope: scope of the collection.
-    :param name: name the the collection.
+    :param name: name of the collection.
     :param request_id: the request id.
     :param workload_id: The workload_id of the request.
 
@@ -36,7 +36,7 @@ def get_contents(coll_scope=None, coll_name=None, request_id=None, workload_id=N
     Get contents with collection scope, collection name, request id, workload id and relation type.
 
     :param coll_scope: scope of the collection.
-    :param coll_name: name the the collection.
+    :param coll_name: name of the collection.
     :param request_id: the request id.
     :param workload_id: The workload_id of the request.
     :param relation_type: The relation type between the collection and transform: input, outpu, logs and etc.
@@ -52,7 +52,7 @@ def register_output_contents(coll_scope, coll_name, contents, request_id=None, w
     register contents with collection scope, collection name, request id, workload id and contents.
 
     :param coll_scope: scope of the collection.
-    :param coll_name: name the the collection.
+    :param coll_name: name of the collection.
     :param request_id: the request id.
     :param workload_id: The workload_id of the request.
     :param contents: list of contents [{'scope': <scope>, 'name': <name>, 'min_id': min_id, 'max_id': max_id, 'path': <path>}].
@@ -68,7 +68,7 @@ def get_match_contents(coll_scope, coll_name, scope, name, min_id=None, max_id=N
     request id, workload id and only_return_best_match.
 
     :param coll_scope: scope of the collection.
-    :param coll_name: name the the collection.
+    :param coll_name: name of the collection.
     :param scope: scope of the content.
     :param name: name of the content.
     :param min_id: min_id of the content.

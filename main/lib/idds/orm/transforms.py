@@ -435,7 +435,7 @@ def get_transforms_by_status(status, period=None, transform_ids=[], locking=Fals
 
     :param status: Transform status or list of transform status.
     :param period: Time period in seconds.
-    :param locking: Whether to retrieved unlocked items.
+    :param locking: Whether to retrieve unlocked items.
     :param to_json: return json format.
 
     :param session: The database session in use.
