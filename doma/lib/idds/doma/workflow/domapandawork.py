@@ -218,7 +218,7 @@ class DomaPanDAWork(Work):
 
     def poll_external_collection(self, coll):
         try:
-            if coll.status in [CollectionStatus.Closed]:
+            if coll.status in [CollectionStatus.Closed, CollectionStatus.Failed, CollectionStatus.Cancelled, CollectionStatus.SubClosed]:
                 return coll
             else:
                 coll.coll_metadata['bytes'] = 1
