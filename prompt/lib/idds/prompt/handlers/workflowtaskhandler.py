@@ -70,14 +70,12 @@ def _create_workflow_task_records(workflow, session=None, logger=None):
     ejfat_instance_uri = content.get('ejfat_instance_uri')
     ejfat_lifetime = content.get('ejfat_lifetime')
 
-    # workflow_name is the per-scope/campaign name (name without per-run suffix)
-    # name format: "<scope>_<transform_tag>_fastprocessing_<site>_<YYYYMMDD>_<run_id>"
-    # workflow_name: "<scope>_<transform_tag>_fastprocessing_<site>_<YYYYMMDD>"
-    if run_id and name and str(run_id) in name:
-        # workflow_name = name[: name.rfind('_' + str(run_id))]
-        workflow_name = name
-    else:
-        workflow_name = name
+    # `name` is the workflow-level name, shared by every run of the day
+    # (format "<scope>_<transform_tag>_<site>_<YYYYMMDD>"); the per-run
+    # variant with the "_<run_id>" suffix arrives as `task_name` (it is
+    # what PanDA receives as taskName). The request is keyed by the
+    # workflow-level name; transforms and collections are per-run.
+    workflow_name = name
 
     reqs = core_requests.get_request_ids_by_name(
         scope=scope, name=workflow_name, exact_match=True, session=session
@@ -108,7 +106,11 @@ def _create_workflow_task_records(workflow, session=None, logger=None):
         'workload_id': None,
         'transform_type': TransformType.iWork,
         'transform_tag': transform_tag,
-        'name': name,
+        # per-run name: the workflow-level `name` is date-scoped and shared
+        # by every run of the day (it keys the request lookup above), so
+        # reusing it here violates TRANSFORMS_NAME_UQ (request_id, name) on
+        # the second run of the day. `task_name` carries the per-run suffix.
+        'name': task_name,
         'run_id': str(run_id) if run_id is not None else None,
         'status': TransformStatus.New,
         'substatus': TransformStatus.New,
@@ -129,7 +131,7 @@ def _create_workflow_task_records(workflow, session=None, logger=None):
         'transform_id': transform_id,
         'workload_id': None,
         'scope': scope,
-        'name': name,
+        'name': task_name,
         'coll_type': CollectionType.Dataset,
         'bytes': 0,
         'total_files': 0,
