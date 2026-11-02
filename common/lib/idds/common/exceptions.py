@@ -12,11 +12,11 @@
 IDDS Exceptions.
 
 error codes:
-    The fist the number is one of the main catagories.
-    The second number is one of the subcatagories.
-    The third number and numbers after third one are local defined for every subcatagory.
+    The first number is one of the main categories.
+    The second number is one of the subcategories.
+    The third number and numbers after third one are local defined for every subcategory.
 
-Catagories:
+Categories:
  1. common/unknown IDDS exception
  2. ORM related exception
     1. request table related exception
@@ -150,7 +150,7 @@ class ConflictRequestException(CoreException):
     """
     def __init__(self, *args, **kwargs):
         super(ConflictRequestException, self).__init__(*args, **kwargs)
-        self._message = "Conflict Reqeust exception."
+        self._message = "Conflict Request exception."
         self.error_code = 301
 
 

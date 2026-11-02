@@ -216,7 +216,7 @@ def get_collections_by_status(status, relation_type=CollectionRelationType.Input
     :param status: The collection status.
     :param relation_type: The relation_type of the collection to the transform.
     :param time_period: time period in seconds since last update.
-    :param locking: Wheter to retrieve unlocked files.
+    :param locking: Whether to retrieve unlocked files.
     :param to_json: return json format.
     :param session: The database session in use.
 

@@ -70,14 +70,24 @@ def _create_workflow_task_records(workflow, session=None, logger=None):
     ejfat_instance_uri = content.get('ejfat_instance_uri')
     ejfat_lifetime = content.get('ejfat_lifetime')
 
+    # fast_processing:
+    #   True: request, transform and collections are all named by 'name'
+    #   otherwise: request is named by 'name'; transform and collections are named by 'task_name'
+    fast_processing = workflow.get('fast_processing', False)
+
     # workflow_name is the per-scope/campaign name (name without per-run suffix)
     # name format: "<scope>_<transform_tag>_fastprocessing_<site>_<YYYYMMDD>_<run_id>"
     # workflow_name: "<scope>_<transform_tag>_fastprocessing_<site>_<YYYYMMDD>"
-    if run_id and name and str(run_id) in name:
-        # workflow_name = name[: name.rfind('_' + str(run_id))]
+    if not fast_processing:
         workflow_name = name
+        sub_name = task_name
     else:
-        workflow_name = name
+        if run_id and name and str(run_id) in name:
+            # workflow_name = name[: name.rfind('_' + str(run_id))]
+            workflow_name = name
+        else:
+            workflow_name = name
+        sub_name = name
 
     reqs = core_requests.get_request_ids_by_name(
         scope=scope, name=workflow_name, exact_match=True, session=session
@@ -108,7 +118,7 @@ def _create_workflow_task_records(workflow, session=None, logger=None):
         'workload_id': None,
         'transform_type': TransformType.iWork,
         'transform_tag': transform_tag,
-        'name': name,
+        'name': sub_name,
         'run_id': str(run_id) if run_id is not None else None,
         'status': TransformStatus.New,
         'substatus': TransformStatus.New,
@@ -129,7 +139,7 @@ def _create_workflow_task_records(workflow, session=None, logger=None):
         'transform_id': transform_id,
         'workload_id': None,
         'scope': scope,
-        'name': name,
+        'name': sub_name,
         'coll_type': CollectionType.Dataset,
         'bytes': 0,
         'total_files': 0,
@@ -278,7 +288,7 @@ def create_workflow_task(workflow, logger=None):
     Create a workflow task from a *create_workflow_task* message.
 
     :param workflow: The ``content.workflow`` dict from the STOMP/REST message.
-                     Expected keys: scope, name, requester, username, transform_tag,
+                     Expected keys: scope, name, task_name, fast_processing, requester, username, transform_tag,
                      cloud, campaign, campaign_scope, campaign_group, campaign_tag,
                      content.{run_id, core_count, memory_per_core, site, panda_attributes, ...}
     :returns: dict with run_id, request_id, transform_id, processing_id,

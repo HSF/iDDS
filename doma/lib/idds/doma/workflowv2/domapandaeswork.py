@@ -74,7 +74,7 @@ class DomaPanDAESWork(DomaPanDAWork):
         if value:
             if type(value) not in [dict]:
                 raise exceptions.IDDSException("ES dependency_map should be a dict")
-            # the dumplication is already verified in DomaEventMap, not do it again here
+            # the duplication is already verified in DomaEventMap, not do it again here
 
         self._es_dependency_map = value
 

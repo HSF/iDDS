@@ -40,7 +40,7 @@ class ATLASActuatorWork(ATLASCondorWork):
         """
         Init a work/task/transformation.
 
-        :param setup: A string to setup the executable enviroment, it can be None.
+        :param setup: A string to setup the executable environment, it can be None.
         :param executable: The executable.
         :param arguments: The arguments.
         :param parameters: A dict with arguments needed to be replaced.
@@ -225,7 +225,7 @@ class ATLASActuatorWork(ATLASCondorWork):
             if ip_scope_name not in mapped_inputs_scope_name:
                 new_inputs.append(ip)
 
-        # to avoid cheking new inputs if there are no new inputs anymore
+        # to avoid checking new inputs if there are no new inputs anymore
         if (not new_inputs and 'status' in self.collections[self._primary_input_collection]
            and self.collections[self._primary_input_collection]['status'] in [CollectionStatus.Closed]):  # noqa: W503
             self.set_has_new_inputs(False)

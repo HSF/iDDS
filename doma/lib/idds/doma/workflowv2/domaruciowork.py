@@ -35,7 +35,7 @@ class DomaRucioWork(DataWork):
         """
         Init a work/task/transformation.
 
-        :param setup: A string to setup the executable enviroment, it can be None.
+        :param setup: A string to setup the executable environment, it can be None.
         :param executable: The executable.
         :param arguments: The arguments.
         :param parameters: A dict with arguments needed to be replaced.

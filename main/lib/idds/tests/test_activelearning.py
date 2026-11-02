@@ -131,7 +131,7 @@ def get_workflow():
     work = ATLASPandaWork(panda_task_paramsmap=task_param_map)
 
     # it's needed to parse the panda task parameter information, for example output dataset name, for the next task.
-    # if the information is not needed, you don't need to run it manually. iDDS will call it interally to parse the information.
+    # if the information is not needed, you don't need to run it manually. iDDS will call it internally to parse the information.
     work.initialize_work()
 
     work_output_coll = work.get_output_collections()[0]
