@@ -98,7 +98,7 @@ class MapResult(object):
         if name_key in self._name_results:
             return True
         else:
-            if key in self._result:
+            if key in self._results:
                 return True
         return False
 
