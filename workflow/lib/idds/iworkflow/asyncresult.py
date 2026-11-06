@@ -378,7 +378,7 @@ class AsyncResult(Base):
                 self._results_percentage = len(list(rets.keys())) * 1.0 / self._wait_num
 
             ret_map = MapResult()
-            for k in rets_list:
+            for result in rets_list:
                 name = result['name']
                 key = result['key']
                 name_key = f"{name}:{key}"
